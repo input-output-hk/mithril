@@ -60,7 +60,6 @@ use crate::{
         MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, MithrilTickerService,
         ProverService, SignedEntityService, StakeDistributionService, TickerService,
-        TransactionStore,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -132,9 +131,6 @@ pub struct DependenciesBuilder {
 
     /// Cardano transactions repository.
     pub transaction_repository: Option<Arc<CardanoTransactionRepository>>,
-
-    /// Cardano transactions store.
-    pub transaction_store: Option<Arc<dyn TransactionStore>>,
 
     /// Cardano block scanner.
     pub block_scanner: Option<Arc<dyn BlockScanner>>,
@@ -235,7 +231,6 @@ impl DependenciesBuilder {
             time_point_provider: None,
             block_scanner: None,
             transaction_repository: None,
-            transaction_store: None,
             immutable_digester: None,
             immutable_file_observer: None,
             immutable_cache_provider: None,
@@ -698,27 +693,13 @@ impl DependenciesBuilder {
         Ok(self.transaction_repository.as_ref().cloned().unwrap())
     }
 
-    async fn build_transaction_store(&mut self) -> Result<Arc<dyn TransactionStore>> {
-        let transaction_store = self.get_transaction_repository().await?;
-
-        Ok(transaction_store as Arc<dyn TransactionStore>)
-    }
-
-    /// Transaction store.
-    pub async fn get_transaction_store(&mut self) -> Result<Arc<dyn TransactionStore>> {
-        if self.transaction_store.is_none() {
-            self.transaction_store = Some(self.build_transaction_store().await?);
-        }
-
-        Ok(self.transaction_store.as_ref().cloned().unwrap())
-    }
-
     async fn build_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
         let block_scanner = CardanoBlockScanner::new(
             self.get_logger().await?,
             self.configuration
                 .get_network()?
                 .compute_allow_unparsable_block(self.configuration.allow_unparsable_block)?,
+            self.get_transaction_repository().await?,
         );
 
         Ok(Arc::new(block_scanner))
@@ -1056,7 +1037,7 @@ impl DependenciesBuilder {
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             self.get_block_scanner().await?,
-            self.get_transaction_store().await?,
+            self.get_transaction_repository().await?,
             &self.configuration.db_directory,
             // Rescan the last immutable when importing transactions, it may have been partially imported
             Some(1),
@@ -1215,7 +1196,7 @@ impl DependenciesBuilder {
             signer_getter: self.get_signer_store().await?,
             message_service: self.get_message_service().await?,
             block_scanner: self.get_block_scanner().await?,
-            transaction_store: self.get_transaction_store().await?,
+            transaction_store: self.get_transaction_repository().await?,
             prover_service: self.get_prover_service().await?,
         };
 
