@@ -24,17 +24,15 @@ export AB_CONCURRENCY_MAX=100
 export AB_CONCURRENCY_STEP=50
 ```
 
-
-Than, run the benchmarks:
+Then, run the benchmarks:
 ```bash
 ./benchmark-aggregator-prover.sh
 ```
 
 Which will output these type of results:
 ```bash
-Using the default OUT_FILE: benchmark.csv
+MITHRIL AGGREGATOR PROVER ROUTE BENCHMARK
 
-Run aggregator prover benchmark with:
 >> Aggregator endpoint: https://aggregator.testing-mainnet.api.mithril.network/aggregator
 >> Aggregator route: /proof/cardano-transaction
 >> Transactions file: transactions-mainnet.txt

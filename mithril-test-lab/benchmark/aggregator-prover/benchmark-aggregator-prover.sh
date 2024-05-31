@@ -2,6 +2,48 @@
 
 set -e
 
+check_requirements() {
+    which ab >/dev/null ||
+        error "It seems 'ab' is not installed or not in the path.";
+        
+}
+
+error() {
+    echo 
+    echo "ERROR: $1";
+    exit 1;
+}
+
+display_help() {
+    echo
+    if [ -n "${1-""}" ]; then echo "ERROR: ${1}"; echo; fi
+    echo "HELP"
+    echo "$0"
+    echo
+    echo "Benchmark a Mithril aggregator prover route"
+    echo
+    echo "Usage: $0"
+    echo
+    echo "Available configuration environment variables:"
+    echo "- DEBUG: activate debug output"
+    echo "- AGGREGATOR_ENDPOINT: the aggregator endpoint"
+    echo "- TRANSACTIONS_FILE: the file containing the transactions hashes"
+    echo "- TRANSACTIONS_PER_REQUEST_MIN: the minimum number of transactions per request"
+    echo "- TRANSACTIONS_PER_REQUEST_MAX: the maximum number of transactions per request"
+    echo "- TRANSACTIONS_PER_REQUEST_STEP: the step between each number of transactions per request"
+    echo "- AB_TOTAL_REQUESTS: the total number of requests"
+    echo "- AB_CONCURRENCY_MIN: the minimum concurrency level"
+    echo "- AB_CONCURRENCY_MAX: the maximum concurrency level"
+    echo "- AB_CONCURRENCY_STEP: the step between each concurrency level"
+    echo
+    exit 1;
+}
+
+echo ""
+echo "MITHRIL AGGREGATOR PROVER ROUTE BENCHMARK"
+
+check_requirements
+
 # Debug mode
 if [ -v DEBUG ]; then
     set -x
@@ -11,13 +53,11 @@ AGGREGATOR_PROVER_ROUTE="/proof/cardano-transaction"
 
 # Check if all env vars are set 
 if [ -z "${AGGREGATOR_ENDPOINT}" ]; then
-    echo "Missing environment variable: AGGREGATOR_ENDPOINT" >/dev/stderr
-    exit 1
+    display_help "Missing environment variable: AGGREGATOR_ENDPOINT"
 fi
 
 if [ -z "${TRANSACTIONS_FILE}" ]; then
-    echo "Missing environment variable: TRANSACTIONS_FILE" >/dev/stderr
-    exit 1
+    display_help  "Missing environment variable: TRANSACTIONS_FILE"
 fi
 
 if [ -z "${TRANSACTIONS_PER_REQUEST_MIN}" ]; then
@@ -58,7 +98,6 @@ fi
 if [ -z "${OUT_FILE}" ]; then
     OUT_FILE="benchmark.csv"
     rm -f $OUT_FILE
-    echo "Using the default OUT_FILE: $OUT_FILE"
 fi
 mkdir -p "$(dirname "$OUT_FILE")"
 
@@ -100,8 +139,7 @@ AB_CONCURRENCY_RANGE=$(seq -s ' ' "$AB_CONCURRENCY_MIN" "$AB_CONCURRENCY_STEP" "
 TRANSACTIONS_PER_REQUEST_RANGE_LENGTH=$(( $(echo "$TRANSACTIONS_PER_REQUEST_RANGE" | grep -o " " | wc -l) + 1 ))
 AB_CONCURRENCY_RANGE_LENGTH=$(( $(echo "$AB_CONCURRENCY_RANGE" | grep -o " " | wc -l) + 1 ))
 TOTAL_RUN=$(( TRANSACTIONS_PER_REQUEST_RANGE_LENGTH * AB_CONCURRENCY_RANGE_LENGTH ))
-echo ""
-echo "Run aggregator prover benchmark with:"
+echo
 echo ">> Aggregator endpoint: $AGGREGATOR_ENDPOINT"
 echo ">> Aggregator route: $AGGREGATOR_PROVER_ROUTE"
 echo ">> Transactions file: $TRANSACTIONS_FILE"
@@ -111,7 +149,7 @@ echo ">> AB concurrency range: [$AB_CONCURRENCY_RANGE]"
 echo ">> AB total requests per run: [$AB_TOTAL_REQUESTS]"
 echo ">> AB total runs: $TOTAL_RUN"
 echo ">> Output file: $OUT_FILE"
-echo ""
+echo
 
 INDEX_RUN=1
 for TRANSACTIONS_PER_REQUEST in $TRANSACTIONS_PER_REQUEST_RANGE; do 
