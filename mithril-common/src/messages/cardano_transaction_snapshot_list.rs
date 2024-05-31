@@ -1,21 +1,22 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::CardanoDbBeacon;
-#[cfg(any(test, feature = "test_tools"))]
-use crate::test_utils::fake_data;
+use crate::entities::{ChainPoint, Epoch};
 
 /// Message structure of a Cardano Transactions Snapshots list
 pub type CardanoTransactionSnapshotListMessage = Vec<CardanoTransactionSnapshotListItemMessage>;
 
 /// Message structure of a Cardano Transactions Snapshot list item
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoTransactionSnapshotListItemMessage {
     /// Merkle root of the Cardano transactions snapshot
     pub merkle_root: String,
 
-    /// Beacon of the Cardano transactions snapshot
-    pub beacon: CardanoDbBeacon,
+    /// Epoch of the Cardano transactions snapshot
+    pub epoch: Epoch,
+
+    /// ChainPoint of the Cardano transactions snapshot
+    pub chain_point: ChainPoint,
 
     /// Hash of the Cardano Transactions snapshot
     pub hash: String,
@@ -33,7 +34,8 @@ impl CardanoTransactionSnapshotListItemMessage {
         pub fn dummy() -> Self {
             Self {
                 merkle_root: "mkroot-123".to_string(),
-                beacon: fake_data::beacon(),
+                epoch: Epoch(10),
+                chain_point: ChainPoint::dummy(),
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -51,7 +53,8 @@ mod tests {
     fn golden_message() -> CardanoTransactionSnapshotListMessage {
         vec![CardanoTransactionSnapshotListItemMessage {
             merkle_root: "mkroot-123".to_string(),
-            beacon: CardanoDbBeacon::new("testnet", 10, 100),
+            epoch: Epoch(7),
+            chain_point: ChainPoint::new(100, 5, "block_hash-5"),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -62,19 +65,19 @@ mod tests {
 
     // Test the retro compatibility with possible future upgrades.
     #[test]
-    fn test_v1() {
+    fn test_v2() {
         let json = r#"[{
         "merkle_root": "mkroot-123",
-        "beacon": {
-            "network": "testnet",
-            "epoch": 10,
-            "immutable_file_number": 100
+        "epoch": 7,
+        "chain_point": {
+            "slot_number": 100,
+            "block_number": 5,
+            "block_hash": "block_hash-5"
         },
         "hash": "hash-123",
         "certificate_hash": "certificate-hash-123",
         "created_at": "2023-01-19T13:43:05.618857482Z"
         }]"#;
-        println!("message: {:?}", golden_message());
 
         let message: CardanoTransactionSnapshotListMessage = serde_json::from_str(json).expect(
                     "This JSON is expected to be successfully parsed into a CardanoTransactionSnapshotListMessage instance.",
