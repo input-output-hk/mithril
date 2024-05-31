@@ -1,18 +1,18 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
-
-use crate::services::ProverService;
-
-use super::ArtifactBuilder;
 use anyhow::{anyhow, Context};
+use async_trait::async_trait;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, CardanoTransactionsSnapshot, Certificate, ProtocolMessagePartKey,
+        CardanoTransactionsSnapshot, Certificate, ChainPoint, ProtocolMessagePartKey,
         SignedEntityType,
     },
     StdResult,
 };
+
+use crate::services::ProverService;
+
+use super::ArtifactBuilder;
 
 /// A [CardanoTransactionsArtifact] builder
 pub struct CardanoTransactionsArtifactBuilder {
@@ -27,12 +27,12 @@ impl CardanoTransactionsArtifactBuilder {
 }
 
 #[async_trait]
-impl ArtifactBuilder<CardanoDbBeacon, CardanoTransactionsSnapshot>
+impl ArtifactBuilder<ChainPoint, CardanoTransactionsSnapshot>
     for CardanoTransactionsArtifactBuilder
 {
     async fn compute_artifact(
         &self,
-        beacon: CardanoDbBeacon,
+        beacon: ChainPoint,
         certificate: &Certificate,
     ) -> StdResult<CardanoTransactionsSnapshot> {
         let merkle_root = certificate
@@ -44,15 +44,16 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoTransactionsSnapshot>
             .with_context(|| {
                 format!(
                     "Can not compute CardanoTransactionsCommitment artifact for signed_entity: {:?}",
-                    SignedEntityType::CardanoTransactions(beacon.clone())
+                    SignedEntityType::CardanoTransactions(certificate.epoch, beacon.clone())
                 )
             })?;
         self.prover_service.compute_cache(&beacon).await?;
 
-        Ok(CardanoTransactionsSnapshot::new(
-            merkle_root.to_string(),
-            beacon,
-        ))
+        todo!("vvvvv - update the artifact");
+        // Ok(CardanoTransactionsSnapshot::new(
+        //     merkle_root.to_string(),
+        //     beacon,
+        // ))
     }
 }
 
@@ -77,7 +78,7 @@ mod tests {
             certificate
         };
 
-        let beacon = certificate.as_cardano_db_beacon();
+        let beacon = ChainPoint::dummy();
         let mut mock_prover = MockProverService::new();
         mock_prover.expect_compute_cache().returning(|_| Ok(()));
         let cardano_transaction_artifact_builder =
@@ -86,8 +87,9 @@ mod tests {
             .compute_artifact(beacon.clone(), &certificate)
             .await
             .unwrap();
-        let artifact_expected = CardanoTransactionsSnapshot::new("merkleroot".to_string(), beacon);
-        assert_eq!(artifact_expected, artifact);
+        todo!("vvvvv - update the artifact");
+        // let artifact_expected = CardanoTransactionsSnapshot::new("merkleroot".to_string(), beacon);
+        // assert_eq!(artifact_expected, artifact);
     }
 
     #[tokio::test]
@@ -104,7 +106,7 @@ mod tests {
         let cardano_transaction_artifact_builder =
             CardanoTransactionsArtifactBuilder::new(Arc::new(mock_prover));
         cardano_transaction_artifact_builder
-            .compute_artifact(CardanoDbBeacon::default(), &certificate)
+            .compute_artifact(ChainPoint::dummy(), &certificate)
             .await
             .expect_err("The artifact building must fail since there is no CardanoTransactionsMerkleRoot part in its message.");
     }

@@ -95,9 +95,9 @@ impl AggregatorObserver {
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
                 Ok(SignedEntityType::CardanoImmutableFilesFull(beacon))
             }
-            SignedEntityTypeDiscriminants::CardanoTransactions => {
-                Ok(SignedEntityType::CardanoTransactions(beacon))
-            }
+            SignedEntityTypeDiscriminants::CardanoTransactions => Ok(
+                SignedEntityType::CardanoTransactions(time_point.epoch, time_point.chain_point),
+            ),
         }
     }
 }
