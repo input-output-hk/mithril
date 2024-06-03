@@ -255,8 +255,17 @@ impl CardanoTransactionRepository {
         &self,
         block_ranges: Vec<BlockRange>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
-        self.connection
-            .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(block_ranges))
+        let mut transactions = vec![];
+        for block_range in block_ranges {
+            let block_range_transactions: Vec<CardanoTransactionRecord> = self
+                .connection
+                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![
+                    block_range,
+                ]))?;
+            transactions.extend(block_range_transactions);
+        }
+
+        Ok(transactions)
     }
 
     /// Prune the transactions older than the given number of blocks (based on the block range root
