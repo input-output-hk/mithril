@@ -316,7 +316,7 @@ mod tests {
     #[cfg(feature = "fs")]
     mod fs_only {
         use crate::crypto_helper::{MKMap, MKMapNode};
-        use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, ChainPoint};
+        use crate::entities::{BlockNumber, BlockRange, CardanoTransaction};
         use crate::signable_builder::{
             CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever,
             MockTransactionsImporter, SignableBuilder,
@@ -404,10 +404,7 @@ mod tests {
                 Logger::root(slog::Discard, slog::o!()),
             );
             cardano_transaction_signable_builder
-                .compute_protocol_message(ChainPoint {
-                    block_number,
-                    ..ChainPoint::dummy()
-                })
+                .compute_protocol_message(block_number)
                 .await
                 .unwrap()
         }

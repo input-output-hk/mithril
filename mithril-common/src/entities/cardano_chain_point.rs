@@ -16,6 +16,8 @@ pub type SlotNumber = u64;
 /// BlockNumber is the block number of a Cardano transaction.
 pub type BlockNumber = u64;
 
+impl Beacon for BlockNumber {}
+
 /// Hash of a Cardano Block
 pub type BlockHash = String;
 
@@ -68,8 +70,6 @@ impl ChainPoint {
         }
     }
 }
-
-impl Beacon for ChainPoint {}
 
 impl Display for ChainPoint {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

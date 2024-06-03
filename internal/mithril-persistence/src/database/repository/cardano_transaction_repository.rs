@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use mithril_common::cardano_block_scanner::ImmutableLowerBoundFinder;
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
-    BlockHash, BlockNumber, BlockRange, CardanoTransaction, ChainPoint, ImmutableFileNumber,
-    SlotNumber, TransactionHash,
+    BlockHash, BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber, SlotNumber,
+    TransactionHash,
 };
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
@@ -262,10 +262,10 @@ impl CardanoTransactionRepository {
 impl BlockRangeRootRetriever for CardanoTransactionRepository {
     async fn retrieve_block_range_roots(
         &self,
-        up_to_beacon: &ChainPoint,
+        up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
         let iterator = self
-            .retrieve_block_range_roots_up_to(up_to_beacon.block_number)
+            .retrieve_block_range_roots_up_to(up_to_beacon)
             .await?
             .collect::<Vec<_>>() // TODO: remove this collect to return the iterator directly
             .into_iter();
