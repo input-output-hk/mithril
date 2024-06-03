@@ -5,9 +5,7 @@ use mithril_aggregator::{
     services::{CertifierService, TickerService},
 };
 use mithril_common::{
-    entities::{
-        CardanoDbBeacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint,
-    },
+    entities::{Epoch, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint},
     CardanoNetwork, StdResult, TimePointProvider,
 };
 use std::sync::Arc;
@@ -79,25 +77,11 @@ impl AggregatorObserver {
             .get_current_time_point()
             .await
             .with_context(|| "Querying the current beacon should not fail")?;
-        let beacon = CardanoDbBeacon::new(
-            self.network.to_string(),
-            *time_point.epoch,
-            time_point.immutable_file_number,
-        );
 
-        match discriminant {
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
-                Ok(SignedEntityType::MithrilStakeDistribution(time_point.epoch))
-            }
-            SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                Ok(SignedEntityType::CardanoStakeDistribution(time_point.epoch))
-            }
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                Ok(SignedEntityType::CardanoImmutableFilesFull(beacon))
-            }
-            SignedEntityTypeDiscriminants::CardanoTransactions => Ok(
-                SignedEntityType::CardanoTransactions(time_point.epoch, time_point.chain_point),
-            ),
-        }
+        Ok(SignedEntityType::from_time_point(
+            &discriminant,
+            &self.network.to_string(),
+            &time_point,
+        ))
     }
 }

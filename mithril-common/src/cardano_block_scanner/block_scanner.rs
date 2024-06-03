@@ -60,8 +60,8 @@ impl BlockScanner for CardanoBlockScanner {
     async fn scan(
         &self,
         dirpath: &Path,
-        _from_block_number: Option<BlockNumber>,
-        _until_chain_point: &ChainPoint,
+        _from: Option<ChainPoint>,
+        _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
         let lower_bound = self.lower_bound_finder.find_lower_bound().await?;
         let is_in_bounds = |number: ImmutableFileNumber| match lower_bound {
@@ -116,14 +116,9 @@ mod tests {
         let cardano_transaction_parser =
             CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
 
-        for until_chain_point in [
-            ChainPoint::new(1, 1, "hash-1"),
-            ChainPoint::new(1, 10000, "hash-1"),
-            ChainPoint::new(10000, 1, "hash-1"),
-            ChainPoint::new(1, 1, "hash-10000"),
-        ] {
+        for until_block_number in [1, 10000] {
             let mut streamer = cardano_transaction_parser
-                .scan(db_path, None, &until_chain_point)
+                .scan(db_path, None, until_block_number)
                 .await
                 .unwrap();
             let immutable_blocks = streamer.poll_all().await.unwrap();
@@ -136,7 +131,7 @@ mod tests {
             assert_eq!(
                 max_immutable_file_number,
                 Some(2),
-                "until_chain_point: {until_chain_point:?}",
+                "until_chain_point: {until_block_number:?}",
             );
         }
     }
@@ -152,14 +147,9 @@ mod tests {
         let cardano_transaction_parser =
             CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
 
-        for until_chain_point in [
-            ChainPoint::new(1, 1, "hash-1"),
-            ChainPoint::new(1, 10000, "hash-1"),
-            ChainPoint::new(10000, 1, "hash-1"),
-            ChainPoint::new(1, 1, "hash-10000"),
-        ] {
+        for until_block_number in [1, 10000] {
             let mut streamer = cardano_transaction_parser
-                .scan(db_path, Some(0), &until_chain_point)
+                .scan(db_path, Some(ChainPoint::dummy()), until_block_number)
                 .await
                 .unwrap();
             let immutable_blocks = streamer.poll_all().await.unwrap();
@@ -172,7 +162,7 @@ mod tests {
             assert_eq!(
                 max_immutable_file_number,
                 Some(2),
-                "until_chain_point: {until_chain_point:?}",
+                "until_chain_point: {until_block_number:?}",
             );
         }
     }
@@ -189,12 +179,12 @@ mod tests {
                     .return_once(move || Ok(lowest_found_immutable));
             });
 
-            let from_block_number = 200_000;
+            let from = ChainPoint::dummy();
             let cardano_transaction_parser =
                 CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
 
             let mut streamer = cardano_transaction_parser
-                .scan(db_path, Some(from_block_number), &ChainPoint::dummy())
+                .scan(db_path, Some(from), 10000000)
                 .await
                 .unwrap();
             let immutable_blocks = streamer.poll_all().await.unwrap();

@@ -647,34 +647,6 @@ components:
       example:
         { "network": "mainnet", "epoch": 329, "immutable_file_number": 7060000 }
 
-    ChainPoint:
-      description: A point in the Cardano chain at which a Mithril certificate of the Cardano Transactions should be produced
-      type: object
-      additionalProperties: true
-      required:
-        - slot_number
-        - block_number
-        - block_hash
-      properties:
-        slot_number:
-          description: Cardano slot number
-          type: integer
-          format: int64
-        block_number:
-          description: Cardano block number
-          type: integer
-          format: int64
-        block_hash:
-          description: Hash of the Cardano block
-          type: string
-          format: bytes
-      example:
-        {
-          "slot_number": 4567,
-          "block_number": 1234,
-          "block_hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7"
-        }
-
     SignedEntityType:
       description: Entity type of the message that is signed
       type: object
@@ -1640,7 +1612,7 @@ components:
           - certificate_hash
           - merkle_root
           - epoch
-          - chain_point
+          - block_number
           - created_at
         properties:
           hash:
@@ -1657,8 +1629,10 @@ components:
             format: bytes
           epoch:
             $ref: "#/components/schemas/Epoch"
-          chain_point:
-            $ref: "#/components/schemas/ChainPoint"
+          block_number:
+            description: Cardano block number
+            type: integer
+            format: int64
           created_at:
             description: Date and time at which the Cardano transactions set was created
             type: string
@@ -1669,11 +1643,7 @@ components:
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
             "epoch": 123,
-            "chain_point": {
-              "slot_number": 4567,
-              "block_number": 1234,
-              "block_hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7"
-            },
+            "block_number": 1234,
             "created_at": "2022-06-14T10:52:31Z"
           }
 
@@ -1686,7 +1656,7 @@ components:
         - certificate_hash
         - merkle_root
         - epoch
-        - chain_point
+        - block_number
         - created_at
       properties:
         hash:
@@ -1703,8 +1673,10 @@ components:
           format: bytes
         epoch:
           $ref: "#/components/schemas/Epoch"
-        chain_point:
-          $ref: "#/components/schemas/ChainPoint"
+        block_number:
+          description: Cardano block number
+          type: integer
+          format: int64
         created_at:
           description: Date and time at which the Cardano transactions set was created
           type: string
@@ -1715,11 +1687,7 @@ components:
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
           "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
           "epoch": 123,
-          "chain_point": {
-            "slot_number": 4567,
-            "block_number": 1234,
-            "block_hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7"
-          },
+          "block_number": 1234,
           "created_at": "2022-06-14T10:52:31Z"
         }
 

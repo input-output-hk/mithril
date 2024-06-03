@@ -159,7 +159,7 @@ impl CardanoTransactionClient {
 #[cfg(test)]
 mod tests {
     use crate::aggregator_client::{AggregatorClientError, MockAggregatorHTTPClient};
-    use crate::common::{ChainPoint, Epoch};
+    use crate::common::Epoch;
     use crate::{
         CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
         CardanoTransactionsSetProof,
@@ -176,7 +176,7 @@ mod tests {
             CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-123".to_string(),
                 epoch: Epoch(1),
-                chain_point: ChainPoint::new(100, 24, "block_hash-24"),
+                block_number: 24,
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -186,7 +186,7 @@ mod tests {
             CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-456".to_string(),
                 epoch: Epoch(1),
-                chain_point: ChainPoint::new(100, 24, "block_hash-24"),
+                block_number: 24,
                 hash: "hash-456".to_string(),
                 certificate_hash: "cert-hash-456".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -217,7 +217,7 @@ mod tests {
         let message = CardanoTransactionSnapshot {
             merkle_root: "mk-123".to_string(),
             epoch: Epoch(1),
-            chain_point: ChainPoint::new(100, 24, "block_hash-24"),
+            block_number: 24,
             hash: "hash-123".to_string(),
             certificate_hash: "cert-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")

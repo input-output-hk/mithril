@@ -95,9 +95,8 @@ pub mod tests {
         },
         services::MockMessageService,
     };
-    use mithril_common::entities::{ChainPoint, Epoch};
     use mithril_common::{
-        entities::SignedEntityType,
+        entities::{Epoch, SignedEntityType},
         messages::ToMessageAdapter,
         test_utils::{apispec::APISpec, fake_data},
     };
@@ -126,7 +125,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_cardano_transactions_get_ok() {
         let signed_entity_records = create_signed_entities(
-            SignedEntityType::CardanoTransactions(Epoch(1), ChainPoint::dummy()),
+            SignedEntityType::CardanoTransactions(Epoch(1), 120),
             fake_data::cardano_transactions_snapshot(5),
         );
         let message = ToCardanoTransactionListMessageAdapter::adapt(signed_entity_records);
@@ -193,7 +192,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_cardano_transaction_get_ok() {
         let signed_entity = create_signed_entities(
-            SignedEntityType::CardanoTransactions(Epoch(1), ChainPoint::dummy()),
+            SignedEntityType::CardanoTransactions(Epoch(1), 100),
             fake_data::cardano_transactions_snapshot(1),
         )
         .first()

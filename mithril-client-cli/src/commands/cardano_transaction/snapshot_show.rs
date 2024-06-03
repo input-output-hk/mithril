@@ -63,13 +63,8 @@ impl CardanoTransactionsSnapshotShowCommand {
                 vec!["Epoch".cell(), format!("{}", &tx_sets.epoch).cell()],
                 vec![
                     "Block Number".cell(),
-                    format!("{}", &tx_sets.chain_point.block_number).cell(),
+                    format!("{}", &tx_sets.block_number).cell(),
                 ],
-                vec![
-                    "Slot Number".cell(),
-                    format!("{}", &tx_sets.chain_point.slot_number).cell(),
-                ],
-                vec!["Block Hash".cell(), tx_sets.chain_point.block_hash.cell()],
                 vec!["Merkle Root".cell(), tx_sets.merkle_root.to_string().cell()],
                 vec![
                     "Certificate Hash".cell(),

@@ -2,7 +2,7 @@ use chrono::DateTime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{ChainPoint, Epoch};
+use crate::entities::{BlockNumber, Epoch};
 
 /// Message structure of a Cardano Transactions snapshot
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -14,7 +14,7 @@ pub struct CardanoTransactionSnapshotMessage {
     pub epoch: Epoch,
 
     /// ChainPoint of the Cardano transactions snapshot
-    pub chain_point: ChainPoint,
+    pub block_number: BlockNumber,
 
     /// Hash of the Cardano Transactions snapshot
     pub hash: String,
@@ -33,7 +33,7 @@ impl CardanoTransactionSnapshotMessage {
             Self {
                 merkle_root: "mkroot-123".to_string(),
                 epoch: Epoch(10),
-                chain_point: ChainPoint::dummy(),
+                block_number: 100,
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -52,7 +52,7 @@ mod tests {
         CardanoTransactionSnapshotMessage {
             merkle_root: "mkroot-123".to_string(),
             epoch: Epoch(8),
-            chain_point: ChainPoint::new(110, 6, "block_hash-6"),
+            block_number: 6,
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -67,11 +67,7 @@ mod tests {
         let json = r#"{
             "merkle_root": "mkroot-123",
             "epoch": 8,
-            "chain_point": {
-                "slot_number": 110,
-                "block_number": 6,
-                "block_hash": "block_hash-6"
-            },
+            "block_number": 6,
             "hash": "hash-123",
             "certificate_hash": "certificate-hash-123",
             "created_at": "2023-01-19T13:43:05.618857482Z"

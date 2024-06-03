@@ -34,8 +34,8 @@ impl BlockScanner for DumbBlockScanner {
     async fn scan(
         &self,
         _dirpath: &Path,
-        _from_block_number: Option<BlockNumber>,
-        _until_chain_point: &ChainPoint,
+        _from: Option<ChainPoint>,
+        _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
         let blocks = self.blocks.read().await.clone();
         Ok(Box::new(DumbBlockStreamer::new(vec![blocks])))
@@ -133,14 +133,7 @@ mod tests {
         let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
 
         let scanner = DumbBlockScanner::new(expected_blocks.clone());
-        let mut streamer = scanner
-            .scan(
-                Path::new("dummy"),
-                None,
-                &ChainPoint::new(46, 5, "block_hash"),
-            )
-            .await
-            .unwrap();
+        let mut streamer = scanner.scan(Path::new("dummy"), None, 5).await.unwrap();
 
         let blocks = streamer.poll_all().await.unwrap();
         assert_eq!(blocks, expected_blocks);

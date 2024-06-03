@@ -425,7 +425,7 @@ mod tests {
             signed_entity_id: entity.signed_entity_id.clone(),
             signed_entity_type: SignedEntityType::CardanoTransactions(
                 entity.signed_entity_type.get_epoch(),
-                entity.artifact.chain_point.clone(),
+                entity.artifact.block_number,
             ),
             certificate_id: entity.certificate_id.clone(),
             artifact: serde_json::to_string(&entity.artifact).unwrap(),
@@ -476,7 +476,7 @@ mod tests {
             signed_entity_id: entity.signed_entity_id.clone(),
             signed_entity_type: SignedEntityType::CardanoTransactions(
                 entity.signed_entity_type.get_epoch(),
-                entity.artifact.chain_point.clone(),
+                entity.artifact.block_number,
             ),
             certificate_id: entity.certificate_id.clone(),
             artifact: serde_json::to_string(&entity.artifact).unwrap(),

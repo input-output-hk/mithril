@@ -97,7 +97,7 @@ mod handlers {
     ) -> StdResult<CardanoTransactionsProofsMessage> {
         let transactions_set_proofs = prover_service
             .compute_transactions_proofs(
-                &signed_entity.artifact.chain_point,
+                signed_entity.artifact.block_number,
                 transaction_hashes.as_slice(),
             )
             .await?;
@@ -122,9 +122,7 @@ mod tests {
     };
 
     use mithril_common::{
-        entities::{
-            CardanoTransactionsSetProof, CardanoTransactionsSnapshot, ChainPoint, SignedEntity,
-        },
+        entities::{CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity},
         test_utils::apispec::APISpec,
     };
 
@@ -150,21 +148,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_response_message_return_immutable_file_number_from_artifact_beacon() {
+    async fn build_response_message_return_latest_block_number_from_artifact_beacon() {
         // Arrange
         let mut mock_prover_service = MockProverService::new();
         mock_prover_service
             .expect_compute_transactions_proofs()
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
 
-        let cardano_transactions_snapshot = {
-            let merkle_root = String::new();
-            let chain_point = ChainPoint {
-                block_number: 2309,
-                ..ChainPoint::dummy()
-            };
-            CardanoTransactionsSnapshot::new(merkle_root, chain_point)
-        };
+        let cardano_transactions_snapshot = CardanoTransactionsSnapshot::new(String::new(), 2309);
 
         let signed_entity = SignedEntity::<CardanoTransactionsSnapshot> {
             artifact: cardano_transactions_snapshot,

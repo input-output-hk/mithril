@@ -645,7 +645,7 @@ mod test {
                 SignedEntityType::MithrilStakeDistribution(beacon.epoch),
                 SignedEntityType::CardanoStakeDistribution(beacon.epoch),
                 SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-                SignedEntityType::CardanoTransactions(beacon.epoch, chain_point),
+                SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number),
             ],
             signed_entity_types
         );

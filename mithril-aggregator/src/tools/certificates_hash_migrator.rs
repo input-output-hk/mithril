@@ -272,13 +272,8 @@ mod test {
                     SignedEntityType::CardanoImmutableFilesFull(beacon) => {
                         format!("snapshot-{}-{}", beacon.epoch, beacon.immutable_file_number)
                     }
-                    SignedEntityType::CardanoTransactions(epoch, chain_point) => {
-                        format!(
-                            "cardano-transactions-{epoch}-{}-{}-{}",
-                            chain_point.slot_number,
-                            chain_point.block_number,
-                            chain_point.block_hash
-                        )
+                    SignedEntityType::CardanoTransactions(epoch, block_number) => {
+                        format!("cardano-transactions-{epoch}-{block_number}",)
                     }
                 };
 

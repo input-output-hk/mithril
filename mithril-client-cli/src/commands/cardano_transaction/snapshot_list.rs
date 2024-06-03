@@ -32,9 +32,7 @@ impl CardanoTransactionSnapshotListCommand {
                 .map(|item| {
                     vec![
                         format!("{}", item.epoch).cell(),
-                        format!("{}", item.chain_point.block_number).cell(),
-                        format!("{}", item.chain_point.slot_number).cell(),
-                        item.chain_point.block_hash.cell(),
+                        format!("{}", item.block_number).cell(),
                         item.hash.cell(),
                         item.certificate_hash.cell(),
                         item.created_at.to_string().cell(),
@@ -45,8 +43,6 @@ impl CardanoTransactionSnapshotListCommand {
                 .title(vec![
                     "Epoch".cell(),
                     "Block Number".cell(),
-                    "Slot Number".cell(),
-                    "Block Hash".cell(),
                     "Hash".cell(),
                     "Certificate Hash".cell(),
                     "Created".cell().justify(Justify::Right),

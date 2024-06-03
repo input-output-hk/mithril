@@ -7,8 +7,8 @@ use async_trait::async_trait;
 use mithril_common::cardano_block_scanner::ImmutableLowerBoundFinder;
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
-    BlockHash, BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber, SlotNumber,
-    TransactionHash,
+    BlockHash, BlockNumber, BlockRange, CardanoTransaction, ChainPoint, ImmutableFileNumber,
+    SlotNumber, TransactionHash,
 };
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
@@ -107,16 +107,14 @@ impl CardanoTransactionRepository {
     }
 
     /// Get the highest [BlockNumber] of the cardano transactions stored in the database.
-    pub async fn get_transaction_highest_block_number(&self) -> StdResult<Option<BlockNumber>> {
-        let highest: Option<i64> = self
+    pub async fn get_transaction_highest_chain_point(&self) -> StdResult<Option<ChainPoint>> {
+        let first_transaction_with_highest_block_number = self
             .connection
-            .query_single_cell("select max(block_number) as highest from cardano_tx;", &[])?;
-        highest
-            .map(u64::try_from)
-            .transpose()
-            .with_context(||
-                format!("Integer field max(block_number) (value={highest:?}) is incompatible with u64 representation.")
-            )
+            .fetch_first(GetCardanoTransactionQuery::with_highest_block_number())?;
+
+        Ok(first_transaction_with_highest_block_number.map(|record| {
+            ChainPoint::new(record.slot_number, record.block_number, record.block_hash)
+        }))
     }
 
     /// Get the highest start [BlockNumber] of the block range roots stored in the database.
@@ -484,25 +482,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_get_transaction_highest_block_number_without_transactions_in_db() {
+    async fn repository_get_transaction_highest_chain_point_without_transactions_in_db() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
         let highest_beacon = repository
-            .get_transaction_highest_block_number()
+            .get_transaction_highest_chain_point()
             .await
             .unwrap();
         assert_eq!(None, highest_beacon);
     }
 
     #[tokio::test]
-    async fn repository_get_transaction_highest_block_number_with_transactions_in_db() {
+    async fn repository_get_transaction_highest_chain_point_with_transactions_in_db() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),
-            CardanoTransaction::new("tx-hash-456".to_string(), 25, 51, "block-hash-456", 100),
+            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
+            CardanoTransaction::new("tx-hash-456", 25, 51, "block-hash-25", 100),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -510,10 +508,17 @@ mod tests {
             .unwrap();
 
         let highest_beacon = repository
-            .get_transaction_highest_block_number()
+            .get_transaction_highest_chain_point()
             .await
             .unwrap();
-        assert_eq!(Some(25), highest_beacon);
+        assert_eq!(
+            Some(ChainPoint {
+                slot_number: 51,
+                block_number: 25,
+                block_hash: "block-hash-25".to_string()
+            }),
+            highest_beacon
+        );
     }
 
     #[tokio::test]

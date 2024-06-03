@@ -1104,7 +1104,7 @@ impl DependenciesBuilder {
             .await?
         {
             prover_service
-                .compute_cache(&signed_entity.artifact.chain_point)
+                .compute_cache(signed_entity.artifact.block_number)
                 .await?;
         }
 

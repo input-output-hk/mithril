@@ -13,7 +13,7 @@ impl ToMessageAdapter<SignedEntity<CardanoTransactionsSnapshot>, CardanoTransact
         CardanoTransactionSnapshotMessage {
             merkle_root: from.artifact.merkle_root,
             epoch: from.signed_entity_type.get_epoch(),
-            chain_point: from.artifact.chain_point,
+            block_number: from.artifact.block_number,
             hash: from.artifact.hash,
             certificate_hash: from.certificate_id,
             created_at: from.created_at,
@@ -31,7 +31,7 @@ mod tests {
         let cardano_stake_distribution_message_expected = CardanoTransactionSnapshotMessage {
             merkle_root: signed_entity.artifact.merkle_root.clone(),
             epoch: signed_entity.signed_entity_type.get_epoch(),
-            chain_point: signed_entity.artifact.chain_point.clone(),
+            block_number: signed_entity.artifact.block_number,
             hash: signed_entity.artifact.hash.clone(),
             certificate_hash: signed_entity.certificate_id.clone(),
             created_at: signed_entity.created_at,

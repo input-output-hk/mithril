@@ -17,8 +17,8 @@ use crate::StdResult;
 ///     use async_trait::async_trait;
 ///     use mockall::mock;
 ///
-///     use mithril_common::cardano_block_scanner::{BlockScanner, BlockStreamer, ScannedBlock};
-///     use mithril_common::entities::{CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber};
+///     use mithril_common::cardano_block_scanner::{BlockScanner, BlockStreamer};
+///     use mithril_common::entities::{BlockNumber, ChainPoint};
 ///     use mithril_common::StdResult;
 ///
 ///     mock! {
@@ -29,8 +29,8 @@ use crate::StdResult;
 ///             async fn scan(
 ///               &self,
 ///               dirpath: &Path,
-///               from_block_number: Option<BlockNumber>,
-///               until_chain_point: &ChainPoint,
+///               from: Option<ChainPoint>,
+///               until: BlockNumber,
 ///             ) -> StdResult<Box<dyn BlockStreamer>>;
 ///         }
 ///     }
@@ -50,8 +50,8 @@ pub trait BlockScanner: Sync + Send {
     async fn scan(
         &self,
         dirpath: &Path,
-        from_block_number: Option<BlockNumber>,
-        until_chain_point: &ChainPoint,
+        from: Option<ChainPoint>,
+        until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>>;
 }
 
