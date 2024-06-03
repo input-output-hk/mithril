@@ -1,0 +1,176 @@
+openapi: "3.0.0"
+info:
+  version: 0.1.21
+  title: Mithril Aggregator Server
+
+paths:
+  /parameters_example:
+    get:
+      parameters:
+        - name: certificate_hash
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: "parameters_example"
+
+  /parameters_not_an_array_1:
+    get:
+      parameters:
+        - name: certificate_hash
+          in: path
+          required: true
+          schema:
+            type: array
+            items:
+              type: integer
+            format: bytes
+          example: "parameters_items_example_1"
+
+  /parameters_not_an_array_2:
+    get:
+      parameters:
+        - name: certificate_hash
+          in: path
+          required: true
+          schema:
+            type: array
+            items:
+              type: integer
+            format: bytes
+            example: "parameters_items_example_2"
+
+  /parameters_items_example:
+    get:
+      parameters:
+        - name: certificate_hash
+          in: path
+          required: true
+          schema:
+            type: array
+            items:
+              type: integer
+              example: "array_example"
+            format: bytes
+
+  /good_parameters_with_array_example:
+    get:
+      parameters:
+        - name: certificate_hash
+          in: path
+          required: true
+          schema:
+            type: array
+            items:
+              type: integer
+            format: bytes
+          example: [123]
+
+  /good_parameters_with_array_item_example:
+    get:
+      parameters:
+        - name: certificate_hash
+          in: path
+          required: true
+          schema:
+            type: array
+            items:
+              type: integer
+              example: 123
+            format: bytes
+
+  /path_with_reference:
+    get:
+      parameters:
+        - name: certificate_hash
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/SimpleProperty'
+          example: {"value":"path_with_reference_value"}
+
+components:
+  schemas:
+
+    SimpleProperty:
+      type: object
+      additionalProperties: false
+      required:
+        - value
+      properties:
+        value:
+          type: integer
+
+    FakeObject:
+      type: object
+      additionalProperties: false
+      required:
+        - type_ok
+        - fake_object_ko
+      properties:
+        type_ok:
+          type: string
+          format: bytes
+        type_ko:
+          type: string
+          format: bytes
+      example:
+        {
+          "type_ok": "456",
+        }
+
+    FakeArray:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - type_ok
+          - fake_array_ko
+        properties:
+          type_ok:
+            type: string
+            format: bytes
+          type_ko:
+            type: string
+            format: bytes
+      example:
+        [
+          {
+            "type_ok": "456",
+          }
+        ]
+
+    FakeArrayItems:
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - type_ok
+          - fake_array_items_ko
+        properties:
+          type_ok:
+            type: string
+            format: bytes
+          type_ko:
+            type: string
+            format: bytes
+        example:
+          {
+            "type_ok": "456",
+          }
+
+   
+    FakeOnPropertyExample:
+      type: object
+      additionalProperties: false
+      required:
+        - message
+      properties:
+        label:
+          type: string
+        fake_error_property_ko:
+          type: integer
+          example: "string_value"
+

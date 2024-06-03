@@ -660,4 +660,119 @@ mod tests {
         assert!(!spec_files.is_empty());
         assert!(spec_files.contains(&APISpec::get_default_spec_file()))
     }
+
+    #[test]
+    fn test_examples_conformity() {
+        let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+
+        let errors: Vec<String> = check_apispec_examples(api_spec);
+
+        assert!(
+            errors.len() == 0,
+            "Errors in examples\n{}",
+            errors.join("\n")
+        );
+    }
+
+    #[test]
+    fn test_tooling_to_validate_examples_conformity() {
+        // We don't check the validation of the example.
+        // We just check that we call the validation for all kind of example in openapi.yaml
+        // Most of the time, we just remove from the example a required property to have a error.
+
+        let api_spec = APISpec::from_file("src/test_utils/test_openapi_format.yaml");
+        let errors: Vec<String> = check_apispec_examples(api_spec);
+
+        let error_message = errors.join("\n");
+        println!("{error_message}");
+
+        // Should not find errors on good examples
+        assert!(!error_message.contains("good"));
+
+        // Error in component example
+        assert!(error_message.contains("\"fake_object_ko\" is a required property"));
+
+        // Error in list item
+        assert!(error_message.contains("\"fake_array_ko\" is a required property"));
+
+        // Error in list item
+        assert!(error_message.contains("\"fake_array_items_ko\" is a required property"));
+
+        // Error in property example
+        assert!(error_message.contains("\"string_value\" is not of type \"integer\""));
+
+        // Error in path
+        assert!(error_message.contains("\"parameters_example\" is not of type \"integer\""));
+
+        // Error in path with example in array items
+        assert!(error_message.contains("\"parameters_items_example_1\" is not of type \"array\""));
+
+        // Error in path with example in array items
+        assert!(error_message.contains("\"parameters_items_example_2\" is not of type \"array\""));
+
+        // Error in path with example of array that contains only an item and not the array.
+        assert!(error_message.contains("\"array_example\" is not of type \"integer\""));
+
+        // Error in path using reference
+        assert!(error_message.contains("\"path_with_reference_value\" is not of type \"integer\""));
+    }
+
+    fn check_apispec_examples(api_spec: APISpec) -> Vec<String> {
+        check_apispec_examples_value(&api_spec, "", &api_spec.openapi)
+    }
+
+    fn check_apispec_examples_value(
+        api_spec: &APISpec,
+        path_to_value: &str,
+        root_value: &Value,
+    ) -> Vec<String> {
+        let mut errors: Vec<String> = vec![];
+
+        errors.append(&mut check_example_conformity(
+            &api_spec,
+            &path_to_value,
+            root_value,
+        ));
+
+        if let Some(object) = root_value.as_object() {
+            for (value_key, value) in object {
+                errors.append(&mut check_apispec_examples_value(
+                    api_spec,
+                    &format!("{path_to_value} {value_key}"),
+                    &value,
+                ));
+            }
+        }
+
+        if let Some(array) = root_value.as_array() {
+            for value in array {
+                errors.append(&mut check_apispec_examples_value(
+                    api_spec,
+                    &format!("{path_to_value}[?]"),
+                    &value,
+                ));
+            }
+        }
+
+        errors
+    }
+
+    fn check_example_conformity(api_spec: &APISpec, name: &str, component: &Value) -> Vec<String> {
+        if let Some(example) = component.get("example") {
+            // The type definition is at the same level as the example (components) unless there is a schema property (paths).
+            let component_definition = component.get("schema").unwrap_or(component);
+
+            // println!("Check example on : {component_definition:?}");
+            // println!("         Example : {example:?}");
+            let result = api_spec.validate_conformity(example, component_definition);
+            if let Err(e) = result {
+                return vec![format!(
+                    "- {}: Error\n    {}\n    Example: {}\n",
+                    name, e, example
+                )];
+            }
+        }
+
+        return vec![];
+    }
 }
