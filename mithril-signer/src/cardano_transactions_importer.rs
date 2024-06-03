@@ -46,7 +46,6 @@ pub struct CardanoTransactionsImporter {
     block_scanner: Arc<dyn BlockScanner>,
     transaction_store: Arc<dyn TransactionStore>,
     logger: Logger,
-    rescan_offset: Option<usize>,
     dirpath: PathBuf,
 }
 
@@ -60,14 +59,12 @@ impl CardanoTransactionsImporter {
         block_scanner: Arc<dyn BlockScanner>,
         transaction_store: Arc<dyn TransactionStore>,
         dirpath: &Path,
-        rescan_offset: Option<usize>,
         logger: Logger,
     ) -> Self {
         Self {
             block_scanner,
             transaction_store,
             logger,
-            rescan_offset,
             dirpath: dirpath.to_owned(),
         }
     }
@@ -213,7 +210,6 @@ mod tests {
                 scanner,
                 transaction_store,
                 Path::new(""),
-                None,
                 crate::test_tools::logger_for_tests(),
             )
         }

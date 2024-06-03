@@ -700,6 +700,8 @@ impl DependenciesBuilder {
                 .get_network()?
                 .compute_allow_unparsable_block(self.configuration.allow_unparsable_block)?,
             self.get_transaction_repository().await?,
+            // Rescan the last immutable when importing transactions, it may have been partially imported
+            Some(1),
         );
 
         Ok(Arc::new(block_scanner))
@@ -1039,8 +1041,6 @@ impl DependenciesBuilder {
             self.get_block_scanner().await?,
             self.get_transaction_repository().await?,
             &self.configuration.db_directory,
-            // Rescan the last immutable when importing transactions, it may have been partially imported
-            Some(1),
             self.get_logger().await?,
         ));
         let block_range_root_retriever = self.get_transaction_repository().await?;

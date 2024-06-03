@@ -164,7 +164,6 @@ impl StateMachineTester {
             transaction_parser.clone(),
             transaction_store.clone(),
             Path::new(""),
-            None,
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();

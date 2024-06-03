@@ -32,6 +32,7 @@ pub struct CardanoBlockScanner {
     /// This situation should only happen on the test networks and not on the mainnet.
     allow_unparsable_block: bool,
     lower_bound_finder: Arc<dyn ImmutableLowerBoundFinder>,
+    rescan_offset: Option<usize>,
 }
 
 impl CardanoBlockScanner {
@@ -40,6 +41,7 @@ impl CardanoBlockScanner {
         logger: Logger,
         allow_unparsable_block: bool,
         lower_bound_finder: Arc<dyn ImmutableLowerBoundFinder>,
+        rescan_offset: Option<usize>,
     ) -> Self {
         if allow_unparsable_block {
             warn!(
@@ -51,7 +53,15 @@ impl CardanoBlockScanner {
             logger,
             allow_unparsable_block,
             lower_bound_finder,
+            rescan_offset,
         }
+    }
+
+    async fn get_lower_bound(&self) -> StdResult<Option<ImmutableFileNumber>> {
+        let highest = self.lower_bound_finder.find_lower_bound().await?;
+        let rescan_offset = self.rescan_offset.unwrap_or(0);
+        let highest = highest.map(|h| (h + 1).saturating_sub(rescan_offset as u64));
+        Ok(highest)
     }
 }
 
@@ -63,7 +73,7 @@ impl BlockScanner for CardanoBlockScanner {
         _from: Option<ChainPoint>,
         _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
-        let lower_bound = self.lower_bound_finder.find_lower_bound().await?;
+        let lower_bound = self.get_lower_bound().await?;
         let is_in_bounds = |number: ImmutableFileNumber| match lower_bound {
             Some(from) => from <= number,
             None => true,
@@ -114,7 +124,7 @@ mod tests {
             mock.expect_find_lower_bound().returning(|| Ok(None));
         });
         let cardano_transaction_parser =
-            CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
+            CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder, None);
 
         for until_block_number in [1, 10000] {
             let mut streamer = cardano_transaction_parser
@@ -145,7 +155,7 @@ mod tests {
             mock.expect_find_lower_bound().returning(|| Ok(Some(0)));
         });
         let cardano_transaction_parser =
-            CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
+            CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder, None);
 
         for until_block_number in [1, 10000] {
             let mut streamer = cardano_transaction_parser
@@ -172,8 +182,12 @@ mod tests {
         let db_path = Path::new("../mithril-test-lab/test_data/immutable/");
         assert!(get_number_of_immutable_chunk_in_dir(db_path) >= 3);
 
-        let test_cases = [(0, None), (1, Some(1))];
-        for (expected, lowest_found_immutable) in test_cases {
+        let test_cases = [
+            (None, 0),
+            // When a lowest immutable file number is found we start from the next immutable (i + 1)
+            (Some(1), 2),
+        ];
+        for (lowest_found_immutable, expected) in test_cases {
             let lower_bound_finder = lower_bound_finder(|mock| {
                 mock.expect_find_lower_bound()
                     .return_once(move || Ok(lowest_found_immutable));
@@ -181,7 +195,7 @@ mod tests {
 
             let from = ChainPoint::dummy();
             let cardano_transaction_parser =
-                CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder);
+                CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder, None);
 
             let mut streamer = cardano_transaction_parser
                 .scan(db_path, Some(from), 10000000)
@@ -211,6 +225,7 @@ mod tests {
                 TestLogger::file(&log_path),
                 true,
                 lower_bound_finder(|_| {}),
+                None,
             );
         }
 
@@ -232,10 +247,42 @@ mod tests {
                 TestLogger::file(&log_path),
                 false,
                 lower_bound_finder(|_| {}),
+                None,
             );
         }
 
         let log_file = std::fs::read_to_string(&log_path).unwrap();
         assert!(!log_file.contains("The 'allow_unparsable_block' option is activated. This option should only be used on test networks."));
+    }
+
+    #[tokio::test]
+    async fn change_parsed_lower_bound_when_rescan_limit_is_set() {
+        fn scanner_with_offset(
+            highest_stored_immutable: ImmutableFileNumber,
+            rescan_offset: ImmutableFileNumber,
+        ) -> CardanoBlockScanner {
+            let mut store = MockImmutableLowerBoundFinder::new();
+            store
+                .expect_find_lower_bound()
+                .returning(move || Ok(Some(highest_stored_immutable)));
+
+            CardanoBlockScanner::new(
+                TestLogger::stdout(),
+                false,
+                Arc::new(store),
+                Some(rescan_offset as usize),
+            )
+        }
+        let scanner = scanner_with_offset(8, 3);
+
+        let from = scanner.get_lower_bound().await.unwrap();
+        // Expected should be: highest_stored_beacon + 1 - rescan_offset
+        assert_eq!(Some(6), from);
+
+        let scanner = scanner_with_offset(5, 10);
+
+        let from = scanner.get_lower_bound().await.unwrap();
+        // If sub overflow it should be 0
+        assert_eq!(Some(0), from);
     }
 }

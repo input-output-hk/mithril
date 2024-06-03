@@ -265,13 +265,13 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .get_network()?
                 .compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
             transaction_store.clone(),
+            // Rescan the last immutable when importing transactions, it may have been partially imported
+            Some(1),
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner,
             transaction_store.clone(),
             &self.config.db_directory,
-            // Rescan the last immutable when importing transactions, it may have been partially imported
-            Some(1),
             slog_scope::logger(),
         ));
         // Wrap the transaction importer with decorator to prune the transactions after import

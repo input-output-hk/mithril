@@ -547,7 +547,6 @@ mod tests {
             transaction_parser.clone(),
             transaction_store.clone(),
             Path::new(""),
-            None,
             slog_scope::logger(),
         ));
         let block_range_root_retriever = Arc::new(MockBlockRangeRootRetrieverImpl::new());
