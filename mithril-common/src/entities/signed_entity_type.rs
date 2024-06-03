@@ -6,7 +6,7 @@ use sha2::Sha256;
 use std::time::Duration;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumString};
 
-use super::{BlockNumber, CardanoDbBeacon, Epoch, TimePoint};
+use super::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, TimePoint};
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
 const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
@@ -42,6 +42,52 @@ pub enum SignedEntityType {
 
     /// Cardano Transactions
     CardanoTransactions(Epoch, BlockNumber),
+}
+
+/// Configuration for the signing of Cardano transactions
+///
+/// Allow to compute the block number to be signed based on the chain tip block number.
+///
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CardanoTransactionsSigningConfig {
+    /// Number of blocks to wait before taking in account a transaction.
+    pub security_parameter: BlockNumber,
+
+    /// The frequency at which the transactions are signed.
+    ///
+    /// *Note: The step is adjusted to be a multiple of the block range length in order.*
+    pub step: BlockNumber,
+}
+
+impl CardanoTransactionsSigningConfig {
+    cfg_test_tools! {
+        /// Create a dummy config
+        pub fn dummy() -> Self {
+            Self {
+                security_parameter: 0,
+                step: 15,
+            }
+        }
+    }
+
+    /// Compute the block number to be signed based on che chain tip block number.
+    ///
+    /// Given k' = `security_parameter` and n = `step`,
+    /// the latest block number to be signed is computed as *(this use a integer division)*:
+    ///
+    /// **block_number = ((tip.block_number - k') / n) × n**
+    ///
+    /// *Note: The step is adjusted to be a multiple of the block range length in order
+    /// to guarantee that the block number signed in a certificate is effectively signed.*
+    pub fn compute_block_number_to_be_signed(&self, block_number: BlockNumber) -> BlockNumber {
+        // TODO: See if we can remove this adjustment by including a "partial" block range in
+        // the signed data.
+        let adjusted_step = BlockRange::from_block_number(self.step).start;
+        // We can't have a step lower than the block range length.
+        let adjusted_step = std::cmp::max(adjusted_step, BlockRange::LENGTH);
+
+        (block_number - self.security_parameter) / adjusted_step * adjusted_step
+    }
 }
 
 impl SignedEntityType {
@@ -108,6 +154,7 @@ impl SignedEntityType {
         discriminant: &SignedEntityTypeDiscriminants,
         network: &str,
         time_point: &TimePoint,
+        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
     ) -> Self {
         match discriminant {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
@@ -123,9 +170,11 @@ impl SignedEntityType {
                     time_point.immutable_file_number,
                 ))
             }
-            SignedEntityTypeDiscriminants::CardanoTransactions => {
-                Self::CardanoTransactions(time_point.epoch, time_point.chain_point.block_number)
-            }
+            SignedEntityTypeDiscriminants::CardanoTransactions => Self::CardanoTransactions(
+                time_point.epoch,
+                cardano_transactions_signing_config
+                    .compute_block_number_to_be_signed(time_point.chain_point.block_number),
+            ),
         }
     }
 
@@ -309,6 +358,86 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
             ]
+        );
+    }
+
+    #[test]
+    fn computing_block_number_to_be_signed() {
+        // **block_number = ((tip.block_number - k') / n) × n**
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: 15,
+            }
+            .compute_block_number_to_be_signed(105),
+            105
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 5,
+                step: 15,
+            }
+            .compute_block_number_to_be_signed(100),
+            90
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 85,
+                step: 15,
+            }
+            .compute_block_number_to_be_signed(100),
+            15
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: 30,
+            }
+            .compute_block_number_to_be_signed(29),
+            0
+        );
+    }
+
+    #[test]
+    fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: BlockRange::LENGTH * 2 - 1,
+            }
+            .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
+            BlockRange::LENGTH * 5
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: BlockRange::LENGTH * 2 + 1,
+            }
+            .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
+            BlockRange::LENGTH * 4
+        );
+
+        // Adjusted step is always at least BLOCK_RANGE_LENGTH.
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: BlockRange::LENGTH - 1,
+            }
+            .compute_block_number_to_be_signed(BlockRange::LENGTH * 10 - 1),
+            BlockRange::LENGTH * 9
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: BlockRange::LENGTH - 1,
+            }
+            .compute_block_number_to_be_signed(BlockRange::LENGTH - 1),
+            0
         );
     }
 }
