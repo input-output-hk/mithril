@@ -191,8 +191,8 @@ impl CertificatesHashMigrator {
 #[cfg(test)]
 mod test {
     use mithril_common::entities::{
-        ChainPoint, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants as Type,
-        TimePoint,
+        CardanoTransactionsSigningConfig, ChainPoint, ImmutableFileNumber, SignedEntityType,
+        SignedEntityTypeDiscriminants as Type, TimePoint,
     };
     use mithril_common::test_utils::fake_data;
     use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
@@ -249,6 +249,7 @@ mod test {
                 &signed_entity_type,
                 &fake_data::network().to_string(),
                 &time_point,
+                &CardanoTransactionsSigningConfig::dummy(),
             ),
         );
 

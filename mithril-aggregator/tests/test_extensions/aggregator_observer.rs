@@ -5,7 +5,10 @@ use mithril_aggregator::{
     services::{CertifierService, TickerService},
 };
 use mithril_common::{
-    entities::{Epoch, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint},
+    entities::{
+        CardanoTransactionsSigningConfig, Epoch, SignedEntityType, SignedEntityTypeDiscriminants,
+        TimePoint,
+    },
     CardanoNetwork, StdResult, TimePointProvider,
 };
 use std::sync::Arc;
@@ -16,6 +19,7 @@ pub struct AggregatorObserver {
     time_point_provider: Arc<dyn TimePointProvider>,
     certifier_service: Arc<dyn CertifierService>,
     ticker_service: Arc<dyn TickerService>,
+    cardano_transaction_signing_config: CardanoTransactionsSigningConfig,
 }
 
 impl AggregatorObserver {
@@ -26,6 +30,10 @@ impl AggregatorObserver {
             time_point_provider: deps_builder.get_time_point_provider().await.unwrap(),
             certifier_service: deps_builder.get_certifier_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
+            cardano_transaction_signing_config: deps_builder
+                .configuration
+                .cardano_transactions_signing_config
+                .clone(),
         }
     }
 
@@ -82,6 +90,7 @@ impl AggregatorObserver {
             &discriminant,
             &self.network.to_string(),
             &time_point,
+            &self.cardano_transaction_signing_config,
         ))
     }
 }

@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::entities::{
-    Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-    SignedEntityType, Signer, TimePoint,
+    CardanoTransactionsSigningConfig, Certificate, CertificatePending, Epoch, ProtocolMessage,
+    ProtocolMessagePartKey, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_persistence::store::StakeStorer;
@@ -25,12 +25,23 @@ pub struct AggregatorConfig {
 
     /// Cardano network
     pub network: CardanoNetwork,
+
+    /// Cardano transaction signing configuration
+    pub cardano_transaction_signing_config: CardanoTransactionsSigningConfig,
 }
 
 impl AggregatorConfig {
     /// Create a new instance of AggregatorConfig.
-    pub fn new(interval: Duration, network: CardanoNetwork) -> Self {
-        Self { interval, network }
+    pub fn new(
+        interval: Duration,
+        network: CardanoNetwork,
+        cardano_transaction_signing_config: CardanoTransactionsSigningConfig,
+    ) -> Self {
+        Self {
+            interval,
+            network,
+            cardano_transaction_signing_config,
+        }
     }
 }
 

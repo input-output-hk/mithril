@@ -5,13 +5,13 @@ use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 
 use mithril_common::entities::{
-    CompressionAlgorithm, HexEncodedGenesisVerificationKey, ProtocolParameters, SignedEntityType,
-    SignedEntityTypeDiscriminants, TimePoint,
+    CardanoTransactionsSigningConfig, CompressionAlgorithm, HexEncodedGenesisVerificationKey,
+    ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -156,6 +156,10 @@ pub struct Configuration {
 
     /// Cardano transactions prover cache pool size
     pub cardano_transactions_prover_cache_pool_size: usize,
+
+    /// Cardano transactions signing configuration
+    #[example = "`{ security_parameter: 3000, step: 90 }`"]
+    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -229,6 +233,10 @@ impl Configuration {
             signer_importer_run_interval: 1,
             allow_unparsable_block: false,
             cardano_transactions_prover_cache_pool_size: 3,
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: 100,
+                step: 15,
+            },
         }
     }
 
@@ -305,13 +313,19 @@ impl Configuration {
         let signed_entity_types = allowed_discriminants
             .into_iter()
             .map(|discriminant| {
-                SignedEntityType::from_time_point(&discriminant, &self.network, time_point)
+                SignedEntityType::from_time_point(
+                    &discriminant,
+                    &self.network,
+                    time_point,
+                    &self.cardano_transactions_signing_config,
+                )
             })
             .collect();
 
         Ok(signed_entity_types)
     }
 }
+
 /// Default configuration with all the default values for configurations.
 #[derive(Debug, Clone, DocumenterDefault)]
 pub struct DefaultConfiguration {
@@ -365,6 +379,9 @@ pub struct DefaultConfiguration {
 
     /// Cardano transactions prover cache pool size
     pub cardano_transactions_prover_cache_pool_size: u32,
+
+    /// Cardano transactions signing configuration
+    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 }
 
 impl Default for DefaultConfiguration {
@@ -386,6 +403,10 @@ impl Default for DefaultConfiguration {
             signer_importer_run_interval: 720,
             allow_unparsable_block: "false".to_string(),
             cardano_transactions_prover_cache_pool_size: 10,
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: 3000,
+                step: 90,
+            },
         }
     }
 }
@@ -463,6 +484,23 @@ impl Source for DefaultConfiguration {
         result.insert(
             "cardano_transactions_prover_cache_pool_size".to_string(),
             into_value(myself.cardano_transactions_prover_cache_pool_size),
+        );
+        result.insert(
+            "cardano_transactions_signing_config".to_string(),
+            into_value(HashMap::from([
+                (
+                    "security_parameter".to_string(),
+                    ValueKind::from(
+                        myself
+                            .cardano_transactions_signing_config
+                            .security_parameter,
+                    ),
+                ),
+                (
+                    "step".to_string(),
+                    ValueKind::from(myself.cardano_transactions_signing_config.step),
+                ),
+            ])),
         );
 
         Ok(result)
@@ -623,7 +661,10 @@ mod test {
     #[test]
     fn test_list_allowed_signed_entity_types_with_specific_configuration() {
         let beacon = fake_data::beacon();
-        let chain_point = ChainPoint::dummy();
+        let chain_point = ChainPoint {
+            block_number: 45,
+            ..ChainPoint::dummy()
+        };
         let time_point = TimePoint::new(
             *beacon.epoch,
             beacon.immutable_file_number,
@@ -633,6 +674,10 @@ mod test {
         let config = Configuration {
             network: beacon.network.clone(),
             signed_entity_types: Some("CardanoStakeDistribution, CardanoTransactions".to_string()),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: 15,
+            },
             ..Configuration::new_sample()
         };
 
@@ -648,6 +693,22 @@ mod test {
                 SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number),
             ],
             signed_entity_types
+        );
+    }
+
+    #[test]
+    fn can_build_config_with_ctx_signing_config_from_default_configuration() {
+        #[derive(Debug, Deserialize)]
+        struct TargetConfig {
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+        }
+
+        let config_builder = config::Config::builder().add_source(DefaultConfiguration::default());
+        let target: TargetConfig = config_builder.build().unwrap().try_deserialize().unwrap();
+
+        assert_eq!(
+            target.cardano_transactions_signing_config,
+            DefaultConfiguration::default().cardano_transactions_signing_config
         );
     }
 }

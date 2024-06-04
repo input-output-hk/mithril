@@ -1219,6 +1219,9 @@ impl DependenciesBuilder {
             self.configuration.get_network().with_context(|| {
                 "Dependencies Builder can not get Cardano network while creating aggregator runner"
             })?,
+            self.configuration
+                .cardano_transactions_signing_config
+                .clone(),
         );
         let runtime = AggregatorRuntime::new(
             config,

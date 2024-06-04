@@ -238,6 +238,7 @@ impl AggregatorRuntime {
                         &state.open_message.signed_entity_type.clone().into(),
                         &self.config.network.to_string(),
                         &last_time_point,
+                        &self.config.cardano_transaction_signing_config,
                     );
                     new_signed_entity_type != state.open_message.signed_entity_type
                 };
@@ -406,7 +407,7 @@ mod tests {
     use mockall::predicate;
     use std::time::Duration;
 
-    use mithril_common::entities::{Epoch, SignedEntityType};
+    use mithril_common::entities::{CardanoTransactionsSigningConfig, Epoch, SignedEntityType};
     use mithril_common::test_utils::fake_data;
 
     use super::super::runner::MockAggregatorRunner;
@@ -417,7 +418,11 @@ mod tests {
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
         AggregatorRuntime::new(
-            AggregatorConfig::new(Duration::from_millis(20), fake_data::network()),
+            AggregatorConfig::new(
+                Duration::from_millis(20),
+                fake_data::network(),
+                CardanoTransactionsSigningConfig::dummy(),
+            ),
             init_state,
             Arc::new(runner),
         )
