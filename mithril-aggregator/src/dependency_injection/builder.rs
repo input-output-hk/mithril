@@ -1377,7 +1377,7 @@ impl DependenciesBuilder {
         Ok(self.message_service.as_ref().cloned().unwrap())
     }
 
-    /// build Prover service
+    /// Build Prover service
     pub async fn build_prover_service(&mut self) -> Result<Arc<dyn ProverService>> {
         let mk_map_pool_size = self
             .configuration
