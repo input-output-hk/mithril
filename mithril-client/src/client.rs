@@ -1,8 +1,10 @@
 use anyhow::{anyhow, Context};
 use mithril_common::api_version::APIVersionProvider;
+use reqwest::header::HeaderMap;
 use reqwest::Url;
 use slog::{o, Logger};
 use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
@@ -62,6 +64,7 @@ pub struct ClientBuilder {
     snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
     logger: Option<Logger>,
     feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
+    additional_headers: Arc<Mutex<HeaderMap>>,
 }
 
 impl ClientBuilder {
@@ -77,6 +80,7 @@ impl ClientBuilder {
             snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
+            additional_headers: Arc::new(Mutex::new(HeaderMap::new())),
         }
     }
 
@@ -94,6 +98,7 @@ impl ClientBuilder {
             snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
+            additional_headers: Arc::new(Mutex::new(HeaderMap::new())),
         }
     }
 
@@ -223,6 +228,12 @@ impl ClientBuilder {
     /// validation).
     pub fn add_feedback_receiver(mut self, receiver: Arc<dyn FeedbackReceiver>) -> Self {
         self.feedback_receivers.push(receiver);
+        self
+    }
+
+    /// Set additional headers for the HTTP client.
+    pub fn with_additional_headers(mut self, headers: Arc<Mutex<HeaderMap>>) -> Self {
+        self.additional_headers = headers;
         self
     }
 }

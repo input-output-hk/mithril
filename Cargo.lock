@@ -3682,6 +3682,7 @@ version = "0.3.5"
 dependencies = [
  "async-trait",
  "futures",
+ "http 1.1.0",
  "mithril-build-script",
  "mithril-client",
  "serde",
