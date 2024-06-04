@@ -3,20 +3,33 @@ sidebar_position: 3
 sidebar_label: Mithril Threat Model
 ---
 
-# Mithril Network Threat Model
+# Mithril Threat Model
+
+:::danger
+
+This document is a draft version of the **Mithril threat model** prepared by the **Mithril core team**:
+- We expect to receive **external feedback and contributions** before we can consider it **final**.
+- Feel free to **contribute** to this document by using the **Edit this page** link a the bottom of the page.
+- A **GitHub discussion** is also available [here](https://github.com/input-output-hk/mithril/discussions/).
+
+::: 
 
 This document provides an analysis of the various security threats and possible mitigations that could affect the Mithril network and its participants. 
 
 This is an adversarial mindset document and aims to analyse the system from an attacker's perspective.
 
-The threat model is a living document and is kept up-to-date with the [latest mithril version](https://github.com/input-output-hk/mithril/releases/latest)
+The threat model is a living document and is kept up-to-date with the [latest Mithril version](https://github.com/input-output-hk/mithril/releases/latest)
 
 ## System analysis
 
 ### System description 
 
-> Maybe reduce and move details into [architecture page](https://mithril.network/doc/mithril/mithril-network/architecture)
-> Also we should update the [protocol page](https://mithril.network/doc/mithril/mithril-protocol/protocol)
+:::info To do
+
+- Maybe reduce and move details into [architecture page](https://mithril.network/doc/mithril/mithril-network/architecture)?
+- Also we should update the [protocol page](https://mithril.network/doc/mithril/mithril-protocol/protocol)
+
+:::
 
 System consists of three main components: signers, aggregator and clients.
 
@@ -28,7 +41,11 @@ Cardano KES keys are also used block producing `cardano-node` and are typically 
 
 Cardano KES keys need to be [evolved every 36 hours](https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/stake-pool-operations/7_KES_period.md), while they can be rotated from a root key when needed.
 
-> TODO: is there a Cardano threat model about this
+:::info To do
+
+Is there a Cardano threat model about this?
+
+:::
 
 All mithril signers and mithril clients connect to a single aggregator using HTTP over TLS.
 
@@ -46,13 +63,17 @@ Mithril clients do connect to an aggregator using HTTP over TLS to query mithril
 
 A mithril client can verify the received mithril certificate is linked to other certificates up to the genesis certificate and can be verified using the Mithril genesis verification key (see [details](https://mithril.network/doc/mithril/mithril-protocol/certificates/)).
 
-> TODO: missing: the currently recommended relay (reverse proxy)
+:::info To do
+
+Missing: the currently recommended relay (reverse proxy)
+
+:::
 
 #### Deployment architecture
 
 This document is specifically targeting the standard deployment architecture where a mithril signer runs next to the block producing node, while access to the mithril aggregator is only done through a relay.
 
-![Mithril - Container View](https://hackmd.io/_uploads/H1McjvVSp.jpg)
+[![Mithril - Container View](./images/deployment-architecture.jpg)](./images/deployment-architecture.jpg)
 
 ### External Dependencies
 
@@ -94,7 +115,11 @@ The core Mithril protocol is considered safe and its analysis is out of scope fo
 
 For each asset we first identify what protection is required: Availability, Confidentiality, Integrity ie. the [CIA Triad](https://www.splunk.com/en_us/blog/learn/cia-triad-confidentiality-integrity-availability.html)
 
-> I follow Pascal's suggestion to identify assets as processes rather than particular resources, except in the case of actual pieces of data (eg. keys). The latter should be listed in the threats section and their protection mitigated
+:::info Note
+
+I follow Pascal's suggestion to identify assets as processes rather than particular resources, except in the case of actual pieces of data (eg. keys). The latter should be listed in the threats section and their protection mitigated
+
+:::
 
 We then identify threats and countermeasures
 
@@ -188,11 +213,15 @@ The key tied to the aforementioned era address
 
 These are the assets that are relevant only when downloading and verifying certificates and full-node snapshots. 
 
-> Verification process being trustless, does it really make sense to include those in the Threat Model?
+:::info To do
+
+Verification process being trustless, does it really make sense to include those in the Threat Model?
+
+:::
 
 #### Mithril certificate verification process
 
-Mithril clients download snapshots and verify associated certificates using the mithril-client library, either from a CLI tool or [embedded in a browser](https://mithril.network/explorer/?aggregator=https%3A%2F%2Faggregator.release-mainnet.api.mithril.network%2Faggregator) 
+Mithril clients download snapshots and verify associated certificates using the mithril-client library, either from a CLI tool or [embedded in a browser](https://mithril.network/explorer/) 
 
 * **availability**: Yes (?)
 * **confidentiality**: No
@@ -224,7 +253,6 @@ The corresponding signing key is stored in IOG's VaultWarden, and used only once
 
 ## Threat & Mitigations
 
-
 ### Resource exhaustion on Cardano relay
 
 - DoS of a `mithril-signer` running next to a `cardano-node` being a relay
@@ -244,6 +272,7 @@ The corresponding signing key is stored in IOG's VaultWarden, and used only once
 * Starving relay hosts prevents mithril signatures and key registration to be shared
 * Starving a cardano-node running on a relay host would prevent or delay the diffusion of new blocks thus harming 
 * Compromising relay hosts would be an extreme form of starving resources
+
 ### Block production
 * An incorrect mithril-signer could _starve_ the cardano-node of computing resources thus preventing it from producing and diffusing blocks in a timely manner
 * Compromising BP host would 
