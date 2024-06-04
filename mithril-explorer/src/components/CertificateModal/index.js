@@ -7,6 +7,7 @@ import { selectedAggregator } from "@/store/settingsSlice";
 import RawJsonButton from "#/RawJsonButton";
 import Stake from "#/Stake";
 import ProtocolParameters from "#/ProtocolParameters";
+import SignedEntityType from "#/SignedEntityType";
 import SignerTable from "#/SignerTable";
 import VerifyCertificateModal from "#/VerifyCertificate/VerifyCertificateModal";
 
@@ -72,28 +73,7 @@ export default function CertificateModal({
             <Row md={1} xl="auto">
               <Col xl={4} className="mb-3">
                 <h4>Beacon</h4>
-                <Table className="mb-3">
-                  <tbody>
-                    <tr>
-                      <td>
-                        <em>Network:</em>
-                      </td>
-                      <td>{certificate.beacon.network}</td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <em>Epoch:</em>
-                      </td>
-                      <td>{certificate.beacon.epoch}</td>
-                    </tr>
-                    <tr>
-                      <td>
-                        <em>Immutable File Number:</em>
-                      </td>
-                      <td>{certificate.beacon.immutable_file_number}</td>
-                    </tr>
-                  </tbody>
-                </Table>
+                <SignedEntityType signedEntityType={certificate.signed_entity_type} table />
                 <h4>Protocol Parameters</h4>
                 <ProtocolParameters
                   className="mb-3"

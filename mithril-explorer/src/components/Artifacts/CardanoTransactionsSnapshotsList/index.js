@@ -110,12 +110,9 @@ export default function CardanoTransactionsSnapshotsList(props) {
                     <Card.Body>
                       <Card.Title>{cardanoTransactionsSnapshot.hash}</Card.Title>
                       <ListGroup variant="flush" className="data-list-group">
+                        <ListGroup.Item>Epoch: {cardanoTransactionsSnapshot.epoch}</ListGroup.Item>
                         <ListGroup.Item>
-                          Epoch: {cardanoTransactionsSnapshot.beacon.epoch}
-                        </ListGroup.Item>
-                        <ListGroup.Item>
-                          Immutable file number:{" "}
-                          {cardanoTransactionsSnapshot.beacon.immutable_file_number}
+                          Block Number: {cardanoTransactionsSnapshot.block_number}
                         </ListGroup.Item>
                         <ListGroup.Item>
                           Merkle Root: {cardanoTransactionsSnapshot.merkle_root}

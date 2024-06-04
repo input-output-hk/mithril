@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { ListGroup } from "react-bootstrap";
+import { ListGroup, Table } from "react-bootstrap";
 
-export default function SignedEntityType({ signedEntityType }) {
+export default function SignedEntityType({ signedEntityType, table = false }) {
   const [entityName, setEntityName] = useState("");
   const [beacon, setBeacon] = useState({});
 
@@ -13,12 +13,35 @@ export default function SignedEntityType({ signedEntityType }) {
       setBeacon({
         epoch: signedEntityType[type_name],
       });
+    } else if (type_name === "CardanoTransactions") {
+      setBeacon({
+        epoch: signedEntityType[type_name][0],
+        block_number: signedEntityType[type_name][1],
+      });
     } else {
       setBeacon(signedEntityType[type_name] ?? {});
     }
   }, [signedEntityType]);
 
-  return (
+  return table ? (
+    <Table className="mb-3">
+      <tbody>
+        <tr>
+          <td colSpan={2}>
+            <h6>{entityName}</h6>
+          </td>
+        </tr>
+        {Object.entries(beacon).map(([key, value]) => (
+          <tr key={key}>
+            <td>
+              <em>{key}:</em>
+            </td>
+            <td>{value}</td>
+          </tr>
+        ))}
+      </tbody>
+    </Table>
+  ) : (
     <ListGroup>
       <ListGroup.Item>
         <h6>{entityName}</h6>
