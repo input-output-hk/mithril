@@ -35,11 +35,7 @@ impl AggregatorObserver {
 
     /// Get the current [Epoch] known to the aggregator
     pub async fn current_epoch(&self) -> Epoch {
-        self.ticker_service
-            .get_current_time_point()
-            .await
-            .unwrap()
-            .epoch
+        self.ticker_service.get_current_epoch().await.unwrap()
     }
 
     /// Get the current [TimePoint] known to the aggregator

@@ -132,13 +132,7 @@ impl StateMachineTester {
         ]));
         let era_reader = Arc::new(EraReader::new(era_reader_adapter.clone()));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(
-                time_point_provider
-                    .get_current_time_point()
-                    .await
-                    .unwrap()
-                    .epoch,
-            )
+            .read_era_epoch_token(time_point_provider.get_current_epoch().await.unwrap())
             .await
             .unwrap();
         let era_checker = Arc::new(EraChecker::new(

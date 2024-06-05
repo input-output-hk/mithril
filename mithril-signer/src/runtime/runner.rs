@@ -517,13 +517,7 @@ mod tests {
         ));
         let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(
-                time_point_provider
-                    .get_current_time_point()
-                    .await
-                    .unwrap()
-                    .epoch,
-            )
+            .read_era_epoch_token(time_point_provider.get_current_epoch().await.unwrap())
             .await
             .unwrap();
         let era_checker = Arc::new(EraChecker::new(
@@ -653,10 +647,9 @@ mod tests {
         services.chain_observer = chain_observer.clone();
         let epoch = services
             .time_point_provider
-            .get_current_time_point()
+            .get_current_epoch()
             .await
             .unwrap()
-            .epoch
             .offset_to_recording_epoch();
         let stakes = chain_observer
             .get_current_stake_distribution()

@@ -565,10 +565,9 @@ pub mod tests {
         let current_epoch = runner
             .dependencies
             .ticker_service
-            .get_current_time_point()
+            .get_current_epoch()
             .await
-            .unwrap()
-            .epoch;
+            .unwrap();
         runner.inform_new_epoch(current_epoch).await.unwrap();
         runner.precompute_epoch_data().await.unwrap();
         runner
@@ -917,12 +916,7 @@ pub mod tests {
         deps.certifier_service = Arc::new(mock_certifier_service);
         let protocol_parameters_store = deps.protocol_parameters_store.clone();
         let expected_protocol_parameters = deps.config.protocol_parameters.clone();
-        let current_epoch = deps
-            .ticker_service
-            .get_current_time_point()
-            .await
-            .unwrap()
-            .epoch;
+        let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
         let insert_epoch = current_epoch.offset_to_protocol_parameters_recording_epoch();
 
         let runner = build_runner_with_fixture_data(deps).await;

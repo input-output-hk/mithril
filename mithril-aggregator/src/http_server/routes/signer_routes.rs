@@ -119,8 +119,8 @@ mod handlers {
             None => Vec::new(),
         };
 
-        let epoch_str = match time_point_provider.get_current_time_point().await {
-            Ok(time_point) => format!("{}", time_point.epoch),
+        let epoch_str = match time_point_provider.get_current_epoch().await {
+            Ok(epoch) => format!("{epoch}"),
             Err(e) => {
                 warn!("Could not read epoch to add in event: {e}");
                 String::new()

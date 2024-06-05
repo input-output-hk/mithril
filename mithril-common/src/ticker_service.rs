@@ -1,18 +1,35 @@
-use anyhow::anyhow;
-use anyhow::Context;
+//! ## Ticker Service
+//!
+//! This service read time information from the chain and helps create beacons
+//! for every message types.
+
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
 
+use crate::chain_observer::ChainObserver;
+use crate::digesters::ImmutableFileObserver;
+use crate::entities::{Epoch, TimePoint};
 use crate::StdResult;
-use crate::{chain_observer::ChainObserver, digesters::ImmutableFileObserver, entities::TimePoint};
 
-/// Provide the current [TimePoint] of a cardano node.
+/// ## TickerService
+///
+/// This service is responsible for giving the right time information to other
+/// services. It reads data either from the Chain or the filesystem to create
+/// beacons for each message type.
 #[async_trait]
 pub trait TickerService
 where
     Self: Sync + Send,
 {
+    /// Get the current [Epoch] of the cardano node.
+    async fn get_current_epoch(&self) -> StdResult<Epoch> {
+        self.get_current_time_point()
+            .await
+            .map(|time_point| time_point.epoch)
+    }
+
     /// Get the current [TimePoint] of the cardano node.
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 }
@@ -124,6 +141,17 @@ mod tests {
                 "this should not be called in the TimePointProvider"
             )))
         }
+    }
+
+    #[tokio::test]
+    async fn test_get_current_epoch() {
+        let time_point_provider = MithrilTickerService::new(
+            Arc::new(DumbChainObserver {}),
+            Arc::new(DumbImmutableFileObserver::default()),
+        );
+        let epoch = time_point_provider.get_current_epoch().await.unwrap();
+
+        assert_eq!(Epoch(42), epoch);
     }
 
     #[tokio::test]

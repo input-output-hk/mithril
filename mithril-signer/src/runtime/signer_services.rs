@@ -233,7 +233,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .build_era_reader_adapter(chain_observer.clone())?,
         ));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(time_point_provider.get_current_time_point().await?.epoch)
+            .read_era_epoch_token(time_point_provider.get_current_epoch().await?)
             .await?;
         let era_checker = Arc::new(EraChecker::new(
             era_epoch_token.get_current_supported_era()?,

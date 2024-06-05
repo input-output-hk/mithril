@@ -853,13 +853,12 @@ impl DependenciesBuilder {
         let current_epoch = self
             .get_ticker_service()
             .await?
-            .get_current_time_point()
+            .get_current_epoch()
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "Error while building EraChecker".to_string(),
                 error: Some(e),
-            })?
-            .epoch;
+            })?;
         let era_epoch_token = self
             .get_era_reader()
             .await?
