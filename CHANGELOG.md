@@ -23,6 +23,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implement a Resource Pool and use it for caching Block Range Merkle maps used by the Cardano transactions prover and improving the throughput.
 
+- Change the beacon of the Cardano Transactions to a block number instead of an immutable file number. 
+
 - Crates versions:
 
 |  Crate  |  Version  |
