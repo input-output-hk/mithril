@@ -23,7 +23,7 @@ const TOTAL_TRANSACTIONS_BENCHES: &[u64] = &[
     B,
 ];
 const BLOCK_RANGE_LENGTH_BENCH: u64 = 15;
-const TOTAL_TRANSACTIONS_PER_BLOCK: u64 = 50;
+const TOTAL_TRANSACTIONS_PER_BLOCK: u64 = 15;
 const MAX_TRANSACTIONS_PER_PROOF_BENCH: u64 = 100;
 
 fn generate_block_ranges_nodes_iterator(
