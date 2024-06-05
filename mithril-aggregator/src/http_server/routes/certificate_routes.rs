@@ -53,7 +53,7 @@ mod handlers {
         CertificatePendingStore, Configuration, ToCertificatePendingMessageAdapter,
     };
 
-    use mithril_common::TimePointProvider;
+    use mithril_common::TickerService;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -64,7 +64,7 @@ mod handlers {
     /// Certificate Pending
     pub async fn certificate_pending(
         config: Configuration,
-        time_point_provider: Arc<dyn TimePointProvider>,
+        time_point_provider: Arc<dyn TickerService>,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: certificate_pending");

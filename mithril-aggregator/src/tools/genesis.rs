@@ -9,7 +9,7 @@ use mithril_common::{
     },
     entities::{ProtocolParameters, TimePoint},
     protocol::SignerBuilder,
-    CardanoNetwork, StdResult, TimePointProvider,
+    CardanoNetwork, StdResult, TickerService,
 };
 
 use crate::database::repository::CertificateRepository;
@@ -23,7 +23,7 @@ pub struct GenesisToolsDependency {
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,
 
     /// Time point provider service.
-    pub time_point_provider: Arc<dyn TimePointProvider>,
+    pub time_point_provider: Arc<dyn TickerService>,
 
     /// Genesis signature verifier service.
     pub genesis_verifier: Arc<ProtocolGenesisVerifier>,

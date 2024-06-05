@@ -9,7 +9,7 @@ use crate::{
     VerificationKeyStorer,
 };
 
-use mithril_common::{api_version::APIVersionProvider, TimePointProvider};
+use mithril_common::{api_version::APIVersionProvider, TickerService};
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
@@ -52,7 +52,7 @@ pub fn with_event_transmitter(
 /// With time point provider middleware
 pub fn with_time_point_provider(
     dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (Arc<dyn TimePointProvider>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn TickerService>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.time_point_provider.clone())
 }
 

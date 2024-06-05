@@ -16,7 +16,7 @@ use mithril_common::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     },
-    StdError, TimePointProvider, TimePointProviderImpl,
+    MithrilTickerService, StdError, TickerService,
 };
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
@@ -104,7 +104,7 @@ impl StateMachineTester {
                 block_hash: "block_hash-1".to_string(),
             },
         })));
-        let time_point_provider = Arc::new(TimePointProviderImpl::new(
+        let time_point_provider = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),
         ));

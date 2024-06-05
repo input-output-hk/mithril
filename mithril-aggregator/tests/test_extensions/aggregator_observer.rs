@@ -9,14 +9,14 @@ use mithril_common::{
         CardanoTransactionsSigningConfig, Epoch, SignedEntityType, SignedEntityTypeDiscriminants,
         TimePoint,
     },
-    CardanoNetwork, StdResult, TimePointProvider,
+    CardanoNetwork, StdResult, TickerService,
 };
 use std::sync::Arc;
 
 // An observer that allow to inspect currently available open messages.
 pub struct AggregatorObserver {
     network: CardanoNetwork,
-    time_point_provider: Arc<dyn TimePointProvider>,
+    time_point_provider: Arc<dyn TickerService>,
     certifier_service: Arc<dyn CertifierService>,
     ticker_service: Arc<dyn TickerService>,
     cardano_transaction_signing_config: CardanoTransactionsSigningConfig,

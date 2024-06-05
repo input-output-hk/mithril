@@ -68,7 +68,7 @@ mod handlers {
     use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
-    use mithril_common::TimePointProvider;
+    use mithril_common::TickerService;
     use slog_scope::{debug, trace, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -80,7 +80,7 @@ mod handlers {
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
-        time_point_provider: Arc<dyn TimePointProvider>,
+        time_point_provider: Arc<dyn TickerService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",

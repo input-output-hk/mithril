@@ -67,12 +67,12 @@ cfg_test_tools! {
 }
 
 cfg_fs! {
-    mod time_point_provider;
+    mod ticker_service;
     pub mod digesters;
     pub mod cardano_block_scanner;
     pub mod chain_reader;
 
-    pub use time_point_provider::{TimePointProvider, TimePointProviderImpl};
+    pub use ticker_service::{TickerService, MithrilTickerService};
 }
 
 pub use entities::{CardanoNetwork, MagicId};

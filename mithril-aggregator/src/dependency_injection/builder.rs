@@ -34,7 +34,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderService,
     },
-    TimePointProvider, TimePointProviderImpl,
+    MithrilTickerService, TickerService,
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
@@ -127,7 +127,7 @@ pub struct DependenciesBuilder {
     pub chain_observer: Option<Arc<dyn ChainObserver>>,
 
     /// Time point provider service.
-    pub time_point_provider: Option<Arc<dyn TimePointProvider>>,
+    pub time_point_provider: Option<Arc<dyn TickerService>>,
 
     /// Cardano transactions repository.
     pub transaction_repository: Option<Arc<CardanoTransactionRepository>>,
@@ -599,8 +599,8 @@ impl DependenciesBuilder {
         Ok(self.cardano_cli_runner.as_ref().cloned().unwrap())
     }
 
-    async fn build_time_point_provider(&mut self) -> Result<Arc<dyn TimePointProvider>> {
-        let time_point_provider = TimePointProviderImpl::new(
+    async fn build_time_point_provider(&mut self) -> Result<Arc<dyn TickerService>> {
+        let time_point_provider = MithrilTickerService::new(
             self.get_chain_observer().await?,
             self.get_immutable_file_observer().await?,
         );
@@ -608,8 +608,8 @@ impl DependenciesBuilder {
         Ok(Arc::new(time_point_provider))
     }
 
-    /// Return a [TimePointProvider] instance.
-    pub async fn get_time_point_provider(&mut self) -> Result<Arc<dyn TimePointProvider>> {
+    /// Return a [TickerService] instance.
+    pub async fn get_time_point_provider(&mut self) -> Result<Arc<dyn TickerService>> {
         if self.time_point_provider.is_none() {
             self.time_point_provider = Some(self.build_time_point_provider().await?);
         }

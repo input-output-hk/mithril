@@ -461,7 +461,7 @@ mod tests {
             MithrilStakeDistributionSignableBuilder,
         },
         test_utils::{fake_data, MithrilFixtureBuilder},
-        TimePointProvider, TimePointProviderImpl,
+        MithrilTickerService, TickerService,
     };
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_persistence::store::{StakeStore, StakeStorer};
@@ -482,7 +482,7 @@ mod tests {
         pub FakeTimePointProvider { }
 
         #[async_trait]
-        impl TimePointProvider for FakeTimePointProvider {
+        impl TickerService for FakeTimePointProvider {
             async fn get_current_time_point(&self) -> StdResult<TimePoint>;
         }
     }
@@ -511,7 +511,7 @@ mod tests {
         let fake_observer = FakeObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
-        let time_point_provider = Arc::new(TimePointProviderImpl::new(
+        let time_point_provider = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             Arc::new(DumbImmutableFileObserver::default()),
         ));

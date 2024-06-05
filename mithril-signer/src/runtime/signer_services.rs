@@ -18,7 +18,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderService,
     },
-    StdResult, TimePointProvider, TimePointProviderImpl,
+    MithrilTickerService, StdResult, TickerService,
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
@@ -38,7 +38,7 @@ type CertificateHandlerService = Arc<dyn AggregatorClient>;
 type ChainObserverService = Arc<dyn ChainObserver>;
 type DigesterService = Arc<dyn ImmutableDigester>;
 type SingleSignerService = Arc<dyn SingleSigner>;
-type TimePointProviderService = Arc<dyn TimePointProvider>;
+type TimePointProviderService = Arc<dyn TickerService>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
 
 /// The ServiceBuilder is intended to manage Services instance creation.
@@ -222,7 +222,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         };
         let time_point_provider = {
             let builder = self.immutable_file_observer_builder;
-            Arc::new(TimePointProviderImpl::new(
+            Arc::new(MithrilTickerService::new(
                 chain_observer.clone(),
                 builder(self.config)?,
             ))

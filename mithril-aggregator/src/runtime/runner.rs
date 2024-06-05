@@ -507,7 +507,7 @@ pub mod tests {
         },
         signable_builder::SignableBuilderService,
         test_utils::{fake_data, MithrilFixtureBuilder},
-        StdResult, TimePointProviderImpl,
+        MithrilTickerService, StdResult,
     };
     use mithril_persistence::store::StakeStorer;
     use mockall::predicate::eq;
@@ -625,7 +625,7 @@ pub mod tests {
         immutable_file_observer
             .shall_return(Some(expected.immutable_file_number))
             .await;
-        let time_point_provider = Arc::new(TimePointProviderImpl::new(
+        let time_point_provider = Arc::new(MithrilTickerService::new(
             Arc::new(FakeObserver::new(Some(expected.clone()))),
             immutable_file_observer,
         ));

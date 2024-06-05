@@ -8,7 +8,7 @@ use mithril_common::{
         SingleSignatures, TimePoint,
     },
     test_utils::fake_data,
-    CardanoNetwork, TimePointProvider, TimePointProviderImpl,
+    CardanoNetwork, MithrilTickerService, TickerService,
 };
 use mithril_signer::{AggregatorClient, AggregatorClientError};
 use tokio::sync::RwLock;
@@ -16,12 +16,12 @@ use tokio::sync::RwLock;
 pub struct FakeAggregator {
     network: CardanoNetwork,
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
-    time_point_provider: Arc<TimePointProviderImpl>,
+    time_point_provider: Arc<MithrilTickerService>,
     withhold_epoch_settings: RwLock<bool>,
 }
 
 impl FakeAggregator {
-    pub fn new(network: CardanoNetwork, time_point_provider: Arc<TimePointProviderImpl>) -> Self {
+    pub fn new(network: CardanoNetwork, time_point_provider: Arc<MithrilTickerService>) -> Self {
         Self {
             network,
             withhold_epoch_settings: RwLock::new(true),
@@ -143,7 +143,7 @@ mod tests {
             immutable_file_number: 1,
             chain_point: ChainPoint::dummy(),
         })));
-        let time_point_provider = Arc::new(TimePointProviderImpl::new(
+        let time_point_provider = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),
         ));

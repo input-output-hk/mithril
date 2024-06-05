@@ -12,7 +12,7 @@ use mithril_common::{
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     test_utils::MithrilFixture,
-    TimePointProvider,
+    TickerService,
 };
 use mithril_persistence::{sqlite::SqliteConnection, store::StakeStorer};
 
@@ -82,7 +82,7 @@ pub struct DependencyContainer {
     pub chain_observer: Arc<dyn ChainObserver>,
 
     /// Time point provider service.
-    pub time_point_provider: Arc<dyn TimePointProvider>,
+    pub time_point_provider: Arc<dyn TickerService>,
 
     /// Cardano transactions store.
     pub transaction_store: Arc<dyn TransactionStore>,
