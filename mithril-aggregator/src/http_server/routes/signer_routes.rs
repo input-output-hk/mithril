@@ -80,7 +80,7 @@ mod handlers {
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
-        time_point_provider: Arc<dyn TickerService>,
+        ticker_service: Arc<dyn TickerService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",
@@ -119,7 +119,7 @@ mod handlers {
             None => Vec::new(),
         };
 
-        let epoch_str = match time_point_provider.get_current_epoch().await {
+        let epoch_str = match ticker_service.get_current_epoch().await {
             Ok(epoch) => format!("{epoch}"),
             Err(e) => {
                 warn!("Could not read epoch to add in event: {e}");

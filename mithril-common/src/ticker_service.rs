@@ -145,22 +145,22 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_current_epoch() {
-        let time_point_provider = MithrilTickerService::new(
+        let ticker_service = MithrilTickerService::new(
             Arc::new(DumbChainObserver {}),
             Arc::new(DumbImmutableFileObserver::default()),
         );
-        let epoch = time_point_provider.get_current_epoch().await.unwrap();
+        let epoch = ticker_service.get_current_epoch().await.unwrap();
 
         assert_eq!(Epoch(42), epoch);
     }
 
     #[tokio::test]
     async fn test_happy_path() {
-        let time_point_provider = MithrilTickerService::new(
+        let ticker_service = MithrilTickerService::new(
             Arc::new(DumbChainObserver {}),
             Arc::new(DumbImmutableFileObserver::default()),
         );
-        let time_point = time_point_provider.get_current_time_point().await.unwrap();
+        let time_point = ticker_service.get_current_time_point().await.unwrap();
 
         assert_eq!(
             TimePoint::new(
@@ -180,10 +180,10 @@ mod tests {
     async fn test_error_from_dependency() {
         let immutable_observer = DumbImmutableFileObserver::default();
         immutable_observer.shall_return(None).await;
-        let time_point_provider =
+        let ticker_service =
             MithrilTickerService::new(Arc::new(DumbChainObserver {}), Arc::new(immutable_observer));
 
-        let result = time_point_provider.get_current_time_point().await;
+        let result = ticker_service.get_current_time_point().await;
         assert!(result.is_err());
     }
 }

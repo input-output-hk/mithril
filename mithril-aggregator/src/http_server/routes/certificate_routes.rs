@@ -62,7 +62,7 @@ mod handlers {
     /// Certificate Pending
     pub async fn certificate_pending(
         config: Configuration,
-        time_point_provider: Arc<dyn TickerService>,
+        ticker_service: Arc<dyn TickerService>,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: certificate_pending");
@@ -70,7 +70,7 @@ mod handlers {
         let network =
             unwrap_to_internal_server_error!(config.get_network(), "certificate_pending::error");
         let time_point = unwrap_to_internal_server_error!(
-            time_point_provider.get_current_time_point().await,
+            ticker_service.get_current_time_point().await,
             "certificate_pending::error"
         );
 

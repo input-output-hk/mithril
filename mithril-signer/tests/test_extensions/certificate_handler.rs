@@ -16,17 +16,17 @@ use tokio::sync::RwLock;
 pub struct FakeAggregator {
     network: CardanoNetwork,
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
-    time_point_provider: Arc<MithrilTickerService>,
+    ticker_service: Arc<MithrilTickerService>,
     withhold_epoch_settings: RwLock<bool>,
 }
 
 impl FakeAggregator {
-    pub fn new(network: CardanoNetwork, time_point_provider: Arc<MithrilTickerService>) -> Self {
+    pub fn new(network: CardanoNetwork, ticker_service: Arc<MithrilTickerService>) -> Self {
         Self {
             network,
             withhold_epoch_settings: RwLock::new(true),
             registered_signers: RwLock::new(HashMap::new()),
-            time_point_provider,
+            ticker_service,
         }
     }
 
@@ -43,7 +43,7 @@ impl FakeAggregator {
 
     async fn get_time_point(&self) -> Result<TimePoint, AggregatorClientError> {
         let time_point = self
-            .time_point_provider
+            .ticker_service
             .get_current_time_point()
             .await
             .map_err(|e| AggregatorClientError::RemoteServerTechnical(anyhow!(e)))?;
@@ -143,14 +143,14 @@ mod tests {
             immutable_file_number: 1,
             chain_point: ChainPoint::dummy(),
         })));
-        let time_point_provider = Arc::new(MithrilTickerService::new(
+        let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),
         ));
 
         (
             chain_observer,
-            FakeAggregator::new(CardanoNetwork::DevNet(42), time_point_provider),
+            FakeAggregator::new(CardanoNetwork::DevNet(42), ticker_service),
         )
     }
 

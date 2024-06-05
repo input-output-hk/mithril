@@ -104,13 +104,13 @@ impl StateMachineTester {
                 block_hash: "block_hash-1".to_string(),
             },
         })));
-        let time_point_provider = Arc::new(MithrilTickerService::new(
+        let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),
         ));
         let certificate_handler = Arc::new(FakeAggregator::new(
             config.get_network().unwrap(),
-            time_point_provider.clone(),
+            ticker_service.clone(),
         ));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
@@ -132,7 +132,7 @@ impl StateMachineTester {
         ]));
         let era_reader = Arc::new(EraReader::new(era_reader_adapter.clone()));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(time_point_provider.get_current_epoch().await.unwrap())
+            .read_era_epoch_token(ticker_service.get_current_epoch().await.unwrap())
             .await
             .unwrap();
         let era_checker = Arc::new(EraChecker::new(
@@ -176,7 +176,7 @@ impl StateMachineTester {
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
-            time_point_provider: time_point_provider.clone(),
+            ticker_service: ticker_service.clone(),
             chain_observer: chain_observer.clone(),
             digester: digester.clone(),
             protocol_initializer_store: protocol_initializer_store.clone(),

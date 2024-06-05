@@ -134,7 +134,7 @@ impl Runner for SignerRunner {
         debug!("RUNNER: get_current_time_point");
 
         self.services
-            .time_point_provider
+            .ticker_service
             .get_current_time_point()
             .await
             .with_context(|| "Runner can not get current time point")
@@ -511,13 +511,13 @@ mod tests {
         let fake_observer = FakeObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
-        let time_point_provider = Arc::new(MithrilTickerService::new(
+        let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             Arc::new(DumbImmutableFileObserver::default()),
         ));
         let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(time_point_provider.get_current_epoch().await.unwrap())
+            .read_era_epoch_token(ticker_service.get_current_epoch().await.unwrap())
             .await
             .unwrap();
         let era_checker = Arc::new(EraChecker::new(
@@ -562,7 +562,7 @@ mod tests {
             chain_observer,
             digester,
             single_signer: Arc::new(MithrilSingleSigner::new(party_id)),
-            time_point_provider,
+            ticker_service,
             protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(
                 Box::new(adapter),
                 None,
@@ -589,12 +589,12 @@ mod tests {
     async fn test_get_current_time_point() {
         let mut services = init_services().await;
         let expected = TimePoint::dummy();
-        let mut time_point_provider = MockFakeTimePointProvider::new();
-        time_point_provider
+        let mut ticker_service = MockFakeTimePointProvider::new();
+        ticker_service
             .expect_get_current_time_point()
             .once()
             .returning(move || Ok(TimePoint::dummy()));
-        services.time_point_provider = Arc::new(time_point_provider);
+        services.ticker_service = Arc::new(ticker_service);
         let runner = init_runner(Some(services), None).await;
 
         assert_eq!(
@@ -646,7 +646,7 @@ mod tests {
         let chain_observer = Arc::new(FakeObserver::default());
         services.chain_observer = chain_observer.clone();
         let epoch = services
-            .time_point_provider
+            .ticker_service
             .get_current_epoch()
             .await
             .unwrap()
@@ -760,7 +760,7 @@ mod tests {
     async fn test_compute_message() {
         let mut services = init_services().await;
         let current_time_point = services
-            .time_point_provider
+            .ticker_service
             .get_current_time_point()
             .await
             .expect("get_current_time_point should not fail");
@@ -813,7 +813,7 @@ mod tests {
     async fn test_compute_single_signature() {
         let mut services = init_services().await;
         let current_time_point = services
-            .time_point_provider
+            .ticker_service
             .get_current_time_point()
             .await
             .expect("get_current_time_point should not fail");
@@ -882,9 +882,9 @@ mod tests {
     #[tokio::test]
     async fn test_update_era_checker() {
         let services = init_services().await;
-        let time_point_provider = services.time_point_provider.clone();
+        let ticker_service = services.ticker_service.clone();
         let era_checker = services.era_checker.clone();
-        let mut time_point = time_point_provider.get_current_time_point().await.unwrap();
+        let mut time_point = ticker_service.get_current_time_point().await.unwrap();
 
         assert_eq!(time_point.epoch, era_checker.current_epoch());
         let runner = init_runner(Some(services), None).await;

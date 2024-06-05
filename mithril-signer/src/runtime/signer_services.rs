@@ -220,7 +220,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             let builder = self.chain_observer_builder;
             builder(self.config)?
         };
-        let time_point_provider = {
+        let ticker_service = {
             let builder = self.immutable_file_observer_builder;
             Arc::new(MithrilTickerService::new(
                 chain_observer.clone(),
@@ -233,7 +233,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .build_era_reader_adapter(chain_observer.clone())?,
         ));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(time_point_provider.get_current_epoch().await?)
+            .read_era_epoch_token(ticker_service.get_current_epoch().await?)
             .await?;
         let era_checker = Arc::new(EraChecker::new(
             era_epoch_token.get_current_supported_era()?,
@@ -296,7 +296,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let metrics_service = Arc::new(MetricsService::new().unwrap());
 
         let services = SignerServices {
-            time_point_provider,
+            ticker_service,
             certificate_handler,
             chain_observer,
             digester,
@@ -317,7 +317,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
 /// This structure groups all the services required by the state machine.
 pub struct SignerServices {
     /// Time point provider service
-    pub time_point_provider: TimePointProviderService,
+    pub ticker_service: TimePointProviderService,
 
     /// Stake store service
     pub stake_store: StakeStoreService,

@@ -70,8 +70,8 @@ impl GenesisTools {
     }
 
     pub async fn from_dependencies(dependencies: GenesisToolsDependency) -> StdResult<Self> {
-        let time_point_provider = dependencies.ticker_service.clone();
-        let time_point = time_point_provider.get_current_time_point().await?;
+        let ticker_service = dependencies.ticker_service.clone();
+        let time_point = ticker_service.get_current_time_point().await?;
 
         let genesis_verifier = dependencies.genesis_verifier.clone();
         let certificate_verifier = dependencies.certificate_verifier.clone();
