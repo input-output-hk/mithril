@@ -980,7 +980,7 @@ components:
           type: string
           format: bytes
         latest_block_number:
-          description: The latest block number of the Cardano chain
+          description: The latest signed block number
           type: string
       example:
         {

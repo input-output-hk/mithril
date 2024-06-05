@@ -43,7 +43,7 @@ impl ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>
             ))
             .with_context(|| {
                 format!(
-                    "Can not compute CardanoTransactionsCommitment artifact for signed_entity: {:?}",
+                    "Can not compute CardanoTransactionsSnapshot artifact for signed_entity: {:?}",
                     SignedEntityType::CardanoTransactions(certificate.epoch, beacon)
                 )
             })?;

@@ -65,7 +65,7 @@ mod tests {
 
     // Test the retro compatibility with possible future upgrades.
     #[test]
-    fn test_v2() {
+    fn test_v1() {
         let json = r#"[{
         "merkle_root": "mkroot-123",
         "epoch": 7,

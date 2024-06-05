@@ -13,7 +13,7 @@ pub struct CardanoTransactionSnapshotMessage {
     /// Epoch of the Cardano transactions snapshot
     pub epoch: Epoch,
 
-    /// ChainPoint of the Cardano transactions snapshot
+    /// Block number of the Cardano transactions snapshot
     pub block_number: BlockNumber,
 
     /// Hash of the Cardano Transactions snapshot
@@ -63,7 +63,7 @@ mod tests {
 
     // Test the retro compatibility with possible future upgrades.
     #[test]
-    fn test_v2() {
+    fn test_v1() {
         let json = r#"{
             "merkle_root": "mkroot-123",
             "epoch": 8,

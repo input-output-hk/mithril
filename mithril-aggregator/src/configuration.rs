@@ -158,7 +158,7 @@ pub struct Configuration {
     pub cardano_transactions_prover_cache_pool_size: usize,
 
     /// Cardano transactions signing configuration
-    #[example = "`{ security_parameter: 3000, step: 90 }`"]
+    #[example = "`{ security_parameter: 3000, step: 120 }`"]
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 }
 
@@ -405,7 +405,7 @@ impl Default for DefaultConfiguration {
             cardano_transactions_prover_cache_pool_size: 10,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
                 security_parameter: 3000,
-                step: 90,
+                step: 120,
             },
         }
     }

@@ -106,7 +106,7 @@ impl CardanoTransactionRepository {
             .fetch_collect(InsertBlockRangeRootQuery::insert_many(records)?)
     }
 
-    /// Get the highest [BlockNumber] of the cardano transactions stored in the database.
+    /// Get the highest [ChainPoint] of the cardano transactions stored in the database.
     pub async fn get_transaction_highest_chain_point(&self) -> StdResult<Option<ChainPoint>> {
         let first_transaction_with_highest_block_number = self
             .connection

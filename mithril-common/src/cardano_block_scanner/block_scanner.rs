@@ -9,7 +9,7 @@ use crate::digesters::ImmutableFile;
 use crate::entities::{BlockNumber, ChainPoint, ImmutableFileNumber};
 use crate::StdResult;
 
-/// Trait to find the lower bound that should be used the [block scanner][CardanoBlockScanner] when
+/// Trait to find the lower bound that should be used by the [block scanner][CardanoBlockScanner] when
 /// scanning.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]

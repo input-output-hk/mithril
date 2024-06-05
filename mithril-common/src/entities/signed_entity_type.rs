@@ -50,12 +50,13 @@ pub enum SignedEntityType {
 ///
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoTransactionsSigningConfig {
-    /// Number of blocks to wait before taking in account a transaction.
+    /// Number of blocks to discard from the tip of the chain when importing transactions.
     pub security_parameter: BlockNumber,
 
-    /// The frequency at which the transactions are signed.
+    /// The number of blocks between signature of the transactions.
     ///
-    /// *Note: The step is adjusted to be a multiple of the block range length in order.*
+    /// *Note: The step is adjusted to be a multiple of the block range length in order
+    /// to guarantee that the block number signed in a certificate is effectively signed.*
     pub step: BlockNumber,
 }
 
@@ -70,12 +71,16 @@ impl CardanoTransactionsSigningConfig {
         }
     }
 
-    /// Compute the block number to be signed based on che chain tip block number.
+    /// Compute the block number to be signed based on the chain tip block number.
     ///
-    /// Given k' = `security_parameter` and n = `step`,
-    /// the latest block number to be signed is computed as *(this use a integer division)*:
+    /// The latest block number to be signed is the highest multiple of the step less or equal than the
+    /// block number minus the security parameter.
     ///
-    /// **block_number = ((tip.block_number - k') / n) × n**
+    /// The formula is as follows:
+    ///
+    /// `block_number = ⌊(tip.block_number - security_parameter) / step⌋ × step`
+    ///
+    /// where `⌊x⌋` is the floor function which rounds to the greatest integer less than or equal to `x`.
     ///
     /// *Note: The step is adjusted to be a multiple of the block range length in order
     /// to guarantee that the block number signed in a certificate is effectively signed.*

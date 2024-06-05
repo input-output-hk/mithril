@@ -135,7 +135,7 @@ impl MithrilSignedEntityService {
                     .await
                     .with_context(|| {
                         format!(
-                            "Signed Entity Service can not compute artifact for entity type: '{block_number}'"
+                            "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
                         )
                     })?,
             )),
