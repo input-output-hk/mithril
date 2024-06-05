@@ -446,6 +446,7 @@ Here is a list of the available parameters:
 | `snapshot_compression_algorithm` | `--snapshot-compression-algorithm` | - | `SNAPSHOT_COMPRESSION_ALGORITHM` | Compression algorithm of the snapshot archive | `zstandard` | `gzip` or `zstandard` | - |
 | `zstandard_parameters` | - | - | `ZSTANDARD_PARAMETERS__LEVEL` and `ZSTANDARD_PARAMETERS__NUMBER_OF_WORKERS` | Zstandard specific parameters | - | `{ level: 9, number_of_workers: 4 }` | - |
 | `allow_unparsable_block` | `--allow-unparsable-block` | - | `ALLOW_UNPARSABLE_BLOCK` | If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks. | `false` | - | - |
+| `cardano_transactions_signing_config` | - | - | `CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER` and `CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP` | Cardano transactions signing configuration | - | `{ security_parameter: 3000, step: 120 }` | - |
 
 `genesis bootstrap` command:
 
