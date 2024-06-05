@@ -668,7 +668,7 @@ mod tests {
         let errors: Vec<String> = check_apispec_examples(api_spec);
 
         assert!(
-            errors.len() == 0,
+            errors.is_empty(),
             "Errors in examples\n{}",
             errors.join("\n")
         );
@@ -729,8 +729,8 @@ mod tests {
         let mut errors: Vec<String> = vec![];
 
         errors.append(&mut check_example_conformity(
-            &api_spec,
-            &path_to_value,
+            api_spec,
+            path_to_value,
             root_value,
         ));
 
@@ -739,7 +739,7 @@ mod tests {
                 errors.append(&mut check_apispec_examples_value(
                     api_spec,
                     &format!("{path_to_value} {value_key}"),
-                    &value,
+                    value,
                 ));
             }
         }
@@ -749,7 +749,7 @@ mod tests {
                 errors.append(&mut check_apispec_examples_value(
                     api_spec,
                     &format!("{path_to_value}[?]"),
-                    &value,
+                    value,
                 ));
             }
         }
@@ -762,8 +762,6 @@ mod tests {
             // The type definition is at the same level as the example (components) unless there is a schema property (paths).
             let component_definition = component.get("schema").unwrap_or(component);
 
-            // println!("Check example on : {component_definition:?}");
-            // println!("         Example : {example:?}");
             let result = api_spec.validate_conformity(example, component_definition);
             if let Err(e) = result {
                 return vec![format!(
@@ -773,6 +771,6 @@ mod tests {
             }
         }
 
-        return vec![];
+        vec![]
     }
 }
