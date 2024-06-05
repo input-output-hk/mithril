@@ -22,8 +22,8 @@ pub struct GenesisToolsDependency {
     /// Verification key store
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,
 
-    /// Time point provider service.
-    pub time_point_provider: Arc<dyn TickerService>,
+    /// Ticker service.
+    pub ticker_service: Arc<dyn TickerService>,
 
     /// Genesis signature verifier service.
     pub genesis_verifier: Arc<ProtocolGenesisVerifier>,
@@ -70,7 +70,7 @@ impl GenesisTools {
     }
 
     pub async fn from_dependencies(dependencies: GenesisToolsDependency) -> StdResult<Self> {
-        let time_point_provider = dependencies.time_point_provider.clone();
+        let time_point_provider = dependencies.ticker_service.clone();
         let time_point = time_point_provider.get_current_time_point().await?;
 
         let genesis_verifier = dependencies.genesis_verifier.clone();

@@ -2,9 +2,7 @@ use crate::{
     database::repository::SignerGetter,
     dependency_injection::EpochServiceWrapper,
     event_store::{EventMessage, TransmitterService},
-    services::{
-        CertifierService, MessageService, ProverService, SignedEntityService, TickerService,
-    },
+    services::{CertifierService, MessageService, ProverService, SignedEntityService},
     CertificatePendingStore, Configuration, DependencyContainer, SignerRegisterer,
     VerificationKeyStorer,
 };
@@ -47,13 +45,6 @@ pub fn with_event_transmitter(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Arc<TransmitterService<EventMessage>>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.event_transmitter.clone())
-}
-
-/// With time point provider middleware
-pub fn with_time_point_provider(
-    dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (Arc<dyn TickerService>,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.time_point_provider.clone())
 }
 
 /// With certifier service middleware

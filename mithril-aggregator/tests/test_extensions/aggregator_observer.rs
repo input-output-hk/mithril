@@ -1,8 +1,6 @@
 use anyhow::{anyhow, Context};
 use mithril_aggregator::{
-    dependency_injection::DependenciesBuilder,
-    entities::OpenMessage,
-    services::{CertifierService, TickerService},
+    dependency_injection::DependenciesBuilder, entities::OpenMessage, services::CertifierService,
 };
 use mithril_common::{
     entities::{
@@ -16,7 +14,6 @@ use std::sync::Arc;
 // An observer that allow to inspect currently available open messages.
 pub struct AggregatorObserver {
     network: CardanoNetwork,
-    time_point_provider: Arc<dyn TickerService>,
     certifier_service: Arc<dyn CertifierService>,
     ticker_service: Arc<dyn TickerService>,
     cardano_transaction_signing_config: CardanoTransactionsSigningConfig,
@@ -27,7 +24,6 @@ impl AggregatorObserver {
     pub async fn new(deps_builder: &mut DependenciesBuilder) -> Self {
         Self {
             network: deps_builder.configuration.get_network().unwrap(),
-            time_point_provider: deps_builder.get_time_point_provider().await.unwrap(),
             certifier_service: deps_builder.get_certifier_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
             cardano_transaction_signing_config: deps_builder
@@ -39,15 +35,16 @@ impl AggregatorObserver {
 
     /// Get the current [Epoch] known to the aggregator
     pub async fn current_epoch(&self) -> Epoch {
-        self.ticker_service.get_current_epoch().await.unwrap()
+        self.ticker_service
+            .get_current_time_point()
+            .await
+            .unwrap()
+            .epoch
     }
 
     /// Get the current [TimePoint] known to the aggregator
     pub async fn current_time_point(&self) -> TimePoint {
-        self.time_point_provider
-            .get_current_time_point()
-            .await
-            .unwrap()
+        self.ticker_service.get_current_time_point().await.unwrap()
     }
 
     /// Get the current [open message][OpenMessageWithSingleSignatures] for the given message type
@@ -81,7 +78,7 @@ impl AggregatorObserver {
         discriminant: SignedEntityTypeDiscriminants,
     ) -> StdResult<SignedEntityType> {
         let time_point = self
-            .time_point_provider
+            .ticker_service
             .get_current_time_point()
             .await
             .with_context(|| "Querying the current beacon should not fail")?;

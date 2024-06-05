@@ -31,7 +31,7 @@ fn register_signer(
         .and(middlewares::with_event_transmitter(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_time_point_provider(dependency_manager))
+        .and(middlewares::with_ticker_service(dependency_manager))
         .and_then(handlers::register_signer)
 }
 

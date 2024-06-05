@@ -27,8 +27,10 @@ mod handlers {
     use mithril_common::{
         entities::SignedEntityType,
         messages::{RegisterSignatureMessage, TryFromMessageAdapter},
+        TickerService,
     };
 
+    use mithril_common::entities::CardanoDbBeacon;
     use slog_scope::{debug, trace, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -37,7 +39,7 @@ mod handlers {
     use crate::{
         http_server::routes::reply,
         message_adapters::FromRegisterSingleSignatureAdapter,
-        services::{CertifierService, CertifierServiceError, TickerService},
+        services::{CertifierService, CertifierServiceError},
     };
 
     /// Register Signatures
@@ -51,10 +53,14 @@ mod handlers {
 
         let signed_entity_type = match message.signed_entity_type.clone() {
             Some(signed_entity_type) => Ok(signed_entity_type),
-            None => ticker_service
-                .get_current_immutable_beacon()
-                .await
-                .map(SignedEntityType::CardanoImmutableFilesFull),
+            None => ticker_service.get_current_time_point().await.map(|t| {
+                // vvvvv - todo: use time_point auto conversion
+                SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                    "todo",
+                    *t.epoch,
+                    t.immutable_file_number,
+                ))
+            }),
         };
 
         match signed_entity_type {

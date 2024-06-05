@@ -158,7 +158,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         debug!("RUNNER: get time point from chain");
         let time_point = self
             .dependencies
-            .time_point_provider
+            .ticker_service
             .get_current_time_point()
             .await?;
 
@@ -565,9 +565,10 @@ pub mod tests {
         let current_epoch = runner
             .dependencies
             .ticker_service
-            .get_current_epoch()
+            .get_current_time_point()
             .await
-            .unwrap();
+            .unwrap()
+            .epoch;
         runner.inform_new_epoch(current_epoch).await.unwrap();
         runner.precompute_epoch_data().await.unwrap();
         runner
@@ -625,11 +626,11 @@ pub mod tests {
         immutable_file_observer
             .shall_return(Some(expected.immutable_file_number))
             .await;
-        let time_point_provider = Arc::new(MithrilTickerService::new(
+        let ticker_service = Arc::new(MithrilTickerService::new(
             Arc::new(FakeObserver::new(Some(expected.clone()))),
             immutable_file_observer,
         ));
-        dependencies.time_point_provider = time_point_provider;
+        dependencies.ticker_service = ticker_service;
         let runner = AggregatorRunner::new(Arc::new(dependencies));
 
         // Retrieves the expected time point
@@ -865,9 +866,9 @@ pub mod tests {
     #[tokio::test]
     async fn test_update_era_checker() {
         let deps = initialize_dependencies().await;
-        let time_point_provider = deps.time_point_provider.clone();
+        let ticker_service = deps.ticker_service.clone();
         let era_checker = deps.era_checker.clone();
-        let mut time_point = time_point_provider.get_current_time_point().await.unwrap();
+        let mut time_point = ticker_service.get_current_time_point().await.unwrap();
 
         assert_eq!(time_point.epoch, era_checker.current_epoch());
         let runner = AggregatorRunner::new(Arc::new(deps));
@@ -916,7 +917,12 @@ pub mod tests {
         deps.certifier_service = Arc::new(mock_certifier_service);
         let protocol_parameters_store = deps.protocol_parameters_store.clone();
         let expected_protocol_parameters = deps.config.protocol_parameters.clone();
-        let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
+        let current_epoch = deps
+            .ticker_service
+            .get_current_time_point()
+            .await
+            .unwrap()
+            .epoch;
         let insert_epoch = current_epoch.offset_to_protocol_parameters_recording_epoch();
 
         let runner = build_runner_with_fixture_data(deps).await;

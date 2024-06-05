@@ -26,7 +26,7 @@ use crate::{
     multi_signer::MultiSigner,
     services::{
         CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
-        StakeDistributionService, TickerService, TransactionStore,
+        StakeDistributionService, TransactionStore,
     },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
@@ -80,9 +80,6 @@ pub struct DependencyContainer {
 
     /// Chain observer service.
     pub chain_observer: Arc<dyn ChainObserver>,
-
-    /// Time point provider service.
-    pub time_point_provider: Arc<dyn TickerService>,
 
     /// Cardano transactions store.
     pub transaction_store: Arc<dyn TransactionStore>,
