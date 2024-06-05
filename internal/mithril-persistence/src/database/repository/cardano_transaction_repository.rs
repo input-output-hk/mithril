@@ -522,6 +522,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn repository_get_transaction_highest_chain_point_with_transactions_with_same_block_number_in_db(
+    ) {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let cardano_transactions = vec![
+            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
+            CardanoTransaction::new("tx-hash-456", 25, 51, "block-hash-25", 100),
+            CardanoTransaction::new("tx-hash-789", 25, 51, "block-hash-25", 100),
+        ];
+        repository
+            .create_transactions(cardano_transactions)
+            .await
+            .unwrap();
+
+        let highest_beacon = repository
+            .get_transaction_highest_chain_point()
+            .await
+            .unwrap();
+        assert_eq!(
+            Some(ChainPoint {
+                slot_number: 51,
+                block_number: 25,
+                block_hash: "block-hash-25".to_string()
+            }),
+            highest_beacon
+        );
+    }
+
+    #[tokio::test]
     async fn repository_get_transaction_highest_immutable_file_number_without_transactions_in_db() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(connection);
