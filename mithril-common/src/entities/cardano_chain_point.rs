@@ -1,14 +1,21 @@
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
+
+use serde::{Deserialize, Serialize};
+
 cfg_fs! {
     use pallas_network::miniprotocols::{chainsync::Tip, Point};
 }
+
+use crate::signable_builder::Beacon;
 
 /// [Cardano Slot number](https://docs.cardano.org/learn/cardano-node/#slotsandepochs)
 pub type SlotNumber = u64;
 
 /// BlockNumber is the block number of a Cardano transaction.
 pub type BlockNumber = u64;
+
+impl Beacon for BlockNumber {}
 
 /// Hash of a Cardano Block
 pub type BlockHash = String;
@@ -54,6 +61,16 @@ impl ChainPoint {
                 block_hash: "block_hash-50".to_string(),
             }
         }
+    }
+}
+
+impl Display for ChainPoint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ChainPoint (slot_number: {}, block_number: {}, block_hash: {})",
+            self.slot_number, self.block_number, self.block_hash
+        )
     }
 }
 

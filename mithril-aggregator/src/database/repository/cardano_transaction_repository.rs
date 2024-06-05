@@ -4,8 +4,7 @@ use async_trait::async_trait;
 
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
-    BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber,
-    TransactionHash,
+    BlockNumber, BlockRange, CardanoTransaction, ChainPoint, TransactionHash,
 };
 use mithril_common::StdResult;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
@@ -14,8 +13,8 @@ use crate::services::{TransactionStore, TransactionsRetriever};
 
 #[async_trait]
 impl TransactionStore for CardanoTransactionRepository {
-    async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>> {
-        self.get_transaction_highest_immutable_file_number().await
+    async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>> {
+        self.get_transaction_highest_chain_point().await
     }
 
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
@@ -52,16 +51,6 @@ impl TransactionStore for CardanoTransactionRepository {
 
 #[async_trait]
 impl TransactionsRetriever for CardanoTransactionRepository {
-    async fn get_up_to(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>> {
-        self.get_transactions_up_to(beacon.immutable_file_number)
-            .await
-            .map(|v| {
-                v.into_iter()
-                    .map(|record| record.into())
-                    .collect::<Vec<CardanoTransaction>>()
-            })
-    }
-
     async fn get_by_hashes(
         &self,
         hashes: Vec<TransactionHash>,

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use mithril_common::entities::{BlockNumber, ImmutableFileNumber};
+use mithril_common::entities::BlockNumber;
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 
@@ -41,7 +41,7 @@ impl TransactionsImporterWithPruner {
 
 #[async_trait]
 impl TransactionsImporter for TransactionsImporterWithPruner {
-    async fn import(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()> {
+    async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
         self.wrapped_importer.import(up_to_beacon).await?;
 
         if let Some(number_of_blocks_to_keep) = self.number_of_blocks_to_keep {
@@ -66,7 +66,7 @@ mod tests {
 
         #[async_trait]
         impl TransactionsImporter for TransactionImporterImpl {
-            async fn import(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()>;
+            async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
         }
     }
 
@@ -105,7 +105,7 @@ mod tests {
             },
         );
 
-        importer.import(10).await.expect("Import should not fail");
+        importer.import(100).await.expect("Import should not fail");
     }
 
     #[tokio::test]
@@ -124,6 +124,6 @@ mod tests {
             },
         );
 
-        importer.import(10).await.expect("Import should not fail");
+        importer.import(100).await.expect("Import should not fail");
     }
 }

@@ -1,5 +1,6 @@
 //! Migration module
 //!
+use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_persistence::database::SqlMigration;
 
 /// Get all the migrations required by this version of the software.
@@ -724,6 +725,32 @@ create index single_signature_open_message_id_index on single_signature(open_mes
 create index single_signature_signer_id_index on single_signature(signer_id);
 create index single_signature_registration_epoch_setting_id_index on single_signature(registration_epoch_setting_id);
 "#,
+        ),
+        // Migration 25
+        // Remove Certificate and SignedEntity based on CardanoTransactions since we changed their beacon
+        SqlMigration::new(
+            25,
+            format!(
+                r#"
+-- disable foreign keys since `certificate` and `signed_entity` are linked together
+pragma foreign_keys=false;
+
+delete from certificate
+where certificate_id in (
+    select s.certificate_id from signed_entity s
+    where s.signed_entity_type_id = {}
+);
+
+delete from signed_entity
+where signed_entity_type_id = {};
+
+-- reenable foreign keys
+pragma foreign_key_check;
+pragma foreign_keys=true;
+"#,
+                SignedEntityTypeDiscriminants::CardanoTransactions.index(),
+                SignedEntityTypeDiscriminants::CardanoTransactions.index()
+            ),
         ),
     ]
 }

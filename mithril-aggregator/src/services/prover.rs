@@ -10,8 +10,7 @@ use std::{
 use mithril_common::{
     crypto_helper::{MKMap, MKMapNode, MKTree},
     entities::{
-        BlockRange, CardanoDbBeacon, CardanoTransaction, CardanoTransactionsSetProof,
-        TransactionHash,
+        BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
     },
     resource_pool::ResourcePool,
     signable_builder::BlockRangeRootRetriever,
@@ -25,21 +24,18 @@ pub trait ProverService: Sync + Send {
     /// Compute the cryptographic proofs for the given transactions
     async fn compute_transactions_proofs(
         &self,
-        up_to: &CardanoDbBeacon,
+        up_to: BlockNumber,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>>;
 
     /// Compute the cache
-    async fn compute_cache(&self, up_to: &CardanoDbBeacon) -> StdResult<()>;
+    async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()>;
 }
 
 /// Transactions retriever
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait TransactionsRetriever: Sync + Send {
-    /// Get all transactions up to given beacon using chronological order
-    async fn get_up_to(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<CardanoTransaction>>;
-
     /// Get a list of transactions by hashes using chronological order
     async fn get_by_hashes(
         &self,
@@ -118,7 +114,7 @@ impl MithrilProverService {
 impl ProverService for MithrilProverService {
     async fn compute_transactions_proofs(
         &self,
-        _up_to: &CardanoDbBeacon,
+        _up_to: BlockNumber,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
         // 1 - Compute the set of block ranges with transactions to prove
@@ -164,7 +160,7 @@ impl ProverService for MithrilProverService {
         }
     }
 
-    async fn compute_cache(&self, up_to: &CardanoDbBeacon) -> StdResult<()> {
+    async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()> {
         let pool_size = self.mk_map_pool.size();
         info!(
             self.logger,
@@ -172,7 +168,7 @@ impl ProverService for MithrilProverService {
         );
         let mk_map_cache = self
             .block_range_root_retriever
-            .compute_merkle_map_from_block_range_roots(up_to.immutable_file_number)
+            .compute_merkle_map_from_block_range_roots(up_to)
             .await?;
         let discriminant_new = self.mk_map_pool.discriminant()? + 1;
         self.mk_map_pool.set_discriminant(discriminant_new)?;
@@ -201,7 +197,7 @@ impl ProverService for MithrilProverService {
 mod tests {
     use anyhow::anyhow;
     use mithril_common::crypto_helper::{MKMap, MKMapNode, MKTreeNode};
-    use mithril_common::entities::{CardanoTransaction, ImmutableFileNumber};
+    use mithril_common::entities::CardanoTransaction;
     use mithril_common::test_utils::CardanoTransactionsBuilder;
     use mockall::mock;
     use mockall::predicate::eq;
@@ -215,12 +211,12 @@ mod tests {
         impl BlockRangeRootRetriever for BlockRangeRootRetrieverImpl {
             async fn retrieve_block_range_roots(
                 &self,
-                up_to_beacon: ImmutableFileNumber,
+                up_to_beacon: BlockNumber,
             ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
 
             async fn compute_merkle_map_from_block_range_roots(
                 &self,
-                up_to_beacon: ImmutableFileNumber,
+                up_to_beacon: BlockNumber,
             ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>>;
         }
     }
@@ -298,11 +294,9 @@ mod tests {
 
         pub fn compute_beacon_from_transactions(
             transactions: &[CardanoTransaction],
-        ) -> CardanoDbBeacon {
-            CardanoDbBeacon {
-                immutable_file_number: transactions.last().unwrap().immutable_file_number,
-                ..CardanoDbBeacon::default()
-            }
+        ) -> BlockNumber {
+            let max_transaction = transactions.iter().max_by_key(|t| t.block_number).unwrap();
+            max_transaction.block_number
         }
 
         pub struct TestData {
@@ -310,7 +304,7 @@ mod tests {
             pub block_ranges_map: BTreeMap<BlockRange, Vec<CardanoTransaction>>,
             pub block_ranges_to_prove: Vec<BlockRange>,
             pub all_transactions_in_block_ranges_to_prove: Vec<CardanoTransaction>,
-            pub beacon: CardanoDbBeacon,
+            pub beacon: BlockNumber,
         }
 
         pub fn build_test_data(
@@ -401,10 +395,10 @@ mod tests {
                     });
             },
         );
-        prover.compute_cache(&test_data.beacon).await.unwrap();
+        prover.compute_cache(test_data.beacon).await.unwrap();
 
         let transactions_set_proof = prover
-            .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
+            .compute_transactions_proofs(test_data.beacon, &test_data.transaction_hashes_to_prove)
             .await
             .unwrap();
 
@@ -455,10 +449,10 @@ mod tests {
                     });
             },
         );
-        prover.compute_cache(&test_data.beacon).await.unwrap();
+        prover.compute_cache(test_data.beacon).await.unwrap();
 
         let transactions_set_proof = prover
-            .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
+            .compute_transactions_proofs(test_data.beacon, &test_data.transaction_hashes_to_prove)
             .await
             .unwrap();
 
@@ -512,10 +506,10 @@ mod tests {
                     });
             },
         );
-        prover.compute_cache(&test_data.beacon).await.unwrap();
+        prover.compute_cache(test_data.beacon).await.unwrap();
 
         let transactions_set_proof = prover
-            .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
+            .compute_transactions_proofs(test_data.beacon, &test_data.transaction_hashes_to_prove)
             .await
             .unwrap();
 
@@ -550,10 +544,10 @@ mod tests {
                     .return_once(|_| MKMap::new(&[]));
             },
         );
-        prover.compute_cache(&test_data.beacon).await.unwrap();
+        prover.compute_cache(test_data.beacon).await.unwrap();
 
         prover
-            .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
+            .compute_transactions_proofs(test_data.beacon, &test_data.transaction_hashes_to_prove)
             .await
             .expect_err("Should have failed because of transaction retriever failure");
     }
@@ -590,7 +584,7 @@ mod tests {
         );
 
         prover
-            .compute_transactions_proofs(&test_data.beacon, &test_data.transaction_hashes_to_prove)
+            .compute_transactions_proofs(test_data.beacon, &test_data.transaction_hashes_to_prove)
             .await
             .expect_err("Should have failed because of block range root retriever failure");
     }

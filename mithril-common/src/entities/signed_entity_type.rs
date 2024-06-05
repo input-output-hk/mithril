@@ -6,7 +6,7 @@ use sha2::Sha256;
 use std::time::Duration;
 use strum::{AsRefStr, Display, EnumDiscriminants, EnumString};
 
-use super::{CardanoDbBeacon, Epoch, TimePoint};
+use super::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, TimePoint};
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
 const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
@@ -41,7 +41,58 @@ pub enum SignedEntityType {
     CardanoImmutableFilesFull(CardanoDbBeacon),
 
     /// Cardano Transactions
-    CardanoTransactions(CardanoDbBeacon),
+    CardanoTransactions(Epoch, BlockNumber),
+}
+
+/// Configuration for the signing of Cardano transactions
+///
+/// Allow to compute the block number to be signed based on the chain tip block number.
+///
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CardanoTransactionsSigningConfig {
+    /// Number of blocks to discard from the tip of the chain when importing transactions.
+    pub security_parameter: BlockNumber,
+
+    /// The number of blocks between signature of the transactions.
+    ///
+    /// *Note: The step is adjusted to be a multiple of the block range length in order
+    /// to guarantee that the block number signed in a certificate is effectively signed.*
+    pub step: BlockNumber,
+}
+
+impl CardanoTransactionsSigningConfig {
+    cfg_test_tools! {
+        /// Create a dummy config
+        pub fn dummy() -> Self {
+            Self {
+                security_parameter: 0,
+                step: 15,
+            }
+        }
+    }
+
+    /// Compute the block number to be signed based on the chain tip block number.
+    ///
+    /// The latest block number to be signed is the highest multiple of the step less or equal than the
+    /// block number minus the security parameter.
+    ///
+    /// The formula is as follows:
+    ///
+    /// `block_number = ⌊(tip.block_number - security_parameter) / step⌋ × step`
+    ///
+    /// where `⌊x⌋` is the floor function which rounds to the greatest integer less than or equal to `x`.
+    ///
+    /// *Note: The step is adjusted to be a multiple of the block range length in order
+    /// to guarantee that the block number signed in a certificate is effectively signed.*
+    pub fn compute_block_number_to_be_signed(&self, block_number: BlockNumber) -> BlockNumber {
+        // TODO: See if we can remove this adjustment by including a "partial" block range in
+        // the signed data.
+        let adjusted_step = BlockRange::from_block_number(self.step).start;
+        // We can't have a step lower than the block range length.
+        let adjusted_step = std::cmp::max(adjusted_step, BlockRange::LENGTH);
+
+        (block_number - self.security_parameter) / adjusted_step * adjusted_step
+    }
 }
 
 impl SignedEntityType {
@@ -58,8 +109,10 @@ impl SignedEntityType {
     /// Return the epoch from the intern beacon.
     pub fn get_epoch(&self) -> Epoch {
         match self {
-            Self::CardanoImmutableFilesFull(b) | Self::CardanoTransactions(b) => b.epoch,
-            Self::CardanoStakeDistribution(e) | Self::MithrilStakeDistribution(e) => *e,
+            Self::CardanoImmutableFilesFull(b) => b.epoch,
+            Self::CardanoStakeDistribution(e)
+            | Self::MithrilStakeDistribution(e)
+            | Self::CardanoTransactions(e, _) => *e,
         }
     }
 
@@ -69,18 +122,23 @@ impl SignedEntityType {
             Self::MithrilStakeDistribution(_) => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
             Self::CardanoStakeDistribution(_) => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
             Self::CardanoImmutableFilesFull(_) => ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL,
-            Self::CardanoTransactions(_) => ENTITY_TYPE_CARDANO_TRANSACTIONS,
+            Self::CardanoTransactions(_, _) => ENTITY_TYPE_CARDANO_TRANSACTIONS,
         }
     }
 
     /// Return a JSON serialized value of the internal beacon
     pub fn get_json_beacon(&self) -> StdResult<String> {
         let value = match self {
-            Self::CardanoImmutableFilesFull(value) | Self::CardanoTransactions(value) => {
-                serde_json::to_string(value)?
-            }
+            Self::CardanoImmutableFilesFull(value) => serde_json::to_string(value)?,
             Self::CardanoStakeDistribution(value) | Self::MithrilStakeDistribution(value) => {
                 serde_json::to_string(value)?
+            }
+            Self::CardanoTransactions(epoch, block_number) => {
+                let json = serde_json::json!({
+                    "epoch": epoch,
+                    "block_number": block_number,
+                });
+                serde_json::to_string(&json)?
             }
         };
 
@@ -92,7 +150,7 @@ impl SignedEntityType {
         match self {
             Self::MithrilStakeDistribution(_) | Self::CardanoImmutableFilesFull(_) => None,
             Self::CardanoStakeDistribution(_) => Some(Duration::from_secs(600)),
-            Self::CardanoTransactions(_) => Some(Duration::from_secs(1800)),
+            Self::CardanoTransactions(_, _) => Some(Duration::from_secs(1800)),
         }
     }
 
@@ -101,6 +159,7 @@ impl SignedEntityType {
         discriminant: &SignedEntityTypeDiscriminants,
         network: &str,
         time_point: &TimePoint,
+        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
     ) -> Self {
         match discriminant {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
@@ -117,7 +176,9 @@ impl SignedEntityType {
                 ))
             }
             SignedEntityTypeDiscriminants::CardanoTransactions => Self::CardanoTransactions(
-                CardanoDbBeacon::new(network, *time_point.epoch, time_point.immutable_file_number),
+                time_point.epoch,
+                cardano_transactions_signing_config
+                    .compute_block_number_to_be_signed(time_point.chain_point.block_number),
             ),
         }
     }
@@ -128,11 +189,14 @@ impl SignedEntityType {
             | SignedEntityType::CardanoStakeDistribution(epoch) => {
                 hasher.update(&epoch.to_be_bytes())
             }
-            SignedEntityType::CardanoImmutableFilesFull(db_beacon)
-            | SignedEntityType::CardanoTransactions(db_beacon) => {
+            SignedEntityType::CardanoImmutableFilesFull(db_beacon) => {
                 hasher.update(db_beacon.network.as_bytes());
                 hasher.update(&db_beacon.epoch.to_be_bytes());
                 hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
+            }
+            SignedEntityType::CardanoTransactions(epoch, block_number) => {
+                hasher.update(&epoch.to_be_bytes());
+                hasher.update(&block_number.to_be_bytes())
             }
         }
     }
@@ -163,7 +227,94 @@ impl SignedEntityTypeDiscriminants {
 
 #[cfg(test)]
 mod tests {
+    use digest::Digest;
+
+    use crate::test_utils::assert_same_json;
+
     use super::*;
+
+    #[test]
+    fn verify_signed_entity_type_properties_are_included_in_computed_hash() {
+        fn hash(signed_entity_type: SignedEntityType) -> String {
+            let mut hasher = Sha256::new();
+            signed_entity_type.feed_hash(&mut hasher);
+            hex::encode(hasher.finalize())
+        }
+
+        let reference_hash = hash(SignedEntityType::MithrilStakeDistribution(Epoch(5)));
+        assert_ne!(
+            reference_hash,
+            hash(SignedEntityType::MithrilStakeDistribution(Epoch(15)))
+        );
+
+        let reference_hash = hash(SignedEntityType::CardanoStakeDistribution(Epoch(5)));
+        assert_ne!(
+            reference_hash,
+            hash(SignedEntityType::CardanoStakeDistribution(Epoch(15)))
+        );
+
+        let reference_hash = hash(SignedEntityType::CardanoImmutableFilesFull(
+            CardanoDbBeacon::new("network", 5, 100),
+        ));
+        assert_ne!(
+            reference_hash,
+            hash(SignedEntityType::CardanoImmutableFilesFull(
+                CardanoDbBeacon::new("other_network", 5, 100)
+            ))
+        );
+        assert_ne!(
+            reference_hash,
+            hash(SignedEntityType::CardanoImmutableFilesFull(
+                CardanoDbBeacon::new("network", 20, 100)
+            ))
+        );
+        assert_ne!(
+            reference_hash,
+            hash(SignedEntityType::CardanoImmutableFilesFull(
+                CardanoDbBeacon::new("network", 5, 507)
+            ))
+        );
+
+        let reference_hash = hash(SignedEntityType::CardanoTransactions(Epoch(35), 77));
+        assert_ne!(
+            reference_hash,
+            hash(SignedEntityType::CardanoTransactions(Epoch(3), 77))
+        );
+        assert_ne!(
+            reference_hash,
+            hash(SignedEntityType::CardanoTransactions(Epoch(35), 98765))
+        );
+    }
+
+    #[test]
+    fn serialize_beacon_to_json() {
+        let cardano_stake_distribution_json = SignedEntityType::CardanoStakeDistribution(Epoch(25))
+            .get_json_beacon()
+            .unwrap();
+        assert_same_json!("25", &cardano_stake_distribution_json);
+
+        let cardano_transactions_json = SignedEntityType::CardanoTransactions(Epoch(35), 77)
+            .get_json_beacon()
+            .unwrap();
+        assert_same_json!(
+            r#"{"epoch":35,"block_number":77}"#,
+            &cardano_transactions_json
+        );
+
+        let cardano_immutable_files_full_json =
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("network", 5, 100))
+                .get_json_beacon()
+                .unwrap();
+        assert_same_json!(
+            r#"{"network":"network","epoch":5,"immutable_file_number":100}"#,
+            &cardano_immutable_files_full_json
+        );
+
+        let msd_json = SignedEntityType::MithrilStakeDistribution(Epoch(15))
+            .get_json_beacon()
+            .unwrap();
+        assert_same_json!("15", &msd_json);
+    }
 
     // Expected ord:
     // MithrilStakeDistribution < CardanoStakeDistribution < CardanoImmutableFilesFull < CardanoTransactions
@@ -212,6 +363,86 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
             ]
+        );
+    }
+
+    #[test]
+    fn computing_block_number_to_be_signed() {
+        // **block_number = ((tip.block_number - k') / n) × n**
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: 15,
+            }
+            .compute_block_number_to_be_signed(105),
+            105
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 5,
+                step: 15,
+            }
+            .compute_block_number_to_be_signed(100),
+            90
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 85,
+                step: 15,
+            }
+            .compute_block_number_to_be_signed(100),
+            15
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: 30,
+            }
+            .compute_block_number_to_be_signed(29),
+            0
+        );
+    }
+
+    #[test]
+    fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: BlockRange::LENGTH * 2 - 1,
+            }
+            .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
+            BlockRange::LENGTH * 5
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: BlockRange::LENGTH * 2 + 1,
+            }
+            .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
+            BlockRange::LENGTH * 4
+        );
+
+        // Adjusted step is always at least BLOCK_RANGE_LENGTH.
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: BlockRange::LENGTH - 1,
+            }
+            .compute_block_number_to_be_signed(BlockRange::LENGTH * 10 - 1),
+            BlockRange::LENGTH * 9
+        );
+
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 0,
+                step: BlockRange::LENGTH - 1,
+            }
+            .compute_block_number_to_be_signed(BlockRange::LENGTH - 1),
+            0
         );
     }
 }

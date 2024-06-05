@@ -21,8 +21,9 @@ impl
         snapshots
             .into_iter()
             .map(|entity| CardanoTransactionSnapshotListItemMessage {
-                merkle_root: entity.artifact.merkle_root.clone(),
-                beacon: entity.artifact.beacon.clone(),
+                merkle_root: entity.artifact.merkle_root,
+                epoch: entity.signed_entity_type.get_epoch(),
+                block_number: entity.artifact.block_number,
                 hash: entity.artifact.hash,
                 certificate_hash: entity.certificate_id,
                 created_at: entity.created_at,
@@ -41,7 +42,8 @@ mod tests {
         let mithril_stake_distribution_list_message_expected =
             vec![CardanoTransactionSnapshotListItemMessage {
                 merkle_root: signed_entity.artifact.merkle_root.clone(),
-                beacon: signed_entity.artifact.beacon.clone(),
+                epoch: signed_entity.signed_entity_type.get_epoch(),
+                block_number: signed_entity.artifact.block_number,
                 hash: signed_entity.artifact.hash.clone(),
                 certificate_hash: signed_entity.certificate_id.clone(),
                 created_at: signed_entity.created_at,

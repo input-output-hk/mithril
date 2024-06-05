@@ -25,7 +25,7 @@ impl ToCardanoTransactionsProofsMessageAdapter {
             &signed_entity.certificate_id,
             try_adapt_set_proof_message(transactions_set_proofs)?,
             transactions_hashes_not_certified,
-            signed_entity.artifact.beacon.immutable_file_number,
+            signed_entity.artifact.block_number,
         ))
     }
 }
@@ -104,7 +104,7 @@ mod tests {
             &signed_entity.certificate_id,
             transactions_set_proof_message_part,
             transactions_hashes_non_certified.to_vec(),
-            signed_entity.artifact.beacon.immutable_file_number,
+            signed_entity.artifact.block_number,
         );
         assert_eq!(expected_message, message);
     }

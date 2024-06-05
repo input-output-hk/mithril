@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.21
+  version: 0.1.22
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -979,10 +979,14 @@ components:
           description: Aggregate verification key (AVK) that will be used to create the next multi signature
           type: string
           format: bytes
+        latest_block_number:
+          description: The latest signed block number
+          type: string
       example:
         {
           "snapshot_digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
-          "next_aggregate_verification_key": "b132362c3232352c36392c31373133352c31323235392c3235332c3233342c34226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b33382c3382c3138322c3231322c2c363"
+          "next_aggregate_verification_key": "b132362c3232352c36392c31373133352c31323235392c3235332c3233342c34226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b33382c3382c3138322c3231322c2c363",
+          "latest_block_number": 123456
         }
 
     ProtocolMessage:
@@ -1607,7 +1611,8 @@ components:
           - hash
           - certificate_hash
           - merkle_root
-          - beacon
+          - epoch
+          - block_number
           - created_at
         properties:
           hash:
@@ -1622,8 +1627,12 @@ components:
             description: Merkle root of the Cardano transactions set
             type: string
             format: bytes
-          beacon:
-            $ref: "#/components/schemas/CardanoDbBeacon"
+          epoch:
+            $ref: "#/components/schemas/Epoch"
+          block_number:
+            description: Cardano block number
+            type: integer
+            format: int64
           created_at:
             description: Date and time at which the Cardano transactions set was created
             type: string
@@ -1633,12 +1642,8 @@ components:
             "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
-            "beacon":
-              {
-                "network": "mainnet",
-                "epoch": 329,
-                "immutable_file_number": 7060000
-              },
+            "epoch": 123,
+            "block_number": 1234,
             "created_at": "2022-06-14T10:52:31Z"
           }
 
@@ -1650,7 +1655,8 @@ components:
         - hash
         - certificate_hash
         - merkle_root
-        - beacon
+        - epoch
+        - block_number
         - created_at
       properties:
         hash:
@@ -1665,8 +1671,12 @@ components:
           description: Merkle root of the Cardano transactions set
           type: string
           format: bytes
-        beacon:
-          $ref: "#/components/schemas/CardanoDbBeacon"
+        epoch:
+          $ref: "#/components/schemas/Epoch"
+        block_number:
+          description: Cardano block number
+          type: integer
+          format: int64
         created_at:
           description: Date and time at which the Cardano transactions set was created
           type: string
@@ -1676,12 +1686,8 @@ components:
           "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
           "merkle_root": "33bfd17bc082ab5dd1fc0788241c70aa5325241c70aa532530d190809c5391bbc307905e8372",
-          "beacon":
-            {
-              "network": "mainnet",
-              "epoch": 329,
-              "immutable_file_number": 7060000
-            },
+          "epoch": 123,
+          "block_number": 1234,
           "created_at": "2022-06-14T10:52:31Z"
         }
 
@@ -1693,7 +1699,7 @@ components:
         - certificate_hash
         - certified_transactions
         - non_certified_transactions
-        - latest_immutable_file_number
+        - latest_block_number
       properties:
         certificate_hash:
           description: Hash of the certificate that validate the merkle root of this proof
@@ -1724,8 +1730,8 @@ components:
             description: Hash of the non certified Cardano transactions
             type: string
             format: bytes
-        latest_immutable_file_number:
-          description: Last immutable file number
+        latest_block_number:
+          description: Last block number
           type: integer
           format: int64
       example:
@@ -1736,7 +1742,7 @@ components:
             "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
           } ],
           "non_certified_transactions": [ "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517" ],
-          "latest_immutable_file_number": 7060000
+          "latest_block_number": 7060000
         }
 
     Error:

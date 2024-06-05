@@ -165,10 +165,10 @@ pub struct SqlMigration {
 
 impl SqlMigration {
     /// Create a new SQL migration instance.
-    pub fn new(version: DbVersion, alteration: &str) -> Self {
+    pub fn new<T: Into<String>>(version: DbVersion, alteration: T) -> Self {
         Self {
             version,
-            alterations: alteration.to_string(),
+            alterations: alteration.into(),
         }
     }
 }

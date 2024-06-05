@@ -212,7 +212,7 @@ pub async fn assert_signer_is_signing_cardano_transactions(
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CardanoTransactionSnapshotMessage>().await {
-                    Ok(artifact) => match artifact.beacon.epoch {
+                    Ok(artifact) => match artifact.epoch {
                         epoch if epoch >= expected_epoch_min => Ok(Some(artifact)),
                         epoch => Err(anyhow!(
                             "Minimum expected artifact epoch not reached : {epoch} < {expected_epoch_min}"

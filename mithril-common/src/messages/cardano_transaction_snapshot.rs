@@ -2,18 +2,19 @@ use chrono::DateTime;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::CardanoDbBeacon;
-#[cfg(any(test, feature = "test_tools"))]
-use crate::test_utils::fake_data;
+use crate::entities::{BlockNumber, Epoch};
 
 /// Message structure of a Cardano Transactions snapshot
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CardanoTransactionSnapshotMessage {
     /// Merkle root of the Cardano transactions snapshot
     pub merkle_root: String,
 
-    /// Beacon of the Cardano transactions snapshot
-    pub beacon: CardanoDbBeacon,
+    /// Epoch of the Cardano transactions snapshot
+    pub epoch: Epoch,
+
+    /// Block number of the Cardano transactions snapshot
+    pub block_number: BlockNumber,
 
     /// Hash of the Cardano Transactions snapshot
     pub hash: String,
@@ -31,7 +32,8 @@ impl CardanoTransactionSnapshotMessage {
         pub fn dummy() -> Self {
             Self {
                 merkle_root: "mkroot-123".to_string(),
-                beacon: fake_data::beacon(),
+                epoch: Epoch(10),
+                block_number: 100,
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -49,7 +51,8 @@ mod tests {
     fn golden_message() -> CardanoTransactionSnapshotMessage {
         CardanoTransactionSnapshotMessage {
             merkle_root: "mkroot-123".to_string(),
-            beacon: CardanoDbBeacon::new("testnet", 10, 100),
+            epoch: Epoch(8),
+            block_number: 6,
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -63,11 +66,8 @@ mod tests {
     fn test_v1() {
         let json = r#"{
             "merkle_root": "mkroot-123",
-            "beacon": {
-                "network": "testnet",
-                "epoch": 10,
-                "immutable_file_number": 100
-            },
+            "epoch": 8,
+            "block_number": 6,
             "hash": "hash-123",
             "certificate_hash": "certificate-hash-123",
             "created_at": "2023-01-19T13:43:05.618857482Z"

@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use mithril_common::crypto_helper::ProtocolParameters;
-use mithril_common::entities::{CardanoDbBeacon, Epoch, SignedEntity, SignedEntityType, Snapshot};
+use mithril_common::entities::{BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot};
 use mithril_common::messages::{
     CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
@@ -172,13 +172,14 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionSnapshotMessage {
         #[derive(Deserialize)]
         struct TmpCardanoTransaction {
             merkle_root: String,
-            beacon: CardanoDbBeacon,
+            block_number: BlockNumber,
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
         let cardano_transaction_message = CardanoTransactionSnapshotMessage {
             merkle_root: artifact.merkle_root,
-            beacon: artifact.beacon,
+            epoch: value.signed_entity_type.get_epoch(),
+            block_number: artifact.block_number,
             hash: artifact.hash,
             certificate_hash: value.certificate_id,
             created_at: value.created_at,
@@ -195,13 +196,14 @@ impl TryFrom<SignedEntityRecord> for CardanoTransactionSnapshotListItemMessage {
         #[derive(Deserialize)]
         struct TmpCardanoTransaction {
             merkle_root: String,
-            beacon: CardanoDbBeacon,
+            block_number: BlockNumber,
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoTransaction>(&value.artifact)?;
         let message = CardanoTransactionSnapshotListItemMessage {
             merkle_root: artifact.merkle_root,
-            beacon: artifact.beacon,
+            epoch: value.signed_entity_type.get_epoch(),
+            block_number: artifact.block_number,
             hash: artifact.hash,
             certificate_hash: value.certificate_id,
             created_at: value.created_at,

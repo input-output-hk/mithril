@@ -3,12 +3,13 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use mithril_common::cardano_block_scanner::{BlockScanner, ChainScannedBlocks};
 use mithril_common::crypto_helper::{MKTree, MKTreeNode};
-use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, ImmutableFileNumber};
+use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, ChainPoint};
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 
@@ -17,7 +18,7 @@ use mithril_common::StdResult;
 #[async_trait]
 pub trait TransactionStore: Send + Sync {
     /// Get the highest known transaction beacon
-    async fn get_highest_beacon(&self) -> StdResult<Option<ImmutableFileNumber>>;
+    async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>>;
 
     /// Store list of transactions
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
@@ -45,7 +46,6 @@ pub struct CardanoTransactionsImporter {
     block_scanner: Arc<dyn BlockScanner>,
     transaction_store: Arc<dyn TransactionStore>,
     logger: Logger,
-    rescan_offset: Option<usize>,
     dirpath: PathBuf,
 }
 
@@ -59,55 +59,46 @@ impl CardanoTransactionsImporter {
         block_scanner: Arc<dyn BlockScanner>,
         transaction_store: Arc<dyn TransactionStore>,
         dirpath: &Path,
-        rescan_offset: Option<usize>,
         logger: Logger,
     ) -> Self {
         Self {
             block_scanner,
             transaction_store,
             logger,
-            rescan_offset,
             dirpath: dirpath.to_owned(),
         }
     }
 
-    async fn import_transactions(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()> {
-        let from = self.get_starting_beacon().await?;
+    async fn import_transactions(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
+        let from = self.transaction_store.get_highest_beacon().await?;
         self.parse_and_store_transactions_not_imported_yet(from, up_to_beacon)
             .await
     }
 
-    async fn get_starting_beacon(&self) -> StdResult<Option<u64>> {
-        let highest = self.transaction_store.get_highest_beacon().await?;
-        let rescan_offset = self.rescan_offset.unwrap_or(0);
-        let highest = highest.map(|h| (h + 1).saturating_sub(rescan_offset as u64));
-        Ok(highest)
-    }
-
     async fn parse_and_store_transactions_not_imported_yet(
         &self,
-        from: Option<ImmutableFileNumber>,
-        until: ImmutableFileNumber,
+        from: Option<ChainPoint>,
+        until: BlockNumber,
     ) -> StdResult<()> {
-        if from.is_some_and(|f| f >= until) {
+        if from.as_ref().is_some_and(|f| f.block_number >= until) {
             debug!(
                 self.logger,
-                "TransactionsImporter does not need to retrieve Cardano transactions, the database is up to date for immutable '{until}'",
+                "TransactionsImporter does not need to retrieve Cardano transactions, the database is up to date for block_number '{until}'",
             );
             return Ok(());
         }
         debug!(
             self.logger,
-            "TransactionsImporter will retrieve Cardano transactions between immutables '{}' and '{until}'",
-            from.unwrap_or(0)
+            "TransactionsImporter will retrieve Cardano transactions between block_number '{}' and '{until}'",
+            from.as_ref().map(|c|c.block_number).unwrap_or(0)
         );
 
         let mut streamer = self.block_scanner.scan(&self.dirpath, from, until).await?;
 
         while let Some(blocks) = streamer.poll_next().await? {
             match blocks {
-                ChainScannedBlocks::RollForwards(blocks) => {
-                    let parsed_transactions: Vec<CardanoTransaction> = blocks
+                ChainScannedBlocks::RollForwards(forward_blocks) => {
+                    let parsed_transactions: Vec<CardanoTransaction> = forward_blocks
                         .into_iter()
                         .flat_map(|b| b.into_transactions())
                         .collect();
@@ -117,7 +108,7 @@ impl CardanoTransactionsImporter {
                         .await?;
                 }
                 ChainScannedBlocks::RollBackward(_) => {
-                    return Err(anyhow::anyhow!("RollBackward not supported"));
+                    return Err(anyhow!("RollBackward not supported"));
                 }
             }
         }
@@ -175,7 +166,7 @@ impl CardanoTransactionsImporter {
 
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
-    async fn import(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()> {
+    async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
         self.import_transactions(up_to_beacon).await?;
         self.import_block_ranges().await
     }
@@ -204,8 +195,8 @@ mod tests {
             async fn scan(
               &self,
               dirpath: &Path,
-              from_immutable: Option<ImmutableFileNumber>,
-              until_immutable: ImmutableFileNumber,
+              from: Option<ChainPoint>,
+              until: BlockNumber,
             ) -> StdResult<Box<dyn BlockStreamer>>;
         }
     }
@@ -219,7 +210,6 @@ mod tests {
                 scanner,
                 transaction_store,
                 Path::new(""),
-                None,
                 crate::test_tools::logger_for_tests(),
             )
         }
@@ -267,19 +257,19 @@ mod tests {
             ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
         ];
         let expected_transactions = into_transactions(&blocks);
-        let up_to_beacon = 12;
+        let up_to_block_number = 1000;
 
         let importer = {
             let mut scanner_mock = MockBlockScannerImpl::new();
             scanner_mock
                 .expect_scan()
-                .withf(move |_, from, until| from.is_none() && until == &up_to_beacon)
+                .withf(move |_, from, until| from.is_none() && until == &up_to_block_number)
                 .return_once(move |_, _, _| Ok(Box::new(DumbBlockStreamer::new(vec![blocks]))));
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
         };
 
         importer
-            .import_transactions(up_to_beacon)
+            .import_transactions(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -383,7 +373,7 @@ mod tests {
 
     #[tokio::test]
     async fn if_all_transactions_stored_nothing_is_parsed_and_stored() {
-        let up_to_beacon = 12;
+        let up_to_block_number = 12;
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
         let scanner = DumbBlockScanner::new(vec![
@@ -391,7 +381,7 @@ mod tests {
             ScannedBlock::new("block_hash-2", 20, 25, 11, vec!["tx_hash-3", "tx_hash-4"]),
         ]);
 
-        let last_tx = CardanoTransaction::new("tx-20", 30, 35, "block_hash-3", up_to_beacon);
+        let last_tx = CardanoTransaction::new("tx-20", 30, 35, "block_hash-3", up_to_block_number);
         repository
             .store_transactions(vec![last_tx.clone()])
             .await
@@ -401,7 +391,7 @@ mod tests {
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
 
         importer
-            .import_transactions(up_to_beacon)
+            .import_transactions(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -414,16 +404,22 @@ mod tests {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
 
-        let stored_block =
-            ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]);
+        let highest_stored_chain_point = ChainPoint::new(134, 10, "block_hash-1");
+        let stored_block = ScannedBlock::new(
+            highest_stored_chain_point.block_hash.clone(),
+            highest_stored_chain_point.block_number,
+            highest_stored_chain_point.slot_number,
+            5,
+            vec!["tx_hash-1", "tx_hash-2"],
+        );
         let to_store_block =
-            ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]);
+            ScannedBlock::new("block_hash-2", 20, 229, 8, vec!["tx_hash-3", "tx_hash-4"]);
         let expected_transactions: Vec<CardanoTransaction> = [
             stored_block.clone().into_transactions(),
             to_store_block.clone().into_transactions(),
         ]
         .concat();
-        let up_to_beacon = 14;
+        let up_to_block_number = 22;
 
         repository
             .store_transactions(stored_block.clone().into_transactions())
@@ -435,7 +431,10 @@ mod tests {
             let mut scanner_mock = MockBlockScannerImpl::new();
             scanner_mock
                 .expect_scan()
-                .withf(move |_, from, until| from == &Some(12) && until == &up_to_beacon)
+                .withf(move |_, from, until| {
+                    from == &Some(highest_stored_chain_point.clone())
+                        && *until == up_to_block_number
+                })
                 .return_once(move |_, _, _| {
                     Ok(Box::new(DumbBlockStreamer::new(vec![scanned_blocks])))
                 })
@@ -447,7 +446,7 @@ mod tests {
         assert_eq!(stored_block.into_transactions(), stored_transactions);
 
         importer
-            .import_transactions(up_to_beacon)
+            .import_transactions(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -613,6 +612,7 @@ mod tests {
             ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
             ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
         ];
+        let up_to_block_number = 1000;
         let transactions = into_transactions(&blocks);
 
         let (importer, repository) = {
@@ -626,50 +626,18 @@ mod tests {
         };
 
         importer
-            .import(12)
+            .import(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
         let cold_imported_transactions = repository.get_all().await.unwrap();
 
         importer
-            .import(12)
+            .import(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
         let warm_imported_transactions = repository.get_all().await.unwrap();
 
         assert_eq!(transactions, cold_imported_transactions);
         assert_eq!(cold_imported_transactions, warm_imported_transactions);
-    }
-
-    #[tokio::test]
-    async fn change_parsed_lower_bound_when_rescan_limit_is_set() {
-        fn importer_with_offset(
-            highest_stored_beacon: ImmutableFileNumber,
-            rescan_offset: ImmutableFileNumber,
-        ) -> CardanoTransactionsImporter {
-            let mut store = MockTransactionStore::new();
-            store
-                .expect_get_highest_beacon()
-                .returning(move || Ok(Some(highest_stored_beacon)));
-
-            CardanoTransactionsImporter::new(
-                Arc::new(MockBlockScannerImpl::new()),
-                Arc::new(store),
-                Path::new(""),
-                Some(rescan_offset as usize),
-                crate::test_tools::logger_for_tests(),
-            )
-        }
-        let importer = importer_with_offset(8, 3);
-
-        let from = importer.get_starting_beacon().await.unwrap();
-        // Expected should be: highest_stored_beacon + 1 - rescan_offset
-        assert_eq!(Some(6), from);
-
-        let importer = importer_with_offset(5, 10);
-
-        let from = importer.get_starting_beacon().await.unwrap();
-        // If sub overflow it should be 0
-        assert_eq!(Some(0), from);
     }
 }

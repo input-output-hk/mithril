@@ -6,12 +6,11 @@ use slog::{debug, Logger};
 
 use crate::{
     crypto_helper::{MKMap, MKMapNode, MKTreeNode},
-    entities::{BlockRange, CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
+    entities::{BlockNumber, BlockRange, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
 };
 
-use crate::entities::ImmutableFileNumber;
 #[cfg(test)]
 use mockall::automock;
 
@@ -20,7 +19,7 @@ use mockall::automock;
 #[async_trait]
 pub trait TransactionsImporter: Send + Sync {
     /// Returns all transactions up to the given beacon
-    async fn import(&self, up_to_beacon: ImmutableFileNumber) -> StdResult<()>;
+    async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
 }
 
 /// Block Range Merkle roots retriever
@@ -30,13 +29,13 @@ pub trait BlockRangeRootRetriever: Send + Sync {
     /// Returns a Merkle map of the block ranges roots up to a given beacon
     async fn retrieve_block_range_roots(
         &self,
-        up_to_beacon: ImmutableFileNumber,
+        up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
 
     /// Returns a Merkle map of the block ranges roots up to a given beacon
     async fn compute_merkle_map_from_block_range_roots(
         &self,
-        up_to_beacon: ImmutableFileNumber,
+        up_to_beacon: BlockNumber,
     ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
         let block_range_roots_iterator = self
             .retrieve_block_range_roots(up_to_beacon)
@@ -72,23 +71,18 @@ impl CardanoTransactionsSignableBuilder {
 }
 
 #[async_trait]
-impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
-    async fn compute_protocol_message(
-        &self,
-        beacon: CardanoDbBeacon,
-    ) -> StdResult<ProtocolMessage> {
+impl SignableBuilder<BlockNumber> for CardanoTransactionsSignableBuilder {
+    async fn compute_protocol_message(&self, beacon: BlockNumber) -> StdResult<ProtocolMessage> {
         debug!(
             self.logger,
-            "Compute protocol message for CardanoTransactions at beacon: {beacon}"
+            "Compute protocol message for CardanoTransactions at block_number: {beacon}"
         );
 
-        self.transaction_importer
-            .import(beacon.immutable_file_number)
-            .await?;
+        self.transaction_importer.import(beacon).await?;
 
         let mk_root = self
             .block_range_root_retriever
-            .compute_merkle_map_from_block_range_roots(beacon.immutable_file_number)
+            .compute_merkle_map_from_block_range_roots(beacon)
             .await?
             .compute_root()?;
 
@@ -98,8 +92,8 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoTransactionsSignableBuilder {
             mk_root.to_hex(),
         );
         protocol_message.set_message_part(
-            ProtocolMessagePartKey::LatestImmutableFileNumber,
-            beacon.immutable_file_number.to_string(),
+            ProtocolMessagePartKey::LatestBlockNumber,
+            beacon.to_string(),
         );
 
         Ok(protocol_message)
@@ -131,10 +125,7 @@ mod tests {
     #[tokio::test]
     async fn test_compute_signable() {
         // Arrange
-        let beacon = CardanoDbBeacon {
-            immutable_file_number: 14,
-            ..CardanoDbBeacon::default()
-        };
+        let block_number = 1453;
         let transactions = CardanoTransactionsBuilder::new().build_transactions(3);
         let mk_map = compute_mk_map_from_transactions(transactions.clone());
         let mut transaction_importer = MockTransactionsImporter::new();
@@ -155,7 +146,7 @@ mod tests {
 
         // Action
         let signable = cardano_transactions_signable_builder
-            .compute_protocol_message(beacon.clone())
+            .compute_protocol_message(block_number)
             .await
             .unwrap();
 
@@ -166,15 +157,15 @@ mod tests {
             mk_map.compute_root().unwrap().to_hex(),
         );
         signable_expected.set_message_part(
-            ProtocolMessagePartKey::LatestImmutableFileNumber,
-            "14".to_string(),
+            ProtocolMessagePartKey::LatestBlockNumber,
+            format!("{}", block_number),
         );
         assert_eq!(signable_expected, signable);
     }
 
     #[tokio::test]
     async fn test_compute_signable_with_no_block_range_root_return_error() {
-        let beacon = CardanoDbBeacon::default();
+        let block_number = 50;
         let mut transaction_importer = MockTransactionsImporter::new();
         transaction_importer.expect_import().return_once(|_| Ok(()));
         let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();
@@ -188,7 +179,7 @@ mod tests {
         );
 
         let result = cardano_transactions_signable_builder
-            .compute_protocol_message(beacon.clone())
+            .compute_protocol_message(block_number)
             .await;
 
         assert!(result.is_err());

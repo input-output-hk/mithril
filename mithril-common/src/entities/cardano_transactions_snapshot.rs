@@ -1,11 +1,12 @@
-use crate::signable_builder::Artifact;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use super::CardanoDbBeacon;
+use crate::signable_builder::Artifact;
+
+use super::BlockNumber;
 
 /// Snapshot of a set of Cardano transactions
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoTransactionsSnapshot {
     /// Hash of the Cardano transactions set
     pub hash: String,
@@ -14,15 +15,15 @@ pub struct CardanoTransactionsSnapshot {
     pub merkle_root: String,
 
     /// Beacon of the Cardano transactions set
-    pub beacon: CardanoDbBeacon,
+    pub block_number: BlockNumber,
 }
 
 impl CardanoTransactionsSnapshot {
     /// Creates a new [CardanoTransactionsSnapshot]
-    pub fn new(merkle_root: String, beacon: CardanoDbBeacon) -> Self {
+    pub fn new(merkle_root: String, block_number: BlockNumber) -> Self {
         let mut cardano_transactions_snapshot = Self {
             merkle_root,
-            beacon,
+            block_number,
             hash: "".to_string(),
         };
         cardano_transactions_snapshot.hash = cardano_transactions_snapshot.compute_hash();
@@ -33,7 +34,7 @@ impl CardanoTransactionsSnapshot {
     fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.merkle_root.clone().as_bytes());
-        hasher.update(self.beacon.compute_hash().as_bytes());
+        hasher.update(self.block_number.to_be_bytes());
 
         hex::encode(hasher.finalize())
     }
@@ -52,18 +53,21 @@ mod tests {
 
     #[test]
     fn test_cardano_transactions_snapshot_compute_hash() {
-        let hash_expected = "66a1d7aa3995e9a0dce15fae3f6b91640824ecd1f81991df5ce4ddff62b34df4";
+        let hash_expected = "fac28cf7aa07922258d7d3ad8b16d859d8a3b812822b90050cddbc2e6671aab5";
 
         assert_eq!(
             hash_expected,
-            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), CardanoDbBeacon::default())
-                .compute_hash()
+            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), 50).compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            CardanoTransactionsSnapshot::new("mk-root-456".to_string(), CardanoDbBeacon::default())
-                .compute_hash()
+            CardanoTransactionsSnapshot::new("mk-root-456".to_string(), 50).compute_hash()
+        );
+
+        assert_ne!(
+            hash_expected,
+            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), 47).compute_hash()
         );
     }
 }

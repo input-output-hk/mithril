@@ -3,7 +3,7 @@ use std::path::Path;
 use async_trait::async_trait;
 
 use crate::cardano_block_scanner::ScannedBlock;
-use crate::entities::{ChainPoint, ImmutableFileNumber};
+use crate::entities::{BlockNumber, ChainPoint};
 use crate::StdResult;
 
 /// A scanner that can read cardano transactions in a cardano database
@@ -17,8 +17,8 @@ use crate::StdResult;
 ///     use async_trait::async_trait;
 ///     use mockall::mock;
 ///
-///     use mithril_common::cardano_block_scanner::{BlockScanner, BlockStreamer, ScannedBlock};
-///     use mithril_common::entities::{CardanoDbBeacon, CardanoTransaction, ImmutableFileNumber};
+///     use mithril_common::cardano_block_scanner::{BlockScanner, BlockStreamer};
+///     use mithril_common::entities::{BlockNumber, ChainPoint};
 ///     use mithril_common::StdResult;
 ///
 ///     mock! {
@@ -29,8 +29,8 @@ use crate::StdResult;
 ///             async fn scan(
 ///               &self,
 ///               dirpath: &Path,
-///               from_immutable: Option<ImmutableFileNumber>,
-///               until_immutable: ImmutableFileNumber,
+///               from: Option<ChainPoint>,
+///               until: BlockNumber,
 ///             ) -> StdResult<Box<dyn BlockStreamer>>;
 ///         }
 ///     }
@@ -50,8 +50,8 @@ pub trait BlockScanner: Sync + Send {
     async fn scan(
         &self,
         dirpath: &Path,
-        from_immutable: Option<ImmutableFileNumber>,
-        until_immutable: ImmutableFileNumber,
+        from: Option<ChainPoint>,
+        until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>>;
 }
 

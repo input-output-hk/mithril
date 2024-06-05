@@ -1,5 +1,6 @@
 use crate::entities::{
-    CardanoTransactionsSetProof, ProtocolMessage, ProtocolMessagePartKey, TransactionHash,
+    BlockNumber, CardanoTransactionsSetProof, ProtocolMessage, ProtocolMessagePartKey,
+    TransactionHash,
 };
 use crate::messages::CardanoTransactionsSetProofMessagePart;
 use crate::StdError;
@@ -25,8 +26,8 @@ pub struct CardanoTransactionsProofsMessage {
     /// Transactions that could not be certified
     pub non_certified_transactions: Vec<TransactionHash>,
 
-    /// Latest immutable file number that has been certified
-    pub latest_immutable_file_number: u64,
+    /// Latest block number that has been certified
+    pub latest_block_number: BlockNumber,
 }
 
 #[cfg_attr(
@@ -53,7 +54,7 @@ pub struct VerifiedCardanoTransactions {
     certificate_hash: String,
     merkle_root: String,
     certified_transactions: Vec<TransactionHash>,
-    latest_immutable_file_number: u64,
+    latest_block_number: BlockNumber,
 }
 
 impl VerifiedCardanoTransactions {
@@ -76,8 +77,8 @@ impl VerifiedCardanoTransactions {
         );
 
         message.set_message_part(
-            ProtocolMessagePartKey::LatestImmutableFileNumber,
-            self.latest_immutable_file_number.to_string(),
+            ProtocolMessagePartKey::LatestBlockNumber,
+            self.latest_block_number.to_string(),
         );
     }
 }
@@ -117,13 +118,13 @@ impl CardanoTransactionsProofsMessage {
         certificate_hash: &str,
         certified_transactions: Vec<CardanoTransactionsSetProofMessagePart>,
         non_certified_transactions: Vec<TransactionHash>,
-        latest_immutable_file_number: u64,
+        latest_block_number: BlockNumber,
     ) -> Self {
         Self {
             certificate_hash: certificate_hash.to_string(),
             certified_transactions,
             non_certified_transactions,
-            latest_immutable_file_number,
+            latest_block_number,
         }
     }
 
@@ -173,16 +174,16 @@ impl CardanoTransactionsProofsMessage {
                 .iter()
                 .flat_map(|c| c.transactions_hashes.clone())
                 .collect(),
-            latest_immutable_file_number: self.latest_immutable_file_number,
+            latest_block_number: self.latest_block_number,
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::crypto_helper::MKProof;
 
     use super::*;
-    use crate::crypto_helper::MKProof;
 
     #[test]
     fn verify_malformed_proofs_fail() {
@@ -233,7 +234,7 @@ mod tests {
             certificate_hash: "whatever".to_string(),
             merkle_root: set_proof.merkle_root(),
             certified_transactions: set_proof.transactions_hashes().to_vec(),
-            latest_immutable_file_number: 99999,
+            latest_block_number: 99999,
         };
         let txs_proofs = CardanoTransactionsProofsMessage::new(
             "whatever",
@@ -315,7 +316,7 @@ mod tests {
     #[cfg(feature = "fs")]
     mod fs_only {
         use crate::crypto_helper::{MKMap, MKMapNode};
-        use crate::entities::{BlockRange, CardanoDbBeacon, CardanoTransaction};
+        use crate::entities::{BlockNumber, BlockRange, CardanoTransaction};
         use crate::signable_builder::{
             CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever,
             MockTransactionsImporter, SignableBuilder,
@@ -350,7 +351,7 @@ mod tests {
 
         fn from_verified_cardano_transaction(
             transactions: &[CardanoTransaction],
-            immutable_file_number: u64,
+            block_number: u64,
         ) -> ProtocolMessage {
             let set_proof = CardanoTransactionsSetProof::from_leaves(
                 transactions
@@ -365,7 +366,7 @@ mod tests {
                 certificate_hash: "whatever".to_string(),
                 merkle_root: set_proof.merkle_root(),
                 certified_transactions: set_proof.transactions_hashes().to_vec(),
-                latest_immutable_file_number: immutable_file_number,
+                latest_block_number: block_number,
             };
 
             let mut message = ProtocolMessage::new();
@@ -376,7 +377,7 @@ mod tests {
 
         async fn from_signable_builder(
             transactions: &[CardanoTransaction],
-            immutable_file_number: u64,
+            block_number: BlockNumber,
         ) -> ProtocolMessage {
             let mut transaction_importer = MockTransactionsImporter::new();
             transaction_importer
@@ -403,10 +404,7 @@ mod tests {
                 Logger::root(slog::Discard, slog::o!()),
             );
             cardano_transaction_signable_builder
-                .compute_protocol_message(CardanoDbBeacon {
-                    immutable_file_number,
-                    ..CardanoDbBeacon::default()
-                })
+                .compute_protocol_message(block_number)
                 .await
                 .unwrap()
         }

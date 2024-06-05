@@ -57,10 +57,10 @@ cfg_unstable! {
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::entities::{
-        CardanoDbBeacon, CompressionAlgorithm, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolParameters,
+        CardanoDbBeacon, CompressionAlgorithm, Epoch, ImmutableFileNumber, ProtocolMessage,
+        ProtocolMessagePartKey, ProtocolParameters,
     };
     cfg_unstable! {
-        pub use mithril_common::entities::TransactionHash;
+        pub use mithril_common::entities::{ChainPoint, TransactionHash, SlotNumber, BlockHash, BlockNumber};
     }
 }

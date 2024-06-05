@@ -179,15 +179,15 @@ mod tests {
     async fn repository_get_open_message() {
         let connection = get_connection().await;
         let repository = OpenMessageRepository::new(connection.clone());
-        let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
+        let epoch = Epoch(1);
 
         for signed_entity_type in [
-            SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-            SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-            SignedEntityType::CardanoTransactions(beacon.clone()),
+            SignedEntityType::MithrilStakeDistribution(epoch),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", *epoch, 1)),
+            SignedEntityType::CardanoTransactions(epoch, 100),
         ] {
             repository
-                .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
+                .create_open_message(epoch, &signed_entity_type, &ProtocolMessage::new())
                 .await
                 .unwrap();
             let open_message_result = repository

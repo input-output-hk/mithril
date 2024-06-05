@@ -97,7 +97,7 @@ mod handlers {
     ) -> StdResult<CardanoTransactionsProofsMessage> {
         let transactions_set_proofs = prover_service
             .compute_transactions_proofs(
-                &signed_entity.artifact.beacon,
+                signed_entity.artifact.block_number,
                 transaction_hashes.as_slice(),
             )
             .await?;
@@ -113,21 +113,17 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::vec;
-
-    use mithril_common::{
-        entities::{
-            CardanoDbBeacon, CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
-        },
-        test_utils::apispec::APISpec,
-    };
-
     use anyhow::anyhow;
     use serde_json::Value::Null;
+    use std::vec;
     use warp::{
         http::{Method, StatusCode},
         test::request,
+    };
+
+    use mithril_common::{
+        entities::{CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity},
+        test_utils::apispec::APISpec,
     };
 
     use crate::services::MockSignedEntityService;
@@ -135,6 +131,8 @@ mod tests {
         dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH,
         services::MockProverService, Configuration,
     };
+
+    use super::*;
 
     fn setup_router(
         dependency_manager: Arc<DependencyContainer>,
@@ -150,21 +148,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_response_message_return_immutable_file_number_from_artifact_beacon() {
+    async fn build_response_message_return_latest_block_number_from_artifact_beacon() {
         // Arrange
         let mut mock_prover_service = MockProverService::new();
         mock_prover_service
             .expect_compute_transactions_proofs()
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
 
-        let cardano_transactions_snapshot = {
-            let merkle_root = String::new();
-            let beacon = CardanoDbBeacon {
-                immutable_file_number: 2309,
-                ..CardanoDbBeacon::default()
-            };
-            CardanoTransactionsSnapshot::new(merkle_root, beacon)
-        };
+        let cardano_transactions_snapshot = CardanoTransactionsSnapshot::new(String::new(), 2309);
 
         let signed_entity = SignedEntity::<CardanoTransactionsSnapshot> {
             artifact: cardano_transactions_snapshot,
@@ -182,7 +173,7 @@ mod tests {
         .unwrap();
 
         // Assert
-        assert_eq!(message.latest_immutable_file_number, 2309)
+        assert_eq!(message.latest_block_number, 2309)
     }
 
     #[tokio::test]

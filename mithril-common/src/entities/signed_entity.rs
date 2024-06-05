@@ -1,10 +1,12 @@
-#[cfg(any(test, feature = "test_tools"))]
-use super::{CardanoDbBeacon, Epoch};
-use super::{CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntityType, Snapshot};
+use chrono::{DateTime, Utc};
+
 use crate::signable_builder::Artifact;
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_data;
-use chrono::{DateTime, Utc};
+
+#[cfg(any(test, feature = "test_tools"))]
+use super::{CardanoDbBeacon, Epoch};
+use super::{CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntityType, Snapshot};
 
 /// Aggregate for signed entity
 #[derive(Debug, Clone)]
@@ -66,11 +68,12 @@ impl SignedEntity<CardanoTransactionsSnapshot> {
     cfg_test_tools! {
         /// Create a dummy [SignedEntity] for [CardanoTransactionsSnapshot] entity
         pub fn dummy() -> Self {
+            let block_number = 50;
             SignedEntity {
                 signed_entity_id: "snapshot-id-123".to_string(),
-                signed_entity_type: SignedEntityType::CardanoTransactions(CardanoDbBeacon::default()),
+                signed_entity_type: SignedEntityType::CardanoTransactions(Epoch(5), block_number),
                 certificate_id: "certificate-hash-123".to_string(),
-                artifact: CardanoTransactionsSnapshot::new("mkroot123".to_string(), CardanoDbBeacon::default()),
+                artifact: CardanoTransactionsSnapshot::new("mkroot123".to_string(), block_number),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),

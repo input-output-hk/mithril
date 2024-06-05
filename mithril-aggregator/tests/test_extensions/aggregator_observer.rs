@@ -6,7 +6,8 @@ use mithril_aggregator::{
 };
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint,
+        CardanoTransactionsSigningConfig, Epoch, SignedEntityType, SignedEntityTypeDiscriminants,
+        TimePoint,
     },
     CardanoNetwork, StdResult, TimePointProvider,
 };
@@ -18,6 +19,7 @@ pub struct AggregatorObserver {
     time_point_provider: Arc<dyn TimePointProvider>,
     certifier_service: Arc<dyn CertifierService>,
     ticker_service: Arc<dyn TickerService>,
+    cardano_transaction_signing_config: CardanoTransactionsSigningConfig,
 }
 
 impl AggregatorObserver {
@@ -28,6 +30,10 @@ impl AggregatorObserver {
             time_point_provider: deps_builder.get_time_point_provider().await.unwrap(),
             certifier_service: deps_builder.get_certifier_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
+            cardano_transaction_signing_config: deps_builder
+                .configuration
+                .cardano_transactions_signing_config
+                .clone(),
         }
     }
 
@@ -79,25 +85,12 @@ impl AggregatorObserver {
             .get_current_time_point()
             .await
             .with_context(|| "Querying the current beacon should not fail")?;
-        let beacon = CardanoDbBeacon::new(
-            self.network.to_string(),
-            *time_point.epoch,
-            time_point.immutable_file_number,
-        );
 
-        match discriminant {
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
-                Ok(SignedEntityType::MithrilStakeDistribution(time_point.epoch))
-            }
-            SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                Ok(SignedEntityType::CardanoStakeDistribution(time_point.epoch))
-            }
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                Ok(SignedEntityType::CardanoImmutableFilesFull(beacon))
-            }
-            SignedEntityTypeDiscriminants::CardanoTransactions => {
-                Ok(SignedEntityType::CardanoTransactions(beacon))
-            }
-        }
+        Ok(SignedEntityType::from_time_point(
+            &discriminant,
+            &self.network.to_string(),
+            &time_point,
+            &self.cardano_transaction_signing_config,
+        ))
     }
 }

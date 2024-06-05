@@ -51,7 +51,7 @@
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 //! let cardano_transaction_snapshot = client.cardano_transaction().get_snapshot("CARDANO_TRANSACTION_SNAPSHOT_HASH").await?.unwrap();
 //!
-//! println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.beacon.epoch);
+//! println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.epoch);
 //! #    Ok(())
 //! # }
 //! ```
@@ -68,7 +68,7 @@
 //! let cardano_transaction_snapshots = client.cardano_transaction().list_snapshots().await?;
 //!
 //! for cardano_transaction_snapshot in cardano_transaction_snapshots {
-//!     println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.beacon.epoch);
+//!     println!("Cardano transaction snapshot hash={}, epoch={}", cardano_transaction_snapshot.hash, cardano_transaction_snapshot.epoch);
 //! }
 //! #    Ok(())
 //! # }
@@ -159,13 +159,14 @@ impl CardanoTransactionClient {
 #[cfg(test)]
 mod tests {
     use crate::aggregator_client::{AggregatorClientError, MockAggregatorHTTPClient};
-    use crate::common::CardanoDbBeacon;
+    use crate::common::Epoch;
     use crate::{
         CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
         CardanoTransactionsSetProof,
     };
     use anyhow::anyhow;
     use chrono::{DateTime, Utc};
+    use mockall::predicate::eq;
     use std::sync::Arc;
 
     use super::*;
@@ -174,7 +175,8 @@ mod tests {
         vec![
             CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-123".to_string(),
-                beacon: CardanoDbBeacon::new("network".to_string(), 1, 1),
+                epoch: Epoch(1),
+                block_number: 24,
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -183,7 +185,8 @@ mod tests {
             },
             CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-456".to_string(),
-                beacon: CardanoDbBeacon::new("network".to_string(), 1, 2),
+                epoch: Epoch(1),
+                block_number: 24,
                 hash: "hash-456".to_string(),
                 certificate_hash: "cert-hash-456".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -213,7 +216,8 @@ mod tests {
         let mut http_client = MockAggregatorHTTPClient::new();
         let message = CardanoTransactionSnapshot {
             merkle_root: "mk-123".to_string(),
-            beacon: CardanoDbBeacon::new("network".to_string(), 1, 1),
+            epoch: Epoch(1),
+            block_number: 24,
             hash: "hash-123".to_string(),
             certificate_hash: "cert-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -223,10 +227,13 @@ mod tests {
         let expected = message.clone();
         http_client
             .expect_get_content()
+            .with(eq(AggregatorRequest::GetCardanoTransactionSnapshot {
+                hash: "hash-123".to_string(),
+            }))
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
         let client = CardanoTransactionClient::new(Arc::new(http_client));
         let cardano_transaction_snapshot = client
-            .get_snapshot("hash")
+            .get_snapshot("hash-123")
             .await
             .unwrap()
             .expect("This test returns a cardano transaction snapshot");

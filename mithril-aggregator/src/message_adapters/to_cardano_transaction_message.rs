@@ -11,8 +11,9 @@ impl ToMessageAdapter<SignedEntity<CardanoTransactionsSnapshot>, CardanoTransact
     /// Method to trigger the conversion
     fn adapt(from: SignedEntity<CardanoTransactionsSnapshot>) -> CardanoTransactionSnapshotMessage {
         CardanoTransactionSnapshotMessage {
-            merkle_root: from.artifact.merkle_root.clone(),
-            beacon: from.artifact.beacon,
+            merkle_root: from.artifact.merkle_root,
+            epoch: from.signed_entity_type.get_epoch(),
+            block_number: from.artifact.block_number,
             hash: from.artifact.hash,
             certificate_hash: from.certificate_id,
             created_at: from.created_at,
@@ -29,7 +30,8 @@ mod tests {
         let signed_entity = SignedEntity::<CardanoTransactionsSnapshot>::dummy();
         let cardano_stake_distribution_message_expected = CardanoTransactionSnapshotMessage {
             merkle_root: signed_entity.artifact.merkle_root.clone(),
-            beacon: signed_entity.artifact.beacon.clone(),
+            epoch: signed_entity.signed_entity_type.get_epoch(),
+            block_number: signed_entity.artifact.block_number,
             hash: signed_entity.artifact.hash.clone(),
             certificate_hash: signed_entity.certificate_id.clone(),
             created_at: signed_entity.created_at,
