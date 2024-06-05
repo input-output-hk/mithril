@@ -141,18 +141,21 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
             .filter(|(_, v)| v.can_compute_proof())
             .map(|(k, v)| (k.to_owned(), v.to_owned()))
             .collect();
-        let leaves_by_keys: HashMap<K, Vec<MKTreeNode>> = leaves
+        let leaves_by_keys: HashMap<K, Vec<MKTreeNode>> = can_compute_proof_map
             .iter()
-            .filter_map(
-                |leaf| match can_compute_proof_map.iter().find(|(_, v)| v.contains(leaf)) {
-                    Some((key, _)) => Some((key.to_owned(), leaf)),
-                    _ => None,
-                },
-            )
-            .fold(HashMap::default(), |mut acc, (key, leaf)| {
-                acc.entry(key.to_owned())
-                    .or_default()
-                    .push(leaf.to_owned().into());
+            .map(|(key, value)| {
+                let leaves_found = leaves
+                    .iter()
+                    .filter_map(|leaf| value.contains(leaf).then_some(leaf.to_owned().into()))
+                    .collect::<Vec<_>>();
+
+                (key.to_owned(), leaves_found)
+            })
+            .fold(HashMap::default(), |mut acc, (key, leaves)| {
+                leaves.into_iter().for_each(|leaf| {
+                    acc.entry(key.to_owned()).or_default().push(leaf);
+                });
+
                 acc
             });
 
