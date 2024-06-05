@@ -572,7 +572,7 @@ mod tests {
         let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         api_spec
             .validate_query_parameters(
-                "/proof/cardano-transaction?transaction_hashes=123",
+                "/proof/cardano-transaction?transaction_hashes=a123,b456",
                 &api_spec.openapi["paths"]["/proof/cardano-transaction"]["get"],
             )
             .map(|_apispec| ())

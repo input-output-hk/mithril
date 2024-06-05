@@ -356,8 +356,8 @@ paths:
             type: array
             items:
               type: string
-            format: bytes
-            example: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f"
+              format: bytes
+              example: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f"
           explode: false
       responses:
         "200":
