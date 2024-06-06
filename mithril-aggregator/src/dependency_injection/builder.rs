@@ -24,7 +24,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{CertificatePending, CompressionAlgorithm, Epoch},
+    entities::{CertificatePending, CompressionAlgorithm, Epoch, SignedEntityConfig},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -88,6 +88,9 @@ const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
 pub struct DependenciesBuilder {
     /// Configuration parameters
     pub configuration: Configuration,
+
+    /// Signed entity configuration
+    pub signed_entity_config: Option<SignedEntityConfig>,
 
     /// SQLite database connection
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
@@ -213,6 +216,7 @@ impl DependenciesBuilder {
     pub fn new(configuration: Configuration) -> Self {
         Self {
             configuration,
+            signed_entity_config: None,
             sqlite_connection: None,
             transaction_sqlite_connection: None,
             stake_store: None,
@@ -252,6 +256,14 @@ impl DependenciesBuilder {
             message_service: None,
             prover_service: None,
         }
+    }
+
+    fn get_signed_entity_config(&mut self) -> Result<SignedEntityConfig> {
+        if self.signed_entity_config.is_none() {
+            self.signed_entity_config = Some(self.configuration.deduce_signed_entity_config()?);
+        }
+
+        Ok(self.signed_entity_config.clone().unwrap())
     }
 
     async fn build_sqlite_connection(
@@ -1139,6 +1151,7 @@ impl DependenciesBuilder {
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
+            signed_entity_config: self.get_signed_entity_config()?,
             sqlite_connection: self.get_sqlite_connection().await?,
             sqlite_connection_transaction: self.get_sqlite_connection_cardano_transaction().await?,
             stake_store: self.get_stake_store().await?,
@@ -1195,9 +1208,7 @@ impl DependenciesBuilder {
             self.configuration.get_network().with_context(|| {
                 "Dependencies Builder can not get Cardano network while creating aggregator runner"
             })?,
-            self.configuration
-                .cardano_transactions_signing_config
-                .clone(),
+            self.get_signed_entity_config()?,
         );
         let runtime = AggregatorRuntime::new(
             config,
@@ -1255,18 +1266,12 @@ impl DependenciesBuilder {
 
     /// Create [TickerService] instance.
     pub async fn build_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
-        // let network = self.configuration.get_network().with_context(|| {
-        //     "Dependencies Builder can not get Cardano network while building ticker service"
-        // })?;
         let chain_observer = self.get_chain_observer().await?;
         let immutable_observer = self.get_immutable_file_observer().await?;
-        let signed_entity_conversion_config =
-            self.configuration.get_signed_entity_conversion_config()?;
 
         Ok(Arc::new(MithrilTickerService::new(
             chain_observer,
             immutable_observer,
-            signed_entity_conversion_config,
         )))
     }
 

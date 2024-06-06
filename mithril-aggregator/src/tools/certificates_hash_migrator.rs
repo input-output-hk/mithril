@@ -191,8 +191,8 @@ impl CertificatesHashMigrator {
 #[cfg(test)]
 mod test {
     use mithril_common::entities::{
-        Epoch, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants as Type,
-        TimePoint,
+        Epoch, ImmutableFileNumber, SignedEntityConfig, SignedEntityType,
+        SignedEntityTypeDiscriminants as Type, TimePoint,
     };
     use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
@@ -248,7 +248,8 @@ mod test {
             previous_hash,
             time_point.epoch,
             time_point.immutable_file_number,
-            time_point.to_signed_entity(signed_entity_type),
+            SignedEntityConfig::dummy()
+                .time_point_to_signed_entity(signed_entity_type, &time_point),
         );
 
         certificate.into()

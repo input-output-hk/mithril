@@ -11,8 +11,7 @@ use std::str::FromStr;
 
 use mithril_common::entities::{
     CardanoTransactionsSigningConfig, CompressionAlgorithm, HexEncodedGenesisVerificationKey,
-    ProtocolParameters, SignedEntityConversionConfig, SignedEntityType,
-    SignedEntityTypeDiscriminants, TimePoint,
+    ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -273,12 +272,12 @@ impl Configuration {
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
-    /// Deduce the [SignedEntityConversionConfig] from the configuration.
-    pub fn get_signed_entity_conversion_config(&self) -> StdResult<SignedEntityConversionConfig> {
+    /// Deduce the [SignedEntityConfig] from this configuration.
+    pub fn deduce_signed_entity_config(&self) -> StdResult<SignedEntityConfig> {
         let network = self.get_network()?;
         let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
 
-        Ok(SignedEntityConversionConfig {
+        Ok(SignedEntityConfig {
             allowed_discriminants,
             network,
             cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
@@ -310,25 +309,6 @@ impl Configuration {
         }
 
         Ok(all_discriminants)
-    }
-
-    /// Create the deduplicated list of allowed signed entity types.
-    ///
-    /// By default, the list contains the MithrilStakeDistribution and the CardanoImmutableFilesFull.
-    /// The list can be extended with the configuration parameter `signed_entity_types`.
-    /// The signed entity types are defined in the [SignedEntityTypeDiscriminants] enum.
-    /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
-    pub fn list_allowed_signed_entity_types(
-        &self,
-        time_point: &TimePoint,
-    ) -> StdResult<Vec<SignedEntityType>> {
-        let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
-        let signed_entity_types = allowed_discriminants
-            .into_iter()
-            .map(|discriminant| time_point.to_signed_entity(discriminant))
-            .collect();
-
-        Ok(signed_entity_types)
     }
 }
 
@@ -515,9 +495,6 @@ impl Source for DefaultConfiguration {
 
 #[cfg(test)]
 mod test {
-    use mithril_common::entities::ChainPoint;
-    use mithril_common::test_utils::fake_data;
-
     use super::*;
 
     #[test]
@@ -661,45 +638,6 @@ mod test {
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
             ]),
             discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_with_specific_configuration() {
-        let beacon = fake_data::beacon();
-        let chain_point = ChainPoint {
-            block_number: 45,
-            ..ChainPoint::dummy()
-        };
-        let time_point = TimePoint::new(
-            *beacon.epoch,
-            beacon.immutable_file_number,
-            chain_point.clone(),
-            SignedEntityConversionConfig::dummy(),
-        );
-
-        let config = Configuration {
-            network: beacon.network.clone(),
-            signed_entity_types: Some("CardanoStakeDistribution, CardanoTransactions".to_string()),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 15,
-            },
-            ..Configuration::new_sample()
-        };
-
-        let signed_entity_types = config
-            .list_allowed_signed_entity_types(&time_point)
-            .unwrap();
-
-        assert_eq!(
-            vec![
-                SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-                SignedEntityType::CardanoStakeDistribution(beacon.epoch),
-                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-                SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number),
-            ],
-            signed_entity_types
         );
     }
 

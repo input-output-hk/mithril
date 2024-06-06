@@ -7,10 +7,7 @@ use std::{path::PathBuf, sync::Arc};
 use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::tests_setup,
-    entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, PartyId, SignedEntityConversionConfig,
-        SignedEntityTypeDiscriminants,
-    },
+    entities::{BlockNumber, PartyId},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
         EraReaderAdapter,
@@ -186,21 +183,6 @@ impl Configuration {
                 "Configuration: can not create era reader for adapter '{}'.",
                 &self.era_reader_adapter_type
             )
-        })
-    }
-
-    /// Deduce the [SignedEntityConversionConfig] from the configuration.
-    pub fn get_signed_entity_conversion_config(&self) -> StdResult<SignedEntityConversionConfig> {
-        let network = self.get_network()?;
-
-        Ok(SignedEntityConversionConfig {
-            allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-            network,
-            // Todo: make this configurable when decentralizing the signed
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 3000,
-                step: 120,
-            },
         })
     }
 }

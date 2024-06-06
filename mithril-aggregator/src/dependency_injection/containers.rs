@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use mithril_common::entities::SignedEntityConfig;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::BlockScanner,
@@ -45,8 +46,11 @@ pub struct DependencyContainer {
     /// Configuration structure.
     pub config: Configuration,
 
+    /// Signed entity configuration.
+    pub signed_entity_config: SignedEntityConfig,
+
     /// SQLite database connection
-    /// This is not a real service but is is needed to instantiate all store
+    /// This is not a real service but is needed to instantiate all store
     /// services. Shall be private dependency.
     pub sqlite_connection: Arc<SqliteConnection>,
 

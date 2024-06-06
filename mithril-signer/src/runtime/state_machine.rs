@@ -615,7 +615,6 @@ mod tests {
             immutable_file_number: 99,
             epoch: Epoch(9),
             chain_point: ChainPoint::dummy(),
-            ..TimePoint::dummy()
         };
         let state = SignerState::Registered {
             epoch: time_point.epoch,
@@ -656,7 +655,6 @@ mod tests {
             immutable_file_number: 99,
             epoch: Epoch(9),
             chain_point: ChainPoint::dummy(),
-            ..TimePoint::dummy()
         };
         let state = SignerState::Registered {
             epoch: time_point.epoch,
@@ -717,7 +715,6 @@ mod tests {
             immutable_file_number: 99,
             epoch: Epoch(9),
             chain_point: ChainPoint::dummy(),
-            ..TimePoint::dummy()
         };
         let time_point_clone = time_point.clone();
         let beacon = CardanoDbBeacon::new(
@@ -766,7 +763,6 @@ mod tests {
             immutable_file_number: 99,
             epoch: Epoch(9),
             chain_point: ChainPoint::dummy(),
-            ..TimePoint::dummy()
         };
         let new_time_point = TimePoint {
             epoch: Epoch(10),
@@ -805,7 +801,6 @@ mod tests {
             immutable_file_number: 99,
             epoch: Epoch(9),
             chain_point: ChainPoint::dummy(),
-            ..TimePoint::dummy()
         };
         let time_point_clone = time_point.clone();
         let state = SignerState::Signed {
@@ -844,7 +839,6 @@ mod tests {
             immutable_file_number: 99,
             epoch: Epoch(9),
             chain_point: ChainPoint::dummy(),
-            ..TimePoint::dummy()
         };
         let time_point_clone = time_point.clone();
         let state = SignerState::Signed {

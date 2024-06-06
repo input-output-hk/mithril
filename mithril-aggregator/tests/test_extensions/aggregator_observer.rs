@@ -4,8 +4,7 @@ use mithril_aggregator::{
 };
 use mithril_common::{
     entities::{
-        CardanoTransactionsSigningConfig, Epoch, SignedEntityType, SignedEntityTypeDiscriminants,
-        TimePoint,
+        Epoch, SignedEntityConfig, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint,
     },
     CardanoNetwork, StdResult, TickerService,
 };
@@ -16,7 +15,7 @@ pub struct AggregatorObserver {
     network: CardanoNetwork,
     certifier_service: Arc<dyn CertifierService>,
     ticker_service: Arc<dyn TickerService>,
-    cardano_transaction_signing_config: CardanoTransactionsSigningConfig,
+    signed_entity_config: SignedEntityConfig,
 }
 
 impl AggregatorObserver {
@@ -26,10 +25,10 @@ impl AggregatorObserver {
             network: deps_builder.configuration.get_network().unwrap(),
             certifier_service: deps_builder.get_certifier_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
-            cardano_transaction_signing_config: deps_builder
+            signed_entity_config: deps_builder
                 .configuration
-                .cardano_transactions_signing_config
-                .clone(),
+                .deduce_signed_entity_config()
+                .unwrap(),
         }
     }
 
@@ -79,6 +78,8 @@ impl AggregatorObserver {
             .await
             .with_context(|| "Querying the current beacon should not fail")?;
 
-        Ok(time_point.to_signed_entity(discriminant))
+        Ok(self
+            .signed_entity_config
+            .time_point_to_signed_entity(discriminant, &time_point))
     }
 }

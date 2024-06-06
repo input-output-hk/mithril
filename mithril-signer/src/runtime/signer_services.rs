@@ -226,7 +226,6 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             Arc::new(MithrilTickerService::new(
                 chain_observer.clone(),
                 builder(self.config)?,
-                self.config.get_signed_entity_conversion_config()?,
             ))
         };
 

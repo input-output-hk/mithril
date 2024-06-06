@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, Certificate, CertificatePending, Epoch, ProtocolMessage,
-    ProtocolMessagePartKey, SignedEntityType, Signer, TimePoint,
+    Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
+    SignedEntityConfig, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_persistence::store::StakeStorer;
@@ -26,8 +26,8 @@ pub struct AggregatorConfig {
     /// Cardano network
     pub network: CardanoNetwork,
 
-    /// Cardano transaction signing configuration
-    pub cardano_transaction_signing_config: CardanoTransactionsSigningConfig,
+    /// Signed entity configuration.
+    pub signed_entity_config: SignedEntityConfig,
 }
 
 impl AggregatorConfig {
@@ -35,12 +35,12 @@ impl AggregatorConfig {
     pub fn new(
         interval: Duration,
         network: CardanoNetwork,
-        cardano_transaction_signing_config: CardanoTransactionsSigningConfig,
+        signed_entity_config: SignedEntityConfig,
     ) -> Self {
         Self {
             interval,
             network,
-            cardano_transaction_signing_config,
+            signed_entity_config,
         }
     }
 }
@@ -188,11 +188,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         debug!("RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
         let signed_entity_types = self
             .dependencies
-            .config
-            .list_allowed_signed_entity_types(current_time_point)
-            .with_context(|| {
-                "AggregatorRunner can not create the list of allowed signed entity types"
-            })?;
+            .signed_entity_config
+            .list_allowed_signed_entity_types(current_time_point);
         for signed_entity_type in signed_entity_types {
             let current_open_message = self.get_current_open_message_for_signed_entity_type(&signed_entity_type)
                 .await
@@ -497,7 +494,7 @@ pub mod tests {
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
-    use mithril_common::entities::{ChainPoint, SignedEntityConversionConfig};
+    use mithril_common::entities::ChainPoint;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -619,12 +616,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_get_time_point_from_chain() {
-        let expected = TimePoint::new(
-            2,
-            17,
-            ChainPoint::dummy(),
-            SignedEntityConversionConfig::dummy(),
-        );
+        let expected = TimePoint::new(2, 17, ChainPoint::dummy());
         let mut dependencies = initialize_dependencies().await;
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         immutable_file_observer
@@ -633,7 +625,6 @@ pub mod tests {
         let ticker_service = Arc::new(MithrilTickerService::new(
             Arc::new(FakeObserver::new(Some(expected.clone()))),
             immutable_file_observer,
-            SignedEntityConversionConfig::dummy(),
         ));
         dependencies.ticker_service = ticker_service;
         let runner = AggregatorRunner::new(Arc::new(dependencies));
