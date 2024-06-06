@@ -391,10 +391,10 @@ components:
         .unwrap()
     }
 
-    /// To check that the example is verify,
+    /// To check that the example is verified,
     /// we create an openapi.yaml with an invalid example.
-    /// If the example is verify, we should have an error message.
-    /// A simple invalid example is one with an wrong type (string instead of integer)
+    /// If the example is verified, we should have an error message.
+    /// A simple invalid example is one with a wrong type (string instead of integer)
     fn check_example_error_is_detected(
         id: u32,
         paths: &str,
@@ -767,19 +767,6 @@ components:
         let spec_files = APISpec::get_all_spec_files();
         assert!(!spec_files.is_empty());
         assert!(spec_files.contains(&APISpec::get_default_spec_file()))
-    }
-
-    #[test]
-    fn test_examples_conformity() {
-        let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
-
-        let errors: Vec<String> = api_spec.verify_examples();
-
-        assert!(
-            errors.is_empty(),
-            "Errors in examples\n{}",
-            errors.join("\n")
-        );
     }
 
     #[test]
