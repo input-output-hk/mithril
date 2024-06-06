@@ -2,9 +2,6 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::{fs, sync::Arc, time::Duration};
 
-use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, SignedEntityConversionConfig, SignedEntityTypeDiscriminants,
-};
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::CardanoBlockScanner,
@@ -229,15 +226,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             Arc::new(MithrilTickerService::new(
                 chain_observer.clone(),
                 builder(self.config)?,
-                SignedEntityConversionConfig {
-                    allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-                    network,
-                    // Todo: make this configurable when decentralizing the signed
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                        security_parameter: 3000,
-                        step: 120,
-                    },
-                },
+                self.config.get_signed_entity_conversion_config()?,
             ))
         };
 

@@ -273,6 +273,18 @@ impl Configuration {
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
+    /// Deduce the [SignedEntityConversionConfig] from the configuration.
+    pub fn get_signed_entity_conversion_config(&self) -> StdResult<SignedEntityConversionConfig> {
+        let network = self.get_network()?;
+        let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
+
+        Ok(SignedEntityConversionConfig {
+            allowed_discriminants,
+            network,
+            cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
+        })
+    }
+
     /// Create the deduplicated list of allowed signed entity types discriminants.
     ///
     /// By default, the list contains the MithrilStakeDistribution and the CardanoImmutableFilesFull.

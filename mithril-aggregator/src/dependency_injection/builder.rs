@@ -1260,10 +1260,13 @@ impl DependenciesBuilder {
         // })?;
         let chain_observer = self.get_chain_observer().await?;
         let immutable_observer = self.get_immutable_file_observer().await?;
+        let signed_entity_conversion_config =
+            self.configuration.get_signed_entity_conversion_config()?;
 
         Ok(Arc::new(MithrilTickerService::new(
             chain_observer,
             immutable_observer,
+            signed_entity_conversion_config,
         )))
     }
 
