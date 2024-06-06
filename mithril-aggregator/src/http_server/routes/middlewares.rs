@@ -1,16 +1,19 @@
+use std::convert::Infallible;
+use std::sync::Arc;
+
+use warp::Filter;
+
+use mithril_common::entities::SignedEntityConfig;
+use mithril_common::{api_version::APIVersionProvider, TickerService};
+
+use crate::database::repository::SignerGetter;
+use crate::dependency_injection::EpochServiceWrapper;
+use crate::event_store::{EventMessage, TransmitterService};
+use crate::services::{CertifierService, MessageService, ProverService, SignedEntityService};
 use crate::{
-    database::repository::SignerGetter,
-    dependency_injection::EpochServiceWrapper,
-    event_store::{EventMessage, TransmitterService},
-    services::{CertifierService, MessageService, ProverService, SignedEntityService},
     CertificatePendingStore, Configuration, DependencyContainer, SignerRegisterer,
     VerificationKeyStorer,
 };
-
-use mithril_common::{api_version::APIVersionProvider, TickerService};
-use std::convert::Infallible;
-use std::sync::Arc;
-use warp::Filter;
 
 /// With certificate pending store
 pub(crate) fn with_certificate_pending_store(
@@ -38,6 +41,13 @@ pub fn with_config(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Configuration,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.config.clone())
+}
+
+/// With signed entity config middleware
+pub fn with_signed_entity_config(
+    dependency_manager: Arc<DependencyContainer>,
+) -> impl Filter<Extract = (SignedEntityConfig,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.signed_entity_config.clone())
 }
 
 /// With Event transmitter middleware
