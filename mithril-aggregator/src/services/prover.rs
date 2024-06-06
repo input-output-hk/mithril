@@ -360,12 +360,10 @@ mod tests {
 
     #[tokio::test]
     async fn compute_proof_for_one_set_of_three_certified_transactions() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
@@ -414,12 +412,10 @@ mod tests {
 
     #[tokio::test]
     async fn cant_compute_proof_for_not_yet_certified_transaction() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
@@ -458,12 +454,10 @@ mod tests {
 
     #[tokio::test]
     async fn cant_compute_proof_for_unknown_transaction() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove = test_data::filter_transactions_for_indices(&[], &transactions);
         let mut test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         test_data.transaction_hashes_to_prove = vec!["tx-unknown-123".to_string()];
@@ -507,12 +501,10 @@ mod tests {
 
     #[tokio::test]
     async fn compute_proof_for_one_set_of_three_certified_transactions_and_two_unknowns() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let transaction_hashes_unknown =
@@ -569,12 +561,10 @@ mod tests {
 
     #[tokio::test]
     async fn cant_compute_proof_if_transaction_retriever_fails() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
@@ -600,12 +590,10 @@ mod tests {
 
     #[tokio::test]
     async fn cant_compute_proof_if_block_range_root_retriever_fails() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);

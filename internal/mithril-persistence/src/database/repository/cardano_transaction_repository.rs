@@ -326,10 +326,10 @@ mod tests {
         let repository = CardanoTransactionRepository::new(connection);
         repository
             .create_transactions(vec![
-                CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 99),
-                CardanoTransactionRecord::new("tx_hash-456", 11, 51, "block_hash-456", 100),
-                CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 101),
-                CardanoTransactionRecord::new("tx_hash-000", 101, 100, "block_hash-000", 110),
+                CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 1234),
+                CardanoTransactionRecord::new("tx_hash-456", 11, 51, "block_hash-456", 1234),
+                CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 1234),
+                CardanoTransactionRecord::new("tx_hash-000", 101, 100, "block_hash-000", 1234),
             ])
             .await
             .unwrap();
@@ -342,8 +342,8 @@ mod tests {
 
             assert_eq!(
                 vec![
-                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 99),
-                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 101),
+                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 1234),
+                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 1234),
                 ],
                 transactions
             );
@@ -356,8 +356,8 @@ mod tests {
 
             assert_eq!(
                 vec![
-                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 99),
-                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 101),
+                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 1234),
+                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 1234),
                 ],
                 transactions
             );
@@ -370,9 +370,9 @@ mod tests {
 
             assert_eq!(
                 vec![
-                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 99),
-                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 101),
-                    CardanoTransactionRecord::new("tx_hash-000", 101, 100, "block_hash-000", 110),
+                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 1234),
+                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 1234),
+                    CardanoTransactionRecord::new("tx_hash-000", 101, 100, "block_hash-000", 1234),
                 ],
                 transactions
             );
