@@ -281,13 +281,15 @@ fn check_query_parameter_limitations(url: &Url, operation_object: &Value) {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
     use warp::http::Method;
     use warp::http::StatusCode;
 
     use super::*;
     use crate::entities;
     use crate::messages::{CertificatePendingMessage, SignerMessagePart};
-    use crate::test_utils::fake_data;
+    use crate::test_utils::{fake_data, TempDir};
 
     fn build_empty_response(status_code: u16) -> Response<Bytes> {
         Response::builder()
@@ -674,6 +676,96 @@ mod tests {
         );
     }
 
+    fn get_temp_dir(dir_name: &str) -> PathBuf {
+        TempDir::create("apispec", dir_name)
+    }
+
+    fn get_temp_openapi_filename(name: &str, id: u32) -> PathBuf {
+        get_temp_dir(&format!("{name}-{id}")).join("openapi.yaml")
+    }
+
+    fn write_minimal_open_api_file(version: &str, path: &Path, components: &str) {
+        fs::write(
+            path,
+            format!(
+                r#"openapi: "3.0.0"
+info:
+  version: {version}
+  title: Minimal Open Api File
+
+paths:
+
+components:
+  schemas:
+{components}
+"#
+            ),
+        )
+        .unwrap()
+    }
+
+    fn check_example_error_is_detected(id: u32, components: &str, expected_error_message: &str) {
+        let file = get_temp_openapi_filename("example", id);
+
+        write_minimal_open_api_file("1.0.0", &file, &components);
+
+        let api_spec = APISpec::from_file(file.to_str().unwrap());
+        let errors: Vec<String> = check_apispec_examples(api_spec);
+
+        assert_eq!(1, errors.len());
+        let error_message = errors.get(0).unwrap();
+        assert!(
+            error_message.contains(expected_error_message),
+            "Error message: {:?}\nshould contains: {}\n",
+            errors,
+            expected_error_message
+        );
+    }
+
+    #[test]
+    fn test_example_on_object() {
+        let components = r#"
+    FakeObject:
+        type: object
+        properties:
+            id:
+                type: integer
+        example:
+            {
+                "id": "abc",
+            }
+        "#;
+        check_example_error_is_detected(line!(), &components, "\"abc\" is not of type \"integer\"");
+    }
+
+    #[test]
+    fn test_example_on_array() {
+        let components = r#"
+    FakeArray:
+        type: array
+        items:
+            type: integer
+        example:
+            [
+                "abc"
+            ]
+      "#;
+        check_example_error_is_detected(line!(), &components, "\"abc\" is not of type \"integer\"");
+    }
+
+    #[test]
+    fn test_example_on_array_item() {
+        let components = r#"
+    FakeArray:
+        type: array
+        items:
+            type: integer
+            example: 
+                "abc"
+        "#;
+        check_example_error_is_detected(line!(), &components, "\"abc\" is not of type \"integer\"");
+    }
+
     #[test]
     fn test_tooling_to_validate_examples_conformity() {
         // We don't check the validation of the example.
@@ -684,7 +776,6 @@ mod tests {
         let errors: Vec<String> = check_apispec_examples(api_spec);
 
         let error_message = errors.join("\n");
-        println!("{error_message}");
 
         // Should not find errors on good examples
         assert!(!error_message.contains("good"));
