@@ -275,7 +275,7 @@ impl Configuration {
     /// Deduce the [SignedEntityConfig] from this configuration.
     pub fn deduce_signed_entity_config(&self) -> StdResult<SignedEntityConfig> {
         let network = self.get_network()?;
-        let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
+        let allowed_discriminants = self.parse_signed_entity_types_discriminants()?;
 
         Ok(SignedEntityConfig {
             allowed_discriminants,
@@ -284,21 +284,13 @@ impl Configuration {
         })
     }
 
-    /// Create the deduplicated list of allowed signed entity types discriminants.
+    /// Create the deduplicated list of configured signed entity types discriminants.
     ///
-    /// By default, the list contains the MithrilStakeDistribution and the CardanoImmutableFilesFull.
-    /// The list can be extended with the configuration parameter `signed_entity_types`.
-    /// The signed entity types are defined in the [SignedEntityTypeDiscriminants] enum.
-    /// The signed entity types are discarded if they are not declared in the [SignedEntityType] enum.
-    pub fn list_allowed_signed_entity_types_discriminants(
+    /// Created from parsing the `self.signed_entity_types` configuration value.
+    fn parse_signed_entity_types_discriminants(
         &self,
     ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
-        let default_discriminants = BTreeSet::from([
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-        ]);
-
-        let mut all_discriminants = default_discriminants;
+        let mut all_discriminants = BTreeSet::new();
 
         let discriminant_names = self.signed_entity_types.clone().unwrap_or_default();
         for discriminant in discriminant_names
@@ -529,15 +521,27 @@ mod test {
     }
 
     #[test]
-    fn test_list_allowed_signed_entity_types_discriminant_without_specific_configuration() {
+    fn test_parse_signed_entity_types_discriminants_discriminant_without_values() {
         let config = Configuration {
             signed_entity_types: None,
             ..Configuration::new_sample()
         };
 
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
+        let discriminants = config.parse_signed_entity_types_discriminants().unwrap();
+
+        assert_eq!(BTreeSet::new(), discriminants);
+    }
+
+    #[test]
+    fn test_parse_signed_entity_types_discriminants_with_correctly_formed_values() {
+        let config = Configuration {
+            signed_entity_types: Some(
+                "MithrilStakeDistribution,CardanoImmutableFilesFull".to_string(),
+            ),
+            ..Configuration::new_sample()
+        };
+
+        let discriminants = config.parse_signed_entity_types_discriminants().unwrap();
 
         assert_eq!(
             BTreeSet::from([
@@ -549,96 +553,16 @@ mod test {
     }
 
     #[test]
-    fn test_list_allowed_signed_entity_types_discriminant_should_not_return_unknown_signed_entity_types_in_configuration(
+    fn test_parse_signed_entity_types_discriminants_should_not_return_unknown_signed_entity_types_in_configuration(
     ) {
         let config = Configuration {
             signed_entity_types: Some("Unknown".to_string()),
             ..Configuration::new_sample()
         };
 
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
+        let discriminants = config.parse_signed_entity_types_discriminants().unwrap();
 
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_discriminant_should_not_duplicate_a_signed_entity_discriminant_type_already_in_default_ones(
-    ) {
-        let config = Configuration {
-            signed_entity_types: Some(
-                "CardanoImmutableFilesFull, MithrilStakeDistribution, CardanoImmutableFilesFull"
-                    .to_string(),
-            ),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
-
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_discriminants_should_add_signed_entity_types_in_configuration_at_the_end(
-    ) {
-        let config = Configuration {
-            signed_entity_types: Some("CardanoStakeDistribution, CardanoTransactions".to_string()),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
-
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_list_allowed_signed_entity_types_discriminants_with_multiple_identical_signed_entity_types_in_configuration_should_not_be_added_several_times(
-    ) {
-        let config = Configuration {
-            signed_entity_types: Some(
-                "CardanoStakeDistribution, CardanoStakeDistribution, CardanoStakeDistribution"
-                    .to_string(),
-            ),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config
-            .list_allowed_signed_entity_types_discriminants()
-            .unwrap();
-
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            discriminants
-        );
+        assert_eq!(BTreeSet::new(), discriminants);
     }
 
     #[test]
