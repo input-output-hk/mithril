@@ -191,7 +191,7 @@ impl CertificatesHashMigrator {
 #[cfg(test)]
 mod test {
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, ImmutableFileNumber, SignedEntityType,
+        CardanoTransactionsSigningConfig, Epoch, ImmutableFileNumber, SignedEntityType,
         SignedEntityTypeDiscriminants as Type, TimePoint,
     };
     use mithril_common::test_utils::fake_data;
@@ -221,7 +221,11 @@ mod test {
     /// Note: If we want to create CardanoTransaction test certificate then another method
     /// that take a ChainPoint as parameter should be created.
     fn time_at(epoch: u64, immutable_file_number: ImmutableFileNumber) -> TimePoint {
-        TimePoint::new(epoch, immutable_file_number, ChainPoint::dummy())
+        TimePoint {
+            epoch: Epoch(epoch),
+            immutable_file_number,
+            ..TimePoint::dummy()
+        }
     }
 
     fn dummy_genesis(certificate_hash: &str, time_point: TimePoint) -> Certificate {

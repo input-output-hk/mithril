@@ -2,6 +2,9 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::{fs, sync::Arc, time::Duration};
 
+use mithril_common::entities::{
+    CardanoTransactionsSigningConfig, SignedEntityConversionConfig, SignedEntityTypeDiscriminants,
+};
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::CardanoBlockScanner,
@@ -190,6 +193,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             })?;
         }
 
+        let network = self.config.get_network()?;
         let sqlite_connection = self
             .build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
             .await?;
@@ -225,6 +229,15 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             Arc::new(MithrilTickerService::new(
                 chain_observer.clone(),
                 builder(self.config)?,
+                SignedEntityConversionConfig {
+                    allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                    network,
+                    // Todo: make this configurable when decentralizing the signed
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                        security_parameter: 3000,
+                        step: 120,
+                    },
+                },
             ))
         };
 
@@ -261,9 +274,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             slog_scope::logger(),
-            self.config
-                .get_network()?
-                .compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
+            network.compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
             transaction_store.clone(),
             // Rescan the last immutable when importing transactions, it may have been partially imported
             Some(1),

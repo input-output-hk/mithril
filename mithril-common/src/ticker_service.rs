@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::chain_observer::ChainObserver;
 use crate::digesters::ImmutableFileObserver;
-use crate::entities::{Epoch, TimePoint};
+use crate::entities::{Epoch, SignedEntityConversionConfig, TimePoint};
 use crate::StdResult;
 
 /// ## TickerService
@@ -50,6 +50,7 @@ pub enum TickerServiceError {
 pub struct MithrilTickerService {
     chain_observer: Arc<dyn ChainObserver>,
     immutable_observer: Arc<dyn ImmutableFileObserver>,
+    signed_entity_conversion_config: SignedEntityConversionConfig,
 }
 
 impl MithrilTickerService {
@@ -57,10 +58,12 @@ impl MithrilTickerService {
     pub fn new(
         chain_observer: Arc<dyn ChainObserver>,
         immutable_observer: Arc<dyn ImmutableFileObserver>,
+        signed_entity_conversion_config: SignedEntityConversionConfig,
     ) -> Self {
         Self {
             chain_observer,
             immutable_observer,
+            signed_entity_conversion_config,
         }
     }
 }
@@ -98,6 +101,7 @@ impl TickerService for MithrilTickerService {
             epoch,
             immutable_file_number,
             chain_point,
+            signed_entity_conversion_config: self.signed_entity_conversion_config.clone(),
         })
     }
 }
@@ -148,6 +152,7 @@ mod tests {
         let ticker_service = MithrilTickerService::new(
             Arc::new(DumbChainObserver {}),
             Arc::new(DumbImmutableFileObserver::default()),
+            SignedEntityConversionConfig::dummy(),
         );
         let epoch = ticker_service.get_current_epoch().await.unwrap();
 
@@ -159,6 +164,7 @@ mod tests {
         let ticker_service = MithrilTickerService::new(
             Arc::new(DumbChainObserver {}),
             Arc::new(DumbImmutableFileObserver::default()),
+            SignedEntityConversionConfig::dummy(),
         );
         let time_point = ticker_service.get_current_time_point().await.unwrap();
 
@@ -170,7 +176,8 @@ mod tests {
                     slot_number: 800,
                     block_number: 51,
                     block_hash: "1b69b3202fbe500".to_string(),
-                }
+                },
+                SignedEntityConversionConfig::dummy(),
             ),
             time_point
         );
@@ -180,8 +187,11 @@ mod tests {
     async fn test_error_from_dependency() {
         let immutable_observer = DumbImmutableFileObserver::default();
         immutable_observer.shall_return(None).await;
-        let ticker_service =
-            MithrilTickerService::new(Arc::new(DumbChainObserver {}), Arc::new(immutable_observer));
+        let ticker_service = MithrilTickerService::new(
+            Arc::new(DumbChainObserver {}),
+            Arc::new(immutable_observer),
+            SignedEntityConversionConfig::dummy(),
+        );
 
         let result = ticker_service.get_current_time_point().await;
         assert!(result.is_err());

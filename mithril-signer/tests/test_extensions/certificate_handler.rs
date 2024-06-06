@@ -129,7 +129,7 @@ impl AggregatorClient for FakeAggregator {
 mod tests {
     use mithril_common::chain_observer::{ChainObserver, FakeObserver};
     use mithril_common::digesters::DumbImmutableFileObserver;
-    use mithril_common::entities::ChainPoint;
+    use mithril_common::entities::{ChainPoint, SignedEntityConversionConfig};
     use mithril_common::test_utils::fake_data;
     use mithril_common::CardanoNetwork;
 
@@ -142,10 +142,12 @@ mod tests {
             epoch: Epoch(1),
             immutable_file_number: 1,
             chain_point: ChainPoint::dummy(),
+            ..TimePoint::dummy()
         })));
         let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),
+            SignedEntityConversionConfig::dummy(),
         ));
 
         (

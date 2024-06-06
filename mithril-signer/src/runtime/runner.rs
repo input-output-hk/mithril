@@ -453,7 +453,10 @@ mod tests {
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, StakeDistribution},
+        entities::{
+            BlockNumber, BlockRange, CardanoDbBeacon, Epoch, SignedEntityConversionConfig,
+            StakeDistribution,
+        },
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -514,6 +517,7 @@ mod tests {
         let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             Arc::new(DumbImmutableFileObserver::default()),
+            SignedEntityConversionConfig::dummy(),
         ));
         let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader

@@ -11,7 +11,8 @@ use std::str::FromStr;
 
 use mithril_common::entities::{
     CardanoTransactionsSigningConfig, CompressionAlgorithm, HexEncodedGenesisVerificationKey,
-    ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint,
+    ProtocolParameters, SignedEntityConversionConfig, SignedEntityType,
+    SignedEntityTypeDiscriminants, TimePoint,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -669,6 +670,7 @@ mod test {
             *beacon.epoch,
             beacon.immutable_file_number,
             chain_point.clone(),
+            SignedEntityConversionConfig::dummy(),
         );
 
         let config = Configuration {

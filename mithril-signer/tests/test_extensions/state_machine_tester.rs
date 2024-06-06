@@ -10,7 +10,7 @@ use mithril_common::{
     cardano_block_scanner::DumbBlockScanner,
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
-    entities::{ChainPoint, Epoch, SignerWithStake, TimePoint},
+    entities::{ChainPoint, Epoch, SignedEntityConversionConfig, SignerWithStake, TimePoint},
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -103,10 +103,12 @@ impl StateMachineTester {
                 block_number: 1,
                 block_hash: "block_hash-1".to_string(),
             },
+            ..TimePoint::dummy()
         })));
         let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),
+            SignedEntityConversionConfig::dummy(),
         ));
         let certificate_handler = Arc::new(FakeAggregator::new(
             config.get_network().unwrap(),

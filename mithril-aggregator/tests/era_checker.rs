@@ -1,7 +1,7 @@
 mod test_extensions;
 use mithril_aggregator::{Configuration, RuntimeError};
 use mithril_common::{
-    entities::{ChainPoint, Epoch, ProtocolParameters, TimePoint},
+    entities::{ChainPoint, Epoch, ProtocolParameters, SignedEntityConversionConfig, TimePoint},
     era::{EraMarker, SupportedEra},
     test_utils::MithrilFixtureBuilder,
 };
@@ -24,7 +24,12 @@ async fn testing_eras() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(
-        TimePoint::new(1, 1, ChainPoint::new(10, 1, "block_hash-1")),
+        TimePoint::new(
+            1,
+            1,
+            ChainPoint::new(10, 1, "block_hash-1"),
+            SignedEntityConversionConfig::dummy(),
+        ),
         configuration,
     )
     .await;
