@@ -258,6 +258,51 @@ impl<'a> APISpec<'a> {
 
         open_api_spec_files
     }
+
+    /// Verify that examples are conform to the type definition.
+    pub fn verify_examples(&self) -> Vec<String> {
+        self.verify_examples_value("", &self.openapi)
+    }
+
+    fn verify_examples_value(&self, path_to_value: &str, root_value: &Value) -> Vec<String> {
+        let mut errors: Vec<String> = vec![];
+
+        errors.append(&mut self.verify_example_conformity(path_to_value, root_value));
+
+        if let Some(object) = root_value.as_object() {
+            for (value_key, value) in object {
+                errors.append(
+                    &mut self.verify_examples_value(&format!("{path_to_value} {value_key}"), value),
+                );
+            }
+        }
+
+        if let Some(array) = root_value.as_array() {
+            for value in array {
+                errors
+                    .append(&mut self.verify_examples_value(&format!("{path_to_value}[?]"), value));
+            }
+        }
+
+        errors
+    }
+
+    fn verify_example_conformity(&self, name: &str, component: &Value) -> Vec<String> {
+        if let Some(example) = component.get("example") {
+            // The type definition is at the same level as the example (components) unless there is a schema property (paths).
+            let component_definition = component.get("schema").unwrap_or(component);
+
+            let result = self.validate_conformity(example, component_definition);
+            if let Err(e) = result {
+                return vec![format!(
+                    "- {}: Error\n    {}\n    Example: {}\n",
+                    name, e, example
+                )];
+            }
+        }
+
+        vec![]
+    }
 }
 
 // TODO: For now, it verifies only one parameter,
@@ -310,6 +355,67 @@ mod tests {
             .status(status_code)
             .body(Bytes::from_static(content))
             .unwrap()
+    }
+
+    fn get_temp_dir(dir_name: &str) -> PathBuf {
+        TempDir::create("apispec", dir_name)
+    }
+
+    fn get_temp_openapi_filename(name: &str, id: u32) -> PathBuf {
+        get_temp_dir(&format!("{name}-{id}")).join("openapi.yaml")
+    }
+
+    fn write_minimal_open_api_file(
+        version: &str,
+        path: &Path,
+        openapi_paths: &str,
+        openapi_components: &str,
+    ) {
+        fs::write(
+            path,
+            format!(
+                r#"openapi: "3.0.0"
+info:
+  version: {version}
+  title: Minimal Open Api File
+
+paths:
+{openapi_paths}
+
+components:
+  schemas:
+{openapi_components}
+"#
+            ),
+        )
+        .unwrap()
+    }
+
+    /// To check that the example is verify,
+    /// we create an openapi.yaml with an invalid example.
+    /// If the example is verify, we should have an error message.
+    /// A simple invalid example is one with an wrong type (string instead of integer)
+    fn check_example_error_is_detected(
+        id: u32,
+        paths: &str,
+        components: &str,
+        expected_error_message: &str,
+    ) {
+        let file = get_temp_openapi_filename("example", id);
+
+        write_minimal_open_api_file("1.0.0", &file, paths, components);
+
+        let api_spec = APISpec::from_file(file.to_str().unwrap());
+        let errors: Vec<String> = api_spec.verify_examples();
+
+        assert_eq!(1, errors.len());
+        let error_message = errors.first().unwrap();
+        assert!(
+            error_message.contains(expected_error_message),
+            "Error message: {:?}\nshould contains: {}\n",
+            errors,
+            expected_error_message
+        );
     }
 
     #[test]
@@ -667,7 +773,7 @@ mod tests {
     fn test_examples_conformity() {
         let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
 
-        let errors: Vec<String> = check_apispec_examples(api_spec);
+        let errors: Vec<String> = api_spec.verify_examples();
 
         assert!(
             errors.is_empty(),
@@ -676,192 +782,160 @@ mod tests {
         );
     }
 
-    fn get_temp_dir(dir_name: &str) -> PathBuf {
-        TempDir::create("apispec", dir_name)
-    }
-
-    fn get_temp_openapi_filename(name: &str, id: u32) -> PathBuf {
-        get_temp_dir(&format!("{name}-{id}")).join("openapi.yaml")
-    }
-
-    fn write_minimal_open_api_file(version: &str, path: &Path, components: &str) {
-        fs::write(
-            path,
-            format!(
-                r#"openapi: "3.0.0"
-info:
-  version: {version}
-  title: Minimal Open Api File
-
-paths:
-
-components:
-  schemas:
-{components}
-"#
-            ),
-        )
-        .unwrap()
-    }
-
-    fn check_example_error_is_detected(id: u32, components: &str, expected_error_message: &str) {
-        let file = get_temp_openapi_filename("example", id);
-
-        write_minimal_open_api_file("1.0.0", &file, &components);
-
-        let api_spec = APISpec::from_file(file.to_str().unwrap());
-        let errors: Vec<String> = check_apispec_examples(api_spec);
-
-        assert_eq!(1, errors.len());
-        let error_message = errors.get(0).unwrap();
-        assert!(
-            error_message.contains(expected_error_message),
-            "Error message: {:?}\nshould contains: {}\n",
-            errors,
-            expected_error_message
+    #[test]
+    fn test_example_is_verified_on_object() {
+        let components = r#"
+        MyComponent:
+            type: object
+            properties:
+                id:
+                    type: integer
+            example:
+                {
+                    "id": "abc",
+                }
+        "#;
+        check_example_error_is_detected(
+            line!(),
+            "",
+            components,
+            "\"abc\" is not of type \"integer\"",
         );
     }
 
     #[test]
-    fn test_example_on_object() {
+    fn test_example_is_verified_on_array() {
         let components = r#"
-    FakeObject:
-        type: object
-        properties:
-            id:
+        MyComponent:
+            type: array
+            items:
                 type: integer
-        example:
-            {
-                "id": "abc",
-            }
-        "#;
-        check_example_error_is_detected(line!(), &components, "\"abc\" is not of type \"integer\"");
-    }
-
-    #[test]
-    fn test_example_on_array() {
-        let components = r#"
-    FakeArray:
-        type: array
-        items:
-            type: integer
-        example:
-            [
-                "abc"
-            ]
+            example:
+                [
+                    "abc"
+                ]
       "#;
-        check_example_error_is_detected(line!(), &components, "\"abc\" is not of type \"integer\"");
+        check_example_error_is_detected(
+            line!(),
+            "",
+            components,
+            "\"abc\" is not of type \"integer\"",
+        );
     }
 
     #[test]
-    fn test_example_on_array_item() {
+    fn test_example_is_verified_on_array_item() {
         let components = r#"
-    FakeArray:
-        type: array
-        items:
-            type: integer
-            example: 
-                "abc"
+        MyComponent:
+            type: array
+            items:
+                type: integer
+                example: 
+                    "abc"
         "#;
-        check_example_error_is_detected(line!(), &components, "\"abc\" is not of type \"integer\"");
+        check_example_error_is_detected(
+            line!(),
+            "",
+            components,
+            "\"abc\" is not of type \"integer\"",
+        );
     }
 
     #[test]
-    fn test_tooling_to_validate_examples_conformity() {
-        // We don't check the validation of the example.
-        // We just check that we call the validation for all kind of example in openapi.yaml
-        // Most of the time, we just remove from the example a required property to have a error.
-
-        let api_spec = APISpec::from_file("src/test_utils/test_openapi_format.yaml");
-        let errors: Vec<String> = check_apispec_examples(api_spec);
-
-        let error_message = errors.join("\n");
-
-        // Should not find errors on good examples
-        assert!(!error_message.contains("good"));
-
-        // Error in component example
-        assert!(error_message.contains("\"fake_object_ko\" is a required property"));
-
-        // Error in list item
-        assert!(error_message.contains("\"fake_array_ko\" is a required property"));
-
-        // Error in list item
-        assert!(error_message.contains("\"fake_array_items_ko\" is a required property"));
-
-        // Error in property example
-        assert!(error_message.contains("\"string_value\" is not of type \"integer\""));
-
-        // Error in path
-        assert!(error_message.contains("\"parameters_example\" is not of type \"integer\""));
-
-        // Error in path with example in array items
-        assert!(error_message.contains("\"parameters_items_example_1\" is not of type \"array\""));
-
-        // Error in path with example in array items
-        assert!(error_message.contains("\"parameters_items_example_2\" is not of type \"array\""));
-
-        // Error in path with example of array that contains only an item and not the array.
-        assert!(error_message.contains("\"array_example\" is not of type \"integer\""));
-
-        // Error in path using reference
-        assert!(error_message.contains("\"path_with_reference_value\" is not of type \"integer\""));
+    fn test_example_is_verified_on_parameter() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            type: integer
+                        example: "abc"
+        "#;
+        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
     }
 
-    fn check_apispec_examples(api_spec: APISpec) -> Vec<String> {
-        check_apispec_examples_value(&api_spec, "", &api_spec.openapi)
+    #[test]
+    fn test_example_is_verified_on_array_parameter() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            type: array
+                            items:
+                                type: integer
+                        example: 
+                            [
+                                "abc"
+                            ]
+        "#;
+        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
     }
 
-    fn check_apispec_examples_value(
-        api_spec: &APISpec,
-        path_to_value: &str,
-        root_value: &Value,
-    ) -> Vec<String> {
-        let mut errors: Vec<String> = vec![];
-
-        errors.append(&mut check_example_conformity(
-            api_spec,
-            path_to_value,
-            root_value,
-        ));
-
-        if let Some(object) = root_value.as_object() {
-            for (value_key, value) in object {
-                errors.append(&mut check_apispec_examples_value(
-                    api_spec,
-                    &format!("{path_to_value} {value_key}"),
-                    value,
-                ));
-            }
-        }
-
-        if let Some(array) = root_value.as_array() {
-            for value in array {
-                errors.append(&mut check_apispec_examples_value(
-                    api_spec,
-                    &format!("{path_to_value}[?]"),
-                    value,
-                ));
-            }
-        }
-
-        errors
+    #[test]
+    fn test_example_is_verified_on_array_parameter_schema() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            type: array
+                            items:
+                                type: integer
+                            example: 
+                                [
+                                    "abc"
+                                ]
+        "#;
+        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
     }
 
-    fn check_example_conformity(api_spec: &APISpec, name: &str, component: &Value) -> Vec<String> {
-        if let Some(example) = component.get("example") {
-            // The type definition is at the same level as the example (components) unless there is a schema property (paths).
-            let component_definition = component.get("schema").unwrap_or(component);
+    #[test]
+    fn test_example_is_verified_on_array_parameter_item() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            type: array
+                            items:
+                                type: integer
+                                example: 
+                                    "abc"
+        "#;
+        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+    }
 
-            let result = api_spec.validate_conformity(example, component_definition);
-            if let Err(e) = result {
-                return vec![format!(
-                    "- {}: Error\n    {}\n    Example: {}\n",
-                    name, e, example
-                )];
-            }
-        }
+    #[test]
+    fn test_example_is_verified_on_referenced_component() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            $ref: '#/components/schemas/MyComponent'
+                        example: "abc"
+        "#;
+        let components = r#"
+        MyComponent:
+            type: integer
+        "#;
 
-        vec![]
+        check_example_error_is_detected(
+            line!(),
+            paths,
+            components,
+            "\"abc\" is not of type \"integer\"",
+        );
     }
 }
