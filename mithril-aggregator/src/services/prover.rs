@@ -40,6 +40,7 @@ pub trait TransactionsRetriever: Sync + Send {
     async fn get_by_hashes(
         &self,
         hashes: Vec<TransactionHash>,
+        up_to: BlockNumber,
     ) -> StdResult<Vec<CardanoTransaction>>;
 
     /// Get by block ranges
@@ -76,10 +77,11 @@ impl MithrilProverService {
     async fn get_block_ranges(
         &self,
         transaction_hashes: &[TransactionHash],
+        up_to: BlockNumber,
     ) -> StdResult<Vec<BlockRange>> {
         let transactions = self
             .transaction_retriever
-            .get_by_hashes(transaction_hashes.to_vec())
+            .get_by_hashes(transaction_hashes.to_vec(), up_to)
             .await?;
         let block_ranges = transactions
             .iter()
@@ -114,11 +116,11 @@ impl MithrilProverService {
 impl ProverService for MithrilProverService {
     async fn compute_transactions_proofs(
         &self,
-        _up_to: BlockNumber,
+        up_to: BlockNumber,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
         // 1 - Compute the set of block ranges with transactions to prove
-        let block_ranges_transactions = self.get_block_ranges(transaction_hashes).await?;
+        let block_ranges_transactions = self.get_block_ranges(transaction_hashes, up_to).await?;
         let block_range_transactions = self
             .get_all_transactions_for_block_ranges(&block_ranges_transactions)
             .await?;
@@ -357,13 +359,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compute_proof_for_one_set_of_three_known_transactions() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
+    async fn compute_proof_for_one_set_of_three_certified_transactions() {
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
@@ -373,8 +373,8 @@ mod tests {
                 let transactions_to_prove = transactions_to_prove.clone();
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove))
-                    .return_once(move |_| Ok(transactions_to_prove));
+                    .with(eq(transaction_hashes_to_prove), eq(test_data.beacon))
+                    .return_once(move |_, _| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
                 let all_transactions_in_block_ranges_to_prove =
@@ -411,13 +411,53 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cant_compute_proof_for_unknown_transaction() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
+    async fn cant_compute_proof_for_not_yet_certified_transaction() {
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
+        let transactions_to_prove =
+            test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
+        let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
+        let prover = build_prover(
+            |transaction_retriever_mock| {
+                let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
+                transaction_retriever_mock
+                    .expect_get_by_hashes()
+                    .with(eq(transaction_hashes_to_prove), eq(test_data.beacon))
+                    .return_once(move |_, _| Ok(vec![]));
+                transaction_retriever_mock
+                    .expect_get_by_block_ranges()
+                    .with(eq(vec![]))
+                    .return_once(move |_| Ok(vec![]));
+            },
+            |block_range_root_retriever_mock| {
+                let block_ranges_map = test_data.block_ranges_map.clone();
+                block_range_root_retriever_mock
+                    .expect_compute_merkle_map_from_block_range_roots()
+                    .return_once(|_| {
+                        Ok(test_data::compute_mk_map_from_block_ranges_map(
+                            block_ranges_map,
+                        ))
+                    });
+            },
+        );
+        prover.compute_cache(test_data.beacon).await.unwrap();
+
+        let transactions_set_proof = prover
+            .compute_transactions_proofs(test_data.beacon, &test_data.transaction_hashes_to_prove)
+            .await
+            .unwrap();
+
+        assert_eq!(transactions_set_proof.len(), 0);
+    }
+
+    #[tokio::test]
+    async fn cant_compute_proof_for_unknown_transaction() {
+        let transactions = CardanoTransactionsBuilder::new()
+            .max_transactions_per_block(1)
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove = test_data::filter_transactions_for_indices(&[], &transactions);
         let mut test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
         test_data.transaction_hashes_to_prove = vec!["tx-unknown-123".to_string()];
@@ -427,8 +467,8 @@ mod tests {
                 let transactions_to_prove = transactions_to_prove.clone();
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove))
-                    .return_once(move |_| Ok(transactions_to_prove));
+                    .with(eq(transaction_hashes_to_prove), eq(test_data.beacon))
+                    .return_once(move |_, _| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
                 let all_transactions_in_block_ranges_to_prove =
@@ -460,13 +500,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compute_proof_for_one_set_of_three_known_transactions_and_two_unknowns() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
+    async fn compute_proof_for_one_set_of_three_certified_transactions_and_two_unknowns() {
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let transaction_hashes_unknown =
@@ -484,8 +522,8 @@ mod tests {
                 let transactions_to_prove = transactions_to_prove.clone();
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove))
-                    .return_once(move |_| Ok(transactions_to_prove));
+                    .with(eq(transaction_hashes_to_prove), eq(test_data.beacon))
+                    .return_once(move |_, _| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
                 let all_transactions_in_block_ranges_to_prove =
@@ -523,12 +561,10 @@ mod tests {
 
     #[tokio::test]
     async fn cant_compute_proof_if_transaction_retriever_fails() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
@@ -536,7 +572,7 @@ mod tests {
             |transaction_retriever_mock| {
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .returning(|_| Err(anyhow!("Error")));
+                    .returning(|_, _| Err(anyhow!("Error")));
             },
             |block_range_root_retriever_mock| {
                 block_range_root_retriever_mock
@@ -554,12 +590,10 @@ mod tests {
 
     #[tokio::test]
     async fn cant_compute_proof_if_block_range_root_retriever_fails() {
-        let total_block_ranges = 5;
-        let total_transactions_per_block_range = 3;
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
-            .blocks_per_block_range(total_transactions_per_block_range)
-            .build_block_ranges(total_block_ranges);
+            .blocks_per_block_range(3)
+            .build_block_ranges(5);
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
@@ -568,7 +602,7 @@ mod tests {
                 let transactions_to_prove = transactions_to_prove.clone();
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .return_once(move |_| Ok(transactions_to_prove));
+                    .return_once(move |_, _| Ok(transactions_to_prove));
 
                 let all_transactions_in_block_ranges_to_prove =
                     test_data.all_transactions_in_block_ranges_to_prove.clone();

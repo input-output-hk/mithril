@@ -76,7 +76,7 @@ async fn main() -> MithrilResult<()> {
         .compute_cardano_transactions_proofs_message(&certificate, &verified_transactions);
     if !certificate.match_message(&message) {
         return Err(anyhow!(
-            "Proof and certificate doesn't match (certificate hash = '{}').",
+            "Proof and certificate don't match (certificate hash = '{}').",
             certificate.hash
         ));
     }
