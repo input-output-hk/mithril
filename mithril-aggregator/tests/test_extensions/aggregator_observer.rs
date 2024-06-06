@@ -79,11 +79,6 @@ impl AggregatorObserver {
             .await
             .with_context(|| "Querying the current beacon should not fail")?;
 
-        Ok(SignedEntityType::from_time_point(
-            &discriminant,
-            &self.network.to_string(),
-            &time_point,
-            &self.cardano_transaction_signing_config,
-        ))
+        Ok(time_point.to_signed_entity(discriminant))
     }
 }

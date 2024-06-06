@@ -191,10 +191,9 @@ impl CertificatesHashMigrator {
 #[cfg(test)]
 mod test {
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, Epoch, ImmutableFileNumber, SignedEntityType,
-        SignedEntityTypeDiscriminants as Type, TimePoint,
+        Epoch, ImmutableFileNumber, SignedEntityType, SignedEntityTypeDiscriminants as Type,
+        TimePoint,
     };
-    use mithril_common::test_utils::fake_data;
     use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
     use crate::database::record::{CertificateRecord, SignedEntityRecord};
@@ -249,12 +248,7 @@ mod test {
             previous_hash,
             time_point.epoch,
             time_point.immutable_file_number,
-            SignedEntityType::from_time_point(
-                &signed_entity_type,
-                &fake_data::network().to_string(),
-                &time_point,
-                &CardanoTransactionsSigningConfig::dummy(),
-            ),
+            time_point.to_signed_entity(signed_entity_type),
         );
 
         certificate.into()

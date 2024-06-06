@@ -48,6 +48,36 @@ impl TimePoint {
             Self::new(10, 100, ChainPoint::dummy(), SignedEntityConversionConfig::dummy())
         }
     }
+
+    /// Convert this time point to a signed entity type based on the given discriminant.
+    pub fn to_signed_entity<D: Into<SignedEntityTypeDiscriminants>>(
+        &self,
+        discriminant: D,
+    ) -> SignedEntityType {
+        match discriminant.into() {
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
+                SignedEntityType::MithrilStakeDistribution(self.epoch)
+            }
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
+                SignedEntityType::CardanoStakeDistribution(self.epoch)
+            }
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
+                SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                    self.signed_entity_conversion_config.network.to_string(),
+                    *self.epoch,
+                    self.immutable_file_number,
+                ))
+            }
+            SignedEntityTypeDiscriminants::CardanoTransactions => {
+                SignedEntityType::CardanoTransactions(
+                    self.epoch,
+                    self.signed_entity_conversion_config
+                        .cardano_transactions_signing_config
+                        .compute_block_number_to_be_signed(self.chain_point.block_number),
+                )
+            }
+        }
+    }
 }
 
 impl PartialOrd for TimePoint {
@@ -232,6 +262,50 @@ mod tests {
         };
 
         assert_eq!(Ordering::Less, time_point1.cmp(&time_point2));
+    }
+
+    #[test]
+    fn given_discriminant_convert_to_signed_entity() {
+        let time_point = TimePoint {
+            epoch: Epoch(1),
+            immutable_file_number: 5,
+            chain_point: ChainPoint {
+                slot_number: 73,
+                block_number: 20,
+                block_hash: "block_hash-20".to_string(),
+            },
+            signed_entity_conversion_config: SignedEntityConversionConfig {
+                allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                network: CardanoNetwork::DevNet(12),
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                    security_parameter: 0,
+                    step: 15,
+                },
+            },
+        };
+
+        assert_eq!(
+            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            time_point.to_signed_entity(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+        );
+
+        assert_eq!(
+            SignedEntityType::CardanoStakeDistribution(Epoch(1)),
+            time_point.to_signed_entity(SignedEntityTypeDiscriminants::CardanoStakeDistribution)
+        );
+
+        assert_eq!(
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 1, 5)),
+            time_point.to_signed_entity(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+        );
+
+        // The block number to be signed is 0 because the step is 15, the block number is 20, and
+        // the security parameter is 0.
+        // This is further tested in the "computing_block_number_to_be_signed" tests below.
+        assert_eq!(
+            SignedEntityType::CardanoTransactions(Epoch(1), 15),
+            time_point.to_signed_entity(SignedEntityTypeDiscriminants::CardanoTransactions)
+        );
     }
 
     #[test]

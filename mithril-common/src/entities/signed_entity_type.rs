@@ -9,7 +9,7 @@ use strum::{AsRefStr, Display, EnumDiscriminants, EnumIter, EnumString, IntoEnum
 
 use crate::StdResult;
 
-use super::{BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, Epoch, TimePoint};
+use super::{BlockNumber, CardanoDbBeacon, Epoch};
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
 const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
@@ -111,35 +111,6 @@ impl SignedEntityType {
             Self::MithrilStakeDistribution(_) | Self::CardanoImmutableFilesFull(_) => None,
             Self::CardanoStakeDistribution(_) => Some(Duration::from_secs(600)),
             Self::CardanoTransactions(_, _) => Some(Duration::from_secs(1800)),
-        }
-    }
-
-    /// Create a SignedEntityType from beacon and SignedEntityTypeDiscriminants
-    pub fn from_time_point(
-        discriminant: &SignedEntityTypeDiscriminants,
-        network: &str,
-        time_point: &TimePoint,
-        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
-    ) -> Self {
-        match discriminant {
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
-                Self::MithrilStakeDistribution(time_point.epoch)
-            }
-            SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                Self::CardanoStakeDistribution(time_point.epoch)
-            }
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                Self::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                    network,
-                    *time_point.epoch,
-                    time_point.immutable_file_number,
-                ))
-            }
-            SignedEntityTypeDiscriminants::CardanoTransactions => Self::CardanoTransactions(
-                time_point.epoch,
-                cardano_transactions_signing_config
-                    .compute_block_number_to_be_signed(time_point.chain_point.block_number),
-            ),
         }
     }
 

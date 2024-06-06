@@ -5,7 +5,7 @@ use crate::{
 };
 
 use anyhow::Context;
-use mithril_common::entities::{SignedEntityType, TimePoint};
+use mithril_common::entities::TimePoint;
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -234,12 +234,8 @@ impl AggregatorRuntime {
                     .map(|om| om.is_expired)
                     .unwrap_or(false);
                 let exists_newer_open_message = {
-                    let new_signed_entity_type = SignedEntityType::from_time_point(
-                        &state.open_message.signed_entity_type.clone().into(),
-                        &self.config.network.to_string(),
-                        &last_time_point,
-                        &self.config.cardano_transaction_signing_config,
-                    );
+                    let new_signed_entity_type =
+                        last_time_point.to_signed_entity(&state.open_message.signed_entity_type);
                     new_signed_entity_type != state.open_message.signed_entity_type
                 };
 

@@ -325,14 +325,7 @@ impl Configuration {
         let allowed_discriminants = self.list_allowed_signed_entity_types_discriminants()?;
         let signed_entity_types = allowed_discriminants
             .into_iter()
-            .map(|discriminant| {
-                SignedEntityType::from_time_point(
-                    &discriminant,
-                    &self.network,
-                    time_point,
-                    &self.cardano_transactions_signing_config,
-                )
-            })
+            .map(|discriminant| time_point.to_signed_entity(discriminant))
             .collect();
 
         Ok(signed_entity_types)
