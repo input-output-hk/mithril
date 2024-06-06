@@ -25,10 +25,7 @@ impl AggregatorObserver {
             network: deps_builder.configuration.get_network().unwrap(),
             certifier_service: deps_builder.get_certifier_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
-            signed_entity_config: deps_builder
-                .configuration
-                .deduce_signed_entity_config()
-                .unwrap(),
+            signed_entity_config: deps_builder.get_signed_entity_config().unwrap(),
         }
     }
 

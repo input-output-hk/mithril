@@ -258,7 +258,8 @@ impl DependenciesBuilder {
         }
     }
 
-    fn get_signed_entity_config(&mut self) -> Result<SignedEntityConfig> {
+    /// Get the signed entity configuration
+    pub fn get_signed_entity_config(&mut self) -> Result<SignedEntityConfig> {
         if self.signed_entity_config.is_none() {
             self.signed_entity_config = Some(self.configuration.deduce_signed_entity_config()?);
         }
@@ -1205,9 +1206,6 @@ impl DependenciesBuilder {
 
         let config = AggregatorConfig::new(
             Duration::from_millis(self.configuration.run_interval),
-            self.configuration.get_network().with_context(|| {
-                "Dependencies Builder can not get Cardano network while creating aggregator runner"
-            })?,
             self.get_signed_entity_config()?,
         );
         let runtime = AggregatorRuntime::new(

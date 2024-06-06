@@ -419,11 +419,7 @@ mod tests {
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
         AggregatorRuntime::new(
-            AggregatorConfig::new(
-                Duration::from_millis(20),
-                fake_data::network(),
-                SignedEntityConfig::dummy(),
-            ),
+            AggregatorConfig::new(Duration::from_millis(20), SignedEntityConfig::dummy()),
             init_state,
             Arc::new(runner),
         )

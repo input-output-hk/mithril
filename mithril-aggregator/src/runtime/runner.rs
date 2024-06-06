@@ -8,7 +8,7 @@ use mithril_common::entities::{
     Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
     SignedEntityConfig, SignedEntityType, Signer, TimePoint,
 };
-use mithril_common::{CardanoNetwork, StdResult};
+use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::entities::OpenMessage;
@@ -23,23 +23,15 @@ pub struct AggregatorConfig {
     /// Interval between each snapshot, in ms
     pub interval: Duration,
 
-    /// Cardano network
-    pub network: CardanoNetwork,
-
     /// Signed entity configuration.
     pub signed_entity_config: SignedEntityConfig,
 }
 
 impl AggregatorConfig {
     /// Create a new instance of AggregatorConfig.
-    pub fn new(
-        interval: Duration,
-        network: CardanoNetwork,
-        signed_entity_config: SignedEntityConfig,
-    ) -> Self {
+    pub fn new(interval: Duration, signed_entity_config: SignedEntityConfig) -> Self {
         Self {
             interval,
-            network,
             signed_entity_config,
         }
     }
