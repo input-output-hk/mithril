@@ -78,6 +78,30 @@ impl TimePoint {
             }
         }
     }
+
+    /// Create the deduplicated list of allowed signed entity types.
+    ///
+    /// By default, the list contains types for the discriminants in
+    /// [SignedEntityConversionConfig::DEFAULT_ALLOWED_DISCRIMINANTS].
+    /// The list can be extended with the configuration parameter `allowed_discriminants`.
+    pub fn list_allowed_signed_entity_types_discriminants(
+        &self,
+    ) -> BTreeSet<SignedEntityTypeDiscriminants> {
+        self.signed_entity_conversion_config
+            .list_allowed_signed_entity_types_discriminants()
+    }
+
+    /// Create the deduplicated list of allowed signed entity types discriminants.
+    ///
+    /// By default, the list contains the value in [SignedEntityConversionConfig::DEFAULT_ALLOWED_DISCRIMINANTS].
+    /// The list can be extended with the configuration parameter `allowed_discriminants`.
+    pub fn list_allowed_signed_entity_types(&self) -> Vec<SignedEntityType> {
+        self.signed_entity_conversion_config
+            .list_allowed_signed_entity_types_discriminants()
+            .into_iter()
+            .map(|discriminant| self.to_signed_entity(discriminant))
+            .collect()
+    }
 }
 
 impl PartialOrd for TimePoint {
@@ -117,6 +141,26 @@ pub struct SignedEntityConversionConfig {
 }
 
 impl SignedEntityConversionConfig {
+    /// Default allowed discriminants
+    ///
+    /// Appended to the allowed discriminants in the configuration.
+    pub const DEFAULT_ALLOWED_DISCRIMINANTS: [SignedEntityTypeDiscriminants; 2] = [
+        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+        SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+    ];
+
+    /// Create the deduplicated list of allowed signed entity types discriminants.
+    ///
+    /// By default, the list contains the value in [Self::DEFAULT_ALLOWED_DISCRIMINANTS].
+    /// The list can be extended with the configuration parameter `allowed_discriminants`.
+    pub fn list_allowed_signed_entity_types_discriminants(
+        &self,
+    ) -> BTreeSet<SignedEntityTypeDiscriminants> {
+        let mut discriminants = BTreeSet::from(Self::DEFAULT_ALLOWED_DISCRIMINANTS);
+        discriminants.append(&mut self.allowed_discriminants.clone());
+        discriminants
+    }
+
     cfg_test_tools! {
         /// Create a dummy SignedEntityConversionConfig
         pub fn dummy() -> Self {
@@ -182,6 +226,7 @@ impl CardanoTransactionsSigningConfig {
 
 #[cfg(test)]
 mod tests {
+    use crate::test_utils::fake_data;
     use std::cmp::Ordering;
 
     use super::*;
@@ -385,6 +430,133 @@ mod tests {
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH - 1),
             0
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_discriminant_without_specific_configuration() {
+        let config = SignedEntityConversionConfig {
+            allowed_discriminants: BTreeSet::new(),
+            ..SignedEntityConversionConfig::dummy()
+        };
+
+        let discriminants = config.list_allowed_signed_entity_types_discriminants();
+
+        assert_eq!(
+            BTreeSet::from(SignedEntityConversionConfig::DEFAULT_ALLOWED_DISCRIMINANTS),
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_discriminant_should_not_duplicate_a_signed_entity_discriminant_type_already_in_default_ones(
+    ) {
+        let config = SignedEntityConversionConfig {
+            allowed_discriminants: BTreeSet::from([
+                SignedEntityConversionConfig::DEFAULT_ALLOWED_DISCRIMINANTS[0],
+            ]),
+            ..SignedEntityConversionConfig::dummy()
+        };
+
+        let discriminants = config.list_allowed_signed_entity_types_discriminants();
+
+        assert_eq!(
+            BTreeSet::from(SignedEntityConversionConfig::DEFAULT_ALLOWED_DISCRIMINANTS),
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_discriminants_should_add_configured_discriminants() {
+        let config = SignedEntityConversionConfig {
+            allowed_discriminants: BTreeSet::from([
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ]),
+            ..SignedEntityConversionConfig::dummy()
+        };
+
+        let discriminants = config.list_allowed_signed_entity_types_discriminants();
+
+        assert_eq!(
+            BTreeSet::from_iter(
+                [
+                    SignedEntityConversionConfig::DEFAULT_ALLOWED_DISCRIMINANTS,
+                    [
+                        SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                        SignedEntityTypeDiscriminants::CardanoTransactions,
+                    ]
+                ]
+                .concat()
+            ),
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_discriminants_with_multiple_identical_signed_entity_types_in_configuration_should_not_be_added_several_times(
+    ) {
+        let config = SignedEntityConversionConfig {
+            allowed_discriminants: BTreeSet::from([
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ]),
+            ..SignedEntityConversionConfig::dummy()
+        };
+
+        let discriminants = config.list_allowed_signed_entity_types_discriminants();
+
+        assert_eq!(
+            BTreeSet::from_iter(
+                [
+                    SignedEntityConversionConfig::DEFAULT_ALLOWED_DISCRIMINANTS.as_slice(),
+                    [SignedEntityTypeDiscriminants::CardanoTransactions].as_slice()
+                ]
+                .concat()
+            ),
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_list_allowed_signed_entity_types_with_specific_configuration() {
+        let network = CardanoNetwork::DevNet(12);
+        let beacon = CardanoDbBeacon {
+            network: network.to_string(),
+            ..fake_data::beacon()
+        };
+        let chain_point = ChainPoint {
+            block_number: 45,
+            ..ChainPoint::dummy()
+        };
+        let time_point = TimePoint::new(
+            *beacon.epoch,
+            beacon.immutable_file_number,
+            chain_point.clone(),
+            SignedEntityConversionConfig {
+                allowed_discriminants: BTreeSet::from([
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                ]),
+                network,
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                    security_parameter: 0,
+                    step: 15,
+                },
+            },
+        );
+
+        let signed_entity_types = time_point.list_allowed_signed_entity_types();
+
+        assert_eq!(
+            vec![
+                SignedEntityType::MithrilStakeDistribution(beacon.epoch),
+                SignedEntityType::CardanoStakeDistribution(beacon.epoch),
+                SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
+                SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number),
+            ],
+            signed_entity_types
         );
     }
 }
