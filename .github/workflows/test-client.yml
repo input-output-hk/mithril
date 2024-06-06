@@ -120,14 +120,6 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-db download $CDB_SNAPSHOT_DIGEST
 
-      - name: Cardano-db / check old 'snapshot' commands availability
-        shell: bash
-        working-directory: ./bin
-        run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot list --help
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot show --help
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} snapshot download --help
-
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
         working-directory: ./bin
@@ -207,13 +199,6 @@ jobs:
       - name: Cardano-db / download & restore latest
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} cardano-db download $CDB_SNAPSHOT_DIGEST --download-dir /app
-
-      - name: Cardano-db / check old 'snapshot' commands availability
-        shell: bash
-        run: |
-          ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} snapshot list --help
-          ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} snapshot show --help
-          ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} snapshot download --help
 
       - name: Mithril Stake Distribution / list and get last hash
         shell: bash
