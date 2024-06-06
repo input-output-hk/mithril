@@ -211,13 +211,15 @@ impl CardanoTransactionRepository {
         interval.to_range()
     }
 
-    /// Get the [CardanoTransactionRecord] for the given transaction hashes.
+    /// Get the [CardanoTransactionRecord] for the given transaction hashes, up to a block number
     pub async fn get_transaction_by_hashes<T: Into<TransactionHash>>(
         &self,
         hashes: Vec<T>,
+        up_to: BlockNumber,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         let query = GetCardanoTransactionQuery::by_transaction_hashes(
             hashes.into_iter().map(Into::into).collect(),
+            up_to,
         );
         self.connection.fetch_collect(query)
     }
@@ -327,13 +329,14 @@ mod tests {
                 CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 99),
                 CardanoTransactionRecord::new("tx_hash-456", 11, 51, "block_hash-456", 100),
                 CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 101),
+                CardanoTransactionRecord::new("tx_hash-000", 101, 100, "block_hash-000", 110),
             ])
             .await
             .unwrap();
 
         {
             let transactions = repository
-                .get_transaction_by_hashes(vec!["tx_hash-123", "tx_hash-789"])
+                .get_transaction_by_hashes(vec!["tx_hash-123", "tx_hash-789"], 100)
                 .await
                 .unwrap();
 
@@ -347,7 +350,36 @@ mod tests {
         }
         {
             let transactions = repository
-                .get_transaction_by_hashes(vec!["not-exist".to_string()])
+                .get_transaction_by_hashes(vec!["tx_hash-123", "tx_hash-789", "tx_hash-000"], 100)
+                .await
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 99),
+                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 101),
+                ],
+                transactions
+            );
+        }
+        {
+            let transactions = repository
+                .get_transaction_by_hashes(vec!["tx_hash-123", "tx_hash-789", "tx_hash-000"], 101)
+                .await
+                .unwrap();
+
+            assert_eq!(
+                vec![
+                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 99),
+                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789", 101),
+                    CardanoTransactionRecord::new("tx_hash-000", 101, 100, "block_hash-000", 110),
+                ],
+                transactions
+            );
+        }
+        {
+            let transactions = repository
+                .get_transaction_by_hashes(vec!["not-exist".to_string()], 100)
                 .await
                 .unwrap();
 
