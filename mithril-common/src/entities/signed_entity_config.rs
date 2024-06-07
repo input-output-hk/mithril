@@ -42,8 +42,8 @@ impl SignedEntityConfig {
 
     /// Create the deduplicated list of allowed signed entity types discriminants.
     ///
-    /// By default, the list contains the value in [Self::DEFAULT_ALLOWED_DISCRIMINANTS].
-    /// The list can be extended with the configuration parameter `allowed_discriminants`.
+    /// The list is the aggregation of [Self::DEFAULT_ALLOWED_DISCRIMINANTS] and
+    /// `allowed_discriminants`.
     pub fn list_allowed_signed_entity_types_discriminants(
         &self,
     ) -> BTreeSet<SignedEntityTypeDiscriminants> {
@@ -84,8 +84,8 @@ impl SignedEntityConfig {
 
     /// Create the deduplicated list of allowed signed entity types discriminants.
     ///
-    /// By default, the list contains the value in [SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS].
-    /// The list can be extended with the configuration parameter `allowed_discriminants`.
+    /// The list is the aggregation of [Self::DEFAULT_ALLOWED_DISCRIMINANTS] and
+    /// `allowed_discriminants`.
     pub fn list_allowed_signed_entity_types(
         &self,
         time_point: &TimePoint,

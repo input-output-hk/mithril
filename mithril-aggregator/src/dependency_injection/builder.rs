@@ -261,7 +261,7 @@ impl DependenciesBuilder {
     /// Get the signed entity configuration
     pub fn get_signed_entity_config(&mut self) -> Result<SignedEntityConfig> {
         if self.signed_entity_config.is_none() {
-            self.signed_entity_config = Some(self.configuration.deduce_signed_entity_config()?);
+            self.signed_entity_config = Some(self.configuration.compute_signed_entity_config()?);
         }
 
         Ok(self.signed_entity_config.clone().unwrap())

@@ -132,6 +132,9 @@ pub struct Configuration {
 
     /// Signed entity types parameters (discriminants names in an ordered, case-sensitive, comma
     /// separated list).
+    ///
+    /// The values `MithrilStakeDistribution` and `CardanoImmutableFilesFull` are prepended
+    /// automatically to the list.
     #[example = "`MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution`"]
     pub signed_entity_types: Option<String>,
 
@@ -273,8 +276,8 @@ impl Configuration {
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
-    /// Deduce the [SignedEntityConfig] from this configuration.
-    pub fn deduce_signed_entity_config(&self) -> StdResult<SignedEntityConfig> {
+    /// Compute a [SignedEntityConfig] based on this configuration.
+    pub fn compute_signed_entity_config(&self) -> StdResult<SignedEntityConfig> {
         let network = self.get_network()?;
         let allowed_discriminants = self
             .signed_entity_types

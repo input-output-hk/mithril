@@ -50,8 +50,9 @@ pub struct DependencyContainer {
     pub signed_entity_config: SignedEntityConfig,
 
     /// SQLite database connection
-    /// This is not a real service but is needed to instantiate all store
-    /// services. Shall be private dependency.
+    ///
+    /// This is not a real service, but it is needed to instantiate all store
+    /// services. Should be a private dependency.
     pub sqlite_connection: Arc<SqliteConnection>,
 
     /// SQLite database connection for Cardano transactions
