@@ -18,9 +18,7 @@ fn certificate_pending(
     warp::path!("certificate-pending")
         .and(warp::get())
         .and(middlewares::with_config(dependency_manager.clone()))
-        .and(middlewares::with_time_point_provider(
-            dependency_manager.clone(),
-        ))
+        .and(middlewares::with_ticker_service(dependency_manager.clone()))
         .and(middlewares::with_certificate_pending_store(
             dependency_manager,
         ))
@@ -53,7 +51,7 @@ mod handlers {
         CertificatePendingStore, Configuration, ToCertificatePendingMessageAdapter,
     };
 
-    use mithril_common::TimePointProvider;
+    use mithril_common::TickerService;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -64,7 +62,7 @@ mod handlers {
     /// Certificate Pending
     pub async fn certificate_pending(
         config: Configuration,
-        time_point_provider: Arc<dyn TimePointProvider>,
+        ticker_service: Arc<dyn TickerService>,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: certificate_pending");
@@ -72,7 +70,7 @@ mod handlers {
         let network =
             unwrap_to_internal_server_error!(config.get_network(), "certificate_pending::error");
         let time_point = unwrap_to_internal_server_error!(
-            time_point_provider.get_current_time_point().await,
+            ticker_service.get_current_time_point().await,
             "certificate_pending::error"
         );
 

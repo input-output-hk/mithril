@@ -1,11 +1,11 @@
-use crate::entities::{ChainPoint, Epoch, ImmutableFileNumber};
-use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
+use crate::entities::{ChainPoint, Epoch, ImmutableFileNumber};
+
 /// TimePoint aggregates all types of point in the Cardano chain and is used by the state machines
 /// for their computations.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TimePoint {
     /// Cardano chain epoch number
     pub epoch: Epoch,
@@ -58,8 +58,8 @@ impl Display for TimePoint {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "TimePoint (epoch: {}, immutable_file_number: {})",
-            self.epoch, self.immutable_file_number
+            "TimePoint (epoch: {}, immutable_file_number: {}, chain_point: {})",
+            self.epoch, self.immutable_file_number, self.chain_point
         )
     }
 }

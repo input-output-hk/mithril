@@ -19,25 +19,25 @@ fn register_signatures(
         .and(middlewares::with_certifier_service(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_ticker_service(dependency_manager))
+        .and(middlewares::with_ticker_service(dependency_manager.clone()))
+        .and(middlewares::with_signed_entity_config(dependency_manager))
         .and_then(handlers::register_signatures)
 }
 
 mod handlers {
-    use mithril_common::{
-        entities::SignedEntityType,
-        messages::{RegisterSignatureMessage, TryFromMessageAdapter},
-    };
-
     use slog_scope::{debug, trace, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
+    use mithril_common::entities::{SignedEntityConfig, SignedEntityTypeDiscriminants};
+    use mithril_common::messages::{RegisterSignatureMessage, TryFromMessageAdapter};
+    use mithril_common::TickerService;
+
     use crate::{
         http_server::routes::reply,
         message_adapters::FromRegisterSingleSignatureAdapter,
-        services::{CertifierService, CertifierServiceError, TickerService},
+        services::{CertifierService, CertifierServiceError},
     };
 
     /// Register Signatures
@@ -45,16 +45,19 @@ mod handlers {
         message: RegisterSignatureMessage,
         certifier_service: Arc<dyn CertifierService>,
         ticker_service: Arc<dyn TickerService>,
+        signed_entity_config: SignedEntityConfig,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
         trace!("⇄ HTTP SERVER: register_signatures"; "complete_message" => #?message );
 
         let signed_entity_type = match message.signed_entity_type.clone() {
             Some(signed_entity_type) => Ok(signed_entity_type),
-            None => ticker_service
-                .get_current_immutable_beacon()
-                .await
-                .map(SignedEntityType::CardanoImmutableFilesFull),
+            None => ticker_service.get_current_time_point().await.map(|t| {
+                signed_entity_config.time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                    &t,
+                )
+            }),
         };
 
         match signed_entity_type {

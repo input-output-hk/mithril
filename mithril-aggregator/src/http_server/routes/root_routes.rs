@@ -32,37 +32,32 @@ fn root(
         .and(middlewares::with_api_version_provider(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_config(dependency_manager))
+        .and(middlewares::with_signed_entity_config(dependency_manager))
         .and_then(handlers::root)
 }
 
 mod handlers {
-    use mithril_common::api_version::APIVersionProvider;
+    use std::{convert::Infallible, sync::Arc};
+
     use slog_scope::{debug, warn};
     use warp::http::StatusCode;
 
-    use crate::{
-        http_server::routes::{
-            reply::json,
-            root_routes::{AggregatorCapabilities, RootRouteMessage},
-        },
-        unwrap_to_internal_server_error, Configuration,
-    };
-    use std::{collections::BTreeSet, convert::Infallible, sync::Arc};
+    use mithril_common::api_version::APIVersionProvider;
+    use mithril_common::entities::SignedEntityConfig;
+
+    use crate::http_server::routes::reply::json;
+    use crate::http_server::routes::root_routes::{AggregatorCapabilities, RootRouteMessage};
+    use crate::unwrap_to_internal_server_error;
 
     /// Root
     pub async fn root(
         api_version_provider: Arc<APIVersionProvider>,
-        config: Configuration,
+        signed_entity_config: SignedEntityConfig,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: root");
 
         let open_api_version = unwrap_to_internal_server_error!(
             api_version_provider.compute_current_version(),
-            "root::error"
-        );
-        let signed_entity_types = unwrap_to_internal_server_error!(
-            config.list_allowed_signed_entity_types_discriminants(),
             "root::error"
         );
 
@@ -71,7 +66,8 @@ mod handlers {
                 open_api_version: open_api_version.to_string(),
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
                 capabilities: AggregatorCapabilities {
-                    signed_entity_types: BTreeSet::from_iter(signed_entity_types),
+                    signed_entity_types: signed_entity_config
+                        .list_allowed_signed_entity_types_discriminants(),
                 },
             },
             StatusCode::OK,
@@ -112,12 +108,13 @@ mod tests {
         let method = Method::GET.as_str();
         let path = "/";
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.config.signed_entity_types = Some(format!(
-            "{},{},{}",
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution.as_ref(),
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.as_ref(),
-            SignedEntityTypeDiscriminants::CardanoTransactions.as_ref(),
-        ));
+        dependency_manager
+            .signed_entity_config
+            .allowed_discriminants = BTreeSet::from([
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+        ]);
         let expected_open_api_version = dependency_manager
             .api_version_provider
             .clone()

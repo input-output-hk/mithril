@@ -24,7 +24,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{CertificatePending, CompressionAlgorithm, Epoch},
+    entities::{CertificatePending, CompressionAlgorithm, Epoch, SignedEntityConfig},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -34,7 +34,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderService,
     },
-    TimePointProvider, TimePointProviderImpl,
+    MithrilTickerService, TickerService,
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
@@ -58,8 +58,8 @@ use crate::{
     services::{
         CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
         MithrilEpochService, MithrilMessageService, MithrilProverService,
-        MithrilSignedEntityService, MithrilStakeDistributionService, MithrilTickerService,
-        ProverService, SignedEntityService, StakeDistributionService, TickerService,
+        MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
+        SignedEntityService, StakeDistributionService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -88,6 +88,9 @@ const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
 pub struct DependenciesBuilder {
     /// Configuration parameters
     pub configuration: Configuration,
+
+    /// Signed entity configuration
+    pub signed_entity_config: Option<SignedEntityConfig>,
 
     /// SQLite database connection
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
@@ -125,9 +128,6 @@ pub struct DependenciesBuilder {
 
     /// Chain observer service.
     pub chain_observer: Option<Arc<dyn ChainObserver>>,
-
-    /// Time point provider service.
-    pub time_point_provider: Option<Arc<dyn TimePointProvider>>,
 
     /// Cardano transactions repository.
     pub transaction_repository: Option<Arc<CardanoTransactionRepository>>,
@@ -183,7 +183,7 @@ pub struct DependenciesBuilder {
     /// Stake Distribution Service
     pub stake_distribution_service: Option<Arc<dyn StakeDistributionService>>,
 
-    /// Ticker Service (TODO: remove TimePointProvider)
+    /// Ticker Service
     pub ticker_service: Option<Arc<dyn TickerService>>,
 
     /// Signer Store
@@ -216,6 +216,7 @@ impl DependenciesBuilder {
     pub fn new(configuration: Configuration) -> Self {
         Self {
             configuration,
+            signed_entity_config: None,
             sqlite_connection: None,
             transaction_sqlite_connection: None,
             stake_store: None,
@@ -228,7 +229,6 @@ impl DependenciesBuilder {
             protocol_parameters_store: None,
             cardano_cli_runner: None,
             chain_observer: None,
-            time_point_provider: None,
             block_scanner: None,
             transaction_repository: None,
             immutable_digester: None,
@@ -256,6 +256,15 @@ impl DependenciesBuilder {
             message_service: None,
             prover_service: None,
         }
+    }
+
+    /// Get the signed entity configuration
+    pub fn get_signed_entity_config(&mut self) -> Result<SignedEntityConfig> {
+        if self.signed_entity_config.is_none() {
+            self.signed_entity_config = Some(self.configuration.compute_signed_entity_config()?);
+        }
+
+        Ok(self.signed_entity_config.clone().unwrap())
     }
 
     async fn build_sqlite_connection(
@@ -599,24 +608,6 @@ impl DependenciesBuilder {
         Ok(self.cardano_cli_runner.as_ref().cloned().unwrap())
     }
 
-    async fn build_time_point_provider(&mut self) -> Result<Arc<dyn TimePointProvider>> {
-        let time_point_provider = TimePointProviderImpl::new(
-            self.get_chain_observer().await?,
-            self.get_immutable_file_observer().await?,
-        );
-
-        Ok(Arc::new(time_point_provider))
-    }
-
-    /// Return a [TimePointProvider] instance.
-    pub async fn get_time_point_provider(&mut self) -> Result<Arc<dyn TimePointProvider>> {
-        if self.time_point_provider.is_none() {
-            self.time_point_provider = Some(self.build_time_point_provider().await?);
-        }
-
-        Ok(self.time_point_provider.as_ref().cloned().unwrap())
-    }
-
     async fn build_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
         let immutable_file_observer: Arc<dyn ImmutableFileObserver> =
             match self.configuration.environment {
@@ -873,15 +864,14 @@ impl DependenciesBuilder {
 
     async fn build_era_checker(&mut self) -> Result<Arc<EraChecker>> {
         let current_epoch = self
-            .get_time_point_provider()
+            .get_ticker_service()
             .await?
-            .get_current_time_point()
+            .get_current_epoch()
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "Error while building EraChecker".to_string(),
                 error: Some(e),
-            })?
-            .epoch;
+            })?;
         let era_epoch_token = self
             .get_era_reader()
             .await?
@@ -1162,6 +1152,7 @@ impl DependenciesBuilder {
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
+            signed_entity_config: self.get_signed_entity_config()?,
             sqlite_connection: self.get_sqlite_connection().await?,
             sqlite_connection_transaction: self.get_sqlite_connection_cardano_transaction().await?,
             stake_store: self.get_stake_store().await?,
@@ -1173,7 +1164,6 @@ impl DependenciesBuilder {
             verification_key_store: self.get_verification_key_store().await?,
             protocol_parameters_store: self.get_protocol_parameters_store().await?,
             chain_observer: self.get_chain_observer().await?,
-            time_point_provider: self.get_time_point_provider().await?,
             immutable_file_observer: self.get_immutable_file_observer().await?,
             digester: self.get_immutable_digester().await?,
             snapshotter: self.get_snapshotter().await?,
@@ -1216,12 +1206,7 @@ impl DependenciesBuilder {
 
         let config = AggregatorConfig::new(
             Duration::from_millis(self.configuration.run_interval),
-            self.configuration.get_network().with_context(|| {
-                "Dependencies Builder can not get Cardano network while creating aggregator runner"
-            })?,
-            self.configuration
-                .cardano_transactions_signing_config
-                .clone(),
+            self.get_signed_entity_config()?,
         );
         let runtime = AggregatorRuntime::new(
             config,
@@ -1254,7 +1239,7 @@ impl DependenciesBuilder {
 
         let dependencies = GenesisToolsDependency {
             network,
-            time_point_provider: self.get_time_point_provider().await?,
+            ticker_service: self.get_ticker_service().await?,
             certificate_repository: self.get_certificate_repository().await?,
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
@@ -1279,16 +1264,12 @@ impl DependenciesBuilder {
 
     /// Create [TickerService] instance.
     pub async fn build_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
-        let network = self.configuration.get_network().with_context(|| {
-            "Dependencies Builder can not get Cardano network while building ticker service"
-        })?;
         let chain_observer = self.get_chain_observer().await?;
         let immutable_observer = self.get_immutable_file_observer().await?;
 
         Ok(Arc::new(MithrilTickerService::new(
             chain_observer,
             immutable_observer,
-            network,
         )))
     }
 

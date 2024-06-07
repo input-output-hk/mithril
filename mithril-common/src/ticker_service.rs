@@ -1,25 +1,42 @@
-use anyhow::anyhow;
-use anyhow::Context;
+//! ## Ticker Service
+//!
+//! This service read time information from the chain and helps create beacons
+//! for every message types.
+
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::sync::Arc;
 use thiserror::Error;
 
+use crate::chain_observer::ChainObserver;
+use crate::digesters::ImmutableFileObserver;
+use crate::entities::{Epoch, TimePoint};
 use crate::StdResult;
-use crate::{chain_observer::ChainObserver, digesters::ImmutableFileObserver, entities::TimePoint};
 
-/// Provide the current [TimePoint] of a cardano node.
+/// ## TickerService
+///
+/// This service is responsible for giving the right time information to other
+/// services. It reads data either from the Chain or the filesystem to create
+/// beacons for each message type.
 #[async_trait]
-pub trait TimePointProvider
+pub trait TickerService
 where
     Self: Sync + Send,
 {
+    /// Get the current [Epoch] of the cardano node.
+    async fn get_current_epoch(&self) -> StdResult<Epoch> {
+        self.get_current_time_point()
+            .await
+            .map(|time_point| time_point.epoch)
+    }
+
     /// Get the current [TimePoint] of the cardano node.
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 }
 
-/// [TimePointProvider] related errors.
+/// [TickerService] related errors.
 #[derive(Error, Debug)]
-pub enum TimePointProviderError {
+pub enum TickerServiceError {
     /// Raised when reading the current epoch succeeded but yielded no result.
     #[error("No epoch yielded by the chain observer, is your cardano node ready?")]
     NoEpoch,
@@ -29,14 +46,14 @@ pub enum TimePointProviderError {
     NoChainPoint,
 }
 
-/// A [TimePointProvider] using a [ChainObserver] and a [ImmutableFileObserver].
-pub struct TimePointProviderImpl {
+/// A [TickerService] using a [ChainObserver] and a [ImmutableFileObserver].
+pub struct MithrilTickerService {
     chain_observer: Arc<dyn ChainObserver>,
     immutable_observer: Arc<dyn ImmutableFileObserver>,
 }
 
-impl TimePointProviderImpl {
-    /// [TimePointProviderImpl] factory.
+impl MithrilTickerService {
+    /// [MithrilTickerService] factory.
     pub fn new(
         chain_observer: Arc<dyn ChainObserver>,
         immutable_observer: Arc<dyn ImmutableFileObserver>,
@@ -49,7 +66,7 @@ impl TimePointProviderImpl {
 }
 
 #[async_trait]
-impl TimePointProvider for TimePointProviderImpl {
+impl TickerService for MithrilTickerService {
     async fn get_current_time_point(&self) -> StdResult<TimePoint> {
         let epoch = self
             .chain_observer
@@ -57,7 +74,7 @@ impl TimePointProvider for TimePointProviderImpl {
             .await
             .map_err(|e| anyhow!(e))
             .with_context(|| "TimePoint Provider can not get current epoch")?
-            .ok_or(TimePointProviderError::NoEpoch)?;
+            .ok_or(TickerServiceError::NoEpoch)?;
 
         let immutable_file_number = self
             .immutable_observer
@@ -75,7 +92,7 @@ impl TimePointProvider for TimePointProviderImpl {
             .await
             .map_err(|e| anyhow!(e))
             .with_context(|| "TimePoint Provider can not get current chain point")?
-            .ok_or(TimePointProviderError::NoChainPoint)?;
+            .ok_or(TickerServiceError::NoChainPoint)?;
 
         Ok(TimePoint {
             epoch,
@@ -127,12 +144,23 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_happy_path() {
-        let time_point_provider = TimePointProviderImpl::new(
+    async fn test_get_current_epoch() {
+        let ticker_service = MithrilTickerService::new(
             Arc::new(DumbChainObserver {}),
             Arc::new(DumbImmutableFileObserver::default()),
         );
-        let time_point = time_point_provider.get_current_time_point().await.unwrap();
+        let epoch = ticker_service.get_current_epoch().await.unwrap();
+
+        assert_eq!(Epoch(42), epoch);
+    }
+
+    #[tokio::test]
+    async fn test_happy_path() {
+        let ticker_service = MithrilTickerService::new(
+            Arc::new(DumbChainObserver {}),
+            Arc::new(DumbImmutableFileObserver::default()),
+        );
+        let time_point = ticker_service.get_current_time_point().await.unwrap();
 
         assert_eq!(
             TimePoint::new(
@@ -142,7 +170,7 @@ mod tests {
                     slot_number: 800,
                     block_number: 51,
                     block_hash: "1b69b3202fbe500".to_string(),
-                }
+                },
             ),
             time_point
         );
@@ -152,12 +180,10 @@ mod tests {
     async fn test_error_from_dependency() {
         let immutable_observer = DumbImmutableFileObserver::default();
         immutable_observer.shall_return(None).await;
-        let time_point_provider = TimePointProviderImpl::new(
-            Arc::new(DumbChainObserver {}),
-            Arc::new(immutable_observer),
-        );
+        let ticker_service =
+            MithrilTickerService::new(Arc::new(DumbChainObserver {}), Arc::new(immutable_observer));
 
-        let result = time_point_provider.get_current_time_point().await;
+        let result = ticker_service.get_current_time_point().await;
         assert!(result.is_err());
     }
 }

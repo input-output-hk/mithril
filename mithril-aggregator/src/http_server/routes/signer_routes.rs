@@ -31,7 +31,7 @@ fn register_signer(
         .and(middlewares::with_event_transmitter(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_time_point_provider(dependency_manager))
+        .and(middlewares::with_ticker_service(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
@@ -68,7 +68,7 @@ mod handlers {
     use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
-    use mithril_common::TimePointProvider;
+    use mithril_common::TickerService;
     use slog_scope::{debug, trace, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -80,7 +80,7 @@ mod handlers {
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
-        time_point_provider: Arc<dyn TimePointProvider>,
+        ticker_service: Arc<dyn TickerService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",
@@ -119,8 +119,8 @@ mod handlers {
             None => Vec::new(),
         };
 
-        let epoch_str = match time_point_provider.get_current_time_point().await {
-            Ok(time_point) => format!("{}", time_point.epoch),
+        let epoch_str = match ticker_service.get_current_epoch().await {
+            Ok(epoch) => format!("{epoch}"),
             Err(e) => {
                 warn!("Could not read epoch to add in event: {e}");
                 String::new()

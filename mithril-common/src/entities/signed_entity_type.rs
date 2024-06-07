@@ -1,12 +1,16 @@
-use crate::StdResult;
+use std::collections::BTreeSet;
+use std::str::FromStr;
+use std::time::Duration;
+
 use anyhow::anyhow;
 use digest::Update;
 use serde::{Deserialize, Serialize};
 use sha2::Sha256;
-use std::time::Duration;
-use strum::{AsRefStr, Display, EnumDiscriminants, EnumString};
+use strum::{AsRefStr, Display, EnumDiscriminants, EnumIter, EnumString, IntoEnumIterator};
 
-use super::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, TimePoint};
+use crate::StdResult;
+
+use super::{BlockNumber, CardanoDbBeacon, Epoch};
 
 /// Database representation of the SignedEntityType::MithrilStakeDistribution value
 const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
@@ -29,7 +33,16 @@ const ENTITY_TYPE_CARDANO_TRANSACTIONS: usize = 3;
 // Important note: The order of the variants is important as it is used for the derived Ord trait.
 #[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
-#[strum_discriminants(derive(EnumString, AsRefStr, Serialize, Deserialize, PartialOrd, Ord))]
+#[strum_discriminants(derive(
+    Display,
+    EnumString,
+    AsRefStr,
+    Serialize,
+    Deserialize,
+    PartialOrd,
+    Ord,
+    EnumIter,
+))]
 pub enum SignedEntityType {
     /// Mithril stake distribution
     MithrilStakeDistribution(Epoch),
@@ -42,57 +55,6 @@ pub enum SignedEntityType {
 
     /// Cardano Transactions
     CardanoTransactions(Epoch, BlockNumber),
-}
-
-/// Configuration for the signing of Cardano transactions
-///
-/// Allow to compute the block number to be signed based on the chain tip block number.
-///
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CardanoTransactionsSigningConfig {
-    /// Number of blocks to discard from the tip of the chain when importing transactions.
-    pub security_parameter: BlockNumber,
-
-    /// The number of blocks between signature of the transactions.
-    ///
-    /// *Note: The step is adjusted to be a multiple of the block range length in order
-    /// to guarantee that the block number signed in a certificate is effectively signed.*
-    pub step: BlockNumber,
-}
-
-impl CardanoTransactionsSigningConfig {
-    cfg_test_tools! {
-        /// Create a dummy config
-        pub fn dummy() -> Self {
-            Self {
-                security_parameter: 0,
-                step: 15,
-            }
-        }
-    }
-
-    /// Compute the block number to be signed based on the chain tip block number.
-    ///
-    /// The latest block number to be signed is the highest multiple of the step less or equal than the
-    /// block number minus the security parameter.
-    ///
-    /// The formula is as follows:
-    ///
-    /// `block_number = ⌊(tip.block_number - security_parameter) / step⌋ × step`
-    ///
-    /// where `⌊x⌋` is the floor function which rounds to the greatest integer less than or equal to `x`.
-    ///
-    /// *Note: The step is adjusted to be a multiple of the block range length in order
-    /// to guarantee that the block number signed in a certificate is effectively signed.*
-    pub fn compute_block_number_to_be_signed(&self, block_number: BlockNumber) -> BlockNumber {
-        // TODO: See if we can remove this adjustment by including a "partial" block range in
-        // the signed data.
-        let adjusted_step = BlockRange::from_block_number(self.step).start;
-        // We can't have a step lower than the block range length.
-        let adjusted_step = std::cmp::max(adjusted_step, BlockRange::LENGTH);
-
-        (block_number - self.security_parameter) / adjusted_step * adjusted_step
-    }
 }
 
 impl SignedEntityType {
@@ -154,35 +116,6 @@ impl SignedEntityType {
         }
     }
 
-    /// Create a SignedEntityType from beacon and SignedEntityTypeDiscriminants
-    pub fn from_time_point(
-        discriminant: &SignedEntityTypeDiscriminants,
-        network: &str,
-        time_point: &TimePoint,
-        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
-    ) -> Self {
-        match discriminant {
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
-                Self::MithrilStakeDistribution(time_point.epoch)
-            }
-            SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                Self::CardanoStakeDistribution(time_point.epoch)
-            }
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
-                Self::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                    network,
-                    *time_point.epoch,
-                    time_point.immutable_file_number,
-                ))
-            }
-            SignedEntityTypeDiscriminants::CardanoTransactions => Self::CardanoTransactions(
-                time_point.epoch,
-                cardano_transactions_signing_config
-                    .compute_block_number_to_be_signed(time_point.chain_point.block_number),
-            ),
-        }
-    }
-
     pub(crate) fn feed_hash(&self, hasher: &mut Sha256) {
         match self {
             SignedEntityType::MithrilStakeDistribution(epoch)
@@ -203,6 +136,11 @@ impl SignedEntityType {
 }
 
 impl SignedEntityTypeDiscriminants {
+    /// Get all the discriminants
+    pub fn all() -> BTreeSet<Self> {
+        SignedEntityTypeDiscriminants::iter().collect()
+    }
+
     /// Get the database value from enum's instance
     pub fn index(&self) -> usize {
         match self {
@@ -222,6 +160,56 @@ impl SignedEntityTypeDiscriminants {
             ENTITY_TYPE_CARDANO_TRANSACTIONS => Ok(Self::CardanoTransactions),
             index => Err(anyhow!("Invalid entity_type_id {index}.")),
         }
+    }
+
+    /// Parse the deduplicated list of signed entity types discriminants from a comma separated
+    /// string.
+    ///
+    /// Unknown or incorrectly formed values are ignored.
+    pub fn parse_list<T: AsRef<str>>(discriminants_string: T) -> StdResult<BTreeSet<Self>> {
+        let mut discriminants = BTreeSet::new();
+        let mut invalid_discriminants = Vec::new();
+
+        for name in discriminants_string
+            .as_ref()
+            .split(',')
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            match Self::from_str(name) {
+                Ok(discriminant) => {
+                    discriminants.insert(discriminant);
+                }
+                Err(_) => {
+                    invalid_discriminants.push(name);
+                }
+            }
+        }
+
+        if invalid_discriminants.is_empty() {
+            Ok(discriminants)
+        } else {
+            Err(anyhow!(Self::format_parse_list_error(
+                invalid_discriminants
+            )))
+        }
+    }
+
+    fn format_parse_list_error(invalid_discriminants: Vec<&str>) -> String {
+        format!(
+            r#"Invalid signed entity types discriminants: {}.
+
+Accepted values are (case-sensitive): {}."#,
+            invalid_discriminants.join(", "),
+            Self::accepted_discriminants()
+        )
+    }
+
+    fn accepted_discriminants() -> String {
+        Self::iter()
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
 
@@ -367,82 +355,110 @@ mod tests {
     }
 
     #[test]
-    fn computing_block_number_to_be_signed() {
-        // **block_number = ((tip.block_number - k') / n) × n**
-        assert_eq!(
-            CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 15,
-            }
-            .compute_block_number_to_be_signed(105),
-            105
-        );
+    fn parse_signed_entity_types_discriminants_discriminant_without_values() {
+        let discriminants_str = "";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
+
+        assert_eq!(BTreeSet::new(), discriminants);
+
+        let discriminants_str = "     ";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
+
+        assert_eq!(BTreeSet::new(), discriminants);
+    }
+
+    #[test]
+    fn parse_signed_entity_types_discriminants_with_correctly_formed_values() {
+        let discriminants_str = "MithrilStakeDistribution,CardanoImmutableFilesFull";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(
-            CardanoTransactionsSigningConfig {
-                security_parameter: 5,
-                step: 15,
-            }
-            .compute_block_number_to_be_signed(100),
-            90
-        );
-
-        assert_eq!(
-            CardanoTransactionsSigningConfig {
-                security_parameter: 85,
-                step: 15,
-            }
-            .compute_block_number_to_be_signed(100),
-            15
-        );
-
-        assert_eq!(
-            CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 30,
-            }
-            .compute_block_number_to_be_signed(29),
-            0
+            BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ]),
+            discriminants
         );
     }
 
     #[test]
-    fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
-        assert_eq!(
-            CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: BlockRange::LENGTH * 2 - 1,
-            }
-            .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
-            BlockRange::LENGTH * 5
-        );
+    fn parse_signed_entity_types_discriminants_should_trim_values() {
+        let discriminants_str =
+            "MithrilStakeDistribution    ,  CardanoImmutableFilesFull  ,   CardanoTransactions   ";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(
-            CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: BlockRange::LENGTH * 2 + 1,
-            }
-            .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
-            BlockRange::LENGTH * 4
+            BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ]),
+            discriminants
         );
+    }
 
-        // Adjusted step is always at least BLOCK_RANGE_LENGTH.
-        assert_eq!(
-            CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: BlockRange::LENGTH - 1,
-            }
-            .compute_block_number_to_be_signed(BlockRange::LENGTH * 10 - 1),
-            BlockRange::LENGTH * 9
-        );
+    #[test]
+    fn parse_signed_entity_types_discriminants_should_remove_duplicates() {
+        let discriminants_str =
+            "CardanoTransactions,CardanoTransactions,CardanoTransactions,CardanoTransactions";
+        let discriminant = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(
-            CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: BlockRange::LENGTH - 1,
-            }
-            .compute_block_number_to_be_signed(BlockRange::LENGTH - 1),
-            0
+            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]),
+            discriminant
+        );
+    }
+
+    #[test]
+    fn parse_signed_entity_types_discriminants_should_be_case_sensitive() {
+        let discriminants_str = "mithrilstakedistribution,CARDANOIMMUTABLEFILESFULL";
+        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
+
+        assert_eq!(
+            SignedEntityTypeDiscriminants::format_parse_list_error(vec![
+                "mithrilstakedistribution",
+                "CARDANOIMMUTABLEFILESFULL"
+            ]),
+            error.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_signed_entity_types_discriminants_should_not_return_unknown_signed_entity_types() {
+        let discriminants_str = "Unknown";
+        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
+
+        assert_eq!(
+            SignedEntityTypeDiscriminants::format_parse_list_error(vec!["Unknown"]),
+            error.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_signed_entity_types_discriminants_should_fail_if_there_is_at_least_one_invalid_value()
+    {
+        let discriminants_str = "CardanoTransactions,Invalid,MithrilStakeDistribution";
+        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
+
+        assert_eq!(
+            SignedEntityTypeDiscriminants::format_parse_list_error(vec!["Invalid"]),
+            error.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_list_error_format_to_an_useful_message() {
+        let invalid_discriminants = vec!["Unknown", "Invalid"];
+        let error = SignedEntityTypeDiscriminants::format_parse_list_error(invalid_discriminants);
+
+        assert_eq!(
+            format!(
+                r#"Invalid signed entity types discriminants: Unknown, Invalid.
+
+Accepted values are (case-sensitive): {}."#,
+                SignedEntityTypeDiscriminants::accepted_discriminants()
+            ),
+            error
         );
     }
 }

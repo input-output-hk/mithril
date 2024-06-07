@@ -15,7 +15,7 @@ use mithril_common::{
         Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
         SignedEntityType, SingleSignatures, StakeDistributionParty,
     },
-    CardanoNetwork, StdResult,
+    CardanoNetwork, StdResult, TickerService,
 };
 use slog::Logger;
 use slog_scope::{debug, error, info, trace, warn};
@@ -29,7 +29,6 @@ use crate::{
         CertificateRepository, OpenMessageRepository, SingleSignatureRepository,
     },
     entities::OpenMessage,
-    services::TickerService,
     MultiSigner,
 };
 
@@ -386,7 +385,7 @@ impl CertifierService for MithrilCertifierService {
         let sealed_at = Utc::now();
         let immutable_file_number = self
             .ticker_service
-            .get_current_immutable_beacon()
+            .get_current_time_point()
             .await
             .with_context(|| "Could not retrieve current beacon to create certificate")?
             .immutable_file_number;

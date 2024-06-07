@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use mithril_common::entities::SignedEntityConfig;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::BlockScanner,
@@ -12,7 +13,7 @@ use mithril_common::{
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     test_utils::MithrilFixture,
-    TimePointProvider,
+    TickerService,
 };
 use mithril_persistence::{sqlite::SqliteConnection, store::StakeStorer};
 
@@ -26,7 +27,7 @@ use crate::{
     multi_signer::MultiSigner,
     services::{
         CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
-        StakeDistributionService, TickerService, TransactionStore,
+        StakeDistributionService, TransactionStore,
     },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
@@ -45,9 +46,13 @@ pub struct DependencyContainer {
     /// Configuration structure.
     pub config: Configuration,
 
+    /// Signed entity configuration.
+    pub signed_entity_config: SignedEntityConfig,
+
     /// SQLite database connection
-    /// This is not a real service but is is needed to instantiate all store
-    /// services. Shall be private dependency.
+    ///
+    /// This is not a real service, but it is needed to instantiate all store
+    /// services. Should be a private dependency.
     pub sqlite_connection: Arc<SqliteConnection>,
 
     /// SQLite database connection for Cardano transactions
@@ -80,9 +85,6 @@ pub struct DependencyContainer {
 
     /// Chain observer service.
     pub chain_observer: Arc<dyn ChainObserver>,
-
-    /// Time point provider service.
-    pub time_point_provider: Arc<dyn TimePointProvider>,
 
     /// Cardano transactions store.
     pub transaction_store: Arc<dyn TransactionStore>,

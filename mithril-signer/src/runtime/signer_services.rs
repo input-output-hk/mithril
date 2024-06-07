@@ -18,7 +18,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderService,
     },
-    StdResult, TimePointProvider, TimePointProviderImpl,
+    MithrilTickerService, StdResult, TickerService,
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
@@ -38,7 +38,7 @@ type CertificateHandlerService = Arc<dyn AggregatorClient>;
 type ChainObserverService = Arc<dyn ChainObserver>;
 type DigesterService = Arc<dyn ImmutableDigester>;
 type SingleSignerService = Arc<dyn SingleSigner>;
-type TimePointProviderService = Arc<dyn TimePointProvider>;
+type TimePointProviderService = Arc<dyn TickerService>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
 
 /// The ServiceBuilder is intended to manage Services instance creation.
@@ -190,6 +190,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             })?;
         }
 
+        let network = self.config.get_network()?;
         let sqlite_connection = self
             .build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
             .await?;
@@ -220,9 +221,9 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             let builder = self.chain_observer_builder;
             builder(self.config)?
         };
-        let time_point_provider = {
+        let ticker_service = {
             let builder = self.immutable_file_observer_builder;
-            Arc::new(TimePointProviderImpl::new(
+            Arc::new(MithrilTickerService::new(
                 chain_observer.clone(),
                 builder(self.config)?,
             ))
@@ -233,7 +234,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .build_era_reader_adapter(chain_observer.clone())?,
         ));
         let era_epoch_token = era_reader
-            .read_era_epoch_token(time_point_provider.get_current_time_point().await?.epoch)
+            .read_era_epoch_token(ticker_service.get_current_epoch().await?)
             .await?;
         let era_checker = Arc::new(EraChecker::new(
             era_epoch_token.get_current_supported_era()?,
@@ -261,9 +262,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             slog_scope::logger(),
-            self.config
-                .get_network()?
-                .compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
+            network.compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
             transaction_store.clone(),
             // Rescan the last immutable when importing transactions, it may have been partially imported
             Some(1),
@@ -296,7 +295,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let metrics_service = Arc::new(MetricsService::new().unwrap());
 
         let services = SignerServices {
-            time_point_provider,
+            ticker_service,
             certificate_handler,
             chain_observer,
             digester,
@@ -317,7 +316,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
 /// This structure groups all the services required by the state machine.
 pub struct SignerServices {
     /// Time point provider service
-    pub time_point_provider: TimePointProviderService,
+    pub ticker_service: TimePointProviderService,
 
     /// Stake store service
     pub stake_store: StakeStoreService,
