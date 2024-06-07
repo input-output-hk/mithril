@@ -43,7 +43,8 @@ fn generate_block_ranges_nodes_iterator(
             block_range_index * total_transactions_per_block_range,
             (block_range_index + 1) * total_transactions_per_block_range,
         );
-        let mk_map_node = if block_range_index < max_uncompressed_block_ranges {
+        let mk_map_node = if block_range_index <= total_block_ranges - max_uncompressed_block_ranges
+        {
             let leaves = <Range<u64> as Clone>::clone(&block_range)
                 .map(|leaf_index| leaf_index.to_string())
                 .collect::<Vec<_>>();
