@@ -3,7 +3,7 @@
 use anyhow::{anyhow, Context};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     hash::Hash,
     sync::Arc,
 };
@@ -37,6 +37,7 @@ pub trait MKMapValue<K: MKMapKey>: Clone + TryInto<MKTreeNode> {
 pub struct MKMap<K: MKMapKey, V: MKMapValue<K>> {
     inner_map_values: BTreeMap<K, V>,
     inner_merkle_tree: MKTree,
+    can_compute_proof_keys: BTreeSet<K>,
 }
 
 impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
@@ -49,9 +50,11 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
     pub fn new_from_iter<T: IntoIterator<Item = (K, V)>>(entries: T) -> StdResult<Self> {
         let inner_map_values = BTreeMap::default();
         let inner_merkle_tree = MKTree::new::<MKTreeNode>(&[])?;
+        let can_compute_proof_keys = BTreeSet::default();
         let mut mk_map = Self {
             inner_map_values,
             inner_merkle_tree,
+            can_compute_proof_keys,
         };
         let sorted_entries = BTreeMap::from_iter(entries);
         for (key, value) in sorted_entries {
@@ -71,8 +74,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
                     "MKMap values should be replaced by entry with same root"
                 ));
             }
-            self.inner_map_values.insert(key.clone(), value.clone());
-            return Ok(());
+            return self.replace(key, value);
         } else {
             let key_max = self.inner_map_values.keys().max();
             if key_max > Some(&key) {
@@ -85,6 +87,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
 
     /// Insert a new key-value pair without checking if the key is already present nor the order of insertion.
     fn insert_unchecked(&mut self, key: K, value: V) -> StdResult<()> {
+        self.update_can_compute_proof_keys(&key, &value)?;
         self.inner_map_values.insert(key.clone(), value.clone());
         let mktree_node_value = value
             .try_into()
@@ -93,6 +96,25 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
         let mktree_node_key: MKTreeNode = key.into();
         self.inner_merkle_tree
             .append(&[mktree_node_key + mktree_node_value])?;
+
+        Ok(())
+    }
+
+    /// Replace the value of an existing key
+    fn replace(&mut self, key: K, value: V) -> StdResult<()> {
+        self.update_can_compute_proof_keys(&key, &value)?;
+        self.inner_map_values.insert(key.clone(), value.clone());
+
+        Ok(())
+    }
+
+    /// Keep track of the keys that can compute proof
+    fn update_can_compute_proof_keys(&mut self, key: &K, value: &V) -> StdResult<()> {
+        if value.can_compute_proof() {
+            self.can_compute_proof_keys.insert(key.clone());
+        } else if self.can_compute_proof_keys.contains(key) {
+            self.can_compute_proof_keys.remove(key);
+        }
 
         Ok(())
     }
@@ -137,9 +159,9 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
         }
 
         let can_compute_proof_map: HashMap<K, V> = self
+            .can_compute_proof_keys
             .iter()
-            .filter(|(_, v)| v.can_compute_proof())
-            .map(|(k, v)| (k.to_owned(), v.to_owned()))
+            .filter_map(|k| self.get(k).map(|v| (k.to_owned(), v.to_owned())))
             .collect();
         let leaves_by_keys: HashMap<K, Vec<MKTreeNode>> = can_compute_proof_map
             .iter()
