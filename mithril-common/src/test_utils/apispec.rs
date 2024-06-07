@@ -258,6 +258,51 @@ impl<'a> APISpec<'a> {
 
         open_api_spec_files
     }
+
+    /// Verify that examples are conform to the type definition.
+    pub fn verify_examples(&self) -> Vec<String> {
+        self.verify_examples_value("", &self.openapi)
+    }
+
+    fn verify_examples_value(&self, path_to_value: &str, root_value: &Value) -> Vec<String> {
+        let mut errors: Vec<String> = vec![];
+
+        errors.append(&mut self.verify_example_conformity(path_to_value, root_value));
+
+        if let Some(object) = root_value.as_object() {
+            for (value_key, value) in object {
+                errors.append(
+                    &mut self.verify_examples_value(&format!("{path_to_value} {value_key}"), value),
+                );
+            }
+        }
+
+        if let Some(array) = root_value.as_array() {
+            for value in array {
+                errors
+                    .append(&mut self.verify_examples_value(&format!("{path_to_value}[?]"), value));
+            }
+        }
+
+        errors
+    }
+
+    fn verify_example_conformity(&self, name: &str, component: &Value) -> Vec<String> {
+        if let Some(example) = component.get("example") {
+            // The type definition is at the same level as the example (components) unless there is a schema property (paths).
+            let component_definition = component.get("schema").unwrap_or(component);
+
+            let result = self.validate_conformity(example, component_definition);
+            if let Err(e) = result {
+                return vec![format!(
+                    "- {}: Error\n    {}\n    Example: {}\n",
+                    name, e, example
+                )];
+            }
+        }
+
+        vec![]
+    }
 }
 
 // TODO: For now, it verifies only one parameter,
@@ -281,13 +326,15 @@ fn check_query_parameter_limitations(url: &Url, operation_object: &Value) {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+    use std::path::{Path, PathBuf};
     use warp::http::Method;
     use warp::http::StatusCode;
 
     use super::*;
     use crate::entities;
     use crate::messages::{CertificatePendingMessage, SignerMessagePart};
-    use crate::test_utils::fake_data;
+    use crate::test_utils::{fake_data, TempDir};
 
     fn build_empty_response(status_code: u16) -> Response<Bytes> {
         Response::builder()
@@ -308,6 +355,67 @@ mod tests {
             .status(status_code)
             .body(Bytes::from_static(content))
             .unwrap()
+    }
+
+    fn get_temp_dir(dir_name: &str) -> PathBuf {
+        TempDir::create("apispec", dir_name)
+    }
+
+    fn get_temp_openapi_filename(name: &str, id: u32) -> PathBuf {
+        get_temp_dir(&format!("{name}-{id}")).join("openapi.yaml")
+    }
+
+    fn write_minimal_open_api_file(
+        version: &str,
+        path: &Path,
+        openapi_paths: &str,
+        openapi_components: &str,
+    ) {
+        fs::write(
+            path,
+            format!(
+                r#"openapi: "3.0.0"
+info:
+  version: {version}
+  title: Minimal Open Api File
+
+paths:
+{openapi_paths}
+
+components:
+  schemas:
+{openapi_components}
+"#
+            ),
+        )
+        .unwrap()
+    }
+
+    /// To check that the example is verified,
+    /// we create an openapi.yaml with an invalid example.
+    /// If the example is verified, we should have an error message.
+    /// A simple invalid example is one with a wrong type (string instead of integer)
+    fn check_example_error_is_detected(
+        id: u32,
+        paths: &str,
+        components: &str,
+        expected_error_message: &str,
+    ) {
+        let file = get_temp_openapi_filename("example", id);
+
+        write_minimal_open_api_file("1.0.0", &file, paths, components);
+
+        let api_spec = APISpec::from_file(file.to_str().unwrap());
+        let errors: Vec<String> = api_spec.verify_examples();
+
+        assert_eq!(1, errors.len());
+        let error_message = errors.first().unwrap();
+        assert!(
+            error_message.contains(expected_error_message),
+            "Error message: {:?}\nshould contains: {}\n",
+            errors,
+            expected_error_message
+        );
     }
 
     #[test]
@@ -572,7 +680,7 @@ mod tests {
         let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         api_spec
             .validate_query_parameters(
-                "/proof/cardano-transaction?transaction_hashes=123",
+                "/proof/cardano-transaction?transaction_hashes=a123,b456",
                 &api_spec.openapi["paths"]["/proof/cardano-transaction"]["get"],
             )
             .map(|_apispec| ())
@@ -659,5 +767,162 @@ mod tests {
         let spec_files = APISpec::get_all_spec_files();
         assert!(!spec_files.is_empty());
         assert!(spec_files.contains(&APISpec::get_default_spec_file()))
+    }
+
+    #[test]
+    fn test_example_is_verified_on_object() {
+        let components = r#"
+        MyComponent:
+            type: object
+            properties:
+                id:
+                    type: integer
+            example:
+                {
+                    "id": "abc",
+                }
+        "#;
+        check_example_error_is_detected(
+            line!(),
+            "",
+            components,
+            "\"abc\" is not of type \"integer\"",
+        );
+    }
+
+    #[test]
+    fn test_example_is_verified_on_array() {
+        let components = r#"
+        MyComponent:
+            type: array
+            items:
+                type: integer
+            example:
+                [
+                    "abc"
+                ]
+      "#;
+        check_example_error_is_detected(
+            line!(),
+            "",
+            components,
+            "\"abc\" is not of type \"integer\"",
+        );
+    }
+
+    #[test]
+    fn test_example_is_verified_on_array_item() {
+        let components = r#"
+        MyComponent:
+            type: array
+            items:
+                type: integer
+                example: 
+                    "abc"
+        "#;
+        check_example_error_is_detected(
+            line!(),
+            "",
+            components,
+            "\"abc\" is not of type \"integer\"",
+        );
+    }
+
+    #[test]
+    fn test_example_is_verified_on_parameter() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            type: integer
+                        example: "abc"
+        "#;
+        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+    }
+
+    #[test]
+    fn test_example_is_verified_on_array_parameter() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            type: array
+                            items:
+                                type: integer
+                        example: 
+                            [
+                                "abc"
+                            ]
+        "#;
+        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+    }
+
+    #[test]
+    fn test_example_is_verified_on_array_parameter_schema() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            type: array
+                            items:
+                                type: integer
+                            example: 
+                                [
+                                    "abc"
+                                ]
+        "#;
+        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+    }
+
+    #[test]
+    fn test_example_is_verified_on_array_parameter_item() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            type: array
+                            items:
+                                type: integer
+                                example: 
+                                    "abc"
+        "#;
+        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+    }
+
+    #[test]
+    fn test_example_is_verified_on_referenced_component() {
+        let paths = r#"
+        /my_route:
+            get:
+                parameters:
+                    -   name: id
+                        in: path
+                        schema:
+                            $ref: '#/components/schemas/MyComponent'
+                        example: "abc"
+        "#;
+        let components = r#"
+        MyComponent:
+            type: integer
+        "#;
+
+        check_example_error_is_detected(
+            line!(),
+            paths,
+            components,
+            "\"abc\" is not of type \"integer\"",
+        );
     }
 }

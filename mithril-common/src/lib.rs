@@ -88,3 +88,21 @@ pub const MITHRIL_API_VERSION_HEADER: &str = "mithril-api-version";
 
 /// Mithril Signer node version header name
 pub const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
+
+#[cfg(test)]
+mod tests {
+    #[cfg(feature = "apispec")]
+    #[test]
+    fn test_openapi_examples_conformity() {
+        use crate::test_utils::apispec::APISpec;
+        let api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
+
+        let errors: Vec<String> = api_spec.verify_examples();
+
+        assert!(
+            errors.is_empty(),
+            "Errors in examples\n{}",
+            errors.join("\n")
+        );
+    }
+}

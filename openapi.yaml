@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.22
+  version: 0.1.23
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -356,8 +356,8 @@ paths:
             type: array
             items:
               type: string
-            format: bytes
-            example: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f"
+              format: bytes
+              example: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f"
           explode: false
       responses:
         "200":
@@ -986,7 +986,7 @@ components:
         {
           "snapshot_digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
           "next_aggregate_verification_key": "b132362c3232352c36392c31373133352c31323235392c3235332c3233342c34226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b33382c3382c3138322c3231322c2c363",
-          "latest_block_number": 123456
+          "latest_block_number": "123456"
         }
 
     ProtocolMessage:
