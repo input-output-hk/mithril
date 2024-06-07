@@ -44,3 +44,7 @@ www-test-install:
 
 www-test-serve:
 	npm --prefix www-test run start
+
+upgrade-www-deps: build
+	make -C www upgrade
+	make -C www-test upgrade
