@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -159,6 +160,18 @@ impl SignedEntityTypeDiscriminants {
             index => Err(anyhow!("Invalid entity_type_id {index}.")),
         }
     }
+
+    /// Parse the deduplicated list of signed entity types discriminants from a comma separated
+    /// string.
+    ///
+    /// Unknown or incorrectly formed values are ignored.
+    pub fn parse_list<T: AsRef<str>>(discriminants_string: T) -> BTreeSet<Self> {
+        discriminants_string
+            .as_ref()
+            .split(',')
+            .filter_map(|name| SignedEntityTypeDiscriminants::from_str(name.trim()).ok())
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -300,5 +313,72 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoTransactions,
             ]
         );
+    }
+
+    #[test]
+    fn test_parse_signed_entity_types_discriminants_discriminant_without_values() {
+        let discriminants_str = "";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+
+        assert_eq!(BTreeSet::new(), discriminants);
+    }
+
+    #[test]
+    fn test_parse_signed_entity_types_discriminants_with_correctly_formed_values() {
+        let discriminants_str = "MithrilStakeDistribution,CardanoImmutableFilesFull";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+
+        assert_eq!(
+            BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ]),
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_parse_signed_entity_types_discriminants_should_trim_values() {
+        let discriminants_str =
+            "MithrilStakeDistribution    ,  CardanoImmutableFilesFull  ,   CardanoTransactions   ";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+
+        assert_eq!(
+            BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            ]),
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_parse_signed_entity_types_discriminants_should_remove_duplicates() {
+        let discriminants_str =
+            "CardanoTransactions,CardanoTransactions,CardanoTransactions,CardanoTransactions";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+
+        assert_eq!(
+            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]),
+            discriminants
+        );
+    }
+
+    #[test]
+    fn test_parse_signed_entity_types_discriminants_should_be_case_sensitive() {
+        let discriminants_str = "mithrilstakedistribution,CARDANOIMMUTABLEFILESFULL";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+
+        assert_eq!(BTreeSet::new(), discriminants);
+    }
+
+    #[test]
+    fn test_parse_signed_entity_types_discriminants_should_not_return_unknown_signed_entity_types()
+    {
+        let discriminants_str = "Unknown";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+
+        assert_eq!(BTreeSet::new(), discriminants);
     }
 }

@@ -5,7 +5,7 @@ use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -130,7 +130,8 @@ pub struct Configuration {
     /// Era reader adapter parameters
     pub era_reader_adapter_params: Option<String>,
 
-    /// Signed entity types parameters (discriminants names in an ordered comma separated list).    
+    /// Signed entity types parameters (discriminants names in an ordered, case-sensitive, comma
+    /// separated list).
     #[example = "`MithrilStakeDistribution,CardanoImmutableFilesFull,CardanoStakeDistribution`"]
     pub signed_entity_types: Option<String>,
 
@@ -275,32 +276,17 @@ impl Configuration {
     /// Deduce the [SignedEntityConfig] from this configuration.
     pub fn deduce_signed_entity_config(&self) -> StdResult<SignedEntityConfig> {
         let network = self.get_network()?;
-        let allowed_discriminants = self.parse_signed_entity_types_discriminants()?;
+        let allowed_discriminants = self
+            .signed_entity_types
+            .as_ref()
+            .map(SignedEntityTypeDiscriminants::parse_list)
+            .unwrap_or_default();
 
         Ok(SignedEntityConfig {
             allowed_discriminants,
             network,
             cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
         })
-    }
-
-    /// Create the deduplicated list of configured signed entity types discriminants.
-    ///
-    /// Created from parsing the `self.signed_entity_types` configuration value.
-    fn parse_signed_entity_types_discriminants(
-        &self,
-    ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
-        let mut all_discriminants = BTreeSet::new();
-
-        let discriminant_names = self.signed_entity_types.clone().unwrap_or_default();
-        for discriminant in discriminant_names
-            .split(',')
-            .filter_map(|name| SignedEntityTypeDiscriminants::from_str(name.trim()).ok())
-        {
-            all_discriminants.insert(discriminant);
-        }
-
-        Ok(all_discriminants)
     }
 }
 
@@ -518,51 +504,6 @@ mod test {
             };
             assert_eq!(configuration.safe_epoch_retention_limit(), Some(3));
         }
-    }
-
-    #[test]
-    fn test_parse_signed_entity_types_discriminants_discriminant_without_values() {
-        let config = Configuration {
-            signed_entity_types: None,
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config.parse_signed_entity_types_discriminants().unwrap();
-
-        assert_eq!(BTreeSet::new(), discriminants);
-    }
-
-    #[test]
-    fn test_parse_signed_entity_types_discriminants_with_correctly_formed_values() {
-        let config = Configuration {
-            signed_entity_types: Some(
-                "MithrilStakeDistribution,CardanoImmutableFilesFull".to_string(),
-            ),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config.parse_signed_entity_types_discriminants().unwrap();
-
-        assert_eq!(
-            BTreeSet::from([
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ]),
-            discriminants
-        );
-    }
-
-    #[test]
-    fn test_parse_signed_entity_types_discriminants_should_not_return_unknown_signed_entity_types_in_configuration(
-    ) {
-        let config = Configuration {
-            signed_entity_types: Some("Unknown".to_string()),
-            ..Configuration::new_sample()
-        };
-
-        let discriminants = config.parse_signed_entity_types_discriminants().unwrap();
-
-        assert_eq!(BTreeSet::new(), discriminants);
     }
 
     #[test]
