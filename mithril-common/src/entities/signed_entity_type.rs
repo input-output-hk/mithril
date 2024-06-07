@@ -34,6 +34,7 @@ const ENTITY_TYPE_CARDANO_TRANSACTIONS: usize = 3;
 #[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
 #[strum_discriminants(derive(
+    Display,
     EnumString,
     AsRefStr,
     Serialize,
@@ -165,12 +166,50 @@ impl SignedEntityTypeDiscriminants {
     /// string.
     ///
     /// Unknown or incorrectly formed values are ignored.
-    pub fn parse_list<T: AsRef<str>>(discriminants_string: T) -> BTreeSet<Self> {
-        discriminants_string
+    pub fn parse_list<T: AsRef<str>>(discriminants_string: T) -> StdResult<BTreeSet<Self>> {
+        let mut discriminants = BTreeSet::new();
+        let mut invalid_discriminants = Vec::new();
+
+        for name in discriminants_string
             .as_ref()
             .split(',')
-            .filter_map(|name| SignedEntityTypeDiscriminants::from_str(name.trim()).ok())
-            .collect()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
+            match Self::from_str(name) {
+                Ok(discriminant) => {
+                    discriminants.insert(discriminant);
+                }
+                Err(_) => {
+                    invalid_discriminants.push(name);
+                }
+            }
+        }
+
+        if invalid_discriminants.is_empty() {
+            Ok(discriminants)
+        } else {
+            Err(anyhow!(Self::format_parse_list_error(
+                invalid_discriminants
+            )))
+        }
+    }
+
+    fn format_parse_list_error(invalid_discriminants: Vec<&str>) -> String {
+        format!(
+            r#"Invalid signed entity types discriminants: {}.
+
+Accepted values are (case-sensitive): {}."#,
+            invalid_discriminants.join(", "),
+            Self::accepted_discriminants()
+        )
+    }
+
+    fn accepted_discriminants() -> String {
+        Self::iter()
+            .map(|d| d.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
 
@@ -316,17 +355,22 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_signed_entity_types_discriminants_discriminant_without_values() {
+    fn parse_signed_entity_types_discriminants_discriminant_without_values() {
         let discriminants_str = "";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
+
+        assert_eq!(BTreeSet::new(), discriminants);
+
+        let discriminants_str = "     ";
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(BTreeSet::new(), discriminants);
     }
 
     #[test]
-    fn test_parse_signed_entity_types_discriminants_with_correctly_formed_values() {
+    fn parse_signed_entity_types_discriminants_with_correctly_formed_values() {
         let discriminants_str = "MithrilStakeDistribution,CardanoImmutableFilesFull";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(
             BTreeSet::from([
@@ -338,10 +382,10 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_signed_entity_types_discriminants_should_trim_values() {
+    fn parse_signed_entity_types_discriminants_should_trim_values() {
         let discriminants_str =
             "MithrilStakeDistribution    ,  CardanoImmutableFilesFull  ,   CardanoTransactions   ";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(
             BTreeSet::from([
@@ -354,31 +398,67 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_signed_entity_types_discriminants_should_remove_duplicates() {
+    fn parse_signed_entity_types_discriminants_should_remove_duplicates() {
         let discriminants_str =
             "CardanoTransactions,CardanoTransactions,CardanoTransactions,CardanoTransactions";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+        let discriminant = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap();
 
         assert_eq!(
             BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]),
-            discriminants
+            discriminant
         );
     }
 
     #[test]
-    fn test_parse_signed_entity_types_discriminants_should_be_case_sensitive() {
+    fn parse_signed_entity_types_discriminants_should_be_case_sensitive() {
         let discriminants_str = "mithrilstakedistribution,CARDANOIMMUTABLEFILESFULL";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
 
-        assert_eq!(BTreeSet::new(), discriminants);
+        assert_eq!(
+            SignedEntityTypeDiscriminants::format_parse_list_error(vec![
+                "mithrilstakedistribution",
+                "CARDANOIMMUTABLEFILESFULL"
+            ]),
+            error.to_string()
+        );
     }
 
     #[test]
-    fn test_parse_signed_entity_types_discriminants_should_not_return_unknown_signed_entity_types()
-    {
+    fn parse_signed_entity_types_discriminants_should_not_return_unknown_signed_entity_types() {
         let discriminants_str = "Unknown";
-        let discriminants = SignedEntityTypeDiscriminants::parse_list(discriminants_str);
+        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
 
-        assert_eq!(BTreeSet::new(), discriminants);
+        assert_eq!(
+            SignedEntityTypeDiscriminants::format_parse_list_error(vec!["Unknown"]),
+            error.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_signed_entity_types_discriminants_should_fail_if_there_is_at_least_one_invalid_value()
+    {
+        let discriminants_str = "CardanoTransactions,Invalid,MithrilStakeDistribution";
+        let error = SignedEntityTypeDiscriminants::parse_list(discriminants_str).unwrap_err();
+
+        assert_eq!(
+            SignedEntityTypeDiscriminants::format_parse_list_error(vec!["Invalid"]),
+            error.to_string()
+        );
+    }
+
+    #[test]
+    fn parse_list_error_format_to_an_useful_message() {
+        let invalid_discriminants = vec!["Unknown", "Invalid"];
+        let error = SignedEntityTypeDiscriminants::format_parse_list_error(invalid_discriminants);
+
+        assert_eq!(
+            format!(
+                r#"Invalid signed entity types discriminants: Unknown, Invalid.
+
+Accepted values are (case-sensitive): {}."#,
+                SignedEntityTypeDiscriminants::accepted_discriminants()
+            ),
+            error
+        );
     }
 }

@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use config::{ConfigError, Map, Source, Value, ValueKind};
 use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
@@ -280,6 +280,8 @@ impl Configuration {
             .signed_entity_types
             .as_ref()
             .map(SignedEntityTypeDiscriminants::parse_list)
+            .transpose()
+            .with_context(|| "Invalid 'signed_entity_types' configuration")?
             .unwrap_or_default();
 
         Ok(SignedEntityConfig {
