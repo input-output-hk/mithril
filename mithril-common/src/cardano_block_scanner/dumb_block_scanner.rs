@@ -44,14 +44,17 @@ impl BlockScanner for DumbBlockScanner {
 
 /// Dumb block streamer
 pub struct DumbBlockStreamer {
-    blocks: VecDeque<Vec<ScannedBlock>>,
+    streamer_responses: VecDeque<ChainScannedBlocks>,
 }
 
 impl DumbBlockStreamer {
     /// Factory - the resulting streamer can be polled one time for each list of blocks given
     pub fn new(blocks: Vec<Vec<ScannedBlock>>) -> Self {
         Self {
-            blocks: VecDeque::from(blocks),
+            streamer_responses: blocks
+                .into_iter()
+                .map(ChainScannedBlocks::RollForwards)
+                .collect(),
         }
     }
 }
@@ -59,10 +62,7 @@ impl DumbBlockStreamer {
 #[async_trait]
 impl BlockStreamer for DumbBlockStreamer {
     async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>> {
-        Ok(self
-            .blocks
-            .pop_front()
-            .map(ChainScannedBlocks::RollForwards))
+        Ok(self.streamer_responses.pop_front())
     }
 }
 
