@@ -2,7 +2,6 @@ use std::collections::VecDeque;
 use std::path::Path;
 
 use async_trait::async_trait;
-use tokio::sync::RwLock;
 
 use crate::cardano_block_scanner::ChainScannedBlocks;
 use crate::cardano_block_scanner::{BlockScanner, BlockStreamer, ScannedBlock};
@@ -11,21 +10,22 @@ use crate::StdResult;
 
 /// Dumb block scanner
 pub struct DumbBlockScanner {
-    blocks: RwLock<Vec<ScannedBlock>>,
+    streamer: DumbBlockStreamer,
 }
 
 impl DumbBlockScanner {
     /// Factory
     pub fn new(blocks: Vec<ScannedBlock>) -> Self {
         Self {
-            blocks: RwLock::new(blocks),
+            streamer: DumbBlockStreamer::new(vec![blocks]),
         }
     }
 
-    /// Update blocks returned used the streamer constructed by `scan`
-    pub async fn update_blocks(&self, new_blocks: Vec<ScannedBlock>) {
-        let mut blocks = self.blocks.write().await;
-        *blocks = new_blocks;
+    /// Configure the inner streamer to return several [ChainScannedBlocks::RollForwards]
+    /// responses, one for each outer vec.
+    pub fn forwards(mut self, blocks: Vec<Vec<ScannedBlock>>) -> Self {
+        self.streamer = self.streamer.forwards(blocks);
+        self
     }
 }
 
@@ -37,14 +37,12 @@ impl BlockScanner for DumbBlockScanner {
         _from: Option<ChainPoint>,
         _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
-        let blocks = self.blocks.read().await.clone();
-        Ok(Box::new(
-            DumbBlockStreamer::new(vec![]).forwards(vec![blocks]),
-        ))
+        Ok(Box::new(self.streamer.clone()))
     }
 }
 
 /// Dumb block streamer
+#[derive(Clone)]
 pub struct DumbBlockStreamer {
     streamer_responses: VecDeque<ChainScannedBlocks>,
 }
@@ -86,8 +84,6 @@ impl BlockStreamer for DumbBlockStreamer {
 
 #[cfg(test)]
 mod tests {
-    use fixed::consts::E;
-
     use crate::cardano_block_scanner::BlockStreamerTestExtensions;
 
     use super::*;
@@ -152,7 +148,7 @@ mod tests {
     async fn dumb_scanned_construct_a_streamer_based_on_its_stored_blocks() {
         let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
 
-        let scanner = DumbBlockScanner::new(expected_blocks.clone());
+        let scanner = DumbBlockScanner::new(vec![]).forwards(vec![expected_blocks.clone()]);
         let mut streamer = scanner.scan(Path::new("dummy"), None, 5).await.unwrap();
 
         let blocks = streamer.poll_all().await.unwrap();
