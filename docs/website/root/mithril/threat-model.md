@@ -33,11 +33,11 @@ The threat model is a living document and is kept up-to-date with the [latest Mi
 
 System consists of three main components: signers, aggregator and clients.
 
-Mithril signers do certify Cardano chain data using a mithril signing key. That means, mithril signers need access to a trusted `cardano-node` and the mithril signing key to operate.
+Mithril signers do certify Cardano chain data using a Mithril signing key. That means, Mithril signers need access to a trusted `cardano-node` and the Mithril signing key to operate.
 
-Mithril signing keys are rotated every epoch and need to be certified by the Cardano KES key. For this, the mithril signers need access to the KES key in order to register the signing key for this epoch. 
+Mithril signing keys are rotated every epoch and need to be certified by the Cardano KES key. For this, the Mithril signers need access to the KES key in order to register the signing key for this epoch. 
 
-Cardano KES keys are also used block producing `cardano-node` and are typically located on the block producing machine.
+Cardano KES keys are also used by block producing `cardano-node` and are typically located on the block producing machine.
 
 Cardano KES keys need to be [evolved every 36 hours](https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/stake-pool-operations/7_KES_period.md), while they can be rotated from a root key when needed.
 
@@ -47,21 +47,21 @@ Is there a Cardano threat model about this?
 
 :::
 
-All mithril signers and mithril clients connect to a single aggregator using HTTP over TLS.
+All Mithril signers and Mithril clients connect to a single aggregator using HTTP over TLS.
 
-Registering a Mithril signing key means that a signer sends its corresponding verification key to the aggregator, for the purpose of distribution to all other mithril signers.
+Registering a Mithril signing key means that a signer sends its corresponding verification key to the aggregator, for the purpose of distribution to all other Mithril signers.
 
-A mithril aggregator coordinates creation of signatures by all registered signers. Mithril signers do ask the aggregater whether a signature is pending on a regular basis. The aggregator responds with information what to sign and a list of public information about all registered signers.
+A Mithril aggregator coordinates creation of signatures by all registered signers. Mithril signers do ask the aggregater whether a signature is pending on a regular basis. The aggregator responds with information what to sign and a list of public information about all registered signers.
 
-Each mithril signer verifies the information, produces a signature of the requested information to sign and submits that to the aggregator (which verifies the signature being correct upon receiving).
+Each Mithril signer verifies the information, produces a signature of the requested information to sign and submits that to the aggregator (which verifies the signature being correct upon receiving).
 
 The aggregator repeatedly checks whether enough valid signatures (to reach the quorum) are available to aggregate a Mithril stake-based multi-signature into a certificate.
 
 Mithril certificates are certifying some chain data using an aggregated multi-signature verification key and are chained up to some genesis certificate, which is signed by a genesis signing key.
 
-Mithril clients do connect to an aggregator using HTTP over TLS to query mithril certificates for certified chain data and locate artifacts.
+Mithril clients do connect to an aggregator using HTTP over TLS to query Mithril certificates for certified chain data and locate artifacts.
 
-A mithril client can verify the received mithril certificate is linked to other certificates up to the genesis certificate and can be verified using the Mithril genesis verification key (see [details](https://mithril.network/doc/mithril/mithril-protocol/certificates/)).
+A Mithril client can verify the received Mithril certificate is linked to other certificates up to the genesis certificate and can be verified using the Mithril genesis verification key (see [details](https://mithril.network/doc/mithril/mithril-protocol/certificates/)).
 
 :::info To do
 
@@ -71,7 +71,7 @@ Missing: the currently recommended relay (reverse proxy)
 
 #### Deployment architecture
 
-This document is specifically targeting the standard deployment architecture where a mithril signer runs next to the block producing node, while access to the mithril aggregator is only done through a relay.
+This document is specifically targeting the standard deployment architecture where a Mithril signer runs next to the block producing node, while access to the Mithril aggregator is only done through a relay.
 
 [![Mithril - Container View](./images/deployment-architecture.jpg)](./images/deployment-architecture.jpg)
 
@@ -102,7 +102,7 @@ Total dependencies: 267
 ### Entry Points 
 
 * mithril-relay P2P TCP ports
-* Aggregator HTTP port
+* mithril-aggregator HTTP port
 * mithril-relay HTTP port
 
 ## Assumptions 
@@ -161,7 +161,7 @@ Mithril signer needs needs access to _trusted_ and _up-to-date_ Chain database i
 
 #### Cardano Ledger state
 
-Access to an accurate ledger state is needed by mithril signer to retrieve reliable _Stake distribution_. This access is currently done through a local connection (direct w/ Pallas or indirect with cardano-cli) to a trusted cardano-node
+Access to an accurate ledger state is needed by Mithril signer to retrieve reliable _Stake distribution_. This access is currently done through a local connection (direct w/ Pallas or indirect with cardano-cli) to a trusted cardano-node
 
 * **availability**: Yes (without SD, signer cannot register keys nor validly use other signers' keys)
 * **integrity**: Yes (same, inaccurate SD will make key registration and signing process invalid)
@@ -169,7 +169,7 @@ Access to an accurate ledger state is needed by mithril signer to retrieve relia
 
 #### Mithril signing keys
 
-SPOs register their Mithril keys every epoch to be able to sign snapshots. An attacker could impersonate the SPO and sign invalid snapshots if they got hold of those keys
+SPOs register their Mithril keys every epoch to be able to sign snapshots. An attacker could impersonate the SPO and sign invalid snapshots if they got hold of those keys.
 Signing keys are currently stored on-disk (?) 
 
 * **confidentiality**: Yes 
@@ -186,8 +186,8 @@ Mithril signer needs to register new key every epoch with aggregator (and ultima
 
 #### Mithril signatures diffusion
 
-Mithril signers produces signatures every time a new immutable file is created in the Chain DB. Those signatures are generated from a random lottery based on the signer's stake and the protocol parameters.
-Preventing mithril signers from signing decreases the number of signatures and could allow attacker to take control of the produced snapshot
+Mithril signers produces signatures every time a new message needs to be signed (e.g. when a new immutable file is created in the Chain DB). Those signatures are generated from a random lottery based on the signer's stake and the protocol parameters.
+Preventing Mithril signers from signing decreases the number of signatures and could allow attacker to take control of the produced snapshot
 
 * **confidentiality**: No 
 * **availability**: Yes
@@ -269,13 +269,13 @@ The corresponding signing key is stored in IOG's VaultWarden, and used only once
 * Diffusion is ensured through the connection between BPs, local relays, and downstream/upstream relays
 * preventing them to operate can harm the Cardano network 
 * Relay hosts connect the BP to the network, 
-* Starving relay hosts prevents mithril signatures and key registration to be shared
+* Starving relay hosts prevents Mithril signatures and key registration to be shared
 * Starving a cardano-node running on a relay host would prevent or delay the diffusion of new blocks thus harming 
 * Compromising relay hosts would be an extreme form of starving resources
 
 ### Block production
 * An incorrect mithril-signer could _starve_ the cardano-node of computing resources thus preventing it from producing and diffusing blocks in a timely manner
-* Compromising BP host would 
+* Compromising BP host would harms a BP's SPO economic viability
 
 ### Hardening Operating System
 
