@@ -21,10 +21,17 @@ impl DumbBlockScanner {
         }
     }
 
-    /// Configure the inner streamer to return several [ChainScannedBlocks::RollForwards]
-    /// responses, one for each outer vec.
+    /// Add to the inner streamer several [ChainScannedBlocks::RollForwards] responses at the end of the
+    /// its queue.
     pub fn forwards(mut self, blocks: Vec<Vec<ScannedBlock>>) -> Self {
         self.streamer = self.streamer.forwards(blocks);
+        self
+    }
+
+    /// Add to the inner streamer a [ChainScannedBlocks::RollBackward] response at the end of the
+    /// its queue.
+    pub fn backward(mut self, chain_point: ChainPoint) -> Self {
+        self.streamer = self.streamer.rollback(chain_point);
         self
     }
 }
@@ -53,6 +60,7 @@ impl DumbBlockStreamer {
         Self {
             streamer_responses: blocks
                 .into_iter()
+                .filter(|v| !v.is_empty())
                 .map(ChainScannedBlocks::RollForwards)
                 .collect(),
         }
@@ -144,6 +152,7 @@ mod tests {
         assert_eq!(blocks, None);
     }
 
+    // TODO To remove with poll_all
     #[tokio::test]
     async fn dumb_scanned_construct_a_streamer_based_on_its_stored_blocks() {
         let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
@@ -153,6 +162,31 @@ mod tests {
 
         let blocks = streamer.poll_all().await.unwrap();
         assert_eq!(blocks, expected_blocks);
+    }
+
+    #[tokio::test]
+    async fn dumb_scanned_construct_a_streamer_based_on_its_stored_chain_scanned_blocks() {
+        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
+        let expected_chain_point = ChainPoint::new(10, 2, "block-hash");
+
+        let scanner = DumbBlockScanner::new(vec![])
+            .forwards(vec![expected_blocks.clone()])
+            .backward(expected_chain_point.clone());
+        let mut streamer = scanner.scan(Path::new("dummy"), None, 5).await.unwrap();
+
+        let blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollForwards(expected_blocks.clone()))
+        );
+
+        let blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollBackward(
+                expected_chain_point.clone()
+            ))
+        );
     }
 
     #[tokio::test]
