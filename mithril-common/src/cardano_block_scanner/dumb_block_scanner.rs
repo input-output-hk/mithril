@@ -38,7 +38,9 @@ impl BlockScanner for DumbBlockScanner {
         _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
         let blocks = self.blocks.read().await.clone();
-        Ok(Box::new(DumbBlockStreamer::new(vec![blocks])))
+        Ok(Box::new(
+            DumbBlockStreamer::new(vec![]).forwards(vec![blocks]),
+        ))
     }
 }
 
@@ -57,6 +59,16 @@ impl DumbBlockStreamer {
                 .collect(),
         }
     }
+
+    pub fn forwards(mut self, blocks: Vec<Vec<ScannedBlock>>) -> Self {
+        let mut source: VecDeque<_> = blocks
+            .into_iter()
+            .map(ChainScannedBlocks::RollForwards)
+            .collect();
+        self.streamer_responses.append(&mut source);
+
+        self
+    }
 }
 
 #[async_trait]
@@ -74,7 +86,7 @@ mod tests {
 
     #[tokio::test]
     async fn polling_without_set_of_block_return_none() {
-        let mut streamer = DumbBlockStreamer::new(vec![]);
+        let mut streamer = DumbBlockStreamer::new(vec![]).forwards(vec![]);
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(blocks, None);
     }
@@ -82,7 +94,7 @@ mod tests {
     #[tokio::test]
     async fn polling_with_one_set_of_block_returns_some_once() {
         let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
-        let mut streamer = DumbBlockStreamer::new(vec![expected_blocks.clone()]);
+        let mut streamer = DumbBlockStreamer::new(vec![]).forwards(vec![expected_blocks.clone()]);
 
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
@@ -104,7 +116,7 @@ mod tests {
             ],
             vec![ScannedBlock::new("hash-4", 4, 13, 23, Vec::<&str>::new())],
         ];
-        let mut streamer = DumbBlockStreamer::new(expected_blocks.clone());
+        let mut streamer = DumbBlockStreamer::new(vec![]).forwards(expected_blocks.clone());
 
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
@@ -138,4 +150,42 @@ mod tests {
         let blocks = streamer.poll_all().await.unwrap();
         assert_eq!(blocks, expected_blocks);
     }
+
+    // #[tokio::test]
+    // async fn polling_with_one_set_of_block_returns_some_once_XXXX() {
+    //     let expected_chain_scanned_blocks =
+    //         ChainScannedBlocks::RollForwards(vec![ScannedBlock::new(
+    //             "hash-1",
+    //             1,
+    //             10,
+    //             20,
+    //             Vec::<&str>::new(),
+    //         )]);
+
+    //         DumbBlockStreamer::new()
+    //         .forward(1,vec!["hash-1", "hash-2"])
+    //         .forwards(vec!(ScannedBlock::new(
+    //             "hash-1",
+    //             1,
+    //             10,
+    //             20,
+    //             Vec::<&str>::new(),
+    //         )]))
+    //         .rollback(1,vec!["hash-1", "hash-2"])
+
+    //     // forward 1 vec!["hash-1", "hash-2"]
+    //     // forward 2 vec!["hash-1", "hash-2"]
+    //     // rollback chainpoint
+
+    //     let mut streamer = DumbBlockStreamer::xxx(vec![expected_chain_scanned_blocks.clone()]);
+
+    //     let blocks = streamer.poll_next().await.unwrap();
+    //     assert_eq!(
+    //         blocks,
+    //         Some(ChainScannedBlocks::RollForwards(expected_blocks))
+    //     );
+
+    //     let blocks = streamer.poll_next().await.unwrap();
+    //     assert_eq!(blocks, None);
+    // }
 }
