@@ -46,8 +46,12 @@ impl TransactionStore for CardanoTransactionRepository {
         Ok(())
     }
 
-    async fn remove_transactions_greater_than(&self, block_number: BlockNumber) -> StdResult<()> {
-        self.remove_transactions_greater_than(block_number).await
+    async fn remove_rolled_back_transactions_and_block_range(
+        &self,
+        block_number: BlockNumber,
+    ) -> StdResult<()> {
+        self.remove_rolled_back_transactions_and_block_range(block_number)
+            .await
     }
 }
 

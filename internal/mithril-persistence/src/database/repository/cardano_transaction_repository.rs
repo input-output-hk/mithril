@@ -14,8 +14,8 @@ use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
 
 use crate::database::query::{
-    DeleteCardanoTransactionQuery, GetBlockRangeRootQuery, GetCardanoTransactionQuery,
-    GetIntervalWithoutBlockRangeRootQuery, InsertBlockRangeRootQuery,
+    DeleteBlockRangeRootQuery, DeleteCardanoTransactionQuery, GetBlockRangeRootQuery,
+    GetCardanoTransactionQuery, GetIntervalWithoutBlockRangeRootQuery, InsertBlockRangeRootQuery,
     InsertCardanoTransactionQuery,
 };
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
@@ -257,12 +257,20 @@ impl CardanoTransactionRepository {
         Ok(())
     }
 
-    /// Remove transactions with block number greater than the given one
-    pub async fn remove_transactions_greater_than(
+    /// Remove transactions and block range roots that have been caught in a rollback
+    ///
+    /// * Remove transactions with block number greater than the given block number
+    /// * Remove block range roots that include or are greater than the given block number
+    pub async fn remove_rolled_back_transactions_and_block_range(
         &self,
         block_number: BlockNumber,
     ) -> StdResult<()> {
+        // todo: add sqlite rollback
         let query = DeleteCardanoTransactionQuery::after_block_number_threshold(block_number)?;
+        self.connection.fetch_first(query)?;
+
+        let query =
+            DeleteBlockRangeRootQuery::include_or_greater_block_number_threshold(block_number)?;
         self.connection.fetch_first(query)?;
         Ok(())
     }
@@ -1000,5 +1008,63 @@ mod tests {
 
         let highest_beacon = repository.find_lower_bound().await.unwrap();
         assert_eq!(Some(100), highest_beacon);
+    }
+
+    #[tokio::test]
+    async fn remove_transactions_and_block_range_greater_than_given_block_number() {
+        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let repository = CardanoTransactionRepository::new(connection);
+
+        let cardano_transactions = vec![
+            CardanoTransaction::new(
+                "tx-hash-123",
+                BlockRange::LENGTH * 1,
+                50,
+                "block-hash-123",
+                50,
+            ),
+            CardanoTransaction::new(
+                "tx-hash-123",
+                BlockRange::LENGTH * 3 - 1,
+                50,
+                "block-hash-123",
+                50,
+            ),
+            CardanoTransaction::new(
+                "tx-hash-456",
+                BlockRange::LENGTH * 3,
+                51,
+                "block-hash-456",
+                100,
+            ),
+        ];
+        repository
+            .create_transactions(cardano_transactions)
+            .await
+            .unwrap();
+        repository
+            .create_block_range_roots(vec![
+                (
+                    BlockRange::from_block_number(BlockRange::LENGTH * 1),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockRange::LENGTH * 2),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+                (
+                    BlockRange::from_block_number(BlockRange::LENGTH * 3),
+                    MKTreeNode::from_hex("AAAA").unwrap(),
+                ),
+            ])
+            .await
+            .unwrap();
+
+        repository
+            .remove_rolled_back_transactions_and_block_range(BlockRange::LENGTH * 3)
+            .await
+            .unwrap();
+        assert_eq!(2, repository.get_all_transactions().await.unwrap().len());
+        assert_eq!(2, repository.get_all_block_range_root().unwrap().len());
     }
 }
