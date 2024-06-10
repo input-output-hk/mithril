@@ -51,7 +51,7 @@ mithril-common = { path = "../mithril-common", version = "=0.4", features = [
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2.12", features = ["js"] }
 mithril-common = { path = "../mithril-common", version = "=0.4" }
-reqwest = { version = "0.12.0", features = ["json", "stream"] }
+reqwest = { version = "0.12.4", default-features = false, features = ["charset", "http2", "macos-system-configuration", "json", "stream"] }
 
 [dev-dependencies]
 httpmock = "0.7.0"
@@ -68,8 +68,8 @@ tokio = { version = "1.37.0", features = ["macros", "rt"] }
 warp = "0.3.6"
 
 [features]
-# Include nothing by default
-default = []
+# Include native-tls in reqwest by default
+default = ["native-tls"]
 
 # Full feature set
 full = ["fs"]
@@ -78,6 +78,17 @@ full = ["fs"]
 fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
 portable = []                                       # deprecated, will be removed soon
 unstable = []
+
+# These features are for support of dependent crates only.
+# They do not change the operation of the main crate.
+native-tls = ["reqwest/native-tls"]
+native-tls-alpn = ["reqwest/native-tls-alpn"]
+native-tls-vendored = ["reqwest/native-tls-vendored"]
+
+rustls-tls = ["reqwest/rustls-tls"]
+rustls-tls-manual-roots = ["reqwest/rustls-tls-manual-roots"]
+rustls-tls-webpki-roots = ["reqwest/rustls-tls-webpki-roots"]
+rustls-tls-native-roots = ["reqwest/rustls-tls-native-roots"]
 
 [package.metadata.docs.rs]
 all-features = true
