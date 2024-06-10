@@ -70,6 +70,7 @@ httpmock = "0.7.0"
 indicatif = { version = "0.17.7", features = ["tokio"] }
 mithril-common = { path = "../mithril-common", version = "=0.4", features = [
     "random",
+    "test_tools",
 ] }
 mockall = "0.12.1"
 slog-async = "2.8.0"
@@ -77,6 +78,7 @@ slog-scope = "4.4.0"
 slog-term = "2.9.0"
 tokio = { version = "1.37.0", features = ["macros", "rt"] }
 warp = "0.3.6"
+
 
 [features]
 # Include native-tls in reqwest by default
