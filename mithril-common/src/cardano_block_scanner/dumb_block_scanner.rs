@@ -69,6 +69,12 @@ impl DumbBlockStreamer {
 
         self
     }
+
+    pub fn rollback(mut self, chain_point: ChainPoint) -> Self {
+        self.streamer_responses
+            .push_back(ChainScannedBlocks::RollBackward(chain_point));
+        self
+    }
 }
 
 #[async_trait]
@@ -80,6 +86,8 @@ impl BlockStreamer for DumbBlockStreamer {
 
 #[cfg(test)]
 mod tests {
+    use fixed::consts::E;
+
     use crate::cardano_block_scanner::BlockStreamerTestExtensions;
 
     use super::*;
@@ -151,41 +159,40 @@ mod tests {
         assert_eq!(blocks, expected_blocks);
     }
 
-    // #[tokio::test]
-    // async fn polling_with_one_set_of_block_returns_some_once_XXXX() {
-    //     let expected_chain_scanned_blocks =
-    //         ChainScannedBlocks::RollForwards(vec![ScannedBlock::new(
-    //             "hash-1",
-    //             1,
-    //             10,
-    //             20,
-    //             Vec::<&str>::new(),
-    //         )]);
+    #[tokio::test]
+    async fn polling_with_can_return_roll_backward() {
+        let expected_blocks = vec![
+            vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())],
+            vec![ScannedBlock::new("hash-4", 4, 13, 23, Vec::<&str>::new())],
+        ];
 
-    //         DumbBlockStreamer::new()
-    //         .forward(1,vec!["hash-1", "hash-2"])
-    //         .forwards(vec!(ScannedBlock::new(
-    //             "hash-1",
-    //             1,
-    //             10,
-    //             20,
-    //             Vec::<&str>::new(),
-    //         )]))
-    //         .rollback(1,vec!["hash-1", "hash-2"])
+        let expected_chain_point = ChainPoint::new(10, 2, "block-hash");
 
-    //     // forward 1 vec!["hash-1", "hash-2"]
-    //     // forward 2 vec!["hash-1", "hash-2"]
-    //     // rollback chainpoint
+        let mut streamer = DumbBlockStreamer::new(vec![])
+            .forwards(expected_blocks.clone())
+            .rollback(expected_chain_point.clone());
 
-    //     let mut streamer = DumbBlockStreamer::xxx(vec![expected_chain_scanned_blocks.clone()]);
+        let blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollForwards(expected_blocks[0].clone()))
+        );
 
-    //     let blocks = streamer.poll_next().await.unwrap();
-    //     assert_eq!(
-    //         blocks,
-    //         Some(ChainScannedBlocks::RollForwards(expected_blocks))
-    //     );
+        let blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollForwards(expected_blocks[1].clone()))
+        );
 
-    //     let blocks = streamer.poll_next().await.unwrap();
-    //     assert_eq!(blocks, None);
-    // }
+        let blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(
+            blocks,
+            Some(ChainScannedBlocks::RollBackward(
+                expected_chain_point.clone()
+            ))
+        );
+
+        let blocks = streamer.poll_next().await.unwrap();
+        assert_eq!(blocks, None);
+    }
 }
