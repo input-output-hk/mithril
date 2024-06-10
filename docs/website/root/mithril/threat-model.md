@@ -201,13 +201,38 @@ Protocol parameters are needed to coordinate the production of valid multi-signa
 * **availability**: Yes (partial?)
 * **integrity**: Yes (tampering protocol parameters can lead a signer to produce invalid signatures)
 
-#### Era reader configuration files
+#### Era configuration files
 
-The era reader [Era address](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr) and [Era vkey](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey) are used by signers to extract information about the current Mithril Era which defines the structure of snapshots and therefore signatures
+The era reader Era address is used by signers to extract information about the current Mithril Era which defines the structure of snapshots and therefore signatures.
+It is stored in [GitHub]((https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr)) and only modifiable through an approved merged PR
 
-#### Era reader signing key
+* **confidentiality**: No (they actually need to be public)
+* **availability**: Yes
+* **integrity**: Yes (tampering the files could lead to Mithril network not being able to create multi-signatures)
 
-The key tied to the aforementioned era address 
+#### Era activation 
+
+The current and next (if any) eras are announced on-chain with an era activation marker (see ADR https://mithril.network/doc/adr/4#era-activation-marker).
+
+* **confidentiality**: No (they actually need to be public)
+* **availability**: Yes (era markers are currently stored on-chain)
+* **integrity**: Yes (tampering the era markers could lead to Mithril network not being able to create multi-signatures)
+
+#### Era verification vey
+
+Era verification key is stored in [GitHub](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey) and only modifiable through an approved merged PR.
+
+* **availability**: Yes (it's needed to verify a whole chain of certificate)
+* **confidentiality**: No
+* **integrity**: No (integrity is inherent to the protocol)
+
+#### Era signing key
+
+The corresponding signing key is stored in IOG's VaultWarden, and used only when a new era is announced or activated.
+
+* **availability**: No 
+* **confidentiality**: Yes
+* **integrity**: Yes (?)
 
 ### Client-side only assets
 
