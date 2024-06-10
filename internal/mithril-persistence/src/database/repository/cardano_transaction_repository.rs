@@ -256,6 +256,16 @@ impl CardanoTransactionRepository {
 
         Ok(())
     }
+
+    /// Remove transactions with block number greater than the given one
+    pub async fn remove_transactions_greater_than(
+        &self,
+        block_number: BlockNumber,
+    ) -> StdResult<()> {
+        let query = DeleteCardanoTransactionQuery::after_block_number_threshold(block_number)?;
+        self.connection.fetch_first(query)?;
+        Ok(())
+    }
 }
 
 #[async_trait]
