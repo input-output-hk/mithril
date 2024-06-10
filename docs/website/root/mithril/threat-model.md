@@ -204,7 +204,7 @@ Protocol parameters are needed to coordinate the production of valid multi-signa
 #### Era configuration files
 
 The era reader Era address is used by signers to extract information about the current Mithril Era which defines the structure of snapshots and therefore signatures.
-It is stored in [GitHub]((https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr)) and only modifiable through an approved merged PR
+It is stored in [GitHub](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr) and only modifiable through an approved merged PR
 
 * **confidentiality**: No (they actually need to be public)
 * **availability**: Yes
