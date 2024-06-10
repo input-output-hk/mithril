@@ -158,6 +158,14 @@ impl MKProof {
             .ok_or(anyhow!("Leaves not found in the MKProof"))
     }
 
+    /// List the leaves of the proof
+    pub fn leaves(&self) -> Vec<MKTreeNode> {
+        self.inner_leaves
+            .iter()
+            .map(|(_, l)| (**l).clone())
+            .collect::<Vec<_>>()
+    }
+
     cfg_test_tools! {
         /// Build a [MKProof] based on the given leaves (*Test only*).
         pub fn from_leaves<T: Into<MKTreeNode> + Clone>(
@@ -443,5 +451,16 @@ mod tests {
                 leaves_not_verified[0].to_owned(),
             ])
             .unwrap_err();
+    }
+
+    #[test]
+    fn list_leaves() {
+        let mut leaves_to_verify = generate_leaves(10);
+        let _ = leaves_to_verify.drain(3..6).collect::<Vec<_>>();
+        let proof =
+            MKProof::from_leaves(&leaves_to_verify).expect("MKProof generation should not fail");
+
+        let proof_leaves = proof.leaves();
+        assert_eq!(proof_leaves, leaves_to_verify);
     }
 }

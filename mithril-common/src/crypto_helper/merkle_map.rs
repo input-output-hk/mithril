@@ -279,14 +279,26 @@ impl<K: MKMapKey> MKMapProof<K> {
 
     /// Check if the merkelized map proof contains a leaf
     pub fn contains(&self, leaf: &MKTreeNode) -> StdResult<()> {
-        let master_proof_contains_leaf = self.master_proof.contains(&[leaf.to_owned()]).is_ok();
-        let sub_proofs_contain_leaf = self
-            .sub_proofs
+        self.leaves()
             .iter()
-            .any(|(_k, p)| p.contains(leaf).is_ok());
-        (master_proof_contains_leaf || sub_proofs_contain_leaf)
-            .then_some(())
-            .ok_or(anyhow!("MKMapProof does not contain leaf {:?}", leaf))
+            .find(|l| *l == leaf)
+            .ok_or(anyhow!("MKMapProof does not contain leaf {:?}", leaf))?;
+
+        Ok(())
+    }
+
+    /// List the leaves of the merkelized map proof
+    pub fn leaves(&self) -> Vec<MKTreeNode> {
+        if self.sub_proofs.is_empty() {
+            self.master_proof.leaves()
+        } else {
+            let mut leaves = vec![];
+            self.sub_proofs.iter().for_each(|(_k, p)| {
+                leaves.extend(p.leaves());
+            });
+
+            leaves
+        }
     }
 }
 
@@ -688,6 +700,9 @@ mod tests {
         let map_proof_root = mk_map_proof.compute_root();
         let map_proof_root_expected = mk_map_full.compute_root().unwrap();
         assert_eq!(map_proof_root, map_proof_root_expected);
+
+        let mk_proof_leaves = mk_map_proof.leaves();
+        assert_eq!(mktree_nodes_to_certify.to_vec(), mk_proof_leaves);
     }
 
     #[test]
