@@ -3,7 +3,6 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
@@ -276,7 +275,9 @@ mod tests {
             scanner_mock
                 .expect_scan()
                 .withf(move |_, from, until| from.is_none() && until == &up_to_block_number)
-                .return_once(move |_, _, _| Ok(Box::new(DumbBlockStreamer::new(vec![blocks]))));
+                .return_once(move |_, _, _| {
+                    Ok(Box::new(DumbBlockStreamer::new().forwards(vec![blocks])))
+                });
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
         };
 
@@ -388,7 +389,7 @@ mod tests {
         let up_to_block_number = 12;
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(connection)));
-        let scanner = DumbBlockScanner::new(vec![]).forwards(vec![vec![
+        let scanner = DumbBlockScanner::new().forwards(vec![vec![
             ScannedBlock::new("block_hash-1", 10, 15, 10, vec!["tx_hash-1", "tx_hash-2"]),
             ScannedBlock::new("block_hash-2", 20, 25, 11, vec!["tx_hash-3", "tx_hash-4"]),
         ]]);
@@ -448,7 +449,9 @@ mod tests {
                         && *until == up_to_block_number
                 })
                 .return_once(move |_, _, _| {
-                    Ok(Box::new(DumbBlockStreamer::new(vec![scanned_blocks])))
+                    Ok(Box::new(
+                        DumbBlockStreamer::new().forwards(vec![scanned_blocks]),
+                    ))
                 })
                 .once();
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
@@ -631,7 +634,7 @@ mod tests {
             let connection = Arc::new(cardano_tx_db_connection().unwrap());
             let repository = Arc::new(CardanoTransactionRepository::new(connection.clone()));
             let importer = CardanoTransactionsImporter::new_for_test(
-                Arc::new(DumbBlockScanner::new(vec![]).forwards(vec![blocks.clone()])),
+                Arc::new(DumbBlockScanner::new().forwards(vec![blocks.clone()])),
                 Arc::new(CardanoTransactionRepository::new(connection.clone())),
             );
             (importer, repository)
@@ -680,7 +683,7 @@ mod tests {
             .unwrap();
 
         let chain_point = ChainPoint::new(1, 130, "block_hash-131");
-        let scanner = DumbBlockScanner::new(vec![]).backward(chain_point);
+        let scanner = DumbBlockScanner::new().backward(chain_point);
 
         let importer =
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
@@ -732,7 +735,7 @@ mod tests {
         assert_eq!(6, block_range_roots.len());
 
         let chain_point = ChainPoint::new(1, BlockRange::LENGTH * 3, "block_hash-131");
-        let scanner = DumbBlockScanner::new(vec![]).backward(chain_point);
+        let scanner = DumbBlockScanner::new().backward(chain_point);
 
         let importer =
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
