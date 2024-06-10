@@ -79,7 +79,6 @@ slog-term = "2.9.0"
 tokio = { version = "1.37.0", features = ["macros", "rt"] }
 warp = "0.3.6"
 
-
 [features]
 # Include native-tls in reqwest by default
 default = ["native-tls"]
