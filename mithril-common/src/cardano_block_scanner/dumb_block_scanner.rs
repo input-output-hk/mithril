@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::path::Path;
+use std::sync::RwLock;
 
 use async_trait::async_trait;
 
@@ -10,29 +11,43 @@ use crate::StdResult;
 
 /// Dumb block scanner
 pub struct DumbBlockScanner {
-    streamer: DumbBlockStreamer,
+    streamer: RwLock<DumbBlockStreamer>,
 }
 
 impl DumbBlockScanner {
     /// Factory
     pub fn new() -> Self {
         Self {
-            streamer: DumbBlockStreamer::new(),
+            streamer: RwLock::new(DumbBlockStreamer::new()),
         }
     }
 
     /// Add to the inner streamer several [ChainScannedBlocks::RollForwards] responses at the end of the
     /// its queue.
-    pub fn forwards(mut self, blocks: Vec<Vec<ScannedBlock>>) -> Self {
-        self.streamer = self.streamer.forwards(blocks);
+    pub fn forwards(self, blocks: Vec<Vec<ScannedBlock>>) -> Self {
+        self.add_forwards(blocks);
         self
     }
 
     /// Add to the inner streamer a [ChainScannedBlocks::RollBackward] response at the end of the
     /// its queue.
-    pub fn backward(mut self, chain_point: ChainPoint) -> Self {
-        self.streamer = self.streamer.rollback(chain_point);
+    pub fn backward(self, chain_point: ChainPoint) -> Self {
+        self.add_backward(chain_point);
         self
+    }
+
+    /// Add to the inner streamer several [ChainScannedBlocks::RollForwards] responses at the end of the
+    /// its queue.
+    pub fn add_forwards(&self, blocks: Vec<Vec<ScannedBlock>>) {
+        let mut streamer = self.streamer.write().unwrap();
+        *streamer = streamer.clone().forwards(blocks);
+    }
+
+    /// Add to the inner streamer a [ChainScannedBlocks::RollBackward] response at the end of the
+    /// its queue.
+    pub fn add_backward(&self, chain_point: ChainPoint) {
+        let mut streamer = self.streamer.write().unwrap();
+        *streamer = streamer.clone().rollback(chain_point);
     }
 }
 
@@ -50,7 +65,8 @@ impl BlockScanner for DumbBlockScanner {
         _from: Option<ChainPoint>,
         _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
-        Ok(Box::new(self.streamer.clone()))
+        let streamer = self.streamer.read().unwrap();
+        Ok(Box::new(streamer.clone()))
     }
 }
 

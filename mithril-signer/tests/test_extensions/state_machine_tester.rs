@@ -60,10 +60,11 @@ pub struct StateMachineTester {
     stake_store: Arc<StakeStore>,
     era_checker: Arc<EraChecker>,
     era_reader_adapter: Arc<EraReaderDummyAdapter>,
-    comment_no: u32,
-    _logs_guard: slog_scope::GlobalLoggerGuard,
+    block_scanner: Arc<DumbBlockScanner>,
     metrics_service: Arc<MetricsService>,
     expected_metrics_service: Arc<MetricsService>,
+    comment_no: u32,
+    _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
 impl Debug for StateMachineTester {
@@ -162,7 +163,7 @@ impl StateMachineTester {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_parser = Arc::new(DumbBlockScanner::new().forwards(vec![vec![
+        let block_scanner = Arc::new(DumbBlockScanner::new().forwards(vec![vec![
             ScannedBlock::new("block_hash-1", 1, 100, 1, vec!["tx_hash-1"]),
             // For a block range root to be computed we need at least one block on the following block range
             ScannedBlock::new(
@@ -177,7 +178,7 @@ impl StateMachineTester {
             transaction_sqlite_connection,
         ));
         let transaction_importer = Arc::new(CardanoTransactionsImporter::new(
-            transaction_parser.clone(),
+            block_scanner.clone(),
             transaction_store.clone(),
             Path::new(""),
             slog_scope::logger(),
@@ -233,10 +234,11 @@ impl StateMachineTester {
             stake_store,
             era_checker,
             era_reader_adapter,
-            comment_no: 0,
-            _logs_guard: logs_guard,
+            block_scanner,
             metrics_service,
             expected_metrics_service,
+            comment_no: 0,
+            _logs_guard: logs_guard,
         })
     }
 
@@ -356,6 +358,20 @@ impl StateMachineTester {
         )
     }
 
+    /// increase the epoch in the chain observer
+    pub async fn increase_epoch(&mut self, expected: u64) -> Result<&mut Self> {
+        let new_epoch = self
+            .chain_observer
+            .next_epoch()
+            .await
+            .ok_or_else(|| TestError::ValueError("no epoch returned".to_string()))?;
+
+        self.assert(
+            expected == new_epoch,
+            format!("Epoch increased by 1 to {new_epoch} ({expected} expected)"),
+        )
+    }
+
     /// increase the immutable file number in the dumb beacon provider
     pub async fn increase_immutable(&mut self, increment: u64, expected: u64) -> Result<&mut Self> {
         let immutable_number = self
@@ -375,18 +391,42 @@ impl StateMachineTester {
         Ok(self)
     }
 
-    /// increase the epoch in the chain observer
-    pub async fn increase_epoch(&mut self, expected: u64) -> Result<&mut Self> {
-        let new_epoch = self
+    /// increase the block number in the fake observer
+    pub async fn increase_block_number(
+        &mut self,
+        increment: u64,
+        expected: u64,
+    ) -> Result<&mut Self> {
+        let new_block_number = self
             .chain_observer
-            .next_epoch()
+            .increase_block_number(increment)
             .await
-            .ok_or_else(|| TestError::ValueError("no epoch returned".to_string()))?;
+            .ok_or_else(|| TestError::ValueError("no block number returned".to_string()))?;
 
         self.assert(
-            expected == new_epoch,
-            format!("Epoch increased by 1 to {new_epoch} ({expected} expected)"),
-        )
+            expected == new_block_number,
+            format!("expected to increase block number up to {expected}, got {new_block_number}"),
+        )?;
+
+        // Make the block scanner return new blocks
+        let current_immutable = self.immutable_observer.get_last_immutable_number().await?;
+        let blocks_to_scan: Vec<ScannedBlock> = ((expected - increment + 1)..=expected)
+            .into_iter()
+            .map(|block_number| {
+                let block_hash = format!("block_hash-{block_number}");
+                let slot_number = 10 * block_number;
+                ScannedBlock::new(
+                    block_hash,
+                    block_number,
+                    slot_number,
+                    current_immutable,
+                    vec![format!("tx_hash-{block_number}-1")],
+                )
+            })
+            .collect();
+        self.block_scanner.add_forwards(vec![blocks_to_scan]);
+
+        Ok(self)
     }
 
     async fn current_epoch(&self) -> Result<Epoch> {
