@@ -22,15 +22,15 @@ impl<'a> Transaction<'a> {
 
     /// Commit the transaction.
     pub fn commit(mut self) -> Result<(), sqlite::Error> {
-        self.connection.execute("COMMIT TRANSACTION")?;
         self.is_active = false;
+        self.connection.execute("COMMIT TRANSACTION")?;
         Ok(())
     }
 
     /// Rollback the transaction.
     pub fn rollback(mut self) -> Result<(), sqlite::Error> {
-        self.connection.execute("ROLLBACK TRANSACTION")?;
         self.is_active = false;
+        self.connection.execute("ROLLBACK TRANSACTION")?;
         Ok(())
     }
 }
@@ -38,6 +38,8 @@ impl<'a> Transaction<'a> {
 impl Drop for Transaction<'_> {
     fn drop(&mut self) {
         if self.is_active {
+            // Unwrap should not happen here, otherwise it would mean that we have not handled
+            // correctly the transaction "active" state or that the connection was closed.
             self.connection.execute("ROLLBACK TRANSACTION").unwrap();
         }
     }
@@ -130,5 +132,43 @@ mod tests {
         assert_eq!(0, get_number_of_rows(&connection));
         let _err = failing_function_that_insert_data(&connection).unwrap_err();
         assert_eq!(0, get_number_of_rows(&connection));
+    }
+
+    #[test]
+    fn test_drop_dont_panic_if_previous_commit_failed() {
+        let connection = init_database();
+
+        {
+            let transaction = Transaction::begin(&connection).unwrap();
+            connection
+                .execute("insert into query_test(text_data) values ('row 1')")
+                .unwrap();
+
+            // Commiting make the transaction inactive thus make next operation fail
+            connection.execute("COMMIT TRANSACTION").unwrap();
+            transaction.commit().expect_err("Commit should have fail");
+
+            // When going out of scope, drop is called and should not panic
+        }
+    }
+
+    #[test]
+    fn test_drop_dont_panic_if_previous_rollback_failed() {
+        let connection = init_database();
+
+        {
+            let transaction = Transaction::begin(&connection).unwrap();
+            connection
+                .execute("insert into query_test(text_data) values ('row 1')")
+                .unwrap();
+
+            // Commiting make the transaction inactive thus make next operation fail
+            connection.execute("COMMIT TRANSACTION").unwrap();
+            transaction
+                .rollback()
+                .expect_err("Rollback should have fail");
+
+            // When going out of scope, drop is called and should not panic
+        }
     }
 }
