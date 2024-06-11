@@ -10,6 +10,7 @@ mod entity;
 mod projection;
 mod query;
 mod source_alias;
+mod transaction;
 
 pub use condition::{GetAllCondition, WhereCondition};
 pub use connection_builder::{ConnectionBuilder, ConnectionOptions};
@@ -19,6 +20,7 @@ pub use entity::{HydrationError, SqLiteEntity};
 pub use projection::{Projection, ProjectionField};
 pub use query::Query;
 pub use source_alias::SourceAlias;
+pub use transaction::Transaction;
 
 use mithril_common::StdResult;
 use sqlite::ConnectionThreadSafe;

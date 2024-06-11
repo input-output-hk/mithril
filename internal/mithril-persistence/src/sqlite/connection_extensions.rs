@@ -3,10 +3,13 @@ use sqlite::{ReadableWithIndex, Value};
 
 use mithril_common::StdResult;
 
-use crate::sqlite::{EntityCursor, Query, SqliteConnection};
+use crate::sqlite::{EntityCursor, Query, SqliteConnection, Transaction};
 
 /// Extension trait for the [SqliteConnection] type.
 pub trait ConnectionExtensions {
+    /// Begin a transaction on the connection.
+    fn begin_transaction(&self) -> StdResult<Transaction>;
+
     /// Execute the given sql query and return the value of the first cell read.
     fn query_single_cell<Q: AsRef<str>, T: ReadableWithIndex>(
         &self,
@@ -30,6 +33,10 @@ pub trait ConnectionExtensions {
 }
 
 impl ConnectionExtensions for SqliteConnection {
+    fn begin_transaction(&self) -> StdResult<Transaction> {
+        Ok(Transaction::begin(self)?)
+    }
+
     fn query_single_cell<Q: AsRef<str>, T: ReadableWithIndex>(
         &self,
         sql: Q,
