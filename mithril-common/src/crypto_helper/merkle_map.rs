@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{StdError, StdResult};
+use crate::{resource_pool::Reset, StdError, StdResult};
 
 use super::{MKProof, MKTree, MKTreeNode};
 
@@ -232,6 +232,12 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
             });
 
         leaves_by_keys
+    }
+}
+
+impl<K: MKMapKey, V: MKMapValue<K>> Reset for MKMap<K, V> {
+    fn reset(&mut self) -> StdResult<()> {
+        self.compress()
     }
 }
 

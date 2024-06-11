@@ -24,7 +24,7 @@ pub enum ResourcePoolError {
 }
 
 /// Resource pool implementation (FIFO)
-pub struct ResourcePool<T: Send + Sync> {
+pub struct ResourcePool<T: Reset + Send + Sync> {
     /// The size of the pool
     size: usize,
 
@@ -38,7 +38,7 @@ pub struct ResourcePool<T: Send + Sync> {
     not_empty: Condvar,
 }
 
-impl<T: Send + Sync> ResourcePool<T> {
+impl<T: Reset + Send + Sync> ResourcePool<T> {
     /// Create a new resource pool
     pub fn new(pool_size: usize, resources: Vec<T>) -> Self {
         Self {
@@ -103,9 +103,12 @@ impl<T: Send + Sync> ResourcePool<T> {
         resource_pool_item: ResourcePoolItem<'_, T>,
     ) -> StdResult<()> {
         let mut resource_pool_item = resource_pool_item;
-        resource_pool_item
-            .take()
-            .map(|resource_item| self.give_back_resource(resource_item, self.discriminant()?));
+        resource_pool_item.take().map(|resource_item| {
+            let mut resource_item = resource_item;
+            resource_item.reset()?;
+
+            self.give_back_resource(resource_item, self.discriminant()?)
+        });
 
         Ok(())
     }
@@ -154,13 +157,13 @@ impl<T: Send + Sync> ResourcePool<T> {
 }
 
 /// Resource pool item which will return the resource to the pool when dropped
-pub struct ResourcePoolItem<'a, T: Send + Sync> {
+pub struct ResourcePoolItem<'a, T: Reset + Send + Sync> {
     resource_pool: &'a ResourcePool<T>,
     discriminant: u64,
     resource: Option<T>,
 }
 
-impl<'a, T: Send + Sync> ResourcePoolItem<'a, T> {
+impl<'a, T: Reset + Send + Sync> ResourcePoolItem<'a, T> {
     /// Create a new resource pool item
     pub fn new(resource_pool: &'a ResourcePool<T>, resource: T) -> Self {
         let discriminant = *resource_pool.discriminant.lock().unwrap();
@@ -182,7 +185,7 @@ impl<'a, T: Send + Sync> ResourcePoolItem<'a, T> {
     }
 }
 
-impl<T: Send + Sync> Deref for ResourcePoolItem<'_, T> {
+impl<T: Reset + Send + Sync> Deref for ResourcePoolItem<'_, T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -190,13 +193,13 @@ impl<T: Send + Sync> Deref for ResourcePoolItem<'_, T> {
     }
 }
 
-impl<T: Send + Sync> DerefMut for ResourcePoolItem<'_, T> {
+impl<T: Reset + Send + Sync> DerefMut for ResourcePoolItem<'_, T> {
     fn deref_mut(&mut self) -> &mut T {
         self.resource.as_mut().unwrap()
     }
 }
 
-impl<T: Send + Sync> Drop for ResourcePoolItem<'_, T> {
+impl<T: Reset + Send + Sync> Drop for ResourcePoolItem<'_, T> {
     fn drop(&mut self) {
         self.take().map(|resource| {
             self.resource_pool
@@ -205,11 +208,21 @@ impl<T: Send + Sync> Drop for ResourcePoolItem<'_, T> {
     }
 }
 
+/// Reset trait implemented by pooled resources
+pub trait Reset {
+    /// Reset the resource
+    fn reset(&mut self) -> StdResult<()> {
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
 
     use super::*;
+
+    impl Reset for String {}
 
     #[test]
     fn test_resource_pool_acquire_returns_resource_when_available() {
