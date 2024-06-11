@@ -97,6 +97,8 @@ Note that this guide works on a Linux machine only.
 
 * Install a correctly configured Rust toolchain (latest stable version). You can follow the instructions provided [here](https://www.rust-lang.org/learn/get-started).
 
+* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+
 * Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 * Install a recent version of `jq` (version 1.6+). You can install it by running `apt install jq`.
