@@ -25,7 +25,9 @@ Before proceeding with the installation, ensure that you have the following pre-
 
 1. **Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain**: make sure you have the latest stable version of Rust installed
 
-2. **Install OpenSSL development libraries**: On Ubuntu/Debian/Mint, run the following command to install the required OpenSSL development libraries:
+2. **Install Build Tools `build-essential` and `m4`**: On Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+
+3. **Install OpenSSL development libraries**: On Ubuntu/Debian/Mint, run the following command to install the required OpenSSL development libraries:
 
  ```
 sudo apt install libssl-dev
