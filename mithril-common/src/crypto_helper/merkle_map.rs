@@ -37,7 +37,7 @@ pub trait MKMapValue<K: MKMapKey>: Clone + TryInto<MKTreeNode> {
 pub struct MKMap<K: MKMapKey, V: MKMapValue<K>> {
     inner_map_values: BTreeMap<K, V>,
     inner_merkle_tree: MKTree,
-    can_compute_proof_keys: BTreeSet<K>,
+    provable_keys: BTreeSet<K>,
 }
 
 impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
@@ -54,7 +54,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
         let mut mk_map = Self {
             inner_map_values,
             inner_merkle_tree,
-            can_compute_proof_keys,
+            provable_keys: can_compute_proof_keys,
         };
         let sorted_entries = BTreeMap::from_iter(entries);
         for (key, value) in sorted_entries {
@@ -87,7 +87,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
 
     /// Insert a new key-value pair without checking if the key is already present nor the order of insertion.
     fn insert_unchecked(&mut self, key: K, value: V) -> StdResult<()> {
-        self.update_can_compute_proof_keys(&key, &value)?;
+        self.update_provable_keys(&key, &value)?;
         self.inner_map_values.insert(key.clone(), value.clone());
         let mktree_node_value = value
             .try_into()
@@ -102,18 +102,18 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
 
     /// Replace the value of an existing key
     fn replace(&mut self, key: K, value: V) -> StdResult<()> {
-        self.update_can_compute_proof_keys(&key, &value)?;
+        self.update_provable_keys(&key, &value)?;
         self.inner_map_values.insert(key.clone(), value.clone());
 
         Ok(())
     }
 
-    /// Keep track of the keys that can compute proof
-    fn update_can_compute_proof_keys(&mut self, key: &K, value: &V) -> StdResult<()> {
+    /// Keep track of the keys that can compute a proof
+    fn update_provable_keys(&mut self, key: &K, value: &V) -> StdResult<()> {
         if value.can_compute_proof() {
-            self.can_compute_proof_keys.insert(key.clone());
-        } else if self.can_compute_proof_keys.contains(key) {
-            self.can_compute_proof_keys.remove(key);
+            self.provable_keys.insert(key.clone());
+        } else if self.provable_keys.contains(key) {
+            self.provable_keys.remove(key);
         }
 
         Ok(())
@@ -158,8 +158,36 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
             return Err(anyhow!("MKMap could not compute proof for empty leaves"));
         }
 
+        let leaves_by_keys = self.group_leaves_by_keys(leaves);
+        let mut sub_proofs = BTreeMap::<K, MKMapProof<K>>::default();
+        for (key, sub_leaves) in leaves_by_keys {
+            if let Some(value) = self.get(&key) {
+                if let Some(proof) = value.compute_proof(&sub_leaves)? {
+                    sub_proofs.insert(key.to_owned(), proof);
+                }
+            }
+        }
+
+        let master_proof = self
+            .inner_merkle_tree
+            .compute_proof(
+                &sub_proofs
+                    .iter()
+                    .map(|(k, p)| k.to_owned().into() + p.compute_root().to_owned())
+                    .collect::<Vec<MKTreeNode>>(),
+            )
+            .with_context(|| "MKMap could not compute master proof")?;
+
+        Ok(MKMapProof::new(master_proof, sub_proofs))
+    }
+
+    /// Returns a map with the leaves (converted to Merkle tree nodes) grouped by keys
+    fn group_leaves_by_keys<T: Into<MKTreeNode> + Clone>(
+        &self,
+        leaves: &[T],
+    ) -> HashMap<K, Vec<MKTreeNode>> {
         let can_compute_proof_map: HashMap<K, V> = self
-            .can_compute_proof_keys
+            .provable_keys
             .iter()
             .filter_map(|k| self.get(k).map(|v| (k.to_owned(), v.to_owned())))
             .collect();
@@ -181,26 +209,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
                 acc
             });
 
-        let mut sub_proofs = BTreeMap::<K, MKMapProof<K>>::default();
-        for (key, sub_leaves) in leaves_by_keys {
-            if let Some(value) = self.get(&key) {
-                if let Some(proof) = value.compute_proof(&sub_leaves)? {
-                    sub_proofs.insert(key.to_owned(), proof);
-                }
-            }
-        }
-
-        let master_proof = self
-            .inner_merkle_tree
-            .compute_proof(
-                &sub_proofs
-                    .iter()
-                    .map(|(k, p)| k.to_owned().into() + p.compute_root().to_owned())
-                    .collect::<Vec<MKTreeNode>>(),
-            )
-            .with_context(|| "MKMap could not compute master proof")?;
-
-        Ok(MKMapProof::new(master_proof, sub_proofs))
+        leaves_by_keys
     }
 }
 
@@ -279,12 +288,17 @@ impl<K: MKMapKey> MKMapProof<K> {
 
     /// Check if the merkelized map proof contains a leaf
     pub fn contains(&self, leaf: &MKTreeNode) -> StdResult<()> {
-        self.leaves()
-            .iter()
-            .find(|l| *l == leaf)
-            .ok_or(anyhow!("MKMapProof does not contain leaf {:?}", leaf))?;
+        let contains_leaf = {
+            self.master_proof.contains(&[leaf.to_owned()]).is_ok()
+                || self
+                    .sub_proofs
+                    .iter()
+                    .any(|(_k, p)| p.contains(leaf).is_ok())
+        };
 
-        Ok(())
+        contains_leaf
+            .then_some(())
+            .ok_or(anyhow!("MKMapProof does not contain leaf {:?}", leaf))
     }
 
     /// List the leaves of the merkelized map proof

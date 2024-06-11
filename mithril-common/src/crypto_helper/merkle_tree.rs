@@ -149,11 +149,7 @@ impl MKProof {
     pub fn contains(&self, leaves: &[MKTreeNode]) -> StdResult<()> {
         leaves
             .iter()
-            .all(|leaf| {
-                self.inner_leaves
-                    .iter()
-                    .any(|(_, l)| ((**l).clone()) == *leaf)
-            })
+            .all(|leaf| self.inner_leaves.iter().any(|(_, l)| l.deref() == leaf))
             .then_some(())
             .ok_or(anyhow!("Leaves not found in the MKProof"))
     }
@@ -455,8 +451,7 @@ mod tests {
 
     #[test]
     fn list_leaves() {
-        let mut leaves_to_verify = generate_leaves(10);
-        let _ = leaves_to_verify.drain(3..6).collect::<Vec<_>>();
+        let leaves_to_verify = generate_leaves(10);
         let proof =
             MKProof::from_leaves(&leaves_to_verify).expect("MKProof generation should not fail");
 
