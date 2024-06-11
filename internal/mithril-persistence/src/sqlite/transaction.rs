@@ -11,9 +11,13 @@ pub struct Transaction<'a> {
 }
 
 impl<'a> Transaction<'a> {
+    const BEGIN_TRANSACTION: &'static str = "BEGIN TRANSACTION";
+    const COMMIT_TRANSACTION: &'static str = "COMMIT TRANSACTION";
+    const ROLLBACK_TRANSACTION: &'static str = "ROLLBACK TRANSACTION";
+
     /// Begin a new transaction.
     pub fn begin(connection: &'a SqliteConnection) -> Result<Self, sqlite::Error> {
-        connection.execute("BEGIN TRANSACTION")?;
+        connection.execute(Self::BEGIN_TRANSACTION)?;
         Ok(Self {
             connection,
             is_active: true,
@@ -22,36 +26,41 @@ impl<'a> Transaction<'a> {
 
     /// Commit the transaction.
     pub fn commit(mut self) -> Result<(), sqlite::Error> {
-        self.is_active = false;
-        self.connection.execute("COMMIT TRANSACTION")?;
-        Ok(())
+        self.execute(Self::COMMIT_TRANSACTION)
     }
 
     /// Rollback the transaction.
     pub fn rollback(mut self) -> Result<(), sqlite::Error> {
-        self.is_active = false;
-        self.connection.execute("ROLLBACK TRANSACTION")?;
+        self.execute(Self::ROLLBACK_TRANSACTION)
+    }
+
+    fn execute(&mut self, command: &str) -> Result<(), sqlite::Error> {
+        if self.is_active {
+            self.is_active = false;
+            self.connection.execute(command)?;
+        }
         Ok(())
     }
 }
 
 impl Drop for Transaction<'_> {
     fn drop(&mut self) {
-        if self.is_active {
-            // Unwrap should not happen here, otherwise it would mean that we have not handled
-            // correctly the transaction "active" state or that the connection was closed.
-            self.connection.execute("ROLLBACK TRANSACTION").unwrap();
-        }
+        // Unwrap should not happen here, otherwise it would mean that we have not handled
+        // correctly the transaction "active" state or that the connection was closed.
+        self.execute(Self::ROLLBACK_TRANSACTION).unwrap();
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::sqlite::ConnectionExtensions;
     use anyhow::anyhow;
-    use mithril_common::StdResult;
     use sqlite::Connection;
+
+    use mithril_common::StdResult;
+
+    use crate::sqlite::ConnectionExtensions;
+
+    use super::*;
 
     fn init_database() -> SqliteConnection {
         let connection = Connection::open_thread_safe(":memory:").unwrap();
@@ -145,7 +154,7 @@ mod tests {
                 .unwrap();
 
             // Commiting make the transaction inactive thus make next operation fail
-            connection.execute("COMMIT TRANSACTION").unwrap();
+            connection.execute(Transaction::COMMIT_TRANSACTION).unwrap();
             transaction.commit().expect_err("Commit should have fail");
 
             // When going out of scope, drop is called and should not panic
@@ -163,7 +172,7 @@ mod tests {
                 .unwrap();
 
             // Commiting make the transaction inactive thus make next operation fail
-            connection.execute("COMMIT TRANSACTION").unwrap();
+            connection.execute(Transaction::COMMIT_TRANSACTION).unwrap();
             transaction
                 .rollback()
                 .expect_err("Rollback should have fail");
