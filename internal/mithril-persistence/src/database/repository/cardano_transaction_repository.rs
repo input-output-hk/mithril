@@ -265,13 +265,15 @@ impl CardanoTransactionRepository {
         &self,
         block_number: BlockNumber,
     ) -> StdResult<()> {
-        // todo: add sqlite rollback
+        let transaction = self.connection.begin_transaction()?;
         let query = DeleteCardanoTransactionQuery::after_block_number_threshold(block_number)?;
         self.connection.fetch_first(query)?;
 
         let query =
             DeleteBlockRangeRootQuery::include_or_greater_block_number_threshold(block_number)?;
         self.connection.fetch_first(query)?;
+        transaction.commit()?;
+
         Ok(())
     }
 }
