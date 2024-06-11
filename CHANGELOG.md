@@ -9,22 +9,6 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX.X] - UNRELEASED
 
-- **BREAKING** changes in Mithril client CLI:
-  - The deprecated `snapshot` command is removed from the Mithril client CLI
-  - Use the `cardano-db snapshot` command instead.
-
-- Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
-
-- Prune Cardano Transactions from the signer database after the Block Range Merkle Roots have been computed.
-
-- Update website and explorer user interface to use the new mithril logo.
-
-- Implement a Chain Reader which retrieves blocks from the Cardano chain with Pallas through the `chainsync` mini-protocol.
-
-- Implement a Resource Pool and use it for caching Block Range Merkle maps used by the Cardano transactions prover and improving the throughput.
-
-- Change the beacon of the Cardano Transactions to a block number instead of an immutable file number.
-
 - Provide a feature to the `mithril-client` crate to allow selection of the TLS implementation used by the dependent `reqwest` crate.
 
 - Crates versions:
@@ -32,6 +16,37 @@ As a minor extension, we have adopted a slightly different versioning convention
 |  Crate  |  Version  |
 |---------- |-------------|
 | N/A | `-` |
+
+## Mithril Distribution [2423.0] - UNRELEASED
+
+- **BREAKING** changes in Mithril client CLI:
+  - The deprecated `snapshot` command is removed from the Mithril client CLI
+  - Use the `cardano-db snapshot` command instead.
+
+- Update website and explorer user interface to use the new mithril logo.
+
+- **UNSTABLE** Cardano transactions certification:
+  - Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
+
+  - Prune Cardano Transactions from the signer database after the Block Range Merkle Roots have been computed.
+
+  - Implement a Chain Reader which retrieves blocks from the Cardano chain with Pallas through the `chainsync` mini-protocol.
+
+  - Implement a Resource Pool and use it for caching Block Range Merkle maps used by the Cardano transactions prover and improving the throughput.
+
+  - Change the beacon of the Cardano Transactions to a block number instead of an immutable file number.
+
+- Crates versions:
+
+|  Crate  |  Version  |
+|---------- |-------------|
+| mithril-aggregator | `0.5.16` |
+| mithril-client | `0.8.3` |
+| mithril-client-cli | `0.9.2` |
+| mithril-client-wasm | `0.3.3` |
+| mithril-common | `0.4.13` |
+| mithril-signer | `0.2.141` |
+| mithril-stm | `0.3.22` |
 
 ## Mithril Distribution [2418.1] - 2024-05-13
 
