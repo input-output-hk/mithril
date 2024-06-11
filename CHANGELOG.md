@@ -11,6 +11,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Provide a feature to the `mithril-client` crate to allow selection of the TLS implementation used by the dependent `reqwest` crate.
 
+- **UNSTABLE** Cardano transactions certification:
+  - Optimize the performances of the computation of the proof with a Merkle map.
+
 - Crates versions:
 
 |  Crate  |  Version  |

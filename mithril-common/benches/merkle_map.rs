@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_common::{
-    crypto_helper::{MKMap, MKMapNode, MKMapProof, MKMapValue, MKTree, MKTreeNode},
+    crypto_helper::{MKMap, MKMapNode, MKMapValue, MKTree, MKTreeNode},
     entities::BlockRange,
 };
 
@@ -23,7 +23,7 @@ const TOTAL_TRANSACTIONS_BENCHES: &[u64] = &[
     B,
 ];
 const BLOCK_RANGE_LENGTH_BENCH: u64 = 15;
-const TOTAL_TRANSACTIONS_PER_BLOCK: u64 = 50;
+const TOTAL_TRANSACTIONS_PER_BLOCK: u64 = 15;
 const MAX_TRANSACTIONS_PER_PROOF_BENCH: u64 = 100;
 
 fn generate_block_ranges_nodes_iterator(
@@ -43,7 +43,8 @@ fn generate_block_ranges_nodes_iterator(
             block_range_index * total_transactions_per_block_range,
             (block_range_index + 1) * total_transactions_per_block_range,
         );
-        let mk_map_node = if block_range_index < max_uncompressed_block_ranges {
+        let mk_map_node = if block_range_index <= total_block_ranges - max_uncompressed_block_ranges
+        {
             let leaves = <Range<u64> as Clone>::clone(&block_range)
                 .map(|leaf_index| leaf_index.to_string())
                 .collect::<Vec<_>>();
@@ -67,31 +68,6 @@ fn generate_merkle_map_compressed(
             .unwrap();
     }
     mk_map
-}
-
-fn generate_merkle_map_root(
-    block_ranges_nodes_iterator: impl Iterator<Item = (BlockRange, MKMapNode<BlockRange>)>,
-    mk_map_compressed: &MKMap<BlockRange, MKMapNode<BlockRange>>,
-) -> MKMapNode<BlockRange> {
-    let total_full_mk_tree = 1;
-    let (mk_map, _) = generate_merkle_map(
-        block_ranges_nodes_iterator,
-        mk_map_compressed,
-        total_full_mk_tree,
-    );
-
-    mk_map.compute_root().unwrap().into()
-}
-
-fn generate_merkle_map_proof(
-    block_ranges_nodes_iterator: impl Iterator<Item = (BlockRange, MKMapNode<BlockRange>)>,
-    mk_map_compressed: &MKMap<BlockRange, MKMapNode<BlockRange>>,
-    total_proofs: u64,
-) -> MKMapProof<BlockRange> {
-    let (mk_map, leaves_to_prove_all) =
-        generate_merkle_map(block_ranges_nodes_iterator, mk_map_compressed, total_proofs);
-
-    mk_map.compute_proof(&leaves_to_prove_all).unwrap()
 }
 
 fn generate_merkle_map(
@@ -143,15 +119,18 @@ fn create_merkle_map_root_benches(c: &mut Criterion) {
             BenchmarkId::from_parameter(total_leaves),
             total_leaves,
             |b, &_total_leaves| {
-                b.iter(|| {
-                    let mk_trees_by_block_range_iterator = generate_block_ranges_nodes_iterator(
-                        *total_leaves,
-                        TOTAL_TRANSACTIONS_PER_BLOCK,
-                        BLOCK_RANGE_LENGTH_BENCH,
-                        1,
-                    );
-                    generate_merkle_map_root(mk_trees_by_block_range_iterator, &mk_map_compressed);
-                });
+                let mk_trees_by_block_range_iterator = generate_block_ranges_nodes_iterator(
+                    *total_leaves,
+                    TOTAL_TRANSACTIONS_PER_BLOCK,
+                    BLOCK_RANGE_LENGTH_BENCH,
+                    MAX_TRANSACTIONS_PER_PROOF_BENCH,
+                );
+                let (mk_map, _leaves_to_prove_all) = generate_merkle_map(
+                    mk_trees_by_block_range_iterator,
+                    &mk_map_compressed,
+                    MAX_TRANSACTIONS_PER_PROOF_BENCH,
+                );
+                b.iter(|| mk_map.compute_root().unwrap());
             },
         );
     }
@@ -175,19 +154,18 @@ fn create_merkle_map_proof_benches(c: &mut Criterion) {
             BenchmarkId::from_parameter(total_leaves),
             total_leaves,
             |b, &_total_leaves| {
-                b.iter(|| {
-                    let mk_trees_by_block_range_iterator = generate_block_ranges_nodes_iterator(
-                        *total_leaves,
-                        TOTAL_TRANSACTIONS_PER_BLOCK,
-                        BLOCK_RANGE_LENGTH_BENCH,
-                        MAX_TRANSACTIONS_PER_PROOF_BENCH,
-                    );
-                    generate_merkle_map_proof(
-                        mk_trees_by_block_range_iterator,
-                        &mk_map_compressed,
-                        MAX_TRANSACTIONS_PER_PROOF_BENCH,
-                    );
-                });
+                let mk_trees_by_block_range_iterator = generate_block_ranges_nodes_iterator(
+                    *total_leaves,
+                    TOTAL_TRANSACTIONS_PER_BLOCK,
+                    BLOCK_RANGE_LENGTH_BENCH,
+                    MAX_TRANSACTIONS_PER_PROOF_BENCH,
+                );
+                let (mk_map, leaves_to_prove_all) = generate_merkle_map(
+                    mk_trees_by_block_range_iterator,
+                    &mk_map_compressed,
+                    MAX_TRANSACTIONS_PER_PROOF_BENCH,
+                );
+                b.iter(|| mk_map.compute_proof(&leaves_to_prove_all).unwrap());
             },
         );
     }
@@ -212,11 +190,12 @@ fn verify_merkle_map_proof_benches(c: &mut Criterion) {
             BLOCK_RANGE_LENGTH_BENCH,
             MAX_TRANSACTIONS_PER_PROOF_BENCH,
         );
-        let mk_map_proof = generate_merkle_map_proof(
+        let (mk_map, leaves_to_prove_all) = generate_merkle_map(
             mk_trees_by_block_range_iterator,
             &mk_map_compressed,
             MAX_TRANSACTIONS_PER_PROOF_BENCH,
         );
+        let mk_map_proof = mk_map.compute_proof(&leaves_to_prove_all).unwrap();
 
         group.bench_with_input(
             BenchmarkId::from_parameter(total_leaves),
