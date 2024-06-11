@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (https://mithril.network/doc/adr/3#decision)
+As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
 ## Mithril Distribution [XXXX.X] - UNRELEASED
 
@@ -23,7 +23,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implement a Resource Pool and use it for caching Block Range Merkle maps used by the Cardano transactions prover and improving the throughput.
 
-- Change the beacon of the Cardano Transactions to a block number instead of an immutable file number. 
+- Change the beacon of the Cardano Transactions to a block number instead of an immutable file number.
+
+- Provide a feature to the `mithril-client` crate to allow selection of the TLS implementation used by the dependent `reqwest` crate.
 
 - Crates versions:
 
@@ -41,10 +43,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Chain observers support the retrieval of the current Cardano chain point.
 
--  Deprecate `portable` feature of `mithril-stm` and `mithril-client`:
-   - Instead, always enable BLST `portable` feature in `mithril-stm` for runtime check of intel ADX instruction set.
-   - `portable` feature now has no effect and should be removed from crate dependencies.
-   - Removed it from all other crates (including `mithril-common`).
+- Deprecate `portable` feature of `mithril-stm` and `mithril-client`:
+  - Instead, always enable BLST `portable` feature in `mithril-stm` for runtime check of intel ADX instruction set.
+  - `portable` feature now has no effect and should be removed from crate dependencies.
+  - Removed it from all other crates (including `mithril-common`).
 
 - Switched memory allocator to `jemallocator` on signer and aggregator to avoid memory fragmentation when signing transactions (which lead to RES memory not being properly returned to the OS).
 
@@ -62,9 +64,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [2412.0] - 2024-03-26
 
-- **GitHub release**: https://github.com/input-output-hk/mithril/releases/tag/2412.0
+- **GitHub release**: <https://github.com/input-output-hk/mithril/releases/tag/2412.0>
 
-- _DEPRECATED_ the `snapshot` command in the Mithril client CLI: 
+- _DEPRECATED_ the `snapshot` command in the Mithril client CLI:
   - Renamed to `cardano-db snapshot`.
   - Will be **removed** in **2** distributions.
 
