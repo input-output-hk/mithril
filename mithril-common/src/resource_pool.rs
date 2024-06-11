@@ -153,12 +153,6 @@ impl<T: Send + Sync> ResourcePool<T> {
     }
 }
 
-impl<T: Send + Sync> Default for ResourcePool<T> {
-    fn default() -> Self {
-        Self::new(30, vec![])
-    }
-}
-
 /// Resource pool item which will return the resource to the pool when dropped
 pub struct ResourcePoolItem<'a, T: Send + Sync> {
     resource_pool: &'a ResourcePool<T>,
