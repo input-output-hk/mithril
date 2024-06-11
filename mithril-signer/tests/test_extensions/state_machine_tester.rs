@@ -7,10 +7,13 @@ use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_block_scanner::DumbBlockScanner,
+    cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
-    entities::{ChainPoint, Epoch, SignerWithStake, TimePoint},
+    entities::{
+        BlockRange, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
+        SignedEntityTypeDiscriminants, SignerWithStake, TimePoint,
+    },
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -100,7 +103,9 @@ impl StateMachineTester {
             immutable_file_number: 1,
             chain_point: ChainPoint {
                 slot_number: 1,
-                block_number: 1,
+                // Note: the starting block number must be greater than the cardano_transactions_signing_config.step
+                // so first block range root computation is not on block 0.
+                block_number: 100,
                 block_hash: "block_hash-1".to_string(),
             },
         })));
@@ -109,7 +114,14 @@ impl StateMachineTester {
             immutable_observer.clone(),
         ));
         let certificate_handler = Arc::new(FakeAggregator::new(
-            config.get_network().unwrap(),
+            SignedEntityConfig {
+                allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                network: config.get_network().unwrap(),
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                    security_parameter: 0,
+                    step: 30,
+                },
+            },
             ticker_service.clone(),
         ));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
@@ -150,7 +162,17 @@ impl StateMachineTester {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_parser = Arc::new(DumbBlockScanner::new());
+        let transaction_parser = Arc::new(DumbBlockScanner::new().forwards(vec![vec![
+            ScannedBlock::new("block_hash-1", 1, 100, 1, vec!["tx_hash-1"]),
+            // For a block range root to be computed we need at least one block on the following block range
+            ScannedBlock::new(
+                "block_hash-15",
+                BlockRange::LENGTH,
+                115,
+                1,
+                vec!["tx_hash-15"],
+            ),
+        ]]));
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
@@ -288,6 +310,17 @@ impl StateMachineTester {
     /// make the aggregator send the epoch settings from now on
     pub async fn aggregator_send_epoch_settings(&mut self) -> &mut Self {
         self.certificate_handler.release_epoch_settings().await;
+        self
+    }
+
+    /// make the aggregator send the certificate pending with the given signed entity from now on
+    pub async fn aggregator_send_signed_entity(
+        &mut self,
+        discriminant: SignedEntityTypeDiscriminants,
+    ) -> &mut Self {
+        self.certificate_handler
+            .change_certificate_pending_signed_entity(discriminant)
+            .await;
         self
     }
 
