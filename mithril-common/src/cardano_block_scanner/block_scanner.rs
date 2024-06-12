@@ -3,11 +3,15 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use slog::{warn, Logger};
+use tokio::sync::Mutex;
 
 use crate::cardano_block_scanner::{BlockScanner, BlockStreamer, ImmutableBlockStreamer};
+use crate::chain_reader::ChainBlockReader;
 use crate::digesters::ImmutableFile;
 use crate::entities::{BlockNumber, ChainPoint, ImmutableFileNumber};
 use crate::StdResult;
+
+use super::ChainReaderBlockStreamer;
 
 /// Trait to find the lower bound that should be used by the [block scanner][CardanoBlockScanner] when
 /// scanning.
@@ -18,14 +22,14 @@ pub trait ImmutableLowerBoundFinder: Send + Sync {
     async fn find_lower_bound(&self) -> StdResult<Option<ImmutableFileNumber>>;
 }
 
-/// Cardano block scanner
+/// Cardano immutable block scanner
 ///
 /// This scanner reads the immutable files in the given directory and returns the blocks.
 ///
 /// Both the lower and upper bounds of the [BlockScanner] are ignored, instead:
 /// * for the lower bound: the result of the [ImmutableLowerBoundFinder] is used.
 /// * for the upper bound: the latest completed immutable file is used.
-pub struct CardanoBlockScanner {
+pub struct CardanoImmutableBlockScanner {
     logger: Logger,
     /// When set to true, no error is returned in case of unparsable block, and an error log is written instead.
     /// This can occur when the crate 'pallas-hardano' doesn't support some non final encoding for a Cardano era.
@@ -35,7 +39,7 @@ pub struct CardanoBlockScanner {
     rescan_offset: Option<usize>,
 }
 
-impl CardanoBlockScanner {
+impl CardanoImmutableBlockScanner {
     /// Factory
     pub fn new(
         logger: Logger,
@@ -66,7 +70,7 @@ impl CardanoBlockScanner {
 }
 
 #[async_trait]
-impl BlockScanner for CardanoBlockScanner {
+impl BlockScanner for CardanoImmutableBlockScanner {
     async fn scan(
         &self,
         dirpath: &Path,
@@ -88,6 +92,44 @@ impl BlockScanner for CardanoBlockScanner {
             self.allow_unparsable_block,
             self.logger.clone(),
         )))
+    }
+}
+
+/// Cardano block scanner
+///
+/// This scanner reads the blocks with a chain block reader
+pub struct CardanoBlockScanner {
+    chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
+    logger: Logger,
+}
+
+impl CardanoBlockScanner {
+    /// Factory
+    pub fn new(chain_reader: Arc<Mutex<dyn ChainBlockReader>>, logger: Logger) -> Self {
+        Self {
+            chain_reader,
+            logger,
+        }
+    }
+}
+
+#[async_trait]
+impl BlockScanner for CardanoBlockScanner {
+    async fn scan(
+        &self,
+        _dirpath: &Path,
+        from: Option<ChainPoint>,
+        until: BlockNumber,
+    ) -> StdResult<Box<dyn BlockStreamer>> {
+        Ok(Box::new(
+            ChainReaderBlockStreamer::try_new(
+                self.chain_reader.clone(),
+                from,
+                until,
+                self.logger.clone(),
+            )
+            .await?,
+        ))
     }
 }
 
@@ -123,8 +165,12 @@ mod tests {
         let lower_bound_finder = lower_bound_finder(|mock| {
             mock.expect_find_lower_bound().returning(|| Ok(None));
         });
-        let cardano_transaction_parser =
-            CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder, None);
+        let cardano_transaction_parser = CardanoImmutableBlockScanner::new(
+            TestLogger::stdout(),
+            false,
+            lower_bound_finder,
+            None,
+        );
 
         for until_block_number in [1, 10000] {
             let mut streamer = cardano_transaction_parser
@@ -154,8 +200,12 @@ mod tests {
         let lower_bound_finder = lower_bound_finder(|mock| {
             mock.expect_find_lower_bound().returning(|| Ok(Some(0)));
         });
-        let cardano_transaction_parser =
-            CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder, None);
+        let cardano_transaction_parser = CardanoImmutableBlockScanner::new(
+            TestLogger::stdout(),
+            false,
+            lower_bound_finder,
+            None,
+        );
 
         for until_block_number in [1, 10000] {
             let mut streamer = cardano_transaction_parser
@@ -194,8 +244,12 @@ mod tests {
             });
 
             let from = ChainPoint::dummy();
-            let cardano_transaction_parser =
-                CardanoBlockScanner::new(TestLogger::stdout(), false, lower_bound_finder, None);
+            let cardano_transaction_parser = CardanoImmutableBlockScanner::new(
+                TestLogger::stdout(),
+                false,
+                lower_bound_finder,
+                None,
+            );
 
             let mut streamer = cardano_transaction_parser
                 .scan(db_path, Some(from), 10000000)
@@ -221,7 +275,7 @@ mod tests {
 
         // We create a block to drop the logger and force a flush before we read the log file.
         {
-            let _ = CardanoBlockScanner::new(
+            let _ = CardanoImmutableBlockScanner::new(
                 TestLogger::file(&log_path),
                 true,
                 lower_bound_finder(|_| {}),
@@ -243,7 +297,7 @@ mod tests {
 
         // We create a block to drop the logger and force a flush before we read the log file.
         {
-            let _ = CardanoBlockScanner::new(
+            let _ = CardanoImmutableBlockScanner::new(
                 TestLogger::file(&log_path),
                 false,
                 lower_bound_finder(|_| {}),
@@ -260,13 +314,13 @@ mod tests {
         fn scanner_with_offset(
             highest_stored_immutable: ImmutableFileNumber,
             rescan_offset: ImmutableFileNumber,
-        ) -> CardanoBlockScanner {
+        ) -> CardanoImmutableBlockScanner {
             let mut store = MockImmutableLowerBoundFinder::new();
             store
                 .expect_find_lower_bound()
                 .returning(move || Ok(Some(highest_stored_immutable)));
 
-            CardanoBlockScanner::new(
+            CardanoImmutableBlockScanner::new(
                 TestLogger::stdout(),
                 false,
                 Arc::new(store),
