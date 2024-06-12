@@ -20,7 +20,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 |---------- |-------------|
 | N/A | `-` |
 
-## Mithril Distribution [2423.0] - UNRELEASED
+## Mithril Distribution [2423.0] - 2024-06-12
 
 - **BREAKING** changes in Mithril client CLI:
   - The deprecated `snapshot` command is removed from the Mithril client CLI
