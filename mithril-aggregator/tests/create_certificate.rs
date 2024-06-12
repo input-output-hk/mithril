@@ -19,6 +19,7 @@ async fn create_certificate() {
     };
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
+        signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
         data_stores_directory: get_test_dir("create_certificate"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
             security_parameter: 0,
@@ -27,7 +28,15 @@ async fn create_certificate() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(
-        TimePoint::new(1, 1, ChainPoint::new(10, 1, "block_hash-1")),
+        TimePoint {
+            epoch: Epoch(1),
+            immutable_file_number: 1,
+            chain_point: ChainPoint {
+                slot_number: 10,
+                block_number: 100,
+                block_hash: "block_hash-100".to_string(),
+            },
+        },
         configuration,
     )
     .await;
@@ -123,6 +132,38 @@ async fn create_certificate() {
                 1,
                 3
             )),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                1
+            )),
+        )
+    );
+
+    comment!("The state machine should get back to signing to sign CardanoTransactions");
+    tester.increase_block_number(75, 175).await.unwrap();
+    cycle!(tester, "signing");
+    let signers_for_transaction = &fixture.signers_fixture()[2..=6];
+    tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+            signers_for_transaction,
+        )
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the CardanoTransactions");
+    cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            CardanoDbBeacon::new("devnet".to_string(), 1, 3),
+            &signers_for_transaction
+                .iter()
+                .map(|s| s.signer_with_stake.clone().into())
+                .collect::<Vec<_>>(),
+            fixture.compute_and_encode_avk(),
+            SignedEntityType::CardanoTransactions(Epoch(1), 150),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,
