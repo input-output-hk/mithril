@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use anyhow::anyhow;
 use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
@@ -11,7 +12,7 @@ use mithril_common::{
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
-        BlockRange, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
+        BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
         SignedEntityTypeDiscriminants, SignerWithStake, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
@@ -75,7 +76,10 @@ impl Debug for StateMachineTester {
 }
 
 impl StateMachineTester {
-    pub async fn init(signers_with_stake: &[SignerWithStake]) -> Result<Self> {
+    pub async fn init(
+        signers_with_stake: &[SignerWithStake],
+        initial_time_point: TimePoint,
+    ) -> Result<Self> {
         let selected_signer_with_stake = signers_with_stake.first().ok_or_else(|| {
             TestError::AssertFailed("there should be at least one signer with stakes".to_string())
         })?;
@@ -99,17 +103,8 @@ impl StateMachineTester {
 
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
-        let chain_observer = Arc::new(FakeObserver::new(Some(TimePoint {
-            epoch: Epoch(1),
-            immutable_file_number: 1,
-            chain_point: ChainPoint {
-                slot_number: 1,
-                // Note: the starting block number must be greater than the cardano_transactions_signing_config.step
-                // so first block range root computation is not on block 0.
-                block_number: 100,
-                block_hash: "block_hash-1".to_string(),
-            },
-        })));
+
+        let chain_observer = Arc::new(FakeObserver::new(Some(initial_time_point)));
         let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),
@@ -163,17 +158,7 @@ impl StateMachineTester {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let block_scanner = Arc::new(DumbBlockScanner::new().forwards(vec![vec![
-            ScannedBlock::new("block_hash-1", 1, 100, 1, vec!["tx_hash-1"]),
-            // For a block range root to be computed we need at least one block on the following block range
-            ScannedBlock::new(
-                "block_hash-15",
-                BlockRange::LENGTH,
-                115,
-                1,
-                vec!["tx_hash-15"],
-            ),
-        ]]));
+        let block_scanner = Arc::new(DumbBlockScanner::new());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
@@ -425,6 +410,39 @@ impl StateMachineTester {
             })
             .collect();
         self.block_scanner.add_forwards(vec![blocks_to_scan]);
+
+        Ok(self)
+    }
+
+    pub async fn cardano_chain_send_rollback(
+        &mut self,
+        rollback_to_block_number: BlockNumber,
+    ) -> Result<&mut Self> {
+        let actual_block_number = self
+            .chain_observer
+            .get_current_chain_point()
+            .await
+            .map_err(|err| TestError::SubsystemError(anyhow!(err)))?
+            .map(|c| c.block_number)
+            .ok_or_else(|| TestError::ValueError("no block number returned".to_string()))?;
+        let decrement = actual_block_number - rollback_to_block_number;
+        let new_block_number = self
+            .chain_observer
+            .decrease_block_number(decrement)
+            .await
+            .ok_or_else(|| TestError::ValueError("no block number returned".to_string()))?;
+
+        self.assert(
+            rollback_to_block_number == new_block_number,
+            format!("expected to increase block number up to {rollback_to_block_number}, got {new_block_number}"),
+        )?;
+
+        let chain_point = ChainPoint {
+            slot_number: 1,
+            block_number: rollback_to_block_number,
+            block_hash: format!("block_hash-{rollback_to_block_number}"),
+        };
+        self.block_scanner.add_backward(chain_point);
 
         Ok(self)
     }

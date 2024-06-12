@@ -48,10 +48,26 @@ impl FakeObserver {
     /// Increase the block number of the [current_time_point][`FakeObserver::current_time_point`] by
     /// the given increment.
     pub async fn increase_block_number(&self, increment: BlockNumber) -> Option<BlockNumber> {
+        self.change_block_number(|actual_block_number| actual_block_number + increment)
+            .await
+    }
+
+    /// Decrease the block number of the [current_time_point][`FakeObserver::current_time_point`] by
+    /// the given decrement.
+    pub async fn decrease_block_number(&self, decrement: BlockNumber) -> Option<BlockNumber> {
+        self.change_block_number(|actual_block_number| actual_block_number - decrement)
+            .await
+    }
+
+    async fn change_block_number(
+        &self,
+        change_to_apply: impl Fn(u64) -> u64,
+    ) -> Option<BlockNumber> {
         let mut current_time_point = self.current_time_point.write().await;
+
         *current_time_point = current_time_point.as_ref().map(|time_point| TimePoint {
             chain_point: ChainPoint {
-                block_number: time_point.chain_point.block_number + increment,
+                block_number: change_to_apply(time_point.chain_point.block_number),
                 ..time_point.chain_point.clone()
             },
             ..time_point.clone()
@@ -215,6 +231,31 @@ mod tests {
         assert_eq!(
             Some(ChainPoint {
                 block_number: TimePoint::dummy().chain_point.block_number + 375,
+                ..TimePoint::dummy().chain_point
+            }),
+            chain_point,
+            "get current chain point should not fail"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_decrease_block_number() {
+        let fake_observer = FakeObserver::new(None);
+        fake_observer
+            .set_current_time_point(Some(TimePoint {
+                chain_point: ChainPoint {
+                    block_number: 1000,
+                    ..TimePoint::dummy().chain_point
+                },
+                ..TimePoint::dummy()
+            }))
+            .await;
+        fake_observer.decrease_block_number(800).await;
+
+        let chain_point = fake_observer.get_current_chain_point().await.unwrap();
+        assert_eq!(
+            Some(ChainPoint {
+                block_number: 200,
                 ..TimePoint::dummy().chain_point
             }),
             chain_point,
