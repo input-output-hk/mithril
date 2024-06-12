@@ -42,6 +42,8 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 * Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust
   toolchain.
 
+* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+
 * Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
 ## Download the source file
@@ -126,7 +128,6 @@ This program shows, downloads and verifies certified blockchain artifacts.
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  snapshot                    Deprecated, use `cardano-db` instead
   cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
   cardano-transaction         [unstable] Cardano transactions management (alias: ctx)
@@ -176,7 +177,7 @@ GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) AGGRE
 To display results in JSON format for the `list` and `show` commands, simply use the `--json` (or `-j`) option:
 
 ```bash
-./mithril-client-cli snapshot list --json
+./mithril-client-cli cardano-db snapshot list --json
 ```
 
 :::
@@ -278,7 +279,7 @@ make docker-run
 
 Here are the subcommands available:
 
-### Cardano DB (previously: Snapshot)
+### Cardano DB
 
 | Subcommand | Performed action |
 |------------|------------------|
@@ -286,20 +287,6 @@ Here are the subcommands available:
 | **help** | Prints this message or the help for the given subcommand(s)|
 | **snapshot list** | Lists available cardano-db snapshots|
 | **snapshot show** | Shows information about a cardano-db snapshot|
-
-### Snapshot
-
-:::warning
-The `snapshot` commands are now **deprecated** and has been superseded by the `cardano-db` commands.
-The `snapshot` commands  will be removed in the near future.
-:::
-
-| Subcommand | Performed action |
-|------------|------------------|
-| **download** | Downloads and restores a cardano-db snapshot|
-| **help** | Prints this message or the help for the given subcommand(s)|
-| **list** | Lists available cardano-db snapshots|
-| **show** | Shows information about a cardano-db snapshot|
 
 ### Mithril stake distribution
 
@@ -339,20 +326,20 @@ Here is a list of the available parameters:
 | `log_format_json` | `--log-format-json` | - | - | Enable JSON output for logs | - | - | - |
 | `log_output` | `--log-output` | `-o` | - | Redirect the logs to a file | - | `./mithril-client.log` | - |
 
-`cardano-db snapshot show` or `snapshot show` command:
+`cardano-db snapshot show` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `digest` | `--digest` | - | `DIGEST` | Cardano DB digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`cardano-db snapshot list` or `snapshot list` command:
+`cardano-db snapshot list` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
 
-`cardano-db download` or `snapshot download` command:
+`cardano-db download` command:
 
 | Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
