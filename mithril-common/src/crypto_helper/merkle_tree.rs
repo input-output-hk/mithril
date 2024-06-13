@@ -1,6 +1,4 @@
-use anyhow::anyhow;
-#[cfg(any(test, feature = "test_tools"))]
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{
     MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult, MMR,
@@ -293,7 +291,11 @@ impl MKTree {
 
     /// Generate root of the Merkle tree
     pub fn compute_root(&self) -> StdResult<MKTreeNode> {
-        Ok((*self.inner_tree.get_root()?).clone())
+        Ok((*self
+            .inner_tree
+            .get_root()
+            .with_context(|| "Could not compute Merkle Tree root")?)
+        .clone())
     }
 
     /// Generate Merkle proof of memberships in the tree
