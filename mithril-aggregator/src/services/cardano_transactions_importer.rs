@@ -39,10 +39,10 @@ pub trait TransactionStore: Send + Sync {
         block_ranges: Vec<(BlockRange, MKTreeNode)>,
     ) -> StdResult<()>;
 
-    /// Remove transactions and block range roots that have been caught in a rollback
+    /// Remove transactions and block range roots that are in a rolled-back fork
     ///
-    /// * Remove transactions with block number greater than the given block number
-    /// * Remove block range roots that include or are greater than the given block number
+    /// * Remove transactions with block number strictly greater than the given block number
+    /// * Remove block range roots that have lower bound range strictly above the given block number
     async fn remove_rolled_back_transactions_and_block_range(
         &self,
         block_number: BlockNumber,

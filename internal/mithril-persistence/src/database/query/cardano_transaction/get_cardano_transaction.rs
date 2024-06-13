@@ -31,11 +31,14 @@ impl GetCardanoTransactionQuery {
 
     pub fn by_transaction_hashes(
         transactions_hashes: Vec<TransactionHash>,
-        up_to: BlockNumber,
+        up_to_or_equal: BlockNumber,
     ) -> Self {
         let hashes_values = transactions_hashes.into_iter().map(Value::String).collect();
         let condition = WhereCondition::where_in("transaction_hash", hashes_values).and_where(
-            WhereCondition::new("block_number <= ?*", vec![Value::Integer(up_to as i64)]),
+            WhereCondition::new(
+                "block_number <= ?*",
+                vec![Value::Integer(up_to_or_equal as i64)],
+            ),
         );
 
         Self { condition }

@@ -40,7 +40,7 @@ impl DeleteCardanoTransactionQuery {
         })
     }
 
-    pub fn after_block_number_threshold(block_number_threshold: BlockNumber) -> StdResult<Self> {
+    pub fn above_block_number_threshold(block_number_threshold: BlockNumber) -> StdResult<Self> {
         let threshold = Value::Integer(block_number_threshold.try_into().with_context(|| {
             format!("Failed to convert threshold `{block_number_threshold}` to i64")
         })?);
@@ -130,7 +130,7 @@ mod tests {
         }
     }
 
-    mod prune_after_threshold_tests {
+    mod prune_above_threshold_tests {
         use super::*;
 
         #[test]
@@ -138,7 +138,7 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
 
             let cursor = connection
-                .fetch(DeleteCardanoTransactionQuery::after_block_number_threshold(100).unwrap())
+                .fetch(DeleteCardanoTransactionQuery::above_block_number_threshold(100).unwrap())
                 .expect("pruning shouldn't crash without transactions stored");
             assert_eq!(0, cursor.count());
         }
@@ -148,7 +148,7 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
             insert_transactions(&connection, test_transaction_set());
 
-            let query = DeleteCardanoTransactionQuery::after_block_number_threshold(0).unwrap();
+            let query = DeleteCardanoTransactionQuery::above_block_number_threshold(0).unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(test_transaction_set().len(), cursor.count());
 
@@ -163,7 +163,7 @@ mod tests {
             insert_transactions(&connection, test_transaction_set());
 
             let query =
-                DeleteCardanoTransactionQuery::after_block_number_threshold(100_000).unwrap();
+                DeleteCardanoTransactionQuery::above_block_number_threshold(100_000).unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(0, cursor.count());
 
@@ -176,7 +176,7 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
             insert_transactions(&connection, test_transaction_set());
 
-            let query = DeleteCardanoTransactionQuery::after_block_number_threshold(10).unwrap();
+            let query = DeleteCardanoTransactionQuery::above_block_number_threshold(10).unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(4, cursor.count());
 

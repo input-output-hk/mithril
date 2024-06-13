@@ -257,20 +257,20 @@ impl CardanoTransactionRepository {
         Ok(())
     }
 
-    /// Remove transactions and block range roots that have been caught in a rollback
+    /// Remove transactions and block range roots that are in a rolled-back fork
     ///
-    /// * Remove transactions with block number greater than the given block number
-    /// * Remove block range roots that include or are greater than the given block number
+    /// * Remove transactions with block number strictly greater than the given block number
+    /// * Remove block range roots that have lower bound range strictly above the given block number
     pub async fn remove_rolled_back_transactions_and_block_range(
         &self,
         block_number: BlockNumber,
     ) -> StdResult<()> {
         let transaction = self.connection.begin_transaction()?;
-        let query = DeleteCardanoTransactionQuery::after_block_number_threshold(block_number)?;
+        let query = DeleteCardanoTransactionQuery::above_block_number_threshold(block_number)?;
         self.connection.fetch_first(query)?;
 
         let query =
-            DeleteBlockRangeRootQuery::include_or_greater_block_number_threshold(block_number)?;
+            DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(block_number)?;
         self.connection.fetch_first(query)?;
         transaction.commit()?;
 

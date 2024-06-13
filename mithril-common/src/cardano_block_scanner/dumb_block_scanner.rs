@@ -180,7 +180,6 @@ mod tests {
         assert_eq!(blocks, None);
     }
 
-    // TODO To remove with poll_all
     #[tokio::test]
     async fn dumb_scanned_construct_a_streamer_based_on_its_stored_blocks() {
         let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];

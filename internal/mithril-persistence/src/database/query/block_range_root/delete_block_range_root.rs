@@ -30,7 +30,7 @@ impl Query for DeleteBlockRangeRootQuery {
 }
 
 impl DeleteBlockRangeRootQuery {
-    pub fn include_or_greater_block_number_threshold(
+    pub fn contains_or_above_block_number_threshold(
         block_number_threshold: BlockNumber,
     ) -> StdResult<Self> {
         let block_range = BlockRange::from_block_number(block_number_threshold);
@@ -87,7 +87,7 @@ mod tests {
 
         let cursor = connection
             .fetch(
-                DeleteBlockRangeRootQuery::include_or_greater_block_number_threshold(100).unwrap(),
+                DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(100).unwrap(),
             )
             .expect("pruning shouldn't crash without block range root stored");
         assert_eq!(0, cursor.count());
@@ -128,7 +128,7 @@ mod tests {
         insert_block_range_roots(&connection, dataset.clone());
 
         let query =
-            DeleteBlockRangeRootQuery::include_or_greater_block_number_threshold(block_threshold)
+            DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(block_threshold)
                 .unwrap();
         let cursor = connection.fetch(query).unwrap();
         assert_eq!(delete_record_number, cursor.count());
