@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{StdError, StdResult};
+use crate::{resource_pool::Reset, StdError, StdResult};
 
 use super::{MKProof, MKTree, MKTreeNode};
 
@@ -16,7 +16,7 @@ use super::{MKProof, MKTree, MKTreeNode};
 pub trait MKMapKey: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode> {}
 
 /// The trait implemented by the values of a MKMap
-pub trait MKMapValue<K: MKMapKey>: Clone + TryInto<MKTreeNode> {
+pub trait MKMapValue<K: MKMapKey>: Clone + TryInto<MKTreeNode> + TryFrom<MKTreeNode> {
     /// Get the root of the merkelized map value
     fn compute_root(&self) -> StdResult<MKTreeNode>;
 
@@ -119,6 +119,12 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
         Ok(())
     }
 
+    #[cfg(test)]
+    /// Get the provable keys of the merkelized map
+    pub fn get_provable_keys(&self) -> &BTreeSet<K> {
+        &self.provable_keys
+    }
+
     /// Check if the merkelized map contains a leaf (and returns the corresponding key and value if exists)
     pub fn contains(&self, leaf: &MKTreeNode) -> Option<(&K, &V)> {
         self.iter().find(|(_, v)| v.contains(leaf))
@@ -142,6 +148,22 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
     /// Check if the merkelized map is empty
     pub fn is_empty(&self) -> bool {
         self.inner_map_values.is_empty()
+    }
+
+    /// Compress the merkelized map
+    pub fn compress(&mut self) -> StdResult<()> {
+        let keys = self.provable_keys.clone();
+        for key in keys {
+            if let Some(value) = self.get(&key) {
+                let value = value
+                    .compute_root()?
+                    .try_into()
+                    .map_err(|_| anyhow!("Merkle root could not be converted to V"))?;
+                self.replace(key.to_owned(), value)?;
+            }
+        }
+
+        Ok(())
     }
 
     /// Get the root of the merkle tree of the merkelized map
@@ -210,6 +232,12 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
             });
 
         leaves_by_keys
+    }
+}
+
+impl<K: MKMapKey, V: MKMapValue<K>> Reset for MKMap<K, V> {
+    fn reset(&mut self) -> StdResult<()> {
+        self.compress()
     }
 }
 
@@ -531,6 +559,34 @@ mod tests {
         mk_map
             .insert(block_range_replacement, different_root_value)
             .expect_err("the MKMap should reject replacement with different root value");
+    }
+
+    #[test]
+    fn test_mk_map_should_compress_correctly() {
+        let entries = [
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]
+        .iter()
+        .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+        .collect::<Vec<_>>();
+        let merkle_tree_entries = &entries
+            .into_iter()
+            .map(|(range, mktree)| (range.to_owned(), mktree.into()))
+            .collect::<Vec<(_, MKMapNode<_>)>>();
+        let mk_map = MKMap::new(merkle_tree_entries.as_slice()).unwrap();
+        let mk_map_root_expected = mk_map.compute_root().unwrap();
+        let mk_map_provable_keys = mk_map.get_provable_keys();
+        assert!(!mk_map_provable_keys.is_empty());
+
+        let mut mk_map_compressed = mk_map.clone();
+        mk_map_compressed.compress().unwrap();
+
+        let mk_map_compressed_root = mk_map_compressed.compute_root().unwrap();
+        let mk_map_compressed_provable_keys = mk_map_compressed.get_provable_keys();
+        assert_eq!(mk_map_root_expected, mk_map_compressed_root);
+        assert!(mk_map_compressed_provable_keys.is_empty());
     }
 
     #[test]
