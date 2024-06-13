@@ -208,7 +208,9 @@ impl<T: Reset + Send + Sync> Drop for ResourcePoolItem<'_, T> {
     }
 }
 
-/// Reset trait implemented by pooled resources
+/// Reset trait which is implemented by pooled resource items.
+/// As pool resource items are mutable, this will guarantee that the pool stays  consistent
+/// and that acquired resource items do not depend from previous computations.
 pub trait Reset {
     /// Reset the resource
     fn reset(&mut self) -> StdResult<()> {
@@ -216,13 +218,15 @@ pub trait Reset {
     }
 }
 
+cfg_test_tools! {
+    impl Reset for String {}
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
 
     use super::*;
-
-    impl Reset for String {}
 
     #[test]
     fn test_resource_pool_acquire_returns_resource_when_available() {

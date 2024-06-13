@@ -158,7 +158,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
                 let value = value
                     .compute_root()?
                     .try_into()
-                    .map_err(|_| anyhow!("Merkel root could not be converted to V"))?;
+                    .map_err(|_| anyhow!("Merkle root could not be converted to V"))?;
                 self.replace(key.to_owned(), value)?;
             }
         }
