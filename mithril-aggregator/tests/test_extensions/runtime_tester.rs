@@ -8,11 +8,12 @@ use mithril_aggregator::{
     SignerRegistrationError,
 };
 use mithril_common::{
-    chain_observer::FakeObserver,
+    cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
+    chain_observer::{ChainObserver, FakeObserver},
     crypto_helper::ProtocolGenesisSigner,
-    digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
+    digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
-        Certificate, CertificateSignature, Epoch, ImmutableFileNumber,
+        BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
         SignedEntityTypeDiscriminants, Snapshot, StakeDistribution, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
@@ -70,6 +71,7 @@ pub struct RuntimeTester {
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
     pub observer: Arc<AggregatorObserver>,
     pub open_message_repository: Arc<OpenMessageRepository>,
+    pub block_scanner: Arc<DumbBlockScanner>,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -98,6 +100,7 @@ impl RuntimeTester {
                 &SupportedEra::dummy().to_string(),
                 Some(Epoch(0)),
             )]));
+        let block_scanner = Arc::new(DumbBlockScanner::new());
         let mut deps_builder = DependenciesBuilder::new(configuration);
         deps_builder.snapshot_uploader = Some(snapshot_uploader.clone());
         deps_builder.chain_observer = Some(chain_observer.clone());
@@ -105,6 +108,7 @@ impl RuntimeTester {
         deps_builder.immutable_digester = Some(digester.clone());
         deps_builder.snapshotter = Some(snapshotter.clone());
         deps_builder.era_reader = Some(Arc::new(EraReader::new(era_reader_adapter.clone())));
+        deps_builder.block_scanner = Some(block_scanner.clone());
 
         let dependencies = deps_builder.build_dependency_container().await.unwrap();
         let runtime = deps_builder.create_aggregator_runner().await.unwrap();
@@ -126,6 +130,7 @@ impl RuntimeTester {
             era_reader_adapter,
             observer,
             open_message_repository,
+            block_scanner,
             _logs_guard: logger,
         }
     }
@@ -241,6 +246,74 @@ impl RuntimeTester {
             .with_context(|| "inform_epoch should not fail")?;
 
         Ok(new_epoch)
+    }
+
+    /// increase the block number in the fake observer
+    pub async fn increase_block_number(&mut self, increment: u64, expected: u64) -> StdResult<()> {
+        let new_block_number = self
+            .chain_observer
+            .increase_block_number(increment)
+            .await
+            .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
+
+        anyhow::ensure!(
+            expected == new_block_number,
+            "expected to increase block number up to {expected}, got {new_block_number}",
+        );
+
+        // Make the block scanner return new blocks
+        let current_immutable = self
+            .immutable_file_observer
+            .get_last_immutable_number()
+            .await?;
+        let blocks_to_scan: Vec<ScannedBlock> = ((expected - increment + 1)..=expected)
+            .map(|block_number| {
+                let block_hash = format!("block_hash-{block_number}");
+                let slot_number = 10 * block_number;
+                ScannedBlock::new(
+                    block_hash,
+                    block_number,
+                    slot_number,
+                    current_immutable,
+                    vec![format!("tx_hash-{block_number}-1")],
+                )
+            })
+            .collect();
+        self.block_scanner.add_forwards(vec![blocks_to_scan]);
+
+        Ok(())
+    }
+
+    pub async fn cardano_chain_send_rollback(
+        &mut self,
+        rollback_to_block_number: BlockNumber,
+    ) -> StdResult<()> {
+        let actual_block_number = self
+            .chain_observer
+            .get_current_chain_point()
+            .await?
+            .map(|c| c.block_number)
+            .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
+        let decrement = actual_block_number - rollback_to_block_number;
+        let new_block_number = self
+            .chain_observer
+            .decrease_block_number(decrement)
+            .await
+            .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
+
+        anyhow::ensure!(
+            rollback_to_block_number == new_block_number,
+            "expected to increase block number up to {rollback_to_block_number}, got {new_block_number}",
+        );
+
+        let chain_point = ChainPoint {
+            slot_number: 1,
+            block_number: rollback_to_block_number,
+            block_hash: format!("block_hash-{rollback_to_block_number}"),
+        };
+        self.block_scanner.add_backward(chain_point);
+
+        Ok(())
     }
 
     /// Register the given signers in the registerer

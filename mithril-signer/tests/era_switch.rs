@@ -2,7 +2,7 @@ mod test_extensions;
 
 use mithril_common::{
     crypto_helper::tests_setup,
-    entities::Epoch,
+    entities::{ChainPoint, Epoch, TimePoint},
     era::{EraMarker, SupportedEra},
     test_utils::MithrilFixtureBuilder,
 };
@@ -15,7 +15,16 @@ async fn era_fail_at_startup() {
     let protocol_parameters = tests_setup::setup_protocol_parameters();
     let fixture = MithrilFixtureBuilder::default().with_signers(10).with_protocol_parameters(protocol_parameters.into()).build();
     let signers_with_stake = fixture.signers_with_stake();
-    let mut tester = StateMachineTester::init(&signers_with_stake)
+    let initial_time_point = TimePoint {
+        epoch: Epoch(1),
+        immutable_file_number: 1,
+        chain_point: ChainPoint {
+            slot_number: 1,
+            block_number: 100,
+            block_hash: "block_hash-100".to_string(),
+        },
+    };
+    let mut tester = StateMachineTester::init(&signers_with_stake, initial_time_point)
         .await.expect("state machine tester init should not fail");
     tester.set_era_markers(vec![EraMarker::new("whatever", Some(Epoch(0)))]);
 

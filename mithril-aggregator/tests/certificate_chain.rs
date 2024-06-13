@@ -185,7 +185,7 @@ async fn certificate_chain() {
     let next_epoch_verification_keys = tester
         .dependencies
         .verification_key_store
-        .get_verification_keys(new_epoch + 1)
+        .get_verification_keys(new_epoch.offset_to_recording_epoch())
         .await
         .expect("get_verification_keys should not fail");
     assert_eq!(

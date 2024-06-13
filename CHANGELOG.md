@@ -15,6 +15,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - **UNSTABLE** Cardano transactions certification:
   - Optimize the performances of the computation of the proof with a Merkle map.
+  - Handle rollback events from the Cardano chain by removing stale data.
 
 - Crates versions:
 

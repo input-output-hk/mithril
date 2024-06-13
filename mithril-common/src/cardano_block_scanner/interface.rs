@@ -56,7 +56,7 @@ pub trait BlockScanner: Sync + Send {
 }
 
 /// [ChainScannedBlocks] allows to scan new blocks and handle rollbacks
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ChainScannedBlocks {
     /// Roll forward on the chain to the next list of [ScannedBlock]
     RollForwards(Vec<ScannedBlock>),

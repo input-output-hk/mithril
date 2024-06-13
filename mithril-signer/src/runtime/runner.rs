@@ -535,7 +535,7 @@ mod tests {
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
-        let transaction_parser = Arc::new(DumbBlockScanner::new(vec![]));
+        let transaction_parser = Arc::new(DumbBlockScanner::new());
         let transaction_store = Arc::new(MockTransactionStore::new());
         let transaction_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),
