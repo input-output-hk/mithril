@@ -75,11 +75,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macos-12, windows-latest ]
+        os: [ macos-12, macos-14, windows-latest ]
 
         include:
           # Only build client on windows & mac
           - os: macos-12
+            binaries-build-args: --bin mithril-client --features bundle_openssl
+            libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
+          - os: macos-14
             binaries-build-args: --bin mithril-client --features bundle_openssl
             libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
           - os: windows-latest
@@ -163,13 +166,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-22.04, macos-12, windows-latest ]
+        os: [ ubuntu-22.04, macos-12, macos-14, windows-latest ]
 
         include:
           - os: ubuntu-22.04
             test-args: --features full,unstable --workspace
           # Only test client on windows & mac (since its the only binaries supported for those os for now)
           - os: macos-12
+            test-args: --package mithril-client --package mithril-client-cli --features full,unstable
+          - os: macos-14
             test-args: --package mithril-client --package mithril-client-cli --features full,unstable
           - os: windows-latest
             test-args: --package mithril-client --package mithril-client-cli --features full,unstable

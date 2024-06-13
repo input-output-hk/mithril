@@ -18,6 +18,11 @@ runs:
       shell: bash
       run: echo "short_sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
     - name: Add commit short sha to Cargo.tomls version
       shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}
       run: |
