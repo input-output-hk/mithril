@@ -61,6 +61,7 @@ pub mod messages;
 pub mod protocol;
 pub mod resource_pool;
 pub mod signable_builder;
+pub mod signed_entity_lock;
 
 cfg_test_tools! {
     pub mod test_utils;
