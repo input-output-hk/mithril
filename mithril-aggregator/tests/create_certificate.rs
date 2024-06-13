@@ -140,8 +140,11 @@ async fn create_certificate() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoTransactions");
-    tester.increase_block_number(75, 175).await.unwrap();
+    comment!(
+        "Increase cardano chain block number to 185, 
+        the state machine should be signing CardanoTransactions for block 180"
+    );
+    tester.increase_block_number(85, 185).await.unwrap();
     cycle!(tester, "signing");
     let signers_for_transaction = &fixture.signers_fixture()[2..=6];
     tester
@@ -163,7 +166,42 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoTransactions(Epoch(1), 150),
+            SignedEntityType::CardanoTransactions(Epoch(1), 180),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                1,
+                1
+            )),
+        )
+    );
+
+    comment!(
+        "Got rollback to block number 149 from cardano chain, 
+        the state machine should be signing CardanoTransactions for block 120"
+    );
+    tester.cardano_chain_send_rollback(149).await.unwrap();
+    cycle!(tester, "signing");
+    let signers_for_transaction = &fixture.signers_fixture()[2..=6];
+    tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+            signers_for_transaction,
+        )
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the CardanoTransactions");
+    cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            CardanoDbBeacon::new("devnet".to_string(), 1, 3),
+            &signers_for_transaction
+                .iter()
+                .map(|s| s.signer_with_stake.clone().into())
+                .collect::<Vec<_>>(),
+            fixture.compute_and_encode_avk(),
+            SignedEntityType::CardanoTransactions(Epoch(1), 120),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,
