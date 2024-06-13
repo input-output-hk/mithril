@@ -1018,13 +1018,7 @@ mod tests {
         let repository = CardanoTransactionRepository::new(connection);
 
         let cardano_transactions = vec![
-            CardanoTransaction::new(
-                "tx-hash-123",
-                BlockRange::LENGTH * 1,
-                50,
-                "block-hash-123",
-                50,
-            ),
+            CardanoTransaction::new("tx-hash-123", BlockRange::LENGTH, 50, "block-hash-123", 50),
             CardanoTransaction::new(
                 "tx-hash-123",
                 BlockRange::LENGTH * 3 - 1,
@@ -1047,7 +1041,7 @@ mod tests {
         repository
             .create_block_range_roots(vec![
                 (
-                    BlockRange::from_block_number(BlockRange::LENGTH * 1),
+                    BlockRange::from_block_number(BlockRange::LENGTH),
                     MKTreeNode::from_hex("AAAA").unwrap(),
                 ),
                 (

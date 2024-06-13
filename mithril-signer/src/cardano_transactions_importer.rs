@@ -184,7 +184,6 @@ impl TransactionsImporter for CardanoTransactionsImporter {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::CardanoTransactionsBuilder;
     use mockall::mock;
 
     use mithril_common::cardano_block_scanner::{

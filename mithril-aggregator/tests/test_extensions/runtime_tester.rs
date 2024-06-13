@@ -267,7 +267,6 @@ impl RuntimeTester {
             .get_last_immutable_number()
             .await?;
         let blocks_to_scan: Vec<ScannedBlock> = ((expected - increment + 1)..=expected)
-            .into_iter()
             .map(|block_number| {
                 let block_hash = format!("block_hash-{block_number}");
                 let slot_number = 10 * block_number;
