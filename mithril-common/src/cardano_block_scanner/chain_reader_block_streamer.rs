@@ -11,7 +11,7 @@ use crate::entities::BlockNumber;
 use crate::entities::ChainPoint;
 use crate::StdResult;
 
-/// [Block streamer][BlockStreamer] that streams blocks wit a [Chain reader][ChainReader]
+/// [Block streamer][BlockStreamer] that streams blocks with a \[Chain reader\][ChainReader]
 pub struct ChainReaderBlockStreamer {
     chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
     until: BlockNumber,
@@ -30,10 +30,18 @@ impl BlockStreamer for ChainReaderBlockStreamer {
             }) => {
                 debug!(self.logger, "RollForward ({next_point:?})");
                 if next_point.block_number >= self.until {
-                    debug!(self.logger, "ChainReaderBlockStreamer received a RollForward({next_point:?}) above threshold block number ({})",next_point.block_number);
+                    debug!(
+                        self.logger,
+                        "ChainReaderBlockStreamer received a RollForward({next_point:?}) above threshold block number ({})",
+                        next_point.block_number
+                    );
                     return Ok(None);
                 } else {
-                    debug!(self.logger, "ChainReaderBlockStreamer received a RollForward({next_point:?}) below threshold block number ({})",next_point.block_number);
+                    debug!(
+                        self.logger,
+                        "ChainReaderBlockStreamer received a RollForward({next_point:?}) below threshold block number ({})",
+                        next_point.block_number
+                    );
                     chain_reader.set_chain_point(&next_point).await?;
                     Ok(Some(ChainScannedBlocks::RollForwards(vec![parsed_block])))
                 }
@@ -92,7 +100,7 @@ mod tests {
                 next_point: ChainPoint::new(100, 10, "hash-123"),
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new()),
             },
-        ])));
+        ]))) as Arc<Mutex<dyn ChainBlockReader>>;
         let mut block_streamer =
             ChainReaderBlockStreamer::try_new(chain_reader, None, 100, logger.clone())
                 .await
@@ -120,7 +128,7 @@ mod tests {
                 next_point: ChainPoint::new(100, 10, "hash-123"),
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new()),
             },
-        ])));
+        ]))) as Arc<Mutex<dyn ChainBlockReader>>;
         let mut block_streamer =
             ChainReaderBlockStreamer::try_new(chain_reader, None, 1, logger.clone())
                 .await
@@ -138,7 +146,7 @@ mod tests {
             ChainBlockNextAction::RollBackward {
                 rollback_point: ChainPoint::new(100, 10, "hash-123"),
             },
-        ])));
+        ]))) as Arc<Mutex<dyn ChainBlockReader>>;
         let mut block_streamer =
             ChainReaderBlockStreamer::try_new(chain_reader, None, 1, logger.clone())
                 .await
@@ -157,7 +165,8 @@ mod tests {
     #[tokio::test]
     async fn test_parse_expected_nothing() {
         let logger = TestLogger::stdout();
-        let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![])));
+        let chain_reader =
+            Arc::new(Mutex::new(FakeChainReader::new(vec![]))) as Arc<Mutex<dyn ChainBlockReader>>;
         let mut block_streamer =
             ChainReaderBlockStreamer::try_new(chain_reader, None, 1, logger.clone())
                 .await
