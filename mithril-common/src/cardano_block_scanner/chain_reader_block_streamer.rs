@@ -11,7 +11,7 @@ use crate::entities::BlockNumber;
 use crate::entities::ChainPoint;
 use crate::StdResult;
 
-/// [Block streamer][BlockStreamer] that streams blocks with a \[Chain reader\][ChainReader]
+/// [Block streamer][BlockStreamer] that streams blocks with a \[Chain reader\][\ChainReader\]
 pub struct ChainReaderBlockStreamer {
     chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
     until: BlockNumber,
