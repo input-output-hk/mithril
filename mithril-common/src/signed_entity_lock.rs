@@ -44,6 +44,18 @@ impl SignedEntityLock {
         let mut locked_entities = self.locked_entities.write().await;
         locked_entities.remove(&entity_type);
     }
+
+    /// List only the unlocked signed entities in the given list.
+    pub async fn filter_unlocked_entries<T: Into<SignedEntityTypeDiscriminants> + Clone>(
+        &self,
+        entries: Vec<T>,
+    ) -> Vec<T> {
+        let locked_entities = self.locked_entities.read().await;
+        entries
+            .into_iter()
+            .filter(|entry| !locked_entities.contains(&entry.clone().into()))
+            .collect()
+    }
 }
 
 impl Default for SignedEntityLock {
@@ -148,6 +160,33 @@ mod tests {
             signed_entity_lock
                 .is_locked(SignedEntityTypeDiscriminants::CardanoTransactions)
                 .await
+        );
+    }
+
+    #[tokio::test]
+    async fn filters_out_locked_entities() {
+        let signed_entity_lock = SignedEntityLock::new();
+        let signed_entities: Vec<_> = vec![
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+        ];
+
+        assert_eq!(
+            signed_entity_lock
+                .filter_unlocked_entries(signed_entities.clone())
+                .await,
+            signed_entities.clone()
+        );
+
+        signed_entity_lock
+            .lock(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+            .await;
+
+        assert_eq!(
+            signed_entity_lock
+                .filter_unlocked_entries(signed_entities.clone())
+                .await,
+            vec![SignedEntityTypeDiscriminants::CardanoTransactions]
         );
     }
 }

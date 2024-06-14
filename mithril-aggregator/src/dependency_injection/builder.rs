@@ -11,6 +11,7 @@ use tokio::{
 };
 use warp::Filter;
 
+use mithril_common::signed_entity_lock::SignedEntityLock;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{BlockScanner, CardanoBlockScanner},
@@ -1188,6 +1189,7 @@ impl DependenciesBuilder {
             block_scanner: self.get_block_scanner().await?,
             transaction_store: self.get_transaction_repository().await?,
             prover_service: self.get_prover_service().await?,
+            signed_entity_lock: Arc::new(SignedEntityLock::default()),
         };
 
         Ok(dependency_manager)

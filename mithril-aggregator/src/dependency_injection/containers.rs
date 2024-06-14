@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::SignedEntityConfig;
+use mithril_common::signed_entity_lock::SignedEntityLock;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::BlockScanner,
@@ -157,6 +158,9 @@ pub struct DependencyContainer {
 
     /// Prover service
     pub prover_service: Arc<dyn ProverService>,
+
+    /// Signed Entity Lock
+    pub signed_entity_lock: Arc<SignedEntityLock>,
 }
 
 #[doc(hidden)]
