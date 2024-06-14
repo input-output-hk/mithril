@@ -17,10 +17,7 @@ where
 {
     /// MemoryAdapter factory
     pub fn new(data: Option<Vec<(K, V)>>) -> Result<Self, AdapterError> {
-        let data = match data {
-            None => Vec::new(),
-            Some(v) => v,
-        };
+        let data = data.unwrap_or_default();
         let mut values = HashMap::new();
         let mut index = Vec::new();
 
