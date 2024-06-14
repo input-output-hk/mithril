@@ -144,7 +144,7 @@ impl CardanoTransactionsSigningConfig {
         // We can't have a step lower than the block range length.
         let adjusted_step = std::cmp::max(adjusted_step, BlockRange::LENGTH);
 
-        (block_number - self.security_parameter) / adjusted_step * adjusted_step
+        (block_number.saturating_sub(self.security_parameter)) / adjusted_step * adjusted_step
     }
 }
 
@@ -247,6 +247,18 @@ mod tests {
                 step: 30,
             }
             .compute_block_number_to_be_signed(29),
+            0
+        );
+    }
+
+    #[test]
+    fn computing_block_number_to_be_signed_should_not_overlow_on_security_parameter() {
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: 100,
+                step: 30,
+            }
+            .compute_block_number_to_be_signed(50),
             0
         );
     }
