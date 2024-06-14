@@ -525,6 +525,12 @@ jobs:
           name: mithril-distribution-macOS-X64
           path: ./package-macOS-X64
 
+      - name: Download built artifacts (macOS-arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: mithril-distribution-macOS-arm64
+          path: ./package-macOS-arm64
+
       - name: Download built artifacts (Windows-X64)
         uses: actions/download-artifact@v4
         with:
