@@ -24,25 +24,25 @@ impl SignedEntityLock {
     }
 
     /// Check if a signed entity is locked.
-    pub async fn is_locked(&self, entity_type: SignedEntityTypeDiscriminants) -> bool {
+    pub async fn is_locked<T: Into<SignedEntityTypeDiscriminants>>(&self, entity_type: T) -> bool {
         let locked_entities = self.locked_entities.read().await;
-        locked_entities.contains(&entity_type)
+        locked_entities.contains(&entity_type.into())
     }
 
     /// Lock a signed entity.
     ///
     /// If the entity is already locked, this function does nothing.
-    pub async fn lock(&self, entity_type: SignedEntityTypeDiscriminants) {
+    pub async fn lock<T: Into<SignedEntityTypeDiscriminants>>(&self, entity_type: T) {
         let mut locked_entities = self.locked_entities.write().await;
-        locked_entities.insert(entity_type);
+        locked_entities.insert(entity_type.into());
     }
 
     /// Release a locked signed entity.
     ///
     /// If the entity is not locked, this function does nothing.
-    pub async fn release(&self, entity_type: SignedEntityTypeDiscriminants) {
+    pub async fn release<T: Into<SignedEntityTypeDiscriminants>>(&self, entity_type: T) {
         let mut locked_entities = self.locked_entities.write().await;
-        locked_entities.remove(&entity_type);
+        locked_entities.remove(&entity_type.into());
     }
 
     /// List only the unlocked signed entities in the given list.
