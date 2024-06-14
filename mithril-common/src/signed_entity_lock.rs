@@ -1,6 +1,7 @@
-// characteristics:
-// - non-blocking: thread should not be blocked when trying to access / lock a signed entity
-// - multithreaded: multiple threads should be able to access / lock a signed entity
+//! # Signed Entity Lock
+//!
+//! This module provides a non-blocking lock mechanism for signed entities to prevent multiple
+//! threads from modifying the same entity at the same time.
 
 use std::collections::BTreeSet;
 
@@ -8,30 +9,47 @@ use tokio::sync::RwLock;
 
 use crate::entities::SignedEntityTypeDiscriminants;
 
-struct SignedEntityLock {
+/// Non-blocking lock mechanism for signed entities to prevent multiple threads from
+/// modifying the same entity at the same time.
+pub struct SignedEntityLock {
     locked_entities: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
 }
 
 impl SignedEntityLock {
+    /// Create a new instance of `SignedEntityLock` without any signed entity locked.
     pub fn new() -> Self {
         Self {
             locked_entities: RwLock::new(BTreeSet::new()),
         }
     }
 
+    /// Check if a signed entity is locked.
     pub async fn is_locked(&self, entity_type: SignedEntityTypeDiscriminants) -> bool {
         let locked_entities = self.locked_entities.read().await;
         locked_entities.contains(&entity_type)
     }
 
+    /// Lock a signed entity.
+    ///
+    /// If the entity is already locked, this function does nothing.
     pub async fn lock(&self, entity_type: SignedEntityTypeDiscriminants) {
         let mut locked_entities = self.locked_entities.write().await;
         locked_entities.insert(entity_type);
     }
 
+    /// Release a locked signed entity.
+    ///
+    /// If the entity is not locked, this function does nothing.
     pub async fn release(&self, entity_type: SignedEntityTypeDiscriminants) {
         let mut locked_entities = self.locked_entities.write().await;
         locked_entities.remove(&entity_type);
+    }
+}
+
+impl Default for SignedEntityLock {
+    /// Create a new instance of `SignedEntityLock` without any signed entity locked.
+    fn default() -> Self {
+        Self::new()
     }
 }
 
