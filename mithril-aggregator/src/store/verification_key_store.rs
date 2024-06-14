@@ -61,10 +61,13 @@ impl VerificationKeyStorer for VerificationKeyStore {
         epoch: Epoch,
         signer: SignerWithStake,
     ) -> StdResult<Option<SignerWithStake>> {
-        let mut signers = match self.adapter.read().await.get_record(&epoch).await? {
-            Some(s) => s,
-            None => HashMap::new(),
-        };
+        let mut signers = self
+            .adapter
+            .read()
+            .await
+            .get_record(&epoch)
+            .await?
+            .unwrap_or_default();
         let prev_signer = signers.insert(signer.party_id.to_owned(), signer.clone());
         self.adapter
             .write()
