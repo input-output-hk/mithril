@@ -231,6 +231,11 @@ variable "mithril_aggregator_cardano_transactions_prover_cache_pool_size" {
   default     = 10
 }
 
+variable "mithril_aggregator_cardano_transactions_database_connection_pool_size" {
+  type        = number
+  description = "Cardano transactions database connection pool size"
+  default     = 10
+}
 
 variable "mithril_aggregator_cdn_cname" {
   type        = string
