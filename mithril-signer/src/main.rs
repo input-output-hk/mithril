@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{Map, Value};
-use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 
 use slog::{o, Drain, Level, Logger};
 use slog_scope::{crit, debug};
@@ -15,7 +14,7 @@ use tokio::{
 };
 
 use mithril_common::StdResult;
-use mithril_doc::GenerateDocCommands;
+use mithril_doc::{Documenter, DocumenterDefault, GenerateDocCommands, StructDoc};
 use mithril_signer::{
     Configuration, DefaultConfiguration, MetricsServer, ProductionServiceBuilder, ServiceBuilder,
     SignerRunner, SignerState, StateMachine,
@@ -165,8 +164,10 @@ async fn main() -> StdResult<()> {
         .with_context(|| "services initialization error")?;
 
     let metrics_service = services.metrics_service.clone();
+    let cardano_transaction_preloader = services.cardano_transactions_preloader.clone();
 
     debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
+
     let state_machine = StateMachine::new(
         SignerState::Init,
         Box::new(SignerRunner::new(config.clone(), services)),
@@ -182,6 +183,8 @@ async fn main() -> StdResult<()> {
             .map_err(|e| anyhow!(e))
             .map(|_| None)
     });
+
+    let preload_task = tokio::spawn(async move { cardano_transaction_preloader.preload().await });
 
     let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
     if config.enable_metrics_server {
@@ -235,6 +238,10 @@ async fn main() -> StdResult<()> {
     metrics_server_shutdown_tx
         .send(())
         .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
+
+    if !preload_task.is_finished() {
+        preload_task.abort();
+    }
 
     join_set.shutdown().await;
 

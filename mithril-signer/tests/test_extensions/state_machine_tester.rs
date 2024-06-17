@@ -9,6 +9,7 @@ use thiserror::Error;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
+    cardano_transactions_preloader::CardanoTransactionsPreloader,
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
@@ -110,14 +111,15 @@ impl StateMachineTester {
             chain_observer.clone(),
             immutable_observer.clone(),
         ));
+        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
+            security_parameter: 0,
+            step: 30,
+        };
         let certificate_handler = Arc::new(FakeAggregator::new(
             SignedEntityConfig {
                 allowed_discriminants: SignedEntityTypeDiscriminants::all(),
                 network: config.get_network().unwrap(),
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                    security_parameter: 0,
-                    step: 30,
-                },
+                cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
             },
             ticker_service.clone(),
         ));
@@ -163,7 +165,7 @@ impl StateMachineTester {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             transaction_sqlite_connection,
         ));
-        let transaction_importer = Arc::new(CardanoTransactionsImporter::new(
+        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner.clone(),
             transaction_store.clone(),
             Path::new(""),
@@ -171,7 +173,7 @@ impl StateMachineTester {
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
-            transaction_importer,
+            transactions_importer.clone(),
             block_range_root_retriever,
             slog_scope::logger(),
         ));
@@ -182,6 +184,14 @@ impl StateMachineTester {
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let expected_metrics_service = Arc::new(MetricsService::new().unwrap());
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
+            signed_entity_type_lock.clone(),
+            transactions_importer.clone(),
+            cardano_transactions_signing_config,
+            chain_observer.clone(),
+            slog_scope::logger(),
+        ));
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
@@ -197,6 +207,7 @@ impl StateMachineTester {
             signable_builder_service,
             metrics_service: metrics_service.clone(),
             signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
+            cardano_transactions_preloader,
         };
         // set up stake distribution
         chain_observer

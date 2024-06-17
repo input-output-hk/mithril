@@ -459,10 +459,14 @@ mod tests {
     use mithril_common::{
         api_version::APIVersionProvider,
         cardano_block_scanner::DumbBlockScanner,
+        cardano_transactions_preloader::CardanoTransactionsPreloader,
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, StakeDistribution},
+        entities::{
+            BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransactionsSigningConfig, Epoch,
+            StakeDistribution,
+        },
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -518,6 +522,10 @@ mod tests {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
+        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
+            security_parameter: 100,
+            step: 15,
+        };
         let fake_observer = FakeObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
@@ -547,7 +555,7 @@ mod tests {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(DumbBlockScanner::new());
         let transaction_store = Arc::new(MockTransactionStore::new());
-        let transaction_importer = Arc::new(CardanoTransactionsImporter::new(
+        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),
             transaction_store.clone(),
             Path::new(""),
@@ -555,7 +563,7 @@ mod tests {
         ));
         let block_range_root_retriever = Arc::new(MockBlockRangeRootRetrieverImpl::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
-            transaction_importer,
+            transactions_importer.clone(),
             block_range_root_retriever,
             slog_scope::logger(),
         ));
@@ -565,6 +573,14 @@ mod tests {
             cardano_transactions_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
+            signed_entity_type_lock.clone(),
+            transactions_importer.clone(),
+            cardano_transactions_signing_config,
+            chain_observer.clone(),
+            slog_scope::logger(),
+        ));
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
@@ -582,7 +598,8 @@ mod tests {
             api_version_provider,
             signable_builder_service,
             metrics_service,
-            signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
+            signed_entity_type_lock,
+            cardano_transactions_preloader,
         }
     }
 
