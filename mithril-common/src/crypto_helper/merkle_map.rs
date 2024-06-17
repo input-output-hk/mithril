@@ -1,6 +1,7 @@
 //! Merkelized map and associated proof
 
 use anyhow::{anyhow, Context};
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
@@ -13,10 +14,15 @@ use crate::{resource_pool::Reset, StdError, StdResult};
 use super::{MKProof, MKTree, MKTreeNode};
 
 /// The trait implemented by the keys of a MKMap
-pub trait MKMapKey: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode> {}
+pub trait MKMapKey:
+    PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Sync + Send + Into<MKTreeNode>
+{
+}
 
 /// The trait implemented by the values of a MKMap
-pub trait MKMapValue<K: MKMapKey>: Clone + TryInto<MKTreeNode> + TryFrom<MKTreeNode> {
+pub trait MKMapValue<K: MKMapKey>:
+    Clone + Sync + Send + TryInto<MKTreeNode> + TryFrom<MKTreeNode>
+{
     /// Get the root of the merkelized map value
     fn compute_root(&self) -> StdResult<MKTreeNode>;
 
@@ -183,7 +189,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
     }
 
     /// Get the proof for a set of values of the merkelized map (recursively if needed)
-    pub fn compute_proof<T: Into<MKTreeNode> + Clone>(
+    pub fn compute_proof<T: Into<MKTreeNode> + Clone + Sync + Send>(
         &self,
         leaves: &[T],
     ) -> StdResult<MKMapProof<K>> {
@@ -192,20 +198,35 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
         }
 
         let leaves_by_keys = self.group_leaves_by_keys(leaves);
-        let mut sub_proofs = BTreeMap::<K, MKMapProof<K>>::default();
-        for (key, sub_leaves) in leaves_by_keys {
-            if let Some(value) = self.get(&key) {
-                if let Some(proof) = value.compute_proof(&sub_leaves)? {
-                    sub_proofs.insert(key.to_owned(), proof);
+        let sub_proofs = leaves_by_keys
+            .into_par_iter()
+            .map(|(key, sub_leaves)| {
+                if let Some(value) = self.get(&key) {
+                    if let Some(proof) = value.compute_proof(&sub_leaves)? {
+                        return Ok((key, Some(proof)));
+                    }
                 }
-            }
-        }
+
+                Ok((key, None))
+            })
+            .collect::<StdResult<Vec<_>>>()?
+            .into_iter()
+            .fold(
+                BTreeMap::<K, MKMapProof<K>>::default(),
+                |mut acc, (key, sub_proof)| {
+                    if let Some(sub_proof) = sub_proof {
+                        acc.insert(key, sub_proof);
+                    }
+
+                    acc
+                },
+            );
 
         let master_proof = self
             .inner_merkle_tree
             .compute_proof(
                 &sub_proofs
-                    .iter()
+                    .par_iter()
                     .map(|(k, p)| k.to_owned().into() + p.compute_root().to_owned())
                     .collect::<Vec<MKTreeNode>>(),
             )
@@ -215,20 +236,20 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
     }
 
     /// Returns a map with the leaves (converted to Merkle tree nodes) grouped by keys
-    fn group_leaves_by_keys<T: Into<MKTreeNode> + Clone>(
+    fn group_leaves_by_keys<T: Into<MKTreeNode> + Clone + Sync + Send>(
         &self,
         leaves: &[T],
     ) -> HashMap<K, Vec<MKTreeNode>> {
         let can_compute_proof_map: HashMap<K, V> = self
             .provable_keys
-            .iter()
+            .par_iter()
             .filter_map(|k| self.get(k).map(|v| (k.to_owned(), v.to_owned())))
             .collect();
         let leaves_by_keys: HashMap<K, Vec<MKTreeNode>> = can_compute_proof_map
             .iter()
             .map(|(key, value)| {
                 let leaves_found = leaves
-                    .iter()
+                    .par_iter()
                     .filter_map(|leaf| value.contains(leaf).then_some(leaf.to_owned().into()))
                     .collect::<Vec<_>>();
 
