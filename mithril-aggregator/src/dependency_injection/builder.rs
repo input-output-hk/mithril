@@ -347,7 +347,9 @@ impl DependenciesBuilder {
     pub async fn get_sqlite_connection_cardano_transaction_pool(
         &mut self,
     ) -> Result<Arc<ResourcePool<SqlitePoolConnection>>> {
-        let connection_pool_size = 10; // TODO: to be configured
+        let connection_pool_size = self
+            .configuration
+            .cardano_transactions_database_connection_pool_size;
         if self.sqlite_connection_cardano_transaction_pool.is_none() {
             let mut connections = vec![];
             let connection = self

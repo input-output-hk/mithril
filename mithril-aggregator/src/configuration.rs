@@ -161,6 +161,9 @@ pub struct Configuration {
     /// Cardano transactions prover cache pool size
     pub cardano_transactions_prover_cache_pool_size: usize,
 
+    /// Cardano transactions database connection pool size
+    pub cardano_transactions_database_connection_pool_size: usize,
+
     /// Cardano transactions signing configuration
     #[example = "`{ security_parameter: 3000, step: 120 }`"]
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
@@ -237,6 +240,7 @@ impl Configuration {
             signer_importer_run_interval: 1,
             allow_unparsable_block: false,
             cardano_transactions_prover_cache_pool_size: 3,
+            cardano_transactions_database_connection_pool_size: 5,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
                 security_parameter: 100,
                 step: 15,
@@ -349,6 +353,9 @@ pub struct DefaultConfiguration {
     /// Cardano transactions prover cache pool size
     pub cardano_transactions_prover_cache_pool_size: u32,
 
+    /// Cardano transactions database connection pool size
+    pub cardano_transactions_database_connection_pool_size: u32,
+
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 }
@@ -372,6 +379,7 @@ impl Default for DefaultConfiguration {
             signer_importer_run_interval: 720,
             allow_unparsable_block: "false".to_string(),
             cardano_transactions_prover_cache_pool_size: 10,
+            cardano_transactions_database_connection_pool_size: 10,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
                 security_parameter: 3000,
                 step: 120,
@@ -453,6 +461,10 @@ impl Source for DefaultConfiguration {
         result.insert(
             "cardano_transactions_prover_cache_pool_size".to_string(),
             into_value(myself.cardano_transactions_prover_cache_pool_size),
+        );
+        result.insert(
+            "cardano_transactions_prover_cache_pool_size".to_string(),
+            into_value(myself.cardano_transactions_database_connection_pool_size),
         );
         result.insert(
             "cardano_transactions_signing_config".to_string(),
