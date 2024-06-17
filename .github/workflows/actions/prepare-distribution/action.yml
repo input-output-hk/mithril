@@ -38,11 +38,11 @@ runs:
         --version "${{ inputs.version-name }}" \
         --target "macos-x64"
 
-    - name: Package distribution (macOS-arm64)
+    - name: Package distribution (macOS-ARM64)
       shell: bash
       run: |
         python3 ./.github/workflows/scripts/package-distribution.py \
-        --input package-macOS-arm64/ \
+        --input package-macOS-ARM64/ \
         --dest package/ \
         --version "${{ inputs.version-name }}" \
         --target "macos-arm64"
