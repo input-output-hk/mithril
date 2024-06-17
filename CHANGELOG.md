@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implement a reset mechanism for mutable resources returned to a pool (`ResourcePool`) to keep it in a consistent state.
 
+- Implement a lock mechanism on `SignedEntityType` to prevent concurrent work on a same entity type.
+
 - **UNSTABLE** Cardano transactions certification:
   - Optimize the performances of the computation of the proof with a Merkle map.
   - Handle rollback events from the Cardano chain by removing stale data.
