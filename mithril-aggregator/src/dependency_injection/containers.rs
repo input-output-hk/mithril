@@ -12,6 +12,7 @@ use mithril_common::{
     entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
+    signed_entity_type_lock::SignedEntityTypeLock,
     test_utils::MithrilFixture,
     TickerService,
 };
@@ -157,6 +158,9 @@ pub struct DependencyContainer {
 
     /// Prover service
     pub prover_service: Arc<dyn ProverService>,
+
+    /// Signed Entity Type Lock
+    pub signed_entity_type_lock: Arc<SignedEntityTypeLock>,
 }
 
 #[doc(hidden)]

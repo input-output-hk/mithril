@@ -140,6 +140,20 @@ impl AggregatorRunner {
     pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
         Self { dependencies }
     }
+
+    async fn list_available_signed_entity_types(
+        &self,
+        time_point: &TimePoint,
+    ) -> Vec<SignedEntityType> {
+        let signed_entity_types = self
+            .dependencies
+            .signed_entity_config
+            .list_allowed_signed_entity_types(time_point);
+        self.dependencies
+            .signed_entity_type_lock
+            .filter_unlocked_entries(signed_entity_types)
+            .await
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -179,9 +193,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> StdResult<Option<OpenMessage>> {
         debug!("RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
         let signed_entity_types = self
-            .dependencies
-            .signed_entity_config
-            .list_allowed_signed_entity_types(current_time_point);
+            .list_available_signed_entity_types(current_time_point)
+            .await;
         for signed_entity_type in signed_entity_types {
             let current_open_message = self.get_current_open_message_for_signed_entity_type(&signed_entity_type)
                 .await
@@ -486,7 +499,8 @@ pub mod tests {
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
-    use mithril_common::entities::ChainPoint;
+    use mithril_common::entities::{ChainPoint, SignedEntityTypeDiscriminants};
+    use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -1142,5 +1156,58 @@ pub mod tests {
             .get_current_non_certified_open_message(&TimePoint::dummy())
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn list_available_signed_entity_types_list_all_configured_entities_if_none_are_locked() {
+        let runner = {
+            let mut dependencies = initialize_dependencies().await;
+            dependencies.signed_entity_config.allowed_discriminants =
+                SignedEntityTypeDiscriminants::all();
+            dependencies.signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+            AggregatorRunner::new(Arc::new(dependencies))
+        };
+
+        let time_point = TimePoint::dummy();
+        let signed_entities: Vec<SignedEntityTypeDiscriminants> = runner
+            .list_available_signed_entity_types(&time_point)
+            .await
+            .into_iter()
+            .map(Into::into)
+            .collect();
+
+        assert_eq!(
+            signed_entities,
+            SignedEntityTypeDiscriminants::all()
+                .into_iter()
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn list_available_signed_entity_types_exclude_locked_entities() {
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        let runner = {
+            let mut dependencies = initialize_dependencies().await;
+            dependencies.signed_entity_config.allowed_discriminants =
+                SignedEntityTypeDiscriminants::all();
+            dependencies.signed_entity_type_lock = signed_entity_type_lock.clone();
+            AggregatorRunner::new(Arc::new(dependencies))
+        };
+
+        signed_entity_type_lock
+            .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
+            .await;
+
+        let time_point = TimePoint::dummy();
+        let signed_entities: Vec<SignedEntityTypeDiscriminants> = runner
+            .list_available_signed_entity_types(&time_point)
+            .await
+            .into_iter()
+            .map(Into::into)
+            .collect();
+
+        assert!(!signed_entities.is_empty());
+        assert!(!signed_entities.contains(&SignedEntityTypeDiscriminants::CardanoTransactions));
     }
 }

@@ -242,6 +242,15 @@ impl Runner for SignerRunner {
 
     async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool> {
         debug!("RUNNER: can_i_sign");
+        if self
+            .services
+            .signed_entity_type_lock
+            .is_locked(&pending_certificate.signed_entity_type)
+            .await
+        {
+            debug!(" > signed entity type is locked, can NOT sign");
+            return Ok(false);
+        }
 
         if let Some(signer) =
             pending_certificate.get_signer(self.services.single_signer.get_party_id())
@@ -460,6 +469,7 @@ mod tests {
             CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
             MithrilStakeDistributionSignableBuilder,
         },
+        signed_entity_type_lock::SignedEntityTypeLock,
         test_utils::{fake_data, MithrilFixtureBuilder},
         MithrilTickerService, TickerService,
     };
@@ -572,6 +582,7 @@ mod tests {
             api_version_provider,
             signable_builder_service,
             metrics_service,
+            signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
         }
     }
 
@@ -699,9 +710,12 @@ mod tests {
         let mut pending_certificate = fake_data::certificate_pending();
         let epoch = pending_certificate.epoch;
         let signer = &mut pending_certificate.signers[0];
+        // All signed entities are available for signing.
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
         let mut services = init_services().await;
         let protocol_initializer_store = services.protocol_initializer_store.clone();
         services.single_signer = Arc::new(MithrilSingleSigner::new(signer.party_id.to_owned()));
+        services.signed_entity_type_lock = signed_entity_type_lock.clone();
         let runner = init_runner(Some(services), None).await;
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
@@ -724,6 +738,17 @@ mod tests {
 
         let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
         assert!(can_i_sign_result);
+
+        // Lock the pending certificate signed entity type, the signer should not be able to sign.
+        signed_entity_type_lock
+            .lock(&pending_certificate.signed_entity_type)
+            .await;
+
+        let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
+        assert!(
+            !can_i_sign_result,
+            "The signer should not be able to sign when the signed entity type is locked."
+        );
     }
 
     #[tokio::test]

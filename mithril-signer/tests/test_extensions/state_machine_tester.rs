@@ -20,6 +20,7 @@ use mithril_common::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
     },
+    signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdError, TickerService,
 };
 use mithril_persistence::database::repository::CardanoTransactionRepository;
@@ -195,6 +196,7 @@ impl StateMachineTester {
             api_version_provider,
             signable_builder_service,
             metrics_service: metrics_service.clone(),
+            signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
         };
         // set up stake distribution
         chain_observer
