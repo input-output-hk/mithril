@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implement a lock mechanism on `SignedEntityType` to prevent concurrent work on a same entity type.
 
+- Extended CI build and test steps for MacOS `arm64` runners and include pre-built binaries for MacOS `arm64` in the releases.
+
 - **UNSTABLE** Cardano transactions certification:
   - Optimize the performances of the computation of the proof with a Merkle map.
   - Handle rollback events from the Cardano chain by removing stale data.
