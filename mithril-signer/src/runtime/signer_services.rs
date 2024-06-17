@@ -14,6 +14,7 @@ use mithril_common::{
         ImmutableFileSystemObserver,
     },
     era::{EraChecker, EraReader},
+    resource_pool::ResourcePool,
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
@@ -24,7 +25,7 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
-    sqlite::{ConnectionBuilder, SqliteConnection},
+    sqlite::{ConnectionBuilder, SqliteConnection, SqlitePoolConnection},
     store::{adapter::SQLiteAdapter, StakeStore},
 };
 
@@ -203,6 +204,10 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 mithril_persistence::database::cardano_transaction_migration::get_migrations(),
             )
             .await?;
+        let sqlite_connection_cardano_transaction_pool = Arc::new(ResourcePool::new(
+            1,
+            vec![SqlitePoolConnection::new(transaction_sqlite_connection)],
+        ));
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
@@ -262,7 +267,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            transaction_sqlite_connection,
+            sqlite_connection_cardano_transaction_pool,
         ));
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             slog_scope::logger(),
