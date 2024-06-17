@@ -1,12 +1,13 @@
 use std::sync::Arc;
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use mithril_common::resource_pool::ResourcePool;
 use sqlite::ConnectionThreadSafe;
 
 use mithril_aggregator::services::TransactionStore;
 use mithril_common::{entities::CardanoTransaction, test_utils::TempDir};
 use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::sqlite::ConnectionBuilder;
+use mithril_persistence::sqlite::{ConnectionBuilder, SqlitePoolConnection};
 
 fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
     let db_path =
@@ -47,7 +48,11 @@ async fn init_db(nb_transaction_in_db: usize) -> CardanoTransactionRepository {
     let connection = Arc::new(cardano_tx_db_connection(&format!(
         "cardano_tx-{nb_transaction_in_db}.db",
     )));
-    let repository = CardanoTransactionRepository::new(connection);
+    let connection_pool = Arc::new(ResourcePool::new(
+        1,
+        vec![SqlitePoolConnection::new(connection)],
+    ));
+    let repository = CardanoTransactionRepository::new(connection_pool);
     repository.store_transactions(transactions).await.unwrap();
 
     repository
