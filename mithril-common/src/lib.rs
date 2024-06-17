@@ -72,6 +72,7 @@ cfg_fs! {
     pub mod digesters;
     pub mod cardano_block_scanner;
     pub mod chain_reader;
+    pub mod cardano_transactions_preloader;
 
     pub use ticker_service::{TickerService, MithrilTickerService};
 }
