@@ -244,7 +244,7 @@ impl Runner for SignerRunner {
         debug!("RUNNER: can_i_sign");
         if self
             .services
-            .signed_entity_lock
+            .signed_entity_type_lock
             .is_locked(&pending_certificate.signed_entity_type)
             .await
         {
@@ -469,7 +469,7 @@ mod tests {
             CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
             MithrilStakeDistributionSignableBuilder,
         },
-        signed_entity_lock::SignedEntityLock,
+        signed_entity_type_lock::SignedEntityTypeLock,
         test_utils::{fake_data, MithrilFixtureBuilder},
         MithrilTickerService, TickerService,
     };
@@ -582,7 +582,7 @@ mod tests {
             api_version_provider,
             signable_builder_service,
             metrics_service,
-            signed_entity_lock: Arc::new(SignedEntityLock::default()),
+            signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
         }
     }
 
@@ -711,11 +711,11 @@ mod tests {
         let epoch = pending_certificate.epoch;
         let signer = &mut pending_certificate.signers[0];
         // All signed entities are available for signing.
-        let signed_entity_lock = Arc::new(SignedEntityLock::new());
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
         let mut services = init_services().await;
         let protocol_initializer_store = services.protocol_initializer_store.clone();
         services.single_signer = Arc::new(MithrilSingleSigner::new(signer.party_id.to_owned()));
-        services.signed_entity_lock = signed_entity_lock.clone();
+        services.signed_entity_type_lock = signed_entity_type_lock.clone();
         let runner = init_runner(Some(services), None).await;
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
@@ -740,7 +740,7 @@ mod tests {
         assert!(can_i_sign_result);
 
         // Lock the pending certificate signed entity type, the signer should not be able to sign.
-        signed_entity_lock
+        signed_entity_type_lock
             .lock(&pending_certificate.signed_entity_type)
             .await;
 

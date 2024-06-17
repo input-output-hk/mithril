@@ -150,7 +150,7 @@ impl AggregatorRunner {
             .signed_entity_config
             .list_allowed_signed_entity_types(time_point);
         self.dependencies
-            .signed_entity_lock
+            .signed_entity_type_lock
             .filter_unlocked_entries(signed_entity_types)
             .await
     }
@@ -500,7 +500,7 @@ pub mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
     use mithril_common::entities::{ChainPoint, SignedEntityTypeDiscriminants};
-    use mithril_common::signed_entity_lock::SignedEntityLock;
+    use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -1164,7 +1164,7 @@ pub mod tests {
             let mut dependencies = initialize_dependencies().await;
             dependencies.signed_entity_config.allowed_discriminants =
                 SignedEntityTypeDiscriminants::all();
-            dependencies.signed_entity_lock = Arc::new(SignedEntityLock::default());
+            dependencies.signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
             AggregatorRunner::new(Arc::new(dependencies))
         };
 
@@ -1186,16 +1186,16 @@ pub mod tests {
 
     #[tokio::test]
     async fn list_available_signed_entity_types_exclude_locked_entities() {
-        let signed_entity_lock = Arc::new(SignedEntityLock::default());
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let runner = {
             let mut dependencies = initialize_dependencies().await;
             dependencies.signed_entity_config.allowed_discriminants =
                 SignedEntityTypeDiscriminants::all();
-            dependencies.signed_entity_lock = signed_entity_lock.clone();
+            dependencies.signed_entity_type_lock = signed_entity_type_lock.clone();
             AggregatorRunner::new(Arc::new(dependencies))
         };
 
-        signed_entity_lock
+        signed_entity_type_lock
             .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
             .await;
 

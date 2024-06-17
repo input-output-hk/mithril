@@ -18,7 +18,7 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderService,
     },
-    signed_entity_lock::SignedEntityLock,
+    signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdResult, TickerService,
 };
 use mithril_persistence::{
@@ -308,7 +308,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             api_version_provider,
             signable_builder_service,
             metrics_service,
-            signed_entity_lock: Arc::new(SignedEntityLock::default()),
+            signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
         };
 
         Ok(services)
@@ -353,8 +353,8 @@ pub struct SignerServices {
     /// Metrics service
     pub metrics_service: Arc<MetricsService>,
 
-    /// Signed entity lock
-    pub signed_entity_lock: Arc<SignedEntityLock>,
+    /// Signed entity type lock
+    pub signed_entity_type_lock: Arc<SignedEntityTypeLock>,
 }
 
 #[cfg(test)]

@@ -2,7 +2,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::SignedEntityConfig;
-use mithril_common::signed_entity_lock::SignedEntityLock;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::BlockScanner,
@@ -13,6 +12,7 @@ use mithril_common::{
     entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
+    signed_entity_type_lock::SignedEntityTypeLock,
     test_utils::MithrilFixture,
     TickerService,
 };
@@ -159,8 +159,8 @@ pub struct DependencyContainer {
     /// Prover service
     pub prover_service: Arc<dyn ProverService>,
 
-    /// Signed Entity Lock
-    pub signed_entity_lock: Arc<SignedEntityLock>,
+    /// Signed Entity Type Lock
+    pub signed_entity_type_lock: Arc<SignedEntityTypeLock>,
 }
 
 #[doc(hidden)]
