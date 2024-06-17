@@ -22,7 +22,9 @@ pub use query::Query;
 pub use source_alias::SourceAlias;
 pub use transaction::Transaction;
 
-use mithril_common::StdResult;
+use std::{ops::Deref, sync::Arc};
+
+use mithril_common::{resource_pool::Reset, StdResult};
 use sqlite::ConnectionThreadSafe;
 
 /// Type of the connection used in Mithril
@@ -35,6 +37,27 @@ pub async fn vacuum_database(connection: &SqliteConnection) -> StdResult<()> {
 
     Ok(())
 }
+
+/// SqliteConnection wrapper
+// TODO: rename the 'SqlitePoolConnection' to 'SqliteConnection' once the migration to connection pools is done for all the stores
+pub struct SqlitePoolConnection(Arc<SqliteConnection>);
+
+impl SqlitePoolConnection {
+    /// Create a new SqliteConnectionWrapper
+    pub fn new(connection: Arc<SqliteConnection>) -> Self {
+        Self(connection)
+    }
+}
+
+impl Deref for SqlitePoolConnection {
+    type Target = Arc<SqliteConnection>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Reset for SqlitePoolConnection {}
 
 #[cfg(test)]
 mod test {
