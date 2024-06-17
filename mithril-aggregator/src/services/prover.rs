@@ -127,7 +127,7 @@ impl ProverService for MithrilProverService {
 
         // 2 - Compute block ranges sub Merkle trees
         let mk_trees: StdResult<Vec<(BlockRange, MKTree)>> = block_range_transactions
-            .into_iter()
+            .into_par_iter()
             .map(|(block_range, transactions)| {
                 let mk_tree = MKTree::new(&transactions)?;
                 Ok((block_range, mk_tree))
