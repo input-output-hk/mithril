@@ -43,10 +43,7 @@ impl BlockStreamer for ChainReaderBlockStreamer {
             let block_streamer_next_action = self.get_next_chain_block_action().await?;
             match block_streamer_next_action {
                 Some(BlockStreamerNextAction::ChainBlockNextAction(
-                    ChainBlockNextAction::RollForward {
-                        next_point: _,
-                        parsed_block,
-                    },
+                    ChainBlockNextAction::RollForward { parsed_block },
                 )) => {
                     roll_forwards.push(parsed_block);
                     if roll_forwards.len() >= self.max_roll_forwards_per_poll {
@@ -105,30 +102,22 @@ impl ChainReaderBlockStreamer {
     async fn get_next_chain_block_action(&self) -> StdResult<Option<BlockStreamerNextAction>> {
         let mut chain_reader = self.chain_reader.try_lock()?;
         match chain_reader.get_next_chain_block().await? {
-            Some(ChainBlockNextAction::RollForward {
-                next_point,
-                parsed_block,
-            }) => {
-                debug!(self.logger, "RollForward ({next_point:?})");
-                if next_point.block_number >= self.until {
+            Some(ChainBlockNextAction::RollForward { parsed_block }) => {
+                if parsed_block.block_number >= self.until {
                     debug!(
                         self.logger,
-                        "ChainReaderBlockStreamer received a RollForward({next_point:?}) above threshold block number ({})",
-                        next_point.block_number
+                        "ChainReaderBlockStreamer received a RollForward above threshold block number ({})",
+                        parsed_block.block_number
                     );
                     Ok(None)
                 } else {
                     debug!(
                         self.logger,
-                        "ChainReaderBlockStreamer received a RollForward({next_point:?}) below threshold block number ({})",
-                        next_point.block_number
+                        "ChainReaderBlockStreamer received a RollForward below threshold block number ({})",
+                        parsed_block.block_number
                     );
-                    chain_reader.set_chain_point(&next_point).await?;
                     Ok(Some(BlockStreamerNextAction::ChainBlockNextAction(
-                        ChainBlockNextAction::RollForward {
-                            next_point,
-                            parsed_block,
-                        },
+                        ChainBlockNextAction::RollForward { parsed_block },
                     )))
                 }
             }
@@ -140,7 +129,6 @@ impl ChainReaderBlockStreamer {
                 let block_streamer_next_action = if rollback_point == self.from {
                     BlockStreamerNextAction::SkipToNextAction
                 } else {
-                    chain_reader.set_chain_point(&rollback_point).await?;
                     BlockStreamerNextAction::ChainBlockNextAction(
                         ChainBlockNextAction::RollBackward { rollback_point },
                     )
@@ -168,7 +156,6 @@ mod tests {
         let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint::new(100, 10, "hash-123"),
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new()),
             },
         ])));
@@ -187,11 +174,9 @@ mod tests {
         let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint::new(100, 10, "hash-123"),
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint::new(200, 20, "hash-456"),
                 parsed_block: ScannedBlock::new("hash-2", 2, 20, 1, Vec::<&str>::new()),
             },
         ])));
@@ -216,15 +201,12 @@ mod tests {
         let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint::new(100, 10, "hash-123"),
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint::new(200, 20, "hash-456"),
                 parsed_block: ScannedBlock::new("hash-2", 2, 20, 1, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint::new(300, 30, "hash-789"),
                 parsed_block: ScannedBlock::new("hash-3", 3, 30, 1, Vec::<&str>::new()),
             },
         ])));
@@ -297,11 +279,9 @@ mod tests {
         let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint::new(80, 8, "hash-888"),
                 parsed_block: ScannedBlock::new("hash-8", 80, 8, 1, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                next_point: ChainPoint::new(90, 9, "hash-999"),
                 parsed_block: ScannedBlock::new("hash-9", 90, 9, 1, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollBackward {
