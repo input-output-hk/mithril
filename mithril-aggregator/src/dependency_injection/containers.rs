@@ -1,7 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use mithril_common::entities::SignedEntityConfig;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::BlockScanner,
@@ -9,7 +8,7 @@ use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
-    entities::{Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
+    entities::{Epoch, ProtocolParameters, SignedEntityConfig, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     signed_entity_type_lock::SignedEntityTypeLock,

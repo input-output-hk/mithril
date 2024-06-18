@@ -5,6 +5,7 @@ use std::{fs, sync::Arc, time::Duration};
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::CardanoBlockScanner,
+    cardano_transactions_preloader::CardanoTransactionsPreloader,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{
@@ -202,6 +203,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             )
             .await?;
 
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(SQLiteAdapter::new(
                 "protocol_initializer",
@@ -284,7 +286,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
-            transactions_importer,
+            transactions_importer.clone(),
             block_range_root_retriever,
             slog_scope::logger(),
         ));
@@ -294,6 +296,13 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             cardano_transactions_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
+            signed_entity_type_lock.clone(),
+            transactions_importer.clone(),
+            self.config.preload_security_parameter,
+            chain_observer.clone(),
+            slog_scope::logger(),
+        ));
 
         let services = SignerServices {
             ticker_service,
@@ -308,7 +317,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             api_version_provider,
             signable_builder_service,
             metrics_service,
-            signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
+            signed_entity_type_lock,
+            cardano_transactions_preloader,
         };
 
         Ok(services)
@@ -355,6 +365,9 @@ pub struct SignerServices {
 
     /// Signed entity type lock
     pub signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+
+    /// Cardano transactions preloader
+    pub cardano_transactions_preloader: Arc<CardanoTransactionsPreloader>,
 }
 
 #[cfg(test)]

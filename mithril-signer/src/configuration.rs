@@ -40,6 +40,10 @@ pub struct Configuration {
     /// be considered final, preventing any further rollback `[default: 2160]`.
     pub network_security_parameter: BlockNumber,
 
+    /// Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload
+    /// `[default: 3000]`.
+    pub preload_security_parameter: BlockNumber,
+
     /// Aggregator endpoint
     #[example = "`https://aggregator.pre-release-preview.api.mithril.network/aggregator`"]
     pub aggregator_endpoint: String,
@@ -121,6 +125,7 @@ impl Configuration {
             network: "devnet".to_string(),
             network_magic: Some(42),
             network_security_parameter: 2160,
+            preload_security_parameter: 30,
             party_id: Some(party_id),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
@@ -204,6 +209,9 @@ pub struct DefaultConfiguration {
 
     /// Transaction pruning toggle
     pub enable_transaction_pruning: bool,
+
+    /// Preload security parameter
+    pub preload_security_parameter: BlockNumber,
 }
 
 impl DefaultConfiguration {
@@ -219,6 +227,7 @@ impl Default for DefaultConfiguration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             network_security_parameter: 2160, // 2160 is the mainnet value
+            preload_security_parameter: 3000,
             enable_transaction_pruning: true,
         }
     }
@@ -254,6 +263,11 @@ impl Source for DefaultConfiguration {
         result.insert(
             "network_security_parameter".to_string(),
             into_value(myself.network_security_parameter),
+        );
+
+        result.insert(
+            "preload_security_parameter".to_string(),
+            into_value(myself.preload_security_parameter),
         );
 
         result.insert(

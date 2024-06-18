@@ -459,6 +459,7 @@ mod tests {
     use mithril_common::{
         api_version::APIVersionProvider,
         cardano_block_scanner::DumbBlockScanner,
+        cardano_transactions_preloader::CardanoTransactionsPreloader,
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -547,7 +548,7 @@ mod tests {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_parser = Arc::new(DumbBlockScanner::new());
         let transaction_store = Arc::new(MockTransactionStore::new());
-        let transaction_importer = Arc::new(CardanoTransactionsImporter::new(
+        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),
             transaction_store.clone(),
             Path::new(""),
@@ -555,7 +556,7 @@ mod tests {
         ));
         let block_range_root_retriever = Arc::new(MockBlockRangeRootRetrieverImpl::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
-            transaction_importer,
+            transactions_importer.clone(),
             block_range_root_retriever,
             slog_scope::logger(),
         ));
@@ -565,6 +566,15 @@ mod tests {
             cardano_transactions_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        let security_parameter = 0;
+        let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
+            signed_entity_type_lock.clone(),
+            transactions_importer.clone(),
+            security_parameter,
+            chain_observer.clone(),
+            slog_scope::logger(),
+        ));
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
@@ -582,7 +592,8 @@ mod tests {
             api_version_provider,
             signable_builder_service,
             metrics_service,
-            signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
+            signed_entity_type_lock,
+            cardano_transactions_preloader,
         }
     }
 
