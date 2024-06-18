@@ -185,10 +185,11 @@ impl StateMachineTester {
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let expected_metrics_service = Arc::new(MetricsService::new().unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        let security_parameter = 0;
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
             transactions_importer.clone(),
-            cardano_transactions_signing_config,
+            security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
         ));

@@ -1278,7 +1278,7 @@ impl DependenciesBuilder {
             self.get_transactions_importer().await?,
             self.configuration
                 .cardano_transactions_signing_config
-                .clone(),
+                .security_parameter,
             self.get_chain_observer().await?,
             self.get_logger().await?,
         );

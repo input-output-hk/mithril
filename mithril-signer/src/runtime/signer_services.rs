@@ -13,7 +13,6 @@ use mithril_common::{
         CardanoImmutableDigester, ImmutableDigester, ImmutableFileObserver,
         ImmutableFileSystemObserver,
     },
-    entities::CardanoTransactionsSigningConfig,
     era::{EraChecker, EraReader},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -300,12 +299,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
             transactions_importer.clone(),
-            // Only relevant for the preloader since the state machine get the block number to import
-            // through the pending certificate, should it be configurable ?
-            CardanoTransactionsSigningConfig {
-                security_parameter: 3000,
-                step: 120,
-            },
+            self.config.preload_security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
         ));

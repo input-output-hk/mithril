@@ -463,10 +463,7 @@ mod tests {
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{
-            BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransactionsSigningConfig, Epoch,
-            StakeDistribution,
-        },
+        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, StakeDistribution},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -522,10 +519,6 @@ mod tests {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
-        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: 100,
-            step: 15,
-        };
         let fake_observer = FakeObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
@@ -574,10 +567,11 @@ mod tests {
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        let security_parameter = 0;
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
             transactions_importer.clone(),
-            cardano_transactions_signing_config,
+            security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
         ));
