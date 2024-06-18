@@ -449,6 +449,8 @@ Here is a list of the available parameters:
 | `zstandard_parameters` | - | - | `ZSTANDARD_PARAMETERS__LEVEL` and `ZSTANDARD_PARAMETERS__NUMBER_OF_WORKERS` | Zstandard specific parameters | - | `{ level: 9, number_of_workers: 4 }` | - |
 | `allow_unparsable_block` | `--allow-unparsable-block` | - | `ALLOW_UNPARSABLE_BLOCK` | If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks. | `false` | - | - |
 | `cardano_transactions_signing_config` | - | - | `CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER` and `CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP` | Cardano transactions signing configuration | - | `{ security_parameter: 3000, step: 120 }` | - |
+| `cardano_transactions_prover_cache_pool_size` | `--cardano-transactions-prover-cache-pool-size` | - | `CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE` | Cardano transactions prover cache pool size | `10` | `10` | - |
+| `cardano_transactions_database_connection_pool_size` | `--cardano-transactions-database-connection-pool-size` | - | `CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE` | Cardano transactions database connection pool size | `10` | `10` | - |
 
 `genesis bootstrap` command:
 
