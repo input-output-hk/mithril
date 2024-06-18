@@ -48,11 +48,9 @@ mod tests {
     async fn test_get_next_chain_block() {
         let expected_chain_point_next_actions = vec![
             ChainBlockNextAction::RollForward {
-                next_point: build_chain_point(1),
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                next_point: build_chain_point(2),
                 parsed_block: ScannedBlock::new("hash-2", 2, 11, 21, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollBackward {

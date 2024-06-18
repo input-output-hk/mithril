@@ -5,8 +5,6 @@ use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint};
 pub enum ChainBlockNextAction {
     /// RollForward event (we are still on the correct fork)
     RollForward {
-        /// The next point in the chain to read
-        next_point: ChainPoint,
         /// The parsed chain block
         parsed_block: ScannedBlock,
     },
