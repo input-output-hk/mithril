@@ -107,6 +107,9 @@ inputs:
   mithril_aggregator_cardano_transactions_prover_cache_pool_size:
     description: Mithril aggregator cardano transactions prover cache pool size.
     required: true
+  cardano_transactions_database_connection_pool_size:
+    description: Mithril aggregator cardano transactions database connection pool size.
+    required: true
   prometheus_auth_username:
     description: Prometheus metrics endpoint username.
     required: false
