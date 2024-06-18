@@ -121,6 +121,12 @@ impl BlockScanner for CardanoBlockScanner {
         from: Option<ChainPoint>,
         until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
+        {
+            let mut chain_reader = self.chain_reader.lock().await;
+            (*chain_reader)
+                .set_chain_point(from.as_ref().unwrap_or(&ChainPoint::origin()))
+                .await?;
+        }
         Ok(Box::new(
             ChainReaderBlockStreamer::try_new(
                 self.chain_reader.clone(),
