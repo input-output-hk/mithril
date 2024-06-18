@@ -119,6 +119,16 @@ impl ServeCommand {
         let mut join_set = JoinSet::new();
         join_set.spawn(async move { runtime.run().await.map_err(|e| e.to_string()) });
 
+        // start the cardano transactions preloader
+        let cardano_transactions_preloader = dependencies_builder
+            .create_cardano_transactions_preloader()
+            .await
+            .with_context(|| {
+                "Dependencies Builder can not create cardano transactions preloader"
+            })?;
+        let preload_task =
+            tokio::spawn(async move { cardano_transactions_preloader.preload().await });
+
         // start the HTTP server
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let routes = dependencies_builder
@@ -179,6 +189,10 @@ impl ServeCommand {
         // stop servers
         join_set.shutdown().await;
         let _ = shutdown_tx.send(());
+
+        if !preload_task.is_finished() {
+            preload_task.abort();
+        }
 
         info!("Event store is finishing...");
         event_store_thread.await.unwrap();

@@ -14,6 +14,7 @@ use warp::Filter;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{BlockScanner, CardanoBlockScanner},
+    cardano_transactions_preloader::CardanoTransactionsPreloader,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
     crypto_helper::{
@@ -32,7 +33,7 @@ use mithril_common::{
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
-        SignableBuilderService,
+        SignableBuilderService, TransactionsImporter,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, TickerService,
@@ -210,6 +211,12 @@ pub struct DependenciesBuilder {
 
     /// Prover service
     pub prover_service: Option<Arc<dyn ProverService>>,
+
+    /// Signed Entity Type Lock
+    pub signed_entity_type_lock: Option<Arc<SignedEntityTypeLock>>,
+
+    /// Transactions Importer
+    pub transactions_importer: Option<Arc<dyn TransactionsImporter>>,
 }
 
 impl DependenciesBuilder {
@@ -256,6 +263,8 @@ impl DependenciesBuilder {
             signed_entity_storer: None,
             message_service: None,
             prover_service: None,
+            signed_entity_type_lock: None,
+            transactions_importer: None,
         }
     }
 
@@ -1028,12 +1037,7 @@ impl DependenciesBuilder {
             &self.configuration.db_directory,
             self.get_logger().await?,
         ));
-        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
-            self.get_block_scanner().await?,
-            self.get_transaction_repository().await?,
-            &self.configuration.db_directory,
-            self.get_logger().await?,
-        ));
+        let transactions_importer = self.get_transactions_importer().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transactions_importer,
@@ -1149,6 +1153,38 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_storer.as_ref().cloned().unwrap())
     }
 
+    async fn build_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
+        Ok(signed_entity_type_lock)
+    }
+
+    async fn get_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
+        if self.signed_entity_type_lock.is_none() {
+            self.signed_entity_type_lock = Some(self.build_signed_entity_lock().await?);
+        }
+
+        Ok(self.signed_entity_type_lock.as_ref().cloned().unwrap())
+    }
+
+    async fn build_transactions_importer(&mut self) -> Result<Arc<dyn TransactionsImporter>> {
+        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
+            self.get_block_scanner().await?,
+            self.get_transaction_repository().await?,
+            &self.configuration.db_directory,
+            self.get_logger().await?,
+        ));
+
+        Ok(transactions_importer)
+    }
+
+    async fn get_transactions_importer(&mut self) -> Result<Arc<dyn TransactionsImporter>> {
+        if self.transactions_importer.is_none() {
+            self.transactions_importer = Some(self.build_transactions_importer().await?);
+        }
+
+        Ok(self.transactions_importer.as_ref().cloned().unwrap())
+    }
+
     /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
@@ -1189,7 +1225,7 @@ impl DependenciesBuilder {
             block_scanner: self.get_block_scanner().await?,
             transaction_store: self.get_transaction_repository().await?,
             prover_service: self.get_prover_service().await?,
-            signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
+            signed_entity_type_lock: self.get_signed_entity_lock().await?,
         };
 
         Ok(dependency_manager)
@@ -1231,6 +1267,23 @@ impl DependenciesBuilder {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
         Ok(router::routes(dependency_container))
+    }
+
+    /// Create a [CardanoTransactionsPreloader] instance.
+    pub async fn create_cardano_transactions_preloader(
+        &mut self,
+    ) -> Result<Arc<CardanoTransactionsPreloader>> {
+        let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
+            self.get_signed_entity_lock().await?,
+            self.get_transactions_importer().await?,
+            self.configuration
+                .cardano_transactions_signing_config
+                .clone(),
+            self.get_chain_observer().await?,
+            self.get_logger().await?,
+        );
+
+        Ok(Arc::new(cardano_transactions_preloader))
     }
 
     /// Create dependencies for genesis commands
