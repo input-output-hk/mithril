@@ -311,7 +311,7 @@ This list of threat and mitigations is not exhaustive.
 
 ### Resource exhaustion on Mithril aggregator
 
-- DoS of a `mithril-aggreator` 
+- DoS of a `mithril-aggregator` 
 - Assets at risk: 
    - [Mithril signing keys registration](#mithril-signing-keys-registration)
    - [Mithril signatures diffusion](#mithril-signatures-diffusion)
