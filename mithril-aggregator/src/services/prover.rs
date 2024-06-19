@@ -110,6 +110,13 @@ impl MithrilProverService {
 
         Ok(block_ranges_map)
     }
+
+    fn filter_valid_hashes(&self, transaction_hashes: &[TransactionHash]) -> Vec<TransactionHash> {
+        let mut transaction_hashes = transaction_hashes.to_vec();
+        transaction_hashes.sort();
+        transaction_hashes.dedup();
+        transaction_hashes
+    }
 }
 
 #[async_trait]
@@ -119,8 +126,10 @@ impl ProverService for MithrilProverService {
         up_to: BlockNumber,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
+        let transaction_hashes = self.filter_valid_hashes(transaction_hashes);
+
         // 1 - Compute the set of block ranges with transactions to prove
-        let block_ranges_transactions = self.get_block_ranges(transaction_hashes, up_to).await?;
+        let block_ranges_transactions = self.get_block_ranges(&transaction_hashes, up_to).await?;
         let block_range_transactions = self
             .get_all_transactions_for_block_ranges(&block_ranges_transactions)
             .await?;
@@ -145,7 +154,7 @@ impl ProverService for MithrilProverService {
         }
 
         // 5 - Compute the proof for all transactions
-        if let Ok(mk_proof) = mk_map.compute_proof(transaction_hashes) {
+        if let Ok(mk_proof) = mk_map.compute_proof(&transaction_hashes) {
             self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
             let mk_proof_leaves = mk_proof.leaves();
             let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
@@ -201,7 +210,9 @@ mod tests {
     use anyhow::anyhow;
     use mithril_common::crypto_helper::{MKMap, MKMapNode, MKTreeNode};
     use mithril_common::entities::CardanoTransaction;
-    use mithril_common::test_utils::CardanoTransactionsBuilder;
+    use mithril_common::test_utils::{
+        assert_equivalent, equivalent_to, CardanoTransactionsBuilder,
+    };
     use mockall::mock;
     use mockall::predicate::eq;
 
@@ -360,6 +371,62 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dedup_cardano_transactions_hashes() {
+        let transactions = vec![
+            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
+            CardanoTransaction::new("tx-hash-duplicated-456", 25, 51, "block-hash-25", 100),
+            CardanoTransaction::new("tx-hash-duplicated-456", 25, 51, "block-hash-25", 100),
+            CardanoTransaction::new("tx-hash-789", 25, 51, "block-hash-25", 100),
+            CardanoTransaction::new("tx-hash-duplicated-456", 25, 51, "block-hash-25", 100),
+        ];
+        let transactions_hashes: Vec<String> = transactions
+            .iter()
+            .map(|t| t.transaction_hash.clone())
+            .collect();
+
+        let transactions_to_prove = vec![
+            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
+            CardanoTransaction::new("tx-hash-duplicated-456", 25, 51, "block-hash-25", 100),
+            CardanoTransaction::new("tx-hash-789", 25, 51, "block-hash-25", 100),
+        ];
+
+        let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
+        let prover = build_prover(
+            |transaction_retriever_mock| {
+                let transactions_hashes_to_prove: Vec<String> = transactions_to_prove
+                    .iter()
+                    .map(|t| t.transaction_hash.clone())
+                    .collect();
+                transaction_retriever_mock
+                    .expect_get_by_hashes()
+                    .withf(move |hashes, _| equivalent_to(hashes, &transactions_hashes_to_prove))
+                    .return_once(move |_, _| Ok(vec![]));
+
+                transaction_retriever_mock
+                    .expect_get_by_block_ranges()
+                    .return_once(move |_| Ok(vec![]));
+            },
+            |block_range_root_retriever_mock| {
+                let block_ranges_map = test_data.block_ranges_map.clone();
+                block_range_root_retriever_mock
+                    .expect_compute_merkle_map_from_block_range_roots()
+                    .return_once(|_| {
+                        Ok(test_data::compute_mk_map_from_block_ranges_map(
+                            block_ranges_map,
+                        ))
+                    });
+            },
+        );
+
+        prover.compute_cache(test_data.beacon).await.unwrap();
+
+        prover
+            .compute_transactions_proofs(99999, &transactions_hashes)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
     async fn compute_proof_for_one_set_of_three_certified_transactions() {
         let transactions = CardanoTransactionsBuilder::new()
             .max_transactions_per_block(1)
@@ -374,7 +441,10 @@ mod tests {
                 let transactions_to_prove = transactions_to_prove.clone();
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove), eq(test_data.beacon))
+                    .withf(move |transactions_hashes, beacon| {
+                        equivalent_to(transactions_hashes, &transaction_hashes_to_prove)
+                            && *beacon == test_data.beacon
+                    })
                     .return_once(move |_, _| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
@@ -404,9 +474,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(transactions_set_proof.len(), 1);
-        assert_eq!(
+        assert_equivalent(
             transactions_set_proof[0].transactions_hashes(),
-            test_data.transaction_hashes_to_prove
+            &test_data.transaction_hashes_to_prove,
         );
         transactions_set_proof[0].verify().unwrap();
     }
@@ -425,7 +495,10 @@ mod tests {
                 let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove), eq(test_data.beacon))
+                    .withf(move |transactions_hashes, beacon| {
+                        equivalent_to(transactions_hashes, &transaction_hashes_to_prove)
+                            && *beacon == test_data.beacon
+                    })
                     .return_once(move |_, _| Ok(vec![]));
                 transaction_retriever_mock
                     .expect_get_by_block_ranges()
@@ -468,7 +541,10 @@ mod tests {
                 let transactions_to_prove = transactions_to_prove.clone();
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove), eq(test_data.beacon))
+                    .withf(move |transactions_hashes, beacon| {
+                        equivalent_to(transactions_hashes, &transaction_hashes_to_prove)
+                            && *beacon == test_data.beacon
+                    })
                     .return_once(move |_, _| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
@@ -519,11 +595,11 @@ mod tests {
         .concat();
         let prover = build_prover(
             |transaction_retriever_mock| {
-                let transaction_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
+                let transactions_hashes_to_prove = test_data.transaction_hashes_to_prove.clone();
                 let transactions_to_prove = transactions_to_prove.clone();
                 transaction_retriever_mock
                     .expect_get_by_hashes()
-                    .with(eq(transaction_hashes_to_prove), eq(test_data.beacon))
+                    .withf(move |hashes, _| equivalent_to(hashes, &transactions_hashes_to_prove))
                     .return_once(move |_, _| Ok(transactions_to_prove));
 
                 let block_ranges_to_prove = test_data.block_ranges_to_prove.clone();
@@ -553,9 +629,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(transactions_set_proof.len(), 1);
-        assert_eq!(
+        assert_equivalent(
             transactions_set_proof[0].transactions_hashes(),
-            transaction_hashes_known
+            &transaction_hashes_known,
         );
         transactions_set_proof[0].verify().unwrap();
     }
