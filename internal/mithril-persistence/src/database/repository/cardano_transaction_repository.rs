@@ -1,6 +1,5 @@
 use std::ops::Range;
 use std::sync::Arc;
-use std::time::Duration;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -11,7 +10,6 @@ use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoTransaction, ChainPoint, ImmutableFileNumber,
     SlotNumber, TransactionHash,
 };
-use mithril_common::resource_pool::ResourcePool;
 use mithril_common::signable_builder::BlockRangeRootRetriever;
 use mithril_common::StdResult;
 
@@ -21,31 +19,26 @@ use crate::database::query::{
     InsertCardanoTransactionQuery,
 };
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
-use crate::sqlite::{ConnectionExtensions, SqliteConnection, SqlitePoolConnection};
+use crate::sqlite::{ConnectionExtensions, SqliteConnectionPool};
 
 /// ## Cardano transaction repository
 ///
 /// This is a business oriented layer to perform actions on the database through
 /// queries.
 pub struct CardanoTransactionRepository {
-    connection_pool: Arc<ResourcePool<SqlitePoolConnection>>,
+    connection_pool: Arc<SqliteConnectionPool>,
 }
 
 impl CardanoTransactionRepository {
     /// Instantiate service
-    pub fn new(connection_pool: Arc<ResourcePool<SqlitePoolConnection>>) -> Self {
+    pub fn new(connection_pool: Arc<SqliteConnectionPool>) -> Self {
         Self { connection_pool }
-    }
-
-    fn connection(&self) -> StdResult<Arc<SqliteConnection>> {
-        let timeout = Duration::from_millis(1000);
-        let connection = self.connection_pool.acquire_resource(timeout)?;
-        Ok((*connection).clone())
     }
 
     /// Return all the [CardanoTransactionRecord]s in the database.
     pub async fn get_all_transactions(&self) -> StdResult<Vec<CardanoTransactionRecord>> {
-        self.connection()?
+        self.connection_pool
+            .connection()?
             .fetch_collect(GetCardanoTransactionQuery::all())
     }
 
@@ -55,7 +48,8 @@ impl CardanoTransactionRepository {
         &self,
         range: Range<BlockNumber>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
-        self.connection()?
+        self.connection_pool
+            .connection()?
             .fetch_collect(GetCardanoTransactionQuery::between_blocks(range))
     }
 
@@ -64,10 +58,9 @@ impl CardanoTransactionRepository {
         &self,
         transaction_hash: T,
     ) -> StdResult<Option<CardanoTransactionRecord>> {
-        self.connection()?
-            .fetch_first(GetCardanoTransactionQuery::by_transaction_hash(
-                &transaction_hash.into(),
-            ))
+        self.connection_pool.connection()?.fetch_first(
+            GetCardanoTransactionQuery::by_transaction_hash(&transaction_hash.into()),
+        )
     }
 
     /// Create a new [CardanoTransactionRecord] in the database.
@@ -87,7 +80,7 @@ impl CardanoTransactionRepository {
             immutable_file_number,
         })?;
 
-        self.connection()?.fetch_first(query)
+        self.connection_pool.connection()?.fetch_first(query)
     }
 
     /// Create new [CardanoTransactionRecord]s in the database.
@@ -98,7 +91,7 @@ impl CardanoTransactionRepository {
         let records: Vec<CardanoTransactionRecord> =
             transactions.into_iter().map(|tx| tx.into()).collect();
 
-        let connection = self.connection()?;
+        let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;
         let result =
             transaction.fetch_collect(InsertCardanoTransactionQuery::insert_many(records)?);
@@ -115,7 +108,7 @@ impl CardanoTransactionRepository {
         let records: Vec<BlockRangeRootRecord> =
             block_ranges.into_iter().map(|tx| tx.into()).collect();
 
-        let connection = self.connection()?;
+        let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;
         let result = transaction.fetch_collect(InsertBlockRangeRootQuery::insert_many(records)?);
         transaction.commit()?;
@@ -126,6 +119,7 @@ impl CardanoTransactionRepository {
     /// Get the highest [ChainPoint] of the cardano transactions stored in the database.
     pub async fn get_transaction_highest_chain_point(&self) -> StdResult<Option<ChainPoint>> {
         let first_transaction_with_highest_block_number = self
+            .connection_pool
             .connection()?
             .fetch_first(GetCardanoTransactionQuery::with_highest_block_number())?;
 
@@ -139,6 +133,7 @@ impl CardanoTransactionRepository {
         &self,
     ) -> StdResult<Option<BlockNumber>> {
         let highest: Option<i64> = self
+            .connection_pool
             .connection()?
             .query_single_cell("select max(start) as highest from block_range_root;", &[])?;
         highest
@@ -155,6 +150,7 @@ impl CardanoTransactionRepository {
         end_block_number: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + '_>> {
         let block_range_roots = self
+            .connection_pool
             .connection()?
             .fetch(GetBlockRangeRootQuery::up_to_block_number(end_block_number))?
             .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
@@ -166,6 +162,7 @@ impl CardanoTransactionRepository {
     /// Retrieve all the [CardanoTransaction] in database.
     pub async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
         let records = self
+            .connection_pool
             .connection()?
             .fetch(GetCardanoTransactionQuery::all())?
             .map(|record| record.into())
@@ -176,7 +173,8 @@ impl CardanoTransactionRepository {
 
     /// Retrieve all the [BlockRangeRootRecord] in database.
     pub fn get_all_block_range_root(&self) -> StdResult<Vec<BlockRangeRootRecord>> {
-        self.connection()?
+        self.connection_pool
+            .connection()?
             .fetch_collect(GetBlockRangeRootQuery::all())
     }
 
@@ -184,7 +182,7 @@ impl CardanoTransactionRepository {
     pub async fn get_transaction_highest_immutable_file_number(
         &self,
     ) -> StdResult<Option<ImmutableFileNumber>> {
-        let highest: Option<i64> = self.connection()?.query_single_cell(
+        let highest: Option<i64> = self.connection_pool.connection()?.query_single_cell(
             "select max(immutable_file_number) as highest from cardano_tx;",
             &[],
         )?;
@@ -220,6 +218,7 @@ impl CardanoTransactionRepository {
         &self,
     ) -> StdResult<Option<Range<BlockNumber>>> {
         let interval = self
+            .connection_pool
             .connection()?
             .fetch_first(GetIntervalWithoutBlockRangeRootQuery::new())?
             // Should be impossible - the request as written in the query always returns a single row
@@ -240,7 +239,7 @@ impl CardanoTransactionRepository {
             hashes.into_iter().map(Into::into).collect(),
             up_to,
         );
-        self.connection()?.fetch_collect(query)
+        self.connection_pool.connection()?.fetch_collect(query)
     }
 
     /// Get the [CardanoTransactionRecord] for the given block ranges.
@@ -250,11 +249,10 @@ impl CardanoTransactionRepository {
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
         let mut transactions = vec![];
         for block_range in block_ranges {
-            let block_range_transactions: Vec<CardanoTransactionRecord> = self
-                .connection()?
-                .fetch_collect(GetCardanoTransactionQuery::by_block_ranges(vec![
-                    block_range,
-                ]))?;
+            let block_range_transactions: Vec<CardanoTransactionRecord> =
+                self.connection_pool.connection()?.fetch_collect(
+                    GetCardanoTransactionQuery::by_block_ranges(vec![block_range]),
+                )?;
             transactions.extend(block_range_transactions);
         }
 
@@ -271,7 +269,7 @@ impl CardanoTransactionRepository {
             let threshold = highest_block_range_start.saturating_sub(number_of_blocks_to_keep);
             let query = DeleteCardanoTransactionQuery::below_block_number_threshold(threshold)?;
 
-            let connection = self.connection()?;
+            let connection = self.connection_pool.connection()?;
             let transaction = connection.begin_transaction()?;
             transaction.fetch_first(query)?;
             transaction.commit()?;
@@ -288,7 +286,7 @@ impl CardanoTransactionRepository {
         &self,
         block_number: BlockNumber,
     ) -> StdResult<()> {
-        let connection = self.connection()?;
+        let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;
         let query = DeleteCardanoTransactionQuery::above_block_number_threshold(block_number)?;
         transaction.fetch_first(query)?;
@@ -336,11 +334,10 @@ mod tests {
     #[tokio::test]
     async fn repository_create_and_get_transaction() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
+
         repository
             .create_transactions(vec![
                 CardanoTransaction::new("tx_hash-123", 10, 50, "block_hash-123", 99),
@@ -371,11 +368,10 @@ mod tests {
     #[tokio::test]
     async fn repository_get_transaction_by_hashes() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
+
         repository
             .create_transactions(vec![
                 CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123", 1234),
@@ -442,11 +438,10 @@ mod tests {
     #[tokio::test]
     async fn repository_create_ignore_further_transactions_when_exists() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
+
         repository
             .create_transaction("tx-hash-123", 10, 50, "block_hash-123", 99)
             .await
@@ -472,11 +467,9 @@ mod tests {
     #[tokio::test]
     async fn repository_store_transactions_and_get_stored_transactions() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-123", 99),
@@ -517,11 +510,9 @@ mod tests {
     #[tokio::test]
     async fn repository_get_all_stored_transactions() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 99),
@@ -544,11 +535,9 @@ mod tests {
     #[tokio::test]
     async fn repository_store_transactions_doesnt_erase_existing_data() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         repository
             .create_transaction("tx-hash-000", 1, 5, "block-hash", 9)
@@ -584,11 +573,9 @@ mod tests {
     #[tokio::test]
     async fn repository_get_transaction_highest_chain_point_without_transactions_in_db() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let highest_beacon = repository
             .get_transaction_highest_chain_point()
@@ -600,11 +587,9 @@ mod tests {
     #[tokio::test]
     async fn repository_get_transaction_highest_chain_point_with_transactions_in_db() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
@@ -633,11 +618,9 @@ mod tests {
     async fn repository_get_transaction_highest_chain_point_with_transactions_with_same_block_number_in_db(
     ) {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
@@ -666,11 +649,9 @@ mod tests {
     #[tokio::test]
     async fn repository_get_transaction_highest_immutable_file_number_without_transactions_in_db() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let highest_beacon = repository
             .get_transaction_highest_immutable_file_number()
@@ -682,11 +663,9 @@ mod tests {
     #[tokio::test]
     async fn repository_get_transaction_highest_immutable_file_number_with_transactions_in_db() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),
@@ -707,11 +686,9 @@ mod tests {
     #[tokio::test]
     async fn repository_get_transactions_in_range_blocks() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let transactions = vec![
             CardanoTransactionRecord::new("tx-hash-1", 10, 50, "block-hash-1", 99),
@@ -763,11 +740,9 @@ mod tests {
     #[tokio::test]
     async fn repository_get_block_interval_without_block_range_root() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         // The last block range give the lower bound
         let last_block_range = BlockRange::from_block_number(0);
@@ -800,11 +775,9 @@ mod tests {
     #[tokio::test]
     async fn repository_get_transactions_by_block_ranges() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let transactions = vec![
             CardanoTransactionRecord::new("tx-hash-1", 10, 50, "block-hash-1", 99),
@@ -861,11 +834,9 @@ mod tests {
     #[tokio::test]
     async fn repository_store_block_range() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection.clone())],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         repository
             .create_block_range_roots(vec![
@@ -881,7 +852,10 @@ mod tests {
             .await
             .unwrap();
 
-        let records: Vec<BlockRangeRootRecord> = connection
+        let records: Vec<BlockRangeRootRecord> = repository
+            .connection_pool
+            .connection()
+            .unwrap()
             .fetch_collect(GetBlockRangeRootQuery::all())
             .unwrap();
         assert_eq!(
@@ -902,11 +876,9 @@ mod tests {
     #[tokio::test]
     async fn repository_store_block_range_with_existing_hash_doesnt_erase_existing_data() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection.clone())],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
         let range = BlockRange::from_block_number(0);
 
         repository
@@ -918,7 +890,10 @@ mod tests {
             .await
             .unwrap();
 
-        let record: Vec<BlockRangeRootRecord> = connection
+        let record: Vec<BlockRangeRootRecord> = repository
+            .connection_pool
+            .connection()
+            .unwrap()
             .fetch_collect(GetBlockRangeRootQuery::all())
             .unwrap();
         assert_eq!(
@@ -933,11 +908,9 @@ mod tests {
     #[tokio::test]
     async fn repository_retrieve_block_range_roots_up_to() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
         let block_range_roots = vec![
             (
                 BlockRange::from_block_number(15),
@@ -1006,11 +979,9 @@ mod tests {
     #[tokio::test]
     async fn repository_prune_transactions() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let cardano_transactions: Vec<CardanoTransactionRecord> = CardanoTransactionsBuilder::new()
             .blocks_per_block_range(15)
@@ -1060,11 +1031,9 @@ mod tests {
     #[tokio::test]
     async fn get_highest_start_block_number_for_block_range_roots() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let highest = repository
             .get_highest_start_block_number_for_block_range_roots()
@@ -1097,11 +1066,9 @@ mod tests {
     #[tokio::test]
     async fn find_block_scanner_lower_bound() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),
@@ -1119,11 +1086,9 @@ mod tests {
     #[tokio::test]
     async fn remove_transactions_and_block_range_greater_than_given_block_number() {
         let connection = Arc::new(cardano_tx_db_connection().unwrap());
-        let connection_pool = Arc::new(ResourcePool::new(
-            1,
-            vec![SqlitePoolConnection::new(connection)],
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::from_connection(connection),
         ));
-        let repository = CardanoTransactionRepository::new(connection_pool);
 
         let cardano_transactions = vec![
             CardanoTransaction::new("tx-hash-123", BlockRange::LENGTH, 50, "block-hash-123", 50),
