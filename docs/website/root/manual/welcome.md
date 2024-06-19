@@ -51,7 +51,7 @@ Having these requirements in place will enable you to proceed smoothly with the 
 
 In the [**Getting started**](/doc/category/getting-started) guide in the user manual, you will find tutorials for:
 
-* :new: [Bootstrapping a Cardano node](./getting-started/bootstrap-cardano-node.md) on `testnet`
+* [Bootstrapping a Cardano node](./getting-started/bootstrap-cardano-node.md) on `testnet`
 
 * [Running a Mithril signer node as an SPO](./getting-started/run-signer-node.md) on `testnet`
 

@@ -7,7 +7,7 @@ sidebar_label: Introduction
 
 :::info
 
-:new: Explore the Mithril protocol through our [protocol simulation](./mithril-protocol/simulation.md). This interactive experience will provide you with insights into how participants collaborate to generate a **multi-signature**, and you'll also gain a clearer understanding of the protocol parameters.
+Explore the Mithril protocol through our [protocol simulation](./mithril-protocol/simulation.md). This interactive experience will provide you with insights into how participants collaborate to generate a **multi-signature**, and you'll also gain a clearer understanding of the protocol parameters.
 
 :::
 
@@ -25,15 +25,15 @@ In other words, an adversarial participant with less than this share of the tota
 
 In this guide, you will find:
 
-* The Mithril protocol documentation:
+* The **Mithril protocol** documentation:
 
   * [Mithril protocol in depth](./mithril-protocol/protocol.md)
 
   * [Mithril certificate chain in depth](./mithril-protocol/certificates.md)
 
-  * :new: An interactive protocol discovery through the [Mithril simulation](./mithril-protocol/simulation.md)
+  * An interactive protocol discovery through the [Mithril simulation](./mithril-protocol/simulation.md)
 
-* The Mithril network documentation:
+* The **Mithril network** documentation:
 
   * [Mithril network architecture](./mithril-network/architecture.md)
 
@@ -42,6 +42,8 @@ In this guide, you will find:
   * [Mithril signer node](./mithril-network/signer.md)
 
   * [Mithril client node](./mithril-network/client.md)
+
+* The [**Mithril threat model**](./threat-model)
 
 :::tip
 
