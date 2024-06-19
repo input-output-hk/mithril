@@ -69,6 +69,7 @@ impl Signer {
                 signer_config.mithril_era_reader_adapter,
             ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
+            ("TRANSACTIONS_IMPORT_BLOCK_CHUNK_SIZE", "150"),
         ]);
         if signer_config.enable_certification {
             env.insert(

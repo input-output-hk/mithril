@@ -13,7 +13,6 @@ use mithril_common::{
         CardanoImmutableDigester, ImmutableDigester, ImmutableFileObserver,
         ImmutableFileSystemObserver,
     },
-    entities::BlockRange,
     era::{EraChecker, EraReader},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -292,7 +291,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transactions_importer = Arc::new(TransactionsImporterByChunk::new(
             transaction_store.clone(),
             transactions_importer,
-            BlockRange::LENGTH * 10,
+            self.config.transactions_import_block_chunk_size,
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
