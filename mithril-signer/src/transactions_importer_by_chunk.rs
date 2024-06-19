@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use slog::{debug, Logger};
 
 use mithril_common::entities::BlockNumber;
 use mithril_common::signable_builder::TransactionsImporter;
@@ -19,6 +20,7 @@ pub struct TransactionsImporterByChunk {
     highest_transaction_block_number_getter: Arc<dyn HighestTransactionBlockNumberGetter>,
     wrapped_importer: Arc<dyn TransactionsImporter>,
     chunk_size: BlockNumber,
+    logger: Logger,
 }
 
 impl TransactionsImporterByChunk {
@@ -27,11 +29,13 @@ impl TransactionsImporterByChunk {
         highest_transaction_block_number_getter: Arc<dyn HighestTransactionBlockNumberGetter>,
         wrapped_importer: Arc<dyn TransactionsImporter>,
         chunk_size: BlockNumber,
+        logger: Logger,
     ) -> Self {
         Self {
             highest_transaction_block_number_getter,
             wrapped_importer,
             chunk_size,
+            logger,
         }
     }
 }
@@ -39,17 +43,20 @@ impl TransactionsImporterByChunk {
 #[async_trait]
 impl TransactionsImporter for TransactionsImporterByChunk {
     async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
-        let mut start_block_number = self
+        let mut intermediate_up_to = self
             .highest_transaction_block_number_getter
             .get()
             .await?
             .unwrap_or(0);
 
-        while start_block_number < up_to_beacon {
-            start_block_number += self.chunk_size;
-            self.wrapped_importer
-                .import(start_block_number.min(up_to_beacon))
-                .await?;
+        while intermediate_up_to < up_to_beacon {
+            let next_up_to = (intermediate_up_to + self.chunk_size).min(up_to_beacon);
+            debug!(
+                self.logger,
+                "Running Transactions importer between block '{intermediate_up_to}' and '{next_up_to}'";
+            );
+            self.wrapped_importer.import(next_up_to).await?;
+            intermediate_up_to = next_up_to;
         }
 
         Ok(())
@@ -111,6 +118,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
+            crate::test_tools::logger_for_tests(),
         );
 
         let up_to_beacon = highest_block_number;
@@ -138,6 +146,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
+            crate::test_tools::logger_for_tests(),
         );
 
         importer.import(up_to_beacon).await.unwrap();
@@ -157,6 +166,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
+            crate::test_tools::logger_for_tests(),
         );
 
         importer.import(up_to_beacon).await.unwrap();
@@ -180,6 +190,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
+            crate::test_tools::logger_for_tests(),
         );
 
         importer.import(up_to_beacon).await.unwrap();
@@ -202,6 +213,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
+            crate::test_tools::logger_for_tests(),
         );
 
         importer.import(up_to_beacon).await.unwrap();

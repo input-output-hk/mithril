@@ -13,6 +13,7 @@ use mithril_common::{
         CardanoImmutableDigester, ImmutableDigester, ImmutableFileObserver,
         ImmutableFileSystemObserver,
     },
+    entities::BlockRange,
     era::{EraChecker, EraReader},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -31,8 +32,9 @@ use mithril_persistence::{
 use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
     AggregatorHTTPClient, CardanoTransactionsImporter, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, TransactionsImporterWithPruner,
-    HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    ProtocolInitializerStore, ProtocolInitializerStorer, TransactionsImporterByChunk,
+    TransactionsImporterWithPruner, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
+    SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -283,6 +285,14 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .then_some(self.config.network_security_parameter),
             transaction_store.clone(),
             transactions_importer,
+        ));
+        // Wrap the transaction importer with decorator to chunk its workload, so it prunes
+        // transactions after each chunk, reducing the storage footprint
+        let transactions_importer = Arc::new(TransactionsImporterByChunk::new(
+            transaction_store.clone(),
+            transactions_importer,
+            BlockRange::LENGTH * 10,
+            slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
