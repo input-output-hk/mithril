@@ -10,7 +10,7 @@ sidebar_label: Mithril Threat Model
 This document is a draft version of the **Mithril threat model** prepared by the **Mithril core team**:
 - We expect to receive **external feedback and contributions** before we can consider it **final**.
 - Feel free to **contribute** to this document by using the **Edit this page** link a the bottom of the page.
-- A **GitHub discussion** is also available [here](https://github.com/input-output-hk/mithril/discussions/).
+- If you think there is a security vulnerability in Mithril, please disclose it responsibly by following the [Security Vulnerability Disclosure Policy](https://github.com/input-output-hk/mithril/blob/main/SECURITY.md).
 
 ::: 
 
@@ -143,7 +143,7 @@ The mithril-signer necessarily runs on the same host as a BP because it needs ac
 * **integrity**: Yes (incorrect or invalid data can hamper BP capabilities)
 * **availability**: Yes (BP is critical for SPOs revenue, and preventing a BP from producing blocks can harm SPOs capabilities to operate)
 
-#### Cardano Chain Database
+#### Cardano Chain database
 
 A cardano-node maintains an on-disk database consisting of the chain's history. This database is updated by the node when new blocks are diffused through the network, or minted, and also contains a cache of the ledger state. 
 
@@ -155,7 +155,7 @@ Mithril signer needs access to _trusted_ and _up-to-date_ Chain database in orde
 
 #### Cardano Ledger state
 
-Access to an accurate ledger state is needed by Mithril signer to retrieve reliable _Stake distribution_. This access is currently done through a local connection (direct w/ Pallas or indirect with cardano-cli) to a trusted cardano-node
+Access to an accurate ledger state is needed by Mithril signer to retrieve reliable _Stake distribution_. This access is currently done through a local connection (direct w/ Pallas or indirect with cardano-cli) to a trusted cardano-node. The ledger state / stake distribution is also used by the cardano-node to determine leader schedules and hence corruption here has an impact on the block production process.
 
 * **confidentiality**: No
 * **integrity**: Yes (same, inaccurate SD will make key registration and signing process invalid)
@@ -163,20 +163,19 @@ Access to an accurate ledger state is needed by Mithril signer to retrieve relia
 
 #### Mithril signing keys
 
-SPOs register their Mithril keys every epoch to be able to sign snapshots. An attacker could impersonate the SPO and sign invalid snapshots if they got hold of those keys.
-Signing keys are currently stored temporarily on-disk as they are used `2` epochs after their creation and deleted `2` epochs after they have been used.
+SPOs generate their Mithril signing keys every epoch to be able to sign snapshots. An attacker could impersonate the SPO and sign invalid snapshots if they got hold of those signing keys. Signing keys are currently stored temporarily on-disk as they are used `2` epochs after their creation and deleted `2` epochs after they have been used.
 Their storage is not currently encrypted (Should probably be?)
 
-* **confidentiality**: Yes 
+* **confidentiality**: Yes (access to a signer's key will allow an attacker to impersonate a signer for the duration of the epoch)
 * **integrity**: Yes (invalid key is useless obviously)
 * **availability**: Yes (Signer needs Key at every signing round, unavailability will lead to inability to sign)
 
-#### Mithril signing keys registration
+#### Mithril signer registration
 
-Mithril signer needs to register new key every epoch with aggregator (and ultimately other signers)
+Mithril signer needs to register new verification key every epoch with aggregator (and ultimately other signers).
 
-* **confidentiality**: Yes (access to a signer's key will allow an attacker to impersonate a signer for the duration of the epoch)
-* **integrity**: Yes (partial? key registration process is transient and limited in time) 
+* **confidentiality**: No (only verification keys and proofs of possession, which are both public, are used in the signer registration)
+* **integrity**: Yes (partial? key registration process is transient and limited in time, but must be complete for a specific epoch) 
 * **availability**: Yes (need access to aggregator to register key) 
 
 #### Mithril signatures diffusion
@@ -281,7 +280,8 @@ Mithril genesis verification key is stored in [GitHub](https://github.com/input-
 
 :::info
 
-This list of threat and mitigations is not exhaustive.
+- This list of threat and mitigations is not exhaustive.  
+- [Developers portal](https://developers.cardano.org/docs/operate-a-stake-pool/hardening-server) already provides thorough documentation on how to harden a linux-based host to run cardano-node .
 
 :::
 
@@ -318,11 +318,13 @@ This list of threat and mitigations is not exhaustive.
    - [Mithril certificates](#mithril-certificates)
    - [Mithril artifacts](#mithril-artifacts)
 
-### SPO's infrastructure security
+### Integrity of the Cardano block producer database
 
-#### Hardening Operating System
-
-[Developers portal](https://developers.cardano.org/docs/operate-a-stake-pool/hardening-server) already provides thorough documentation on how to harden a linux-based host to run cardano-node
+  * Data integrity of the Cardano block producer database compromised by action of the Mithril signer
+  * Assets at risk:
+    - [Block production](#block-production)
+    - [Cardano Chain database](#cardano-chain-database)
+  * Mitigation: give Mithril signer user read-only permissions to the database folder of the Cardano block producer
 
 ## References
 
