@@ -285,6 +285,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .then_some(self.config.network_security_parameter),
             transaction_store.clone(),
             transactions_importer,
+            slog_scope::logger(),
         ));
         // Wrap the transaction importer with decorator to chunk its workload, so it prunes
         // transactions after each chunk, reducing the storage footprint
