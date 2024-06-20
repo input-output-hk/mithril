@@ -40,10 +40,27 @@ impl SqliteConnectionPool {
         Self { connection_pool }
     }
 
+    /// Create a new pool with the given size by calling the given builder function
+    pub fn build(
+        size: usize,
+        builder: impl Fn() -> StdResult<SqliteConnection>,
+    ) -> StdResult<Self> {
+        let mut connections: Vec<SqlitePooledConnection> = Vec::with_capacity(size);
+
+        for _count in 0..size {
+            connections.push(SqlitePooledConnection::new(Arc::new(builder()?)));
+        }
+
+        Ok(Self {
+            connection_pool: ResourcePool::new(connections.len(), connections),
+        })
+    }
+
     /// Get a connection from the pool
     pub fn connection(&self) -> StdResult<Arc<SqliteConnection>> {
         let timeout = Duration::from_millis(1000);
         let connection = self.connection_pool.acquire_resource(timeout)?;
+
         Ok((*connection).clone())
     }
 
@@ -52,5 +69,18 @@ impl SqliteConnectionPool {
         let connection_pool = ResourcePool::new(1, vec![SqlitePooledConnection::new(connection)]);
 
         Self { connection_pool }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::database::test_helper::cardano_tx_db_connection;
+
+    #[test]
+    fn can_build_pool_of_given_size() {
+        let pool = SqliteConnectionPool::build(10, cardano_tx_db_connection).unwrap();
+
+        assert_eq!(pool.connection_pool.size(), 10);
     }
 }

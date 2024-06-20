@@ -333,9 +333,8 @@ mod tests {
 
     #[tokio::test]
     async fn repository_create_and_get_transaction() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap(),
         ));
 
         repository
@@ -367,9 +366,8 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transaction_by_hashes() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap(),
         ));
 
         repository
