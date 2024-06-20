@@ -86,5 +86,18 @@ delete from block_range_root;
 vacuum;
 "#,
         ),
+        // Migration 7
+        // Enable full `auto_vacuum` on the database to prevent the database from growing
+        // indefinitely since data is often deleted with chain rollbacks or, only on signers,
+        // transactions pruning.
+        SqlMigration::new(
+            7,
+            r#"
+-- 'pragma auto_vacuum = full' can't be applied to an existing database, so we need to recreate
+-- the database by using 'vacuum'.
+pragma auto_vacuum = full;
+vacuum;
+"#,
+        ),
     ]
 }
