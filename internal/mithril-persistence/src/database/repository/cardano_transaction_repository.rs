@@ -19,7 +19,7 @@ use crate::database::query::{
     InsertCardanoTransactionQuery,
 };
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
-use crate::sqlite::{ConnectionExtensions, SqliteConnectionPool};
+use crate::sqlite::{ConnectionExtensions, SqliteConnection, SqliteConnectionPool};
 
 /// ## Cardano transaction repository
 ///
@@ -93,11 +93,24 @@ impl CardanoTransactionRepository {
 
         let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;
-        let result =
-            transaction.fetch_collect(InsertCardanoTransactionQuery::insert_many(records)?);
+        let result = self
+            .create_transactions_with_connection(records, &transaction)
+            .await;
         transaction.commit()?;
 
         result
+    }
+
+    /// Create new [CardanoTransactionRecord]s in the database.
+    async fn create_transactions_with_connection<T: Into<CardanoTransactionRecord>>(
+        &self,
+        transactions: Vec<T>,
+        connection: &SqliteConnection,
+    ) -> StdResult<Vec<CardanoTransactionRecord>> {
+        let records: Vec<CardanoTransactionRecord> =
+            transactions.into_iter().map(|tx| tx.into()).collect();
+
+        connection.fetch_collect(InsertCardanoTransactionQuery::insert_many(records)?)
     }
 
     /// Create new [BlockRangeRootRecord]s in the database.
@@ -203,12 +216,20 @@ impl CardanoTransactionRepository {
     ) -> StdResult<()> {
         const DB_TRANSACTION_SIZE: usize = 100000;
         for transactions_in_db_transaction_chunk in transactions.chunks(DB_TRANSACTION_SIZE) {
+            let connection = self.connection_pool.connection()?;
+            let transaction = connection.begin_transaction()?;
+
             // Chunk transactions to avoid an error when we exceed sqlite binding limitations
             for transactions_in_chunk in transactions_in_db_transaction_chunk.chunks(100) {
-                self.create_transactions(transactions_in_chunk.to_vec())
-                    .await
-                    .with_context(|| "CardanoTransactionRepository can not store transactions")?;
+                self.create_transactions_with_connection(
+                    transactions_in_chunk.to_vec(),
+                    &transaction,
+                )
+                .await
+                .with_context(|| "CardanoTransactionRepository can not store transactions")?;
             }
+
+            transaction.commit()?;
         }
         Ok(())
     }
