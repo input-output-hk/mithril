@@ -50,12 +50,33 @@ pub trait TransactionsRetriever: Sync + Send {
     ) -> StdResult<Vec<CardanoTransaction>>;
 }
 
+#[cfg_attr(test, mockall::automock)]
+trait TransactionsHashFilter: Sync + Send {
+    fn apply(&self, transaction_hashes: &[TransactionHash]) -> Vec<TransactionHash>;
+}
+
+struct TransactionsHashFilterToProve {}
+
+impl TransactionsHashFilter for TransactionsHashFilterToProve {
+    fn apply(&self, transaction_hashes: &[TransactionHash]) -> Vec<TransactionHash> {
+        let mut transaction_hashes: Vec<TransactionHash> = transaction_hashes
+            .iter()
+            .filter(|hash| hash.len() == 64 && hash.chars().all(|c| c.is_ascii_hexdigit()))
+            .cloned()
+            .collect();
+        transaction_hashes.sort();
+        transaction_hashes.dedup();
+        transaction_hashes
+    }
+}
+
 /// Mithril prover
 pub struct MithrilProverService {
     transaction_retriever: Arc<dyn TransactionsRetriever>,
     block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
     mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange>>>,
     logger: Logger,
+    filter: Box<dyn TransactionsHashFilter>,
 }
 
 impl MithrilProverService {
@@ -66,11 +87,28 @@ impl MithrilProverService {
         mk_map_pool_size: usize,
         logger: Logger,
     ) -> Self {
+        Self::new_with_filter(
+            transaction_retriever,
+            block_range_root_retriever,
+            mk_map_pool_size,
+            logger,
+            Box::new(TransactionsHashFilterToProve {}),
+        )
+    }
+
+    fn new_with_filter(
+        transaction_retriever: Arc<dyn TransactionsRetriever>,
+        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
+        mk_map_pool_size: usize,
+        logger: Logger,
+        filter: Box<dyn TransactionsHashFilter>,
+    ) -> Self {
         Self {
             transaction_retriever,
             block_range_root_retriever,
             mk_map_pool: ResourcePool::new(mk_map_pool_size, vec![]),
             logger,
+            filter,
         }
     }
 
@@ -110,17 +148,6 @@ impl MithrilProverService {
 
         Ok(block_ranges_map)
     }
-
-    fn filter_valid_hashes(&self, transaction_hashes: &[TransactionHash]) -> Vec<TransactionHash> {
-        let mut transaction_hashes: Vec<TransactionHash> = transaction_hashes
-            .iter()
-            .filter(|hash| !hash.is_empty())
-            .cloned()
-            .collect();
-        transaction_hashes.sort();
-        transaction_hashes.dedup();
-        transaction_hashes
-    }
 }
 
 #[async_trait]
@@ -130,7 +157,7 @@ impl ProverService for MithrilProverService {
         up_to: BlockNumber,
         transaction_hashes: &[TransactionHash],
     ) -> StdResult<Vec<CardanoTransactionsSetProof>> {
-        let transaction_hashes = self.filter_valid_hashes(transaction_hashes);
+        let transaction_hashes = self.filter.apply(transaction_hashes);
 
         // 1 - Compute the set of block ranges with transactions to prove
         let block_ranges_transactions = self.get_block_ranges(&transaction_hashes, up_to).await?;
@@ -219,6 +246,7 @@ mod tests {
     };
     use mockall::mock;
     use mockall::predicate::eq;
+    use test_data::transactions_group_by_block_range;
 
     use super::*;
 
@@ -236,6 +264,14 @@ mod tests {
                 &self,
                 up_to_beacon: BlockNumber,
             ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>>;
+        }
+    }
+
+    struct AcceptAllTransactionsFilter {}
+
+    impl TransactionsHashFilter for AcceptAllTransactionsFilter {
+        fn apply(&self, transaction_hashes: &[TransactionHash]) -> Vec<TransactionHash> {
+            transaction_hashes.to_vec()
         }
     }
 
@@ -366,81 +402,67 @@ mod tests {
         let mk_map_pool_size = 1;
         let logger = slog_scope::logger();
 
-        MithrilProverService::new(
+        MithrilProverService::new_with_filter(
             Arc::new(transaction_retriever),
             Arc::new(block_range_root_retriever),
             mk_map_pool_size,
             logger,
+            Box::new(AcceptAllTransactionsFilter {}),
         )
     }
 
-    #[test]
-    fn filter_valid_hashes_remove_empty_hashes() {
-        let transactions_hashes = vec![
-            "tx-hash-123".to_string(),
-            "".to_string(),
-            "tx-hash-789".to_string(),
-        ];
-
-        let mithril_service_prover = build_prover(|_| {}, |_| {});
-
-        let valid_hashes = mithril_service_prover.filter_valid_hashes(&transactions_hashes);
-
-        assert_equivalent(
-            vec!["tx-hash-123".to_string(), "tx-hash-789".to_string()],
-            valid_hashes,
-        );
-    }
-
     #[tokio::test]
-    async fn dedup_cardano_transactions_hashes() {
-        let transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
-            CardanoTransaction::new("tx-hash-duplicated-456", 25, 51, "block-hash-25", 100),
-            CardanoTransaction::new("tx-hash-duplicated-456", 25, 51, "block-hash-25", 100),
-            CardanoTransaction::new("tx-hash-789", 25, 51, "block-hash-25", 100),
-            CardanoTransaction::new("tx-hash-duplicated-456", 25, 51, "block-hash-25", 100),
-        ];
-        let transactions_hashes: Vec<String> = transactions
-            .iter()
-            .map(|t| t.transaction_hash.clone())
-            .collect();
+    async fn filter_cardano_transactions_hashes() {
+        let transactions_hashes = vec!["tx-hash-123".to_string(), "tx-hash-456".to_string()];
 
-        let transactions_to_prove = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
-            CardanoTransaction::new("tx-hash-duplicated-456", 25, 51, "block-hash-25", 100),
-            CardanoTransaction::new("tx-hash-789", 25, 51, "block-hash-25", 100),
-        ];
+        let transactions_hash_filter = {
+            let mut transactions_hash_filter = MockTransactionsHashFilter::new();
+            transactions_hash_filter
+                .expect_apply()
+                .with(eq(transactions_hashes.clone()))
+                .once()
+                .return_once(|_t| vec!["tx-hash-123-returned".to_string()]);
+            transactions_hash_filter
+        };
 
-        let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
-        let prover = build_prover(
-            |transaction_retriever_mock| {
-                let transactions_hashes_to_prove: Vec<String> = transactions_to_prove
-                    .iter()
-                    .map(|t| t.transaction_hash.clone())
-                    .collect();
-                transaction_retriever_mock
-                    .expect_get_by_hashes()
-                    .withf(move |hashes, _| equivalent_to(hashes, &transactions_hashes_to_prove))
-                    .return_once(move |_, _| Ok(vec![]));
+        let transaction_retriever = {
+            let mut transaction_retriever = MockTransactionsRetriever::new();
+            transaction_retriever
+                .expect_get_by_hashes()
+                .withf(|transaction_hashes, _| {
+                    transaction_hashes == &vec!["tx-hash-123-returned".to_string()]
+                })
+                .return_once(move |_, _| Ok(vec![]));
 
-                transaction_retriever_mock
-                    .expect_get_by_block_ranges()
-                    .return_once(move |_| Ok(vec![]));
-            },
-            |block_range_root_retriever_mock| {
-                let block_ranges_map = test_data.block_ranges_map.clone();
-                block_range_root_retriever_mock
-                    .expect_compute_merkle_map_from_block_range_roots()
-                    .return_once(|_| {
-                        Ok(test_data::compute_mk_map_from_block_ranges_map(
-                            block_ranges_map,
-                        ))
-                    });
-            },
+            transaction_retriever
+                .expect_get_by_block_ranges()
+                .return_once(move |_| Ok(vec![]));
+
+            transaction_retriever
+        };
+
+        let block_range_root_retriever = {
+            let mut block_range_root_retriever = MockBlockRangeRootRetrieverImpl::new();
+
+            block_range_root_retriever
+                .expect_compute_merkle_map_from_block_range_roots()
+                .return_once(move |_| {
+                    Ok(test_data::compute_mk_map_from_block_ranges_map(
+                        transactions_group_by_block_range(&[]),
+                    ))
+                });
+            block_range_root_retriever
+        };
+
+        let prover = MithrilProverService::new_with_filter(
+            Arc::new(transaction_retriever),
+            Arc::new(block_range_root_retriever),
+            1,
+            slog_scope::logger(),
+            Box::new(transactions_hash_filter),
         );
 
-        prover.compute_cache(test_data.beacon).await.unwrap();
+        prover.compute_cache(123456).await.unwrap();
 
         prover
             .compute_transactions_proofs(99999, &transactions_hashes)
@@ -720,5 +742,74 @@ mod tests {
             .compute_transactions_proofs(test_data.beacon, &test_data.transaction_hashes_to_prove)
             .await
             .expect_err("Should have failed because of block range root retriever failure");
+    }
+
+    #[test]
+    fn transactions_hash_filter_to_prove_apply_remove_empty_hashes() {
+        let transactions_hashes = vec!["a".repeat(64), "".to_string(), "b".repeat(64)];
+
+        let filter = TransactionsHashFilterToProve {};
+
+        let valid_hashes = filter.apply(&transactions_hashes);
+
+        assert_equivalent(vec!["a".repeat(64), "b".repeat(64)], valid_hashes);
+    }
+
+    #[test]
+    fn transactions_hash_filter_to_prove_apply_deduplicate_hashes() {
+        let transactions_hashes = vec![
+            "a".repeat(64),
+            "b".repeat(64),
+            "b".repeat(64),
+            "c".repeat(64),
+            "b".repeat(64),
+        ];
+
+        let filter = TransactionsHashFilterToProve {};
+
+        let valid_hashes = filter.apply(&transactions_hashes);
+
+        assert_equivalent(
+            vec!["a".repeat(64), "b".repeat(64), "c".repeat(64)],
+            valid_hashes,
+        );
+    }
+
+    #[test]
+    fn transactions_hash_filter_to_prove_apply_keep_only_hash_that_have_a_size_of_64() {
+        let transactions_hashes = vec!["a".repeat(64), "b".repeat(65), "c".repeat(64)];
+
+        let filter = TransactionsHashFilterToProve {};
+
+        let valid_hashes = filter.apply(&transactions_hashes);
+
+        assert_equivalent(vec!["a".repeat(64), "c".repeat(64)], valid_hashes);
+    }
+
+    #[test]
+    fn transactions_hash_filter_to_prove_apply_keep_only_hexadecimal_characters() {
+        let transactions_hashes = vec![
+            "a".repeat(63) + "a",
+            "a".repeat(63) + "g",
+            "a".repeat(63) + "f",
+            "a".repeat(63) + "x",
+            "a".repeat(63) + ";",
+            "a".repeat(63) + " ",
+            "a".repeat(63) + "à",
+            "a".repeat(63) + "9",
+        ];
+
+        let filter = TransactionsHashFilterToProve {};
+
+        let valid_hashes = filter.apply(&transactions_hashes);
+
+        assert_equivalent(
+            vec![
+                "a".repeat(63) + "a",
+                "a".repeat(63) + "f",
+                "a".repeat(63) + "9",
+            ],
+            valid_hashes,
+        );
     }
 }
