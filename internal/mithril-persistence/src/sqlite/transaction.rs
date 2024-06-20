@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::sqlite::SqliteConnection;
 
 /// Sqlite transaction wrapper.
@@ -42,14 +40,6 @@ impl<'a> Transaction<'a> {
             self.connection.execute(command)?;
         }
         Ok(())
-    }
-}
-
-impl Deref for Transaction<'_> {
-    type Target = SqliteConnection;
-
-    fn deref(&self) -> &Self::Target {
-        self.connection
     }
 }
 

@@ -33,13 +33,6 @@ pub struct SqliteConnectionPool {
 }
 
 impl SqliteConnectionPool {
-    /// Create a new SqliteConnectionPool
-    pub async fn new(connections: Vec<SqlitePooledConnection>) -> Self {
-        let connection_pool = ResourcePool::new(connections.len(), connections);
-
-        Self { connection_pool }
-    }
-
     /// Create a new pool with the given size by calling the given builder function
     pub fn build(
         size: usize,

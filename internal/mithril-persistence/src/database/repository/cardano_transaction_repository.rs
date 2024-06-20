@@ -88,17 +88,10 @@ impl CardanoTransactionRepository {
         &self,
         transactions: Vec<T>,
     ) -> StdResult<Vec<CardanoTransactionRecord>> {
-        let records: Vec<CardanoTransactionRecord> =
-            transactions.into_iter().map(|tx| tx.into()).collect();
-
         let connection = self.connection_pool.connection()?;
-        let transaction = connection.begin_transaction()?;
-        let result = self
-            .create_transactions_with_connection(records, &transaction)
-            .await;
-        transaction.commit()?;
 
-        result
+        self.create_transactions_with_connection(transactions, &connection)
+            .await
     }
 
     /// Create new [CardanoTransactionRecord]s in the database.
@@ -120,13 +113,9 @@ impl CardanoTransactionRepository {
     ) -> StdResult<Vec<BlockRangeRootRecord>> {
         let records: Vec<BlockRangeRootRecord> =
             block_ranges.into_iter().map(|tx| tx.into()).collect();
-
         let connection = self.connection_pool.connection()?;
-        let transaction = connection.begin_transaction()?;
-        let result = transaction.fetch_collect(InsertBlockRangeRootQuery::insert_many(records)?);
-        transaction.commit()?;
 
-        result
+        connection.fetch_collect(InsertBlockRangeRootQuery::insert_many(records)?)
     }
 
     /// Get the highest [ChainPoint] of the cardano transactions stored in the database.
@@ -223,7 +212,7 @@ impl CardanoTransactionRepository {
             for transactions_in_chunk in transactions_in_db_transaction_chunk.chunks(100) {
                 self.create_transactions_with_connection(
                     transactions_in_chunk.to_vec(),
-                    &transaction,
+                    &connection,
                 )
                 .await
                 .with_context(|| "CardanoTransactionRepository can not store transactions")?;
@@ -291,9 +280,7 @@ impl CardanoTransactionRepository {
             let query = DeleteCardanoTransactionQuery::below_block_number_threshold(threshold)?;
 
             let connection = self.connection_pool.connection()?;
-            let transaction = connection.begin_transaction()?;
-            transaction.fetch_first(query)?;
-            transaction.commit()?;
+            connection.fetch_first(query)?;
         }
 
         Ok(())
@@ -310,11 +297,11 @@ impl CardanoTransactionRepository {
         let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;
         let query = DeleteCardanoTransactionQuery::above_block_number_threshold(block_number)?;
-        transaction.fetch_first(query)?;
+        connection.fetch_first(query)?;
 
         let query =
             DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(block_number)?;
-        transaction.fetch_first(query)?;
+        connection.fetch_first(query)?;
         transaction.commit()?;
 
         Ok(())
