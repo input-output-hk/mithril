@@ -167,7 +167,7 @@ impl<'a> ProductionServiceBuilder<'a> {
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
-    ) -> StdResult<Arc<SqliteConnection>> {
+    ) -> StdResult<SqliteConnection> {
         let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
         let connection = ConnectionBuilder::open_file(&sqlite_db_path)
             .with_node_type(ApplicationNodeType::Signer)
@@ -176,7 +176,7 @@ impl<'a> ProductionServiceBuilder<'a> {
             .build()
             .with_context(|| "Database connection initialisation error")?;
 
-        Ok(Arc::new(connection))
+        Ok(connection)
     }
 }
 
@@ -194,9 +194,10 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         }
 
         let network = self.config.get_network()?;
-        let sqlite_connection = self
-            .build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
-            .await?;
+        let sqlite_connection = Arc::new(
+            self.build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
+                .await?,
+        );
         let transaction_sqlite_connection = self
             .build_sqlite_connection(
                 SQLITE_FILE_CARDANO_TRANSACTION,

@@ -44,7 +44,7 @@ fn bench_store_transactions(c: &mut Criterion) {
     let mut group = c.benchmark_group("Store transactions");
     group.bench_function("store_transactions", |bencher| {
         bencher.to_async(&runtime).iter(|| async {
-            let connection = Arc::new(cardano_tx_db_connection());
+            let connection = cardano_tx_db_connection();
             let repository = CardanoTransactionRepository::new(Arc::new(
                 SqliteConnectionPool::from_connection(connection),
             ));

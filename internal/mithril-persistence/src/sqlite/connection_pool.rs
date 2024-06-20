@@ -1,24 +1,24 @@
-use std::{ops::Deref, sync::Arc, time::Duration};
+use std::{ops::Deref, time::Duration};
 
 use mithril_common::{
-    resource_pool::{Reset, ResourcePool},
+    resource_pool::{Reset, ResourcePool, ResourcePoolItem},
     StdResult,
 };
 
 use crate::sqlite::SqliteConnection;
 
 /// SqliteConnection wrapper for a pooled connection
-pub struct SqlitePooledConnection(Arc<SqliteConnection>);
+pub struct SqlitePooledConnection(SqliteConnection);
 
 impl SqlitePooledConnection {
     /// Create a new SqlitePooledConnection
-    pub fn new(connection: Arc<SqliteConnection>) -> Self {
+    pub fn new(connection: SqliteConnection) -> Self {
         Self(connection)
     }
 }
 
 impl Deref for SqlitePooledConnection {
-    type Target = Arc<SqliteConnection>;
+    type Target = SqliteConnection;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -46,9 +46,8 @@ impl SqliteConnectionPool {
         builder: impl Fn() -> StdResult<SqliteConnection>,
     ) -> StdResult<Self> {
         let mut connections: Vec<SqlitePooledConnection> = Vec::with_capacity(size);
-
         for _count in 0..size {
-            connections.push(SqlitePooledConnection::new(Arc::new(builder()?)));
+            connections.push(SqlitePooledConnection::new(builder()?));
         }
 
         Ok(Self {
@@ -57,15 +56,15 @@ impl SqliteConnectionPool {
     }
 
     /// Get a connection from the pool
-    pub fn connection(&self) -> StdResult<Arc<SqliteConnection>> {
+    pub fn connection(&self) -> StdResult<ResourcePoolItem<SqlitePooledConnection>> {
         let timeout = Duration::from_millis(1000);
         let connection = self.connection_pool.acquire_resource(timeout)?;
 
-        Ok((*connection).clone())
+        Ok(connection)
     }
 
     /// Returns a single resource pool connection
-    pub fn from_connection(connection: Arc<SqliteConnection>) -> Self {
+    pub fn from_connection(connection: SqliteConnection) -> Self {
         let connection_pool = ResourcePool::new(1, vec![SqlitePooledConnection::new(connection)]);
 
         Self { connection_pool }

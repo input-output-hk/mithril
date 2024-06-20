@@ -44,9 +44,7 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
 async fn init_db(nb_transaction_in_db: usize) -> CardanoTransactionRepository {
     println!("Generating a db with {nb_transaction_in_db} transactions, one per block ...");
     let transactions = generate_transactions(nb_transaction_in_db);
-    let connection = Arc::new(cardano_tx_db_connection(&format!(
-        "cardano_tx-{nb_transaction_in_db}.db",
-    )));
+    let connection = cardano_tx_db_connection(&format!("cardano_tx-{nb_transaction_in_db}.db",));
     let repository = CardanoTransactionRepository::new(Arc::new(
         SqliteConnectionPool::from_connection(connection),
     ));

@@ -435,7 +435,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_create_ignore_further_transactions_when_exists() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -464,7 +464,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_transactions_and_get_stored_transactions() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -507,7 +507,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_all_stored_transactions() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -532,7 +532,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_transactions_doesnt_erase_existing_data() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -570,7 +570,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transaction_highest_chain_point_without_transactions_in_db() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -584,7 +584,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transaction_highest_chain_point_with_transactions_in_db() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -615,7 +615,7 @@ mod tests {
     #[tokio::test]
     async fn repository_get_transaction_highest_chain_point_with_transactions_with_same_block_number_in_db(
     ) {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -646,7 +646,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transaction_highest_immutable_file_number_without_transactions_in_db() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -660,7 +660,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transaction_highest_immutable_file_number_with_transactions_in_db() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -683,7 +683,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transactions_in_range_blocks() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -737,7 +737,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_block_interval_without_block_range_root() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -772,7 +772,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_get_transactions_by_block_ranges() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -831,7 +831,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_block_range() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -873,7 +873,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_store_block_range_with_existing_hash_doesnt_erase_existing_data() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -905,7 +905,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_retrieve_block_range_roots_up_to() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -976,7 +976,7 @@ mod tests {
 
     #[tokio::test]
     async fn repository_prune_transactions() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -1028,7 +1028,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_highest_start_block_number_for_block_range_roots() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -1063,7 +1063,7 @@ mod tests {
 
     #[tokio::test]
     async fn find_block_scanner_lower_bound() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
@@ -1083,7 +1083,7 @@ mod tests {
 
     #[tokio::test]
     async fn remove_transactions_and_block_range_greater_than_given_block_number() {
-        let connection = Arc::new(cardano_tx_db_connection().unwrap());
+        let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::from_connection(connection),
         ));
