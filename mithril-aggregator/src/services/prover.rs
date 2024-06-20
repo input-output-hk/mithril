@@ -112,7 +112,11 @@ impl MithrilProverService {
     }
 
     fn filter_valid_hashes(&self, transaction_hashes: &[TransactionHash]) -> Vec<TransactionHash> {
-        let mut transaction_hashes = transaction_hashes.to_vec();
+        let mut transaction_hashes: Vec<TransactionHash> = transaction_hashes
+            .iter()
+            .filter(|hash| !hash.is_empty())
+            .cloned()
+            .collect();
         transaction_hashes.sort();
         transaction_hashes.dedup();
         transaction_hashes
@@ -368,6 +372,24 @@ mod tests {
             mk_map_pool_size,
             logger,
         )
+    }
+
+    #[test]
+    fn filter_valid_hashes_remove_empty_hashes() {
+        let transactions_hashes = vec![
+            "tx-hash-123".to_string(),
+            "".to_string(),
+            "tx-hash-789".to_string(),
+        ];
+
+        let mithril_service_prover = build_prover(|_| {}, |_| {});
+
+        let valid_hashes = mithril_service_prover.filter_valid_hashes(&transactions_hashes);
+
+        assert_equivalent(
+            vec!["tx-hash-123".to_string(), "tx-hash-789".to_string()],
+            valid_hashes,
+        );
     }
 
     #[tokio::test]
