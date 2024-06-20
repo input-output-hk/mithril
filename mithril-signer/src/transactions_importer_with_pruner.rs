@@ -51,7 +51,7 @@ impl TransactionsImporter for TransactionsImporterWithPruner {
         if let Some(number_of_blocks_to_keep) = self.number_of_blocks_to_keep {
             debug!(
                 self.logger,
-                "Transaction Import finished - Pruning transactions included in a block range roots";
+                "Transaction Import finished - Pruning transactions included in block range roots";
                 "number_of_blocks_to_keep" => number_of_blocks_to_keep,
             );
             self.transaction_pruner

@@ -15,7 +15,7 @@ pub trait HighestTransactionBlockNumberGetter: Send + Sync {
     async fn get(&self) -> StdResult<Option<BlockNumber>>;
 }
 
-/// A decorator of [TransactionsImporter] that do the import by chunks
+/// A decorator of [TransactionsImporter] that does the import by chunks
 pub struct TransactionsImporterByChunk {
     highest_transaction_block_number_getter: Arc<dyn HighestTransactionBlockNumberGetter>,
     wrapped_importer: Arc<dyn TransactionsImporter>,
