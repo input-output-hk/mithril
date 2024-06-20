@@ -21,6 +21,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Optimize the performances of the computation of the proof with a Merkle map.
   - Handle rollback events from the Cardano chain by removing stale data.
   - Preload Cardano transactions and Block Range Roots at signer & aggregator startup.
+  - Chunk the Cardano transactions import in `mithril-signer` to reduce disk footprint by running the pruning process more frequently.
 
 - Crates versions:
 

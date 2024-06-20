@@ -15,6 +15,7 @@ pub mod metrics;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
+mod transactions_importer_by_chunk;
 mod transactions_importer_with_pruner;
 
 #[cfg(test)]
@@ -29,6 +30,7 @@ pub use metrics::*;
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
 pub use single_signer::*;
+pub use transactions_importer_by_chunk::*;
 pub use transactions_importer_with_pruner::*;
 
 /// HTTP request timeout duration in milliseconds
