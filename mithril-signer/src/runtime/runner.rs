@@ -503,10 +503,10 @@ mod tests {
 
         #[async_trait]
         impl BlockRangeRootRetriever for BlockRangeRootRetrieverImpl {
-            async fn retrieve_block_range_roots(
-                &self,
+            async fn retrieve_block_range_roots<'a>(
+                &'a self,
                 up_to_beacon: BlockNumber,
-            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
+            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
 
             async fn compute_merkle_map_from_block_range_roots(
                 &self,

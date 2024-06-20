@@ -312,15 +312,14 @@ impl CardanoTransactionRepository {
 
 #[async_trait]
 impl BlockRangeRootRetriever for CardanoTransactionRepository {
-    async fn retrieve_block_range_roots(
-        &self,
+    async fn retrieve_block_range_roots<'a>(
+        &'a self,
         up_to_or_equal_beacon: BlockNumber,
-    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
         let iterator = self
             .retrieve_block_range_roots_up_to(up_to_or_equal_beacon)
-            .await?
-            .collect::<Vec<_>>() // TODO: remove this collect to return the iterator directly
-            .into_iter();
+            .await?;
+
         Ok(Box::new(iterator))
     }
 }
