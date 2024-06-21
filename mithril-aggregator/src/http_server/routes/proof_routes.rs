@@ -32,6 +32,11 @@ fn proof_cardano_transaction(
         .and(middlewares::with_signed_entity_service(
             dependency_manager.clone(),
         ))
+        .and(
+            middlewares::validators::with_prover_transations_hash_validator(
+                dependency_manager.clone(),
+            ),
+        )
         .and(middlewares::with_prover_service(dependency_manager))
         .and_then(handlers::proof_cardano_transaction)
 }
@@ -47,7 +52,7 @@ mod handlers {
     use warp::http::StatusCode;
 
     use crate::{
-        http_server::routes::reply,
+        http_server::{routes::reply, validators::ProverTransactionsHashValidator},
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
         services::{ProverService, SignedEntityService},
         unwrap_to_internal_server_error,
@@ -58,6 +63,7 @@ mod handlers {
     pub async fn proof_cardano_transaction(
         transaction_parameters: CardanoTransactionProofQueryParams,
         signed_entity_service: Arc<dyn SignedEntityService>,
+        validator: ProverTransactionsHashValidator,
         prover_service: Arc<dyn ProverService>,
     ) -> Result<impl warp::Reply, Infallible> {
         let transaction_hashes = transaction_parameters
@@ -69,6 +75,11 @@ mod handlers {
             "⇄ HTTP SERVER: proof_cardano_transaction?transaction_hashes={}",
             transaction_parameters.transaction_hashes
         );
+
+        if let Err(error) = validator.validate(&transaction_hashes) {
+            warn!("proof_cardano_transaction::bad_request");
+            return Ok(reply::bad_request(error.label, error.message));
+        }
 
         match unwrap_to_internal_server_error!(
             signed_entity_service
@@ -123,7 +134,7 @@ mod tests {
 
     use mithril_common::{
         entities::{CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity},
-        test_utils::apispec::APISpec,
+        test_utils::{apispec::APISpec, fake_data},
     };
 
     use crate::services::MockSignedEntityService;
@@ -199,7 +210,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes=tx-123,tx-456"
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
             ))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
@@ -228,7 +241,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes=tx-123,tx-456"
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
             ))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
@@ -262,7 +277,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes=tx-123,tx-456"
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
             ))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
@@ -275,6 +292,35 @@ mod tests {
             &Null,
             &response,
             &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_cardano_transaction_return_bad_request_with_invalid_hashes() {
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new(config);
+        let dependency_manager = builder.build_dependency_container().await.unwrap();
+
+        let method = Method::GET.as_str();
+        let path = "/proof/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes=invalid%3A%2F%2Fid,,tx-456"
+            ))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::BAD_REQUEST,
         )
         .unwrap();
     }
