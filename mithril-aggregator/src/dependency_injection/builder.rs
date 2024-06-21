@@ -1,6 +1,6 @@
 use anyhow::Context;
 use semver::Version;
-use slog::Logger;
+use slog::{info, Logger};
 use std::sync::Arc;
 use tokio::{
     sync::{
@@ -40,7 +40,10 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
-    sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection, SqliteConnectionPool},
+    sqlite::{
+        vacuum_database, ConnectionBuilder, ConnectionOptions, SqliteConnection,
+        SqliteConnectionPool,
+    },
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
 };
 
@@ -281,6 +284,7 @@ impl DependenciesBuilder {
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
+        do_vacuum_database: bool,
     ) -> Result<SqliteConnection> {
         let connection_builder = match self.configuration.environment {
             ExecutionEnvironment::Production => ConnectionBuilder::open_file(
@@ -297,19 +301,30 @@ impl DependenciesBuilder {
             ),
         };
 
+        let logger = self.get_logger()?;
         let connection = connection_builder
             .with_node_type(ApplicationNodeType::Aggregator)
             .with_options(&[
                 ConnectionOptions::EnableForeignKeys,
                 ConnectionOptions::EnableWriteAheadLog,
             ])
-            .with_logger(self.get_logger()?)
+            .with_logger(logger.clone())
             .with_migrations(migrations)
             .build()
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "SQLite initialization: failed to build connection.".to_string(),
                 error: Some(e),
             })?;
+
+        if do_vacuum_database {
+            info!(
+                logger,
+                "Vacuuming '{sqlite_file_name}', this may take a while..."
+            );
+            vacuum_database(&connection)
+                .with_context(|| "SQLite initialization: database vacuum error")?;
+            info!(logger, "SQLite '{sqlite_file_name}' vacuumed successfully");
+        }
 
         Ok(connection)
     }
@@ -332,6 +347,7 @@ impl DependenciesBuilder {
             self.sqlite_connection = Some(Arc::new(self.build_sqlite_connection(
                 SQLITE_FILE,
                 crate::database::migration::get_migrations(),
+                true,
             )?));
         }
 
@@ -349,10 +365,11 @@ impl DependenciesBuilder {
         let _connection = self.build_sqlite_connection(
             SQLITE_FILE_CARDANO_TRANSACTION,
             mithril_persistence::database::cardano_transaction_migration::get_migrations(),
+            true,
         )?;
 
         let connection_pool = Arc::new(SqliteConnectionPool::build(connection_pool_size, || {
-            self.build_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION, vec![])
+            self.build_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION, vec![], false)
                 .with_context(|| {
                     "Dependencies Builder can not build SQLite connection for Cardano transactions"
                 })
