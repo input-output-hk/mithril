@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{debug, trace, Logger};
 use tokio::sync::Mutex;
 
 use crate::cardano_block_scanner::BlockStreamer;
@@ -104,14 +104,14 @@ impl ChainReaderBlockStreamer {
         match chain_reader.get_next_chain_block().await? {
             Some(ChainBlockNextAction::RollForward { parsed_block }) => {
                 if parsed_block.block_number >= self.until {
-                    debug!(
+                    trace!(
                         self.logger,
                         "ChainReaderBlockStreamer received a RollForward above threshold block number ({})",
                         parsed_block.block_number
                     );
                     Ok(None)
                 } else {
-                    debug!(
+                    trace!(
                         self.logger,
                         "ChainReaderBlockStreamer received a RollForward below threshold block number ({})",
                         parsed_block.block_number
@@ -136,7 +136,7 @@ impl ChainReaderBlockStreamer {
                 Ok(Some(block_streamer_next_action))
             }
             None => {
-                debug!(self.logger, "ChainReaderBlockStreamer received nothing");
+                trace!(self.logger, "ChainReaderBlockStreamer received nothing");
                 Ok(None)
             }
         }
@@ -153,25 +153,63 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_expected_nothing_above_block_number_threshold() {
-        let logger = TestLogger::stdout();
+        let until_block_number = 10;
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new(
+                    "hash-1",
+                    until_block_number,
+                    100,
+                    1,
+                    Vec::<&str>::new(),
+                ),
+            },
+            ChainBlockNextAction::RollForward {
+                parsed_block: ScannedBlock::new(
+                    "hash-2",
+                    until_block_number,
+                    100,
+                    1,
+                    Vec::<&str>::new(),
+                ),
             },
         ])));
-        let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 1, logger.clone())
-                .await
-                .unwrap();
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader.clone(),
+            None,
+            until_block_number,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
+        assert_eq!(None, scanned_blocks);
 
-        assert_eq!(None, scanned_blocks,);
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader,
+            None,
+            until_block_number + 1,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
+
+        let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
+        assert_eq!(
+            Some(ChainScannedBlocks::RollForwards(vec![ScannedBlock::new(
+                "hash-2",
+                until_block_number,
+                100,
+                1,
+                Vec::<&str>::new(),
+            )])),
+            scanned_blocks
+        );
     }
 
     #[tokio::test]
     async fn test_parse_expected_multiple_rollforwards_below_block_number_threshold() {
-        let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
@@ -181,7 +219,7 @@ mod tests {
             },
         ])));
         let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 100, logger.clone())
+            ChainReaderBlockStreamer::try_new(chain_reader, None, 100, TestLogger::stdout())
                 .await
                 .unwrap();
 
@@ -198,7 +236,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_expected_maximum_rollforwards_retrieved_per_poll() {
-        let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
@@ -211,13 +248,12 @@ mod tests {
             },
         ])));
         let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 100, logger.clone())
+            ChainReaderBlockStreamer::try_new(chain_reader, None, 100, TestLogger::stdout())
                 .await
                 .unwrap();
         block_streamer.max_roll_forwards_per_poll = 2;
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
-
         assert_eq!(
             Some(ChainScannedBlocks::RollForwards(vec![
                 ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
@@ -225,11 +261,25 @@ mod tests {
             ])),
             scanned_blocks,
         );
+
+        let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
+        assert_eq!(
+            Some(ChainScannedBlocks::RollForwards(vec![ScannedBlock::new(
+                "hash-3",
+                3,
+                30,
+                1,
+                Vec::<&str>::new()
+            ),])),
+            scanned_blocks,
+        );
+
+        let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
+        assert_eq!(None, scanned_blocks);
     }
 
     #[tokio::test]
     async fn test_parse_expected_nothing_when_rollbackward_on_same_point() {
-        let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward {
                 rollback_point: ChainPoint::new(100, 10, "hash-123"),
@@ -239,27 +289,25 @@ mod tests {
             chain_reader,
             Some(ChainPoint::new(100, 10, "hash-123")),
             1,
-            logger.clone(),
+            TestLogger::stdout(),
         )
         .await
         .unwrap();
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
-
-        assert_eq!(None, scanned_blocks,);
+        assert_eq!(None, scanned_blocks);
     }
 
     #[tokio::test]
     async fn test_parse_expected_rollbackward_when_on_different_point_and_no_previous_rollforward()
     {
-        let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward {
                 rollback_point: ChainPoint::new(100, 10, "hash-123"),
             },
         ])));
         let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 1, logger.clone())
+            ChainReaderBlockStreamer::try_new(chain_reader, None, 1, TestLogger::stdout())
                 .await
                 .unwrap();
 
@@ -271,12 +319,14 @@ mod tests {
             ))),
             scanned_blocks,
         );
+
+        let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
+        assert_eq!(None, scanned_blocks);
     }
 
     #[tokio::test]
     async fn test_parse_expected_rollforward_when_rollbackward_on_different_point_and_have_previous_rollforwards(
     ) {
-        let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new("hash-8", 80, 8, 1, Vec::<&str>::new()),
@@ -289,7 +339,7 @@ mod tests {
             },
         ])));
         let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 1000, logger.clone())
+            ChainReaderBlockStreamer::try_new(chain_reader, None, 1000, TestLogger::stdout())
                 .await
                 .unwrap();
 
@@ -306,10 +356,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_parse_expected_nothing() {
-        let logger = TestLogger::stdout();
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![])));
         let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 1, logger.clone())
+            ChainReaderBlockStreamer::try_new(chain_reader, None, 1, TestLogger::stdout())
                 .await
                 .unwrap();
 
