@@ -45,7 +45,10 @@ pub struct ClientError {
 
 impl ClientError {
     /// ClientError factory
-    pub fn new(label: String, message: String) -> ClientError {
-        ClientError { label, message }
+    pub fn new<T1: Into<String>, T2: Into<String>>(label: T1, message: T2) -> ClientError {
+        ClientError {
+            label: label.into(),
+            message: message.into(),
+        }
     }
 }
