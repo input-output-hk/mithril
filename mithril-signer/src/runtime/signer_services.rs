@@ -205,7 +205,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             )
             .await?;
         let sqlite_connection_cardano_transaction_pool = Arc::new(
-            SqliteConnectionPool::from_connection(transaction_sqlite_connection),
+            SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),
         );
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());

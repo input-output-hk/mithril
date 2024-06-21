@@ -46,7 +46,7 @@ async fn init_db(nb_transaction_in_db: usize) -> CardanoTransactionRepository {
     let transactions = generate_transactions(nb_transaction_in_db);
     let connection = cardano_tx_db_connection(&format!("cardano_tx-{nb_transaction_in_db}.db",));
     let repository = CardanoTransactionRepository::new(Arc::new(
-        SqliteConnectionPool::from_connection(connection),
+        SqliteConnectionPool::build_from_connection(connection),
     ));
     repository.store_transactions(transactions).await.unwrap();
 

@@ -100,7 +100,7 @@ impl StateMachineTester {
             .await
             .unwrap();
         let sqlite_connection_cardano_transaction_pool = Arc::new(
-            SqliteConnectionPool::from_connection(transaction_sqlite_connection),
+            SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),
         );
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);

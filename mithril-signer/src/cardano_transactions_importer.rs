@@ -262,7 +262,7 @@ mod tests {
     async fn if_nothing_stored_parse_and_store_all_transactions() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         let blocks = vec![
@@ -296,7 +296,7 @@ mod tests {
     async fn if_nothing_stored_parse_and_store_all_block_ranges() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         let blocks = build_blocks(0, BlockRange::LENGTH * 5 + 1);
@@ -333,7 +333,7 @@ mod tests {
     async fn if_theres_gap_between_two_stored_block_ranges_it_can_still_compute_their_root() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         // Two block ranges with a gap
@@ -372,7 +372,7 @@ mod tests {
     async fn if_all_block_ranges_computed_nothing_computed_and_stored() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         let importer = CardanoTransactionsImporter::new_for_test(
@@ -397,7 +397,7 @@ mod tests {
         let up_to_block_number = 12;
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
         let scanner = DumbBlockScanner::new().forwards(vec![vec![
             ScannedBlock::new("block_hash-1", 10, 15, 10, vec!["tx_hash-1", "tx_hash-2"]),
@@ -426,7 +426,7 @@ mod tests {
     async fn if_half_transactions_are_already_stored_the_other_half_is_parsed_and_stored() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         let highest_stored_chain_point = ChainPoint::new(134, 10, "block_hash-1");
@@ -485,7 +485,7 @@ mod tests {
     async fn if_half_block_ranges_are_stored_the_other_half_is_computed_and_stored() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         let blocks = build_blocks(0, BlockRange::LENGTH * 4 + 1);
@@ -595,7 +595,7 @@ mod tests {
     async fn compute_block_range_merkle_root() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         // 2 block ranges worth of blocks with one more block that should be ignored for merkle root computation
@@ -648,7 +648,7 @@ mod tests {
 
         let (importer, repository) = {
             let connection = cardano_tx_db_connection().unwrap();
-            let connection_pool = Arc::new(SqliteConnectionPool::from_connection(connection));
+            let connection_pool = Arc::new(SqliteConnectionPool::build_from_connection(connection));
             let repository = Arc::new(CardanoTransactionRepository::new(connection_pool));
             let importer = CardanoTransactionsImporter::new_for_test(
                 Arc::new(DumbBlockScanner::new().forwards(vec![blocks.clone()])),
@@ -677,7 +677,7 @@ mod tests {
     async fn when_rollbackward_should_remove_transactions() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         let expected_remaining_transactions =
@@ -720,7 +720,7 @@ mod tests {
     async fn when_rollbackward_should_remove_block_ranges() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         )));
 
         let expected_remaining_block_ranges = vec![

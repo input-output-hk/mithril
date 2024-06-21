@@ -57,7 +57,7 @@ impl SqliteConnectionPool {
     }
 
     /// Returns a single resource pool connection
-    pub fn from_connection(connection: SqliteConnection) -> Self {
+    pub fn build_from_connection(connection: SqliteConnection) -> Self {
         let connection_pool = ResourcePool::new(1, vec![SqlitePooledConnection::new(connection)]);
 
         Self { connection_pool }

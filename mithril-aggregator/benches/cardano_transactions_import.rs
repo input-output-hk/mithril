@@ -46,7 +46,7 @@ fn bench_store_transactions(c: &mut Criterion) {
         bencher.to_async(&runtime).iter(|| async {
             let connection = cardano_tx_db_connection();
             let repository = CardanoTransactionRepository::new(Arc::new(
-                SqliteConnectionPool::from_connection(connection),
+                SqliteConnectionPool::build_from_connection(connection),
             ));
             repository.store_transactions(transactions.clone()).await
         });

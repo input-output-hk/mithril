@@ -445,7 +445,7 @@ mod tests {
     async fn repository_create_ignore_further_transactions_when_exists() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         repository
@@ -474,7 +474,7 @@ mod tests {
     async fn repository_store_transactions_and_get_stored_transactions() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let cardano_transactions = vec![
@@ -517,7 +517,7 @@ mod tests {
     async fn repository_get_all_stored_transactions() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let cardano_transactions = vec![
@@ -542,7 +542,7 @@ mod tests {
     async fn repository_store_transactions_doesnt_erase_existing_data() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         repository
@@ -580,7 +580,7 @@ mod tests {
     async fn repository_get_transaction_highest_chain_point_without_transactions_in_db() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let highest_beacon = repository
@@ -594,7 +594,7 @@ mod tests {
     async fn repository_get_transaction_highest_chain_point_with_transactions_in_db() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let cardano_transactions = vec![
@@ -625,7 +625,7 @@ mod tests {
     ) {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let cardano_transactions = vec![
@@ -656,7 +656,7 @@ mod tests {
     async fn repository_get_transaction_highest_immutable_file_number_without_transactions_in_db() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let highest_beacon = repository
@@ -670,7 +670,7 @@ mod tests {
     async fn repository_get_transaction_highest_immutable_file_number_with_transactions_in_db() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let cardano_transactions = vec![
@@ -693,7 +693,7 @@ mod tests {
     async fn repository_get_transactions_in_range_blocks() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let transactions = vec![
@@ -747,7 +747,7 @@ mod tests {
     async fn repository_get_block_interval_without_block_range_root() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         // The last block range give the lower bound
@@ -782,7 +782,7 @@ mod tests {
     async fn repository_get_transactions_by_block_ranges() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let transactions = vec![
@@ -841,7 +841,7 @@ mod tests {
     async fn repository_store_block_range() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         repository
@@ -883,7 +883,7 @@ mod tests {
     async fn repository_store_block_range_with_existing_hash_doesnt_erase_existing_data() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
         let range = BlockRange::from_block_number(0);
 
@@ -915,7 +915,7 @@ mod tests {
     async fn repository_retrieve_block_range_roots_up_to() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
         let block_range_roots = vec![
             (
@@ -986,7 +986,7 @@ mod tests {
     async fn repository_prune_transactions() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let cardano_transactions: Vec<CardanoTransactionRecord> = CardanoTransactionsBuilder::new()
@@ -1038,7 +1038,7 @@ mod tests {
     async fn get_highest_start_block_number_for_block_range_roots() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let highest = repository
@@ -1073,7 +1073,7 @@ mod tests {
     async fn find_block_scanner_lower_bound() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let cardano_transactions = vec![
@@ -1093,7 +1093,7 @@ mod tests {
     async fn remove_transactions_and_block_range_greater_than_given_block_number() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::from_connection(connection),
+            SqliteConnectionPool::build_from_connection(connection),
         ));
 
         let cardano_transactions = vec![
