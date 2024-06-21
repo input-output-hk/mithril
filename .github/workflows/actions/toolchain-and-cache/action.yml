@@ -21,14 +21,16 @@ runs:
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
       with:
+        # only save the cache on the main branch to limit github actions total cache size
+        save-if: ${{ github.ref == 'refs/heads/main' }}
         key: ${{ runner.os }}-cache-v${{ inputs.cache-version }}
-    
+
     - name: Install cargo tools installer
       uses: taiki-e/install-action@v2
       if: inputs.cargo-tools != ''
       with:
         tool: cargo-binstall
-    
+
     - name: Install cargo tools
       if: inputs.cargo-tools != ''
       shell: bash
