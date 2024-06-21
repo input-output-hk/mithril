@@ -55,13 +55,28 @@ trait TransactionsHashFilter: Sync + Send {
     fn apply(&self, transaction_hashes: &[TransactionHash]) -> Vec<TransactionHash>;
 }
 
-struct TransactionsHashFilterToProve {}
+struct TransactionsHashFilterToProve {
+    max_hashes: usize,
+}
+
+impl TransactionsHashFilterToProve {
+    pub fn new(max_hashes: usize) -> Self {
+        Self { max_hashes }
+    }
+}
+
+impl Default for TransactionsHashFilterToProve {
+    fn default() -> Self {
+        Self::new(usize::MAX)
+    }
+}
 
 impl TransactionsHashFilter for TransactionsHashFilterToProve {
     fn apply(&self, transaction_hashes: &[TransactionHash]) -> Vec<TransactionHash> {
         let mut transaction_hashes: Vec<TransactionHash> = transaction_hashes
             .iter()
             .filter(|hash| hash.len() == 64 && hash.chars().all(|c| c.is_ascii_hexdigit()))
+            .take(self.max_hashes)
             .cloned()
             .collect();
         transaction_hashes.sort();
@@ -81,18 +96,24 @@ pub struct MithrilProverService {
 
 impl MithrilProverService {
     /// Create a new Mithril prover
+    ///
+    /// The parameter `max_computable_transactions_hashes` corresponds to the maximum number
+    /// of transactions hashes that can be computed by [Self::compute_transactions_proofs].
     pub fn new(
         transaction_retriever: Arc<dyn TransactionsRetriever>,
         block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
         mk_map_pool_size: usize,
         logger: Logger,
+        max_computable_transactions_hashes: usize,
     ) -> Self {
         Self::new_with_filter(
             transaction_retriever,
             block_range_root_retriever,
             mk_map_pool_size,
             logger,
-            Box::new(TransactionsHashFilterToProve {}),
+            Box::new(TransactionsHashFilterToProve::new(
+                max_computable_transactions_hashes,
+            )),
         )
     }
 
@@ -747,8 +768,7 @@ mod tests {
     #[test]
     fn transactions_hash_filter_to_prove_apply_remove_empty_hashes() {
         let transactions_hashes = vec!["a".repeat(64), "".to_string(), "b".repeat(64)];
-
-        let filter = TransactionsHashFilterToProve {};
+        let filter = TransactionsHashFilterToProve::default();
 
         let valid_hashes = filter.apply(&transactions_hashes);
 
@@ -764,8 +784,7 @@ mod tests {
             "c".repeat(64),
             "b".repeat(64),
         ];
-
-        let filter = TransactionsHashFilterToProve {};
+        let filter = TransactionsHashFilterToProve::default();
 
         let valid_hashes = filter.apply(&transactions_hashes);
 
@@ -778,8 +797,7 @@ mod tests {
     #[test]
     fn transactions_hash_filter_to_prove_apply_keep_only_hash_that_have_a_size_of_64() {
         let transactions_hashes = vec!["a".repeat(64), "b".repeat(65), "c".repeat(64)];
-
-        let filter = TransactionsHashFilterToProve {};
+        let filter = TransactionsHashFilterToProve::default();
 
         let valid_hashes = filter.apply(&transactions_hashes);
 
@@ -798,8 +816,7 @@ mod tests {
             "a".repeat(63) + "à",
             "a".repeat(63) + "9",
         ];
-
-        let filter = TransactionsHashFilterToProve {};
+        let filter = TransactionsHashFilterToProve::default();
 
         let valid_hashes = filter.apply(&transactions_hashes);
 
@@ -811,5 +828,32 @@ mod tests {
             ],
             valid_hashes,
         );
+    }
+
+    #[test]
+    fn transactions_hash_filter_to_prove_apply_with_limit_on_transactions_hashes_number() {
+        let transactions_hashes = vec!["a".repeat(64), "b".repeat(64), "c".repeat(64)];
+        let filter = TransactionsHashFilterToProve::new(2);
+
+        let valid_hashes = filter.apply(&transactions_hashes);
+
+        assert_equivalent(vec!["a".repeat(64), "b".repeat(64)], valid_hashes);
+    }
+
+    #[test]
+    fn transactions_hash_filter_to_prove_apply_with_limit_on_transactions_hashes_number_only_on_valid_hashes(
+    ) {
+        let transactions_hashes = vec![
+            "zz".to_string(),
+            "a".repeat(64),
+            "xx".to_string(),
+            "b".repeat(64),
+            "c".repeat(64),
+        ];
+        let filter = TransactionsHashFilterToProve::new(2);
+
+        let valid_hashes = filter.apply(&transactions_hashes);
+
+        assert_equivalent(vec!["a".repeat(64), "b".repeat(64)], valid_hashes);
     }
 }

@@ -75,6 +75,7 @@ use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
+const PROVER_MAX_COMPUTABLE_TRANSACTIONS_HASHES: usize = 100;
 
 /// ## Dependencies container builder
 ///
@@ -1431,6 +1432,7 @@ impl DependenciesBuilder {
             block_range_root_retriever,
             mk_map_pool_size,
             logger,
+            PROVER_MAX_COMPUTABLE_TRANSACTIONS_HASHES,
         );
 
         Ok(Arc::new(prover_service))
