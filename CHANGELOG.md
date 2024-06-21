@@ -22,6 +22,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Handle rollback events from the Cardano chain by removing stale data.
   - Preload Cardano transactions and Block Range Roots at signer & aggregator startup.
   - Chunk the Cardano transactions import in `mithril-signer` to reduce disk footprint by running the pruning process more frequently.
+  - Add a database connection pool on the Cardano transaction repository for increased performances of the prover.
 
 - Crates versions:
 

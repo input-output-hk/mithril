@@ -519,7 +519,7 @@ mod tests {
             let multi_signer = dependency_builder.get_multi_signer().await.unwrap();
             let ticker_service = dependency_builder.get_ticker_service().await.unwrap();
             let epoch_service = dependency_builder.get_epoch_service().await.unwrap();
-            let logger = dependency_builder.get_logger().await.unwrap();
+            let logger = dependency_builder.get_logger().unwrap();
 
             Self::new(
                 network,

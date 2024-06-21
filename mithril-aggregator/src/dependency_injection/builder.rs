@@ -40,7 +40,7 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
-    sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection},
+    sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection, SqliteConnectionPool},
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
 };
 
@@ -97,8 +97,8 @@ pub struct DependenciesBuilder {
     /// SQLite database connection
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
 
-    /// Cardano transactions SQLite database connection
-    pub transaction_sqlite_connection: Option<Arc<SqliteConnection>>,
+    /// Cardano transactions SQLite database connection pool
+    pub sqlite_connection_cardano_transaction_pool: Option<Arc<SqliteConnectionPool>>,
 
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
@@ -226,7 +226,7 @@ impl DependenciesBuilder {
             configuration,
             signed_entity_config: None,
             sqlite_connection: None,
-            transaction_sqlite_connection: None,
+            sqlite_connection_cardano_transaction_pool: None,
             stake_store: None,
             snapshot_uploader: None,
             multi_signer: None,
@@ -277,11 +277,11 @@ impl DependenciesBuilder {
         Ok(self.signed_entity_config.clone().unwrap())
     }
 
-    async fn build_sqlite_connection(
+    fn build_sqlite_connection(
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
-    ) -> Result<Arc<SqliteConnection>> {
+    ) -> Result<SqliteConnection> {
         let connection_builder = match self.configuration.environment {
             ExecutionEnvironment::Production => ConnectionBuilder::open_file(
                 &self.configuration.get_sqlite_dir().join(sqlite_file_name),
@@ -303,7 +303,7 @@ impl DependenciesBuilder {
                 ConnectionOptions::EnableForeignKeys,
                 ConnectionOptions::EnableWriteAheadLog,
             ])
-            .with_logger(self.get_logger().await?)
+            .with_logger(self.get_logger()?)
             .with_migrations(migrations)
             .build()
             .map_err(|e| DependenciesBuilderError::Initialization {
@@ -311,7 +311,7 @@ impl DependenciesBuilder {
                 error: Some(e),
             })?;
 
-        Ok(Arc::new(connection))
+        Ok(connection)
     }
 
     async fn drop_sqlite_connections(&self) {
@@ -319,42 +319,61 @@ impl DependenciesBuilder {
             let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
         }
 
-        if let Some(connection) = &self.transaction_sqlite_connection {
-            let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
+        if let Some(pool) = &self.sqlite_connection_cardano_transaction_pool {
+            if let Ok(connection) = pool.connection() {
+                let _ = connection.execute("pragma analysis_limit=400; pragma optimize;");
+            }
         }
     }
 
     /// Get SQLite connection
     pub async fn get_sqlite_connection(&mut self) -> Result<Arc<SqliteConnection>> {
         if self.sqlite_connection.is_none() {
-            self.sqlite_connection = Some(
-                self.build_sqlite_connection(
-                    SQLITE_FILE,
-                    crate::database::migration::get_migrations(),
-                )
-                .await?,
-            );
+            self.sqlite_connection = Some(Arc::new(self.build_sqlite_connection(
+                SQLITE_FILE,
+                crate::database::migration::get_migrations(),
+            )?));
         }
 
         Ok(self.sqlite_connection.as_ref().cloned().unwrap())
     }
 
-    /// Get SQLite connection for the cardano transactions store
-    pub async fn get_sqlite_connection_cardano_transaction(
+    async fn build_sqlite_connection_cardano_transaction_pool(
         &mut self,
-    ) -> Result<Arc<SqliteConnection>> {
-        if self.transaction_sqlite_connection.is_none() {
-            self.transaction_sqlite_connection = Some(
-                self.build_sqlite_connection(
-                    SQLITE_FILE_CARDANO_TRANSACTION,
-                    mithril_persistence::database::cardano_transaction_migration::get_migrations(),
-                )
-                .await?,
+    ) -> Result<Arc<SqliteConnectionPool>> {
+        let connection_pool_size = self
+            .configuration
+            .cardano_transactions_database_connection_pool_size;
+        // little hack to apply migrations to the cardano transaction database
+        // todo: add capacity to create a connection pool to the `ConnectionBuilder`
+        let _connection = self.build_sqlite_connection(
+            SQLITE_FILE_CARDANO_TRANSACTION,
+            mithril_persistence::database::cardano_transaction_migration::get_migrations(),
+        )?;
+
+        let connection_pool = Arc::new(SqliteConnectionPool::build(connection_pool_size, || {
+            self.build_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION, vec![])
+                .with_context(|| {
+                    "Dependencies Builder can not build SQLite connection for Cardano transactions"
+                })
+        })?);
+
+        Ok(connection_pool)
+    }
+
+    /// Get SQLite connection pool for the cardano transactions store
+    pub async fn get_sqlite_connection_cardano_transaction_pool(
+        &mut self,
+    ) -> Result<Arc<SqliteConnectionPool>> {
+        if self.sqlite_connection_cardano_transaction_pool.is_none() {
+            self.sqlite_connection_cardano_transaction_pool = Some(
+                self.build_sqlite_connection_cardano_transaction_pool()
+                    .await?,
             );
         }
 
         Ok(self
-            .transaction_sqlite_connection
+            .sqlite_connection_cardano_transaction_pool
             .as_ref()
             .cloned()
             .unwrap())
@@ -646,7 +665,7 @@ impl DependenciesBuilder {
             &self.configuration.data_stores_directory,
             &format!("immutables_digests_{}.json", self.configuration.network),
         )
-        .with_logger(self.get_logger().await?)
+        .with_logger(self.get_logger()?)
         .should_reset_digests_cache(self.configuration.reset_digests_cache)
         .build()
         .await?;
@@ -665,19 +684,20 @@ impl DependenciesBuilder {
         Ok(self.immutable_cache_provider.as_ref().cloned().unwrap())
     }
 
-    async fn create_logger(&self) -> Result<Logger> {
+    fn create_logger(&self) -> Result<Logger> {
         Ok(slog_scope::logger())
     }
 
     /// This method does not cache the logger since it is managed internally by
     /// its own crate.
-    pub async fn get_logger(&self) -> Result<Logger> {
-        self.create_logger().await
+    pub fn get_logger(&self) -> Result<Logger> {
+        self.create_logger()
     }
 
     async fn build_transaction_repository(&mut self) -> Result<Arc<CardanoTransactionRepository>> {
         let transaction_store = CardanoTransactionRepository::new(
-            self.get_sqlite_connection_cardano_transaction().await?,
+            self.get_sqlite_connection_cardano_transaction_pool()
+                .await?,
         );
 
         Ok(Arc::new(transaction_store))
@@ -696,7 +716,7 @@ impl DependenciesBuilder {
 
     async fn build_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
         let block_scanner = CardanoBlockScanner::new(
-            self.get_logger().await?,
+            self.get_logger()?,
             self.configuration
                 .get_network()?
                 .compute_allow_unparsable_block(self.configuration.allow_unparsable_block)?,
@@ -722,8 +742,7 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
             _ => None,
         };
-        let digester =
-            CardanoImmutableDigester::new(immutable_digester_cache, self.get_logger().await?);
+        let digester = CardanoImmutableDigester::new(immutable_digester_cache, self.get_logger()?);
 
         Ok(Arc::new(digester))
     }
@@ -777,7 +796,7 @@ impl DependenciesBuilder {
 
     async fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
         let verifier = Arc::new(MithrilCertificateVerifier::new(
-            self.get_logger().await?,
+            self.get_logger()?,
             self.get_certificate_repository().await?,
         ));
 
@@ -1035,14 +1054,14 @@ impl DependenciesBuilder {
         let immutable_signable_builder = Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
             self.get_immutable_digester().await?,
             &self.configuration.db_directory,
-            self.get_logger().await?,
+            self.get_logger()?,
         ));
         let transactions_importer = self.get_transactions_importer().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transactions_importer,
             block_range_root_retriever,
-            self.get_logger().await?,
+            self.get_logger()?,
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_builder,
@@ -1171,7 +1190,7 @@ impl DependenciesBuilder {
             self.get_block_scanner().await?,
             self.get_transaction_repository().await?,
             &self.configuration.db_directory,
-            self.get_logger().await?,
+            self.get_logger()?,
         ));
 
         Ok(transactions_importer)
@@ -1191,7 +1210,9 @@ impl DependenciesBuilder {
             config: self.configuration.clone(),
             signed_entity_config: self.get_signed_entity_config()?,
             sqlite_connection: self.get_sqlite_connection().await?,
-            sqlite_connection_transaction: self.get_sqlite_connection_cardano_transaction().await?,
+            sqlite_connection_cardano_transaction_pool: self
+                .get_sqlite_connection_cardano_transaction_pool()
+                .await?,
             stake_store: self.get_stake_store().await?,
             snapshot_uploader: self.get_snapshot_uploader().await?,
             multi_signer: self.get_multi_signer().await?,
@@ -1280,7 +1301,7 @@ impl DependenciesBuilder {
                 .cardano_transactions_signing_config
                 .security_parameter,
             self.get_chain_observer().await?,
-            self.get_logger().await?,
+            self.get_logger()?,
         );
 
         Ok(Arc::new(cardano_transactions_preloader))
@@ -1352,7 +1373,7 @@ impl DependenciesBuilder {
         let multi_signer = self.get_multi_signer().await?;
         let ticker_service = self.get_ticker_service().await?;
         let epoch_service = self.get_epoch_service().await?;
-        let logger = self.get_logger().await?;
+        let logger = self.get_logger()?;
 
         Ok(Arc::new(MithrilCertifierService::new(
             cardano_network,
@@ -1404,7 +1425,7 @@ impl DependenciesBuilder {
             .cardano_transactions_prover_cache_pool_size;
         let transaction_retriever = self.get_transaction_repository().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
-        let logger = self.get_logger().await?;
+        let logger = self.get_logger()?;
         let prover_service = MithrilProverService::new(
             transaction_retriever,
             block_range_root_retriever,

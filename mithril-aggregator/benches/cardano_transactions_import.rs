@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use mithril_common::{entities::CardanoTransaction, test_utils::TempDir};
 use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::sqlite::ConnectionBuilder;
+use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
 
 fn cardano_tx_db_connection() -> ConnectionThreadSafe {
     let db_path =
@@ -44,8 +44,10 @@ fn bench_store_transactions(c: &mut Criterion) {
     let mut group = c.benchmark_group("Store transactions");
     group.bench_function("store_transactions", |bencher| {
         bencher.to_async(&runtime).iter(|| async {
-            let connection = Arc::new(cardano_tx_db_connection());
-            let repository = CardanoTransactionRepository::new(connection);
+            let connection = cardano_tx_db_connection();
+            let repository = CardanoTransactionRepository::new(Arc::new(
+                SqliteConnectionPool::build_from_connection(connection),
+            ));
             repository.store_transactions(transactions.clone()).await
         });
     });

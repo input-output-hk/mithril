@@ -25,7 +25,10 @@ use mithril_common::{
     MithrilTickerService, StdError, TickerService,
 };
 use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
+use mithril_persistence::{
+    sqlite::SqliteConnectionPool,
+    store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
+};
 
 use mithril_signer::{
     metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MetricsService,
@@ -96,6 +99,9 @@ impl StateMachineTester {
             )
             .await
             .unwrap();
+        let sqlite_connection_cardano_transaction_pool = Arc::new(
+            SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),
+        );
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
@@ -163,7 +169,7 @@ impl StateMachineTester {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let block_scanner = Arc::new(DumbBlockScanner::new());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            transaction_sqlite_connection,
+            sqlite_connection_cardano_transaction_pool,
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner.clone(),

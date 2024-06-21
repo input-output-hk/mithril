@@ -1,3 +1,4 @@
+use mithril_persistence::sqlite::SqliteConnectionPool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -55,8 +56,8 @@ pub struct DependencyContainer {
     /// services. Should be a private dependency.
     pub sqlite_connection: Arc<SqliteConnection>,
 
-    /// SQLite database connection for Cardano transactions
-    pub sqlite_connection_transaction: Arc<SqliteConnection>,
+    /// Cardano transactions SQLite database connection pool
+    pub sqlite_connection_cardano_transaction_pool: Arc<SqliteConnectionPool>,
 
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.

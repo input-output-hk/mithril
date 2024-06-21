@@ -24,7 +24,7 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
-    sqlite::{ConnectionBuilder, SqliteConnection},
+    sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool},
     store::{adapter::SQLiteAdapter, StakeStore},
 };
 
@@ -167,7 +167,7 @@ impl<'a> ProductionServiceBuilder<'a> {
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
-    ) -> StdResult<Arc<SqliteConnection>> {
+    ) -> StdResult<SqliteConnection> {
         let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
         let connection = ConnectionBuilder::open_file(&sqlite_db_path)
             .with_node_type(ApplicationNodeType::Signer)
@@ -176,7 +176,7 @@ impl<'a> ProductionServiceBuilder<'a> {
             .build()
             .with_context(|| "Database connection initialisation error")?;
 
-        Ok(Arc::new(connection))
+        Ok(connection)
     }
 }
 
@@ -194,15 +194,19 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         }
 
         let network = self.config.get_network()?;
-        let sqlite_connection = self
-            .build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
-            .await?;
+        let sqlite_connection = Arc::new(
+            self.build_sqlite_connection(SQLITE_FILE, crate::database::migration::get_migrations())
+                .await?,
+        );
         let transaction_sqlite_connection = self
             .build_sqlite_connection(
                 SQLITE_FILE_CARDANO_TRANSACTION,
                 mithril_persistence::database::cardano_transaction_migration::get_migrations(),
             )
             .await?;
+        let sqlite_connection_cardano_transaction_pool = Arc::new(
+            SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),
+        );
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
@@ -262,7 +266,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            transaction_sqlite_connection,
+            sqlite_connection_cardano_transaction_pool,
         ));
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             slog_scope::logger(),

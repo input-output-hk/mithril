@@ -6,7 +6,7 @@ use sqlite::ConnectionThreadSafe;
 use mithril_aggregator::services::TransactionStore;
 use mithril_common::{entities::CardanoTransaction, test_utils::TempDir};
 use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::sqlite::ConnectionBuilder;
+use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
 
 fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
     let db_path =
@@ -44,10 +44,10 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
 async fn init_db(nb_transaction_in_db: usize) -> CardanoTransactionRepository {
     println!("Generating a db with {nb_transaction_in_db} transactions, one per block ...");
     let transactions = generate_transactions(nb_transaction_in_db);
-    let connection = Arc::new(cardano_tx_db_connection(&format!(
-        "cardano_tx-{nb_transaction_in_db}.db",
-    )));
-    let repository = CardanoTransactionRepository::new(connection);
+    let connection = cardano_tx_db_connection(&format!("cardano_tx-{nb_transaction_in_db}.db",));
+    let repository = CardanoTransactionRepository::new(Arc::new(
+        SqliteConnectionPool::build_from_connection(connection),
+    ));
     repository.store_transactions(transactions).await.unwrap();
 
     repository
