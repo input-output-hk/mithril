@@ -16,6 +16,13 @@ pub struct RootRouteMessage {
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct AggregatorCapabilities {
     pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cardano_transactions_prover: Option<CardanoTransactionsProverCapabilities>,
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+pub struct CardanoTransactionsProverCapabilities {
+    max_hashes_allowed_by_request: usize,
 }
 
 pub fn routes(
@@ -32,7 +39,10 @@ fn root(
         .and(middlewares::with_api_version_provider(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_signed_entity_config(dependency_manager))
+        .and(middlewares::with_signed_entity_config(
+            dependency_manager.clone(),
+        ))
+        .and(middlewares::with_config(dependency_manager))
         .and_then(handlers::root)
 }
 
@@ -43,16 +53,19 @@ mod handlers {
     use warp::http::StatusCode;
 
     use mithril_common::api_version::APIVersionProvider;
-    use mithril_common::entities::SignedEntityConfig;
+    use mithril_common::entities::{SignedEntityConfig, SignedEntityTypeDiscriminants};
 
     use crate::http_server::routes::reply::json;
-    use crate::http_server::routes::root_routes::{AggregatorCapabilities, RootRouteMessage};
-    use crate::unwrap_to_internal_server_error;
+    use crate::http_server::routes::root_routes::{
+        AggregatorCapabilities, CardanoTransactionsProverCapabilities, RootRouteMessage,
+    };
+    use crate::{unwrap_to_internal_server_error, Configuration};
 
     /// Root
     pub async fn root(
         api_version_provider: Arc<APIVersionProvider>,
         signed_entity_config: SignedEntityConfig,
+        configuration: Configuration,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: root");
 
@@ -61,13 +74,23 @@ mod handlers {
             "root::error"
         );
 
+        let signed_entity_types =
+            signed_entity_config.list_allowed_signed_entity_types_discriminants();
+
+        let cardano_transactions_prover_capabilities = signed_entity_types
+            .contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
+            .then_some(CardanoTransactionsProverCapabilities {
+                max_hashes_allowed_by_request: configuration
+                    .cardano_transactions_prover_max_hashes_allowed_by_request,
+            });
+
         Ok(json(
             &RootRouteMessage {
                 open_api_version: open_api_version.to_string(),
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
                 capabilities: AggregatorCapabilities {
-                    signed_entity_types: signed_entity_config
-                        .list_allowed_signed_entity_types_discriminants(),
+                    signed_entity_types,
+                    cardano_transactions_prover: cardano_transactions_prover_capabilities,
                 },
             },
             StatusCode::OK,
@@ -113,7 +136,7 @@ mod tests {
             .allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            SignedEntityTypeDiscriminants::CardanoTransactions,
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution,
         ]);
         let expected_open_api_version = dependency_manager
             .api_version_provider
@@ -139,12 +162,55 @@ mod tests {
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
                 capabilities: AggregatorCapabilities {
                     signed_entity_types: BTreeSet::from_iter([
-                        SignedEntityTypeDiscriminants::CardanoTransactions,
+                        SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                         SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                         SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                    ])
-                }
+                    ]),
+                    cardano_transactions_prover: None
+                },
             }
+        );
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_root_route_ok_with_cardano_transactions_prover_capabilities() {
+        let method = Method::GET.as_str();
+        let path = "/";
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager
+            .signed_entity_config
+            .allowed_discriminants =
+            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]);
+        dependency_manager
+            .config
+            .cardano_transactions_prover_max_hashes_allowed_by_request = 99;
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        let response_body: RootRouteMessage = serde_json::from_slice(response.body()).unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        assert_eq!(
+            response_body.capabilities.cardano_transactions_prover,
+            Some(CardanoTransactionsProverCapabilities {
+                max_hashes_allowed_by_request: 99
+            })
         );
 
         APISpec::verify_conformity(
