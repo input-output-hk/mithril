@@ -120,10 +120,11 @@ pub mod validators {
 
     /// With Prover Transactions Hash Validator
     pub fn with_prover_transations_hash_validator(
-        _dependency_manager: Arc<DependencyContainer>,
+        dependency_manager: Arc<DependencyContainer>,
     ) -> impl Filter<Extract = (ProverTransactionsHashValidator,), Error = Infallible> + Clone {
-        // Todo: get this value from the configuration
-        let max_hashes = 100;
+        let max_hashes = dependency_manager
+            .config
+            .cardano_transactions_prover_max_hashes_allowed_by_request;
 
         warp::any().map(move || ProverTransactionsHashValidator::new(max_hashes))
     }
