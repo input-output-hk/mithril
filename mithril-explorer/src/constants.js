@@ -9,4 +9,7 @@ export const signedEntityType = {
 
 export const defaultAggregatorCapabilities = {
   signed_entity_types: [],
+  cardano_transactions_prover: {
+    max_hashes_allowed_by_request: 100,
+  },
 };
