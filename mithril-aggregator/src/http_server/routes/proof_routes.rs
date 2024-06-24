@@ -66,7 +66,7 @@ mod handlers {
         validator: ProverTransactionsHashValidator,
         prover_service: Arc<dyn ProverService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let transaction_hashes = transaction_parameters
+        let mut transaction_hashes = transaction_parameters
             .split_transactions_hashes()
             .iter()
             .map(|s| s.to_string())
@@ -80,6 +80,9 @@ mod handlers {
             warn!("proof_cardano_transaction::bad_request");
             return Ok(reply::bad_request(error.label, error.message));
         }
+
+        transaction_hashes.sort();
+        transaction_hashes.dedup();
 
         match unwrap_to_internal_server_error!(
             signed_entity_service
@@ -321,6 +324,57 @@ mod tests {
             &Null,
             &response,
             &StatusCode::BAD_REQUEST,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_cardano_transaction_route_deduplicate_hashes() {
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new(config);
+        let mut dependency_manager = builder.build_dependency_container().await.unwrap();
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_last_cardano_transaction_snapshot()
+            .returning(|| Ok(Some(SignedEntity::<CardanoTransactionsSnapshot>::dummy())));
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+
+        let mut mock_prover_service = MockProverService::new();
+        mock_prover_service
+            .expect_compute_transactions_proofs()
+            .withf(|_, transaction_hashes| {
+                transaction_hashes.len() == 2
+                    && transaction_hashes.contains(&fake_data::transaction_hashes()[0].to_string())
+                    && transaction_hashes.contains(&fake_data::transaction_hashes()[1].to_string())
+            })
+            .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
+        dependency_manager.prover_service = Arc::new(mock_prover_service);
+
+        let method = Method::GET.as_str();
+        let path = "/proof/cardano-transaction";
+
+        // We are testing on an unordered list of transaction hashes
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{},{},{},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1],
+                fake_data::transaction_hashes()[1],
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
+            ))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::OK,
         )
         .unwrap();
     }
