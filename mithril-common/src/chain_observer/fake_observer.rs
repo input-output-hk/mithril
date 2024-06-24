@@ -78,6 +78,36 @@ impl FakeObserver {
             .map(|b| b.chain_point.block_number)
     }
 
+    /// Increase the slot number of the [current_time_point][`FakeObserver::current_time_point`] by
+    /// the given increment.
+    pub async fn increase_slot_number(&self, increment: SlotNumber) -> Option<SlotNumber> {
+        self.change_slot_number(|actual_slot_number| actual_slot_number + increment)
+            .await
+    }
+
+    /// Decrease the slot number of the [current_time_point][`FakeObserver::current_time_point`] by
+    /// the given decrement.
+    pub async fn decrease_slot_number(&self, decrement: SlotNumber) -> Option<SlotNumber> {
+        self.change_slot_number(|actual_slot_number| actual_slot_number - decrement)
+            .await
+    }
+
+    async fn change_slot_number(&self, change_to_apply: impl Fn(u64) -> u64) -> Option<SlotNumber> {
+        let mut current_time_point = self.current_time_point.write().await;
+
+        *current_time_point = current_time_point.as_ref().map(|time_point| TimePoint {
+            chain_point: ChainPoint {
+                slot_number: change_to_apply(time_point.chain_point.slot_number),
+                ..time_point.chain_point.clone()
+            },
+            ..time_point.clone()
+        });
+
+        current_time_point
+            .as_ref()
+            .map(|b| b.chain_point.slot_number)
+    }
+
     /// Set the signers that will use to compute the result of
     /// [get_current_stake_distribution][ChainObserver::get_current_stake_distribution].
     pub async fn set_signers(&self, new_signers: Vec<SignerWithStake>) {
@@ -256,6 +286,50 @@ mod tests {
         assert_eq!(
             Some(ChainPoint {
                 block_number: 200,
+                ..TimePoint::dummy().chain_point
+            }),
+            chain_point,
+            "get current chain point should not fail"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_increase_slot_number() {
+        let fake_observer = FakeObserver::new(None);
+        fake_observer
+            .set_current_time_point(Some(TimePoint::dummy()))
+            .await;
+        fake_observer.increase_slot_number(375).await;
+
+        let chain_point = fake_observer.get_current_chain_point().await.unwrap();
+        assert_eq!(
+            Some(ChainPoint {
+                slot_number: TimePoint::dummy().chain_point.slot_number + 375,
+                ..TimePoint::dummy().chain_point
+            }),
+            chain_point,
+            "get current chain point should not fail"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_decrease_slot_number() {
+        let fake_observer = FakeObserver::new(None);
+        fake_observer
+            .set_current_time_point(Some(TimePoint {
+                chain_point: ChainPoint {
+                    slot_number: 1000,
+                    ..TimePoint::dummy().chain_point
+                },
+                ..TimePoint::dummy()
+            }))
+            .await;
+        fake_observer.decrease_slot_number(800).await;
+
+        let chain_point = fake_observer.get_current_chain_point().await.unwrap();
+        assert_eq!(
+            Some(ChainPoint {
+                slot_number: 200,
                 ..TimePoint::dummy().chain_point
             }),
             chain_point,

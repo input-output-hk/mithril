@@ -21,7 +21,7 @@ async fn test_create_cardano_transaction_single_signature() {
         epoch: Epoch(1),
         immutable_file_number: 1,
         chain_point: ChainPoint {
-            slot_number: 1,
+            slot_number: 100,
             // Note: the starting block number must be greater than the cardano_transactions_signing_config.step
             // so first block range root computation is not on block 0.
             block_number: 100,
@@ -56,7 +56,7 @@ async fn test_create_cardano_transaction_single_signature() {
         .cycle_unregistered().await.unwrap()
 
         .comment("creating a new certificate pending with a cardano transaction signed entity → Registered")
-        .increase_block_number(70, 170).await.unwrap()
+        .increase_block_number_and_slot_number(70, 170).await.unwrap()
         .cycle_registered().await.unwrap()
 
         .comment("signer can now create a single signature → Signed")
@@ -67,10 +67,10 @@ async fn test_create_cardano_transaction_single_signature() {
         .cycle_signed().await.unwrap()
 
         .comment("new blocks means a new signature with the same stake distribution → Signed")
-        .increase_block_number(125, 295).await.unwrap()
+        .increase_block_number_and_slot_number(125, 295).await.unwrap()
         .cardano_chain_send_rollback(230).await.unwrap()
         .cycle_registered().await.unwrap()
-        .cycle_signed().await.unwrap()
+        .cycle_signed().await.unwrap() 
 
         .comment("metrics should be correctly computed")
         .check_metrics(total_signer_registrations_expected,total_signature_registrations_expected).await.unwrap()

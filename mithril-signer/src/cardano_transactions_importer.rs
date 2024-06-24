@@ -8,7 +8,9 @@ use slog::{debug, Logger};
 
 use mithril_common::cardano_block_scanner::{BlockScanner, ChainScannedBlocks};
 use mithril_common::crypto_helper::{MKTree, MKTreeNode};
-use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, ChainPoint};
+use mithril_common::entities::{
+    BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
+};
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 
@@ -26,6 +28,12 @@ pub trait TransactionStore: Send + Sync {
     async fn get_block_interval_without_block_range_root(
         &self,
     ) -> StdResult<Option<Range<BlockNumber>>>;
+
+    /// Get block number for a given slot number
+    async fn get_block_number_by_slot_number(
+        &self,
+        slot_number: SlotNumber,
+    ) -> StdResult<BlockNumber>;
 
     /// Get transactions in an interval of blocks
     async fn get_transactions_in_range(
@@ -116,8 +124,12 @@ impl CardanoTransactionsImporter {
                         .await?;
                 }
                 ChainScannedBlocks::RollBackward(chain_point) => {
+                    let block_number = self
+                        .transaction_store
+                        .get_block_number_by_slot_number(chain_point.slot_number)
+                        .await?;
                     self.transaction_store
-                        .remove_rolled_back_transactions_and_block_range(chain_point.block_number)
+                        .remove_rolled_back_transactions_and_block_range(block_number)
                         .await?;
                 }
             }
@@ -701,7 +713,7 @@ mod tests {
             .await
             .unwrap();
 
-        let chain_point = ChainPoint::new(1, 130, "block_hash-131");
+        let chain_point = ChainPoint::new(5, 130, "block_hash-131");
         let scanner = DumbBlockScanner::new().backward(chain_point);
 
         let importer =
@@ -748,6 +760,19 @@ mod tests {
                 .iter()
                 .map(|b| (b.clone(), MKTreeNode::from_hex("AAAA").unwrap()))
                 .collect(),
+            )
+            .await
+            .unwrap();
+        repository
+            .store_transactions(
+                ScannedBlock::new(
+                    "block_hash-131",
+                    BlockRange::from_block_number(BlockRange::LENGTH * 3).start,
+                    1,
+                    0,
+                    vec!["tx_hash-1", "tx_hash-2", "tx_hash-3"],
+                )
+                .into_transactions(),
             )
             .await
             .unwrap();

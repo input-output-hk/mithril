@@ -241,6 +241,20 @@ impl CardanoTransactionRepository {
         interval.to_range()
     }
 
+    /// Get the block number for a given slot number
+    pub async fn get_block_number_by_slot_number(
+        &self,
+        slot_number: SlotNumber,
+    ) -> StdResult<BlockNumber> {
+        let query = GetCardanoTransactionQuery::by_slot_number(slot_number);
+        let connection = self.connection_pool.connection()?;
+        let record = connection.fetch_first(query)?;
+
+        record
+            .map(|r| r.block_number)
+            .ok_or_else(|| anyhow::anyhow!("No block number found for slot number {}", slot_number))
+    }
+
     /// Get the [CardanoTransactionRecord] for the given transaction hashes, up to a block number
     pub async fn get_transaction_by_hashes<T: Into<TransactionHash>>(
         &self,
@@ -836,6 +850,54 @@ mod tests {
                 transaction_result
             );
         }
+    }
+
+    #[tokio::test]
+    async fn repository_get_block_number_by_slot_number() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+
+        let transaction_block_number = 100;
+        let transaction_slot_number = 500;
+        repository
+            .create_transaction(
+                "tx-1",
+                transaction_block_number,
+                transaction_slot_number,
+                "block-1",
+                99,
+            )
+            .await
+            .unwrap();
+        repository
+            .create_transaction(
+                "tx-2",
+                transaction_block_number,
+                transaction_slot_number,
+                "block-1",
+                99,
+            )
+            .await
+            .unwrap();
+        repository
+            .create_transaction(
+                "tx-3",
+                transaction_block_number + 1,
+                transaction_slot_number + 1,
+                "block-1",
+                99,
+            )
+            .await
+            .unwrap();
+
+        let transaction_block_number_retrieved = repository
+            .get_block_number_by_slot_number(transaction_slot_number)
+            .await
+            .unwrap();
+
+        assert_eq!(transaction_block_number_retrieved, transaction_block_number);
     }
 
     #[tokio::test]

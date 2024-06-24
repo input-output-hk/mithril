@@ -3,7 +3,9 @@ use std::ops::Range;
 use async_trait::async_trait;
 
 use mithril_common::crypto_helper::MKTreeNode;
-use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, ChainPoint};
+use mithril_common::entities::{
+    BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
+};
 use mithril_common::StdResult;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
@@ -23,6 +25,13 @@ impl TransactionStore for CardanoTransactionRepository {
         &self,
     ) -> StdResult<Option<Range<BlockNumber>>> {
         self.get_block_interval_without_block_range_root().await
+    }
+
+    async fn get_block_number_by_slot_number(
+        &self,
+        slot_number: SlotNumber,
+    ) -> StdResult<BlockNumber> {
+        self.get_block_number_by_slot_number(slot_number).await
     }
 
     async fn get_transactions_in_range(
