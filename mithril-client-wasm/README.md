@@ -13,6 +13,11 @@
 ## Installation
 - Install a correctly configured Rust toolchain (latest stable version). You can follow the instructions provided [here](https://www.rust-lang.org/learn/get-started).
 
+- Install the WASM target:
+```bash
+rustup target add wasm32-unknown-unknown
+```
+
 - Install Rust WASM Pack:
 ```bash
 cargo install wasm-pack
@@ -41,6 +46,10 @@ sudo apt install npm
 > ```bash
 > export CC=emcc
 > export AR=emar
+> ```
+> - Install the WASM `emscripten` target:
+> ```bash
+> rustup target add wasm32-unknown-emscripten
 > ```
 
 ## Build Mithril client library in WASM
