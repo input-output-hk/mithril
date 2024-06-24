@@ -3792,7 +3792,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.9"
+version = "0.2.10"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3839,7 +3839,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.148"
+version = "0.2.149"
 dependencies = [
  "anyhow",
  "async-trait",
