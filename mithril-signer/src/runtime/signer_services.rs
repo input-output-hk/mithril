@@ -33,8 +33,8 @@ use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
     AggregatorHTTPClient, CardanoTransactionsImporter, Configuration, MithrilSingleSigner,
     ProtocolInitializerStore, ProtocolInitializerStorer, TransactionsImporterByChunk,
-    TransactionsImporterWithPruner, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
-    SQLITE_FILE_CARDANO_TRANSACTION,
+    TransactionsImporterWithPruner, TransactionsImporterWithVacuum, HTTP_REQUEST_TIMEOUT_DURATION,
+    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -276,7 +276,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            sqlite_connection_cardano_transaction_pool,
+            sqlite_connection_cardano_transaction_pool.clone(),
         ));
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             slog_scope::logger(),
@@ -302,15 +302,27 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         // Wrap the transaction importer with decorator to chunk its workload, so it prunes
         // transactions after each chunk, reducing the storage footprint
-        let transactions_importer = Arc::new(TransactionsImporterByChunk::new(
+        let state_machine_transactions_importer = Arc::new(TransactionsImporterByChunk::new(
             transaction_store.clone(),
-            transactions_importer,
+            transactions_importer.clone(),
+            self.config.transactions_import_block_chunk_size,
+            slog_scope::logger(),
+        ));
+        // For the preloader, we want to vacuum the database after each chunk, to reclaim disk space
+        // earlier than with just auto_vacuum (that execute only after the end of all import).
+        let preloader_transactions_importer = Arc::new(TransactionsImporterByChunk::new(
+            transaction_store.clone(),
+            Arc::new(TransactionsImporterWithVacuum::new(
+                sqlite_connection_cardano_transaction_pool,
+                transactions_importer.clone(),
+                slog_scope::logger(),
+            )),
             self.config.transactions_import_block_chunk_size,
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
-            transactions_importer.clone(),
+            state_machine_transactions_importer,
             block_range_root_retriever,
             slog_scope::logger(),
         ));
@@ -322,7 +334,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
-            transactions_importer.clone(),
+            preloader_transactions_importer,
             self.config.preload_security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
