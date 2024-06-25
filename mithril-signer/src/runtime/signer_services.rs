@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog::info;
 use std::{fs, sync::Arc, time::Duration};
 
 use mithril_common::{
@@ -25,7 +24,7 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
-    sqlite::{vacuum_database, ConnectionBuilder, SqliteConnection, SqliteConnectionPool},
+    sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection, SqliteConnectionPool},
     store::{adapter::SQLiteAdapter, StakeStore},
 };
 
@@ -173,18 +172,11 @@ impl<'a> ProductionServiceBuilder<'a> {
         let logger = slog_scope::logger();
         let connection = ConnectionBuilder::open_file(&sqlite_db_path)
             .with_node_type(ApplicationNodeType::Signer)
+            .with_options(&[ConnectionOptions::Vacuum])
             .with_migrations(migrations)
             .with_logger(logger.clone())
             .build()
             .with_context(|| "Database connection initialisation error")?;
-
-        info!(
-            logger,
-            "Vacuuming '{sqlite_file_name}', this may take a while..."
-        );
-        vacuum_database(&connection)
-            .with_context(|| "SQLite initialization: database vacuum error")?;
-        info!(logger, "SQLite '{sqlite_file_name}' vacuumed successfully");
 
         Ok(connection)
     }

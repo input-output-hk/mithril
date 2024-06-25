@@ -1,6 +1,6 @@
 use anyhow::Context;
 use semver::Version;
-use slog::{info, Logger};
+use slog::Logger;
 use std::sync::Arc;
 use tokio::{
     sync::{
@@ -40,10 +40,7 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
-    sqlite::{
-        vacuum_database, ConnectionBuilder, ConnectionOptions, SqliteConnection,
-        SqliteConnectionPool,
-    },
+    sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection, SqliteConnectionPool},
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
 };
 
@@ -286,6 +283,7 @@ impl DependenciesBuilder {
         migrations: Vec<SqlMigration>,
         do_vacuum_database: bool,
     ) -> Result<SqliteConnection> {
+        let logger = self.get_logger()?;
         let connection_builder = match self.configuration.environment {
             ExecutionEnvironment::Production => ConnectionBuilder::open_file(
                 &self.configuration.get_sqlite_dir().join(sqlite_file_name),
@@ -301,13 +299,21 @@ impl DependenciesBuilder {
             ),
         };
 
-        let logger = self.get_logger()?;
-        let connection = connection_builder
-            .with_node_type(ApplicationNodeType::Aggregator)
-            .with_options(&[
+        let connection_options = {
+            let mut options = vec![
                 ConnectionOptions::EnableForeignKeys,
                 ConnectionOptions::EnableWriteAheadLog,
-            ])
+            ];
+            if do_vacuum_database {
+                options.push(ConnectionOptions::Vacuum);
+            }
+
+            options
+        };
+
+        let connection = connection_builder
+            .with_node_type(ApplicationNodeType::Aggregator)
+            .with_options(&connection_options)
             .with_logger(logger.clone())
             .with_migrations(migrations)
             .build()
@@ -315,16 +321,6 @@ impl DependenciesBuilder {
                 message: "SQLite initialization: failed to build connection.".to_string(),
                 error: Some(e),
             })?;
-
-        if do_vacuum_database {
-            info!(
-                logger,
-                "Vacuuming '{sqlite_file_name}', this may take a while..."
-            );
-            vacuum_database(&connection)
-                .with_context(|| "SQLite initialization: database vacuum error")?;
-            info!(logger, "SQLite '{sqlite_file_name}' vacuumed successfully");
-        }
 
         Ok(connection)
     }
