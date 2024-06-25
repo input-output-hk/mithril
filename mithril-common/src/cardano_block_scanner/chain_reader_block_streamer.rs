@@ -51,10 +51,13 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                     }
                 }
                 Some(BlockStreamerNextAction::ChainBlockNextAction(
-                    ChainBlockNextAction::RollBackward { rollback_point },
+                    ChainBlockNextAction::RollBackward {
+                        slot_number: rollback_slot_number,
+                    },
                 )) => {
                     if roll_forwards.is_empty() {
-                        chain_scanned_blocks = ChainScannedBlocks::RollBackward(rollback_point);
+                        chain_scanned_blocks =
+                            ChainScannedBlocks::RollBackward(rollback_slot_number);
                         return Ok(Some(chain_scanned_blocks));
                     } else {
                         chain_scanned_blocks = ChainScannedBlocks::RollForwards(roll_forwards);
@@ -121,16 +124,20 @@ impl ChainReaderBlockStreamer {
                     )))
                 }
             }
-            Some(ChainBlockNextAction::RollBackward { rollback_point }) => {
+            Some(ChainBlockNextAction::RollBackward {
+                slot_number: rollback_slot_number,
+            }) => {
                 debug!(
                     self.logger,
-                    "ChainReaderBlockStreamer received a RollBackward({rollback_point:?})"
+                    "ChainReaderBlockStreamer received a RollBackward({rollback_slot_number:?})"
                 );
-                let block_streamer_next_action = if rollback_point == self.from {
+                let block_streamer_next_action = if rollback_slot_number == self.from.slot_number {
                     BlockStreamerNextAction::SkipToNextAction
                 } else {
                     BlockStreamerNextAction::ChainBlockNextAction(
-                        ChainBlockNextAction::RollBackward { rollback_point },
+                        ChainBlockNextAction::RollBackward {
+                            slot_number: rollback_slot_number,
+                        },
                     )
                 };
                 Ok(Some(block_streamer_next_action))
@@ -281,9 +288,7 @@ mod tests {
     #[tokio::test]
     async fn test_parse_expected_nothing_when_rollbackward_on_same_point() {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
-            ChainBlockNextAction::RollBackward {
-                rollback_point: ChainPoint::new(100, 10, "hash-123"),
-            },
+            ChainBlockNextAction::RollBackward { slot_number: 100 },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
             chain_reader,
@@ -302,9 +307,7 @@ mod tests {
     async fn test_parse_expected_rollbackward_when_on_different_point_and_no_previous_rollforward()
     {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
-            ChainBlockNextAction::RollBackward {
-                rollback_point: ChainPoint::new(100, 10, "hash-123"),
-            },
+            ChainBlockNextAction::RollBackward { slot_number: 100 },
         ])));
         let mut block_streamer =
             ChainReaderBlockStreamer::try_new(chain_reader, None, 1, TestLogger::stdout())
@@ -313,12 +316,7 @@ mod tests {
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
 
-        assert_eq!(
-            Some(ChainScannedBlocks::RollBackward(ChainPoint::new(
-                100, 10, "hash-123"
-            ))),
-            scanned_blocks,
-        );
+        assert_eq!(Some(ChainScannedBlocks::RollBackward(100)), scanned_blocks,);
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
         assert_eq!(None, scanned_blocks);
@@ -334,9 +332,7 @@ mod tests {
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new("hash-9", 90, 9, 1, Vec::<&str>::new()),
             },
-            ChainBlockNextAction::RollBackward {
-                rollback_point: ChainPoint::new(100, 10, "hash-123"),
-            },
+            ChainBlockNextAction::RollBackward { slot_number: 100 },
         ])));
         let mut block_streamer =
             ChainReaderBlockStreamer::try_new(chain_reader, None, 1000, TestLogger::stdout())

@@ -74,8 +74,9 @@ impl PallasChainReader {
                 Ok(Some(ChainBlockNextAction::RollForward { parsed_block }))
             }
             NextResponse::RollBackward(rollback_point, _) => {
+                let chain_point = ChainPoint::from(rollback_point);
                 Ok(Some(ChainBlockNextAction::RollBackward {
-                    rollback_point: rollback_point.into(),
+                    slot_number: chain_point.slot_number,
                 }))
             }
             NextResponse::Await => Ok(None),
@@ -264,8 +265,8 @@ mod tests {
         let (_, client_res) = tokio::join!(server, client);
         let chain_block = client_res.expect("Client failed to get next chain block");
         match chain_block {
-            ChainBlockNextAction::RollBackward { rollback_point } => {
-                assert_eq!(rollback_point, get_fake_chain_point_backwards());
+            ChainBlockNextAction::RollBackward { slot_number } => {
+                assert_eq!(slot_number, get_fake_chain_point_backwards().slot_number);
             }
             _ => panic!("Unexpected chain block action"),
         }

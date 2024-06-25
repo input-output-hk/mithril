@@ -123,10 +123,10 @@ impl CardanoTransactionsImporter {
                         .store_transactions(parsed_transactions)
                         .await?;
                 }
-                ChainScannedBlocks::RollBackward(chain_point) => {
+                ChainScannedBlocks::RollBackward(slot_number) => {
                     let block_number = self
                         .transaction_store
-                        .get_block_number_by_slot_number(chain_point.slot_number)
+                        .get_block_number_by_slot_number(slot_number)
                         .await?;
                     self.transaction_store
                         .remove_rolled_back_transactions_and_block_range(block_number)

@@ -3,7 +3,7 @@ use std::path::Path;
 use async_trait::async_trait;
 
 use crate::cardano_block_scanner::ScannedBlock;
-use crate::entities::{BlockNumber, ChainPoint};
+use crate::entities::{BlockNumber, ChainPoint, SlotNumber};
 use crate::StdResult;
 
 /// A scanner that can read cardano transactions in a cardano database
@@ -60,8 +60,8 @@ pub trait BlockScanner: Sync + Send {
 pub enum ChainScannedBlocks {
     /// Roll forward on the chain to the next list of [ScannedBlock]
     RollForwards(Vec<ScannedBlock>),
-    /// Roll backward on the chain to the previous [ChainPoint]
-    RollBackward(ChainPoint),
+    /// Roll backward on the chain to the previous [SlotNumber]
+    RollBackward(SlotNumber),
 }
 
 /// Trait that define how blocks are streamed from a Cardano database

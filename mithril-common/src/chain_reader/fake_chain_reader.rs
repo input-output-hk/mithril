@@ -54,7 +54,7 @@ mod tests {
                 parsed_block: ScannedBlock::new("hash-2", 2, 11, 21, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollBackward {
-                rollback_point: build_chain_point(1),
+                slot_number: build_chain_point(1).slot_number,
             },
         ];
 

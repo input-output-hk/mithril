@@ -100,7 +100,7 @@ impl DumbBlockStreamer {
     /// its queue.
     pub fn rollback(mut self, chain_point: ChainPoint) -> Self {
         self.streamer_responses
-            .push_back(ChainScannedBlocks::RollBackward(chain_point));
+            .push_back(ChainScannedBlocks::RollBackward(chain_point.slot_number));
         self
     }
 }
@@ -211,7 +211,7 @@ mod tests {
         assert_eq!(
             blocks,
             Some(ChainScannedBlocks::RollBackward(
-                expected_chain_point.clone()
+                expected_chain_point.slot_number
             ))
         );
     }
@@ -245,7 +245,7 @@ mod tests {
         assert_eq!(
             blocks,
             Some(ChainScannedBlocks::RollBackward(
-                expected_chain_point.clone()
+                expected_chain_point.slot_number
             ))
         );
 
