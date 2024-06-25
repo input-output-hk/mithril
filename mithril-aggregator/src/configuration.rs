@@ -471,7 +471,7 @@ impl Source for DefaultConfiguration {
             into_value(myself.cardano_transactions_prover_cache_pool_size),
         );
         result.insert(
-            "cardano_transactions_prover_cache_pool_size".to_string(),
+            "cardano_transactions_database_connection_pool_size".to_string(),
             into_value(myself.cardano_transactions_database_connection_pool_size),
         );
         result.insert(
