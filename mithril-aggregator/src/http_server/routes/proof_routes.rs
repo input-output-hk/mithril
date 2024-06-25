@@ -11,8 +11,18 @@ struct CardanoTransactionProofQueryParams {
 }
 
 impl CardanoTransactionProofQueryParams {
-    pub fn split_transactions_hashes(&self) -> Vec<&str> {
-        self.transaction_hashes.split(',').collect()
+    pub fn split_transactions_hashes(&self) -> Vec<String> {
+        self.transaction_hashes
+            .split(',')
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    pub fn sanitize(&self) -> Vec<String> {
+        let mut transaction_hashes = self.split_transactions_hashes();
+        transaction_hashes.sort();
+        transaction_hashes.dedup();
+        transaction_hashes
     }
 }
 
@@ -66,11 +76,7 @@ mod handlers {
         validator: ProverTransactionsHashValidator,
         prover_service: Arc<dyn ProverService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let mut transaction_hashes = transaction_parameters
-            .split_transactions_hashes()
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
+        let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
             "⇄ HTTP SERVER: proof_cardano_transaction?transaction_hashes={}",
             transaction_parameters.transaction_hashes
@@ -81,8 +87,7 @@ mod handlers {
             return Ok(reply::bad_request(error.label, error.message));
         }
 
-        transaction_hashes.sort();
-        transaction_hashes.dedup();
+        let sanitized_hashes = transaction_parameters.sanitize();
 
         match unwrap_to_internal_server_error!(
             signed_entity_service
@@ -92,7 +97,7 @@ mod handlers {
         ) {
             Some(signed_entity) => {
                 let message = unwrap_to_internal_server_error!(
-                    build_response_message(prover_service, signed_entity, transaction_hashes).await,
+                    build_response_message(prover_service, signed_entity, sanitized_hashes).await,
                     "proof_cardano_transaction"
                 );
                 Ok(reply::json(&message, StatusCode::OK))
@@ -137,7 +142,7 @@ mod tests {
 
     use mithril_common::{
         entities::{CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity},
-        test_utils::{apispec::APISpec, fake_data},
+        test_utils::{apispec::APISpec, assert_equivalent, fake_data},
     };
 
     use crate::services::MockSignedEntityService;
@@ -330,6 +335,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_route_deduplicate_hashes() {
+        let tx = fake_data::transaction_hashes()[0].to_string();
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
@@ -340,42 +346,38 @@ mod tests {
         dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let mut mock_prover_service = MockProverService::new();
+        let txs_expected = vec![tx.clone()];
         mock_prover_service
             .expect_compute_transactions_proofs()
-            .withf(|_, transaction_hashes| {
-                transaction_hashes.len() == 2
-                    && transaction_hashes.contains(&fake_data::transaction_hashes()[0].to_string())
-                    && transaction_hashes.contains(&fake_data::transaction_hashes()[1].to_string())
-            })
+            .withf(move |_, transaction_hashes| transaction_hashes == txs_expected)
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
         dependency_manager.prover_service = Arc::new(mock_prover_service);
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
 
-        // We are testing on an unordered list of transaction hashes
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{},{},{},{}",
-                fake_data::transaction_hashes()[0],
-                fake_data::transaction_hashes()[1],
-                fake_data::transaction_hashes()[1],
-                fake_data::transaction_hashes()[0],
-                fake_data::transaction_hashes()[1]
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={tx},{tx}",
             ))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/json",
-            &Null,
-            &response,
-            &StatusCode::OK,
-        )
-        .unwrap();
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[test]
+    fn sanitize_cardano_transaction_proof_query_params_remove_duplicate() {
+        let tx1 = fake_data::transaction_hashes()[0].to_string();
+        let tx2 = fake_data::transaction_hashes()[1].to_string();
+
+        // We are testing on an unordered list of transaction hashes
+        // as some rust dedup methods only remove consecutive duplicates
+        let params = CardanoTransactionProofQueryParams {
+            transaction_hashes: format!("{tx1},{tx2},{tx2},{tx1},{tx2}",),
+        };
+
+        assert_equivalent(params.sanitize(), vec![tx1, tx2]);
     }
 }
