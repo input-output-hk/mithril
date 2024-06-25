@@ -417,62 +417,43 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        macro_rules! insert_default_configuration {
+            ( $map:ident, $config:ident.$parameter:ident ) => {{
+                $map.insert(
+                    stringify!($parameter).to_string(),
+                    into_value($config.$parameter),
+                );
+            }};
+        }
+
         fn into_value<V: Into<ValueKind>>(value: V) -> Value {
             Value::new(Some(&DefaultConfiguration::namespace()), value.into())
         }
         let mut result = Map::new();
         let myself = self.clone();
-        result.insert("environment".to_string(), into_value(myself.environment));
-        result.insert("server_ip".to_string(), into_value(myself.server_ip));
-        result.insert("server_port".to_string(), into_value(myself.server_port));
-        result.insert("db_directory".to_string(), into_value(myself.db_directory));
-        result.insert(
-            "snapshot_directory".to_string(),
-            into_value(myself.snapshot_directory),
+
+        insert_default_configuration!(result, myself.environment);
+        insert_default_configuration!(result, myself.server_ip);
+        insert_default_configuration!(result, myself.server_port);
+        insert_default_configuration!(result, myself.db_directory);
+        insert_default_configuration!(result, myself.snapshot_directory);
+        insert_default_configuration!(result, myself.snapshot_store_type);
+        insert_default_configuration!(result, myself.snapshot_uploader_type);
+        insert_default_configuration!(result, myself.era_reader_adapter_type);
+        insert_default_configuration!(result, myself.reset_digests_cache);
+        insert_default_configuration!(result, myself.disable_digests_cache);
+        insert_default_configuration!(result, myself.snapshot_compression_algorithm);
+        insert_default_configuration!(result, myself.snapshot_use_cdn_domain);
+        insert_default_configuration!(result, myself.signer_importer_run_interval);
+        insert_default_configuration!(result, myself.allow_unparsable_block);
+        insert_default_configuration!(result, myself.cardano_transactions_prover_cache_pool_size);
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_database_connection_pool_size
         );
-        result.insert(
-            "snapshot_store_type".to_string(),
-            into_value(myself.snapshot_store_type),
-        );
-        result.insert(
-            "snapshot_uploader_type".to_string(),
-            into_value(myself.snapshot_uploader_type),
-        );
-        result.insert(
-            "era_reader_adapter_type".to_string(),
-            into_value(myself.era_reader_adapter_type),
-        );
-        result.insert(
-            "reset_digests_cache".to_string(),
-            into_value(myself.reset_digests_cache),
-        );
-        result.insert(
-            "disable_digests_cache".to_string(),
-            into_value(myself.disable_digests_cache),
-        );
-        result.insert(
-            "snapshot_compression_algorithm".to_string(),
-            into_value(myself.snapshot_compression_algorithm),
-        );
-        result.insert(
-            "snapshot_use_cdn_domain".to_string(),
-            into_value(myself.snapshot_use_cdn_domain),
-        );
-        result.insert(
-            "signer_importer_run_interval".to_string(),
-            into_value(myself.signer_importer_run_interval),
-        );
-        result.insert(
-            "allow_unparsable_block".to_string(),
-            into_value(myself.allow_unparsable_block),
-        );
-        result.insert(
-            "cardano_transactions_prover_cache_pool_size".to_string(),
-            into_value(myself.cardano_transactions_prover_cache_pool_size),
-        );
-        result.insert(
-            "cardano_transactions_database_connection_pool_size".to_string(),
-            into_value(myself.cardano_transactions_database_connection_pool_size),
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_prover_max_hashes_allowed_by_request
         );
         result.insert(
             "cardano_transactions_signing_config".to_string(),
@@ -490,10 +471,6 @@ impl Source for DefaultConfiguration {
                     ValueKind::from(myself.cardano_transactions_signing_config.step),
                 ),
             ])),
-        );
-        result.insert(
-            "cardano_transactions_prover_max_hashes_allowed_by_request".to_string(),
-            into_value(myself.cardano_transactions_prover_max_hashes_allowed_by_request),
         );
 
         Ok(result)
