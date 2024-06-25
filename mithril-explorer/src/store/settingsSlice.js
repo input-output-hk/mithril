@@ -87,6 +87,8 @@ export const {
 } = settingsSlice.actions;
 
 export const selectedAggregator = (state) => state.settings.selectedAggregator;
+export const selectedAggregatorCapabilities = (state) =>
+  state.settings?.aggregatorCapabilities ?? defaultAggregatorCapabilities;
 export const selectedAggregatorSignedEntities = (state) =>
   state.settings?.aggregatorCapabilities?.signed_entity_types ?? [];
 

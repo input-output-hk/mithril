@@ -167,6 +167,9 @@ pub struct Configuration {
     /// Cardano transactions signing configuration
     #[example = "`{ security_parameter: 3000, step: 120 }`"]
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+
+    /// Maximum number of transactions hashes allowed by request to the prover
+    pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -245,6 +248,7 @@ impl Configuration {
                 security_parameter: 100,
                 step: 15,
             },
+            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
         }
     }
 
@@ -358,6 +362,9 @@ pub struct DefaultConfiguration {
 
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+
+    /// Maximum number of transactions hashes allowed by request to the prover
+    pub cardano_transactions_prover_max_hashes_allowed_by_request: u32,
 }
 
 impl Default for DefaultConfiguration {
@@ -384,6 +391,7 @@ impl Default for DefaultConfiguration {
                 security_parameter: 3000,
                 step: 120,
             },
+            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
         }
     }
 }
@@ -463,7 +471,7 @@ impl Source for DefaultConfiguration {
             into_value(myself.cardano_transactions_prover_cache_pool_size),
         );
         result.insert(
-            "cardano_transactions_prover_cache_pool_size".to_string(),
+            "cardano_transactions_database_connection_pool_size".to_string(),
             into_value(myself.cardano_transactions_database_connection_pool_size),
         );
         result.insert(
@@ -482,6 +490,10 @@ impl Source for DefaultConfiguration {
                     ValueKind::from(myself.cardano_transactions_signing_config.step),
                 ),
             ])),
+        );
+        result.insert(
+            "cardano_transactions_prover_max_hashes_allowed_by_request".to_string(),
+            into_value(myself.cardano_transactions_prover_max_hashes_allowed_by_request),
         );
 
         Ok(result)

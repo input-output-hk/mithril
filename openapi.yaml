@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.23
+  version: 0.1.24
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -31,6 +31,7 @@ paths:
           * Open API version
           * URL of Mithril documentation
           * Capabilities of the aggregator
+          * Cardano transactions prover capabilities
       responses:
         "200":
           description: root found
@@ -566,14 +567,29 @@ components:
                   - CardanoStakeDistribution
                   - CardanoImmutableFilesFull
                   - CardanoTransactions
+            cardano_transactions_prover:
+              description: Cardano transactions prover capabilities
+              type: object
+              additionalProperties: false
+              required:
+                - max_hashes_allowed_by_request
+              properties:
+                max_hashes_allowed_by_request:
+                  description: Maximum number of hashes allowed for a single request
+                  type: integer
+                  format: int64
       example:
         {
           "open_api_version": "0.1.17",
           "documentation_url": "https://mithril.network",
           "capabilities":
             {
-              "signed_entity_types": [ "MithrilStakeDistribution", "CardanoImmutableFilesFull", "CardanoTransactions" ]
-            }
+              "signed_entity_types": [ "MithrilStakeDistribution", "CardanoImmutableFilesFull", "CardanoTransactions" ],
+              "cardano_transactions_prover":
+                {
+                  "max_hashes_allowed_by_request": 100
+                }
+            },
         }
 
     Epoch:

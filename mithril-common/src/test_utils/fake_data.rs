@@ -245,3 +245,14 @@ pub fn cardano_transactions_snapshot(total: u64) -> Vec<entities::CardanoTransac
         .map(|idx| entities::CardanoTransactionsSnapshot::new(format!("merkleroot-{idx}"), idx))
         .collect()
 }
+
+/// Fake transaction hashes that have valid length & characters
+pub const fn transaction_hashes<'a>() -> [&'a str; 5] {
+    [
+        "c96809e2cecd9e27499a4379094c4e1f7b59d918c96327bd8daf1bf909dae332",
+        "5b8788784af9c414f18fc1e6161005b13b839fd91130b7c109aeba1792feb843",
+        "8b6ae44edf877ff2ac80cf067809d575ab2bad234b668f91e90decde837b154a",
+        "3f6f3c981c89097f62c9b43632875db7a52183ad3061c822d98259d18cd63dcf",
+        "f4fd91dccc25fd63f2caebab3d3452bc4b2944fcc11652214a3e8f1d32b09713",
+    ]
+}

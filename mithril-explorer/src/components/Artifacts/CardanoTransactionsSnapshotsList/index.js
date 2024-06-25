@@ -6,7 +6,8 @@ import LocalDateTime from "#/LocalDateTime";
 import CardanoTransactionsFormInput from "#/CardanoTransactionsFormInput";
 import CertificateModal from "#/CertificateModal";
 import CertifyCardanoTransactionsModal from "#/CertifyCardanoTransactionsModal";
-import { selectedAggregator } from "@/store/settingsSlice";
+import { defaultAggregatorCapabilities } from "@/constants";
+import { selectedAggregator, selectedAggregatorCapabilities } from "@/store/settingsSlice";
 
 export default function CardanoTransactionsSnapshotsList(props) {
   const [cardanoTransactionsSnapshots, setCardanoTransactionsSnapshots] = useState([]);
@@ -19,6 +20,9 @@ export default function CardanoTransactionsSnapshotsList(props) {
   );
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
+  const currentAggregatorCapabilities = useSelector((state) =>
+    selectedAggregatorCapabilities(state),
+  );
 
   useEffect(() => {
     if (!autoUpdate) {
@@ -96,7 +100,14 @@ export default function CardanoTransactionsSnapshotsList(props) {
               noValidate
               validated={showCertificationFormValidation}>
               <Row>
-                <CardanoTransactionsFormInput />
+                <CardanoTransactionsFormInput
+                  maxAllowedHashesByRequest={
+                    currentAggregatorCapabilities?.cardano_transactions_prover
+                      ?.max_hashes_allowed_by_request ??
+                    defaultAggregatorCapabilities.cardano_transactions_prover
+                      .max_hashes_allowed_by_request
+                  }
+                />
               </Row>
             </Form>
           </Row>
