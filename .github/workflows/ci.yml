@@ -28,6 +28,7 @@ jobs:
         with:
           cache-version: 20.04-${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-deb
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
@@ -100,6 +101,7 @@ jobs:
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
@@ -119,6 +121,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build 'mithril-client-wasm' library
         shell: bash
@@ -190,6 +193,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-nextest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build tests
         run: cargo nextest run --no-run ${{ matrix.test-args }}
@@ -227,6 +231,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-sort clippy-sarif sarif-fmt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Clippy Check
         if: success() || failure()
@@ -477,6 +482,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish package to npm
         uses: ./.github/workflows/actions/publish-npm-package
@@ -676,7 +682,7 @@ jobs:
           mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
           mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
           mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
-          mithril_aggregator_allow_unparsable_block:  ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
+          mithril_aggregator_allow_unparsable_block: ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
           mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
           cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
           prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
@@ -701,6 +707,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
           cargo-tools: clippy-sarif sarif-fmt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate cargo doc
         run: |
