@@ -361,7 +361,8 @@ impl DependenciesBuilder {
         let _connection = self.build_sqlite_connection(
             SQLITE_FILE_CARDANO_TRANSACTION,
             mithril_persistence::database::cardano_transaction_migration::get_migrations(),
-            true,
+            // Don't vacuum the Cardano transactions database as it can be very large
+            false,
         )?;
 
         let connection_pool = Arc::new(SqliteConnectionPool::build(connection_pool_size, || {
