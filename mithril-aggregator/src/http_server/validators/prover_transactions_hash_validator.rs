@@ -16,7 +16,7 @@ impl ProverTransactionsHashValidator {
             return Err(ClientError::new(
                 Self::LABEL,
                 format!(
-                    "Transaction hashes list contains more than maximum allowed hashes: '{}'",
+                    "Transaction hashes list contains more than maximum allowed number of hashes: '{}'",
                     self.max_hashes
                 ),
             ));
@@ -26,21 +26,21 @@ impl ProverTransactionsHashValidator {
             if hash.is_empty() {
                 return Err(ClientError::new(
                     Self::LABEL,
-                    "Transaction hashes cannot be empty",
+                    "Transaction hash cannot be empty",
                 ));
             }
 
             if hash.chars().count() != 64 {
                 return Err(ClientError::new(
                     Self::LABEL,
-                    "Transaction hashes must have 64 characters",
+                    "Transaction hash must have 64 characters",
                 ));
             }
 
             if !hash.chars().all(|c| c.is_ascii_hexdigit()) {
                 return Err(ClientError::new(
                     Self::LABEL,
-                    "Transaction hashes must contain only hexadecimal characters",
+                    "Transaction hash must contain only hexadecimal characters",
                 ));
             }
         }
@@ -70,7 +70,7 @@ mod tests {
             error,
             ClientError::new(
                 "invalid_transaction_hashes",
-                "Transaction hashes cannot be empty"
+                "Transaction hash cannot be empty"
             )
         );
     }
@@ -85,7 +85,7 @@ mod tests {
             error,
             ClientError::new(
                 "invalid_transaction_hashes",
-                "Transaction hashes must have 64 characters"
+                "Transaction hash must have 64 characters"
             )
         );
     }
@@ -102,7 +102,7 @@ mod tests {
                 error,
                 ClientError::new(
                     "invalid_transaction_hashes",
-                    "Transaction hashes must contain only hexadecimal characters"
+                    "Transaction hash must contain only hexadecimal characters"
                 ),
                 "Invalid hash: {}",
                 hash
@@ -131,7 +131,7 @@ mod tests {
             ClientError::new(
                 "invalid_transaction_hashes",
                 format!(
-                    "Transaction hashes list contains more than maximum allowed hashes: '{}'",
+                    "Transaction hashes list contains more than maximum allowed number of hashes: '{}'",
                     validator.max_hashes
                 )
             )
