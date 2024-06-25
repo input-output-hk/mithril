@@ -48,3 +48,11 @@ www-test-serve:
 upgrade-www-deps: build
 	make -C www upgrade
 	make -C www-test upgrade
+
+lint:
+	make -C www lint
+	make -C www-test lint
+
+format:
+	make -C www format
+	make -C www-test format
