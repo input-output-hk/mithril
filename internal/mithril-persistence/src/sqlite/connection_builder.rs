@@ -2,12 +2,13 @@ use std::ops::Not;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use slog::Logger;
+use slog::{info, Logger};
 use sqlite::{Connection, ConnectionThreadSafe};
 
 use mithril_common::StdResult;
 
 use crate::database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration};
+use crate::sqlite::vacuum_database;
 
 /// Builder of SQLite connection
 pub struct ConnectionBuilder {
@@ -31,6 +32,11 @@ pub enum ConnectionOptions {
     ///
     /// This option take priority over [ConnectionOptions::EnableForeignKeys] if both are enabled.
     ForceDisableForeignKeys,
+
+    /// Run a VACUUM operation on the database after the connection is opened
+    ///
+    /// ⚠ This operation can be very slow on large databases ⚠
+    Vacuum,
 }
 
 impl ConnectionBuilder {
@@ -86,6 +92,23 @@ impl ConnectionBuilder {
                 )
             })?;
 
+        if self.options.contains(&ConnectionOptions::Vacuum) {
+            info!(
+                self.logger,
+                "Vacuuming SQLite database, this may take a while...";
+                "database" => self.connection_path.display()
+            );
+
+            vacuum_database(&connection)
+                .with_context(|| "SQLite initialization: database VACUUM error")?;
+
+            info!(
+                self.logger,
+                "SQLite database vacuumed successfully";
+                "database" => self.connection_path.display()
+            );
+        }
+
         if self
             .options
             .contains(&ConnectionOptions::EnableWriteAheadLog)
@@ -130,10 +153,13 @@ impl ConnectionBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::sqlite::ConnectionOptions::ForceDisableForeignKeys;
-    use mithril_common::test_utils::TempDir;
     use sqlite::Value;
+
+    use mithril_common::test_utils::TempDir;
+
+    use crate::sqlite::ConnectionOptions::ForceDisableForeignKeys;
+
+    use super::*;
 
     // see: https://www.sqlite.org/pragma.html#pragma_journal_mode
     const DEFAULT_SQLITE_JOURNAL_MODE: &str = "delete";

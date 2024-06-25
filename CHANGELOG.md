@@ -17,6 +17,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Extended CI build and test steps for MacOS `arm64` runners and include pre-built binaries for MacOS `arm64` in the releases.
 
+- Vacuum aggregator & signer SQLite databases at startup to reduce fragmentation and disk space usage.
+
 - **UNSTABLE** Cardano transactions certification:
   - Optimize the performances of the computation of the proof with a Merkle map.
   - Handle rollback events from the Cardano chain by removing stale data.

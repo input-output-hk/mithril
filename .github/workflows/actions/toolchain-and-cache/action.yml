@@ -9,6 +9,9 @@ inputs:
     description: Space seperated list of cargo tools to install
     required: false
     default: ''
+  github-token:
+    description: GitHub token to use for installing cargo tools
+    required: true
 runs:
   using: "composite"
   steps:
@@ -34,6 +37,8 @@ runs:
     - name: Install cargo tools
       if: inputs.cargo-tools != ''
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         # Sometimes without the `--force` options the installed binaries are not found by cargo
         # leading to error such as: `error: no such command: `my-tool``

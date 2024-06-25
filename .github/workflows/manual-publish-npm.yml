@@ -58,6 +58,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish package to npm
         if: inputs.package == matrix.package || inputs.package == 'all'
