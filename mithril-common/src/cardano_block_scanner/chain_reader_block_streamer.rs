@@ -55,13 +55,18 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                         slot_number: rollback_slot_number,
                     },
                 )) => {
-                    if roll_forwards.is_empty() {
-                        chain_scanned_blocks =
-                            ChainScannedBlocks::RollBackward(rollback_slot_number);
-                        return Ok(Some(chain_scanned_blocks));
-                    } else {
-                        chain_scanned_blocks = ChainScannedBlocks::RollForwards(roll_forwards);
-                        return Ok(Some(chain_scanned_blocks));
+                    let index_rollback = roll_forwards
+                        .iter()
+                        .position(|block| block.slot_number == rollback_slot_number);
+                    match index_rollback {
+                        Some(index_rollback) => {
+                            roll_forwards.truncate(index_rollback + 1);
+                        }
+                        None => {
+                            chain_scanned_blocks =
+                                ChainScannedBlocks::RollBackward(rollback_slot_number);
+                            return Ok(Some(chain_scanned_blocks));
+                        }
                     }
                 }
                 Some(BlockStreamerNextAction::SkipToNextAction) => {
@@ -332,7 +337,10 @@ mod tests {
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new("hash-9", 90, 9, 1, Vec::<&str>::new()),
             },
-            ChainBlockNextAction::RollBackward { slot_number: 100 },
+            ChainBlockNextAction::RollForward {
+                parsed_block: ScannedBlock::new("hash-10", 100, 10, 1, Vec::<&str>::new()),
+            },
+            ChainBlockNextAction::RollBackward { slot_number: 9 },
         ])));
         let mut block_streamer =
             ChainReaderBlockStreamer::try_new(chain_reader, None, 1000, TestLogger::stdout())
@@ -348,6 +356,28 @@ mod tests {
             ])),
             scanned_blocks,
         );
+    }
+
+    #[tokio::test]
+    async fn test_parse_expected_rollforward_when_rollbackward_on_different_point_and_does_not_have_previous_rollforwards(
+    ) {
+        let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
+            ChainBlockNextAction::RollForward {
+                parsed_block: ScannedBlock::new("hash-8", 80, 8, 1, Vec::<&str>::new()),
+            },
+            ChainBlockNextAction::RollForward {
+                parsed_block: ScannedBlock::new("hash-9", 90, 9, 1, Vec::<&str>::new()),
+            },
+            ChainBlockNextAction::RollBackward { slot_number: 3 },
+        ])));
+        let mut block_streamer =
+            ChainReaderBlockStreamer::try_new(chain_reader, None, 1000, TestLogger::stdout())
+                .await
+                .unwrap();
+
+        let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
+
+        assert_eq!(Some(ChainScannedBlocks::RollBackward(3)), scanned_blocks,);
     }
 
     #[tokio::test]
