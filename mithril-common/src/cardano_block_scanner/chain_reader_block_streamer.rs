@@ -20,9 +20,6 @@ enum BlockStreamerNextAction {
     SkipToNextAction,
 }
 
-/// The maximum number of roll forwards during a poll
-const MAX_ROLL_FORWARDS_PER_POLL: usize = 100;
-
 /// [Block streamer][BlockStreamer] that streams blocks with a [Chain block reader][ChainBlockReader]
 pub struct ChainReaderBlockStreamer {
     chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
@@ -91,6 +88,7 @@ impl ChainReaderBlockStreamer {
         chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
         from: Option<ChainPoint>,
         until: BlockNumber,
+        max_roll_forwards_per_poll: usize,
         logger: Logger,
     ) -> StdResult<Self> {
         let from = from.unwrap_or(ChainPoint::origin());
@@ -102,7 +100,7 @@ impl ChainReaderBlockStreamer {
             chain_reader,
             from,
             until,
-            max_roll_forwards_per_poll: MAX_ROLL_FORWARDS_PER_POLL,
+            max_roll_forwards_per_poll,
             logger,
         })
     }
@@ -163,6 +161,9 @@ mod tests {
 
     use super::*;
 
+    /// The maximum number of roll forwards during a poll
+    const MAX_ROLL_FORWARDS_PER_POLL: usize = 100;
+
     #[tokio::test]
     async fn test_parse_expected_nothing_above_block_number_threshold() {
         let until_block_number = 10;
@@ -190,6 +191,7 @@ mod tests {
             chain_reader.clone(),
             None,
             until_block_number,
+            MAX_ROLL_FORWARDS_PER_POLL,
             TestLogger::stdout(),
         )
         .await
@@ -202,6 +204,7 @@ mod tests {
             chain_reader,
             None,
             until_block_number + 1,
+            MAX_ROLL_FORWARDS_PER_POLL,
             TestLogger::stdout(),
         )
         .await
@@ -230,10 +233,15 @@ mod tests {
                 parsed_block: ScannedBlock::new("hash-2", 2, 20, 1, Vec::<&str>::new()),
             },
         ])));
-        let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 100, TestLogger::stdout())
-                .await
-                .unwrap();
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader,
+            None,
+            100,
+            MAX_ROLL_FORWARDS_PER_POLL,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
 
@@ -259,10 +267,15 @@ mod tests {
                 parsed_block: ScannedBlock::new("hash-3", 3, 30, 1, Vec::<&str>::new()),
             },
         ])));
-        let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 100, TestLogger::stdout())
-                .await
-                .unwrap();
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader,
+            None,
+            100,
+            MAX_ROLL_FORWARDS_PER_POLL,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
         block_streamer.max_roll_forwards_per_poll = 2;
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
@@ -299,6 +312,7 @@ mod tests {
             chain_reader,
             Some(ChainPoint::new(100, 10, "hash-123")),
             1,
+            MAX_ROLL_FORWARDS_PER_POLL,
             TestLogger::stdout(),
         )
         .await
@@ -314,10 +328,15 @@ mod tests {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward { slot_number: 100 },
         ])));
-        let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 1, TestLogger::stdout())
-                .await
-                .unwrap();
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader,
+            None,
+            1,
+            MAX_ROLL_FORWARDS_PER_POLL,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
 
@@ -342,10 +361,15 @@ mod tests {
             },
             ChainBlockNextAction::RollBackward { slot_number: 9 },
         ])));
-        let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 1000, TestLogger::stdout())
-                .await
-                .unwrap();
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader,
+            None,
+            1000,
+            MAX_ROLL_FORWARDS_PER_POLL,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
 
@@ -370,10 +394,15 @@ mod tests {
             },
             ChainBlockNextAction::RollBackward { slot_number: 3 },
         ])));
-        let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 1000, TestLogger::stdout())
-                .await
-                .unwrap();
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader,
+            None,
+            1000,
+            MAX_ROLL_FORWARDS_PER_POLL,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
 
@@ -383,10 +412,15 @@ mod tests {
     #[tokio::test]
     async fn test_parse_expected_nothing() {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![])));
-        let mut block_streamer =
-            ChainReaderBlockStreamer::try_new(chain_reader, None, 1, TestLogger::stdout())
-                .await
-                .unwrap();
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader,
+            None,
+            1,
+            MAX_ROLL_FORWARDS_PER_POLL,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
 

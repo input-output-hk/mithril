@@ -100,14 +100,20 @@ impl BlockScanner for CardanoImmutableBlockScanner {
 /// This scanner reads the blocks with a chain block reader
 pub struct CardanoBlockScanner {
     chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
+    max_roll_forwards_per_poll: usize,
     logger: Logger,
 }
 
 impl CardanoBlockScanner {
     /// Factory
-    pub fn new(chain_reader: Arc<Mutex<dyn ChainBlockReader>>, logger: Logger) -> Self {
+    pub fn new(
+        chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
+        max_roll_forwards_per_poll: usize,
+        logger: Logger,
+    ) -> Self {
         Self {
             chain_reader,
+            max_roll_forwards_per_poll,
             logger,
         }
     }
@@ -126,6 +132,7 @@ impl BlockScanner for CardanoBlockScanner {
                 self.chain_reader.clone(),
                 from,
                 until,
+                self.max_roll_forwards_per_poll,
                 self.logger.clone(),
             )
             .await?,

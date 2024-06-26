@@ -276,6 +276,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             PallasChainReader::new(&self.config.cardano_node_socket_path, network);
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             Arc::new(Mutex::new(chain_block_reader)),
+            self.config
+                .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
             slog_scope::logger(),
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
