@@ -105,7 +105,7 @@ tokio = { version = "1.37.0", features = ["macros", "rt-multi-thread", "time"] }
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }
 
 [features]
-default = []
+default = ["allow_skip_signer_certification"]
 
 # Full feature set
 full = ["random", "fs", "test_tools"]
