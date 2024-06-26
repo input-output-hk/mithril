@@ -233,6 +233,10 @@ jobs:
           cargo-tools: cargo-sort clippy-sarif sarif-fmt
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install prettier
+        shell: bash
+        run: npm install -g prettier
+
       - name: Clippy Check
         if: success() || failure()
         run: |
@@ -272,6 +276,10 @@ jobs:
       - name: Check networks.json validity
         if: success() || failure()
         run: jq . networks.json
+
+      - name: Check code formatting
+        if: success() || failure()
+        run: make lint
 
   e2e:
     runs-on: ubuntu-22.04
@@ -823,10 +831,6 @@ jobs:
         working-directory: mithril-explorer
         run: make test
 
-      - name: Check explorer
-        working-directory: mithril-explorer
-        run: make lint
-
       - name: Build Explorer
         working-directory: mithril-explorer
         run: make build
@@ -867,6 +871,7 @@ jobs:
       - build-docusaurus
       - build-test-explorer
       - build-open-api-ui
+      - check
     steps:
       - name: Download mithril-rust-doc artifact
         uses: actions/download-artifact@v4

@@ -1,0 +1,9 @@
+*.yaml
+*.json
+docs/website/.docusaurus/
+mithril-explorer/font.css.hbs
+mithril-explorer/out/
+mithril-explorer/.next/
+mithril-explorer/explorer/
+mithril-client-wasm/pkg/
+mithril-test-lab/mithril-devnet/artifacts/
