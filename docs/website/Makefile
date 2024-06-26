@@ -37,3 +37,9 @@ update-current:
 	mv versioned_sidebars/version-updated-sidebars.json  versioned_sidebars/version-maintained-sidebars.json
 	# Remove the entry for the temporary version in the versions.json file
 	sed -i '/updated/d' versions.json
+
+lint:
+	npm run pretty:check
+
+format:
+	npm run pretty:write
