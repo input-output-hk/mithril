@@ -1,4 +1,4 @@
-#  Maintain the networks configuration file
+# Maintain the networks configuration file
 
 ## Introduction
 
@@ -7,11 +7,12 @@ The [networks.json](../../../networks.json) file provides essential information 
 ## Maintaining the file
 
 ### Assessment of compatibility:
+
 - Update the `e2e` job in the [ci.yml](../../../.github/workflows/ci.yml) file by adding the new Cardano node version in the `cardano_node_version` variables of the matrix.
 - Create a pull request to test the new Cardano node version in the devnet using CI end-to-end tests
 - Assess the compatibility:
-    - **Compatible without modification**: in that case Mithril nodes are compatible without modification and versions can be bumped immediately.
-    - **Modifications are required by the Mithril team**: in that case the versions can be bumped after the necessary modifications are implemented and a new distribution is released.
+  - **Compatible without modification**: in that case Mithril nodes are compatible without modification and versions can be bumped immediately.
+  - **Modifications are required by the Mithril team**: in that case the versions can be bumped after the necessary modifications are implemented and a new distribution is released.
 
 ### Update policy by network:
 

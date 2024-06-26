@@ -8,15 +8,16 @@ This is the process for storing Mithril activation eras markers on the Cardano c
 
 ## Pre-requisites
 
-* You need to have a recent version of [`jq`](https://stedolan.github.io/jq/download/) running (1.6+)
-* A running Cardano node running locally on the network you are targeting
-* A running Mithril Aggregator node
-* The era activation marker Cardano payment keypairs of your Mithril network
-* The era activation marker secret key of your Mithril network
+- You need to have a recent version of [`jq`](https://stedolan.github.io/jq/download/) running (1.6+)
+- A running Cardano node running locally on the network you are targeting
+- A running Mithril Aggregator node
+- The era activation marker Cardano payment keypairs of your Mithril network
+- The era activation marker secret key of your Mithril network
 
 ## Setup
 
 Export the environment variables needed to complete the process:
+
 ```bash
 $ export CARDANO_NODE_SOCKET_PATH=**PATH_TO_YOUR_NODE_SOCKET**
 $ export CARDANO_TESTNET_MAGIC=**YOUR_TESTNET_MAGIC**
@@ -26,11 +27,13 @@ $ export ASSETS_PATH=**YOUR_ASSETS_PATH**
 ```
 
 Compute the current Cardano era:
+
 ```bash
 CARDANO_ERA=$(cardano-cli query tip --testnet-magic $CARDANO_TESTNET_MAGIC | jq  -r '.era |= ascii_downcase | .era')
 ```
 
 Set the transaction amount used when a script transaction is made:
+
 ```bash
 $ export SCRIPT_TX_VALUE=2000000
 ```
@@ -40,6 +43,7 @@ $ export SCRIPT_TX_VALUE=2000000
 :warning: This step must be done only once for an address
 
 Verify that the payment address has funds:
+
 ```bash
 $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --testnet-magic $CARDANO_TESTNET_MAGIC
                            TxHash                                 TxIx        Amount
@@ -48,16 +52,19 @@ f0c0345f151f9365fbbb4e7afa217e56b987d9e91fd754ca609d9dfec97275c7     0        10
 ```
 
 And create the variable `TX_IN={TxHash}#{TxIn}` by replacing with values from the previous command:
+
 ```bash
 $ TX_IN=f0c0345f151f9365fbbb4e7afa217e56b987d9e91fd754ca609d9dfec97275c7#0
 ```
 
 Create the initial datum file:
+
 ```bash
 $ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers-secret-key $ERA_ACTIVATION_SECRET_KEY --target-path $ASSETS_PATH/mithril-era-datum-1.json
 ```
 
 Now create the bootstrap transaction with datum:
+
 ```bash
 $ cardano-cli $CARDANO_ERA transaction build --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-in $TX_IN \
@@ -69,6 +76,7 @@ Estimated transaction fee: Lovelace 168669
 ```
 
 Then sign the transaction:
+
 ```bash
 $ cardano-cli $CARDANO_ERA transaction sign \
     --tx-body-file $ASSETS_PATH/tx.raw \
@@ -78,6 +86,7 @@ $ cardano-cli $CARDANO_ERA transaction sign \
 ```
 
 And submit it:
+
 ```bash
 $ cardano-cli $CARDANO_ERA transaction submit \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
@@ -86,12 +95,14 @@ Transaction successfully submitted.
 ```
 
 Also get the transaction id:
+
 ```bash
 $ cardano-cli transaction txid --tx-file $ASSETS_PATH/tx.signed
 6518b3cea0b49b55746ec61148e7c60ab042959d534f6bb6e8f6a844d4af69fb
 ```
 
 We need to wait a few seconds before the transaction is available and we can see the initial datum for the script address:
+
 ```bash
 $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --testnet-magic $CARDANO_TESTNET_MAGIC
                            TxHash                                 TxIx        Amount
@@ -103,6 +114,7 @@ $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --te
 Optional: We can retrieve the initial value stored in the datum with the cardano cli:
 
 The full utxo json representation:
+
 ```bash
 $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --testnet-magic $CARDANO_TESTNET_MAGIC --out-file temp.json && cat temp.json | jq '. [] | select(.inlineDatum | . != null and . != "")'
 {
@@ -132,6 +144,7 @@ $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --te
 :warning: This step must be used anytime the era markers must be updated on chain
 
 Retrieve the utxo of the payment address:
+
 ```bash
 $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --testnet-magic $CARDANO_TESTNET_MAGIC
                            TxHash                                 TxIx        Amount
@@ -141,11 +154,13 @@ $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --te
 ```
 
 And create the variable `TX_IN_DATUM={TxHash}#{TxIn}` by replacing with values from the previous command (where inline datumn are available):
+
 ```bash
 $ TX_IN_DATUM=6518b3cea0b49b55746ec61148e7c60ab042959d534f6bb6e8f6a844d4af69fb#0
 ```
 
 And create the variable `TX_IN_NO_DATUM={TxHash}#{TxIn}` by replacing with values from the previous command (where inline datumn are not available):
+
 ```bash
 $ TX_IN_NO_DATUM=6518b3cea0b49b55746ec61148e7c60ab042959d534f6bb6e8f6a844d4af69fb#1
 ```
@@ -159,6 +174,7 @@ $ ./mithril-aggregator era generate-tx-datum --current-era-epoch 1 --era-markers
 ```
 
 Now create the update transaction with datum:
+
 ```bash
 $ cardano-cli $CARDANO_ERA transaction build --testnet-magic $CARDANO_TESTNET_MAGIC \
     --tx-in $TX_IN_DATUM \
@@ -171,6 +187,7 @@ Estimated transaction fee: Lovelace 179889
 ```
 
 Then sign the transaction:
+
 ```bash
 $ cardano-cli $CARDANO_ERA transaction sign \
     --tx-body-file $ASSETS_PATH/tx.raw \
@@ -180,6 +197,7 @@ $ cardano-cli $CARDANO_ERA transaction sign \
 ```
 
 And submit it:
+
 ```bash
 $ cardano-cli $CARDANO_ERA transaction submit \
     --testnet-magic $CARDANO_TESTNET_MAGIC \
@@ -188,12 +206,14 @@ Transaction successfully submitted.
 ```
 
 Also get the transaction id:
+
 ```bash
 $ cardano-cli transaction txid --tx-file $ASSETS_PATH/tx.signed
 1fd4d3e131afe3c8b212772a3f3083d2fbc6b2a7b20e54e4ff08e001598818d8
 ```
 
 We need to wait a few seconds before the transaction is available and we can see the updated datum for the script address:
+
 ```bash
 $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --testnet-magic $CARDANO_TESTNET_MAGIC
                            TxHash                                 TxIx        Amount
@@ -205,6 +225,7 @@ $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --te
 We can retrieve the updated value stored in the datum with the cardano cli:
 
 The full utxo json representation:
+
 ```bash
 $ cardano-cli query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) --testnet-magic $CARDANO_TESTNET_MAGIC --out-file temp.json && cat temp.json | jq '. [] | select(.inlineDatum | . != null and . != "")'
 {
