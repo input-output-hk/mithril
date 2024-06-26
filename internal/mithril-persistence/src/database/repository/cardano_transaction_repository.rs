@@ -308,7 +308,7 @@ impl CardanoTransactionRepository {
     /// * Remove block range roots that have lower bound range strictly above the given block number
     pub async fn remove_rolled_back_transactions_and_block_range(
         &self,
-        block_number: BlockNumber,
+        block_number: SlotNumber,
     ) -> StdResult<()> {
         let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;

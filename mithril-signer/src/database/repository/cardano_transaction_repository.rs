@@ -57,8 +57,9 @@ impl TransactionStore for CardanoTransactionRepository {
 
     async fn remove_rolled_back_transactions_and_block_range(
         &self,
-        block_number: BlockNumber,
+        slot_number: SlotNumber,
     ) -> StdResult<()> {
+        let block_number = self.get_block_number_by_slot_number(slot_number).await?;
         self.remove_rolled_back_transactions_and_block_range(block_number)
             .await
     }

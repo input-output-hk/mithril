@@ -49,11 +49,11 @@ pub trait TransactionStore: Send + Sync {
 
     /// Remove transactions and block range roots that are in a rolled-back fork
     ///
-    /// * Remove transactions with block number strictly greater than the given block number
-    /// * Remove block range roots that have lower bound range strictly above the given block number
+    /// * Remove transactions with slot number strictly greater than the given slot number
+    /// * Remove block range roots that have lower bound range strictly above the given slot number
     async fn remove_rolled_back_transactions_and_block_range(
         &self,
-        block_number: BlockNumber,
+        slot_number: SlotNumber,
     ) -> StdResult<()>;
 }
 
@@ -124,12 +124,8 @@ impl CardanoTransactionsImporter {
                         .await?;
                 }
                 ChainScannedBlocks::RollBackward(slot_number) => {
-                    let block_number = self
-                        .transaction_store
-                        .get_block_number_by_slot_number(slot_number)
-                        .await?;
                     self.transaction_store
-                        .remove_rolled_back_transactions_and_block_range(block_number)
+                        .remove_rolled_back_transactions_and_block_range(slot_number)
                         .await?;
                 }
             }
