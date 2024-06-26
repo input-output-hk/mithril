@@ -15,11 +15,11 @@ Mithril signer is responsible for producing individual signatures that are colle
 
 :::tip
 
-* For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
+- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
 
-* For more information about the **Mithril signer** node, please see [this overview](../../../mithril/mithril-network/signer.md).
+- For more information about the **Mithril signer** node, please see [this overview](../../../mithril/mithril-network/signer.md).
 
-* Check out the [`Run a Mithril signer node as an SPO`](../../getting-started/run-mithril-devnet.md) guide.
+- Check out the [`Run a Mithril signer node as an SPO`](../../getting-started/run-mithril-devnet.md) guide.
 
 :::
 
@@ -31,17 +31,17 @@ Mithril signer is responsible for producing individual signatures that are colle
 
 ## Resources
 
-| Node | Source repository | Rust documentation | Docker packages |
-|:-:|:-----------------:|:------------------:|:---------------:|
-**Mithril signer** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-signer) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_signer/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-signer)
+|        Node        |                                     Source repository                                      |                                Rust documentation                                 |                                         Docker packages                                         |
+| :----------------: | :----------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: |
+| **Mithril signer** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-signer) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_signer/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-signer) |
 
 ## Pre-requisites
 
-* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
+- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
 
-* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
 
-* Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
+- Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 ## Download the source file
 
@@ -127,7 +127,7 @@ Usage: mithril-signer [OPTIONS]
 Options:
   -r, --run-mode <RUN_MODE>
           Run Mode
-          
+
           [env: RUN_MODE=]
           [default: dev]
 
@@ -136,7 +136,7 @@ Options:
 
   -c, --configuration-dir <CONFIGURATION_DIR>
           Directory where the configuration file is located
-          
+
           [default: ./config]
 
       --disable-digests-cache
@@ -144,29 +144,29 @@ Options:
 
       --reset-digests-cache
           If set the existing immutables digests cache will be reset.
-          
+
           Will be ignored if set in conjunction with `--disable-digests-cache`.
 
       --enable-metrics-server
           Enable metrics HTTP server (Prometheus endpoint on /metrics)
-          
+
           [env: ENABLE_METRICS_SERVER=]
 
       --metrics-server-ip <METRICS_SERVER_IP>
           Metrics HTTP server IP
-          
+
           [env: METRICS_SERVER_IP=]
           [default: 0.0.0.0]
 
       --metrics-server-port <METRICS_SERVER_PORT>
           Metrics HTTP server listening port
-          
+
           [env: METRICS_SERVER_PORT=]
           [default: 9090]
 
       --allow-unparsable-block
           If set no error is returned in case of unparsable block and an error log is written instead.
-          
+
           Will be ignored on (pre)production networks.
 
   -h, --help
@@ -198,10 +198,10 @@ NETWORK=**YOUR_CARDANO_NETWORK** AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT*
 
 If you wish to delve deeper and access several levels of logs from the Mithril signer, use the following:
 
-* Add `-v` for some logs (WARN)
-* Add `-vv` for more logs (INFO)
-* Add `-vvv` for even more logs (DEBUG)
-* Add `-vvvv` for all logs (TRACE)
+- Add `-v` for some logs (WARN)
+- Add `-vv` for more logs (INFO)
+- Add `-vvv` for even more logs (DEBUG)
+- Add `-vvvv` for all logs (TRACE)
 
 :::
 
@@ -232,25 +232,25 @@ The configuration parameters can be set in either of the following ways:
 
 Here is a list of the available parameters:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
-| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
-| `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | :heavy_check_mark: |
-| `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | - | `/tmp/cardano.sock` | :heavy_check_mark: |
-| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory to snapshot from the **Cardano node** | `/db` | - | :heavy_check_mark: |
-| `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
-`network_magic` | - | - | `NETWORK_MAGIC` | Cardano network magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
-| `party_id` | - | - | `PARTY_ID` | Party Id of the signer, usually the `Pool Id` of the SPO | - | `pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x` | - | Mandatory in `pool Id declaration mode`  where the owner is not verified (decommissioned, only available when built with `allow_skip_signer_certification` feature, for test only)
-| `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
-| `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
-| `data_stores_directory` | - | - | `DATA_STORES_DIRECTORY` | Directory to store signer data (stake, protocol initializers, ...) | - | `./mithril-signer/stores` | :heavy_check_mark: |
-| `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Maximum number of records in stores. If not set, no limit is set. | - | - | - |
-| `kes_secret_key_path` | - | - | `KES_SECRET_KEY_PATH` | Path to the `Cardano KES secret key` file. Mandatory in `Pool Id certification mode` where the owner is verified (experimental, soon to be stable & preferred mode) | - | - | - |
-| `operational_certificate_path` | - | - | `OPERATIONAL_CERTIFICATE_PATH` | Path to the `Cardano operational certificate` file. Mandatory in `Pool Id certification mode` where the owner is verified (experimental, soon to be stable & preferred mode) | - | - | - |
-| `era_reader_adapter_type` | `--era-reader-adapter-type` | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type that can be `cardano-chain`, `file` or `bootstrap`. | `bootstrap` | - | - |
-| `era_reader_adapter_params` | `--era-reader-adapter-params` | - | `ERA_READER_ADAPTER_PARAMS` | Era reader adapter params that is an optional JSON encoded parameters structure that is expected depending on the `era_reader_adapter_type` parameter | - | - | - |
-| `enable_metrics_server` | `--enable-metrics-server` | - | `ENABLE_METRICS_SERVER` | Enable metrics HTTP server (Prometheus endpoint on /metrics) | `false` | - | - |
-| `metrics_server_ip` | `--metrics-server-ip` | - | `METRICS_SERVER_IP` | Metrics HTTP server IP | `0.0.0.0` | - | - |
-| `metrics_server_port` | `--metrics-server-port` | - | `METRICS_SERVER_PORT` | Metrics HTTP server listening port | `9090` | - | - |
-| `allow_unparsable_block` | `--allow-unparsable-block` | - | `ALLOW_UNPARSABLE_BLOCK` | If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks. | `false` | - | - |
+| Parameter                      | Command line (long)           | Command line (short) | Environment variable           | Description                                                                                                                                                                  | Default value | Example                                                                                                                 |     Mandatory      |
+| ------------------------------ | ----------------------------- | :------------------: | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- | :----------------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `verbose`                      | `--verbose`                   |         `-v`         | `VERBOSE`                      | Verbosity level                                                                                                                                                              | -             | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+| `run_mode`                     | `--run-mode`                  |         `-r`         | `RUN_MODE`                     | Runtime mode                                                                                                                                                                 | `dev`         | -                                                                                                                       | :heavy_check_mark: |
+| `cardano_cli_path`             | -                             |          -           | `CARDANO_CLI_PATH`             | Cardano CLI tool path                                                                                                                                                        | -             | `cardano-cli`                                                                                                           | :heavy_check_mark: |
+| `cardano_node_socket_path`     | -                             |          -           | `CARDANO_NODE_SOCKET_PATH`     | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node                                                                                         | -             | `/tmp/cardano.sock`                                                                                                     | :heavy_check_mark: |
+| `db_directory`                 | `--db-directory`              |          -           | `DB_DIRECTORY`                 | Directory to snapshot from the **Cardano node**                                                                                                                              | `/db`         | -                                                                                                                       | :heavy_check_mark: |
+| `network`                      | -                             |          -           | `NETWORK`                      | Cardano network                                                                                                                                                              | -             | `testnet` or `mainnet` or `devnet`                                                                                      | :heavy_check_mark: |
+| `network_magic`                | -                             |          -           | `NETWORK_MAGIC`                | Cardano network magic number (for `testnet` and `devnet`)                                                                                                                    | -             | `1097911063` or `42`                                                                                                    |         -          |
+| `party_id`                     | -                             |          -           | `PARTY_ID`                     | Party Id of the signer, usually the `Pool Id` of the SPO                                                                                                                     | -             | `pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x`                                                              |         -          | Mandatory in `pool Id declaration mode` where the owner is not verified (decommissioned, only available when built with `allow_skip_signer_certification` feature, for test only) |
+| `run_interval`                 | -                             |          -           | `RUN_INTERVAL`                 | Interval between two runtime cycles in ms                                                                                                                                    | -             | `60000`                                                                                                                 | :heavy_check_mark: |
+| `aggregator_endpoint`          | -                             |          -           | `AGGREGATOR_ENDPOINT`          | Aggregator node endpoint                                                                                                                                                     | -             | `https://aggregator.pre-release-preview.api.mithril.network/aggregator`                                                 | :heavy_check_mark: |
+| `data_stores_directory`        | -                             |          -           | `DATA_STORES_DIRECTORY`        | Directory to store signer data (stake, protocol initializers, ...)                                                                                                           | -             | `./mithril-signer/stores`                                                                                               | :heavy_check_mark: |
+| `store_retention_limit`        | -                             |          -           | `STORE_RETENTION_LIMIT`        | Maximum number of records in stores. If not set, no limit is set.                                                                                                            | -             | -                                                                                                                       |         -          |
+| `kes_secret_key_path`          | -                             |          -           | `KES_SECRET_KEY_PATH`          | Path to the `Cardano KES secret key` file. Mandatory in `Pool Id certification mode` where the owner is verified (experimental, soon to be stable & preferred mode)          | -             | -                                                                                                                       |         -          |
+| `operational_certificate_path` | -                             |          -           | `OPERATIONAL_CERTIFICATE_PATH` | Path to the `Cardano operational certificate` file. Mandatory in `Pool Id certification mode` where the owner is verified (experimental, soon to be stable & preferred mode) | -             | -                                                                                                                       |         -          |
+| `era_reader_adapter_type`      | `--era-reader-adapter-type`   |          -           | `ERA_READER_ADAPTER_TYPE`      | Era reader adapter type that can be `cardano-chain`, `file` or `bootstrap`.                                                                                                  | `bootstrap`   | -                                                                                                                       |         -          |
+| `era_reader_adapter_params`    | `--era-reader-adapter-params` |          -           | `ERA_READER_ADAPTER_PARAMS`    | Era reader adapter params that is an optional JSON encoded parameters structure that is expected depending on the `era_reader_adapter_type` parameter                        | -             | -                                                                                                                       |         -          |
+| `enable_metrics_server`        | `--enable-metrics-server`     |          -           | `ENABLE_METRICS_SERVER`        | Enable metrics HTTP server (Prometheus endpoint on /metrics)                                                                                                                 | `false`       | -                                                                                                                       |         -          |
+| `metrics_server_ip`            | `--metrics-server-ip`         |          -           | `METRICS_SERVER_IP`            | Metrics HTTP server IP                                                                                                                                                       | `0.0.0.0`     | -                                                                                                                       |         -          |
+| `metrics_server_port`          | `--metrics-server-port`       |          -           | `METRICS_SERVER_PORT`          | Metrics HTTP server listening port                                                                                                                                           | `9090`        | -                                                                                                                       |         -          |
+| `allow_unparsable_block`       | `--allow-unparsable-block`    |          -           | `ALLOW_UNPARSABLE_BLOCK`       | If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks.                                    | `false`       | -                                                                                                                       |         -          |

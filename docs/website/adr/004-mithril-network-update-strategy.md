@@ -3,7 +3,7 @@ slug: 4
 title: |
   4. Mithril Network Upgrade Strategy
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [Accepted]
 date: 2023-01-05
 ---
@@ -20,9 +20,9 @@ We need to be able to keep enough of signer nodes and the aggregator able to wor
 
 Examples of such changes:
 
- * change in the message structure
- * change in the cryptographic algorithm
- * change in communication channels
+- change in the message structure
+- change in the cryptographic algorithm
+- change in communication channels
 
 ## Decision
 
@@ -43,8 +43,9 @@ This configuration works in the case where there is a centralized Aggregator Nod
 ### Era Activation Marker
 
 An Era Activation Marker is an information shared among all the nodes. For every upgrade, there are two phases:
- * a first marker is set on the blockchain that just indicates a new Era will start soon and softwares shall be updated.
- * a second marker is set that specifies the Epoch when they must switch from old to new behavior.
+
+- a first marker is set on the blockchain that just indicates a new Era will start soon and softwares shall be updated.
+- a second marker is set that specifies the Epoch when they must switch from old to new behavior.
 
 Every Era Activation Marker will be a transaction in the Cardano blockchain. This implies the nodes must be able to read transactions of the blockchain. Era Activation Markers can be of the same type, the first maker does not hold any Epoch information whereas the second does.
 

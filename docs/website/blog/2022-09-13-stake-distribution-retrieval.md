@@ -1,7 +1,7 @@
 ---
 title: Stake Distribution retrieval fixed
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [stake-distribution, certificate]
 ---
 

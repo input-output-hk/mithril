@@ -13,9 +13,9 @@ The Mithril signer is a node that works transparently on top of the stake pool o
 
 :::tip
 
-* For more information about the **Mithril protocol**, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
+- For more information about the **Mithril protocol**, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
 
-* For more information about the **Mithril signer**, see the [developer manual](../../manual/developer-docs/nodes/mithril-signer.md).
+- For more information about the **Mithril signer**, see the [developer manual](../../manual/developer-docs/nodes/mithril-signer.md).
 
 :::
 
@@ -29,9 +29,8 @@ For the protocol to maintain its security, the Mithril signer must autonomously 
 
 If certain nodes are not fully synchronized or exhibit adversarial behavior, they will be unable to contribute, either:
 
-* Because they do not sign the same message (as they use different data from what the rest of the network agrees upon)
-  
-* Or they are not entitled to sign (because they are not true holders of the stake share they used to sign).
+- Because they do not sign the same message (as they use different data from what the rest of the network agrees upon)
+- Or they are not entitled to sign (because they are not true holders of the stake share they used to sign).
 
 ## Interaction with the Mithril aggregator
 
@@ -41,11 +40,11 @@ Ultimately, any signer will have the potential to function as a Mithril aggregat
 
 The Mithril signer establishes a connection with the Mithril aggregator for the following purposes:
 
--   Determining when to sign a new snapshot (via the advertised beacon of the pending certificate)
--   Obtaining the presently used protocol parameters
--   Registering its verification keys (public keys)
--   Receiving the verification keys of all other declared signers, available for the upcoming message signing
--   Sending the single signatures of locally computed messages (which will ideally be combined into multi-signatures by the aggregator).
+- Determining when to sign a new snapshot (via the advertised beacon of the pending certificate)
+- Obtaining the presently used protocol parameters
+- Registering its verification keys (public keys)
+- Receiving the verification keys of all other declared signers, available for the upcoming message signing
+- Sending the single signatures of locally computed messages (which will ideally be combined into multi-signatures by the aggregator).
 
 This process is summarized in the following diagram:
 
@@ -55,10 +54,10 @@ This process is summarized in the following diagram:
 
 In its initial version, the **Mithril signer** consists of a primary component:
 
-* A runtime powered by a state machine:
-  * The runtime operates synchronously and is programmed to run at consistent intervals
-  * Three potential states exist: **UNREGISTERED**, **REGISTERED**, and **SIGNED**
-  * The runtime effectively manages state transitions
-  * The runtime's framework is depicted in the diagram below:
+- A runtime powered by a state machine:
+  - The runtime operates synchronously and is programmed to run at consistent intervals
+  - Three potential states exist: **UNREGISTERED**, **REGISTERED**, and **SIGNED**
+  - The runtime effectively manages state transitions
+  - The runtime's framework is depicted in the diagram below:
 
 ![Signer Runtime](images/signer-runtime.jpg)

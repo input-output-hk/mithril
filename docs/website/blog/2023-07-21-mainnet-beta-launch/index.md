@@ -1,7 +1,7 @@
 ---
 title: Mithril Protocol’s Mainnet Beta Launch
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [spo, mithril signer, mainnet, production, beta]
 ---
 

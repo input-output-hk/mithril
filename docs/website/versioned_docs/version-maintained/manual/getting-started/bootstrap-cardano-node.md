@@ -29,12 +29,12 @@ Before proceeding with the installation, ensure that you have the following pre-
 
 3. **Install OpenSSL development libraries**: On Ubuntu/Debian/Mint, run the following command to install the required OpenSSL development libraries:
 
- ```
+```
 sudo apt install libssl-dev
- ```
+```
 
 3. **Install other requirements**: Make sure you have all the additional dependencies and requirements specified for the project:
-   
+
 ```bash
 sudo apt-get install make build-essential m4 docker jq
 ```
@@ -156,10 +156,10 @@ To display results in JSON format for the `list` and `show` commands of the Mith
 
 If you wish to delve deeper and access several levels of logs from the Mithril client, you can use the following:
 
-* Add `-v` for some logs (WARN)
-* Add `-vv` for more logs (INFO)
-* Add `-vvv` for even more logs (DEBUG)
-* Add `-vvvv` for all logs (TRACE)
+- Add `-v` for some logs (WARN)
+- Add `-vv` for more logs (INFO)
+- Add `-vvv` for even more logs (DEBUG)
+- Add `-vvvv` for all logs (TRACE)
 
 :::
 
@@ -318,13 +318,12 @@ To download the selected snapshot from the remote location to your remote locati
 ./mithril-client cardano-db download $SNAPSHOT_DIGEST
 ```
 
-
 You will see that the selected snapshot archive has been downloaded locally, unpacked, and that the associated certificate is valid:
 
 ```bash
 1/5 - Checking local disk info…
 2/5 - Fetching the certificate and verifying the certificate chain…
-3/5 - Downloading and unpacking the cardano db 
+3/5 - Downloading and unpacking the cardano db
 4/5 - Computing the cardano db message
 5/5 - Verifying the cardano db signature…
 Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
