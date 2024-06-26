@@ -249,46 +249,28 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        macro_rules! insert_default_configuration {
+            ( $map:ident, $config:ident.$parameter:ident ) => {{
+                $map.insert(
+                    stringify!($parameter).to_string(),
+                    into_value($config.$parameter),
+                );
+            }};
+        }
+
         fn into_value<V: Into<ValueKind>>(value: V) -> Value {
             Value::new(Some(&DefaultConfiguration::namespace()), value.into())
         }
         let mut result = Map::new();
         let myself = self.clone();
 
-        result.insert(
-            "era_reader_adapter_type".to_string(),
-            into_value(myself.era_reader_adapter_type),
-        );
-
-        result.insert(
-            "metrics_server_ip".to_string(),
-            into_value(myself.metrics_server_ip),
-        );
-
-        result.insert(
-            "metrics_server_port".to_string(),
-            into_value(myself.metrics_server_port),
-        );
-
-        result.insert(
-            "network_security_parameter".to_string(),
-            into_value(myself.network_security_parameter),
-        );
-
-        result.insert(
-            "preload_security_parameter".to_string(),
-            into_value(myself.preload_security_parameter),
-        );
-
-        result.insert(
-            "enable_transaction_pruning".to_string(),
-            into_value(myself.enable_transaction_pruning),
-        );
-
-        result.insert(
-            "transactions_import_block_chunk_size".to_string(),
-            into_value(myself.transactions_import_block_chunk_size),
-        );
+        insert_default_configuration!(result, myself.era_reader_adapter_type);
+        insert_default_configuration!(result, myself.metrics_server_ip);
+        insert_default_configuration!(result, myself.metrics_server_port);
+        insert_default_configuration!(result, myself.network_security_parameter);
+        insert_default_configuration!(result, myself.preload_security_parameter);
+        insert_default_configuration!(result, myself.enable_transaction_pruning);
+        insert_default_configuration!(result, myself.transactions_import_block_chunk_size);
 
         Ok(result)
     }
