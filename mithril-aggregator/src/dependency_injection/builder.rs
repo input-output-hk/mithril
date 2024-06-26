@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
-        RwLock,
+        Mutex, RwLock,
     },
     time::Duration,
 };
@@ -17,6 +17,7 @@ use mithril_common::{
     cardano_transactions_preloader::CardanoTransactionsPreloader,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
+    chain_reader::{ChainBlockReader, PallasChainReader},
     crypto_helper::{
         ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
     },
@@ -131,6 +132,9 @@ pub struct DependenciesBuilder {
     /// Chain observer service.
     pub chain_observer: Option<Arc<dyn ChainObserver>>,
 
+    /// Chain block reader
+    pub chain_block_reader: Option<Arc<Mutex<dyn ChainBlockReader>>>,
+
     /// Cardano transactions repository.
     pub transaction_repository: Option<Arc<CardanoTransactionRepository>>,
 
@@ -237,6 +241,7 @@ impl DependenciesBuilder {
             protocol_parameters_store: None,
             cardano_cli_runner: None,
             chain_observer: None,
+            chain_block_reader: None,
             block_scanner: None,
             transaction_repository: None,
             immutable_digester: None,
@@ -728,15 +733,30 @@ impl DependenciesBuilder {
         Ok(self.transaction_repository.as_ref().cloned().unwrap())
     }
 
+    async fn build_chain_block_reader(&mut self) -> Result<Arc<Mutex<dyn ChainBlockReader>>> {
+        let chain_block_reader = PallasChainReader::new(
+            &self.configuration.cardano_node_socket_path,
+            self.configuration.get_network()?,
+        );
+
+        Ok(Arc::new(Mutex::new(chain_block_reader)))
+    }
+
+    /// Chain reader
+    pub async fn get_chain_block_reader(&mut self) -> Result<Arc<Mutex<dyn ChainBlockReader>>> {
+        if self.chain_block_reader.is_none() {
+            self.chain_block_reader = Some(self.build_chain_block_reader().await?);
+        }
+
+        Ok(self.chain_block_reader.as_ref().cloned().unwrap())
+    }
+
     async fn build_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
         let block_scanner = CardanoBlockScanner::new(
-            self.get_logger()?,
+            self.get_chain_block_reader().await?,
             self.configuration
-                .get_network()?
-                .compute_allow_unparsable_block(self.configuration.allow_unparsable_block)?,
-            self.get_transaction_repository().await?,
-            // Rescan the last immutable when importing transactions, it may have been partially imported
-            Some(1),
+                .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
+            self.get_logger()?,
         );
 
         Ok(Arc::new(block_scanner))

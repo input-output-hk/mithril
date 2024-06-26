@@ -25,6 +25,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Preload Cardano transactions and Block Range Roots at signer & aggregator startup.
   - Chunk the Cardano transactions import in `mithril-signer` to reduce disk footprint by running the pruning process more frequently.
   - Add a database connection pool on the Cardano transaction repository for increased performances of the prover.
+  - Import Cardano transactions with Chain Sync mini protocol and Pallas chain reader.
 
 - Crates versions:
 

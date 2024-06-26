@@ -254,3 +254,8 @@ Here is a list of the available parameters:
 | `metrics_server_ip` | `--metrics-server-ip` | - | `METRICS_SERVER_IP` | Metrics HTTP server IP | `0.0.0.0` | - | - |
 | `metrics_server_port` | `--metrics-server-port` | - | `METRICS_SERVER_PORT` | Metrics HTTP server listening port | `9090` | - | - |
 | `allow_unparsable_block` | `--allow-unparsable-block` | - | `ALLOW_UNPARSABLE_BLOCK` | If set no error is returned in case of unparsable block and an error log is written instead. Will be ignored on (pre)production networks. | `false` | - | - |
+| `enable_transaction_pruning` | - | - | `ENABLE_TRANSACTION_PRUNING` | If set, the signer will prune the cardano transactions in database older than the [network_security_parameter]
+| `network_security_parameter` | - | - | `NETWORK_SECURITY_PARAMETER` | Also known as `k`, it defines the number of blocks that are required for the blockchain to be considered final, preventing any further rollback `[default: 2160]`. | `2160` | - | - |
+| `preload_security_parameter` | - | - | `PRELOAD_SECURITY_PARAMETER` | Blocks offset, from the tip of the chain, to exclude during the cardano transactions preload `[default: 3000]`. | `3000` | - | - |
+| `transactions_import_block_chunk_size` | - | - | `TRANSACTIONS_IMPORT_BLOCK_CHUNK_SIZE` | Chunk size for importing transactions, combined with transaction pruning it reduces the storage footprint of the signer by reducing the number of transactions stored on disk at any given time. | `1500` | - | - |
+| `cardano_transactions_block_streamer_max_roll_forwards_per_poll` | - | - | `CARDANO_TRANSACTIONS_BLOCK_STREAMER_MAX_ROLL_FORWARDS_PER_POLL` | The maximum number of roll forwards during a poll of the block streamer when importing transactions. | `1000` | - | - |

@@ -168,8 +168,11 @@ pub struct Configuration {
     #[example = "`{ security_parameter: 3000, step: 120 }`"]
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 
-    /// Maximum number of transactions hashes allowed by request to the prover
+    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
     pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: usize,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -249,6 +252,7 @@ impl Configuration {
                 step: 15,
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
         }
     }
 
@@ -363,8 +367,11 @@ pub struct DefaultConfiguration {
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 
-    /// Maximum number of transactions hashes allowed by request to the prover
+    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
     pub cardano_transactions_prover_max_hashes_allowed_by_request: u32,
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: u32,
 }
 
 impl Default for DefaultConfiguration {
@@ -392,6 +399,7 @@ impl Default for DefaultConfiguration {
                 step: 120,
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
         }
     }
 }
@@ -454,6 +462,10 @@ impl Source for DefaultConfiguration {
         insert_default_configuration!(
             result,
             myself.cardano_transactions_prover_max_hashes_allowed_by_request
+        );
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
         result.insert(
             "cardano_transactions_signing_config".to_string(),

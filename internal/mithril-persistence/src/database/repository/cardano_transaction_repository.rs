@@ -241,6 +241,17 @@ impl CardanoTransactionRepository {
         interval.to_range()
     }
 
+    /// Get the block number for a given slot number
+    pub async fn get_block_number_by_slot_number(
+        &self,
+        slot_number: SlotNumber,
+    ) -> StdResult<Option<BlockNumber>> {
+        let query = GetCardanoTransactionQuery::by_slot_number(slot_number);
+        let record = self.connection_pool.connection()?.fetch_first(query)?;
+
+        Ok(record.map(|r| r.block_number))
+    }
+
     /// Get the [CardanoTransactionRecord] for the given transaction hashes, up to a block number
     pub async fn get_transaction_by_hashes<T: Into<TransactionHash>>(
         &self,
@@ -294,7 +305,7 @@ impl CardanoTransactionRepository {
     /// * Remove block range roots that have lower bound range strictly above the given block number
     pub async fn remove_rolled_back_transactions_and_block_range(
         &self,
-        block_number: BlockNumber,
+        block_number: SlotNumber,
     ) -> StdResult<()> {
         let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;
@@ -836,6 +847,31 @@ mod tests {
                 transaction_result
             );
         }
+    }
+
+    #[tokio::test]
+    async fn repository_get_block_number_by_slot_number() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+
+        let transactions = vec![
+            CardanoTransactionRecord::new("tx-1", 100, 500, "block-1", 99),
+            CardanoTransactionRecord::new("tx-2", 100, 500, "block-1", 99),
+            CardanoTransactionRecord::new("tx-3", 101, 501, "block-1", 99),
+        ];
+        repository
+            .create_transactions(transactions.clone())
+            .await
+            .unwrap();
+
+        let transaction_block_number_retrieved = repository
+            .get_block_number_by_slot_number(500)
+            .await
+            .unwrap();
+
+        assert_eq!(transaction_block_number_retrieved, Some(100));
     }
 
     #[tokio::test]

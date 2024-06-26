@@ -3,7 +3,9 @@ use std::ops::Range;
 use async_trait::async_trait;
 
 use mithril_common::crypto_helper::MKTreeNode;
-use mithril_common::entities::{BlockNumber, BlockRange, CardanoTransaction, ChainPoint};
+use mithril_common::entities::{
+    BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
+};
 use mithril_common::StdResult;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
@@ -48,8 +50,14 @@ impl TransactionStore for CardanoTransactionRepository {
 
     async fn remove_rolled_back_transactions_and_block_range(
         &self,
-        block_number: BlockNumber,
+        slot_number: SlotNumber,
     ) -> StdResult<()> {
+        let block_number = self
+            .get_block_number_by_slot_number(slot_number)
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!("No block number found for slot number {}", slot_number)
+            })?;
         self.remove_rolled_back_transactions_and_block_range(block_number)
             .await
     }

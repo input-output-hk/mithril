@@ -1,12 +1,14 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::{fs, sync::Arc, time::Duration};
+use tokio::sync::Mutex;
 
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::CardanoBlockScanner,
     cardano_transactions_preloader::CardanoTransactionsPreloader,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
+    chain_reader::PallasChainReader,
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
@@ -270,12 +272,13 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             sqlite_connection_cardano_transaction_pool.clone(),
         ));
+        let chain_block_reader =
+            PallasChainReader::new(&self.config.cardano_node_socket_path, network);
         let block_scanner = Arc::new(CardanoBlockScanner::new(
+            Arc::new(Mutex::new(chain_block_reader)),
+            self.config
+                .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
             slog_scope::logger(),
-            network.compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
-            transaction_store.clone(),
-            // Rescan the last immutable when importing transactions, it may have been partially imported
-            Some(1),
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner,

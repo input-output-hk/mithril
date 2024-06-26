@@ -47,6 +47,15 @@ impl ChainPoint {
         }
     }
 
+    /// Create a new origin chain point
+    pub fn origin() -> ChainPoint {
+        ChainPoint {
+            slot_number: 0,
+            block_number: 0,
+            block_hash: String::new(),
+        }
+    }
+
     /// Check if origin chain point
     pub fn is_origin(&self) -> bool {
         self.slot_number == 0 && self.block_number == 0 && self.block_hash.is_empty()

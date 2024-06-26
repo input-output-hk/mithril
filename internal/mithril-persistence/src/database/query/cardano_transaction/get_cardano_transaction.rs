@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use sqlite::Value;
 
-use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
+use mithril_common::entities::{BlockNumber, BlockRange, SlotNumber, TransactionHash};
 
 use crate::database::record::CardanoTransactionRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -70,6 +70,15 @@ impl GetCardanoTransactionQuery {
         ));
 
         Self { condition }
+    }
+
+    pub fn by_slot_number(slot_number: SlotNumber) -> Self {
+        Self {
+            condition: WhereCondition::new(
+                "slot_number = ?*",
+                vec![Value::Integer(slot_number as i64)],
+            ),
+        }
     }
 
     pub fn with_highest_block_number() -> Self {
