@@ -16,9 +16,12 @@ impl GetBlockRangeRootQuery {
         }
     }
 
-    pub fn up_to_block_number(block_number: BlockNumber) -> Self {
+    pub fn up_to_block_number(up_to_or_equal_end_block_number: BlockNumber) -> Self {
         Self {
-            condition: WhereCondition::new("end < ?*", vec![Value::Integer(block_number as i64)]),
+            condition: WhereCondition::new(
+                "end <= ?*",
+                vec![Value::Integer(up_to_or_equal_end_block_number as i64)],
+            ),
         }
     }
 }

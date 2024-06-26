@@ -146,15 +146,17 @@ impl CardanoTransactionRepository {
             )
     }
 
-    /// Retrieve all the Block Range Roots in database up to the given end block number excluded.
+    /// Retrieve all the Block Range Roots in database up to the given end block number included.
     pub async fn retrieve_block_range_roots_up_to(
         &self,
-        end_block_number: BlockNumber,
+        up_to_or_equal_end_block_number: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + '_>> {
         let block_range_roots = self
             .connection_pool
             .connection()?
-            .fetch(GetBlockRangeRootQuery::up_to_block_number(end_block_number))?
+            .fetch(GetBlockRangeRootQuery::up_to_block_number(
+                up_to_or_equal_end_block_number,
+            ))?
             .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
             .collect::<Vec<_>>(); // TODO: remove this collect to return the iterator directly
 
@@ -312,10 +314,10 @@ impl CardanoTransactionRepository {
 impl BlockRangeRootRetriever for CardanoTransactionRepository {
     async fn retrieve_block_range_roots(
         &self,
-        up_to_beacon: BlockNumber,
+        up_to_or_equal_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>> {
         let iterator = self
-            .retrieve_block_range_roots_up_to(up_to_beacon)
+            .retrieve_block_range_roots_up_to(up_to_or_equal_beacon)
             .await?
             .collect::<Vec<_>>() // TODO: remove this collect to return the iterator directly
             .into_iter();
@@ -958,10 +960,10 @@ mod tests {
                 retrieved_block_ranges.collect::<Vec<_>>()
             );
         }
-        // The given block is matched to the end (excluded) - should return the first of the three
+        // Right below the end of the second block range - should return first of the three
         {
             let retrieved_block_ranges = repository
-                .retrieve_block_range_roots_up_to(45)
+                .retrieve_block_range_roots_up_to(44)
                 .await
                 .unwrap();
             assert_eq!(
@@ -969,10 +971,10 @@ mod tests {
                 retrieved_block_ranges.collect::<Vec<_>>()
             );
         }
-        // Right after the end of the second block range - should return first two of the three
+        // The given block is matched to the end (included) - should return the two of the three
         {
             let retrieved_block_ranges = repository
-                .retrieve_block_range_roots_up_to(46)
+                .retrieve_block_range_roots_up_to(45)
                 .await
                 .unwrap();
             assert_eq!(
