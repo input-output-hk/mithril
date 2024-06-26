@@ -1,6 +1,4 @@
-import initMithrilClient, {
-  MithrilClient
-} from "@mithril-dev/mithril-client-wasm";
+import initMithrilClient, { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 
 async function run_test(test_name, test_number, fun) {
   try {
@@ -26,9 +24,7 @@ function handle_error(test_name, test_number, error) {
   display_test_result_in_dom(test_name, test_number, "FAILED", error);
   console.error(`Error at step ${test_number} (${test_name}):`, error);
   add_finished_div();
-  throw new Error(
-    `Stopping script due to error at step ${test_number}: ${error}`
-  );
+  throw new Error(`Stopping script due to error at step ${test_number}: ${error}`);
 }
 
 function add_finished_div() {
@@ -43,10 +39,9 @@ const genesis_verification_key = process.env.GENESIS_VERIFICATION_KEY;
 let client;
 let test_number = 1;
 
-const aggregator_capabilities =
-  await fetch(aggregator_endpoint)
-    .then(res => res.status === 200 ? res.json() : [])
-    .then(res => res.capabilities?.signed_entity_types ?? []);
+const aggregator_capabilities = await fetch(aggregator_endpoint)
+  .then((res) => (res.status === 200 ? res.json() : []))
+  .then((res) => res.capabilities?.signed_entity_types ?? []);
 console.log("aggregator_endpoint: ", aggregator_endpoint);
 console.log("aggregator_capabilities: ", aggregator_capabilities);
 
@@ -78,7 +73,7 @@ let mithril_stake_distribution;
 test_number++;
 await run_test("get_mithril_stake_distribution", test_number, async () => {
   mithril_stake_distribution = await client.get_mithril_stake_distribution(
-    mithril_stake_distributions[0].hash
+    mithril_stake_distributions[0].hash,
   );
   console.log("mithril_stake_distribution", mithril_stake_distribution);
 });
@@ -86,53 +81,38 @@ await run_test("get_mithril_stake_distribution", test_number, async () => {
 let certificate;
 test_number++;
 await run_test("get_mithril_certificate", test_number, async () => {
-  certificate = await client.get_mithril_certificate(
-    mithril_stake_distribution.certificate_hash
-  );
+  certificate = await client.get_mithril_certificate(mithril_stake_distribution.certificate_hash);
   console.log("certificate", certificate);
 });
 
 let last_certificate_from_chain;
 test_number++;
 await run_test("verify_certificate_chain", test_number, async () => {
-  last_certificate_from_chain = await client.verify_certificate_chain(
-    certificate.hash
-  );
+  last_certificate_from_chain = await client.verify_certificate_chain(certificate.hash);
   console.log("last_certificate_from_chain", last_certificate_from_chain);
 });
 
 let mithril_stake_distribution_message;
 test_number++;
-await run_test(
-  "compute_mithril_stake_distribution_message",
-  test_number,
-  async () => {
-    mithril_stake_distribution_message =
-      await client.compute_mithril_stake_distribution_message(
-        mithril_stake_distribution
-      );
-    console.log(
-      "mithril_stake_distribution_message",
-      mithril_stake_distribution_message
-    );
-  }
-);
+await run_test("compute_mithril_stake_distribution_message", test_number, async () => {
+  mithril_stake_distribution_message = await client.compute_mithril_stake_distribution_message(
+    mithril_stake_distribution,
+  );
+  console.log("mithril_stake_distribution_message", mithril_stake_distribution_message);
+});
 
 test_number++;
 await run_test("verify_message_match_certificate", test_number, async () => {
-  const valid_stake_distribution_message =
-    await client.verify_message_match_certificate(
-      mithril_stake_distribution_message,
-      last_certificate_from_chain
-    );
-  console.log(
-    "valid_stake_distribution_message",
-    valid_stake_distribution_message
+  const valid_stake_distribution_message = await client.verify_message_match_certificate(
+    mithril_stake_distribution_message,
+    last_certificate_from_chain,
   );
+  console.log("valid_stake_distribution_message", valid_stake_distribution_message);
 });
 
 if (aggregator_capabilities.includes("CardanoTransactions")) {
-  const transactions_hashes_to_certify = process.env.TRANSACTIONS_HASHES_TO_CERTIFY?.split(",") ?? [];
+  const transactions_hashes_to_certify =
+    process.env.TRANSACTIONS_HASHES_TO_CERTIFY?.split(",") ?? [];
 
   let ctx_sets;
   test_number++;
@@ -153,19 +133,21 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
     let ctx_proof;
     test_number++;
     await run_test("get_cardano_transaction_proof", test_number, async () => {
-      ctx_proof = await client.unstable.get_cardano_transaction_proofs(transactions_hashes_to_certify);
+      ctx_proof = await client.unstable.get_cardano_transaction_proofs(
+        transactions_hashes_to_certify,
+      );
       console.log(
-        "got proof for transactions: ", ctx_proof.transactions_hashes,
-        "\nnon_certified_transactions: ", ctx_proof.non_certified_transactions
+        "got proof for transactions: ",
+        ctx_proof.transactions_hashes,
+        "\nnon_certified_transactions: ",
+        ctx_proof.non_certified_transactions,
       );
     });
 
     let proof_certificate;
     test_number++;
     await run_test("proof_verify_certificate_chain", test_number, async () => {
-      proof_certificate = await client.verify_certificate_chain(
-        ctx_proof.certificate_hash
-      );
+      proof_certificate = await client.verify_certificate_chain(ctx_proof.certificate_hash);
       console.log("proof_certificate", proof_certificate);
     });
 
@@ -176,25 +158,21 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
       test_number,
       async () => {
         ctx_proof_message =
-          await client.unstable.verify_cardano_transaction_proof_then_compute_message(ctx_proof, proof_certificate);
-        console.log(
-          "verify_cardano_transaction_proof_then_compute_message",
-          ctx_proof_message
-        );
-      }
+          await client.unstable.verify_cardano_transaction_proof_then_compute_message(
+            ctx_proof,
+            proof_certificate,
+          );
+        console.log("verify_cardano_transaction_proof_then_compute_message", ctx_proof_message);
+      },
     );
 
     test_number++;
     await run_test("proof_verify_message_match_certificate", test_number, async () => {
-      const valid_stake_distribution_message =
-        await client.verify_message_match_certificate(
-          ctx_proof_message,
-          proof_certificate
-        );
-      console.log(
-        "valid_stake_distribution_message",
-        valid_stake_distribution_message
+      const valid_stake_distribution_message = await client.verify_message_match_certificate(
+        ctx_proof_message,
+        proof_certificate,
       );
+      console.log("valid_stake_distribution_message", valid_stake_distribution_message);
     });
   }
 }
