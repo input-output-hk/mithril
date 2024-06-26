@@ -383,7 +383,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_parse_expected_rollforward_when_rollbackward_on_different_point_and_does_not_have_previous_rollforwards(
+    async fn test_parse_expected_backward_when_rollbackward_on_different_point_and_does_not_have_previous_rollforwards(
     ) {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {

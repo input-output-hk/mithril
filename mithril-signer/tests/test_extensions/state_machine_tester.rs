@@ -465,7 +465,7 @@ impl StateMachineTester {
 
         self.assert(
             rollback_to_slot_number == new_slot_number,
-            format!("expected to increase sllt number up to {rollback_to_slot_number}, got {new_slot_number}"),
+            format!("expected to increase slot number up to {rollback_to_slot_number}, got {new_slot_number}"),
         )?;
 
         let chain_point = ChainPoint {

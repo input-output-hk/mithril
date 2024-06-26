@@ -29,12 +29,6 @@ pub trait TransactionStore: Send + Sync {
         &self,
     ) -> StdResult<Option<Range<BlockNumber>>>;
 
-    /// Get block number for a given slot number
-    async fn get_block_number_by_slot_number(
-        &self,
-        slot_number: SlotNumber,
-    ) -> StdResult<BlockNumber>;
-
     /// Get transactions in an interval of blocks
     async fn get_transactions_in_range(
         &self,

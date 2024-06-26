@@ -245,13 +245,11 @@ impl CardanoTransactionRepository {
     pub async fn get_block_number_by_slot_number(
         &self,
         slot_number: SlotNumber,
-    ) -> StdResult<BlockNumber> {
+    ) -> StdResult<Option<BlockNumber>> {
         let query = GetCardanoTransactionQuery::by_slot_number(slot_number);
         let record = self.connection_pool.connection()?.fetch_first(query)?;
 
-        record
-            .map(|r| r.block_number)
-            .ok_or_else(|| anyhow::anyhow!("No block number found for slot number {}", slot_number))
+        Ok(record.map(|r| r.block_number))
     }
 
     /// Get the [CardanoTransactionRecord] for the given transaction hashes, up to a block number
@@ -873,7 +871,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(transaction_block_number_retrieved, 100);
+        assert_eq!(transaction_block_number_retrieved, Some(100));
     }
 
     #[tokio::test]

@@ -27,13 +27,6 @@ impl TransactionStore for CardanoTransactionRepository {
         self.get_block_interval_without_block_range_root().await
     }
 
-    async fn get_block_number_by_slot_number(
-        &self,
-        slot_number: SlotNumber,
-    ) -> StdResult<BlockNumber> {
-        self.get_block_number_by_slot_number(slot_number).await
-    }
-
     async fn get_transactions_in_range(
         &self,
         range: Range<BlockNumber>,
@@ -59,7 +52,12 @@ impl TransactionStore for CardanoTransactionRepository {
         &self,
         slot_number: SlotNumber,
     ) -> StdResult<()> {
-        let block_number = self.get_block_number_by_slot_number(slot_number).await?;
+        let block_number = self
+            .get_block_number_by_slot_number(slot_number)
+            .await?
+            .ok_or_else(|| {
+                anyhow::anyhow!("No block number found for slot number {}", slot_number)
+            })?;
         self.remove_rolled_back_transactions_and_block_range(block_number)
             .await
     }
