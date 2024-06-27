@@ -16,6 +16,7 @@ mod message;
 mod prover;
 mod signed_entity;
 mod stake_distribution;
+mod upkeep;
 
 pub use cardano_transactions_importer::*;
 pub use certifier::*;
@@ -24,3 +25,4 @@ pub use message::*;
 pub use prover::*;
 pub use signed_entity::*;
 pub use stake_distribution::*;
+pub use upkeep::*;
