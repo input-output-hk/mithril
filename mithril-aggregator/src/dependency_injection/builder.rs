@@ -1,6 +1,7 @@
 use anyhow::Context;
 use semver::Version;
 use slog::Logger;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::{
     sync::{
@@ -59,10 +60,10 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
-        MithrilEpochService, MithrilMessageService, MithrilProverService,
+        AggregatorUpkeepService, CardanoTransactionsImporter, CertifierService, MessageService,
+        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, StakeDistributionService,
+        SignedEntityService, StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -221,6 +222,9 @@ pub struct DependenciesBuilder {
 
     /// Transactions Importer
     pub transactions_importer: Option<Arc<dyn TransactionsImporter>>,
+
+    /// Upkeep service
+    pub upkeep_service: Option<Arc<dyn UpkeepService>>,
 }
 
 impl DependenciesBuilder {
@@ -270,6 +274,7 @@ impl DependenciesBuilder {
             prover_service: None,
             signed_entity_type_lock: None,
             transactions_importer: None,
+            upkeep_service: None,
         }
     }
 
@@ -1238,6 +1243,38 @@ impl DependenciesBuilder {
         Ok(self.transactions_importer.as_ref().cloned().unwrap())
     }
 
+    async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
+        let (main_db_path, cardano_tx_db_path) = match self.configuration.environment {
+            ExecutionEnvironment::Production => (
+                self.configuration.get_sqlite_dir().join(SQLITE_FILE),
+                self.configuration
+                    .get_sqlite_dir()
+                    .join(SQLITE_FILE_CARDANO_TRANSACTION),
+            ),
+            _ if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" => {
+                (PathBuf::from(":memory:"), PathBuf::from(":memory:"))
+            }
+            _ => (
+                self.configuration.data_stores_directory.join(SQLITE_FILE),
+                self.configuration.data_stores_directory.join(SQLITE_FILE),
+            ),
+        };
+        let upkeep_service = Arc::new(AggregatorUpkeepService::new(
+            main_db_path,
+            cardano_tx_db_path,
+        ));
+
+        Ok(upkeep_service)
+    }
+
+    async fn get_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
+        if self.upkeep_service.is_none() {
+            self.upkeep_service = Some(self.build_upkeep_service().await?);
+        }
+
+        Ok(self.upkeep_service.as_ref().cloned().unwrap())
+    }
+
     /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
@@ -1281,6 +1318,7 @@ impl DependenciesBuilder {
             transaction_store: self.get_transaction_repository().await?,
             prover_service: self.get_prover_service().await?,
             signed_entity_type_lock: self.get_signed_entity_lock().await?,
+            upkeep_service: self.get_upkeep_service().await?,
         };
 
         Ok(dependency_manager)
