@@ -460,6 +460,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()> {
+        self.dependencies.upkeep_service.run().await?;
+
         self.dependencies
             .certifier_service
             .inform_epoch(epoch)
@@ -489,7 +491,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::services::FakeEpochService;
+    use crate::services::{FakeEpochService, MockUpkeepService};
     use crate::{
         entities::OpenMessage,
         initialize_dependencies,
@@ -887,6 +889,8 @@ pub mod tests {
             .expect_inform_epoch()
             .returning(|_| Ok(()))
             .times(1);
+        let mut upkeep_service = MockUpkeepService::new();
+        upkeep_service.expect_run().returning(|| Ok(())).times(1);
 
         let mut deps = initialize_dependencies().await;
         let current_epoch = deps
@@ -901,6 +905,7 @@ pub mod tests {
             current_epoch,
             &MithrilFixtureBuilder::default().build(),
         )));
+        deps.upkeep_service = Arc::new(upkeep_service);
 
         let runner = AggregatorRunner::new(Arc::new(deps));
 
