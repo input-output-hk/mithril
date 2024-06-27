@@ -9,7 +9,7 @@ esac
 
 # Cardano node version
 if [ -z "${CARDANO_NODE_VERSION}" ]; then 
-  CARDANO_NODE_VERSION="8.7.3"
+  CARDANO_NODE_VERSION="8.12.1"
 fi
 if [ -z "${CARDANO_NODE_VERSION_RELEASE}" ]; then 
   CARDANO_NODE_VERSION_RELEASE=$(echo ${CARDANO_NODE_VERSION} | cut -d'-' -f1)
