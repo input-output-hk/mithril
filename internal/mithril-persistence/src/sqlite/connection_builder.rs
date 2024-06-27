@@ -2,13 +2,12 @@ use std::ops::Not;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use slog::{info, Logger};
+use slog::Logger;
 use sqlite::{Connection, ConnectionThreadSafe};
 
 use mithril_common::StdResult;
 
 use crate::database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration};
-use crate::sqlite::vacuum_database;
 
 /// Builder of SQLite connection
 pub struct ConnectionBuilder {
@@ -32,11 +31,6 @@ pub enum ConnectionOptions {
     ///
     /// This option take priority over [ConnectionOptions::EnableForeignKeys] if both are enabled.
     ForceDisableForeignKeys,
-
-    /// Run a VACUUM operation on the database after the connection is opened
-    ///
-    /// ⚠ This operation can be very slow on large databases ⚠
-    Vacuum,
 }
 
 impl ConnectionBuilder {
@@ -91,23 +85,6 @@ impl ConnectionBuilder {
                     self.connection_path.display()
                 )
             })?;
-
-        if self.options.contains(&ConnectionOptions::Vacuum) {
-            info!(
-                self.logger,
-                "Vacuuming SQLite database, this may take a while...";
-                "database" => self.connection_path.display()
-            );
-
-            vacuum_database(&connection)
-                .with_context(|| "SQLite initialization: database VACUUM error")?;
-
-            info!(
-                self.logger,
-                "SQLite database vacuumed successfully";
-                "database" => self.connection_path.display()
-            );
-        }
 
         if self
             .options

@@ -290,7 +290,6 @@ impl DependenciesBuilder {
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
-        do_vacuum_database: bool,
     ) -> Result<SqliteConnection> {
         let logger = self.get_logger()?;
         let connection_builder = match self.configuration.environment {
@@ -304,21 +303,12 @@ impl DependenciesBuilder {
             ),
         };
 
-        let connection_options = {
-            let mut options = vec![
-                ConnectionOptions::EnableForeignKeys,
-                ConnectionOptions::EnableWriteAheadLog,
-            ];
-            if do_vacuum_database {
-                options.push(ConnectionOptions::Vacuum);
-            }
-
-            options
-        };
-
         let connection = connection_builder
             .with_node_type(ApplicationNodeType::Aggregator)
-            .with_options(&connection_options)
+            .with_options(&[
+                ConnectionOptions::EnableForeignKeys,
+                ConnectionOptions::EnableWriteAheadLog,
+            ])
             .with_logger(logger.clone())
             .with_migrations(migrations)
             .build()
@@ -348,7 +338,6 @@ impl DependenciesBuilder {
             self.sqlite_connection = Some(Arc::new(self.build_sqlite_connection(
                 SQLITE_FILE,
                 crate::database::migration::get_migrations(),
-                true,
             )?));
         }
 
@@ -367,11 +356,10 @@ impl DependenciesBuilder {
             SQLITE_FILE_CARDANO_TRANSACTION,
             mithril_persistence::database::cardano_transaction_migration::get_migrations(),
             // Don't vacuum the Cardano transactions database as it can be very large
-            false,
         )?;
 
         let connection_pool = Arc::new(SqliteConnectionPool::build(connection_pool_size, || {
-            self.build_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION, vec![], false)
+            self.build_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION, vec![])
                 .with_context(|| {
                     "Dependencies Builder can not build SQLite connection for Cardano transactions"
                 })

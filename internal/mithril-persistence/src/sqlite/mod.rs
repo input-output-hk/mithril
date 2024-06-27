@@ -26,31 +26,12 @@ pub use query::Query;
 pub use source_alias::SourceAlias;
 pub use transaction::Transaction;
 
-use mithril_common::StdResult;
-use sqlite::ConnectionThreadSafe;
-
 /// Type of the connection used in Mithril
-pub type SqliteConnection = ConnectionThreadSafe;
-
-/// Do a [vacuum](https://www.sqlite.org/lang_vacuum.html) on the given connection, this will
-/// reconstruct the database file, repacking it into a minimal amount of disk space.
-pub fn vacuum_database(connection: &SqliteConnection) -> StdResult<()> {
-    connection.execute("vacuum")?;
-
-    Ok(())
-}
+pub type SqliteConnection = sqlite::ConnectionThreadSafe;
 
 #[cfg(test)]
 mod test {
-    use crate::sqlite::vacuum_database;
     use sqlite::Connection;
-
-    #[tokio::test]
-    async fn calling_vacuum_on_an_empty_in_memory_db_should_not_fail() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-
-        vacuum_database(&connection).expect("Vacuum should not fail");
-    }
 
     #[test]
     fn sqlite_version_should_be_3_42_or_more() {

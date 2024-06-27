@@ -2,7 +2,7 @@ use slog::{debug, Logger};
 
 use mithril_common::StdResult;
 
-use crate::sqlite::{vacuum_database, SqliteConnection};
+use crate::sqlite::SqliteConnection;
 
 /// Tasks that can be performed by the SqliteCleaner
 #[derive(Eq, PartialEq, Copy, Clone)]
@@ -68,7 +68,7 @@ impl<'a> SqliteCleaner<'a> {
     pub fn run(self) -> StdResult<()> {
         if self.tasks.contains(&SqliteCleaningTask::Vacuum) {
             debug!(self.logger, "{}", SqliteCleaningTask::Vacuum.log_message());
-            vacuum_database(self.connection)?;
+            self.connection.execute("vacuum")?;
         }
 
         // Important: If wal is enabled Vacuuming the database will not shrink it until a

@@ -6,7 +6,7 @@ use slog::{debug, Logger};
 use mithril_common::entities::BlockNumber;
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{vacuum_database, SqliteConnectionPool};
+use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, SqliteConnectionPool};
 
 /// A decorator of [TransactionsImporter] that vacuums the database after running the import.
 pub struct TransactionsImporterWithVacuum {
@@ -40,7 +40,10 @@ impl TransactionsImporter for TransactionsImporterWithVacuum {
             "Transaction Import finished - Vacuuming database to reclaim disk space"
         );
         let connection = self.connection_pool.connection()?;
-        vacuum_database(&connection)?;
+
+        SqliteCleaner::new(&connection)
+            .with_tasks(&[SqliteCleaningTask::Vacuum])
+            .run()?;
 
         Ok(())
     }

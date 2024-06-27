@@ -26,7 +26,7 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
-    sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection, SqliteConnectionPool},
+    sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool},
     store::{adapter::SQLiteAdapter, StakeStore},
 };
 
@@ -174,7 +174,6 @@ impl<'a> ProductionServiceBuilder<'a> {
         let logger = slog_scope::logger();
         let connection = ConnectionBuilder::open_file(&sqlite_db_path)
             .with_node_type(ApplicationNodeType::Signer)
-            .with_options(&[ConnectionOptions::Vacuum])
             .with_migrations(migrations)
             .with_logger(logger.clone())
             .build()
