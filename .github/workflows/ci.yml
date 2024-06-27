@@ -281,7 +281,7 @@ jobs:
       matrix:
         mode: [ "std" ]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        cardano_node_version: [ "8.7.3", "8.9.0", "8.11.0-pre" ]
+        cardano_node_version: [ "8.9.0", "8.12.1", "8.12.0-pre" ]
         hard_fork_latest_era_at_epoch: [ 0,10,100 ]
         run_id: [ "#1" ]
         extra_args: [ "" ]
@@ -297,7 +297,7 @@ jobs:
           # Include a test for the P2P mode
           - mode: "p2p"
             era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            cardano_node_version: "8.7.3"
+            cardano_node_version: "8.9.0"
             hard_fork_latest_era_at_epoch: 100
             run_id: "#1"
             extra_args: "--use-p2p-network"
