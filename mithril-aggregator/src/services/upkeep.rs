@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use async_trait::async_trait;
+use slog::{info, Logger};
 
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{vacuum_database, ConnectionBuilder, ConnectionOptions};
@@ -28,6 +29,7 @@ pub trait UpkeepService: Send + Sync {
 pub struct AggregatorUpkeepService {
     main_db_path: PathBuf,
     cardano_tx_path: PathBuf,
+    logger: Logger,
 }
 
 #[derive(Eq, PartialEq)]
@@ -41,10 +43,12 @@ impl AggregatorUpkeepService {
     pub fn new<P1: Into<PathBuf>, P2: Into<PathBuf>>(
         main_db_path: P1,
         cardano_tx_path: P2,
+        logger: Logger,
     ) -> Self {
         Self {
             main_db_path: main_db_path.into(),
             cardano_tx_path: cardano_tx_path.into(),
+            logger,
         }
     }
 
@@ -65,15 +69,19 @@ impl AggregatorUpkeepService {
 
         Ok(())
     }
-}
 
-#[async_trait]
-impl UpkeepService for AggregatorUpkeepService {
-    async fn run(&self) -> StdResult<()> {
+    async fn upkeep_all_databases(&self) -> StdResult<()> {
         let main_db_path = self.main_db_path.clone();
         let cardano_tx_path = self.cardano_tx_path.clone();
+        let db_upkeep_logger = self.logger.clone();
+
         // Run the database upkeep tasks in another thread to avoid blocking the tokio runtime
         let db_upkeep_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
+            info!(
+                db_upkeep_logger,
+                "UpkeepService::Cleaning main database";
+                "db_path" => main_db_path.display()
+            );
             Self::upkeep_database(
                 &main_db_path,
                 &[
@@ -81,6 +89,12 @@ impl UpkeepService for AggregatorUpkeepService {
                     DatabaseUpkeepTask::WalCheckpointTruncate,
                 ],
             )?;
+
+            info!(
+                db_upkeep_logger,
+                "UpkeepService::Cleaning cardano transactions database";
+                "db_path" => cardano_tx_path.display()
+            );
             Self::upkeep_database(
                 &cardano_tx_path,
                 &[DatabaseUpkeepTask::WalCheckpointTruncate],
@@ -91,8 +105,20 @@ impl UpkeepService for AggregatorUpkeepService {
 
         db_upkeep_thread
             .await
-            .with_context(|| "Failed to upkeep the database")??;
+            .with_context(|| "Database Upkeep thread crashed")?
+    }
+}
 
+#[async_trait]
+impl UpkeepService for AggregatorUpkeepService {
+    async fn run(&self) -> StdResult<()> {
+        info!(self.logger, "UpkeepService::start");
+
+        self.upkeep_all_databases()
+            .await
+            .with_context(|| "Database upkeep failed")?;
+
+        info!(self.logger, "UpkeepService::end");
         Ok(())
     }
 }
@@ -105,6 +131,7 @@ mod tests {
     use mithril_persistence::sqlite::SqliteConnection;
 
     use crate::database::test_helper::{cardano_tx_db_file_connection, main_db_file_connection};
+    use crate::test_tools::logger_for_tests;
 
     use super::*;
 
@@ -194,7 +221,7 @@ mod tests {
         assert!(ctx_db_initial_size > 0);
         assert!(file_size(&ctx_db_wal_path) > 0);
 
-        let service = AggregatorUpkeepService::new(&main_db_path, &ctx_db_path);
+        let service = AggregatorUpkeepService::new(&main_db_path, &ctx_db_path, logger_for_tests());
 
         service.run().await.expect("Upkeep service failed");
 

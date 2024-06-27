@@ -1256,6 +1256,7 @@ impl DependenciesBuilder {
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(
             main_db_path,
             cardano_tx_db_path,
+            self.get_logger()?,
         ));
 
         Ok(upkeep_service)
