@@ -295,17 +295,13 @@ impl DependenciesBuilder {
     ) -> Result<SqliteConnection> {
         let logger = self.get_logger()?;
         let connection_builder = match self.configuration.environment {
-            ExecutionEnvironment::Production => ConnectionBuilder::open_file(
-                &self.configuration.get_sqlite_dir().join(sqlite_file_name),
-            ),
-            _ if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" => {
+            ExecutionEnvironment::Test
+                if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" =>
+            {
                 ConnectionBuilder::open_memory()
             }
             _ => ConnectionBuilder::open_file(
-                &self
-                    .configuration
-                    .data_stores_directory
-                    .join(sqlite_file_name),
+                &self.configuration.get_sqlite_dir().join(sqlite_file_name),
             ),
         };
 
@@ -1245,18 +1241,16 @@ impl DependenciesBuilder {
 
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
         let (main_db_path, cardano_tx_db_path) = match self.configuration.environment {
-            ExecutionEnvironment::Production => (
+            ExecutionEnvironment::Test
+                if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" =>
+            {
+                (PathBuf::from(":memory:"), PathBuf::from(":memory:"))
+            }
+            _ => (
                 self.configuration.get_sqlite_dir().join(SQLITE_FILE),
                 self.configuration
                     .get_sqlite_dir()
                     .join(SQLITE_FILE_CARDANO_TRANSACTION),
-            ),
-            _ if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" => {
-                (PathBuf::from(":memory:"), PathBuf::from(":memory:"))
-            }
-            _ => (
-                self.configuration.data_stores_directory.join(SQLITE_FILE),
-                self.configuration.data_stores_directory.join(SQLITE_FILE),
             ),
         };
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(

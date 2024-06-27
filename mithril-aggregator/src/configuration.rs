@@ -267,11 +267,13 @@ impl Configuration {
             .map_err(|e| anyhow!(ConfigError::Message(e.to_string())))
     }
 
-    /// Return the file of the SQLite stores. If the directory does not exist, it is created.
+    /// Return the file of the SQLite stores.
+    ///
+    /// If in Production and the directory does not exist, it is created.
     pub fn get_sqlite_dir(&self) -> PathBuf {
         let store_dir = &self.data_stores_directory;
 
-        if !store_dir.exists() {
+        if !store_dir.exists() && self.environment == ExecutionEnvironment::Production {
             std::fs::create_dir_all(store_dir).unwrap();
         }
 
