@@ -7,6 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
+use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::StdResult;
@@ -69,17 +70,29 @@ impl AggregatorUpkeepService {
 #[async_trait]
 impl UpkeepService for AggregatorUpkeepService {
     async fn run(&self) -> StdResult<()> {
-        Self::upkeep_database(
-            &self.main_db_path,
-            &[
-                DatabaseUpkeepTask::Vacuum,
-                DatabaseUpkeepTask::WalCheckpointTruncate,
-            ],
-        )?;
-        Self::upkeep_database(
-            &self.cardano_tx_path,
-            &[DatabaseUpkeepTask::WalCheckpointTruncate],
-        )?;
+        let main_db_path = self.main_db_path.clone();
+        let cardano_tx_path = self.cardano_tx_path.clone();
+        // Run the database upkeep tasks in another thread to avoid blocking the tokio runtime
+        let db_upkeep_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
+            Self::upkeep_database(
+                &main_db_path,
+                &[
+                    DatabaseUpkeepTask::Vacuum,
+                    DatabaseUpkeepTask::WalCheckpointTruncate,
+                ],
+            )?;
+            Self::upkeep_database(
+                &cardano_tx_path,
+                &[DatabaseUpkeepTask::WalCheckpointTruncate],
+            )?;
+
+            Ok(())
+        });
+
+        db_upkeep_thread
+            .await
+            .with_context(|| "Failed to upkeep the database")??;
+
         Ok(())
     }
 }
