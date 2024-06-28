@@ -332,6 +332,14 @@ impl StateMachine {
         self.metrics_service
             .signer_registration_total_since_startup_counter_increment();
 
+        self.runner
+            .upkeep()
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
+                nested_error: Some(e),
+            })?;
+
         let epoch = self
             .get_current_time_point("unregistered → registered")
             .await?
@@ -340,16 +348,17 @@ impl StateMachine {
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not update stake distribution in 'unregistered → registered' phase for epoch {:?}.", epoch),
-                nested_error: Some(e) })?;
+                nested_error: Some(e),
+            })?;
 
-        self.runner. register_signer_to_aggregator(
+        self.runner.register_signer_to_aggregator(
             epoch_settings.epoch,
             &epoch_settings.next_protocol_parameters,
         )
-        .await.map_err(|e| {
-            if e.downcast_ref::<ProtocolInitializerError>().is_some(){
+            .await.map_err(|e| {
+            if e.downcast_ref::<ProtocolInitializerError>().is_some() {
                 RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) }
-            }else{
+            } else {
                 RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) }
             }
         })?;
@@ -545,6 +554,7 @@ mod tests {
     #[tokio::test]
     async fn unregistered_to_registered() {
         let mut runner = MockSignerRunner::new();
+        runner.expect_upkeep().returning(|| Ok(())).once();
         runner
             .expect_get_epoch_settings()
             .once()

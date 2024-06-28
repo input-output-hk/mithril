@@ -25,16 +25,16 @@ use mithril_common::{
     MithrilTickerService, StdError, TickerService,
 };
 use mithril_persistence::database::repository::CardanoTransactionRepository;
+use mithril_persistence::store::adapter::SQLiteAdapter;
 use mithril_persistence::{
     sqlite::SqliteConnectionPool,
-    store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
+    store::{StakeStore, StakeStorer},
 };
-
 use mithril_signer::{
     metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MetricsService,
     MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
-    StateMachine,
+    SignerUpkeepService, StateMachine,
 };
 
 use super::FakeAggregator;
@@ -92,6 +92,15 @@ impl StateMachineTester {
         let config = Configuration::new_sample(&selected_signer_party_id);
 
         let production_service_builder = ProductionServiceBuilder::new(&config);
+        let sqlite_connection = Arc::new(
+            production_service_builder
+                .build_sqlite_connection(
+                    ":memory:",
+                    mithril_signer::database::migration::get_migrations(),
+                )
+                .await
+                .unwrap(),
+        );
         let transaction_sqlite_connection = production_service_builder
             .build_sqlite_connection(
                 ":memory:",
@@ -131,14 +140,16 @@ impl StateMachineTester {
         ));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
+            Box::new(
+                SQLiteAdapter::new("protocol_initializer", sqlite_connection.clone()).unwrap(),
+            ),
             config.store_retention_limit,
         ));
         let single_signer = Arc::new(MithrilSingleSigner::new(
             config.party_id.to_owned().unwrap_or_default(),
         ));
         let stake_store = Arc::new(StakeStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
+            Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone()).unwrap()),
             config.store_retention_limit,
         ));
         let era_reader_adapter = Arc::new(EraReaderDummyAdapter::from_markers(vec![
@@ -169,7 +180,7 @@ impl StateMachineTester {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let block_scanner = Arc::new(DumbBlockScanner::new());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            sqlite_connection_cardano_transaction_pool,
+            sqlite_connection_cardano_transaction_pool.clone(),
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner.clone(),
@@ -199,6 +210,11 @@ impl StateMachineTester {
             chain_observer.clone(),
             slog_scope::logger(),
         ));
+        let upkeep_service = Arc::new(SignerUpkeepService::new(
+            sqlite_connection.clone(),
+            sqlite_connection_cardano_transaction_pool,
+            slog_scope::logger(),
+        ));
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
@@ -215,6 +231,7 @@ impl StateMachineTester {
             metrics_service: metrics_service.clone(),
             signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
             cardano_transactions_preloader,
+            upkeep_service,
         };
         // set up stake distribution
         chain_observer

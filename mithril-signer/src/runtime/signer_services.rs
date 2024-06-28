@@ -33,9 +33,9 @@ use mithril_persistence::{
 use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
     AggregatorHTTPClient, CardanoTransactionsImporter, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, TransactionsImporterByChunk,
-    TransactionsImporterWithPruner, TransactionsImporterWithVacuum, HTTP_REQUEST_TIMEOUT_DURATION,
-    SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
+    TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
+    UpkeepService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -226,7 +226,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
         ));
         let stake_store = Arc::new(StakeStore::new(
-            Box::new(SQLiteAdapter::new("stake", sqlite_connection)?),
+            Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone())?),
             self.config.store_retention_limit,
         ));
         let chain_observer = {
@@ -308,7 +308,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let preloader_transactions_importer = Arc::new(TransactionsImporterByChunk::new(
             transaction_store.clone(),
             Arc::new(TransactionsImporterWithVacuum::new(
-                sqlite_connection_cardano_transaction_pool,
+                sqlite_connection_cardano_transaction_pool.clone(),
                 transactions_importer.clone(),
                 slog_scope::logger(),
             )),
@@ -334,6 +334,11 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             chain_observer.clone(),
             slog_scope::logger(),
         ));
+        let upkeep_service = Arc::new(SignerUpkeepService::new(
+            sqlite_connection.clone(),
+            sqlite_connection_cardano_transaction_pool,
+            slog_scope::logger(),
+        ));
 
         let services = SignerServices {
             ticker_service,
@@ -350,6 +355,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             metrics_service,
             signed_entity_type_lock,
             cardano_transactions_preloader,
+            upkeep_service,
         };
 
         Ok(services)
@@ -399,6 +405,9 @@ pub struct SignerServices {
 
     /// Cardano transactions preloader
     pub cardano_transactions_preloader: Arc<CardanoTransactionsPreloader>,
+
+    /// Upkeep service
+    pub upkeep_service: Arc<dyn UpkeepService>,
 }
 
 #[cfg(test)]

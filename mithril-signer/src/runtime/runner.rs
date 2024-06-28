@@ -75,6 +75,9 @@ pub trait Runner: Send + Sync {
 
     /// Read the current era and update the EraChecker.
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()>;
+
+    /// Perform the upkeep tasks.
+    async fn upkeep(&self) -> StdResult<()>;
 }
 
 /// This type represents the errors thrown from the Runner.
@@ -452,6 +455,12 @@ impl Runner for SignerRunner {
 
         Ok(())
     }
+
+    async fn upkeep(&self) -> StdResult<()> {
+        debug!("RUNNER: upkeep");
+        self.services.upkeep_service.run().await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -482,7 +491,7 @@ mod tests {
     use crate::{
         metrics::MetricsService, AggregatorClient, CardanoTransactionsImporter,
         DumbAggregatorClient, MithrilSingleSigner, MockAggregatorClient, MockTransactionStore,
-        ProtocolInitializerStore, SingleSigner,
+        MockUpkeepService, ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
@@ -575,6 +584,7 @@ mod tests {
             chain_observer.clone(),
             slog_scope::logger(),
         ));
+        let upkeep_service = Arc::new(MockUpkeepService::new());
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
@@ -594,6 +604,7 @@ mod tests {
             metrics_service,
             signed_entity_type_lock,
             cardano_transactions_preloader,
+            upkeep_service,
         }
     }
 
@@ -928,5 +939,16 @@ mod tests {
         runner.update_era_checker(time_point.epoch).await.unwrap();
 
         assert_eq!(time_point.epoch, era_checker.current_epoch());
+    }
+
+    #[tokio::test]
+    async fn test_upkeep() {
+        let mut services = init_services().await;
+        let mut upkeep_service_mock = MockUpkeepService::new();
+        upkeep_service_mock.expect_run().returning(|| Ok(())).once();
+        services.upkeep_service = Arc::new(upkeep_service_mock);
+
+        let runner = init_runner(Some(services), None).await;
+        runner.upkeep().await.expect("upkeep should not fail");
     }
 }
