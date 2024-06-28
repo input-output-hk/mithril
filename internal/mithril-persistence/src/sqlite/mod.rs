@@ -2,6 +2,7 @@
 //! This module provides a minimal yet useful Entity framework on top of SQLite
 //! with ability to perform any SQL query possible and hydrate results in Rust
 //! structs.
+mod cleaner;
 mod condition;
 mod connection_builder;
 mod connection_extensions;
@@ -13,6 +14,7 @@ mod query;
 mod source_alias;
 mod transaction;
 
+pub use cleaner::{SqliteCleaner, SqliteCleaningTask};
 pub use condition::{GetAllCondition, WhereCondition};
 pub use connection_builder::{ConnectionBuilder, ConnectionOptions};
 pub use connection_extensions::ConnectionExtensions;

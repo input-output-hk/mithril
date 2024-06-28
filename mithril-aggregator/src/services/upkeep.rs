@@ -5,14 +5,16 @@
 //! It is in charge of the following tasks:
 //! * free up space by executing vacuum and WAL checkpoint on the database
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use anyhow::Context;
 use async_trait::async_trait;
 use slog::{info, Logger};
 
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{vacuum_database, ConnectionBuilder, ConnectionOptions};
+use mithril_persistence::sqlite::{
+    ConnectionBuilder, ConnectionOptions, SqliteCleaner, SqliteCleaningTask,
+};
 
 /// Define the service responsible for the upkeep of the application.
 #[cfg_attr(test, mockall::automock)]
@@ -32,12 +34,6 @@ pub struct AggregatorUpkeepService {
     logger: Logger,
 }
 
-#[derive(Eq, PartialEq)]
-enum DatabaseUpkeepTask {
-    Vacuum,
-    WalCheckpointTruncate,
-}
-
 impl AggregatorUpkeepService {
     /// Create a new instance of the aggregator upkeep service.
     pub fn new<P1: Into<PathBuf>, P2: Into<PathBuf>>(
@@ -52,24 +48,6 @@ impl AggregatorUpkeepService {
         }
     }
 
-    fn upkeep_database(db_path: &Path, tasks: &[DatabaseUpkeepTask]) -> StdResult<()> {
-        let connection = ConnectionBuilder::open_file(db_path)
-            .with_options(&[ConnectionOptions::EnableWriteAheadLog])
-            .build()?;
-
-        if tasks.contains(&DatabaseUpkeepTask::Vacuum) {
-            vacuum_database(&connection)?;
-        }
-
-        // Important: Vacuuming the database will not shrink it until a WAL checkpoint is run, so
-        // it must be done after vacuuming.
-        if tasks.contains(&DatabaseUpkeepTask::WalCheckpointTruncate) {
-            connection.execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
-        }
-
-        Ok(())
-    }
-
     async fn upkeep_all_databases(&self) -> StdResult<()> {
         let main_db_path = self.main_db_path.clone();
         let cardano_tx_path = self.cardano_tx_path.clone();
@@ -82,23 +60,31 @@ impl AggregatorUpkeepService {
                 "UpkeepService::Cleaning main database";
                 "db_path" => main_db_path.display()
             );
-            Self::upkeep_database(
-                &main_db_path,
-                &[
-                    DatabaseUpkeepTask::Vacuum,
-                    DatabaseUpkeepTask::WalCheckpointTruncate,
-                ],
-            )?;
+            let main_db_connection = ConnectionBuilder::open_file(&main_db_path)
+                .with_options(&[ConnectionOptions::EnableWriteAheadLog])
+                .build()?;
+
+            SqliteCleaner::new(&main_db_connection)
+                .with_logger(db_upkeep_logger.clone())
+                .with_tasks(&[
+                    SqliteCleaningTask::Vacuum,
+                    SqliteCleaningTask::WalCheckpointTruncate,
+                ])
+                .run()?;
 
             info!(
                 db_upkeep_logger,
                 "UpkeepService::Cleaning cardano transactions database";
                 "db_path" => cardano_tx_path.display()
             );
-            Self::upkeep_database(
-                &cardano_tx_path,
-                &[DatabaseUpkeepTask::WalCheckpointTruncate],
-            )?;
+            let cardano_tx_db_connection = ConnectionBuilder::open_file(&cardano_tx_path)
+                .with_options(&[ConnectionOptions::EnableWriteAheadLog])
+                .build()?;
+
+            SqliteCleaner::new(&cardano_tx_db_connection)
+                .with_logger(db_upkeep_logger.clone())
+                .with_tasks(&[SqliteCleaningTask::WalCheckpointTruncate])
+                .run()?;
 
             Ok(())
         });
@@ -126,6 +112,7 @@ impl UpkeepService for AggregatorUpkeepService {
 #[cfg(test)]
 mod tests {
     use std::ops::Range;
+    use std::path::Path;
 
     use mithril_common::test_utils::TempDir;
     use mithril_persistence::sqlite::SqliteConnection;
