@@ -1,7 +1,6 @@
 use anyhow::Context;
 use semver::Version;
 use slog::Logger;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::{
     sync::{
@@ -1240,22 +1239,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
-        let (main_db_path, cardano_tx_db_path) = match self.configuration.environment {
-            ExecutionEnvironment::Test
-                if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" =>
-            {
-                (PathBuf::from(":memory:"), PathBuf::from(":memory:"))
-            }
-            _ => (
-                self.configuration.get_sqlite_dir().join(SQLITE_FILE),
-                self.configuration
-                    .get_sqlite_dir()
-                    .join(SQLITE_FILE_CARDANO_TRANSACTION),
-            ),
-        };
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(
-            main_db_path,
-            cardano_tx_db_path,
+            self.get_sqlite_connection().await?,
+            self.get_sqlite_connection_cardano_transaction_pool()
+                .await?,
             self.get_logger()?,
         ));
 

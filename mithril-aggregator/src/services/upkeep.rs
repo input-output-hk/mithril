@@ -5,7 +5,7 @@
 //! It is in charge of the following tasks:
 //! * free up space by executing vacuum and WAL checkpoint on the database
 
-use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
@@ -13,7 +13,7 @@ use slog::{info, Logger};
 
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
-    ConnectionBuilder, ConnectionOptions, SqliteCleaner, SqliteCleaningTask,
+    SqliteCleaner, SqliteCleaningTask, SqliteConnection, SqliteConnectionPool,
 };
 
 /// Define the service responsible for the upkeep of the application.
@@ -29,41 +29,33 @@ pub trait UpkeepService: Send + Sync {
 /// To ensure that connections are cleaned up properly, it creates new connections itself
 /// instead of relying on a connection pool or a shared connection.
 pub struct AggregatorUpkeepService {
-    main_db_path: PathBuf,
-    cardano_tx_path: PathBuf,
+    main_db_connection: Arc<SqliteConnection>,
+    cardano_tx_connection_pool: Arc<SqliteConnectionPool>,
     logger: Logger,
 }
 
 impl AggregatorUpkeepService {
     /// Create a new instance of the aggregator upkeep service.
-    pub fn new<P1: Into<PathBuf>, P2: Into<PathBuf>>(
-        main_db_path: P1,
-        cardano_tx_path: P2,
+    pub fn new(
+        main_db_connection: Arc<SqliteConnection>,
+        cardano_tx_connection_pool: Arc<SqliteConnectionPool>,
         logger: Logger,
     ) -> Self {
         Self {
-            main_db_path: main_db_path.into(),
-            cardano_tx_path: cardano_tx_path.into(),
+            main_db_connection,
+            cardano_tx_connection_pool,
             logger,
         }
     }
 
     async fn upkeep_all_databases(&self) -> StdResult<()> {
-        let main_db_path = self.main_db_path.clone();
-        let cardano_tx_path = self.cardano_tx_path.clone();
+        let main_db_connection = self.main_db_connection.clone();
+        let cardano_tx_db_connection_pool = self.cardano_tx_connection_pool.clone();
         let db_upkeep_logger = self.logger.clone();
 
         // Run the database upkeep tasks in another thread to avoid blocking the tokio runtime
         let db_upkeep_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
-            info!(
-                db_upkeep_logger,
-                "UpkeepService::Cleaning main database";
-                "db_path" => main_db_path.display()
-            );
-            let main_db_connection = ConnectionBuilder::open_file(&main_db_path)
-                .with_options(&[ConnectionOptions::EnableWriteAheadLog])
-                .build()?;
-
+            info!(db_upkeep_logger, "UpkeepService::Cleaning main database");
             SqliteCleaner::new(&main_db_connection)
                 .with_logger(db_upkeep_logger.clone())
                 .with_tasks(&[
@@ -74,13 +66,10 @@ impl AggregatorUpkeepService {
 
             info!(
                 db_upkeep_logger,
-                "UpkeepService::Cleaning cardano transactions database";
-                "db_path" => cardano_tx_path.display()
+                "UpkeepService::Cleaning cardano transactions database"
             );
-            let cardano_tx_db_connection = ConnectionBuilder::open_file(&cardano_tx_path)
-                .with_options(&[ConnectionOptions::EnableWriteAheadLog])
-                .build()?;
 
+            let cardano_tx_db_connection = cardano_tx_db_connection_pool.connection()?;
             SqliteCleaner::new(&cardano_tx_db_connection)
                 .with_logger(db_upkeep_logger.clone())
                 .with_tasks(&[SqliteCleaningTask::WalCheckpointTruncate])
@@ -208,7 +197,13 @@ mod tests {
         assert!(ctx_db_initial_size > 0);
         assert!(file_size(&ctx_db_wal_path) > 0);
 
-        let service = AggregatorUpkeepService::new(&main_db_path, &ctx_db_path, logger_for_tests());
+        let service = AggregatorUpkeepService::new(
+            Arc::new(main_db_connection),
+            Arc::new(SqliteConnectionPool::build_from_connection(
+                cardano_tx_connection,
+            )),
+            logger_for_tests(),
+        );
 
         service.run().await.expect("Upkeep service failed");
 
