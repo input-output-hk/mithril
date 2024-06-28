@@ -13,17 +13,20 @@ WORKDIR /app
 COPY . .
 
 # Build the app using a dummy main in order to cache dependencies
-RUN mv /app/mithril-aggregator /app/mithril-aggregator.1 && mkdir -p /app/mithril-aggregator/src
+RUN mv /app/mithril-aggregator /app/mithril-aggregator.1 \
+    && mkdir -p /app/mithril-aggregator/src \
+    && mkdir -p /app/mithril-aggregator/benches
 COPY mithril-aggregator/Cargo.toml /app/mithril-aggregator/
+COPY mithril-aggregator/benches/* /app/mithril-aggregator/benches/
 RUN echo "fn  main () {}" > /app/mithril-aggregator/src/main.rs
-RUN cargo build --release -p mithril-aggregator --manifest-path /app/mithril-aggregator/Cargo.toml
+RUN cargo build --release --bin mithril-aggregator --manifest-path /app/mithril-aggregator/Cargo.toml
 
 # Rollback the rest of the files into the container
 RUN rm -rf /app/mithril-aggregator && mv /app/mithril-aggregator.1 /app/mithril-aggregator
 COPY ./mithril-aggregator/src/main.rs /app/mithril-aggregator/src/
 
 # Build the binary
-RUN cargo build --release -p mithril-aggregator
+RUN cargo build --release --bin mithril-aggregator
 RUN /app/target/release/mithril-aggregator --version
 
 ###############################
