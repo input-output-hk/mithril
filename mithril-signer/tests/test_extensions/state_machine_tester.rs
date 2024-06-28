@@ -213,6 +213,7 @@ impl StateMachineTester {
         let upkeep_service = Arc::new(SignerUpkeepService::new(
             sqlite_connection.clone(),
             sqlite_connection_cardano_transaction_pool,
+            signed_entity_type_lock.clone(),
             slog_scope::logger(),
         ));
 

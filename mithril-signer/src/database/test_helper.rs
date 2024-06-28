@@ -3,6 +3,12 @@ use std::path::Path;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
 
+/// In-memory sqlite database without foreign key support with migrations applied
+pub fn main_db_connection() -> StdResult<SqliteConnection> {
+    let builder = ConnectionBuilder::open_memory();
+    build_main_db_connection(builder)
+}
+
 /// File sqlite database without foreign key support with migrations applied and WAL activated
 pub fn main_db_file_connection(db_path: &Path) -> StdResult<SqliteConnection> {
     let builder = ConnectionBuilder::open_file(db_path)

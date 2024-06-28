@@ -1231,6 +1231,7 @@ impl DependenciesBuilder {
             self.get_sqlite_connection().await?,
             self.get_sqlite_connection_cardano_transaction_pool()
                 .await?,
+            self.get_signed_entity_lock().await?,
             self.get_logger()?,
         ));
 
