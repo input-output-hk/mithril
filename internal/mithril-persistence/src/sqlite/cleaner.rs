@@ -1,4 +1,4 @@
-use slog::Logger;
+use slog::{debug, Logger};
 
 use mithril_common::StdResult;
 
@@ -18,6 +18,18 @@ pub enum SqliteCleaningTask {
     ///
     /// see: <https://www.sqlite.org/pragma.html#pragma_wal_checkpoint>
     WalCheckpointTruncate,
+}
+
+impl SqliteCleaningTask {
+    /// Get the log message for the task.
+    pub fn log_message(self: SqliteCleaningTask) -> &'static str {
+        match self {
+            SqliteCleaningTask::Vacuum => "SqliteCleaner::Running `vacuum` on the database",
+            SqliteCleaningTask::WalCheckpointTruncate => {
+                "SqliteCleaner::Running `wal_checkpoint(TRUNCATE)` on the database"
+            }
+        }
+    }
 }
 
 /// The SqliteCleaner is responsible for cleaning up databases by performing tasks defined
@@ -55,6 +67,7 @@ impl<'a> SqliteCleaner<'a> {
     /// Cleanup the database by performing the defined tasks.
     pub fn run(self) -> StdResult<()> {
         if self.tasks.contains(&SqliteCleaningTask::Vacuum) {
+            debug!(self.logger, "{}", SqliteCleaningTask::Vacuum.log_message());
             vacuum_database(self.connection)?;
         }
 
@@ -65,6 +78,11 @@ impl<'a> SqliteCleaner<'a> {
             .tasks
             .contains(&SqliteCleaningTask::WalCheckpointTruncate)
         {
+            debug!(
+                self.logger,
+                "{}",
+                SqliteCleaningTask::WalCheckpointTruncate.log_message()
+            );
             self.connection
                 .execute("PRAGMA wal_checkpoint(TRUNCATE);")?;
         } else {
