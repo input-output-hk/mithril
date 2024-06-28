@@ -651,9 +651,8 @@ mod tests {
 
         let (importer, repository) = {
             let connection = cardano_tx_db_connection().unwrap();
-            let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-                SqliteConnectionPool::build_from_connection(connection),
-            )));
+            let connection_pool = Arc::new(SqliteConnectionPool::build_from_connection(connection));
+            let repository = Arc::new(CardanoTransactionRepository::new(connection_pool));
             let importer = CardanoTransactionsImporter::new_for_test(
                 Arc::new(DumbBlockScanner::new().forwards(vec![blocks.clone()])),
                 repository.clone(),

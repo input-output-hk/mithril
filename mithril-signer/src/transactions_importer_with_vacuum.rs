@@ -54,6 +54,8 @@ mod tests {
     use mithril_common::test_utils::TempDir;
     use mithril_persistence::sqlite::SqliteConnection;
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     mock! {
@@ -79,7 +81,7 @@ mod tests {
             Self::new(
                 connection_pool,
                 Arc::new(transaction_importer),
-                crate::test_tools::logger_for_tests(),
+                TestLogger::stdout(),
             )
         }
     }

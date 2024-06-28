@@ -68,6 +68,8 @@ mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     mock! {
@@ -98,7 +100,7 @@ mod tests {
                 number_of_blocks_to_keep,
                 Arc::new(transaction_pruner),
                 Arc::new(transaction_importer),
-                crate::test_tools::logger_for_tests(),
+                TestLogger::stdout(),
             )
         }
     }
