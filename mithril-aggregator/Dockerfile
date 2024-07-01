@@ -57,7 +57,8 @@ RUN if [ "$EMBED-CARDANO-CLI" = 1 ] ; then \
     && mkdir -p /app/bin \
     && (tar xzf cardano-bin.tar.gz ./bin/cardano-cli && mv /bin/cardano-cli /app/bin) || (tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin) \ 
     && /app/bin/cardano-cli --version \
-    && rm -f cardano-bin.tar.gz; \
+    && rm -f cardano-bin.tar.gz \
+    && chmod a+x /app/bin/cardano-cli; \
     fi
 
 #Workdir
