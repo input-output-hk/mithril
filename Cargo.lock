@@ -3538,7 +3538,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.5.30"
+version = "0.5.31"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3839,7 +3839,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.153"
+version = "0.2.154"
 dependencies = [
  "anyhow",
  "async-trait",
