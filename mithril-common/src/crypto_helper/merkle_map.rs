@@ -198,29 +198,20 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
         }
 
         let leaves_by_keys = self.group_leaves_by_keys(leaves);
-        let sub_proofs = leaves_by_keys
+        let sub_proofs: BTreeMap<_, _> = leaves_by_keys
             .into_par_iter()
             .map(|(key, sub_leaves)| {
                 if let Some(value) = self.get(&key) {
                     if let Some(proof) = value.compute_proof(&sub_leaves)? {
-                        return Ok((key, Some(proof)));
+                        return Ok(Some((key, proof)));
                     }
                 }
-
-                Ok((key, None))
+                Ok(None)
             })
             .collect::<StdResult<Vec<_>>>()?
-            .into_iter()
-            .fold(
-                BTreeMap::<K, MKMapProof<K>>::default(),
-                |mut acc, (key, sub_proof)| {
-                    if let Some(sub_proof) = sub_proof {
-                        acc.insert(key, sub_proof);
-                    }
-
-                    acc
-                },
-            );
+            .into_par_iter()
+            .flatten()
+            .collect();
 
         let master_proof = self
             .inner_merkle_tree
