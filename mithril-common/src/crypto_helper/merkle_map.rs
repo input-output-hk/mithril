@@ -74,7 +74,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
                     "MKMap values should be replaced by entry with same root"
                 ));
             }
-            return self.replace(key, value);
+            return self.replace_unchecked(key, value);
         } else {
             let key_max = self.inner_map_values.keys().max();
             if key_max > Some(&key) {
@@ -101,7 +101,18 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
     }
 
     /// Replace the value of an existing key
-    fn replace(&mut self, key: K, value: V) -> StdResult<()> {
+    pub fn replace(&mut self, key: K, value: V) -> StdResult<()> {
+        match self.inner_map_values.get(&key) {
+            Some(existing_value) if existing_value.compute_root()? != value.compute_root()? => Err(
+                anyhow!("MKMap values should be replaced by entry with same root"),
+            ),
+            Some(_) => self.replace_unchecked(key, value),
+            None => Err(anyhow!("MKMap could not replace non-existing key")),
+        }
+    }
+
+    /// Replace the value of an existing key without checking if the key is already present
+    fn replace_unchecked(&mut self, key: K, value: V) -> StdResult<()> {
         self.update_provable_keys(&key, &value)?;
         self.inner_map_values.insert(key.clone(), value.clone());
 
@@ -159,7 +170,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
                     .compute_root()?
                     .try_into()
                     .map_err(|_| anyhow!("Merkle root could not be converted to V"))?;
-                self.replace(key.to_owned(), value)?;
+                self.replace_unchecked(key.to_owned(), value)?;
             }
         }
 
@@ -480,6 +491,31 @@ mod tests {
         MKTree::new(&leaves).unwrap()
     }
 
+    fn join_merkle_tree(block_ranges: &[BlockRange]) -> Vec<(BlockRange, MKTree)> {
+        block_ranges
+            .iter()
+            .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
+            .collect()
+    }
+
+    fn into_mkmap_tree_entries(
+        entries: Vec<(BlockRange, MKTree)>,
+    ) -> Vec<(BlockRange, MKMapNode<BlockRange>)> {
+        entries
+            .into_iter()
+            .map(|(range, mktree)| (range, MKMapNode::Tree(Arc::new(mktree))))
+            .collect()
+    }
+
+    fn into_mkmap_tree_node_entries(
+        entries: Vec<(BlockRange, MKTree)>,
+    ) -> Vec<(BlockRange, MKMapNode<BlockRange>)> {
+        entries
+            .into_iter()
+            .map(|(range, mktree)| (range, MKMapNode::TreeNode(mktree.try_into().unwrap())))
+            .collect()
+    }
+
     #[test]
     fn test_mk_map_should_compute_same_root_when_replacing_entry_with_equivalent() {
         let entries = generate_merkle_trees(10, 3);
@@ -559,6 +595,88 @@ mod tests {
         mk_map
             .insert(block_range_replacement, different_root_value)
             .expect_err("the MKMap should reject replacement with different root value");
+    }
+
+    #[test]
+    fn test_mk_map_replace_should_accept_replacement_with_same_root_value() {
+        let entries = join_merkle_tree(&[
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]);
+        let mut mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let block_range_replacement = BlockRange::new(0, 3);
+        let same_root_value = MKMapNode::TreeNode(
+            mk_map
+                .get(&block_range_replacement)
+                .unwrap()
+                .compute_root()
+                .unwrap(),
+        );
+        let mk_map_root_expected = mk_map.compute_root().unwrap();
+
+        assert!(matches!(
+            mk_map.get(&block_range_replacement).unwrap(),
+            MKMapNode::Tree(..)
+        ));
+
+        mk_map
+            .replace(block_range_replacement.clone(), same_root_value)
+            .unwrap();
+
+        assert_eq!(mk_map_root_expected, mk_map.compute_root().unwrap());
+        assert!(matches!(
+            mk_map.get(&block_range_replacement).unwrap(),
+            MKMapNode::TreeNode(..)
+        ));
+    }
+
+    #[test]
+    fn test_mk_map_replace_should_reject_replacement_if_key_doesnt_exist() {
+        let entries = join_merkle_tree(&[
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]);
+        let mut mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+
+        let error = mk_map
+            .replace(
+                BlockRange::new(10, 12),
+                MKMapNode::TreeNode("whatever".into()),
+            )
+            .expect_err("the MKMap should reject replacement for inexisting key");
+
+        assert!(
+            error
+                .to_string()
+                .contains("MKMap could not replace non-existing key"),
+            "Invalid error message: `{error}`",
+        );
+    }
+
+    #[test]
+    fn test_mk_map_replace_should_reject_replacement_with_different_root_value() {
+        let entries = join_merkle_tree(&[
+            BlockRange::new(0, 3),
+            BlockRange::new(4, 6),
+            BlockRange::new(7, 9),
+        ]);
+        let mut mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+
+        let error = mk_map
+            .replace(
+                BlockRange::new(0, 3),
+                MKMapNode::TreeNode("different_value".into()),
+            )
+            .expect_err("the MKMap should reject replacement with different root value");
+
+        assert!(
+            error
+                .to_string()
+                .contains("MKMap values should be replaced by entry with same root"),
+            "Invalid error message: `{error}`",
+        );
     }
 
     #[test]
