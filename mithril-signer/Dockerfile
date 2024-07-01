@@ -35,6 +35,7 @@ FROM debian:11-slim
 # Args
 ARG CARDANO_NODE_VERSION=8.9.0
 ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/$CARDANO_NODE_VERSION/cardano-node-$CARDANO_NODE_VERSION-linux.tar.gz
+ARG EMBED-CARDANO-CLI=0
 
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
@@ -49,10 +50,14 @@ COPY --from=rustbuilder /app/target/release/mithril-signer /app/bin/mithril-sign
 COPY --from=rustbuilder /app/mithril-signer/config /app/config
 
 # Install cardano-cli
-RUN wget -nv -O cardano-bin.tar.gz $CARDANO_BIN_URL
-RUN (tar xzf cardano-bin.tar.gz ./bin/cardano-cli && mv /bin/cardano-cli /app/bin) || (tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin)
-RUN /app/bin/cardano-cli --version
-RUN rm -f cardano-bin.tar.gz
+RUN if [ "$EMBED-CARDANO-CLI" = 1 ] ; then \
+    wget -nv -O cardano-bin.tar.gz $CARDANO_BIN_URL \
+    && mkdir -p /app/bin \
+    && (tar xzf cardano-bin.tar.gz ./bin/cardano-cli && mv /bin/cardano-cli /app/bin) || (tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin) \ 
+    && /app/bin/cardano-cli --version \
+    && rm -f cardano-bin.tar.gz \
+    && chmod a+x /app/bin/cardano-cli; \
+    fi
 
 #Workdir
 WORKDIR /app/

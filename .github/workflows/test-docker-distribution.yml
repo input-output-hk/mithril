@@ -14,6 +14,13 @@ on:
           on it otherwise no binary would be available leading to the failure of this workflow.
         required: true
         type: string
+      embed_cardano_cli:
+        description: | 
+          Embed Cardano-cli in the Docker image. 
+          Only needed if you want to use cardano-cli chain observer.
+        required: true
+        type: boolean
+        default: false
       cardano_bin_url:
         description: The url of the archive of the Cardano binaries
         required: true
@@ -90,6 +97,8 @@ jobs:
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
-          build-args: CARDANO_BIN_URL=${{ inputs.cardano_bin_url }}
+          build-args: |
+            EMBED-CARDANO-CLI=${{ inputs.embed_cardano_cli && 1 || 0 }}
+            CARDANO_BIN_URL=${{ inputs.cardano_bin_url }}
           push: ${{ inputs.dry_run == false }}
           tags: ${{ steps.meta.outputs.tags }}

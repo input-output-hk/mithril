@@ -16,10 +16,16 @@ RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && a
 # Install cardano-cli
 ARG CARDANO_NODE_VERSION=8.9.0
 ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/$CARDANO_NODE_VERSION/cardano-node-$CARDANO_NODE_VERSION-linux.tar.gz
-RUN wget -nv -O cardano-bin.tar.gz $CARDANO_BIN_URL \
+ARG EMBED-CARDANO-CLI=0
+# Install cardano-cli
+RUN if [ "$EMBED-CARDANO-CLI" = 1 ] ; then \
+    wget -nv -O cardano-bin.tar.gz $CARDANO_BIN_URL \
+    && mkdir -p /app/bin \
     && (tar xzf cardano-bin.tar.gz ./bin/cardano-cli && mv /bin/cardano-cli /app/bin) || (tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin) \ 
     && /app/bin/cardano-cli --version \
-    && rm -f cardano-bin.tar.gz
+    && rm -f cardano-bin.tar.gz \
+    && chmod a+x /app/bin/cardano-cli; \
+    fi
 
 # Copy the executable
 COPY mithril-signer/mithril-signer /app/bin/mithril-signer
@@ -29,7 +35,7 @@ COPY mithril-signer/config /app/config
 
 # Workdir
 WORKDIR /app/
-RUN chown -R appuser /app/ && chmod a+x /app/bin/mithril-signer && chmod a+x /app/bin/cardano-cli
+RUN chown -R appuser /app/ && chmod a+x /app/bin/mithril-signer
 
 # Use an unprivileged user
 USER appuser
