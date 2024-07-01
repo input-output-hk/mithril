@@ -152,7 +152,7 @@ impl Configuration {
             allow_unparsable_block: false,
             enable_transaction_pruning: false,
             transactions_import_block_chunk_size: 1000,
-            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
         }
     }
 
@@ -246,7 +246,7 @@ impl Default for DefaultConfiguration {
             preload_security_parameter: 3000,
             enable_transaction_pruning: true,
             transactions_import_block_chunk_size: 1500,
-            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
         }
     }
 }

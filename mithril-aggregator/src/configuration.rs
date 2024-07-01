@@ -252,7 +252,7 @@ impl Configuration {
                 step: 15,
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
-            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
         }
     }
 
@@ -399,7 +399,7 @@ impl Default for DefaultConfiguration {
                 step: 30,
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
-            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
         }
     }
 }
