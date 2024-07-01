@@ -149,7 +149,7 @@ impl ProverService for MithrilProverService {
             self.mk_map_pool.give_back_resource_pool_item(mk_map)?;
             let mk_proof_leaves = mk_proof.leaves();
             let transaction_hashes_certified: Vec<TransactionHash> = transaction_hashes
-                .iter()
+                .par_iter()
                 .filter(|hash| mk_proof_leaves.contains(&hash.as_str().into()))
                 .cloned()
                 .collect();
