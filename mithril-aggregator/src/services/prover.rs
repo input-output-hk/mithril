@@ -141,7 +141,7 @@ impl ProverService for MithrilProverService {
 
         // 4 - Enrich the Merkle map with the block ranges Merkle trees
         for (block_range, mk_tree) in mk_trees {
-            mk_map.insert(block_range, mk_tree.into())?;
+            mk_map.replace(block_range, mk_tree.into())?;
         }
 
         // 5 - Compute the proof for all transactions
@@ -167,7 +167,8 @@ impl ProverService for MithrilProverService {
         let pool_size = self.mk_map_pool.size();
         info!(
             self.logger,
-            "Prover starts computing the Merkle map pool resource of size {pool_size}"
+            "Prover starts computing the Merkle map pool resource of size {pool_size}";
+            "up_to_block_number" => up_to,
         );
         let mk_map_cache = self
             .block_range_root_retriever
