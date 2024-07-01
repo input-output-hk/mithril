@@ -141,7 +141,7 @@ impl ProverService for MithrilProverService {
 
         // 4 - Enrich the Merkle map with the block ranges Merkle trees
         for (block_range, mk_tree) in mk_trees {
-            mk_map.insert(block_range, mk_tree.into())?;
+            mk_map.replace(block_range, mk_tree.into())?;
         }
 
         // 5 - Compute the proof for all transactions
