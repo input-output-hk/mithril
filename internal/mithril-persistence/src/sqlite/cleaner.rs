@@ -71,7 +71,7 @@ impl<'a> SqliteCleaner<'a> {
             self.connection.execute("vacuum")?;
         }
 
-        // Important: If wal is enabled Vacuuming the database will not shrink it until a
+        // Important: If WAL is enabled Vacuuming the database will not shrink until a
         // checkpoint is run, so it must be done after vacuuming.
         // Note: running a checkpoint when the WAL is disabled is harmless.
         if self

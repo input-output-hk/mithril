@@ -332,14 +332,6 @@ impl StateMachine {
         self.metrics_service
             .signer_registration_total_since_startup_counter_increment();
 
-        self.runner
-            .upkeep()
-            .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
-                nested_error: Some(e),
-            })?;
-
         let epoch = self
             .get_current_time_point("unregistered → registered")
             .await?
@@ -367,6 +359,14 @@ impl StateMachine {
             .signer_registration_success_since_startup_counter_increment();
         self.metrics_service
             .signer_registration_success_last_epoch_gauge_set(epoch);
+
+        self.runner
+            .upkeep()
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
+                nested_error: Some(e),
+            })?;
 
         Ok(SignerState::Registered { epoch })
     }
