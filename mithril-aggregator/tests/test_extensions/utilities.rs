@@ -1,3 +1,4 @@
+use mithril_common::entities::BlockNumber;
 use mithril_common::test_utils::TempDir;
 use slog_scope::debug;
 use std::{
@@ -17,6 +18,10 @@ pub fn get_test_dir(subdir_name: &str) -> PathBuf {
 pub fn comment(comment: String) {
     let old_count = COMMENT_COUNT.fetch_add(1, Ordering::SeqCst);
     debug!("COMMENT {:02} 💬 {}", old_count + 1, comment);
+}
+
+pub fn tx_hash(block_number: BlockNumber, tx_index: u64) -> String {
+    format!("tx_hash-{block_number}-{tx_index}")
 }
 
 #[macro_export]
