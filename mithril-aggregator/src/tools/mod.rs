@@ -18,3 +18,17 @@ pub use signer_importer::{
 
 #[cfg(test)]
 pub use remote_file_uploader::MockRemoteFileUploader;
+
+/// Downcast the error to the specified error type and check if the error satisfies the condition.
+pub(crate) fn downcast_check<E>(
+    error: &mithril_common::StdError,
+    check: impl Fn(&E) -> bool,
+) -> bool
+where
+    E: std::fmt::Display + std::fmt::Debug + Send + Sync + 'static,
+{
+    if let Some(inner_error) = error.downcast_ref::<E>() {
+        return check(inner_error);
+    }
+    false
+}

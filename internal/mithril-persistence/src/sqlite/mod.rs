@@ -29,6 +29,17 @@ pub use transaction::Transaction;
 /// Type of the connection used in Mithril
 pub type SqliteConnection = sqlite::ConnectionThreadSafe;
 
+/// Helpers to handle SQLite errors
+pub mod error {
+    /// Sqlite error type used in Mithril
+    pub type SqliteError = sqlite::Error;
+
+    /// SQLITE_BUSY error code
+    ///
+    /// see: <https://www.sqlite.org/rescode.html#busy>
+    pub const SQLITE_BUSY: isize = 5;
+}
+
 #[cfg(test)]
 mod test {
     use sqlite::Connection;
