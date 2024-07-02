@@ -38,7 +38,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RootMessage"
+                $ref: "#/components/schemas/AggregatorFeaturesMessage"
         "412":
           description: API version mismatch
         default:
@@ -531,7 +531,7 @@ paths:
 
 components:
   schemas:
-    RootMessage:
+    AggregatorFeaturesMessage:
       description: Aggregator public information
       type: object
       additionalProperties: false
