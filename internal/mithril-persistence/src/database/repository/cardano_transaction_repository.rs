@@ -146,16 +146,17 @@ impl CardanoTransactionRepository {
             )
     }
 
-    /// Retrieve all the Block Range Roots in database up to the given end block number included.
+    /// Retrieve all the Block Range Roots in database up to the block range that contains the given
+    /// block number.
     pub async fn retrieve_block_range_roots_up_to(
         &self,
-        up_to_or_equal_end_block_number: BlockNumber,
+        block_number: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + '_>> {
         let block_range_roots = self
             .connection_pool
             .connection()?
-            .fetch(GetBlockRangeRootQuery::up_to_block_number(
-                up_to_or_equal_end_block_number,
+            .fetch(GetBlockRangeRootQuery::contains_or_below_block_number(
+                block_number,
             ))?
             .map(|record| -> (BlockRange, MKTreeNode) { record.into() })
             .collect::<Vec<_>>(); // TODO: remove this collect to return the iterator directly
@@ -325,13 +326,9 @@ impl CardanoTransactionRepository {
 impl BlockRangeRootRetriever for CardanoTransactionRepository {
     async fn retrieve_block_range_roots<'a>(
         &'a self,
-        up_to_or_equal_beacon: BlockNumber,
+        up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
-        let iterator = self
-            .retrieve_block_range_roots_up_to(up_to_or_equal_beacon)
-            .await?;
-
-        Ok(Box::new(iterator))
+        self.retrieve_block_range_roots_up_to(up_to_beacon).await
     }
 }
 
@@ -973,50 +970,14 @@ mod tests {
             .await
             .unwrap();
 
-        // Retrieve with a block far higher than the highest block range - should return all
-        {
-            let retrieved_block_ranges = repository
-                .retrieve_block_range_roots_up_to(1000)
-                .await
-                .unwrap();
-            assert_eq!(
-                block_range_roots,
-                retrieved_block_ranges.collect::<Vec<_>>()
-            );
-        }
-        // Retrieve with a block bellow than the smallest block range - should return none
-        {
-            let retrieved_block_ranges = repository
-                .retrieve_block_range_roots_up_to(2)
-                .await
-                .unwrap();
-            assert_eq!(
-                Vec::<(BlockRange, MKTreeNode)>::new(),
-                retrieved_block_ranges.collect::<Vec<_>>()
-            );
-        }
-        // Right below the end of the second block range - should return first of the three
-        {
-            let retrieved_block_ranges = repository
-                .retrieve_block_range_roots_up_to(44)
-                .await
-                .unwrap();
-            assert_eq!(
-                vec![block_range_roots[0].clone()],
-                retrieved_block_ranges.collect::<Vec<_>>()
-            );
-        }
-        // The given block is matched to the end (included) - should return the two of the three
-        {
-            let retrieved_block_ranges = repository
-                .retrieve_block_range_roots_up_to(45)
-                .await
-                .unwrap();
-            assert_eq!(
-                block_range_roots[0..=1].to_vec(),
-                retrieved_block_ranges.collect::<Vec<_>>()
-            );
-        }
+        let retrieved_block_ranges = repository
+            .retrieve_block_range_roots_up_to(45)
+            .await
+            .unwrap();
+        assert_eq!(
+            block_range_roots[0..2].to_vec(),
+            retrieved_block_ranges.collect::<Vec<_>>()
+        );
     }
 
     #[tokio::test]
