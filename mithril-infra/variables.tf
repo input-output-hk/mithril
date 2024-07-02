@@ -141,7 +141,7 @@ locals {
 variable "cardano_image_id" {
   type        = string
   description = "The Cardano image tag of service to deploy"
-  default     = "8.9.0"
+  default     = "8.12.2"
 }
 
 variable "cardano_image_registry" {
@@ -153,7 +153,7 @@ variable "cardano_image_registry" {
 variable "cardano_configurations_repository_commit" {
   type        = string
   description = "The Cardano configurations commit to use"
-  default     = "692010ed0f454bfbb566c06443227c79e2f4dbab"
+  default     = "304521d423c47d44f1d596a939550c91e2755aff"
 }
 
 variable "mithril_api_domain" {
