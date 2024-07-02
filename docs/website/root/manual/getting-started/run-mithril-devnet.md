@@ -486,7 +486,7 @@ You will see more information about the snapshot:
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Size                  | 2323485648                                                                                                                                                                     |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Cardano node version  | 8.12.1                                                                                                                                                                          |
+| Cardano node version  | 8.12.2                                                                                                                                                                          |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Location              | https://storage.googleapis.com/cdn.aggregator.testing-preview.api.mithril.network/preview-e539-i10787.db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667.tar.zst |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -514,9 +514,9 @@ You will see that the certificate chain is validated to ensure the issued certif
 5/5 - Verifying the cardano db signature…
 Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
 
-    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 8.12.1.
+    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 8.12.2.
 
     If you are using Cardano Docker image, you can restore a Cardano Node with:
 
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:8.12.1
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:8.12.2
 ```
