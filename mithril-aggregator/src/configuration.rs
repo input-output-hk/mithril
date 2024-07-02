@@ -252,7 +252,7 @@ impl Configuration {
                 step: 15,
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
-            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
         }
     }
 
@@ -395,11 +395,11 @@ impl Default for DefaultConfiguration {
             cardano_transactions_prover_cache_pool_size: 10,
             cardano_transactions_database_connection_pool_size: 10,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 3000,
-                step: 120,
+                security_parameter: 100,
+                step: 30,
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
-            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
         }
     }
 }

@@ -205,13 +205,20 @@ impl CardanoTransactionRepository {
         &self,
         transactions: Vec<T>,
     ) -> StdResult<()> {
+        println!("Storing transactions");
         const DB_TRANSACTION_SIZE: usize = 100000;
-        for transactions_in_db_transaction_chunk in transactions.chunks(DB_TRANSACTION_SIZE) {
+        for (idx, transactions_in_db_transaction_chunk) in
+            transactions.chunks(DB_TRANSACTION_SIZE).enumerate()
+        {
+            println!("Creating transactions in chunks of {DB_TRANSACTION_SIZE}] #{idx}");
             let connection = self.connection_pool.connection()?;
             let transaction = connection.begin_transaction()?;
 
             // Chunk transactions to avoid an error when we exceed sqlite binding limitations
-            for transactions_in_chunk in transactions_in_db_transaction_chunk.chunks(100) {
+            for (sub_idx, transactions_in_chunk) in
+                transactions_in_db_transaction_chunk.chunks(100).enumerate()
+            {
+                println!("Storing sub chunks of 100 #{sub_idx}");
                 self.create_transactions_with_connection(
                     transactions_in_chunk.to_vec(),
                     &connection,
