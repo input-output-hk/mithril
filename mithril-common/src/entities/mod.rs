@@ -37,7 +37,7 @@ pub use certificate_metadata::{CertificateMetadata, StakeDistributionParty};
 pub use certificate_pending::CertificatePending;
 pub use epoch::{Epoch, EpochError};
 pub use epoch_settings::EpochSettings;
-pub use http_server_error::{ClientError, InternalServerError};
+pub use http_server_error::{ClientError, ServerError};
 pub use mithril_stake_distribution::MithrilStakeDistribution;
 pub use protocol_message::{ProtocolMessage, ProtocolMessagePartKey, ProtocolMessagePartValue};
 pub use protocol_parameters::ProtocolParameters;

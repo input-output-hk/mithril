@@ -1,7 +1,7 @@
 use serde::Serialize;
 use warp::http::StatusCode;
 
-use mithril_common::entities::{ClientError, InternalServerError};
+use mithril_common::entities::{ClientError, ServerError};
 use mithril_common::StdError;
 use mithril_persistence::sqlite::error::{SqliteError, SQLITE_BUSY};
 
@@ -46,17 +46,14 @@ pub fn server_error<E: Into<StdError>>(error: E) -> Box<dyn warp::Reply> {
         code
     };
 
-    json(
-        &InternalServerError::new(format!("{std_error:?}")),
-        status_code,
-    )
+    json(&ServerError::new(format!("{std_error:?}")), status_code)
 }
 
-pub fn internal_server_error<T: Into<InternalServerError>>(message: T) -> Box<dyn warp::Reply> {
+pub fn internal_server_error<T: Into<ServerError>>(message: T) -> Box<dyn warp::Reply> {
     json(&message.into(), StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-pub fn service_unavailable<T: Into<InternalServerError>>(message: T) -> Box<dyn warp::Reply> {
+pub fn service_unavailable<T: Into<ServerError>>(message: T) -> Box<dyn warp::Reply> {
     json(&message.into(), StatusCode::SERVICE_UNAVAILABLE)
 }
 
