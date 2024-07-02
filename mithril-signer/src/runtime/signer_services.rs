@@ -6,7 +6,9 @@ use tokio::sync::Mutex;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::CardanoBlockScanner,
-    cardano_transactions_preloader::CardanoTransactionsPreloader,
+    cardano_transactions_preloader::{
+        CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
+    },
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     chain_reader::PallasChainReader,
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
@@ -332,6 +334,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             self.config.preload_security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
+            // TODO: Temporary...
+            Arc::new(CardanoTransactionsPreloaderActivation::new(false)),
         ));
         let upkeep_service = Arc::new(SignerUpkeepService::new(
             sqlite_connection.clone(),

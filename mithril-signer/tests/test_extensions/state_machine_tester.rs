@@ -9,7 +9,9 @@ use thiserror::Error;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
-    cardano_transactions_preloader::CardanoTransactionsPreloader,
+    cardano_transactions_preloader::{
+        CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
+    },
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
@@ -209,6 +211,8 @@ impl StateMachineTester {
             security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
+            // TODO: Temporary...
+            Arc::new(CardanoTransactionsPreloaderActivation::new(false)),
         ));
         let upkeep_service = Arc::new(SignerUpkeepService::new(
             sqlite_connection.clone(),

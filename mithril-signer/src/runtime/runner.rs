@@ -468,7 +468,9 @@ mod tests {
     use mithril_common::{
         api_version::APIVersionProvider,
         cardano_block_scanner::DumbBlockScanner,
-        cardano_transactions_preloader::CardanoTransactionsPreloader,
+        cardano_transactions_preloader::{
+            CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
+        },
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -583,6 +585,8 @@ mod tests {
             security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
+            // TODO: Temporary...
+            Arc::new(CardanoTransactionsPreloaderActivation::new(false)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
 

@@ -11,8 +11,8 @@ use mithril_common::{
         CertificatePending, Epoch, EpochSettings, SignedEntityType, Signer, SingleSignatures,
     },
     messages::{
-        CertificatePendingMessage, EpochSettingsMessage, FromMessageAdapter, TryFromMessageAdapter,
-        TryToMessageAdapter,
+        AggregatorFeaturesMessage, CertificatePendingMessage, EpochSettingsMessage,
+        FromMessageAdapter, TryFromMessageAdapter, TryToMessageAdapter,
     },
     StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
@@ -173,6 +173,32 @@ impl AggregatorHTTPClient {
                 "version precondition failed, sent version '{}'.",
                 self.api_version_provider.compute_current_version().unwrap()
             ))
+        }
+    }
+
+    async fn retrieve_aggregator_features(
+        &self,
+    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
+        debug!("Retrieve aggregator features message");
+        let url = format!("{}/", self.aggregator_endpoint);
+        let response = self
+            .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
+            .send()
+            .await;
+
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => Ok(response
+                    .json::<AggregatorFeaturesMessage>()
+                    .await
+                    .map_err(|e| AggregatorClientError::JsonParseFailed(anyhow!(e)))?),
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
+                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                    "{}",
+                    response.text().await.unwrap_or_default()
+                ))),
+            },
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
 }
@@ -408,11 +434,13 @@ pub(crate) mod dumb {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
+
     use super::*;
     use httpmock::prelude::*;
-    use mithril_common::entities::{ClientError, Epoch};
+    use mithril_common::entities::{ClientError, Epoch, SignedEntityTypeDiscriminants};
     use mithril_common::era::{EraChecker, SupportedEra};
-    use mithril_common::messages::TryFromMessageAdapter;
+    use mithril_common::messages::{AggregatorCapabilities, TryFromMessageAdapter};
     use serde_json::json;
 
     use crate::configuration::Configuration;
@@ -427,6 +455,118 @@ mod tests {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let api_version_provider = APIVersionProvider::new(Arc::new(era_checker));
         (server, config, api_version_provider)
+    }
+
+    #[tokio::test]
+    async fn test_aggregator_features_ok_200() {
+        let (server, config, api_version_provider) = setup_test();
+        let aggregator_features_message_expected = AggregatorFeaturesMessage {
+            open_api_version: "0.0.1".to_string(),
+            documentation_url: "https://example.com".to_string(),
+            capabilities: AggregatorCapabilities {
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                ]),
+                cardano_transactions_prover: None,
+            },
+        };
+        let _server_mock = server.mock(|when, then| {
+            when.path("/");
+            then.status(200)
+                .body(json!(aggregator_features_message_expected).to_string());
+        });
+        let client = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            None,
+        );
+        let aggregator_features = client.retrieve_aggregator_features().await.unwrap();
+
+        assert_eq!(aggregator_features_message_expected, aggregator_features);
+    }
+
+    #[tokio::test]
+    async fn test_aggregator_features_ko_412() {
+        let (server, config, api_version_provider) = setup_test();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
+        });
+        let client = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            None,
+        );
+        let aggregator_features = client.retrieve_aggregator_features().await.unwrap_err();
+
+        assert!(aggregator_features.is_api_version_mismatch());
+    }
+
+    #[tokio::test]
+    async fn test_aggregator_features_ko_500() {
+        let (server, config, api_version_provider) = setup_test();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/");
+            then.status(500).body("an error occurred");
+        });
+        let client = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            None,
+        );
+
+        match client.retrieve_aggregator_features().await.unwrap_err() {
+            AggregatorClientError::RemoteServerTechnical(_) => (),
+            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
+        };
+    }
+
+    #[tokio::test]
+    async fn test_aggregator_features_ko_json_serialization() {
+        let (server, config, api_version_provider) = setup_test();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/");
+            then.status(200).body("this is not a json");
+        });
+        let client = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            None,
+        );
+        match client.retrieve_aggregator_features().await.unwrap_err() {
+            AggregatorClientError::JsonParseFailed(_) => (),
+            e => panic!("Expected Aggregator::JsonParseFailed error, got '{e:?}'."),
+        };
+    }
+
+    #[tokio::test]
+    async fn test_aggregator_features_timeout() {
+        let (server, config, api_version_provider) = setup_test();
+        let _server_mock = server.mock(|when, then| {
+            when.path("/");
+            then.delay(Duration::from_millis(200));
+        });
+        let client = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            Some(Duration::from_millis(50)),
+        );
+
+        let error = client
+            .retrieve_aggregator_features()
+            .await
+            .expect_err("retrieve_aggregator_features should fail");
+
+        assert!(
+            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
+            "unexpected error type: {error:?}"
+        );
     }
 
     #[tokio::test]
