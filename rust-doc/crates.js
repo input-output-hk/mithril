@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["mithril_aggregator","mithril_build_script","mithril_client","mithril_client_cli","mithril_common","mithril_doc","mithril_doc_derive","mithril_persistence","mithril_signer","mithril_stm"];
