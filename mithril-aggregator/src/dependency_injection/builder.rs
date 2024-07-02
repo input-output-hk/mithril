@@ -59,10 +59,10 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
-        MithrilEpochService, MithrilMessageService, MithrilProverService,
+        AggregatorUpkeepService, CardanoTransactionsImporter, CertifierService, MessageService,
+        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, StakeDistributionService,
+        SignedEntityService, StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -221,6 +221,9 @@ pub struct DependenciesBuilder {
 
     /// Transactions Importer
     pub transactions_importer: Option<Arc<dyn TransactionsImporter>>,
+
+    /// Upkeep service
+    pub upkeep_service: Option<Arc<dyn UpkeepService>>,
 }
 
 impl DependenciesBuilder {
@@ -270,6 +273,7 @@ impl DependenciesBuilder {
             prover_service: None,
             signed_entity_type_lock: None,
             transactions_importer: None,
+            upkeep_service: None,
         }
     }
 
@@ -286,39 +290,25 @@ impl DependenciesBuilder {
         &self,
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
-        do_vacuum_database: bool,
     ) -> Result<SqliteConnection> {
         let logger = self.get_logger()?;
         let connection_builder = match self.configuration.environment {
-            ExecutionEnvironment::Production => ConnectionBuilder::open_file(
-                &self.configuration.get_sqlite_dir().join(sqlite_file_name),
-            ),
-            _ if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" => {
+            ExecutionEnvironment::Test
+                if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" =>
+            {
                 ConnectionBuilder::open_memory()
             }
             _ => ConnectionBuilder::open_file(
-                &self
-                    .configuration
-                    .data_stores_directory
-                    .join(sqlite_file_name),
+                &self.configuration.get_sqlite_dir().join(sqlite_file_name),
             ),
-        };
-
-        let connection_options = {
-            let mut options = vec![
-                ConnectionOptions::EnableForeignKeys,
-                ConnectionOptions::EnableWriteAheadLog,
-            ];
-            if do_vacuum_database {
-                options.push(ConnectionOptions::Vacuum);
-            }
-
-            options
         };
 
         let connection = connection_builder
             .with_node_type(ApplicationNodeType::Aggregator)
-            .with_options(&connection_options)
+            .with_options(&[
+                ConnectionOptions::EnableForeignKeys,
+                ConnectionOptions::EnableWriteAheadLog,
+            ])
             .with_logger(logger.clone())
             .with_migrations(migrations)
             .build()
@@ -348,7 +338,6 @@ impl DependenciesBuilder {
             self.sqlite_connection = Some(Arc::new(self.build_sqlite_connection(
                 SQLITE_FILE,
                 crate::database::migration::get_migrations(),
-                true,
             )?));
         }
 
@@ -367,11 +356,10 @@ impl DependenciesBuilder {
             SQLITE_FILE_CARDANO_TRANSACTION,
             mithril_persistence::database::cardano_transaction_migration::get_migrations(),
             // Don't vacuum the Cardano transactions database as it can be very large
-            false,
         )?;
 
         let connection_pool = Arc::new(SqliteConnectionPool::build(connection_pool_size, || {
-            self.build_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION, vec![], false)
+            self.build_sqlite_connection(SQLITE_FILE_CARDANO_TRANSACTION, vec![])
                 .with_context(|| {
                     "Dependencies Builder can not build SQLite connection for Cardano transactions"
                 })
@@ -1238,6 +1226,26 @@ impl DependenciesBuilder {
         Ok(self.transactions_importer.as_ref().cloned().unwrap())
     }
 
+    async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
+        let upkeep_service = Arc::new(AggregatorUpkeepService::new(
+            self.get_sqlite_connection().await?,
+            self.get_sqlite_connection_cardano_transaction_pool()
+                .await?,
+            self.get_signed_entity_lock().await?,
+            self.get_logger()?,
+        ));
+
+        Ok(upkeep_service)
+    }
+
+    async fn get_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
+        if self.upkeep_service.is_none() {
+            self.upkeep_service = Some(self.build_upkeep_service().await?);
+        }
+
+        Ok(self.upkeep_service.as_ref().cloned().unwrap())
+    }
+
     /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
@@ -1281,6 +1289,7 @@ impl DependenciesBuilder {
             transaction_store: self.get_transaction_repository().await?,
             prover_service: self.get_prover_service().await?,
             signed_entity_type_lock: self.get_signed_entity_lock().await?,
+            upkeep_service: self.get_upkeep_service().await?,
         };
 
         Ok(dependency_manager)

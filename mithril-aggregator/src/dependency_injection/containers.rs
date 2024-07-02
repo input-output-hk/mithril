@@ -28,7 +28,7 @@ use crate::{
     multi_signer::MultiSigner,
     services::{
         CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
-        StakeDistributionService, TransactionStore,
+        StakeDistributionService, TransactionStore, UpkeepService,
     },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
@@ -161,6 +161,9 @@ pub struct DependencyContainer {
 
     /// Signed Entity Type Lock
     pub signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+
+    /// Upkeep service
+    pub upkeep_service: Arc<dyn UpkeepService>,
 }
 
 #[doc(hidden)]

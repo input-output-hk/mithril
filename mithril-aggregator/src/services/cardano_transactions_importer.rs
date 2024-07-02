@@ -197,6 +197,7 @@ mod tests {
     use mithril_persistence::database::repository::CardanoTransactionRepository;
 
     use crate::database::test_helper::cardano_tx_db_connection;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -223,7 +224,7 @@ mod tests {
                 scanner,
                 transaction_store,
                 Path::new(""),
-                crate::test_tools::logger_for_tests(),
+                TestLogger::stdout(),
             )
         }
     }
@@ -650,9 +651,8 @@ mod tests {
 
         let (importer, repository) = {
             let connection = cardano_tx_db_connection().unwrap();
-            let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
-                SqliteConnectionPool::build_from_connection(connection),
-            )));
+            let connection_pool = Arc::new(SqliteConnectionPool::build_from_connection(connection));
+            let repository = Arc::new(CardanoTransactionRepository::new(connection_pool));
             let importer = CardanoTransactionsImporter::new_for_test(
                 Arc::new(DumbBlockScanner::new().forwards(vec![blocks.clone()])),
                 repository.clone(),

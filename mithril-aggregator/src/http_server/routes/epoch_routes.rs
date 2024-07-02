@@ -52,7 +52,7 @@ mod handlers {
             }
             (Err(err), _, _) | (_, Err(err), _) | (_, _, Err(err)) => {
                 warn!("epoch_settings::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }

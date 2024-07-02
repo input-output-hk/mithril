@@ -1,35 +1,35 @@
 use crate::StdError;
 use serde::{Deserialize, Serialize};
 
-/// Representation of a Internal Server Error raised by an http server
+/// Representation of a Server Error raised by a http server
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct InternalServerError {
+pub struct ServerError {
     /// error message
     pub message: String,
 }
 
-impl InternalServerError {
+impl ServerError {
     /// InternalServerError factory
-    pub fn new(message: String) -> InternalServerError {
-        InternalServerError { message }
+    pub fn new(message: String) -> ServerError {
+        ServerError { message }
     }
 }
 
-impl From<String> for InternalServerError {
+impl From<String> for ServerError {
     fn from(message: String) -> Self {
-        InternalServerError::new(message)
+        ServerError::new(message)
     }
 }
 
-impl From<&str> for InternalServerError {
+impl From<&str> for ServerError {
     fn from(message: &str) -> Self {
-        InternalServerError::new(message.to_string())
+        ServerError::new(message.to_string())
     }
 }
 
-impl From<StdError> for InternalServerError {
+impl From<StdError> for ServerError {
     fn from(error: StdError) -> Self {
-        InternalServerError::new(format!("{error:?}"))
+        ServerError::new(format!("{error:?}"))
     }
 }
 

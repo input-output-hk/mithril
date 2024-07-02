@@ -17,7 +17,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Extended CI build and test steps for MacOS `arm64` runners and include pre-built binaries for MacOS `arm64` in the releases.
 
-- Vacuum aggregator & signer SQLite databases at startup to reduce fragmentation and disk space usage.
+- Add a regularly run upkeep task to the `mithril-aggregator` and `mithril-signer` to clean up stale data and optimize their databases.
 
 - **UNSTABLE** Cardano transactions certification:
   - Optimize the performances of the computation of the proof with a Merkle map.

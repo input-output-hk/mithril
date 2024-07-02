@@ -196,7 +196,8 @@ mod tests {
     use mithril_common::entities::{BlockNumber, BlockRangesSequence};
     use mithril_persistence::database::repository::CardanoTransactionRepository;
 
-    use crate::database::test_utils::cardano_tx_db_connection;
+    use crate::database::test_helper::cardano_tx_db_connection;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -223,7 +224,7 @@ mod tests {
                 scanner,
                 transaction_store,
                 Path::new(""),
-                crate::test_tools::logger_for_tests(),
+                TestLogger::stdout(),
             )
         }
     }

@@ -89,7 +89,7 @@ mod handlers {
                         }
                         Some(_) | None => {
                             warn!("register_signatures::error"; "error" => ?err);
-                            Ok(reply::internal_server_error(err))
+                            Ok(reply::server_error(err))
                         }
                     },
                     Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
@@ -97,7 +97,7 @@ mod handlers {
             }
             Err(err) => {
                 warn!("register_signatures::cant_retrieve_signed_entity_type"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }

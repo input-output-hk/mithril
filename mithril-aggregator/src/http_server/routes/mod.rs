@@ -19,7 +19,7 @@ macro_rules! unwrap_to_internal_server_error {
             Ok(res) => res,
             Err(err) => {
                 warn!($($warn_comment)*; "error" => ?err);
-                return Ok($crate::http_server::routes::reply::internal_server_error(
+                return Ok($crate::http_server::routes::reply::server_error(
                     err,
                 ));
             }

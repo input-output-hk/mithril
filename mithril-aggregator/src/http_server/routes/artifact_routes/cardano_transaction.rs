@@ -55,7 +55,7 @@ pub mod handlers {
             Err(err) => {
                 warn!("list_artifacts_cardano_transactions"; "error" => ?err);
 
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }
@@ -78,7 +78,7 @@ pub mod handlers {
             }
             Err(err) => {
                 warn!("get_cardano_transaction_details::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }

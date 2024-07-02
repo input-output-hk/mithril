@@ -68,6 +68,8 @@ mod tests {
     use mockall::predicate::eq;
     use mockall::{mock, Sequence};
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     mock! {
@@ -118,7 +120,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
-            crate::test_tools::logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         let up_to_beacon = highest_block_number;
@@ -146,7 +148,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
-            crate::test_tools::logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         importer.import(up_to_beacon).await.unwrap();
@@ -166,7 +168,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
-            crate::test_tools::logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         importer.import(up_to_beacon).await.unwrap();
@@ -190,7 +192,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
-            crate::test_tools::logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         importer.import(up_to_beacon).await.unwrap();
@@ -213,7 +215,7 @@ mod tests {
             highest_transaction_block_number_getter,
             Arc::new(wrapped_importer),
             chunk_size,
-            crate::test_tools::logger_for_tests(),
+            TestLogger::stdout(),
         );
 
         importer.import(up_to_beacon).await.unwrap();

@@ -114,7 +114,7 @@ mod handlers {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!("list_artifacts_snapshot"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }
@@ -136,7 +136,7 @@ mod handlers {
             }
             Err(err) => {
                 warn!("snapshot_details::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }
@@ -212,7 +212,7 @@ mod handlers {
             }
             Err(err) => {
                 warn!("snapshot_download::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }
