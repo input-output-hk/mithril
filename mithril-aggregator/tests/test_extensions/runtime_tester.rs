@@ -33,7 +33,7 @@ use crate::test_extensions::{AggregatorObserver, ExpectedCertificate};
 #[macro_export]
 macro_rules! cycle {
     ( $tester:expr, $expected_state:expr ) => {{
-        $tester.cycle().await.unwrap();
+        RuntimeTester::cycle(&mut $tester).await.unwrap();
         assert_eq!($expected_state, $tester.runtime.get_state());
     }};
 }
@@ -41,8 +41,7 @@ macro_rules! cycle {
 #[macro_export]
 macro_rules! cycle_err {
     ( $tester:expr, $expected_state:expr ) => {{
-        $tester
-            .cycle()
+        RuntimeTester::cycle(&mut $tester)
             .await
             .expect_err("cycle tick should have returned an error");
         assert_eq!($expected_state, $tester.runtime.get_state());
@@ -52,7 +51,9 @@ macro_rules! cycle_err {
 #[macro_export]
 macro_rules! assert_last_certificate_eq {
     ( $tester:expr, $expected_certificate:expr ) => {{
-        let last_certificate = $tester.get_last_expected_certificate().await.unwrap();
+        let last_certificate = RuntimeTester::get_last_expected_certificate(&mut $tester)
+            .await
+            .unwrap();
         assert_eq!($expected_certificate, last_certificate);
     }};
 }
