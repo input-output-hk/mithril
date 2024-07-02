@@ -19,6 +19,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Add a regularly run upkeep task to the `mithril-aggregator` and `mithril-signer` to clean up stale data and optimize their databases.
 
+- Support for `Cardano node` `8.12.2` in the signer and the aggregator.
+
 - **UNSTABLE** Cardano transactions certification:
   - Optimize the performances of the computation of the proof with a Merkle map.
   - Handle rollback events from the Cardano chain by removing stale data.
