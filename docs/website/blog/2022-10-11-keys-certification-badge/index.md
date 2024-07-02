@@ -1,8 +1,16 @@
 ---
 title: Mithril Keys Certification
 authors:
-- name: Mithril Team
-tags: [cardano, poolId, operational-certificate, kes-keys, mithril-keys, hybrid-mode]
+  - name: Mithril Team
+tags:
+  [
+    cardano,
+    poolId,
+    operational-certificate,
+    kes-keys,
+    mithril-keys,
+    hybrid-mode,
+  ]
 ---
 
 **Update 2022/12/19**: The signer registration with **declarative** PoolId has been decommissioned.

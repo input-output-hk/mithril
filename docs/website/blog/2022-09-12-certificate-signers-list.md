@@ -1,7 +1,7 @@
 ---
 title: Signers list computation in Certificates
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [certificate]
 ---
 

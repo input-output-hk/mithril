@@ -3,7 +3,7 @@ slug: 6
 title: |
   6. Errors implementation Standard
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [Accepted]
 date: 2023-09-27
 ---
@@ -15,12 +15,13 @@ Accepted
 ## Context
 
 Error handling is difficult with Rust:
+
 - Many ways of implementing them with different crates ([`thiserror`](https://crates.io/crates/thiserror), [`anyhow`](https://crates.io/crates/anyhow), ...)
 - No exception like handling of errors
 - No stack trace or context available by default
 - Backtrace uniquely when a panic occurs and if `RUST_BACKTRACE` environment variable is set to `1` or `full`
 
-We think the errors handling should be done in a consistent way in the project. 
+We think the errors handling should be done in a consistent way in the project.
 Thus we have worked on a standardization of their implementation and tried to apply it to the whole repository.
 This has enabled us to have a clear vision of the do and don't that we intend to summarize in this ADR.
 
@@ -28,9 +29,9 @@ This has enabled us to have a clear vision of the do and don't that we intend to
 
 _Therefore_
 
-* We have decided to use `thiserror` and `anyhow` crates to implement the errors:
-  * [`thiserror`](https://crates.io/crates/thiserror) is used to create module or domain errors that come from our developments and can be easily identified (as they are strongly typed).
-  * [`anyhow`](https://crates.io/crates/anyhow) is used to add a context to an error triggered by a sub-system. The context is a convenient way to get 'stack trace' like debug information.
+- We have decided to use `thiserror` and `anyhow` crates to implement the errors:
+  - [`thiserror`](https://crates.io/crates/thiserror) is used to create module or domain errors that come from our developments and can be easily identified (as they are strongly typed).
+  - [`anyhow`](https://crates.io/crates/anyhow) is used to add a context to an error triggered by a sub-system. The context is a convenient way to get 'stack trace' like debug information.
 
 Here is a [Rust playground](https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=bf667c443696beb90106f6ae627a57b9) that summarizes the usage of `thiserror`:
 
@@ -179,7 +180,7 @@ Caused by:
 Anyhow error: context
 ```
 
-Here is a [Rust playground](https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=90f962ab001d2ea0321fc5da0d4ec0f1) that summarizes the usage of the `context` feature form `anyhow`: 
+Here is a [Rust playground](https://play.rust-lang.org/?version=stable&mode=debug&edition=2021&gist=90f962ab001d2ea0321fc5da0d4ec0f1) that summarizes the usage of the `context` feature form `anyhow`:
 
 ```rust
 #[allow(unused_imports)]
@@ -211,6 +212,7 @@ fn main() {
 ```
 
 Which will output errors this way:
+
 ```
 Error string:
  Service could not do the important work
@@ -242,9 +244,9 @@ Error pretty:
 
 ## Consequences
 
-* We have defined the following aliases that should be used by default:
-    * `StdResult`: the default result that should be returned by a function (unless a more specific type is required).
-    * `StdError`: the default error that should be used (unless a more specific type is required).
+- We have defined the following aliases that should be used by default:
+  - `StdResult`: the default result that should be returned by a function (unless a more specific type is required).
+  - `StdError`: the default error that should be used (unless a more specific type is required).
 
 ```rust
 /* Code extracted from mithril-common::lib.rs */
@@ -255,14 +257,16 @@ pub type StdError = anyhow::Error;
 pub type StdResult<T> = anyhow::Result<T, StdError>;
 ```
 
-* The function that returns an error from a sub-system should systematically add a context to the error with the `with_context` method, in order to provide clear stack traces and ease debugging.
+- The function that returns an error from a sub-system should systematically add a context to the error with the `with_context` method, in order to provide clear stack traces and ease debugging.
 
-* When printing an `StdError` we should use the debug format without the pretty modifier, ie: 
+- When printing an `StdError` we should use the debug format without the pretty modifier, ie:
+
 ```rust
 println!("Error debug:\n {error:?}\n\n");
 ```
 
-* When wrapping an error in a `thiserror` enum variant we should use the `source` attribute that will provide a clearer stack trace:
+- When wrapping an error in a `thiserror` enum variant we should use the `source` attribute that will provide a clearer stack trace:
+
 ```rust
 /// Correct usage with `source` attribute
 #[derive(Error, Debug)]
@@ -281,8 +285,9 @@ pub enum DomainError {
 }
 ```
 
-* Here are some tips on how to discriminate between creating a new error using `thiserror` or using an `StdResult`:
-  * If you raise an anyhow error which only contains a string this means that you are creating a new error that doesn't come from a sub-system. In that case you should create a type using `thiserror` intead, ie:
+- Here are some tips on how to discriminate between creating a new error using `thiserror` or using an `StdResult`:
+  - If you raise an anyhow error which only contains a string this means that you are creating a new error that doesn't come from a sub-system. In that case you should create a type using `thiserror` intead, ie:
+
 ```rust
 // Avoid
 return Err(anyhow!("my new error"));
@@ -295,5 +300,5 @@ pub enum MyError {
 return Err(MyError::MyNewError);
 ```
 
-  * (*Still undecided*) You should avoid wrapping a `StdError` in a `thiserror` type. This __breaks__ the stack trace and makes it really difficult to retrieve the innermost errors using `downcast_ref`. When the `thiserror` type is itself wrapped in a `StdError` afterward, you would have to `downcast_ref` twice: first to get the `thiserror` type and then to get the innermost error. 
+- (_Still undecided_) You should avoid wrapping a `StdError` in a `thiserror` type. This **breaks** the stack trace and makes it really difficult to retrieve the innermost errors using `downcast_ref`. When the `thiserror` type is itself wrapped in a `StdError` afterward, you would have to `downcast_ref` twice: first to get the `thiserror` type and then to get the innermost error.
   This should be restricted to the topmost errors of our system (ie the state machine errors).

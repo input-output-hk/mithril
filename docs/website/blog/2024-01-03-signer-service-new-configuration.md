@@ -1,7 +1,7 @@
 ---
 title: Mithril signer service new configuration
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [spo, mithril signer, production]
 ---
 

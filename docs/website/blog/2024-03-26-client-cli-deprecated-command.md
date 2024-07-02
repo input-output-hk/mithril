@@ -13,13 +13,15 @@ The **snapshot** command has been superseded by the **cardano-db snapshot** comm
 In order to give time to our users to use the new command, the now legacy **snapshot** command is still available, but it will be removed in a near future.
 
 In order to proceed to the upgrade, install the latest stable client CLI, and replace the legacy command with the new command, e.g.:
+
 ```bash
 mithril-client -vvv snapshot download latest --json
 ```
 
 Should be replaced with
+
 ```bash
 mithril-client -vvv cardano-db snapshot download latest --json
 ```
 
-For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq). 
+For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).

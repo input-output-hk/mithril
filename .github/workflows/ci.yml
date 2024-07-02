@@ -273,6 +273,16 @@ jobs:
         if: success() || failure()
         run: jq . networks.json
 
+      - name: Check code formatting
+        if: success() || failure()
+        run: |
+          # Packages installation could perhaps be better managed (without specifying each package).
+          npm ci --prefix mithril-explorer
+          npm ci --prefix mithril-client-wasm/www
+          npm ci --prefix mithril-client-wasm/www-test
+          npm ci --prefix docs/website
+          make lint
+
   e2e:
     runs-on: ubuntu-22.04
     needs: [ build-ubuntu-X64 ]
@@ -808,10 +818,6 @@ jobs:
       - name: Test explorer
         working-directory: mithril-explorer
         run: make test
-
-      - name: Check explorer
-        working-directory: mithril-explorer
-        run: make lint
 
       - name: Build Explorer
         working-directory: mithril-explorer

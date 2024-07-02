@@ -19,7 +19,6 @@ Then fill the form to manually run the workflow:
 > [!CAUTION]
 > It is highly recommended to run with the **Dry run** option checked at first and make sure that the process works as expected.
 
-
 The result should look like this in the GitHub Actions:
 
 ![Run workflow result](./img/run-workflow-result.png)

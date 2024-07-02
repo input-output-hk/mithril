@@ -12,6 +12,7 @@ import CompiledBinaries from '../../../compiled-binaries.md'
 Mithril client library can be used by Rust developers to use the Mithril network in their applications.
 
 It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
+
 - [**Snapshot**](../../../glossary.md#snapshot): list, get, download tarball and record statistics.
 - [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get.
 - [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
@@ -20,11 +21,11 @@ It is responsible for handling the different types of data certified by Mithril,
 
 :::tip
 
-* For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
+- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
 
-* For more information about the **Mithril client** node, please see [this overview](../../../mithril/mithril-network/client.md).
+- For more information about the **Mithril client** node, please see [this overview](../../../mithril/mithril-network/client.md).
 
-* Check out the [`Bootstrap a Cardano node`](../../getting-started/bootstrap-cardano-node.md) guide.
+- Check out the [`Bootstrap a Cardano node`](../../getting-started/bootstrap-cardano-node.md) guide.
 
 :::
 
@@ -36,17 +37,17 @@ It is responsible for handling the different types of data certified by Mithril,
 
 ## Resources
 
-| Node | Source repository | Rust documentation |
-|:-:|:-----------------:|:------------------:|
-**Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client/index.html) |
+|        Node        |                                     Source repository                                      |                                Rust documentation                                 |
+| :----------------: | :----------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: |
+| **Mithril client** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client/index.html) |
 
 ## Pre-requisites
 
-* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
+- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
 
-* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
 
-* Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
+- Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
 ## Installation
 
@@ -73,17 +74,17 @@ use std::path::Path;
 #[tokio::main]
 async fn main() -> mithril_client::MithrilResult<()> {
     let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-    
+
     let snapshots = client.snapshot().list().await?;
-    
+
     let last_digest = snapshots.first().unwrap().digest.as_ref();
     let snapshot = client.snapshot().get(last_digest).await?.unwrap();
-    
+
     let certificate = client
         .certificate()
         .verify_chain(&snapshot.certificate_hash)
         .await?;
-    
+
     // Note: the directory must already exist, and the user running this code must have read/write access to it.
     let target_directory = Path::new("YOUR_TARGET_DIRECTORY");
     client
@@ -94,12 +95,12 @@ async fn main() -> mithril_client::MithrilResult<()> {
     if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
         println!("Could not increment snapshot download statistics: {:?}", e);
     }
-    
+
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, target_directory)
         .await?;
     assert!(certificate.match_message(&message));
-    
+
     Ok(())
 }
 ```
@@ -131,17 +132,17 @@ use std::path::Path;
 #[tokio::main]
 async fn main() -> mithril_client::MithrilResult<()> {
     let client = ClientBuilder::aggregator("https://aggregator.release-preprod.api.mithril.network/aggregator", "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d").build()?;
-    
+
     let snapshots = client.snapshot().list().await?;
-    
+
     let last_digest = snapshots.first().unwrap().digest.as_ref();
     let snapshot = client.snapshot().get(last_digest).await?.unwrap();
-    
+
     let certificate = client
         .certificate()
         .verify_chain(&snapshot.certificate_hash)
         .await?;
-    
+
     // Note: the directory must already exist, and the user running this code must have read/write access to it.
     let target_directory = Path::new(".");
     client
@@ -152,12 +153,12 @@ async fn main() -> mithril_client::MithrilResult<()> {
     if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
         println!("Could not increment snapshot download statistics: {:?}", e);
     }
-    
+
     let message = MessageBuilder::new()
         .compute_snapshot_message(&certificate, target_directory)
         .await?;
     assert!(certificate.match_message(&message));
-    
+
     Ok(())
 }
 ```

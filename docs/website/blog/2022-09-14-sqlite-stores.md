@@ -1,7 +1,7 @@
 ---
 title: Mithril internal stores switch to SQLite.
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [store, sqlite, breaking-change]
 ---
 
@@ -57,11 +57,11 @@ Migrating stake_store data…
 OK ✓
 ```
 
-At the end of this command, a file `signer.sqlite3` (or `aggregator.sqlite3` if you run an Aggregator) should be present in the specified base directory. 
+At the end of this command, a file `signer.sqlite3` (or `aggregator.sqlite3` if you run an Aggregator) should be present in the specified base directory.
 
 That should be enough, launch your upgraded mithril node.
 
-**Note:** The migration executable does not remove the old JSON files from the disk. 
+**Note:** The migration executable does not remove the old JSON files from the disk.
 
 ### Manual migration process
 
@@ -71,6 +71,6 @@ The executable also provides a `manual` switch for migrating Mithril JSON store 
 $> ./mithril-signer-migrate manual --help
 ```
 
-The command above should give you all informations needed to run a custom store migration. 
+The command above should give you all informations needed to run a custom store migration.
 
 Feel free to reach out to us on the [Discord channel](https://discord.gg/5kaErDKDRq) for questions and/or help.

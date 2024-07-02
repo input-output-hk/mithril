@@ -30,7 +30,8 @@ This step is **optional**, but recommended as it helps us deliver quality softwa
 :::
 
 To participate in the Pioneer Program, you will need to:
-- Run an active SPO on the Cardano `preview` network for at least one epoch or one day. 
+
+- Run an active SPO on the Cardano `preview` network for at least one epoch or one day.
 - Set up a **Mithril signer** node on the `pre-release-preview` Mithril network by following the [**Run a Mithril signer node (SPO)**](run-signer-node.md) guide.
 - You can choose between the **Naive** (easier to set up) or the **Production** deployment models.
 - Wait for two epochs (or two days) before your **Mithril signer** is eligible to contribute. Check that your **Mithril signer** is registered by the aggregator following [**Verify your signer is registered**](./run-signer-node.md#verify-your-signer-is-registered) steps.
@@ -49,6 +50,7 @@ This step is **optional**. It's intended to familiarize SPOs with setting up Mit
 :::
 
 To get ready for `mainnet`, you need to:
+
 - Be an active SPO on the Cardano `preprod` network for at least one epoch or five days.
 - Set up a **Mithril signer** node on Mithril's `release-preprod` network by following the [**Run a Mithril signer node (SPO)**](run-signer-node.md) guide.
 - You **must** run the **Production** deployment model.
@@ -68,6 +70,7 @@ This step is **mandatory**. It is **strongly recommended** to complete **Step 2*
 :::
 
 To run **Mithril** on `mainnet`, you need to:
+
 - Be an active SPO on Cardano `mainnet` for at least one epoch or five days.
 - Set up a **Mithril signer** node on Mithril's `release-mainnet` network by following the [**Run a Mithril signer node (SPO)**](run-signer-node.md) guide.
 - You **must** run the **Production** deployment model.

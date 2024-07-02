@@ -1,7 +1,7 @@
 ---
 title: Mithril environments are updated
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [release-process, re-spin, preview, preprod, environments]
 ---
 
@@ -32,6 +32,5 @@ More information about:
 - The `Mithril Networks` and their availability [here](https://mithril.network/doc/manual/developer-docs/references#mithril-networks).
 
 - The `Release Process` is available in this [ADR](https://mithril.network/doc/adr/3).
-
 
 Feel free to reach out to us on the [Discord channel](https://discord.gg/5kaErDKDRq) for questions and/or help.
