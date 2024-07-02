@@ -1,29 +1,8 @@
 use crate::DependencyContainer;
-use mithril_common::entities::SignedEntityTypeDiscriminants;
-use serde::{Deserialize, Serialize};
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 use warp::Filter;
 
 use super::middlewares;
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct RootRouteMessage {
-    pub open_api_version: String,
-    pub documentation_url: String,
-    pub capabilities: AggregatorCapabilities,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct AggregatorCapabilities {
-    pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cardano_transactions_prover: Option<CardanoTransactionsProverCapabilities>,
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
-pub struct CardanoTransactionsProverCapabilities {
-    max_hashes_allowed_by_request: usize,
-}
 
 pub fn routes(
     dependency_manager: Arc<DependencyContainer>,
@@ -54,11 +33,11 @@ mod handlers {
 
     use mithril_common::api_version::APIVersionProvider;
     use mithril_common::entities::{SignedEntityConfig, SignedEntityTypeDiscriminants};
+    use mithril_common::messages::{
+        AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
+    };
 
     use crate::http_server::routes::reply::json;
-    use crate::http_server::routes::root_routes::{
-        AggregatorCapabilities, CardanoTransactionsProverCapabilities, RootRouteMessage,
-    };
     use crate::{unwrap_to_internal_server_error, Configuration};
 
     /// Root
@@ -85,7 +64,7 @@ mod handlers {
             });
 
         Ok(json(
-            &RootRouteMessage {
+            &AggregatorFeaturesMessage {
                 open_api_version: open_api_version.to_string(),
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
                 capabilities: AggregatorCapabilities {
@@ -102,6 +81,10 @@ mod handlers {
 mod tests {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::{initialize_dependencies, DependencyContainer};
+    use mithril_common::entities::SignedEntityTypeDiscriminants;
+    use mithril_common::messages::{
+        AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
+    };
     use mithril_common::test_utils::apispec::APISpec;
     use serde_json::Value::Null;
     use std::collections::BTreeSet;
@@ -151,13 +134,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        let response_body: RootRouteMessage = serde_json::from_slice(response.body()).unwrap();
+        let response_body: AggregatorFeaturesMessage =
+            serde_json::from_slice(response.body()).unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
 
         assert_eq!(
             response_body,
-            RootRouteMessage {
+            AggregatorFeaturesMessage {
                 open_api_version: expected_open_api_version,
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
                 capabilities: AggregatorCapabilities {
@@ -202,7 +186,8 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        let response_body: RootRouteMessage = serde_json::from_slice(response.body()).unwrap();
+        let response_body: AggregatorFeaturesMessage =
+            serde_json::from_slice(response.body()).unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
 
