@@ -446,6 +446,17 @@ mod tests {
     use crate::configuration::Configuration;
     use mithril_common::test_utils::fake_data;
 
+    macro_rules! assert_is_error {
+        ($error:expr, $error_type:pat) => {
+            assert!(
+                matches!($error, $error_type),
+                "Expected {} error, got '{:?}'.",
+                stringify!($error_type),
+                $error
+            );
+        };
+    }
+
     fn setup_test() -> (MockServer, Configuration, APIVersionProvider) {
         let server = MockServer::start();
         let config = Configuration {
@@ -457,10 +468,42 @@ mod tests {
         (server, config, api_version_provider)
     }
 
+    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
+        let (server, config, api_version_provider) = setup_test();
+        (
+            server,
+            AggregatorHTTPClient::new(
+                config.aggregator_endpoint,
+                config.relay_endpoint,
+                Arc::new(api_version_provider),
+                None,
+            ),
+        )
+    }
+
+    fn set_returning_412(server: MockServer) {
+        let _mock_412 = server.mock(|_, then| {
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
+        });
+    }
+
+    fn set_returning_500(server: MockServer) {
+        let _server_mock = server.mock(|_, then| {
+            then.status(500).body("an error occurred");
+        });
+    }
+
+    fn set_unparsable_json(server: MockServer) {
+        let _server_mock = server.mock(|_, then| {
+            then.status(200).body("this is not a json");
+        });
+    }
+
     #[tokio::test]
     async fn test_aggregator_features_ok_200() {
-        let (server, config, api_version_provider) = setup_test();
-        let aggregator_features_message_expected = AggregatorFeaturesMessage {
+        let (server, client) = setup_server_and_client();
+        let message_expected = AggregatorFeaturesMessage {
             open_api_version: "0.0.1".to_string(),
             documentation_url: "https://example.com".to_string(),
             capabilities: AggregatorCapabilities {
@@ -472,101 +515,56 @@ mod tests {
         };
         let _server_mock = server.mock(|when, then| {
             when.path("/");
-            then.status(200)
-                .body(json!(aggregator_features_message_expected).to_string());
+            then.status(200).body(json!(message_expected).to_string());
         });
-        let client = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-        );
-        let aggregator_features = client.retrieve_aggregator_features().await.unwrap();
 
-        assert_eq!(aggregator_features_message_expected, aggregator_features);
+        let message = client.retrieve_aggregator_features().await.unwrap();
+
+        assert_eq!(message_expected, message);
     }
 
     #[tokio::test]
     async fn test_aggregator_features_ko_412() {
-        let (server, config, api_version_provider) = setup_test();
-        let _server_mock = server.mock(|when, then| {
-            when.path("/");
-            then.status(412)
-                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
-        });
-        let client = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-        );
-        let aggregator_features = client.retrieve_aggregator_features().await.unwrap_err();
+        let (server, client) = setup_server_and_client();
+        set_returning_412(server);
 
-        assert!(aggregator_features.is_api_version_mismatch());
+        let error = client.retrieve_aggregator_features().await.unwrap_err();
+
+        assert_is_error!(error, AggregatorClientError::ApiVersionMismatch(_));
     }
 
     #[tokio::test]
     async fn test_aggregator_features_ko_500() {
-        let (server, config, api_version_provider) = setup_test();
-        let _server_mock = server.mock(|when, then| {
-            when.path("/");
-            then.status(500).body("an error occurred");
-        });
-        let client = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-        );
+        let (server, client) = setup_server_and_client();
+        set_returning_500(server);
 
-        match client.retrieve_aggregator_features().await.unwrap_err() {
-            AggregatorClientError::RemoteServerTechnical(_) => (),
-            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
-        };
+        let error = client.retrieve_aggregator_features().await.unwrap_err();
+
+        assert_is_error!(error, AggregatorClientError::RemoteServerTechnical(_));
     }
 
     #[tokio::test]
     async fn test_aggregator_features_ko_json_serialization() {
-        let (server, config, api_version_provider) = setup_test();
-        let _server_mock = server.mock(|when, then| {
-            when.path("/");
-            then.status(200).body("this is not a json");
-        });
-        let client = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-        );
-        match client.retrieve_aggregator_features().await.unwrap_err() {
-            AggregatorClientError::JsonParseFailed(_) => (),
-            e => panic!("Expected Aggregator::JsonParseFailed error, got '{e:?}'."),
-        };
+        let (server, client) = setup_server_and_client();
+        set_unparsable_json(server);
+
+        let error = client.retrieve_aggregator_features().await.unwrap_err();
+
+        assert_is_error!(error, AggregatorClientError::JsonParseFailed(_));
     }
 
     #[tokio::test]
     async fn test_aggregator_features_timeout() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, mut client) = setup_server_and_client();
+        client.timeout_duration = Some(Duration::from_millis(50));
         let _server_mock = server.mock(|when, then| {
             when.path("/");
             then.delay(Duration::from_millis(200));
         });
-        let client = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            Some(Duration::from_millis(50)),
-        );
 
-        let error = client
-            .retrieve_aggregator_features()
-            .await
-            .expect_err("retrieve_aggregator_features should fail");
+        let error = client.retrieve_aggregator_features().await.unwrap_err();
 
-        assert!(
-            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
-            "unexpected error type: {error:?}"
-        );
+        assert_is_error!(error, AggregatorClientError::RemoteServerUnreachable(_));
     }
 
     #[tokio::test]
