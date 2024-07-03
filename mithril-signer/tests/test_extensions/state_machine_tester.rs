@@ -211,8 +211,7 @@ impl StateMachineTester {
             security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
-            // TODO: Temporary...
-            Arc::new(CardanoTransactionsPreloaderActivation::new(false)),
+            Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(SignerUpkeepService::new(
             sqlite_connection.clone(),

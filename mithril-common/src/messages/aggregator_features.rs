@@ -17,6 +17,22 @@ pub struct AggregatorFeaturesMessage {
     pub capabilities: AggregatorCapabilities,
 }
 
+impl AggregatorFeaturesMessage {
+    /// Create a dummy AggregatorFeaturesMessage
+    pub fn dummy() -> Self {
+        AggregatorFeaturesMessage {
+            open_api_version: "0.0.1".to_string(),
+            documentation_url: "https://example.com".to_string(),
+            capabilities: AggregatorCapabilities {
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                ]),
+                cardano_transactions_prover: None,
+            },
+        }
+    }
+}
+
 /// Capabilities of an Aggregator
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct AggregatorCapabilities {

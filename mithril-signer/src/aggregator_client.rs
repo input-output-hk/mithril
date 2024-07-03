@@ -99,6 +99,11 @@ pub trait AggregatorClient: Sync + Send {
         signed_entity_type: &SignedEntityType,
         signatures: &SingleSignatures,
     ) -> Result<(), AggregatorClientError>;
+
+    /// Retrieves aggregator features message from the aggregator
+    async fn retrieve_aggregator_features(
+        &self,
+    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -173,32 +178,6 @@ impl AggregatorHTTPClient {
                 "version precondition failed, sent version '{}'.",
                 self.api_version_provider.compute_current_version().unwrap()
             ))
-        }
-    }
-
-    async fn retrieve_aggregator_features(
-        &self,
-    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
-        debug!("Retrieve aggregator features message");
-        let url = format!("{}/", self.aggregator_endpoint);
-        let response = self
-            .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
-            .send()
-            .await;
-
-        match response {
-            Ok(response) => match response.status() {
-                StatusCode::OK => Ok(response
-                    .json::<AggregatorFeaturesMessage>()
-                    .await
-                    .map_err(|e| AggregatorClientError::JsonParseFailed(anyhow!(e)))?),
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                    "{}",
-                    response.text().await.unwrap_or_default()
-                ))),
-            },
-            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
 }
@@ -329,6 +308,32 @@ impl AggregatorClient for AggregatorHTTPClient {
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
     }
+
+    async fn retrieve_aggregator_features(
+        &self,
+    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
+        debug!("Retrieve aggregator features message");
+        let url = format!("{}/", self.aggregator_endpoint);
+        let response = self
+            .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
+            .send()
+            .await;
+
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => Ok(response
+                    .json::<AggregatorFeaturesMessage>()
+                    .await
+                    .map_err(|e| AggregatorClientError::JsonParseFailed(anyhow!(e)))?),
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
+                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                    "{}",
+                    response.text().await.unwrap_or_default()
+                ))),
+            },
+            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -429,22 +434,28 @@ pub(crate) mod dumb {
         ) -> Result<(), AggregatorClientError> {
             Ok(())
         }
+
+        async fn retrieve_aggregator_features(
+            &self,
+        ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
+            Ok(AggregatorFeaturesMessage::dummy())
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
-
-    use super::*;
     use httpmock::prelude::*;
-    use mithril_common::entities::{ClientError, Epoch, SignedEntityTypeDiscriminants};
-    use mithril_common::era::{EraChecker, SupportedEra};
-    use mithril_common::messages::{AggregatorCapabilities, TryFromMessageAdapter};
     use serde_json::json;
 
-    use crate::configuration::Configuration;
+    use mithril_common::entities::{ClientError, Epoch};
+    use mithril_common::era::{EraChecker, SupportedEra};
+    use mithril_common::messages::TryFromMessageAdapter;
     use mithril_common::test_utils::fake_data;
+
+    use crate::configuration::Configuration;
+
+    use super::*;
 
     macro_rules! assert_is_error {
         ($error:expr, $error_type:pat) => {
@@ -503,16 +514,7 @@ mod tests {
     #[tokio::test]
     async fn test_aggregator_features_ok_200() {
         let (server, client) = setup_server_and_client();
-        let message_expected = AggregatorFeaturesMessage {
-            open_api_version: "0.0.1".to_string(),
-            documentation_url: "https://example.com".to_string(),
-            capabilities: AggregatorCapabilities {
-                signed_entity_types: BTreeSet::from([
-                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                ]),
-                cardano_transactions_prover: None,
-            },
-        };
+        let message_expected = AggregatorFeaturesMessage::dummy();
         let _server_mock = server.mock(|when, then| {
             when.path("/");
             then.status(200).body(json!(message_expected).to_string());

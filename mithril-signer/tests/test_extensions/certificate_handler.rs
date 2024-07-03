@@ -7,6 +7,7 @@ use mithril_common::{
         CertificatePending, Epoch, EpochSettings, SignedEntityConfig, SignedEntityType,
         SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
     },
+    messages::AggregatorFeaturesMessage,
     test_utils::fake_data,
     MithrilTickerService, TickerService,
 };
@@ -136,6 +137,12 @@ impl AggregatorClient for FakeAggregator {
         _signatures: &SingleSignatures,
     ) -> Result<(), AggregatorClientError> {
         Ok(())
+    }
+
+    async fn retrieve_aggregator_features(
+        &self,
+    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
+        Ok(AggregatorFeaturesMessage::dummy())
     }
 }
 
