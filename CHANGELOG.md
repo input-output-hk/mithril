@@ -28,6 +28,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Chunk the Cardano transactions import in `mithril-signer` to reduce disk footprint by running the pruning process more frequently.
   - Add a database connection pool on the Cardano transaction repository for increased performances of the prover.
   - Import Cardano transactions with Chain Sync mini protocol and Pallas chain reader.
+  - Avoid aggregator and signer being blocked when importing the Cardano transactions.
 
 - Crates versions:
 
