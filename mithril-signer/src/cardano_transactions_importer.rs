@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use slog::{debug, Logger};
+use tokio::{runtime::Handle, task};
 
 use mithril_common::cardano_block_scanner::{BlockScanner, ChainScannedBlocks};
 use mithril_common::crypto_helper::{MKTree, MKTreeNode};
@@ -174,13 +175,25 @@ impl CardanoTransactionsImporter {
             .store_block_range_roots(block_ranges_with_merkle_root)
             .await
     }
+
+    async fn import_transactions_and_block_ranges(
+        &self,
+        up_to_beacon: BlockNumber,
+    ) -> StdResult<()> {
+        self.import_transactions(up_to_beacon).await?;
+        self.import_block_ranges().await
+    }
 }
 
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
     async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
-        self.import_transactions(up_to_beacon).await?;
-        self.import_block_ranges().await
+        task::block_in_place(move || {
+            Handle::current().block_on(async move {
+                self.import_transactions_and_block_ranges(up_to_beacon)
+                    .await
+            })
+        })
     }
 }
 
@@ -639,7 +652,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order(
     ) {
         let blocks = vec![
@@ -676,7 +689,7 @@ mod tests {
         assert_eq!(cold_imported_transactions, warm_imported_transactions);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn when_rollbackward_should_remove_transactions() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
@@ -719,7 +732,7 @@ mod tests {
         assert_eq!(expected_remaining_transactions, stored_transactions);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn when_rollbackward_should_remove_block_ranges() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
