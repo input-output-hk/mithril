@@ -283,23 +283,24 @@ sudo mv mithril-signer /opt/mithril
   - `ERA_READER_ADAPTER_TYPE=cardano-chain`: replace `cardano-chain` with the era reader adapter type used in your Mithril network
   - `ERA_READER_ADAPTER_PARAMS={"address": "...", "verification_key": "..."}`: replace `{"address": "...", "verification_key": "..."}` with the era reader parameters that you need to compute by running the command `jq -nc --arg address $(wget -q -O - **YOUR_ERA_READER_ADDRESS**) --arg verification_key $(wget -q -O - **YOUR_ERA_READER_VERIFICATION_KEY**) '{"address": $address, "verification_key": $verification_key}'`
   - `RELAY_ENDPOINT=http://192.168.1.50:3132` **(optional)**: this is the endpoint of the **Mithril relay**, which is required for **production** deployment only. For **naive** deployment, do not set this variable in your environment file.
-    :::
+
+:::
 
 :::tip
 
 Here is an **example** set of values for **release-preprod** that will be used in this guide in the **tip** boxes to illustrate some commands:
 
-- \***\*YOUR_KES_SECRET_KEY_PATH\*\***: `/cardano/keys/kes.skey`
-- \***\*YOUR_OPERATIONAL_CERTIFICATE_PATH\*\***: `/cardano/keys/node.cert`
-- \***\*YOUR_CARDANO_NETWORK\*\***: `preprod`
-- \***\*YOUR_AGGREGATOR_ENDPOINT\*\***: `https://aggregator.release-preprod.api.mithril.network/aggregator`
-- \***\*YOUR_ERA_READER_ADAPTER_TYPE\*\***: `cardano-chain`
-- \***\*YOUR_ERA_READER_ADAPTER_PARAMS\*\***: `{"address": "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx", "verification_key": "5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}`
-- \***\*YOUR_RELAY_ENDPOINT\*\***: `192.168.1.50`
-- \***\*YOUR_RELAY_LISTENING_PORT\*\***: `3132`
-- \***\*YOUR_BLOCK_PRODUCER_INTERNAL_IP\*\***: `192.168.1.75`
-- \***\*YOUR_SIGNER_LOGS_PATH\*\***: `/var/log/syslog`
-- \***\*YOUR_PARTY_ID\*\***: `pool1hp72sauk0g0yqm4dzllz0pz6j93gewhllkzphn4hykkfmne43y`
+- **YOUR_KES_SECRET_KEY_PATH**: `/cardano/keys/kes.skey`
+- **YOUR_OPERATIONAL_CERTIFICATE_PATH**: `/cardano/keys/node.cert`
+- **YOUR_CARDANO_NETWORK**: `preprod`
+- **YOUR_AGGREGATOR_ENDPOINT**: `https://aggregator.release-preprod.api.mithril.network/aggregator`
+- **YOUR_ERA_READER_ADAPTER_TYPE**: `cardano-chain`
+- **YOUR_ERA_READER_ADAPTER_PARAMS**: `{"address": "addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx", "verification_key": "5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}`
+- **YOUR_RELAY_ENDPOINT**: `192.168.1.50`
+- **YOUR_RELAY_LISTENING_PORT**: `3132`
+- **YOUR_BLOCK_PRODUCER_INTERNAL_IP**: `192.168.1.75`
+- **YOUR_SIGNER_LOGS_PATH**: `/var/log/syslog`
+- **YOUR_PARTY_ID**: `pool1hp72sauk0g0yqm4dzllz0pz6j93gewhllkzphn4hykkfmne43y`
 
 :::
 

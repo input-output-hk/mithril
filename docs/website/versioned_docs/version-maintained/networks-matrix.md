@@ -113,11 +113,11 @@ Here is an updated list of all **Mithril networks**, including their configurati
 :::caution
 In this documentation, we use the following generic identifiers:
 
-- \***\*YOUR_CARDANO_NETWORK\*\*** You need to replace this with the name of the network that runs on your Cardano node (eg, `preprod`)
-- \***\*YOUR_AGGREGATOR_ENDPOINT\*\*** You need to replace this with the endpoint of an aggregator that runs on the Cardano network you are targeting (eg, `https://aggregator.release-preprod.api.mithril.network/aggregator`)
-- \***\*YOUR_GENESIS_VERIFICATION_KEY\*\*** You need to replace this with the genesis verification key URL that runs on the Cardano network you are targeting (eg, `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey`)
-- \***\*YOUR_ERA_READER_ADAPTER_TYPE\*\*** You need to replace this with the era reader adapter type used by the Mithril network you are targeting (eg, `cardano-chain`)
-- \***\*YOUR_ERA_READER_ADDRESS\*\*** You need to replace this with the era reader address URL used by the Mithril network you are targeting (eg, `https://raw.githubusercontent.com/input-output-hk/mithril/main/address.addr`)
-- \***\*YOUR_ERA_READER_VERIFICATION_KEY\*\*** You need to replace this with the era reader verification key URL used by the Mithril network you are targeting (eg, `https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_era.vkey`)
+- **YOUR_CARDANO_NETWORK** You need to replace this with the name of the network that runs on your Cardano node (eg, `preprod`)
+- **YOUR_AGGREGATOR_ENDPOINT** You need to replace this with the endpoint of an aggregator that runs on the Cardano network you are targeting (eg, `https://aggregator.release-preprod.api.mithril.network/aggregator`)
+- **YOUR_GENESIS_VERIFICATION_KEY** You need to replace this with the genesis verification key URL that runs on the Cardano network you are targeting (eg, `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey`)
+- **YOUR_ERA_READER_ADAPTER_TYPE** You need to replace this with the era reader adapter type used by the Mithril network you are targeting (eg, `cardano-chain`)
+- **YOUR_ERA_READER_ADDRESS** You need to replace this with the era reader address URL used by the Mithril network you are targeting (eg, `https://raw.githubusercontent.com/input-output-hk/mithril/main/address.addr`)
+- **YOUR_ERA_READER_VERIFICATION_KEY** You need to replace this with the era reader verification key URL used by the Mithril network you are targeting (eg, `https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_era.vkey`)
 
 :::

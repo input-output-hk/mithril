@@ -20,7 +20,7 @@ In order to guarantee that any breaking change of the Mithril nodes does not bre
 :fire: Activating this feature will require an update of configuration of the signer nodes after updating their binary:
 
 - The `ERA_READER_ADAPTER_TYPE` env var must be set to `cardano-chain`
-- The `ERA_READER_ADAPTER_PARAMS` env var must be set to the result of the command `jq -nc --arg address $(wget -q -O - **YOUR_ERA_READER_ADDRESS**) --arg verification_key $(wget -q -O - **YOUR_ERA_READER_VERIFICATION_KEY**) '{"address": $address, "verification_key": $verification_key}'` (the \***\*YOUR_ERA_READER_ADDRESS\*\*** and \***\*YOUR_ERA_READER_VERIFICATION_KEY\*\*** are values provided in the networks configuration matrix)
+- The `ERA_READER_ADAPTER_PARAMS` env var must be set to the result of the command `jq -nc --arg address $(wget -q -O - **YOUR_ERA_READER_ADDRESS**) --arg verification_key $(wget -q -O - **YOUR_ERA_READER_VERIFICATION_KEY**) '{"address": $address, "verification_key": $verification_key}'` (the **YOUR_ERA_READER_ADDRESS** and **YOUR_ERA_READER_VERIFICATION_KEY** are values provided in the networks configuration matrix)
 
 Here is the configuration values that should be used on `pre-release-preview`:
 
