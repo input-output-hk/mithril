@@ -4,28 +4,26 @@ use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{
-    cardano_transactions_preloader::CardanoTransactionsPreloaderActivationState,
+    cardano_transactions_preloader::CardanoTransactionsPreloaderChecker,
     entities::SignedEntityTypeDiscriminants, StdResult,
 };
 
 use crate::AggregatorClient;
 
-/// CardanoTransactionsPreloaderActivationAccordingToAggregator
-pub struct CardanoTransactionsPreloaderActivationAccordingToAggregator {
+/// CardanoTransactionsPreloaderActivationSigner
+pub struct CardanoTransactionsPreloaderActivationSigner {
     aggregator_client: Arc<dyn AggregatorClient>,
 }
 
-impl CardanoTransactionsPreloaderActivationAccordingToAggregator {
-    /// Create a new instance of `CardanoTransactionsPreloaderActivationAccordingToAggregator`
+impl CardanoTransactionsPreloaderActivationSigner {
+    /// Create a new instance of `CardanoTransactionsPreloaderActivationSigner`
     pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {
         Self { aggregator_client }
     }
 }
 
 #[async_trait]
-impl CardanoTransactionsPreloaderActivationState
-    for CardanoTransactionsPreloaderActivationAccordingToAggregator
-{
+impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivationSigner {
     async fn is_activated(&self) -> StdResult<bool> {
         let message = self
             .aggregator_client
@@ -66,9 +64,8 @@ mod tests {
                     BTreeSet::from([SignedEntityTypeDiscriminants::MithrilStakeDistribution]);
                 Ok(message)
             });
-        let preloader = CardanoTransactionsPreloaderActivationAccordingToAggregator::new(Arc::new(
-            aggregator_client,
-        ));
+        let preloader =
+            CardanoTransactionsPreloaderActivationSigner::new(Arc::new(aggregator_client));
 
         let is_activated = preloader.is_activated().await.unwrap();
 
@@ -88,9 +85,8 @@ mod tests {
                     BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]);
                 Ok(message)
             });
-        let preloader = CardanoTransactionsPreloaderActivationAccordingToAggregator::new(Arc::new(
-            aggregator_client,
-        ));
+        let preloader =
+            CardanoTransactionsPreloaderActivationSigner::new(Arc::new(aggregator_client));
 
         let is_activated = preloader.is_activated().await.unwrap();
 
@@ -108,9 +104,8 @@ mod tests {
                     "Aggregator call failed"
                 )))
             });
-        let preloader = CardanoTransactionsPreloaderActivationAccordingToAggregator::new(Arc::new(
-            aggregator_client,
-        ));
+        let preloader =
+            CardanoTransactionsPreloaderActivationSigner::new(Arc::new(aggregator_client));
 
         preloader
             .is_activated()

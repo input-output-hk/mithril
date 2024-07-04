@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::SignedEntityTypeDiscriminants;
 
-/// Message sent by an Aggregator to inform about its features
+/// Message advertised by an Aggregator to inform about its features
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct AggregatorFeaturesMessage {
     /// Version of the OpenAPI specification

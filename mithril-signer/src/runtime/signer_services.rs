@@ -33,8 +33,8 @@ use mithril_persistence::{
 use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
     AggregatorHTTPClient, CardanoTransactionsImporter,
-    CardanoTransactionsPreloaderActivationAccordingToAggregator, Configuration,
-    MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
+    CardanoTransactionsPreloaderActivationSigner, Configuration, MithrilSingleSigner,
+    ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
     TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
     UpkeepService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
@@ -254,7 +254,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
-        let certificate_handler = Arc::new(AggregatorHTTPClient::new(
+        let aggregator_client = Arc::new(AggregatorHTTPClient::new(
             self.config.aggregator_endpoint.clone(),
             self.config.relay_endpoint.clone(),
             api_version_provider.clone(),
@@ -327,9 +327,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             cardano_transactions_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
-        let preloader_activation = CardanoTransactionsPreloaderActivationAccordingToAggregator::new(
-            certificate_handler.clone(),
-        );
+        let preloader_activation =
+            CardanoTransactionsPreloaderActivationSigner::new(aggregator_client.clone());
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
             preloader_transactions_importer,
@@ -347,7 +346,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
 
         let services = SignerServices {
             ticker_service,
-            certificate_handler,
+            certificate_handler: aggregator_client,
             chain_observer,
             digester,
             single_signer,

@@ -8,7 +8,7 @@
 
 mod aggregator_client;
 mod cardano_transactions_importer;
-mod cardano_transactions_preloader_activation_according_to_aggregator;
+mod cardano_transactions_preloader_checker;
 mod configuration;
 pub mod database;
 mod message_adapters;
@@ -25,7 +25,7 @@ mod upkeep_service;
 pub use aggregator_client::dumb::DumbAggregatorClient;
 pub use aggregator_client::*;
 pub use cardano_transactions_importer::*;
-pub use cardano_transactions_preloader_activation_according_to_aggregator::*;
+pub use cardano_transactions_preloader_checker::*;
 pub use configuration::{Configuration, DefaultConfiguration};
 pub use message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
