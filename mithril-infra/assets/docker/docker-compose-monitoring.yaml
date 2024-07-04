@@ -23,10 +23,10 @@ services:
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOST}`)'
-      - 'traefik.http.routers.prometheus.tls=true'
-      - 'traefik.http.routers.prometheus.tls.certresolver=lets-encrypt'
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`${PROMETHEUS_HOST}`)"
+      - "traefik.http.routers.prometheus.tls=true"
+      - "traefik.http.routers.prometheus.tls.certresolver=lets-encrypt"
       - "traefik.http.routers.prometheus.middlewares=prometheus-auth"
       - "traefik.http.middlewares.prometheus-auth.basicauth.users=${PROMETHEUS_AUTH_USER_PASSWORD}"
 
@@ -43,10 +43,10 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     logging:
       driver: "${LOGGING_DRIVER}"
       options:
@@ -71,10 +71,10 @@ services:
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.loki.rule=Host(`${LOKI_HOST}`)'
-      - 'traefik.http.routers.loki.tls=true'
-      - 'traefik.http.routers.loki.tls.certresolver=lets-encrypt'
+      - "traefik.enable=true"
+      - "traefik.http.routers.loki.rule=Host(`${LOKI_HOST}`)"
+      - "traefik.http.routers.loki.tls=true"
+      - "traefik.http.routers.loki.tls.certresolver=lets-encrypt"
       - "traefik.http.routers.loki.middlewares=loki-auth"
       - "traefik.http.middlewares.loki-auth.basicauth.users=${LOKI_AUTH_USER_PASSWORD}"
 

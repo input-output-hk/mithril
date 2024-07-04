@@ -16,7 +16,7 @@ services:
     restart: unless-stopped
     user: ${CURRENT_UID}
     ports:
-     - '3000:3000'
+      - "3000:3000"
 
   prometheus:
     image: prom/prometheus:latest
@@ -50,15 +50,14 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     logging:
       driver: json-file
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
-
 
   process-exporter:
     image: ncabatoff/process-exporter:latest
@@ -74,11 +73,9 @@ services:
       - /proc:/host/proc:ro
       - ./config/process_exporter/process.yml:/config/process.yml:ro
     command:
-      - '-procfs=/host/proc'
-      - '-config.path=/config/process.yml'
+      - "-procfs=/host/proc"
+      - "-config.path=/config/process.yml"
     logging:
       driver: json-file
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
-
-

@@ -1,4 +1,3 @@
-*.yaml
 *.json
 docs/website/.docusaurus/
 mithril-explorer/font.css.hbs

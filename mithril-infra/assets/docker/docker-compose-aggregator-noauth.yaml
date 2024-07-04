@@ -84,7 +84,7 @@ services:
       - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
     ports:
       - "8080:8080"
-    command: [ "-vvv", "serve" ]
+    command: ["-vvv", "serve"]
     depends_on:
       cardano-node-aggregator:
         condition: service_started
@@ -93,10 +93,10 @@ services:
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)'
-      - 'traefik.http.routers.mithril-aggregator.tls=true'
-      - 'traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt'
+      - "traefik.enable=true"
+      - "traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)"
+      - "traefik.http.routers.mithril-aggregator.tls=true"
+      - "traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt"
 
 networks:
   default:

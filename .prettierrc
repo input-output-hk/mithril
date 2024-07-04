@@ -6,6 +6,12 @@
         "printWidth": 100,
         "bracketSameLine": true
       }
+    },
+    {
+      "files": "*.yaml",
+      "options": {
+        "trailingComma": "none"
+      }
     }
   ]
 }

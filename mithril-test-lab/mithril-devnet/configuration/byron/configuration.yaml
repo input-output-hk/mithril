@@ -3,7 +3,6 @@
 ############### Cardano Byron Node Configuration #########
 ##########################################################
 
-
 ##### Locations #####
 
 GenesisFile: genesis.json
@@ -30,7 +29,6 @@ Protocol: RealPBFT
 
 # The mainnet does not include the network magic into addresses. Testnets do.
 RequiresNetworkMagic: RequiresNoMagic
-
 
 ##### Update system parameters #####
 
@@ -130,9 +128,8 @@ defaultScribes:
 # in the setupScribes above for specific scribes.
 rotation:
   rpLogLimitBytes: 5000000
-  rpKeepFilesNum:  3
-  rpMaxAgeHours:   24
-
+  rpKeepFilesNum: 3
+  rpMaxAgeHours: 24
 
 ##### Coarse grained logging control #####
 
@@ -198,7 +195,7 @@ TraceIpSubscription: True
 TraceLocalRootPeers: True
 
 # Trace public root peers
-TracePublicRootPeers: True 
+TracePublicRootPeers: True
 
 # Trace peer selection
 TracePeerSelection: True
@@ -249,7 +246,6 @@ TraceTxOutbound: False
 # Trace TxSubmission protocol messages.
 TraceTxSubmissionProtocol: False
 
-
 ##### Fine grained logging control #####
 
 # It is also possible to have more fine grained control over filtering of
@@ -258,7 +254,6 @@ TraceTxSubmissionProtocol: False
 # much more precise control.
 
 options:
-
   # This routes metrics matching specific names to particular backends.
   # This overrides the 'defaultBackends' listed above. And note that it is
   # an override and not an extension so anything matched here will not
