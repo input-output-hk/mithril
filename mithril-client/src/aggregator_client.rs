@@ -257,9 +257,7 @@ impl AggregatorHTTPClient {
 
                 Err(self.handle_api_error(response.headers()).await)
             }
-            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                "Url='{url}' not found"
-            ))),
+            StatusCode::NOT_FOUND => Err(Self::not_found_error(url)),
             status_code if status_code.is_client_error() => {
                 Err(Self::remote_logical_error(response).await)
             }
@@ -301,9 +299,7 @@ impl AggregatorHTTPClient {
 
                 Err(self.handle_api_error(response.headers()).await)
             }
-            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                "Url='{url} not found"
-            ))),
+            StatusCode::NOT_FOUND => Err(Self::not_found_error(url)),
             status_code if status_code.is_client_error() => {
                 Err(Self::remote_logical_error(response).await)
             }
@@ -337,6 +333,10 @@ impl AggregatorHTTPClient {
                 self.compute_current_api_version().await.unwrap()
             ))
         }
+    }
+
+    fn not_found_error(url: Url) -> AggregatorClientError {
+        AggregatorClientError::RemoteServerLogical(anyhow!("Url='{url}' not found"))
     }
 
     async fn remote_logical_error(response: Response) -> AggregatorClientError {
@@ -556,6 +556,38 @@ mod tests {
         });
 
         let expected_error = AggregatorClientError::RemoteServerLogical(anyhow!("{client_error}"));
+
+        let get_content_error = client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(get_content_error, expected_error);
+
+        let post_content_error = client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_handle_404_not_found_error() {
+        let client_error = ClientError::new("label", "message");
+
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|_when, then| {
+            then.status(StatusCode::NOT_FOUND.as_u16())
+                .json_body_obj(&client_error);
+        });
+
+        let expected_error = AggregatorHTTPClient::not_found_error(
+            Url::parse(&format!(
+                "{}/{}",
+                aggregator.base_url(),
+                AggregatorRequest::ListCertificates.route()
+            ))
+            .unwrap(),
+        );
 
         let get_content_error = client
             .get_content(AggregatorRequest::ListCertificates)
