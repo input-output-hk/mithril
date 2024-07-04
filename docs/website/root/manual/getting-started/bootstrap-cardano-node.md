@@ -29,9 +29,9 @@ Before proceeding with the installation, ensure that you have the following pre-
 
 3. **Install OpenSSL development libraries**: On Ubuntu/Debian/Mint, run the following command to install the required OpenSSL development libraries:
 
- ```
+```
 sudo apt install libssl-dev
- ```
+```
 
 3. **Install other requirements**: Make sure you have all the additional dependencies and requirements specified for the project:
 
@@ -156,10 +156,10 @@ To display results in JSON format for the `list` and `show` commands of the Mith
 
 If you wish to delve deeper and access several levels of logs from the Mithril client, you can use the following:
 
-* Add `-v` for some logs (WARN)
-* Add `-vv` for more logs (INFO)
-* Add `-vvv` for even more logs (DEBUG)
-* Add `-vvvv` for all logs (TRACE)
+- Add `-v` for some logs (WARN)
+- Add `-vv` for more logs (INFO)
+- Add `-vvv` for even more logs (DEBUG)
+- Add `-vvvv` for all logs (TRACE)
 
 :::
 
@@ -225,11 +225,13 @@ to search for packages if unsure.
 :::note
 
 If you encounter the following error:
+
 ```
     This perl implementation doesn't produce Unix like paths (with forward slash
     directory separators).  Please use an implementation that matches your
     building platform.
 ```
+
 make sure that the `perl` in `/usr/bin/perl.exe` (from the `perl` package) comes
 before the `perl` in `/<env>/bin/perl.exe` (from the
 `mingw-w64-<env>-x86_64-perl` package).
@@ -451,7 +453,6 @@ To download the selected snapshot from the remote location to your remote locati
 ```bash
 ./mithril-client cardano-db download $SNAPSHOT_DIGEST
 ```
-
 
 You will see that the selected snapshot archive has been downloaded locally, unpacked, and that the associated certificate is valid:
 
