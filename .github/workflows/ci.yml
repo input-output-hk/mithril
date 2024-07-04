@@ -281,7 +281,7 @@ jobs:
       matrix:
         mode: [ "std" ]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        cardano_node_version: [ "8.9.4", "8.12.2", "8.12.0-pre" ]
+        cardano_node_version: [ "8.9.4", "8.12.2", "8.11.0-pre", "8.12.0-pre" ]
         hard_fork_latest_era_at_epoch: [ 0 ]
         run_id: [ "#1" ]
         extra_args: [ "" ]
