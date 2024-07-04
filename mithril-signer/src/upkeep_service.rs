@@ -136,17 +136,17 @@ mod tests {
         let main_db_connection = main_db_file_connection(&main_db_path).unwrap();
         let cardano_tx_connection = cardano_tx_db_file_connection(&ctx_db_path).unwrap();
 
-        let service = SignerUpkeepService::new(
-            Arc::new(main_db_connection),
-            Arc::new(SqliteConnectionPool::build_from_connection(
-                cardano_tx_connection,
-            )),
-            Arc::new(SignedEntityTypeLock::default()),
-            TestLogger::file(&log_path),
-        );
-
-        // Separate block to ensure the log is flushed after run
+        // Separate block to force log flushing by dropping the service that owns the logger
         {
+            let service = SignerUpkeepService::new(
+                Arc::new(main_db_connection),
+                Arc::new(SqliteConnectionPool::build_from_connection(
+                    cardano_tx_connection,
+                )),
+                Arc::new(SignedEntityTypeLock::default()),
+                TestLogger::file(&log_path),
+            );
+
             service.run().await.expect("Upkeep service failed");
         }
 
@@ -175,18 +175,19 @@ mod tests {
         .join("upkeep.log");
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        let service = SignerUpkeepService::new(
-            Arc::new(main_db_connection().unwrap()),
-            Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
-            signed_entity_type_lock.clone(),
-            TestLogger::file(&log_path),
-        );
+        signed_entity_type_lock
+            .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
+            .await;
 
-        // Separate block to ensure the log is flushed after run
+        // Separate block to force log flushing by dropping the service that owns the logger
         {
-            signed_entity_type_lock
-                .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
-                .await;
+            let service = SignerUpkeepService::new(
+                Arc::new(main_db_connection().unwrap()),
+                Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
+                signed_entity_type_lock.clone(),
+                TestLogger::file(&log_path),
+            );
+
             service.run().await.expect("Upkeep service failed");
         }
 
