@@ -1,3 +1,5 @@
+use crate::test_extensions::utilities::tx_hash;
+use crate::test_extensions::{AggregatorObserver, ExpectedCertificate};
 use anyhow::{anyhow, Context};
 use chrono::Utc;
 use mithril_aggregator::{
@@ -28,12 +30,10 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::test_extensions::{AggregatorObserver, ExpectedCertificate};
-
 #[macro_export]
 macro_rules! cycle {
     ( $tester:expr, $expected_state:expr ) => {{
-        $tester.cycle().await.unwrap();
+        RuntimeTester::cycle(&mut $tester).await.unwrap();
         assert_eq!($expected_state, $tester.runtime.get_state());
     }};
 }
@@ -41,8 +41,7 @@ macro_rules! cycle {
 #[macro_export]
 macro_rules! cycle_err {
     ( $tester:expr, $expected_state:expr ) => {{
-        $tester
-            .cycle()
+        RuntimeTester::cycle(&mut $tester)
             .await
             .expect_err("cycle tick should have returned an error");
         assert_eq!($expected_state, $tester.runtime.get_state());
@@ -52,7 +51,9 @@ macro_rules! cycle_err {
 #[macro_export]
 macro_rules! assert_last_certificate_eq {
     ( $tester:expr, $expected_certificate:expr ) => {{
-        let last_certificate = $tester.get_last_expected_certificate().await.unwrap();
+        let last_certificate = RuntimeTester::get_last_expected_certificate(&mut $tester)
+            .await
+            .unwrap();
         assert_eq!($expected_certificate, last_certificate);
     }};
 }
@@ -275,7 +276,7 @@ impl RuntimeTester {
                     block_number,
                     slot_number,
                     current_immutable,
-                    vec![format!("tx_hash-{block_number}-1")],
+                    vec![tx_hash(block_number, 1)],
                 )
             })
             .collect();
@@ -484,17 +485,7 @@ impl RuntimeTester {
     pub async fn get_last_certificate_with_signed_entity(
         &mut self,
     ) -> StdResult<(Certificate, Option<SignedEntityRecord>)> {
-        let certificate = self
-            .dependencies
-            .certifier_service
-            .get_latest_certificates(1)
-            .await
-            .with_context(|| "Querying last certificate should not fail")?
-            .first()
-            .ok_or(anyhow!(
-                "No certificate have been produced by the aggregator"
-            ))?
-            .clone();
+        let certificate = self.observer.get_last_certificate().await?;
 
         let signed_entity = match &certificate.signature {
             CertificateSignature::GenesisSignature(..) => None,

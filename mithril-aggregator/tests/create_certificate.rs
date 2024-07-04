@@ -142,7 +142,7 @@ async fn create_certificate() {
 
     comment!(
         "Increase cardano chain block number to 185, 
-        the state machine should be signing CardanoTransactions for block 180"
+        the state machine should be signing CardanoTransactions for block 179"
     );
     tester.increase_block_number(85, 185).await.unwrap();
     cycle!(tester, "signing");
@@ -166,7 +166,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoTransactions(Epoch(1), 180),
+            SignedEntityType::CardanoTransactions(Epoch(1), 179),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,
@@ -201,7 +201,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoTransactions(Epoch(1), 120),
+            SignedEntityType::CardanoTransactions(Epoch(1), 119),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,

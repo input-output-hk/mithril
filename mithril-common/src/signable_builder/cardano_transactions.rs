@@ -29,7 +29,7 @@ pub trait BlockRangeRootRetriever: Send + Sync {
     /// Returns a Merkle map of the block ranges roots up to a given beacon
     async fn retrieve_block_range_roots<'a>(
         &'a self,
-        up_to_or_equal_beacon: BlockNumber,
+        up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
 
     /// Returns a Merkle map of the block ranges roots up to a given beacon
