@@ -10,7 +10,7 @@ use mithril_common::{
 };
 use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn create_certificate() {
     let protocol_parameters = ProtocolParameters {
         k: 5,

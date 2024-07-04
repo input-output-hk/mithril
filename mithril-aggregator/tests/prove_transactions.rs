@@ -13,7 +13,7 @@ use crate::test_extensions::utilities::tx_hash;
 
 mod test_extensions;
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn prove_transactions() {
     let protocol_parameters = ProtocolParameters {
         k: 5,
