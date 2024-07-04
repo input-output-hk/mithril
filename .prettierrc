@@ -1,10 +1,11 @@
 {
-    "overrides": [
-        {
-            "files": "*.js",
-            "options": {
-                "printWidth": 100
-            }
-        }
-    ]
+  "overrides": [
+    {
+      "files": "*.js",
+      "options": {
+        "printWidth": 100,
+        "bracketSameLine": true
+      }
+    }
+  ]
 }
