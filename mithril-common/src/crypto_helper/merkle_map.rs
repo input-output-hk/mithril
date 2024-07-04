@@ -491,7 +491,7 @@ mod tests {
         MKTree::new(&leaves).unwrap()
     }
 
-    fn join_merkle_tree(block_ranges: &[BlockRange]) -> Vec<(BlockRange, MKTree)> {
+    fn generate_merkle_trees_for_ranges(block_ranges: &[BlockRange]) -> Vec<(BlockRange, MKTree)> {
         block_ranges
             .iter()
             .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
@@ -530,7 +530,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_accept_replacement_with_same_root_value() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -555,7 +555,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_reject_replacement_with_different_root_value() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -572,7 +572,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_replace_should_accept_replacement_with_same_root_value() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -606,7 +606,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_replace_should_reject_replacement_if_key_doesnt_exist() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -630,7 +630,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_replace_should_reject_replacement_with_different_root_value() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -654,7 +654,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_compress_correctly() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -675,7 +675,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_reject_out_of_order_insertion() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -693,7 +693,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_list_keys_correctly() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -716,7 +716,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_list_values_correctly() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -742,7 +742,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_find_value_correctly() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
@@ -755,7 +755,7 @@ mod tests {
 
     #[test]
     fn test_mk_map_should_clone_and_compute_same_root() {
-        let entries = join_merkle_tree(&[
+        let entries = generate_merkle_trees_for_ranges(&[
             BlockRange::new(0, 3),
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
