@@ -1,18 +1,18 @@
 {
-    "cardano_cli_path": "-",
-    "cardano_node_socket_path": "-",
-    "network": "-",
-    "network_magic": 0,
-    "run_interval": 0,
-    "protocol_parameters": {
-        "k": 0,
-        "m": 0,
-        "phi_f": 0
-    },
-    "snapshot_store_type": "local",
-    "snapshot_uploader_type": "local",
-    "genesis_verification_key": "-",
-    "era_adapter_type": "bootstrap",
-    "cardano_node_version": "-",
-    "chain_observer_type": "cardano-cli"
+  "cardano_cli_path": "-",
+  "cardano_node_socket_path": "-",
+  "network": "-",
+  "network_magic": 0,
+  "run_interval": 0,
+  "protocol_parameters": {
+    "k": 0,
+    "m": 0,
+    "phi_f": 0
+  },
+  "snapshot_store_type": "local",
+  "snapshot_uploader_type": "local",
+  "genesis_verification_key": "-",
+  "era_adapter_type": "bootstrap",
+  "cardano_node_version": "-",
+  "chain_observer_type": "cardano-cli"
 }

@@ -5,6 +5,7 @@
 This example shows how to implement a Mithril client and use its features related to the `Snapshot` type.
 
 In this example, the client interacts by default with a real aggregator on the network `testing-preview` to:
+
 - list the available snapshots
 - get a single snapshot
 - download and unpack a snapshot archive
@@ -32,5 +33,6 @@ AGGREGATOR_ENDPOINT=https://aggregator.pre-release-preview.api.mithril.network/a
 ```
 
 ## Links
+
 - **Developer documentation**: https://docs.rs/mithril-client/latest/mithril_client/
 - **Crates.io**: https://crates.io/crates/mithril-client

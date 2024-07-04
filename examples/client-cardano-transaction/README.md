@@ -10,6 +10,7 @@
 This example shows how to implement a Mithril client and use its features related to the `Cardano Transaction` type.
 
 In this example, the client interacts with an aggregator and performs the following operations:
+
 - Retrieve cryptographic proofs of membership of the Cardano transactions set for a list of transactions passed as arguments
 - Verify the validity of the proofs
 - Verify the validity of the validity of the certificate chain attached to the proofs
@@ -29,5 +30,6 @@ AGGREGATOR_ENDPOINT=https://aggregator.testing-sanchonet.api.mithril.network/agg
 ```
 
 ## Links
+
 - **Developer documentation**: https://docs.rs/mithril-client/latest/mithril_client/
 - **Crates.io**: https://crates.io/crates/mithril-client

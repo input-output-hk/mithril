@@ -58,7 +58,7 @@ make build
 ## Example output
 
 ```
->> Launch Mithril protocol demonstrator with configuration: 
+>> Launch Mithril protocol demonstrator with configuration:
 Config {
     m: 100,
     k: 5,

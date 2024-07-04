@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       embed_cardano_cli:
-        description: | 
+        description: |
           Embed Cardano-cli in the Docker image. 
           Only needed if you want to use cardano-cli chain observer.
         required: true
@@ -38,12 +38,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ mithril-aggregator, mithril-client-cli, mithril-signer, mithril-relay ]
+        project:
+          [
+            mithril-aggregator,
+            mithril-client-cli,
+            mithril-signer,
+            mithril-relay,
+          ]
 
         include:
           - project: mithril-client-cli
             package: mithril-client
-    
+
     permissions:
       contents: read
       packages: write

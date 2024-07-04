@@ -1,82 +1,82 @@
 // @ts-check
 // Note: type annotations allow type checking and IDEs autocompletion
 
-const lightCodeTheme = require('prism-react-renderer').themes.github;
-const darkCodeTheme = require('prism-react-renderer').themes.dracula;
+const lightCodeTheme = require("prism-react-renderer").themes.github;
+const darkCodeTheme = require("prism-react-renderer").themes.dracula;
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Mithril. A complete guide.',
-  tagline: 'Explore the user manual, key concepts, and API reference',
-  url: 'https://mithril.network',
-  baseUrl: '/doc/',
-  onBrokenLinks: 'throw',
-  onBrokenMarkdownLinks: 'warn',
-  favicon: 'img/logo.svg',
-  organizationName: 'Input Output Global',
-  projectName: 'Mithril',
+  title: "Mithril. A complete guide.",
+  tagline: "Explore the user manual, key concepts, and API reference",
+  url: "https://mithril.network",
+  baseUrl: "/doc/",
+  onBrokenLinks: "throw",
+  onBrokenMarkdownLinks: "warn",
+  favicon: "img/logo.svg",
+  organizationName: "Input Output Global",
+  projectName: "Mithril",
 
   scripts: [
     {
-      src: 'https://plausible.io/js/script.js',
+      src: "https://plausible.io/js/script.js",
       defer: true,
-      'data-domain': 'mithril.network'
-    }
+      "data-domain": "mithril.network",
+    },
   ],
 
   presets: [
     [
-      'classic',
+      "classic",
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          path: 'root',
-          routeBasePath: '/',
-          sidebarPath: require.resolve('./sidebars.js'),
+          path: "root",
+          routeBasePath: "/",
+          sidebarPath: require.resolve("./sidebars.js"),
           editUrl: ({ docPath }) => {
             // We want users to submit doc updates to the upstream/next version!
             // Otherwise we risk losing the update on the next release.
             return `https://github.com/input-output-hk/mithril/edit/main/docs/website/root/${docPath}`;
           },
-          lastVersion: 'maintained',
+          lastVersion: "maintained",
           versions: {
             current: {
-              label: 'Next 🚧',
-              banner: 'unreleased',
+              label: "Next 🚧",
+              banner: "unreleased",
             },
             maintained: {
-              label: 'Current',
-            }
+              label: "Current",
+            },
           },
         },
         blog: {
-          path: 'blog/',
-          routeBasePath: 'dev-blog',
+          path: "blog/",
+          routeBasePath: "dev-blog",
           blogTitle: "Dev Blog",
           blogSidebarTitle: "Dev blog",
-          sortPosts: 'descending',
+          sortPosts: "descending",
           showReadingTime: true,
         },
         theme: {
-          customCss: require.resolve('./src/css/custom.css'),
+          customCss: require.resolve("./src/css/custom.css"),
         },
         gtag: {
-          trackingID: 'G-4MB41WL2Z2',
+          trackingID: "G-4MB41WL2Z2",
           anonymizeIP: true,
         },
       }),
     ],
     [
-      'redocusaurus',
+      "redocusaurus",
       {
         specs: [
           {
-            spec: '../openapi.yaml',
-            route: '/aggregator-api/',
+            spec: "../openapi.yaml",
+            route: "/aggregator-api/",
           },
         ],
         theme: {
-          primaryColor: '#1890ff',
+          primaryColor: "#1890ff",
         },
       },
     ],
@@ -84,124 +84,124 @@ const config = {
 
   plugins: [
     [
-      '@docusaurus/plugin-content-blog',
+      "@docusaurus/plugin-content-blog",
       {
-        id: 'adr_blog',
-        path: 'adr',
-        routeBasePath: 'adr/',
+        id: "adr_blog",
+        path: "adr",
+        routeBasePath: "adr/",
         blogTitle: "ADR",
         blogSidebarTitle: "ADR",
-        sortPosts: 'descending',
-      }
-    ]
+        sortPosts: "descending",
+      },
+    ],
   ],
 
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      metadata: [{ name: 'og:image', content: 'https://mithril.network/doc/img/logo.png' }],
+      metadata: [{ name: "og:image", content: "https://mithril.network/doc/img/logo.png" }],
       announcementBar: {
-        id: 'announcement',
+        id: "announcement",
         content:
           'Participate in Mithril Protocol’s Mainnet Beta Launch! Follow our SPO on-boarding guide  <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/getting-started/SPO-on-boarding-guide">here</a> if you are interested!',
-        backgroundColor: '#2e8555',
-        textColor: '#f1f1f1',
+        backgroundColor: "#2e8555",
+        textColor: "#f1f1f1",
         isCloseable: true,
       },
       navbar: {
-        title: 'Mithril',
+        title: "Mithril",
         logo: {
-          alt: 'Mithril. A complete guide.',
-          src: 'img/logo.svg',
+          alt: "Mithril. A complete guide.",
+          src: "img/logo.svg",
         },
         items: [
           {
-            type: 'doc',
-            docId: 'manual/welcome',
-            position: 'left',
-            label: 'User Manual',
+            type: "doc",
+            docId: "manual/welcome",
+            position: "left",
+            label: "User Manual",
           },
           {
-            type: 'doc',
-            docId: 'mithril/intro',
-            label: 'About Mithril',
-            position: 'left',
+            type: "doc",
+            docId: "mithril/intro",
+            label: "About Mithril",
+            position: "left",
           },
           {
-            type: 'docsVersionDropdown',
-            position: 'right',
+            type: "docsVersionDropdown",
+            position: "right",
             dropdownActiveClassDisabled: true,
           },
           {
-            label: 'Explorer',
-            to: 'https://mithril.network/explorer',
-            position: 'right',
+            label: "Explorer",
+            to: "https://mithril.network/explorer",
+            position: "right",
           },
           {
-            to: '/glossary',
-            label: 'Glossary',
-            position: 'right',
+            to: "/glossary",
+            label: "Glossary",
+            position: "right",
           },
-          { to: '/dev-blog', label: 'Dev Blog', position: 'right' },
-          { to: '/adr', label: 'ADRs', position: 'right' },
+          { to: "/dev-blog", label: "Dev Blog", position: "right" },
+          { to: "/adr", label: "ADRs", position: "right" },
           {
-            className: 'header-github-link',
-            href: 'https://github.com/input-output-hk/mithril/',
-            position: 'right',
+            className: "header-github-link",
+            href: "https://github.com/input-output-hk/mithril/",
+            position: "right",
           },
         ],
       },
       footer: {
-        style: 'dark',
+        style: "dark",
         links: [
           {
-            title: 'Contributing',
+            title: "Contributing",
             items: [
               {
-                label: 'Contributing Guidelines',
-                href: 'https://github.com/input-output-hk/mithril/blob/main/CONTRIBUTING.md',
+                label: "Contributing Guidelines",
+                href: "https://github.com/input-output-hk/mithril/blob/main/CONTRIBUTING.md",
               },
               {
-                label: 'Architectural Decision Records',
-                to: '/adr',
-              }
-            ],
-          },
-          {
-            title: 'Community',
-            items: [
-              {
-                label: 'Discord (#ask-mithril)',
-                href: 'https://discord.gg/5kaErDKDRq',
-              },
-              {
-                label: 'GitHub Discussions',
-                href: 'https://github.com/input-output-hk/mithril/discussions',
-              },
-              {
-                label: 'Stack Exchange',
-                href: 'https://cardano.stackexchange.com/questions/tagged/mithril',
+                label: "Architectural Decision Records",
+                to: "/adr",
               },
             ],
           },
           {
-            title: 'More',
+            title: "Community",
             items: [
               {
-                label: 'Mithril Networks Status',
-                href: 'https://mithril.cronitorstatus.com/'
+                label: "Discord (#ask-mithril)",
+                href: "https://discord.gg/5kaErDKDRq",
               },
               {
-                label: 'Mithril Protocol Insights',
-                href: 'https://lookerstudio.google.com/s/oi6CR5eZrnQ'
+                label: "GitHub Discussions",
+                href: "https://github.com/input-output-hk/mithril/discussions",
               },
               {
-                label: 'Logbook',
-                href: 'https://github.com/input-output-hk/mithril/wiki/Logbook'
+                label: "Stack Exchange",
+                href: "https://cardano.stackexchange.com/questions/tagged/mithril",
+              },
+            ],
+          },
+          {
+            title: "More",
+            items: [
+              {
+                label: "Mithril Networks Status",
+                href: "https://mithril.cronitorstatus.com/",
               },
               {
-                label: 'Input Output (Blog)',
-                href: 'https://iohk.io/en/blog'
+                label: "Mithril Protocol Insights",
+                href: "https://lookerstudio.google.com/s/oi6CR5eZrnQ",
+              },
+              {
+                label: "Logbook",
+                href: "https://github.com/input-output-hk/mithril/wiki/Logbook",
+              },
+              {
+                label: "Input Output (Blog)",
+                href: "https://iohk.io/en/blog",
               },
             ],
           },
@@ -211,16 +211,16 @@ const config = {
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
-        additionalLanguages: ['rust', 'toml'],
+        additionalLanguages: ["rust", "toml"],
       },
       mermaid: {
-        theme: { light: 'base', dark: 'base' },
+        theme: { light: "base", dark: "base" },
       },
     }),
   markdown: {
     mermaid: true,
   },
-  themes: ['@docusaurus/theme-mermaid'],
+  themes: ["@docusaurus/theme-mermaid"],
 };
 
 module.exports = config;

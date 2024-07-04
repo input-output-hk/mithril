@@ -1,6 +1,6 @@
 # Mithril End To End Tests Suite
 
-* Integration test suite handling Mithril signature, certificate generation and snapshot verification process.
+- Integration test suite handling Mithril signature, certificate generation and snapshot verification process.
 
 ---
 
@@ -8,11 +8,11 @@
 
 **Install Rust**
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
+- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
-* Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
+- Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
 
-* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
 
 ## Download source code
 
@@ -82,6 +82,7 @@ You can use your own compiled cardano binaries to run the end to end test:
 - Build the **cardano-node** and **cardano-cli** binaries following the documentation on the [Cardano Developer Portal](https://developers.cardano.org/docs/get-started/installing-cardano-node#macos).
 
 - From the root of the repository, copy the `cardano-node` and `cardano-cli` binaries in the `devnet` directory:
+
 ```bash
 cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/cardano-node
 cp $HOME/.local/bin/cardano-cli mithril-test-lab/mithril-devnet/cardano-cli
@@ -128,7 +129,7 @@ make monitor
 
 You will have acces to the following dashboards:
 
-| Dashboard | URL | Credentials
-|------------|------------|------------
-| **Grafana** | [http://0.0.0.0:3000](http://0.0.0.0:3000/dashboards) | mithril/mithril
-| **Prometheus** | [http://0.0.0.0:9090](http://0.0.0.0:9090/) | -
+| Dashboard      | URL                                                   | Credentials     |
+| -------------- | ----------------------------------------------------- | --------------- |
+| **Grafana**    | [http://0.0.0.0:3000](http://0.0.0.0:3000/dashboards) | mithril/mithril |
+| **Prometheus** | [http://0.0.0.0:9090](http://0.0.0.0:9090/)           | -               |

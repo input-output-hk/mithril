@@ -57,4 +57,4 @@ Now the `stdout` output with **Mithril client CLI** version `0.7.0`:
 
 In addition, the `--log-format-json` option that enable JSON output is now written to `stderr` as well.
 
-For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq). 
+For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).

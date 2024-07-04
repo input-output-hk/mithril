@@ -1,7 +1,7 @@
 ---
 title: Mithril Signer Deployment Models
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [spo, mithril signer, deployment model, production]
 ---
 

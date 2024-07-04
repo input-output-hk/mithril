@@ -15,13 +15,13 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 :::tip
 
-* For more information about the **Mithril network**, please see
+- For more information about the **Mithril network**, please see
   the [architecture](../../../mithril/mithril-network/architecture.md) overview.
 
-* For more information about the **Mithril client** node, please
+- For more information about the **Mithril client** node, please
   see [this overview](../../../mithril/mithril-network/client.md).
 
-* Check out the [`Bootstrap a Cardano node`](../../getting-started/bootstrap-cardano-node.md) guide.
+- Check out the [`Bootstrap a Cardano node`](../../getting-started/bootstrap-cardano-node.md) guide.
 
 :::
 
@@ -33,18 +33,18 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 
 ## Resources
 
-| Node | Source repository | Rust documentation | Docker packages |
-|:-:|:-----------------:|:------------------:|:---------------:|
-**Mithril client CLI** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_cli/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
+|          Node          |                                       Source repository                                        |                                  Rust documentation                                   |                                         Docker packages                                         |
+| :--------------------: | :--------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: |
+| **Mithril client CLI** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_cli/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client) |
 
 ## Pre-requisites
 
-* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust
+- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust
   toolchain.
 
-* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
 
-* Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
+- Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
 ## Download the source file
 
@@ -186,10 +186,10 @@ To display results in JSON format for the `list` and `show` commands, simply use
 
 If you wish to delve deeper and access several levels of logs from the Mithril client, use the following:
 
-* Add `-v` for some logs (WARN)
-* Add `-vv` for more logs (INFO)
-* Add `-vvv` for even more logs (DEBUG)
-* Add `-vvvv` for all logs (TRACE)
+- Add `-v` for some logs (WARN)
+- Add `-vv` for more logs (INFO)
+- Add `-vvv` for even more logs (DEBUG)
+- Add `-vvvv` for all logs (TRACE)
 
 :::
 
@@ -281,29 +281,29 @@ Here are the subcommands available:
 
 ### Cardano DB
 
-| Subcommand | Performed action |
-|------------|------------------|
-| **download** | Downloads and restores a cardano-db snapshot|
-| **help** | Prints this message or the help for the given subcommand(s)|
-| **snapshot list** | Lists available cardano-db snapshots|
-| **snapshot show** | Shows information about a cardano-db snapshot|
+| Subcommand        | Performed action                                            |
+| ----------------- | ----------------------------------------------------------- |
+| **download**      | Downloads and restores a cardano-db snapshot                |
+| **help**          | Prints this message or the help for the given subcommand(s) |
+| **snapshot list** | Lists available cardano-db snapshots                        |
+| **snapshot show** | Shows information about a cardano-db snapshot               |
 
 ### Mithril stake distribution
 
-| Subcommand | Performed action |
-|------------|------------------|
-| **download** | Downloads and verifies Mithril stake distribution|
-| **help** | Prints this message or the help for the given subcommand(s)|
-| **list** | Lists available Mithril stake distributions|
+| Subcommand   | Performed action                                            |
+| ------------ | ----------------------------------------------------------- |
+| **download** | Downloads and verifies Mithril stake distribution           |
+| **help**     | Prints this message or the help for the given subcommand(s) |
+| **list**     | Lists available Mithril stake distributions                 |
 
 ### Cardano transactions
 
-| Subcommand | Performed action |
-|------------|------------------|
-| **certify** | Certifies that given list of transactions hashes are included in the Cardano transactions set|
-| **snapshot list** | Lists available Cardano transactions snapshots|
-| **snapshot show** | Shows information about a Cardano transactions snapshot|
-| **help** | Prints this message or the help for the given subcommand(s)|
+| Subcommand        | Performed action                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| **certify**       | Certifies that given list of transactions hashes are included in the Cardano transactions set |
+| **snapshot list** | Lists available Cardano transactions snapshots                                                |
+| **snapshot show** | Shows information about a Cardano transactions snapshot                                       |
+| **help**          | Prints this message or the help for the given subcommand(s)                                   |
 
 ## Configuration parameters
 
@@ -316,66 +316,66 @@ The configuration parameters can be set in either of the following ways:
 
 Here is a list of the available parameters:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
-| `unstable` | `--unstable` | - | - | Enable unstable commands | - | - | - |
-| `run_mode` | `--run-mode` | - | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
-| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
-| `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
-| `log_format_json` | `--log-format-json` | - | - | Enable JSON output for logs | - | - | - |
-| `log_output` | `--log-output` | `-o` | - | Redirect the logs to a file | - | `./mithril-client.log` | - |
+| Parameter                  | Command line (long)     | Command line (short) | Environment variable       | Description                 | Default value | Example                                                                                                                 |     Mandatory      |
+| -------------------------- | ----------------------- | :------------------: | -------------------------- | --------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- | :----------------: |
+| `verbose`                  | `--verbose`             |         `-v`         | `VERBOSE`                  | Verbosity level             | -             | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+| `unstable`                 | `--unstable`            |          -           | -                          | Enable unstable commands    | -             | -                                                                                                                       |         -          |
+| `run_mode`                 | `--run-mode`            |          -           | `RUN_MODE`                 | Runtime mode                | `dev`         | -                                                                                                                       | :heavy_check_mark: |
+| `aggregator_endpoint`      | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT`      | Aggregator node endpoint    | -             | `https://aggregator.pre-release-preview.api.mithril.network/aggregator`                                                 | :heavy_check_mark: |
+| `genesis_verification_key` | -                       |          -           | `GENESIS_VERIFICATION_KEY` | Genesis verification key    | -             | -                                                                                                                       | :heavy_check_mark: |
+| `log_format_json`          | `--log-format-json`     |          -           | -                          | Enable JSON output for logs | -             | -                                                                                                                       |         -          |
+| `log_output`               | `--log-output`          |         `-o`         | -                          | Redirect the logs to a file | -             | `./mithril-client.log`                                                                                                  |         -          |
 
 `cardano-db snapshot show` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Cardano DB digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
-| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                         | Default value | Example |     Mandatory      |
+| --------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------- | ------------- | ------- | :----------------: |
+| `digest`  | `--digest`          |          -           | `DIGEST`             | Cardano DB digest or `latest` for the latest digest | -             | -       | :heavy_check_mark: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results              | -             | -       |         -          |
 
 `cardano-db snapshot list` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
+| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
 
 `cardano-db download` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `digest` | `--digest` | - | `DIGEST` | Cardano DB digest or `latest` for the latest digest | - | - | :heavy_check_mark: |
-| `download_dir` | `--download-dir` | - | - | Directory where the Cardano DB will be downloaded | . | - | - |
-| `json` | `--json` | - | - | Enable JSON output for progress logs | - | - | - |
+| Parameter      | Command line (long) | Command line (short) | Environment variable | Description                                         | Default value | Example |     Mandatory      |
+| -------------- | ------------------- | :------------------: | -------------------- | --------------------------------------------------- | ------------- | ------- | :----------------: |
+| `digest`       | `--digest`          |          -           | `DIGEST`             | Cardano DB digest or `latest` for the latest digest | -             | -       | :heavy_check_mark: |
+| `download_dir` | `--download-dir`    |          -           | -                    | Directory where the Cardano DB will be downloaded   | .             | -       |         -          |
+| `json`         | `--json`            |          -           | -                    | Enable JSON output for progress logs                | -             | -       |         -          |
 
 `mithril-stake-distribution list` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
+| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
 
 `mithril-stake-distribution download` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `artifact_hash` | `--artifact-hash` | - | - | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | - | - | :heavy_check_mark: |
-| `download_dir` | `--download-dir` | - | - | Directory where the Mithril stake distribution will be downloaded | . | - | - |
+| Parameter       | Command line (long) | Command line (short) | Environment variable | Description                                                                         | Default value | Example |     Mandatory      |
+| --------------- | ------------------- | :------------------: | -------------------- | ----------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `artifact_hash` | `--artifact-hash`   |          -           | -                    | Hash of the Mithril stake distribution artifact or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
+| `download_dir`  | `--download-dir`    |          -           | -                    | Directory where the Mithril stake distribution will be downloaded                   | .             | -       |         -          |
 
 `cardano-transaction snapshot show` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `hash` | `--hash` | - | `HASH` | Cardano transaction snapshot hash or `latest` for the latest Cardano transaction snapshot | - | - | :heavy_check_mark: |
-| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                                                               | Default value | Example |     Mandatory      |
+| --------- | ------------------- | :------------------: | -------------------- | ----------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `hash`    | `--hash`            |          -           | `HASH`               | Cardano transaction snapshot hash or `latest` for the latest Cardano transaction snapshot | -             | -       | :heavy_check_mark: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                                                    | -             | -       |         -          |
 
 `cardano-transaction snapshot list` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `json` | `--json` | - | - | Enable JSON output for command results | - | - | - |
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
+| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
 
 `cardano-transaction certify` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `transactions_hashes` | `--transactions_hashes` | - | `TRANSACTIONS_HASHES` | Cardano transactions hashes separated by commas | - | - | :heavy_check_mark: |
-| `json` | `--json` | - | - | Enable JSON output for progress logs | - | - | - |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                     | Default value | Example |     Mandatory      |
+| --------------------- | ----------------------- | :------------------: | --------------------- | ----------------------------------------------- | ------------- | ------- | :----------------: |
+| `transactions_hashes` | `--transactions_hashes` |          -           | `TRANSACTIONS_HASHES` | Cardano transactions hashes separated by commas | -             | -       | :heavy_check_mark: |
+| `json`                | `--json`                |          -           | -                     | Enable JSON output for progress logs            | -             | -       |         -          |

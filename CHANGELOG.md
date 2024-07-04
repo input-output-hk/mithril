@@ -21,7 +21,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for `Cardano node` `8.12.2` in the signer and the aggregator.
 
+- Add prettier configuration to standardize the code formatting in the repository.
+
 - **UNSTABLE** Cardano transactions certification:
+
   - Optimize the performances of the computation of the proof with a Merkle map.
   - Handle rollback events from the Cardano chain by removing stale data.
   - Preload Cardano transactions and Block Range Roots at signer & aggregator startup.
@@ -32,19 +35,21 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-|  Crate  |  Version  |
-|---------- |-------------|
-| N/A | `-` |
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
 
 ## Mithril Distribution [2423.0] - 2024-06-12
 
 - **BREAKING** changes in Mithril client CLI:
+
   - The deprecated `snapshot` command is removed from the Mithril client CLI
   - Use the `cardano-db snapshot` command instead.
 
 - Update website and explorer user interface to use the new mithril logo.
 
 - **UNSTABLE** Cardano transactions certification:
+
   - Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
 
   - Prune Cardano Transactions from the signer database after the Block Range Merkle Roots have been computed.
@@ -57,19 +62,20 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-|  Crate  |  Version  |
-|---------- |-------------|
-| mithril-aggregator | `0.5.16` |
-| mithril-client | `0.8.3` |
-| mithril-client-cli | `0.9.2` |
-| mithril-client-wasm | `0.3.3` |
-| mithril-common | `0.4.13` |
-| mithril-signer | `0.2.141` |
-| mithril-stm | `0.3.22` |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.5.16`  |
+| mithril-client      | `0.8.3`   |
+| mithril-client-cli  | `0.9.2`   |
+| mithril-client-wasm | `0.3.3`   |
+| mithril-common      | `0.4.13`  |
+| mithril-signer      | `0.2.141` |
+| mithril-stm         | `0.3.22`  |
 
 ## Mithril Distribution [2418.1] - 2024-05-13
 
 - **BREAKING** changes in Mithril client CLI:
+
   - Certificate chain structure has been modified to remove coupling with immutable file number.
   - Client needs to be updated to verify certificate chain.
 
@@ -78,6 +84,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 - Chain observers support the retrieval of the current Cardano chain point.
 
 - Deprecate `portable` feature of `mithril-stm` and `mithril-client`:
+
   - Instead, always enable BLST `portable` feature in `mithril-stm` for runtime check of intel ADX instruction set.
   - `portable` feature now has no effect and should be removed from crate dependencies.
   - Removed it from all other crates (including `mithril-common`).
@@ -86,21 +93,22 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-|  Crate  |  Version  |
-|---------- |-------------|
-| mithril-aggregator | `0.5.0` |
-| mithril-client | `0.8.0` |
-| mithril-client-cli | `0.8.0` |
-| mithril-client-wasm | `0.3.0` |
-| mithril-common | `0.4.0` |
-| mithril-signer | `0.2.130` |
-| mithril-stm | `0.3.19` |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.5.0`   |
+| mithril-client      | `0.8.0`   |
+| mithril-client-cli  | `0.8.0`   |
+| mithril-client-wasm | `0.3.0`   |
+| mithril-common      | `0.4.0`   |
+| mithril-signer      | `0.2.130` |
+| mithril-stm         | `0.3.19`  |
 
 ## Mithril Distribution [2412.0] - 2024-03-26
 
 - **GitHub release**: <https://github.com/input-output-hk/mithril/releases/tag/2412.0>
 
 - _DEPRECATED_ the `snapshot` command in the Mithril client CLI:
+
   - Renamed to `cardano-db snapshot`.
   - Will be **removed** in **2** distributions.
 
@@ -114,12 +122,12 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-|  Crate  |  Version  |
-|---------- |-------------|
-| mithril-aggregator | `0.4.49` |
-| mithril-client | `0.6.9` |
-| mithril-client-cli | `0.7.6` |
-| mithril-client-wasm | `0.2.5` |
-| mithril-common | `0.3.21` |
-| mithril-signer | `0.2.116` |
-| mithril-stm | `0.3.17` |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.4.49`  |
+| mithril-client      | `0.6.9`   |
+| mithril-client-cli  | `0.7.6`   |
+| mithril-client-wasm | `0.2.5`   |
+| mithril-common      | `0.3.21`  |
+| mithril-signer      | `0.2.116` |
+| mithril-stm         | `0.3.17`  |

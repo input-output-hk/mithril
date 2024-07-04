@@ -123,7 +123,7 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/mithril-signer-${SIGNER_ID}/cardano/pool
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ./cardano-configurations/network/${NETWORK}:/config
-    command: [ "-vvv" ]
+    command: ["-vvv"]
     depends_on:
       cardano-node-signer-block-producer:
         condition: service_started
@@ -150,10 +150,10 @@ services:
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.rule=Host(`${SIGNER_HOST}`)'
-      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.tls=true'
-      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.tls.certresolver=lets-encrypt'
+      - "traefik.enable=true"
+      - "traefik.http.routers.mithril-signer-${SIGNER_ID}.rule=Host(`${SIGNER_HOST}`)"
+      - "traefik.http.routers.mithril-signer-${SIGNER_ID}.tls=true"
+      - "traefik.http.routers.mithril-signer-${SIGNER_ID}.tls.certresolver=lets-encrypt"
 
 networks:
   default:

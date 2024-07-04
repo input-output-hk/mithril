@@ -11,4 +11,3 @@ $> sqlite3 -table -batch \
 The variable `$DATA_STORES_DIRECTORY` should point to the directory where the
 databases files are stored (see files in `mithril-aggregator/config` using the
 key `data_stores_directory` to know where they are).
-

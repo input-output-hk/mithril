@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ dev-preview, testing-mainnet ]
+        environment: [dev-preview, testing-mainnet]
         include:
           - environment: dev-preview
             environment_prefix: dev
@@ -133,7 +133,7 @@ jobs:
           mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
           mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
           mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
-          mithril_aggregator_allow_unparsable_block:  ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
+          mithril_aggregator_allow_unparsable_block: ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
           mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
           cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
           prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
