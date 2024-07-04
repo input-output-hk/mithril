@@ -279,7 +279,7 @@ jobs:
 
       - name: Check code formatting
         if: success() || failure()
-        run: make lint
+        run: make check-format
 
   e2e:
     runs-on: ubuntu-22.04
