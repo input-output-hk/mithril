@@ -1,33 +1,31 @@
 # Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg) [![Discord](https://img.shields.io/discord/500028886025895936.svg?logo=discord&style=flat-square)](https://discord.gg/5kaErDKDRq)
 
-
 **This is a work in progress** 🛠
 
-* `mithril-stm` is a Rust implementation of the scheme described in the paper [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf) by Pyrros Chaidos and Aggelos Kiayias.
-* The BLS12-381 signature library [blst](https://github.com/supranational/blst) is used as the backend for the implementation of STM.
-* This implementation supports the _trivial concatenation proof system_ (Section 4.3). Other proof systems such as _Bulletproofs_ or _Halo2_ are not supported in this version.
-* We implemented the concatenation proof system as batch proofs:
-  * Individual signatures do not contain the Merkle path to prove membership of the avk. Instead, it is the role of the aggregator to generate such proofs. This allows for a more efficient implementation of batched membership proofs (or batched Merkle paths).
-* Protocol documentation is given in [Mithril Protocol in depth](https://mithril.network/doc/mithril/mithril-protocol/protocol/).
-* The API also includes *core verification*. This functionality allows a full node verifier (`CoreVerifier`) that is 
-  able to verify the signatures that are generated without the registration information, i.e., `avk`. A 
-  `CoreVerifier` is assumed to know identities of the signers, so, it does not need to check the registration. 
+- `mithril-stm` is a Rust implementation of the scheme described in the paper [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf) by Pyrros Chaidos and Aggelos Kiayias.
+- The BLS12-381 signature library [blst](https://github.com/supranational/blst) is used as the backend for the implementation of STM.
+- This implementation supports the _trivial concatenation proof system_ (Section 4.3). Other proof systems such as _Bulletproofs_ or _Halo2_ are not supported in this version.
+- We implemented the concatenation proof system as batch proofs:
+  - Individual signatures do not contain the Merkle path to prove membership of the avk. Instead, it is the role of the aggregator to generate such proofs. This allows for a more efficient implementation of batched membership proofs (or batched Merkle paths).
+- Protocol documentation is given in [Mithril Protocol in depth](https://mithril.network/doc/mithril/mithril-protocol/protocol/).
+- The API also includes _core verification_. This functionality allows a full node verifier (`CoreVerifier`) that is
+  able to verify the signatures that are generated without the registration information, i.e., `avk`. A
+  `CoreVerifier` is assumed to know identities of the signers, so, it does not need to check the registration.
 
-
-* This library provides:
-    * The implementation of the Stake-based Threshold Multisignatures
-    * The implementation of `CoreVerifier`
-    * Key registration procedure for STM signatures
-    * The tests for the library functions, STM scheme, and `CoreVerifier`
-    * Benchmark tests
+- This library provides:
+  - The implementation of the Stake-based Threshold Multisignatures
+  - The implementation of `CoreVerifier`
+  - Key registration procedure for STM signatures
+  - The tests for the library functions, STM scheme, and `CoreVerifier`
+  - Benchmark tests
 
 ## Pre-requisites
 
 **Install Rust**
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
+- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
-* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
 
 ## Download source code
 
@@ -40,21 +38,24 @@ cd mithril-stm
 ```
 
 ## Compiling the library
+
 ```shell
 cargo build --release
 ```
 
 ## Running the tests
+
 For running rust tests, simply run (to run the tests faster, the use of `--release` flag is recommended):
+
 ```shell
 cargo test --release
 ```
 
 ## Running the benches
+
 ```shell
 cargo bench
 ```
-
 
 ## Example
 
@@ -123,7 +124,7 @@ fn main() {
 
     // Check all parties can verify every sig
     for (s, p) in sigs.iter().zip(ps.iter()) {
-        assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification 
+        assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification
         failed");
     }
 
@@ -164,22 +165,22 @@ Note that the size of an individual signature with one valid index is **72 bytes
 +----------------------+
 | Hash: Blake2b 512    |
 +----------------------+
-k = 445 | m = 2728 | nr parties = 3000; 118760 bytes 
+k = 445 | m = 2728 | nr parties = 3000; 118760 bytes
 +----------------------+
 | Hash: Blake2b 256    |
 +----------------------+
-k = 445 | m = 2728 | nr parties = 3000; 99384 bytes 
+k = 445 | m = 2728 | nr parties = 3000; 99384 bytes
 +----------------------+
 +----------------------+
 | Aggregate signatures |
 +----------------------+
 | Hash: Blake2b 512    |
 +----------------------+
-k = 554 | m = 3597 | nr parties = 3000; 133936 bytes 
+k = 554 | m = 3597 | nr parties = 3000; 133936 bytes
 +----------------------+
 | Hash: Blake2b 256    |
 +----------------------+
-k = 554 | m = 3597 | nr parties = 3000; 113728 bytes 
+k = 554 | m = 3597 | nr parties = 3000; 113728 bytes
 ```
 
 ```shell

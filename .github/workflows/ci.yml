@@ -3,12 +3,12 @@ name: CI
 on:
   push:
     branches:
-      - 'main'
-      - 'hotfix**'
+      - "main"
+      - "hotfix**"
   pull_request:
-    types: [ opened, reopened, synchronize ]
+    types: [opened, reopened, synchronize]
     branches-ignore:
-      - 'hotfix**' # hotfix are handled by the push trigger
+      - "hotfix**" # hotfix are handled by the push trigger
 
 concurrency:
   group: ci-build-test-${{ github.ref }}
@@ -76,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macos-12, macos-14, windows-latest ]
+        os: [macos-12, macos-14, windows-latest]
 
         include:
           # Only build client on windows & mac
@@ -169,7 +169,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-22.04, macos-12, macos-14, windows-latest ]
+        os: [ubuntu-22.04, macos-12, macos-14, windows-latest]
 
         include:
           - os: ubuntu-22.04
@@ -283,19 +283,19 @@ jobs:
 
   e2e:
     runs-on: ubuntu-22.04
-    needs: [ build-ubuntu-X64 ]
+    needs: [build-ubuntu-X64]
     strategy:
       fail-fast: false
       matrix:
-        mode: [ "std" ]
+        mode: ["std"]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        cardano_node_version: [ "8.9.4", "8.12.2", "8.11.0-pre", "8.12.0-pre" ]
-        hard_fork_latest_era_at_epoch: [ 0 ]
-        run_id: [ "#1" ]
-        extra_args: [ "" ]
+        cardano_node_version: ["8.9.4", "8.12.2", "8.11.0-pre", "8.12.0-pre"]
+        hard_fork_latest_era_at_epoch: [0]
+        run_id: ["#1"]
+        extra_args: [""]
 
         include:
-          # Include a test for `8.1.2` which is not concerned by the hard fork 
+          # Include a test for `8.1.2` which is not concerned by the hard fork
           - mode: "std"
             era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
             cardano_node_version: "8.1.2"
@@ -400,7 +400,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ mithril-aggregator, mithril-client-cli, mithril-signer, mithril-relay ]
+        project:
+          [
+            mithril-aggregator,
+            mithril-client-cli,
+            mithril-signer,
+            mithril-relay,
+          ]
 
         include:
           - project: mithril-client-cli
@@ -456,7 +462,8 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-stm, mithril-build-script, mithril-common, mithril-client ]
+        package:
+          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
 
     runs-on: ubuntu-22.04
     needs:
@@ -484,7 +491,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-client-wasm ]
+        package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
             scope: mithril-dev
@@ -597,7 +604,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ testing-preview, testing-sanchonet ]
+        environment: [testing-preview, testing-sanchonet]
         include:
           - environment: testing-preview
             environment_prefix: testing
@@ -740,14 +747,14 @@ jobs:
                     -p mithril-aggregator -p mithril-signer -p mithril-client -p mithril-client-cli \
                     --all-features --message-format=json \
                     | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt
-          
+
           # Update tool sarif metadata from "clippy" to "cargo-doc" (since it's set this way by clippy-sarif)
           contents=$(cat rust-cargo-doc-results.sarif \
               | jq '.runs[].tool.driver.name = "cargo-doc"' \
               | jq '.runs[].tool.driver.informationUri = "https://doc.rust-lang.org/cargo/commands/cargo-doc.html"' \
           )
           echo -E "${contents}" > rust-cargo-doc-results.sarif
-          
+
           # Make this step fail if any warning has been found
           if [[ $(cat rust-cargo-doc-results.sarif | jq '.runs[0].results') != "[]" ]]; then
             false
@@ -767,7 +774,7 @@ jobs:
           if-no-files-found: error
           path: |
             target/doc/
-  
+
   build-docusaurus:
     runs-on: ubuntu-22.04
     steps:
@@ -778,7 +785,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: docs/website/package-lock.json
 
       - name: Install dependencies
@@ -797,7 +804,7 @@ jobs:
           if-no-files-found: error
           path: |
             docs/website/build/*
-  
+
   build-test-explorer:
     runs-on: ubuntu-22.04
     needs: build-test-wasm
@@ -813,14 +820,13 @@ jobs:
 
       - name: Unpack 'mithril-client-wasm' package
         working-directory: mithril-client-wasm
-        run:
-          tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
+        run: tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: mithril-explorer/package-lock.json
 
       - name: Install dependencies

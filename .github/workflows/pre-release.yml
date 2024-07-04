@@ -3,8 +3,8 @@ name: Pre-release
 on:
   push:
     tags:
-      - '[0-9][0-9][0-9][0-9].[0-9]+'
-      - '[0-9][0-9][0-9][0-9].[0-9]+-**'
+      - "[0-9][0-9][0-9][0-9].[0-9]+"
+      - "[0-9][0-9][0-9][0-9].[0-9]+-**"
 
 jobs:
   create-pre-release:
@@ -99,12 +99,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ mithril-aggregator, mithril-client-cli, mithril-signer ]
+        project: [mithril-aggregator, mithril-client-cli, mithril-signer]
 
         include:
           - project: mithril-client-cli
             package: mithril-client
-    
+
     permissions:
       contents: read
       packages: write
@@ -152,12 +152,12 @@ jobs:
           file: ${{ env.DOCKER_FILE }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-  
+
   deploy-pre-release:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ pre-release-preview ]
+        environment: [pre-release-preview]
         include:
           - environment: pre-release-preview
             environment_prefix: pre-release
@@ -246,7 +246,8 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-stm, mithril-build-script, mithril-common, mithril-client ]
+        package:
+          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
 
     runs-on: ubuntu-22.04
     steps:
@@ -269,7 +270,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-client-wasm ]
+        package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
             scope: mithril-dev

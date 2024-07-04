@@ -4,11 +4,11 @@ inputs:
   cache-version:
     description: Version of the current cache
     required: false
-    default: ''
+    default: ""
   cargo-tools:
     description: Space seperated list of cargo tools to install
     required: false
-    default: ''
+    default: ""
   github-token:
     description: GitHub token to use for installing cargo tools
     required: true

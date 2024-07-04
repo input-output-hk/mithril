@@ -20,7 +20,6 @@ Then fill the form to manually run the workflow:
 > It is highly recommended to run with the **Dry run** option checked at first and make sure that the process works as expected.
 > The deployment to **crates.io** is irreversible, versions can only be **yanked**
 
-
 The result should look like this in the GitHub Actions:
 
 ![Run workflow result](./img/run-workflow-result.png)

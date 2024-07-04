@@ -6,7 +6,9 @@ The protocol parameters of a network are currently defined when starting the agg
 During startup, the aggregator will store the parameters in its stores, and will use them **3** epochs later. The protocol parameters are broadcasted by the aggregator to the signers of the network through the `/epoch-settings` route.
 
 ## Update parameters of a Mithril network
+
 The aggregator has the following configuration parameter used to set the protocol parameters: `protocol_parameters` which is a JSON representation of the `ProtocolParameter` type:
+
 ```bash
 pub struct ProtocolParameters {
     /// Quorum parameter
@@ -21,6 +23,7 @@ pub struct ProtocolParameters {
 ```
 
 Each parameter can also be set via an environment variable:
+
 - `PROTOCOL_PARAMETERS__K` for `k`
 - `PROTOCOL_PARAMETERS__M` for `m`
 - `PROTOCOL_PARAMETERS__PHI_F` for `phi-f`
@@ -30,6 +33,7 @@ When setting up a Mithril network with a `terraform` deployment, the protocol pa
 ## Find the workflow used to deploy a Mithril network
 
 Currently, the following [Mithril networks](https://mithril.network/doc/manual/developer-docs/references#mithril-networks) are generally available, and deployed with `terraform`:
+
 - `testing-preview`: with the workflow [`.github/workflows/ci.yml`](../../github/workflows/ci.yml)
 - `pre-release-preview`: with the workflow [`.github/workflows/pre-release.yml`](../../github/workflows/pre-release.yml)
 - `release-preprod`: with the workflow [`.github/workflows/release.yml`](../../github/workflows/release.yml)
@@ -38,6 +42,7 @@ Currently, the following [Mithril networks](https://mithril.network/doc/manual/d
 ## Update the protocol parameters
 
 Update the following value of the targeted network in the deployment matrix with the new values that need to be used:
+
 ```bash
 mithril_protocol_parameters: |
     {
@@ -48,6 +53,7 @@ mithril_protocol_parameters: |
 ```
 
 Which will be replaced eg with:
+
 ```bash
 mithril_protocol_parameters: |
     {

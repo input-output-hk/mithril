@@ -70,8 +70,8 @@ jobs:
 
       - name: Run the aggregator stress test
         run: |
-            ./bin/load-aggregator ${{ steps.prepare.outputs.debug_level }} \
-            --cardano-cli-path ./mithril-test-lab/mithril-end-to-end/script/mock-cardano-cli \
-            --aggregator-dir ./bin \
-            --num-signers=${{ inputs.num_signers }} \
-            --num-clients=${{ inputs.num_clients }}
+          ./bin/load-aggregator ${{ steps.prepare.outputs.debug_level }} \
+          --cardano-cli-path ./mithril-test-lab/mithril-end-to-end/script/mock-cardano-cli \
+          --aggregator-dir ./bin \
+          --num-signers=${{ inputs.num_signers }} \
+          --num-clients=${{ inputs.num_clients }}
