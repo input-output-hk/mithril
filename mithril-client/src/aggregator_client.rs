@@ -12,6 +12,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
+use reqwest::header::HeaderMap;
 use reqwest::{Response, StatusCode, Url};
 use semver::Version;
 use slog::{debug, Logger};
@@ -254,7 +255,7 @@ impl AggregatorHTTPClient {
                     return self.get(url).await;
                 }
 
-                Err(self.handle_api_error(&response).await)
+                Err(self.handle_api_error(response.headers()).await)
             }
             StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
                 "Url='{url}' not found"
@@ -298,7 +299,7 @@ impl AggregatorHTTPClient {
                     return self.post(url, json).await;
                 }
 
-                Err(self.handle_api_error(&response).await)
+                Err(self.handle_api_error(response.headers()).await)
             }
             StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
                 "Url='{url} not found"
@@ -307,22 +308,6 @@ impl AggregatorHTTPClient {
                 Err(Self::remote_logical_error(response).await)
             }
             _ => Err(Self::remote_technical_error(response).await),
-        }
-    }
-
-    /// API version error handling
-    async fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
-        if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
-            AggregatorClientError::ApiVersionMismatch(anyhow!(
-                "server version: '{}', signer version: '{}'",
-                version.to_str().unwrap(),
-                self.compute_current_api_version().await.unwrap()
-            ))
-        } else {
-            AggregatorClientError::ApiVersionMismatch(anyhow!(
-                "version precondition failed, sent version '{}'.",
-                self.compute_current_api_version().await.unwrap()
-            ))
         }
     }
 
@@ -336,6 +321,22 @@ impl AggregatorHTTPClient {
                 )
             })
             .map_err(AggregatorClientError::SubsystemError)
+    }
+
+    /// API version error handling
+    async fn handle_api_error(&self, response_header: &HeaderMap) -> AggregatorClientError {
+        if let Some(version) = response_header.get(MITHRIL_API_VERSION_HEADER) {
+            AggregatorClientError::ApiVersionMismatch(anyhow!(
+                "server version: '{}', signer version: '{}'",
+                version.to_str().unwrap(),
+                self.compute_current_api_version().await.unwrap()
+            ))
+        } else {
+            AggregatorClientError::ApiVersionMismatch(anyhow!(
+                "version precondition failed, sent version '{}'.",
+                self.compute_current_api_version().await.unwrap()
+            ))
+        }
     }
 
     async fn remote_logical_error(response: Response) -> AggregatorClientError {
@@ -402,6 +403,7 @@ impl AggregatorClient for AggregatorHTTPClient {
 #[cfg(test)]
 mod tests {
     use httpmock::MockServer;
+    use reqwest::header::{HeaderName, HeaderValue};
 
     use mithril_common::api_version::APIVersionProvider;
     use mithril_common::entities::{ClientError, ServerError};
@@ -414,15 +416,29 @@ mod tests {
         };
     }
 
-    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
-        let server = MockServer::start();
-        let client = AggregatorHTTPClient::new(
-            Url::parse(&server.url("")).unwrap(),
-            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+    fn setup_client(server_url: &str, api_versions: Vec<Version>) -> AggregatorHTTPClient {
+        AggregatorHTTPClient::new(
+            Url::parse(server_url).unwrap(),
+            api_versions,
             crate::test_utils::test_logger(),
         )
-        .expect("building aggregator http client should not fail");
+        .expect("building aggregator http client should not fail")
+    }
+
+    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
+        let server = MockServer::start();
+        let client = setup_client(
+            &server.url(""),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         (server, client)
+    }
+
+    fn mithril_api_version_headers(version: &str) -> HeaderMap {
+        HeaderMap::from_iter([(
+            HeaderName::from_static(MITHRIL_API_VERSION_HEADER),
+            HeaderValue::from_str(version).unwrap(),
+        )])
     }
 
     #[test]
@@ -578,5 +594,94 @@ mod tests {
             .await
             .unwrap_err();
         assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_handle_412_api_version_mismatch_with_version_in_response_header() {
+        let version = "0.0.0";
+
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|_when, then| {
+            then.status(StatusCode::PRECONDITION_FAILED.as_u16())
+                .header(MITHRIL_API_VERSION_HEADER, version);
+        });
+
+        let expected_error = client
+            .handle_api_error(&mithril_api_version_headers(version))
+            .await;
+
+        let get_content_error = client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(get_content_error, expected_error);
+
+        let post_content_error = client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_handle_412_api_version_mismatch_without_version_in_response_header() {
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|_when, then| {
+            then.status(StatusCode::PRECONDITION_FAILED.as_u16());
+        });
+
+        let expected_error = client.handle_api_error(&HeaderMap::new()).await;
+
+        let get_content_error = client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(get_content_error, expected_error);
+
+        let post_content_error = client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_can_fallback_to_a_second_version_when_412_api_version_mistmatch() {
+        let bad_version = "0.0.0";
+        let good_version = "1.0.0";
+
+        let aggregator = MockServer::start();
+        let client = setup_client(
+            &aggregator.url(""),
+            vec![
+                Version::parse(bad_version).unwrap(),
+                Version::parse(good_version).unwrap(),
+            ],
+        );
+        aggregator.mock(|when, then| {
+            when.header(MITHRIL_API_VERSION_HEADER, bad_version);
+            then.status(StatusCode::PRECONDITION_FAILED.as_u16())
+                .header(MITHRIL_API_VERSION_HEADER, bad_version);
+        });
+        aggregator.mock(|when, then| {
+            when.header(MITHRIL_API_VERSION_HEADER, good_version);
+            then.status(StatusCode::OK.as_u16());
+        });
+
+        assert_eq!(
+            client.compute_current_api_version().await,
+            Some(Version::parse(bad_version).unwrap()),
+            "Bad version should be tried first"
+        );
+
+        client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect("should have run with a fallback version");
+
+        client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect("should have run with a fallback version");
     }
 }
