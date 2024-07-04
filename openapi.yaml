@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.24
+  version: 0.1.25
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -38,7 +38,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RootMessage"
+                $ref: "#/components/schemas/AggregatorFeaturesMessage"
         "412":
           description: API version mismatch
         default:
@@ -531,8 +531,8 @@ paths:
 
 components:
   schemas:
-    RootMessage:
-      description: Aggregator public information
+    AggregatorFeaturesMessage:
+      description: Represents general information about Aggregator public information and signing capabilities
       type: object
       additionalProperties: false
       required:

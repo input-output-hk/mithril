@@ -14,7 +14,9 @@ use warp::Filter;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{BlockScanner, CardanoBlockScanner},
-    cardano_transactions_preloader::CardanoTransactionsPreloader,
+    cardano_transactions_preloader::{
+        CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
+    },
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
     chain_reader::{ChainBlockReader, PallasChainReader},
@@ -26,7 +28,10 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{CertificatePending, CompressionAlgorithm, Epoch, SignedEntityConfig},
+    entities::{
+        CertificatePending, CompressionAlgorithm, Epoch, SignedEntityConfig,
+        SignedEntityTypeDiscriminants,
+    },
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -1337,6 +1342,10 @@ impl DependenciesBuilder {
     pub async fn create_cardano_transactions_preloader(
         &mut self,
     ) -> Result<Arc<CardanoTransactionsPreloader>> {
+        let activation = self
+            .get_signed_entity_config()?
+            .list_allowed_signed_entity_types_discriminants()
+            .contains(&SignedEntityTypeDiscriminants::CardanoTransactions);
         let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
             self.get_signed_entity_lock().await?,
             self.get_transactions_importer().await?,
@@ -1345,6 +1354,7 @@ impl DependenciesBuilder {
                 .security_parameter,
             self.get_chain_observer().await?,
             self.get_logger()?,
+            Arc::new(CardanoTransactionsPreloaderActivation::new(activation)),
         );
 
         Ok(Arc::new(cardano_transactions_preloader))
@@ -1491,5 +1501,50 @@ impl DependenciesBuilder {
     /// Remove the dependencies builder from memory to release Arc instances.
     pub async fn vanish(self) {
         self.drop_sqlite_connections().await;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mithril_common::entities::SignedEntityTypeDiscriminants;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn cardano_transactions_preloader_activated_with_cardano_transactions_signed_entity_type_in_configuration(
+    ) {
+        assert_cardano_transactions_preloader_activation(
+            SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
+            true,
+        )
+        .await;
+        assert_cardano_transactions_preloader_activation(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution.to_string(),
+            false,
+        )
+        .await;
+    }
+
+    async fn assert_cardano_transactions_preloader_activation(
+        signed_entity_types: String,
+        expected_activation: bool,
+    ) {
+        let configuration = Configuration {
+            signed_entity_types: Some(signed_entity_types),
+            ..Configuration::new_sample()
+        };
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+
+        let cardano_transactions_preloader = dep_builder
+            .create_cardano_transactions_preloader()
+            .await
+            .unwrap();
+
+        let is_activated = cardano_transactions_preloader.is_activated().await.unwrap();
+        assert_eq!(
+            expected_activation, is_activated,
+            "'is_activated' expected {}, but was {}",
+            expected_activation, is_activated
+        );
     }
 }
