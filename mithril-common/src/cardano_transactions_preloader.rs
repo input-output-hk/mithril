@@ -14,9 +14,12 @@ use crate::entities::{BlockNumber, SignedEntityTypeDiscriminants};
 use crate::signable_builder::TransactionsImporter;
 use crate::signed_entity_type_lock::SignedEntityTypeLock;
 use crate::StdResult;
+#[cfg(test)]
+use mockall::automock;
 
 /// CardanoTransactionsPreloaderChecker gives the ability to determine
 /// if the Cardano Transactions Preloader should import the transactions.
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait CardanoTransactionsPreloaderChecker: Send + Sync {
     /// Determine if the Cardano Transactions Preloader should preload.
@@ -149,15 +152,6 @@ mod tests {
         }
     }
 
-    struct CardanoTransactionsPreloaderActivationWithError {}
-
-    #[async_trait]
-    impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivationWithError {
-        async fn is_activated(&self) -> StdResult<bool> {
-            Err(anyhow::anyhow!("error"))
-        }
-    }
-
     #[tokio::test]
     async fn call_its_inner_importer_when_is_activated() {
         let chain_block_number = 5000;
@@ -216,13 +210,18 @@ mod tests {
         let mut importer = MockTransactionsImporter::new();
         importer.expect_import().never();
 
+        let mut preloader_checker = MockCardanoTransactionsPreloaderChecker::new();
+        preloader_checker
+            .expect_is_activated()
+            .returning(|| Err(anyhow::anyhow!("error")));
+
         let preloader = CardanoTransactionsPreloader::new(
             Arc::new(SignedEntityTypeLock::default()),
             Arc::new(importer),
             542,
             Arc::new(chain_observer),
             TestLogger::stdout(),
-            Arc::new(CardanoTransactionsPreloaderActivationWithError {}),
+            Arc::new(preloader_checker),
         );
 
         preloader

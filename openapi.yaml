@@ -532,7 +532,7 @@ paths:
 components:
   schemas:
     AggregatorFeaturesMessage:
-      description: Represents general information about Mithril project, Aggregator public information and signing capabilities
+      description: Represents general information about Aggregator public information and signing capabilities
       type: object
       additionalProperties: false
       required:
