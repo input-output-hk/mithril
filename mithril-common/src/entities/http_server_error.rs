@@ -1,5 +1,8 @@
-use crate::StdError;
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
+
+use crate::StdError;
 
 /// Representation of a Server Error raised by a http server
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -10,8 +13,16 @@ pub struct ServerError {
 
 impl ServerError {
     /// InternalServerError factory
-    pub fn new(message: String) -> ServerError {
-        ServerError { message }
+    pub fn new<M: Into<String>>(message: M) -> ServerError {
+        ServerError {
+            message: message.into(),
+        }
+    }
+}
+
+impl Display for ServerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
     }
 }
 
@@ -50,5 +61,11 @@ impl ClientError {
             label: label.into(),
             message: message.into(),
         }
+    }
+}
+
+impl Display for ClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}: {}", self.label, self.message)
     }
 }
