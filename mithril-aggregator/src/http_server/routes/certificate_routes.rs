@@ -18,7 +18,6 @@ fn certificate_pending(
     warp::path!("certificate-pending")
         .and(warp::get())
         .and(middlewares::with_config(dependency_manager.clone()))
-        .and(middlewares::with_ticker_service(dependency_manager.clone()))
         .and(middlewares::with_certificate_pending_store(
             dependency_manager,
         ))
@@ -51,7 +50,6 @@ mod handlers {
         CertificatePendingStore, Configuration, ToCertificatePendingMessageAdapter,
     };
 
-    use mithril_common::TickerService;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -62,25 +60,16 @@ mod handlers {
     /// Certificate Pending
     pub async fn certificate_pending(
         config: Configuration,
-        ticker_service: Arc<dyn TickerService>,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: certificate_pending");
 
         let network =
             unwrap_to_internal_server_error!(config.get_network(), "certificate_pending::error");
-        let time_point = unwrap_to_internal_server_error!(
-            ticker_service.get_current_time_point().await,
-            "certificate_pending::error"
-        );
 
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(
-                &ToCertificatePendingMessageAdapter::adapt(
-                    certificate_pending,
-                    network,
-                    time_point.immutable_file_number,
-                ),
+                &ToCertificatePendingMessageAdapter::adapt(certificate_pending, network, 0),
                 StatusCode::OK,
             )),
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
@@ -138,6 +127,7 @@ mod tests {
     use anyhow::anyhow;
     use mithril_common::{
         entities::CertificatePending,
+        messages::CertificatePendingMessage,
         test_utils::{apispec::APISpec, fake_data},
     };
     use mithril_persistence::store::adapter::DumbStoreAdapter;
@@ -202,6 +192,12 @@ mod tests {
             &StatusCode::OK,
         )
         .unwrap();
+
+        let message: CertificatePendingMessage = serde_json::from_slice(response.body()).unwrap();
+
+        #[allow(deprecated)]
+        let immutable_file_number = message.beacon.immutable_file_number;
+        assert_eq!(0, immutable_file_number);
     }
 
     #[tokio::test]
