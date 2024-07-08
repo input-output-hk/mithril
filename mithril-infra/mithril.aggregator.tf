@@ -9,10 +9,20 @@ resource "null_resource" "mithril_aggregator" {
   ]
 
   triggers = {
-    image_id                         = var.mithril_image_id,
-    vm_instance                      = google_compute_instance.vm_instance.id,
-    mithril_aggregator_auth_username = var.mithril_aggregator_auth_username,
-    mithril_aggregator_auth_password = var.mithril_aggregator_auth_password
+    vm_instance                                                           = google_compute_instance.vm_instance.id,
+    cardano_image_id                                                      = var.cardano_image_id,
+    cardano_image_registry                                                = var.cardano_image_registry,
+    cardano_configurations_repository_commit                              = var.cardano_configurations_repository_commit,
+    image_id                                                              = var.mithril_image_id,
+    mithril_aggregator_auth_username                                      = var.mithril_aggregator_auth_username,
+    mithril_aggregator_auth_password                                      = var.mithril_aggregator_auth_password
+    mithril_aggregator_signed_entity_types                                = var.mithril_aggregator_signed_entity_types,
+    mithril_aggregator_snapshot_compression_algorithm                     = var.mithril_aggregator_snapshot_compression_algorithm,
+    mithril_aggregator_zstandard_parameters_level                         = var.mithril_aggregator_zstandard_parameters_level,
+    mithril_aggregator_zstandard_parameters_workers                       = var.mithril_aggregator_zstandard_parameters_workers,
+    mithril_aggregator_cardano_transactions_prover_cache_pool_size        = var.mithril_aggregator_cardano_transactions_prover_cache_pool_size,
+    mithril_aggregator_cardano_transactions_database_connection_pool_size = var.mithril_aggregator_cardano_transactions_database_connection_pool_size,
+    mithril_aggregator_cexplorer_pools_url                                = var.mithril_aggregator_cexplorer_pools_url,
   }
 
   connection {

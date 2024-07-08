@@ -15,10 +15,11 @@ resource "null_resource" "mithril_signer" {
   ]
 
   triggers = {
-    image_id                         = var.mithril_image_id,
-    vm_instance                      = google_compute_instance.vm_instance.id,
-    mithril_aggregator_auth_username = var.mithril_aggregator_auth_username,
-    mithril_aggregator_auth_password = var.mithril_aggregator_auth_password
+    vm_instance                              = google_compute_instance.vm_instance.id,
+    cardano_image_id                         = var.cardano_image_id,
+    cardano_image_registry                   = var.cardano_image_registry,
+    cardano_configurations_repository_commit = var.cardano_configurations_repository_commit,
+    image_id                                 = var.mithril_image_id,
   }
 
   connection {
