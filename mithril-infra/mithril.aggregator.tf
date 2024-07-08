@@ -12,7 +12,6 @@ resource "null_resource" "mithril_aggregator" {
     vm_instance                                                           = google_compute_instance.vm_instance.id,
     cardano_image_id                                                      = var.cardano_image_id,
     cardano_image_registry                                                = var.cardano_image_registry,
-    cardano_configurations_repository_commit                              = var.cardano_configurations_repository_commit,
     image_id                                                              = var.mithril_image_id,
     mithril_aggregator_auth_username                                      = var.mithril_aggregator_auth_username,
     mithril_aggregator_auth_password                                      = var.mithril_aggregator_auth_password
@@ -43,11 +42,30 @@ resource "null_resource" "mithril_aggregator" {
       <<-EOT
 set -e
 # Setup cardano node configuration
-AGGREGATOR_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-aggregator/cardano/config
-cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network} $AGGREGATOR_CONFIG_DIRECTORY
-cat $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-aggregator\"" > $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
-rm -f $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
-mv $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+# Copy the cardano node configuration files to the aggregator (exact version, and fallback to minor version)
+CARDANO_NODE_EXACT_VERSION="${var.cardano_image_id}"
+CARDANO_NODE_MINOR_VERSION=$(echo $CARDANO_NODE_EXACT_VERSION | cut -d. -f1,2)
+CARDANO_NODE_VERSIONS="$CARDANO_NODE_EXACT_VERSION $CARDANO_NODE_MINOR_VERSION"
+FOUND_CONFIGURATION=false
+for CARDANO_NODE_VERSION in $CARDANO_NODE_VERSIONS; do
+  if [ -d "/home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}" ]; then 
+    AGGREGATOR_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-aggregator/cardano/config
+    rm -rf $AGGREGATOR_CONFIG_DIRECTORY
+    mkdir -p $AGGREGATOR_CONFIG_DIRECTORY
+    cp -R /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network} $AGGREGATOR_CONFIG_DIRECTORY
+    echo $CARDANO_NODE_VERSION > $AGGREGATOR_CONFIG_DIRECTORY/config.version
+    cat $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-aggregator\"" > $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
+    rm -f $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+    mv $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $AGGREGATOR_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+    FOUND_CONFIGURATION=true
+    break
+  fi
+done
+# Check if a configuration was found
+if [ "$FOUND_CONFIGURATION" = "false" ]; then
+  echo "No cardano node configuration found for version $CARDANO_NODE_EXACT_VERSION"
+  exit 1
+fi
 EOT
     ]
   }
