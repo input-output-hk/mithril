@@ -678,7 +678,6 @@ components:
       additionalProperties: false
       required:
         - epoch
-        - beacon
         - entity_type
         - protocol
         - next_protocol

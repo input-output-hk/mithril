@@ -17,7 +17,6 @@ fn certificate_pending(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate-pending")
         .and(warp::get())
-        .and(middlewares::with_config(dependency_manager.clone()))
         .and(middlewares::with_certificate_pending_store(
             dependency_manager,
         ))
@@ -46,8 +45,8 @@ fn certificate_certificate_hash(
 
 mod handlers {
     use crate::{
-        http_server::routes::reply, services::MessageService, unwrap_to_internal_server_error,
-        CertificatePendingStore, Configuration, ToCertificatePendingMessageAdapter,
+        http_server::routes::reply, services::MessageService, CertificatePendingStore,
+        ToCertificatePendingMessageAdapter,
     };
 
     use slog_scope::{debug, warn};
@@ -59,17 +58,13 @@ mod handlers {
 
     /// Certificate Pending
     pub async fn certificate_pending(
-        config: Configuration,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: certificate_pending");
 
-        let network =
-            unwrap_to_internal_server_error!(config.get_network(), "certificate_pending::error");
-
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(
-                &ToCertificatePendingMessageAdapter::adapt(certificate_pending, network, 0),
+                &ToCertificatePendingMessageAdapter::adapt(certificate_pending),
                 StatusCode::OK,
             )),
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
@@ -196,7 +191,7 @@ mod tests {
         let message: CertificatePendingMessage = serde_json::from_slice(response.body()).unwrap();
 
         #[allow(deprecated)]
-        let immutable_file_number = message.beacon.immutable_file_number;
+        let immutable_file_number = message.beacon.unwrap().immutable_file_number;
         assert_eq!(0, immutable_file_number);
     }
 
