@@ -1,11 +1,12 @@
+demo/protocol-demo/artifacts/
 docs/website/.docusaurus/
+mithril-client-wasm/pkg/
 mithril-explorer/font.css.hbs
 mithril-explorer/out/
 mithril-explorer/.next/
 mithril-explorer/explorer/
-mithril-client-wasm/pkg/
+mithril-infra/assets/docker/cardano/
 mithril-test-lab/mithril-devnet/artifacts/
-demo/protocol-demo/artifacts/
 mithril-test-lab/mithril-end-to-end/monitor/config/grafana/provisioning/dashboards/*.json
 mithril-test-lab/mithril-aggregator-fake/default_data/
 mithril-test-lab/mithril-devnet/configuration/
