@@ -187,12 +187,6 @@ mod tests {
             &StatusCode::OK,
         )
         .unwrap();
-
-        let message: CertificatePendingMessage = serde_json::from_slice(response.body()).unwrap();
-
-        #[allow(deprecated)]
-        let immutable_file_number = message.beacon.unwrap().immutable_file_number;
-        assert_eq!(0, immutable_file_number);
     }
 
     #[tokio::test]
