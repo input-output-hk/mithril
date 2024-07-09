@@ -122,7 +122,6 @@ mod tests {
     use anyhow::anyhow;
     use mithril_common::{
         entities::CertificatePending,
-        messages::CertificatePendingMessage,
         test_utils::{apispec::APISpec, fake_data},
     };
     use mithril_persistence::store::adapter::DumbStoreAdapter;

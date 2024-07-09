@@ -10,9 +10,10 @@ pub struct ToCertificatePendingMessageAdapter;
 impl ToCertificatePendingMessageAdapter {
     /// Method to trigger the conversion
     pub fn adapt(certificate_pending: CertificatePending) -> CertificatePendingMessage {
+        #[allow(deprecated)]
         let beacon = match &certificate_pending.signed_entity_type {
             SignedEntityType::CardanoImmutableFilesFull(beacon) => beacon.clone(),
-            _ => CardanoDbBeacon::new("", 0, 0),
+            _ => CardanoDbBeacon::empty(),
         };
 
         #[allow(deprecated)]
@@ -68,7 +69,7 @@ mod tests {
     #[test]
     fn adapt_on_cardano_immutable_files_full_signed_entity_type_ok() {
         let mut certificate_pending = fake_data::certificate_pending();
-        let beacon = CardanoDbBeacon::new("network", 15, 756);
+        let beacon = fake_data::beacon();
         certificate_pending.signed_entity_type =
             SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
 

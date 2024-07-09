@@ -25,7 +25,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Add prettier configuration to standardize the code formatting in the repository.
 
-- Field `beacon` become optional in `CertificatePendingMessage` response of `/certificate-pending` route.
+- Field `beacon` becomes optional in `CertificatePendingMessage` response of `/certificate-pending` route.
 
 - **UNSTABLE** Cardano transactions certification:
 
