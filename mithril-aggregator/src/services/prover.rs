@@ -84,11 +84,11 @@ impl MithrilProverService {
             .get_by_hashes(transaction_hashes.to_vec(), up_to)
             .await?;
         let block_ranges = transactions
-            .iter()
+            .par_iter()
             .map(|t| BlockRange::from_block_number(t.block_number))
             .collect::<BTreeSet<_>>();
 
-        Ok(block_ranges.into_iter().collect::<Vec<_>>())
+        Ok(Vec::from_iter(block_ranges.into_iter()))
     }
 
     /// Get all the transactions of the block ranges
