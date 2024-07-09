@@ -14,7 +14,7 @@ RUN mkdir -p /app/bin
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install cardano-cli
-ARG CARDANO_NODE_VERSION=8.12.2
+ARG CARDANO_NODE_VERSION=9.0.0
 ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/$CARDANO_NODE_VERSION/cardano-node-$CARDANO_NODE_VERSION-linux.tar.gz
 ARG EMBED-CARDANO-CLI=0
 RUN if [ "$EMBED-CARDANO-CLI" = 1 ] ; then \
