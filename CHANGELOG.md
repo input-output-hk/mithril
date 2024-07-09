@@ -21,6 +21,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for `Cardano node` `8.12.2` in the signer and the aggregator.
 
+- Refactor the Cardano node configuration in the infrastructure.
+
 - Add prettier configuration to standardize the code formatting in the repository.
 
 - **UNSTABLE** Cardano transactions certification:

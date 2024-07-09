@@ -150,12 +150,6 @@ variable "cardano_image_registry" {
   default     = "ghcr.io/intersectmbo/cardano-node"
 }
 
-variable "cardano_configurations_repository_commit" {
-  type        = string
-  description = "The Cardano configurations commit to use"
-  default     = "32581b26b6d3534582cd7fb2af133e655a925349"
-}
-
 variable "mithril_api_domain" {
   type        = string
   description = "The Mithril api (sub)domain name of service to deploy"

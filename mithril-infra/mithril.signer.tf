@@ -15,10 +15,10 @@ resource "null_resource" "mithril_signer" {
   ]
 
   triggers = {
-    image_id                         = var.mithril_image_id,
-    vm_instance                      = google_compute_instance.vm_instance.id,
-    mithril_aggregator_auth_username = var.mithril_aggregator_auth_username,
-    mithril_aggregator_auth_password = var.mithril_aggregator_auth_password
+    vm_instance            = google_compute_instance.vm_instance.id,
+    cardano_image_id       = var.cardano_image_id,
+    cardano_image_registry = var.cardano_image_registry,
+    image_id               = var.mithril_image_id,
   }
 
   connection {
@@ -51,16 +51,36 @@ cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/car
 EOT
       ,
       <<-EOT
+set -e
 # Setup cardano node configuration
+CARDANO_NODE_EXACT_VERSION="${var.cardano_image_id}"
+CARDANO_NODE_MINOR_VERSION=$(echo $CARDANO_NODE_EXACT_VERSION | cut -d. -f1,2)
+CARDANO_NODE_VERSIONS="$CARDANO_NODE_EXACT_VERSION $CARDANO_NODE_MINOR_VERSION"
 SIGNER_TYPES="full relay block-producer"
 for SIGNER_TYPE in $SIGNER_TYPES; do
-  SIGNER_TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/config/$SIGNER_TYPE
-  mkdir -p $SIGNER_TYPE_CONFIG_DIRECTORY
-  cp -R /home/curry/docker/cardano-configurations/network/${var.cardano_network} $SIGNER_TYPE_CONFIG_DIRECTORY
-  cat $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-$SIGNER_TYPE-signer-${each.key}\"" > $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
-  rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
-  mv $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+  # Copy the cardano node configuration files to the signer (exact version, and fallback to minor version)
+  FOUND_CONFIGURATION=false
+  for CARDANO_NODE_VERSION in $CARDANO_NODE_VERSIONS; do
+    if [ -d "/home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}" ]; then 
+      SIGNER_TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/config/$SIGNER_TYPE
+      rm -rf $SIGNER_TYPE_CONFIG_DIRECTORY
+      mkdir -p $SIGNER_TYPE_CONFIG_DIRECTORY
+      cp -R /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network} $SIGNER_TYPE_CONFIG_DIRECTORY
+      echo $CARDANO_NODE_VERSION > $SIGNER_TYPE_CONFIG_DIRECTORY/config.version
+      cat $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-$SIGNER_TYPE-signer-${each.key}\"" > $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
+      rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+      mv $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+      FOUND_CONFIGURATION=true
+      break
+    fi
+  done
+  # Check if a configuration was found
+  if [ "$FOUND_CONFIGURATION" = "false" ]; then
+    echo "No cardano node configuration found for version $CARDANO_NODE_EXACT_VERSION of type $SIGNER_TYPE"
+    exit 1
+  fi
 done
+
 EOT
     ]
   }
