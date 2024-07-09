@@ -61,6 +61,12 @@ impl CardanoDbBeacon {
         }
     }
 
+    /// Value used as a placeholder where a beacon is necessary
+    #[deprecated]
+    pub fn empty() -> Self {
+        Self::new("", 0, 0)
+    }
+
     /// Computes the hash of a CardanoDbBeacon
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
