@@ -19,7 +19,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Add a regularly run upkeep task to the `mithril-aggregator` and `mithril-signer` to clean up stale data and optimize their databases.
 
-- Support for `Cardano node` `8.12.2` in the signer and the aggregator.
+- Support for `Cardano node` `9.0.0` in the signer and the aggregator.
 
 - Refactor the Cardano node configuration in the infrastructure.
 

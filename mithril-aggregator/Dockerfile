@@ -35,7 +35,7 @@ RUN /app/target/release/mithril-aggregator --version
 FROM debian:11-slim
 
 # Args
-ARG CARDANO_NODE_VERSION=8.12.2
+ARG CARDANO_NODE_VERSION=9.0.0
 ARG CARDANO_BIN_URL=https://github.com/input-output-hk/cardano-node/releases/download/$CARDANO_NODE_VERSION/cardano-node-$CARDANO_NODE_VERSION-linux.tar.gz
 ARG EMBED-CARDANO-CLI=0
 
