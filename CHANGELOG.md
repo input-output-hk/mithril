@@ -9,6 +9,14 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX.X] - UNRELEASED
 
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2428.0] - UNRELEASED
+
 - Provide a feature to the `mithril-client` crate to allow selection of the TLS implementation used by the dependent `reqwest` crate.
 
 - Implement a reset mechanism for mutable resources returned to a pool (`ResourcePool`) to keep it in a consistent state.
