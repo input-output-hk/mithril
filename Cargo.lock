@@ -994,7 +994,7 @@ dependencies = [
 
 [[package]]
 name = "client-cardano-transaction"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "anyhow",
  "clap",
@@ -1007,7 +1007,7 @@ dependencies = [
 
 [[package]]
 name = "client-mithril-stake-distribution"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "anyhow",
  "clap",
@@ -1020,7 +1020,7 @@ dependencies = [
 
 [[package]]
 name = "client-snapshot"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3547,7 +3547,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.5.39"
+version = "0.5.40"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3592,7 +3592,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "anyhow",
  "axum",
@@ -3615,7 +3615,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "semver",
  "serde_json",
@@ -3624,7 +3624,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3657,7 +3657,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.9.5"
+version = "0.9.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3687,7 +3687,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "async-trait",
  "futures",
@@ -3703,7 +3703,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.4.28"
+version = "0.4.29"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3757,7 +3757,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "clap",
  "config",
@@ -3767,7 +3767,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-doc-derive"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "quote",
  "syn 2.0.70",
@@ -3775,7 +3775,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.20"
+version = "0.4.21"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3801,7 +3801,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.15"
+version = "0.2.16"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3824,7 +3824,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.20"
+version = "0.1.21"
 dependencies = [
  "anyhow",
  "clap",
@@ -3848,7 +3848,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.160"
+version = "0.2.161"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3883,7 +3883,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.23"
+version = "0.3.24"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
@@ -3906,7 +3906,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.38"
+version = "0.1.39"
 dependencies = [
  "base64 0.22.1",
  "blake2 0.10.6",
