@@ -9,6 +9,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX.X] - UNRELEASED
 
+- **UNSTABLE** Cardano transactions certification:
+
+  - Make Cardano transaction signing settings configurable via the CD.
+
 - Crates versions:
 
 | Crate | Version |
