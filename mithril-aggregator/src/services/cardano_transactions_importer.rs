@@ -135,9 +135,8 @@ impl CardanoTransactionsImporter {
             .get_block_interval_without_block_range_root()
             .await?
             // .map(|range| BlockRange::all_block_ranges_in(BlockRange::start(range.start)..range.end))
-            .map(|range| {
-                BlockRange::all_block_ranges_in(BlockRange::start(range.start)..(until + 1))
-            }) {
+            .map(|range| BlockRange::all_block_ranges_in(BlockRange::start(range.start)..=(until)))
+        {
             // Everything is already computed
             None => return Ok(()),
             // Not enough block to form at least one block range
@@ -657,7 +656,7 @@ mod tests {
                 // Upper bound should be the block number of the highest transaction in a db that can be
                 // included in a block range
                 .withf(|range| {
-                    BlockRangesSequence::new(BlockRange::LENGTH..(BlockRange::LENGTH * 5))
+                    BlockRangesSequence::new(BlockRange::LENGTH..=(BlockRange::LENGTH * 5))
                         .contains(range)
                 })
                 .returning(transactions_for_block);

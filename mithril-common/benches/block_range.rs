@@ -14,7 +14,7 @@ fn all_block_ranges_in(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("0..{end_bound}")),
             &end_bound,
             |b, &end_bound| {
-                b.iter(|| BlockRange::all_block_ranges_in(0..end_bound));
+                b.iter(|| BlockRange::all_block_ranges_in(0..=end_bound));
             },
         );
     }

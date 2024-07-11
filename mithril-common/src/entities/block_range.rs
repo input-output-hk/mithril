@@ -1,10 +1,11 @@
-use anyhow::anyhow;
-use serde::{Deserialize, Serialize};
 use std::{
     cmp::Ordering,
     fmt::{Display, Formatter, Result},
-    ops::{Deref, Range},
+    ops::{Deref, Range, RangeInclusive},
 };
+
+use anyhow::anyhow;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     crypto_helper::{MKMapKey, MKTreeNode},
@@ -59,7 +60,7 @@ impl BlockRange {
     }
 
     /// Get all [BlockRange] strictly contained in the given interval
-    pub fn all_block_ranges_in(interval: Range<BlockNumber>) -> BlockRangesSequence {
+    pub fn all_block_ranges_in(interval: RangeInclusive<BlockNumber>) -> BlockRangesSequence {
         BlockRangesSequence::new(interval)
     }
 
@@ -158,13 +159,14 @@ impl BlockRangesSequence {
     /// Build the [BlockRangesSequence] strictly contained in the given interval.
     ///
     /// The interval bounds will be corrected to be multiples of [BlockRange::LENGTH].
-    pub fn new(interval: Range<BlockNumber>) -> Self {
-        let start = if (interval.start % BlockRange::LENGTH) == 0 {
-            interval.start
+    pub fn new(interval: RangeInclusive<BlockNumber>) -> Self {
+        let start = if (interval.start() % BlockRange::LENGTH) == 0 {
+            *interval.start()
         } else {
-            BlockRange::start(interval.start) + BlockRange::LENGTH
+            BlockRange::start(*interval.start()) + BlockRange::LENGTH
         };
-        let end = BlockRange::start(interval.end);
+        // End is inclusive, so we need to add 1
+        let end = BlockRange::start(*interval.end() + 1);
 
         Self { start, end }
     }
@@ -284,28 +286,28 @@ mod tests {
 
     #[test]
     fn test_block_range_all_block_ranges_in() {
-        assert_eq!(BlockRange::all_block_ranges_in(0..0).into_vec(), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(0..1).into_vec(), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(0..14).into_vec(), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(1..15).into_vec(), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(0..=0).into_vec(), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(0..=1).into_vec(), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(0..=13).into_vec(), vec![]);
+        assert_eq!(BlockRange::all_block_ranges_in(1..=14).into_vec(), vec![]);
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..15).into_vec(),
+            BlockRange::all_block_ranges_in(0..=14).into_vec(),
             vec![BlockRange::new(0, 15)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..16).into_vec(),
+            BlockRange::all_block_ranges_in(0..=15).into_vec(),
             vec![BlockRange::new(0, 15)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..30).into_vec(),
+            BlockRange::all_block_ranges_in(14..=29).into_vec(),
             vec![BlockRange::new(15, 30)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..31).into_vec(),
+            BlockRange::all_block_ranges_in(14..=30).into_vec(),
             vec![BlockRange::new(15, 30)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..61).into_vec(),
+            BlockRange::all_block_ranges_in(14..=60).into_vec(),
             vec![
                 BlockRange::new(15, 30),
                 BlockRange::new(30, 45),
@@ -316,29 +318,29 @@ mod tests {
 
     #[test]
     fn test_block_ranges_sequence_is_empty() {
-        assert!(BlockRange::all_block_ranges_in(0..0).is_empty());
-        assert!(BlockRange::all_block_ranges_in(0..1).is_empty());
-        assert!(BlockRange::all_block_ranges_in(0..14).is_empty());
-        assert!(BlockRange::all_block_ranges_in(1..15).is_empty());
-        assert!(BlockRange::all_block_ranges_in(0..15).is_empty().not());
-        assert!(BlockRange::all_block_ranges_in(0..16).is_empty().not());
-        assert!(BlockRange::all_block_ranges_in(14..30).is_empty().not());
-        assert!(BlockRange::all_block_ranges_in(14..31).is_empty().not());
-        assert!(BlockRange::all_block_ranges_in(14..61).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(0..=0).is_empty());
+        assert!(BlockRange::all_block_ranges_in(0..=1).is_empty());
+        assert!(BlockRange::all_block_ranges_in(0..=13).is_empty());
+        assert!(BlockRange::all_block_ranges_in(1..=14).is_empty());
+        assert!(BlockRange::all_block_ranges_in(0..=14).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(0..=15).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(14..=29).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(14..=30).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(14..=60).is_empty().not());
     }
 
     #[test]
     fn test_block_ranges_sequence_len() {
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..(BlockRange::LENGTH - 1)).len(),
+            BlockRange::all_block_ranges_in(0..=(BlockRange::LENGTH - 2)).len(),
             0
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..(BlockRange::LENGTH)).len(),
+            BlockRange::all_block_ranges_in(0..=(BlockRange::LENGTH - 1)).len(),
             1
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..(BlockRange::LENGTH * 15)).len(),
+            BlockRange::all_block_ranges_in(0..=(BlockRange::LENGTH * 15)).len(),
             15
         );
     }
@@ -346,15 +348,15 @@ mod tests {
     #[test]
     fn test_block_ranges_sequence_contains() {
         let block_range = BlockRange::new(15, 30);
-        assert!(BlockRange::all_block_ranges_in(0..15)
+        assert!(BlockRange::all_block_ranges_in(0..=14)
             .contains(&block_range)
             .not());
-        assert!(BlockRange::all_block_ranges_in(30..60)
+        assert!(BlockRange::all_block_ranges_in(30..=59)
             .contains(&block_range)
             .not());
-        assert!(BlockRange::all_block_ranges_in(0..30).contains(&block_range));
-        assert!(BlockRange::all_block_ranges_in(15..30).contains(&block_range));
-        assert!(BlockRange::all_block_ranges_in(15..45).contains(&block_range));
+        assert!(BlockRange::all_block_ranges_in(0..=29).contains(&block_range));
+        assert!(BlockRange::all_block_ranges_in(15..=29).contains(&block_range));
+        assert!(BlockRange::all_block_ranges_in(15..=44).contains(&block_range));
     }
 
     #[test]
