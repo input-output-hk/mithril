@@ -129,13 +129,15 @@ impl CardanoTransactionsImporter {
         Ok(())
     }
 
-    async fn import_block_ranges(&self) -> StdResult<()> {
+    async fn import_block_ranges(&self, until: BlockNumber) -> StdResult<()> {
         let block_ranges = match self
             .transaction_store
             .get_block_interval_without_block_range_root()
             .await?
-            .map(|range| BlockRange::all_block_ranges_in(BlockRange::start(range.start)..range.end))
-        {
+            // .map(|range| BlockRange::all_block_ranges_in(BlockRange::start(range.start)..range.end))
+            .map(|range| {
+                BlockRange::all_block_ranges_in(BlockRange::start(range.start)..(until + 1))
+            }) {
             // Everything is already computed
             None => return Ok(()),
             // Not enough block to form at least one block range
@@ -181,7 +183,7 @@ impl CardanoTransactionsImporter {
         up_to_beacon: BlockNumber,
     ) -> StdResult<()> {
         self.import_transactions(up_to_beacon).await?;
-        self.import_block_ranges().await
+        self.import_block_ranges(up_to_beacon).await
     }
 }
 
@@ -315,7 +317,8 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         )));
 
-        let blocks = build_blocks(0, BlockRange::LENGTH * 5 + 1);
+        let up_to_block_number = BlockRange::LENGTH * 5;
+        let blocks = build_blocks(0, up_to_block_number + 1);
         let transactions = into_transactions(&blocks);
         repository.store_transactions(transactions).await.unwrap();
 
@@ -325,7 +328,7 @@ mod tests {
         );
 
         importer
-            .import_block_ranges()
+            .import_block_ranges(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -352,6 +355,7 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         )));
 
+        let up_to_block_number = BlockRange::LENGTH * 4;
         // Two block ranges with a gap
         let blocks: Vec<ScannedBlock> = [
             build_blocks(0, BlockRange::LENGTH),
@@ -367,7 +371,7 @@ mod tests {
         );
 
         importer
-            .import_block_ranges()
+            .import_block_ranges(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -397,7 +401,7 @@ mod tests {
         );
 
         importer
-            .import_block_ranges()
+            .import_block_ranges(10_000)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -504,7 +508,8 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         )));
 
-        let blocks = build_blocks(0, BlockRange::LENGTH * 4 + 1);
+        let up_to_block_number = BlockRange::LENGTH * 4;
+        let blocks = build_blocks(0, up_to_block_number + 1);
         let transactions = into_transactions(&blocks);
         repository.store_transactions(transactions).await.unwrap();
         repository
@@ -540,7 +545,7 @@ mod tests {
         );
 
         importer
-            .import_block_ranges()
+            .import_block_ranges(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -552,6 +557,39 @@ mod tests {
                 BlockRange::from_block_number(BlockRange::LENGTH * 2),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
             ],
+            block_range_roots
+                .into_iter()
+                .map(|r| r.range)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
+    async fn can_compute_block_ranges_even_if_last_blocks_in_range_dont_have_transactions() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        )));
+
+        // Transactions for all blocks in the (15..=25) interval, meaning that the last blocks in
+        // the block range (15..30) don't have transactions
+        let blocks = build_blocks(BlockRange::LENGTH, 10);
+        let transactions = into_transactions(&blocks);
+        repository.store_transactions(transactions).await.unwrap();
+
+        let importer = CardanoTransactionsImporter::new_for_test(
+            Arc::new(MockBlockScannerImpl::new()),
+            repository.clone(),
+        );
+
+        importer
+            .import_block_ranges(BlockRange::LENGTH * 2)
+            .await
+            .expect("Transactions Importer should succeed");
+
+        let block_range_roots = repository.get_all_block_range_root().unwrap();
+        assert_eq!(
+            vec![BlockRange::from_block_number(BlockRange::LENGTH)],
             block_range_roots
                 .into_iter()
                 .map(|r| r.range)
@@ -601,8 +639,9 @@ mod tests {
             )
         };
 
+        // todo: update this test after reworking expect_get_block_interval_without_block_range_root
         importer
-            .import_block_ranges()
+            .import_block_ranges(BlockRange::LENGTH * 5)
             .await
             .expect("Transactions Importer should succeed");
     }
@@ -615,7 +654,8 @@ mod tests {
         )));
 
         // 2 block ranges worth of blocks with one more block that should be ignored for merkle root computation
-        let blocks = build_blocks(0, BlockRange::LENGTH * 2 + 1);
+        let up_to_block_number = BlockRange::LENGTH * 2;
+        let blocks = build_blocks(0, up_to_block_number + 1);
         let transactions = into_transactions(&blocks);
         let expected_block_range_roots = vec![
             (
@@ -638,7 +678,7 @@ mod tests {
         );
 
         importer
-            .import_block_ranges()
+            .import_block_ranges(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -717,14 +757,14 @@ mod tests {
             .await
             .unwrap();
 
-        let chain_point = ChainPoint::new(5, 130, "block_hash-131");
+        let chain_point = ChainPoint::new(5, 130, "block_hash-130");
         let scanner = DumbBlockScanner::new().backward(chain_point);
 
         let importer =
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
 
         importer
-            .import(3000)
+            .import_transactions(3000)
             .await
             .expect("Transactions Importer should succeed");
 
@@ -791,7 +831,7 @@ mod tests {
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
 
         importer
-            .import(3000)
+            .import_transactions(3000)
             .await
             .expect("Transactions Importer should succeed");
 
