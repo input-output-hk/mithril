@@ -565,6 +565,38 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn can_compute_block_ranges_up_to_the_strict_end_of_a_block_range() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        )));
+
+        // Transactions for all blocks in the (15..=29) interval
+        let blocks = build_blocks(BlockRange::LENGTH, BlockRange::LENGTH - 1);
+        let transactions = into_transactions(&blocks);
+        repository.store_transactions(transactions).await.unwrap();
+
+        let importer = CardanoTransactionsImporter::new_for_test(
+            Arc::new(MockBlockScannerImpl::new()),
+            repository.clone(),
+        );
+
+        importer
+            .import_block_ranges(BlockRange::LENGTH * 2 - 1)
+            .await
+            .expect("Transactions Importer should succeed");
+
+        let block_range_roots = repository.get_all_block_range_root().unwrap();
+        assert_eq!(
+            vec![BlockRange::from_block_number(BlockRange::LENGTH)],
+            block_range_roots
+                .into_iter()
+                .map(|r| r.range)
+                .collect::<Vec<_>>()
+        );
+    }
+
+    #[tokio::test]
     async fn can_compute_block_ranges_even_if_last_blocks_in_range_dont_have_transactions() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
