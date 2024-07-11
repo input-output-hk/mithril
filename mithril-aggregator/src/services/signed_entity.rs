@@ -388,6 +388,45 @@ mod tests {
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
             )
         }
+
+        fn mock_artifact_processing<
+            T: Artifact + Clone + Serialize + 'static,
+            U: signable_builder::Beacon,
+        >(
+            &mut self,
+            artifact: T,
+            mock_that_provide_artifact: &dyn Fn(
+                &mut MockDependencyInjector,
+            ) -> &mut MockArtifactBuilder<U, T>,
+        ) {
+            {
+                let artifact_cloned = artifact.clone();
+                mock_that_provide_artifact(self)
+                    .expect_compute_artifact()
+                    .times(1)
+                    .return_once(|_, _| Ok(artifact_cloned));
+            }
+            {
+                let artifact_clone: Arc<dyn Artifact> = Arc::new(artifact.clone());
+                let artifact_json = serde_json::to_string(&artifact_clone).unwrap();
+                self.mock_signed_entity_storer
+                    .expect_store_signed_entity()
+                    .withf(move |signed_entity| signed_entity.artifact == artifact_json)
+                    .return_once(|_| Ok(()));
+            }
+        }
+
+        fn mock_immutable_files_processing(&mut self, artifact: Snapshot) {
+            self.mock_artifact_processing(artifact, &|mock_injector| {
+                &mut mock_injector.mock_cardano_immutable_files_full_artifact_builder
+            });
+        }
+
+        fn mock_stake_distribution_processing(&mut self, artifact: MithrilStakeDistribution) {
+            self.mock_artifact_processing(artifact, &|mock_injector| {
+                &mut mock_injector.mock_mithril_stake_distribution_artifact_builder
+            });
+        }
     }
 
     #[tokio::test]
@@ -546,43 +585,16 @@ mod tests {
     // TODO: Verify the relevance of this test
     #[tokio::test]
     async fn create_artifact_for_two_signed_entity_types_in_sequence() {
-        let mut mock_container = MockDependencyInjector::new();
-        {
-            let snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-            let artifact_snapshot: Arc<dyn Artifact> = Arc::new(snapshot.clone());
-            let artifact = serde_json::to_string(&artifact_snapshot).unwrap();
+        let artifact_builder_service = {
+            let mut mock_container = MockDependencyInjector::new();
+            mock_container.mock_immutable_files_processing(
+                fake_data::snapshots(1).first().unwrap().to_owned(),
+            );
             mock_container
-                .mock_cardano_immutable_files_full_artifact_builder
-                .expect_compute_artifact()
-                .times(1)
-                .return_once(|_, _| Ok(snapshot));
+                .mock_stake_distribution_processing(create_stake_distribution(Epoch(1), 5));
 
-            mock_container
-                .mock_signed_entity_storer
-                .expect_store_signed_entity()
-                .withf(move |signed_entity| signed_entity.artifact == artifact)
-                .times(1)
-                .return_once(|_| Ok(()));
-        }
-        {
-            let msd = create_stake_distribution(Epoch(1), 5);
-            let artifact_msd: Arc<dyn Artifact> = Arc::new(msd.clone());
-            let artifact = serde_json::to_string(&artifact_msd).unwrap();
-            mock_container
-                .mock_mithril_stake_distribution_artifact_builder
-                .expect_compute_artifact()
-                .times(1)
-                .return_once(|_, _| Ok(msd));
-
-            mock_container
-                .mock_signed_entity_storer
-                .expect_store_signed_entity()
-                .withf(move |signed_entity| signed_entity.artifact == artifact)
-                .times(1)
-                .return_once(|_| Ok(()));
-        }
-        let artifact_builder_service = mock_container.build_artifact_builder_service();
-
+            mock_container.build_artifact_builder_service()
+        };
         let certificate = fake_data::certificate("hash".to_string());
 
         let signed_entity_type_immutable =
@@ -601,11 +613,9 @@ mod tests {
 
     #[tokio::test]
     async fn create_artifact_for_two_signed_entity_types_in_sequence_not_blocking() {
-        let mut mock_container = MockDependencyInjector::new();
-        {
+        let artifact_builder_service = {
+            let mut mock_container = MockDependencyInjector::new();
             let snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-            let artifact_snapshot: Arc<dyn Artifact> = Arc::new(snapshot.clone());
-            let artifact = serde_json::to_string(&artifact_snapshot).unwrap();
             mock_container
                 .mock_cardano_immutable_files_full_artifact_builder
                 .expect_compute_artifact()
@@ -615,32 +625,11 @@ mod tests {
                     Ok(snapshot)
                 });
 
-            mock_container
-                .mock_signed_entity_storer
-                .expect_store_signed_entity()
-                .withf(move |signed_entity| signed_entity.artifact == artifact)
-                .never()
-                .return_once(|_| Ok(()));
-        }
-        {
             let msd = create_stake_distribution(Epoch(1), 5);
-            let artifact_msd: Arc<dyn Artifact> = Arc::new(msd.clone());
-            let artifact = serde_json::to_string(&artifact_msd).unwrap();
-            mock_container
-                .mock_mithril_stake_distribution_artifact_builder
-                .expect_compute_artifact()
-                .times(1)
-                .return_once(|_, _| Ok(msd));
+            mock_container.mock_stake_distribution_processing(msd);
 
-            mock_container
-                .mock_signed_entity_storer
-                .expect_store_signed_entity()
-                .withf(move |signed_entity| signed_entity.artifact == artifact)
-                .times(1)
-                .return_once(|_| Ok(()));
-        }
-        let artifact_builder_service = Arc::new(mock_container.build_artifact_builder_service());
-
+            Arc::new(mock_container.build_artifact_builder_service())
+        };
         let certificate = fake_data::certificate("hash".to_string());
 
         let signed_entity_type_immutable =
@@ -652,7 +641,7 @@ mod tests {
         let second_task_that_finish_first = artifact_builder_service
             .create_artifact_return_join_handle(signed_entity_type_msd, &certificate);
 
-        let _ = second_task_that_finish_first.await;
+        let _ = second_task_that_finish_first.await.unwrap();
         assert!(!first_task_that_never_finished.is_finished());
     }
 }
