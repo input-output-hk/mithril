@@ -243,7 +243,7 @@ impl Default for DefaultConfiguration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             network_security_parameter: 2160, // 2160 is the mainnet value
-            preload_security_parameter: 3000,
+            preload_security_parameter: 1000,
             enable_transaction_pruning: true,
             transactions_import_block_chunk_size: 1500,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
