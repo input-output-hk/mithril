@@ -231,6 +231,18 @@ variable "mithril_aggregator_cardano_transactions_database_connection_pool_size"
   default     = 10
 }
 
+variable "mithril_aggregator_cardano_transactions_signing_config_security_parameter" {
+  type        = number
+  description = "Number of blocks to discard from the tip of the chain when importing Cardano transactions"
+  default     = 100
+}
+
+variable "mithril_aggregator_cardano_transactions_signing_config_step" {
+  type        = number
+  description = "Number of blocks between signature of the Cardano transactions"
+  default     = 30
+}
+
 variable "mithril_aggregator_cdn_cname" {
   type        = string
   description = "The CNAME field used for the mithril aggregator CDN"
