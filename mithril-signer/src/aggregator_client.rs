@@ -492,21 +492,21 @@ mod tests {
         )
     }
 
-    fn set_returning_412(server: MockServer) {
-        let _mock_412 = server.mock(|_, then| {
+    fn set_returning_412(server: &MockServer) {
+        server.mock(|_, then| {
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
     }
 
-    fn set_returning_500(server: MockServer) {
-        let _server_mock = server.mock(|_, then| {
+    fn set_returning_500(server: &MockServer) {
+        server.mock(|_, then| {
             then.status(500).body("an error occurred");
         });
     }
 
-    fn set_unparsable_json(server: MockServer) {
-        let _server_mock = server.mock(|_, then| {
+    fn set_unparsable_json(server: &MockServer) {
+        server.mock(|_, then| {
             then.status(200).body("this is not a json");
         });
     }
@@ -528,7 +528,7 @@ mod tests {
     #[tokio::test]
     async fn test_aggregator_features_ko_412() {
         let (server, client) = setup_server_and_client();
-        set_returning_412(server);
+        set_returning_412(&server);
 
         let error = client.retrieve_aggregator_features().await.unwrap_err();
 
@@ -538,7 +538,7 @@ mod tests {
     #[tokio::test]
     async fn test_aggregator_features_ko_500() {
         let (server, client) = setup_server_and_client();
-        set_returning_500(server);
+        set_returning_500(&server);
 
         let error = client.retrieve_aggregator_features().await.unwrap_err();
 
@@ -548,7 +548,7 @@ mod tests {
     #[tokio::test]
     async fn test_aggregator_features_ko_json_serialization() {
         let (server, client) = setup_server_and_client();
-        set_unparsable_json(server);
+        set_unparsable_json(&server);
 
         let error = client.retrieve_aggregator_features().await.unwrap_err();
 
