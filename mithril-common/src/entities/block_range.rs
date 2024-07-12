@@ -168,7 +168,11 @@ impl BlockRangesSequence {
         // End is inclusive, so we need to add 1
         let end = BlockRange::start(*interval.end() + 1);
 
-        Self { start, end }
+        if start >= end {
+            Self { start: 0, end: 0 }
+        } else {
+            Self { start, end }
+        }
     }
 
     /// Returns the start of the block ranges sequence.
@@ -188,7 +192,7 @@ impl BlockRangesSequence {
 
     /// Returns `true` if the block ranges sequence contains no elements.
     pub fn is_empty(&self) -> bool {
-        self.len() == 0
+        self.start >= self.end
     }
 
     /// Consume `self` into a new Vec
@@ -201,7 +205,7 @@ impl Iterator for BlockRangesSequence {
     type Item = BlockRange;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.start >= self.end {
+        if BlockRangesSequence::is_empty(self) {
             return None;
         }
 
@@ -401,5 +405,14 @@ mod tests {
     fn test_block_range_from_number_and_length_with_invalid_input() {
         BlockRange::from_block_number_and_length(10, 0)
             .expect_err("BlockRange should not be computed with a length of 0");
+    }
+
+    #[test]
+    // allow to specify a range with start > end
+    #[allow(clippy::reversed_empty_ranges)]
+    fn test_building_sequence_with_start_greater_than_end_yield_empty_iterator() {
+        let sequence = BlockRange::all_block_ranges_in(30..=15);
+        assert_eq!(sequence.clone().into_vec(), vec![]);
+        assert!(sequence.is_empty());
     }
 }
