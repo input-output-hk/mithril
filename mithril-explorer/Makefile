@@ -52,6 +52,8 @@ clean:
 	rm package-lock.json || true
 
 upgrade: clean install
+	# Note: eslint versions 9 or up are not compatible with versions 14.2+ of eslint-config-next
+	# Todo: switch to eslint-config-next@latest when a compatible version is released
 	npm install \
 		@popperjs/core@latest \
 		@reduxjs/toolkit@latest \
@@ -66,7 +68,7 @@ upgrade: clean install
 		react-redux@latest \
 		@testing-library/jest-dom@latest \
 		@testing-library/react@latest \
-		eslint@latest \
+		eslint@^8.57.0 \
 		eslint-config-next@latest \
 		fantasticon@latest \
 		jest@latest \
