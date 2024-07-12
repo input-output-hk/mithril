@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use slog_scope::info;
 use std::sync::Arc;
-use tokio::{runtime::Handle, task::JoinHandle};
+use tokio::task::JoinHandle;
 
 use mithril_common::{
     entities::{
@@ -37,7 +37,7 @@ pub trait SignedEntityService: Send + Sync {
         &self,
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
-    ) -> StdResult<()>;
+    ) -> StdResult<JoinHandle<StdResult<()>>>;
 
     /// Return a list of signed snapshots order by creation date descending.
     async fn get_last_signed_snapshots(
@@ -107,6 +107,55 @@ impl MithrilSignedEntityService {
         }
     }
 
+    async fn create_artifact_impl(
+        &self,
+        signed_entity_type: SignedEntityType,
+        certificate: &Certificate,
+    ) -> StdResult<()> {
+        info!(
+            "MithrilSignedEntityService::create_artifact";
+            "signed_entity_type" => ?signed_entity_type,
+            "certificate_hash" => &certificate.hash
+        );
+
+        println!(
+            "MithrilSignedEntityService::create_artifact: signed_entity_type: {:?}, certificate_hash: {}",
+            signed_entity_type, certificate.hash
+        );
+
+        let mut remaining_retries = 2;
+        let artifact = loop {
+            remaining_retries -= 1;
+
+            match self
+                .compute_artifact(signed_entity_type.clone(), certificate)
+                .await
+            {
+                Err(error) if remaining_retries == 0 => break Err(error),
+                Err(_error) => (),
+                Ok(artifact) => break Ok(artifact),
+            };
+        }?;
+
+        let signed_entity = SignedEntityRecord {
+            signed_entity_id: artifact.get_id(),
+            signed_entity_type: signed_entity_type.clone(),
+            certificate_id: certificate.hash.clone(),
+            artifact: serde_json::to_string(&artifact)?,
+            created_at: Utc::now(),
+        };
+
+        self.signed_entity_storer
+            .store_signed_entity(&signed_entity)
+            .await
+            .with_context(|| {
+                format!(
+                    "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'"
+                )
+            })?;
+        Ok(())
+    }
+
     async fn create_artifact_return_join_handle(
         &self,
         signed_entity_type: SignedEntityType,
@@ -135,7 +184,7 @@ impl MithrilSignedEntityService {
             let service_clone = service.clone();
             let result = tokio::task::spawn(async move {
                 service_clone
-                    .create_artifact(signed_entity_type_clone, &certificate_cloned)
+                    .create_artifact_impl(signed_entity_type_clone, &certificate_cloned)
                     .await
             })
             .await;
@@ -212,49 +261,41 @@ impl SignedEntityService for MithrilSignedEntityService {
         &self,
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
-    ) -> StdResult<()> {
-        info!(
-            "MithrilSignedEntityService::create_artifact";
-            "signed_entity_type" => ?signed_entity_type,
-            "certificate_hash" => &certificate.hash
-        );
-
-        println!(
-            "MithrilSignedEntityService::create_artifact: signed_entity_type: {:?}, certificate_hash: {}",
-            signed_entity_type, certificate.hash
-        );
-
-        let mut remaining_retries = 2;
-        let artifact = loop {
-            remaining_retries -= 1;
-
-            match self
-                .compute_artifact(signed_entity_type.clone(), certificate)
-                .await
-            {
-                Err(error) if remaining_retries == 0 => break Err(error),
-                Err(_error) => (),
-                Ok(artifact) => break Ok(artifact),
-            };
-        }?;
-
-        let signed_entity = SignedEntityRecord {
-            signed_entity_id: artifact.get_id(),
-            signed_entity_type: signed_entity_type.clone(),
-            certificate_id: certificate.hash.clone(),
-            artifact: serde_json::to_string(&artifact)?,
-            created_at: Utc::now(),
-        };
-
-        self.signed_entity_storer
-            .store_signed_entity(&signed_entity)
+    ) -> StdResult<JoinHandle<StdResult<()>>> {
+        if self
+            .signed_entity_type_lock
+            .is_locked(&signed_entity_type)
             .await
-            .with_context(|| {
-                format!(
-                    "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'"
-                )
-            })?;
-        Ok(())
+        {
+            return Err(anyhow!(
+                "Signed entity type '{:?}' is already locked",
+                signed_entity_type
+            ));
+        }
+
+        let service = self.clone();
+        let certificate_cloned = certificate.clone();
+        service
+            .signed_entity_type_lock
+            .lock(&signed_entity_type)
+            .await;
+
+        Ok(tokio::task::spawn(async move {
+            let signed_entity_type_clone = signed_entity_type.clone();
+            let service_clone = service.clone();
+            let result = tokio::task::spawn(async move {
+                service_clone
+                    .create_artifact_impl(signed_entity_type_clone, &certificate_cloned)
+                    .await
+            })
+            .await;
+            service
+                .signed_entity_type_lock
+                .release(signed_entity_type)
+                .await;
+
+            result.unwrap()
+        }))
     }
 
     async fn get_last_signed_snapshots(
@@ -664,7 +705,7 @@ mod tests {
         let error_message_str = error_message.as_str();
 
         artifact_builder_service
-            .create_artifact(signed_entity_type, &certificate)
+            .create_artifact_impl(signed_entity_type, &certificate)
             .await
             .expect(error_message_str);
     }
@@ -687,13 +728,13 @@ mod tests {
         let signed_entity_type_immutable =
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
         signed_entity_type_service
-            .create_artifact(signed_entity_type_immutable, &certificate)
+            .create_artifact_impl(signed_entity_type_immutable, &certificate)
             .await
             .unwrap();
 
         let signed_entity_type_msd = SignedEntityType::MithrilStakeDistribution(Epoch(1));
         signed_entity_type_service
-            .create_artifact(signed_entity_type_msd, &certificate)
+            .create_artifact_impl(signed_entity_type_msd, &certificate)
             .await
             .unwrap();
     }
