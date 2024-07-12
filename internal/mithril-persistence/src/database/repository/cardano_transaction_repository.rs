@@ -15,8 +15,7 @@ use mithril_common::StdResult;
 
 use crate::database::query::{
     DeleteBlockRangeRootQuery, DeleteCardanoTransactionQuery, GetBlockRangeRootQuery,
-    GetCardanoTransactionQuery, GetIntervalWithoutBlockRangeRootQuery, InsertBlockRangeRootQuery,
-    InsertCardanoTransactionQuery,
+    GetCardanoTransactionQuery, InsertBlockRangeRootQuery, InsertCardanoTransactionQuery,
 };
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
 use crate::sqlite::{ConnectionExtensions, SqliteConnection, SqliteConnectionPool};
@@ -233,22 +232,6 @@ impl CardanoTransactionRepository {
             transaction.commit()?;
         }
         Ok(())
-    }
-
-    /// Get the block interval without block range root if any.
-    pub async fn get_block_interval_without_block_range_root(
-        &self,
-    ) -> StdResult<Option<Range<BlockNumber>>> {
-        let interval = self
-            .connection_pool
-            .connection()?
-            .fetch_first(GetIntervalWithoutBlockRangeRootQuery::new())?
-            // Should be impossible - the request as written in the query always returns a single row
-            .unwrap_or_else(|| {
-                panic!("GetIntervalWithoutBlockRangeRootQuery should always return a single row")
-            });
-
-        interval.to_range()
     }
 
     /// Get the block number for a given slot number
@@ -759,41 +742,6 @@ mod tests {
                 .unwrap();
             assert_eq!(transactions[1..=2].to_vec(), transaction_result);
         }
-    }
-
-    #[tokio::test]
-    async fn repository_get_block_interval_without_block_range_root() {
-        let connection = cardano_tx_db_connection().unwrap();
-        let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
-        ));
-
-        // The last block range give the lower bound
-        let last_block_range = BlockRange::from_block_number(0);
-        repository
-            .create_block_range_roots(vec![(
-                last_block_range.clone(),
-                MKTreeNode::from_hex("AAAA").unwrap(),
-            )])
-            .await
-            .unwrap();
-
-        // The last transaction block number give the upper bound
-        let last_transaction_block_number = BlockRange::LENGTH * 4;
-        repository
-            .create_transaction("tx-1", last_transaction_block_number, 50, "block-1", 99)
-            .await
-            .unwrap();
-
-        let interval = repository
-            .get_block_interval_without_block_range_root()
-            .await
-            .unwrap();
-
-        assert_eq!(
-            Some(last_block_range.end..(last_transaction_block_number + 1)),
-            interval
-        );
     }
 
     #[tokio::test]

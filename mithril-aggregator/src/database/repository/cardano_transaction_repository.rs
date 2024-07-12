@@ -26,12 +26,6 @@ impl TransactionStore for CardanoTransactionRepository {
         self.store_transactions(transactions).await
     }
 
-    async fn get_block_interval_without_block_range_root(
-        &self,
-    ) -> StdResult<Option<Range<BlockNumber>>> {
-        self.get_block_interval_without_block_range_root().await
-    }
-
     async fn get_transactions_in_range(
         &self,
         range: Range<BlockNumber>,

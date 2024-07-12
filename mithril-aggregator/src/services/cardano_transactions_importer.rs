@@ -28,11 +28,6 @@ pub trait TransactionStore: Send + Sync {
     /// Store list of transactions
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
 
-    /// Get the interval of blocks whose merkle root has yet to be computed
-    async fn get_block_interval_without_block_range_root(
-        &self,
-    ) -> StdResult<Option<Range<BlockNumber>>>;
-
     /// Get transactions in an interval of blocks
     async fn get_transactions_in_range(
         &self,
