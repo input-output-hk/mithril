@@ -17,6 +17,11 @@ impl TransactionStore for CardanoTransactionRepository {
         self.get_transaction_highest_chain_point().await
     }
 
+    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
+        let record = self.retrieve_highest_block_range_root().await?;
+        Ok(record.map(|record| record.range))
+    }
+
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()> {
         self.store_transactions(transactions).await
     }

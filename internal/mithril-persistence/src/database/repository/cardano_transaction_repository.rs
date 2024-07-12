@@ -164,6 +164,15 @@ impl CardanoTransactionRepository {
         Ok(Box::new(block_range_roots.into_iter()))
     }
 
+    /// Retrieve the block range root with the highest bounds in the database.
+    pub async fn retrieve_highest_block_range_root(
+        &self,
+    ) -> StdResult<Option<BlockRangeRootRecord>> {
+        self.connection_pool
+            .connection()?
+            .fetch_first(GetBlockRangeRootQuery::highest())
+    }
+
     /// Retrieve all the [CardanoTransaction] in database.
     pub async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
         let records = self
@@ -978,6 +987,38 @@ mod tests {
             block_range_roots[0..2].to_vec(),
             retrieved_block_ranges.collect::<Vec<_>>()
         );
+    }
+
+    #[tokio::test]
+    async fn repository_retrieve_highest_block_range_roots() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+        let block_range_roots = vec![
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(15),
+                merkle_root: MKTreeNode::from_hex("AAAA").unwrap(),
+            },
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(30),
+                merkle_root: MKTreeNode::from_hex("BBBB").unwrap(),
+            },
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(45),
+                merkle_root: MKTreeNode::from_hex("CCCC").unwrap(),
+            },
+        ];
+        repository
+            .create_block_range_roots(block_range_roots.clone())
+            .await
+            .unwrap();
+
+        let retrieved_block_range = repository
+            .retrieve_highest_block_range_root()
+            .await
+            .unwrap();
+        assert_eq!(block_range_roots.last().cloned(), retrieved_block_range);
     }
 
     #[tokio::test]

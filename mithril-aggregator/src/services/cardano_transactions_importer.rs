@@ -22,6 +22,9 @@ pub trait TransactionStore: Send + Sync {
     /// Get the highest known transaction beacon
     async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>>;
 
+    /// Get the highest stored block range root bounds
+    async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>>;
+
     /// Store list of transactions
     async fn store_transactions(&self, transactions: Vec<CardanoTransaction>) -> StdResult<()>;
 
@@ -130,15 +133,15 @@ impl CardanoTransactionsImporter {
     }
 
     async fn import_block_ranges(&self, until: BlockNumber) -> StdResult<()> {
-        let block_ranges = match self
-            .transaction_store
-            .get_block_interval_without_block_range_root()
-            .await?
-            // .map(|range| BlockRange::all_block_ranges_in(BlockRange::start(range.start)..range.end))
-            .map(|range| BlockRange::all_block_ranges_in(BlockRange::start(range.start)..=(until)))
-        {
-            // Everything is already computed
-            None => return Ok(()),
+        let block_ranges = match self.transaction_store.get_highest_block_range().await?.map(
+            |highest_stored_block_range| {
+                BlockRange::all_block_ranges_in(
+                    BlockRange::start(highest_stored_block_range.end)..=(until),
+                )
+            },
+        ) {
+            // No block range root stored yet, start from the beginning
+            None => BlockRange::all_block_ranges_in(0..=(until)),
             // Not enough block to form at least one block range
             Some(ranges) if ranges.is_empty() => return Ok(()),
             Some(ranges) => ranges,
@@ -602,8 +605,7 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         )));
 
-        // Transactions for all blocks in the (15..=25) interval, meaning that the last blocks in
-        // the block range (15..30) don't have transactions
+        // For the block range (15..=29) we only have transactions in the 10 first blocks (15..=24)
         let blocks = build_blocks(BlockRange::LENGTH, 10);
         let transactions = into_transactions(&blocks);
         repository.store_transactions(transactions).await.unwrap();
@@ -632,31 +634,29 @@ mod tests {
     async fn block_range_root_retrieves_only_strictly_required_transactions() {
         fn transactions_for_block(range: Range<BlockNumber>) -> StdResult<Vec<CardanoTransaction>> {
             Ok(build_blocks(range.start, range.count() as BlockNumber)
-                .iter()
-                .flat_map(|b| b.clone().into_transactions())
+                .into_iter()
+                .flat_map(|b| b.into_transactions())
                 .collect())
         }
+        const HIGHEST_BLOCK_RANGE_START: BlockNumber = BlockRange::LENGTH;
+        const UP_TO_BLOCK_NUMBER: BlockNumber = BlockRange::LENGTH * 5;
 
         let importer = {
             let mut store_mock = MockTransactionStore::new();
             store_mock
-                .expect_get_block_interval_without_block_range_root()
-                // Specification of the interval without block range root
-                // Note: in reality the lower bound will always be a multiple of BlockRange::LENGTH
-                // since it's computed from the `block_range_root` table
-                .returning(|| Ok(Some((BlockRange::LENGTH + 2)..(BlockRange::LENGTH * 5))))
+                .expect_get_highest_block_range()
+                .returning(|| {
+                    Ok(Some(BlockRange::from_block_number(
+                        HIGHEST_BLOCK_RANGE_START,
+                    )))
+                })
                 .once();
             store_mock
                 .expect_get_transactions_in_range()
-                // Lower bound should be the block number that start after the last known block range end
-                //
-                // if it's not a multiple of BlockRange::LENGTH, it should be the start block number
-                // of the block range that contains the end of the last known block range.
-                //
-                // Upper bound should be the block number of the highest transaction in a db that can be
-                // included in a block range
+                // Lower bound should be the end block number of the last known block range
+                // Upper bound should be the block number provided to `import_block_ranges`
                 .withf(|range| {
-                    BlockRangesSequence::new(BlockRange::LENGTH..=(BlockRange::LENGTH * 5))
+                    BlockRangesSequence::new(HIGHEST_BLOCK_RANGE_START..=UP_TO_BLOCK_NUMBER)
                         .contains(range)
                 })
                 .returning(transactions_for_block);
@@ -670,9 +670,8 @@ mod tests {
             )
         };
 
-        // todo: update this test after reworking expect_get_block_interval_without_block_range_root
         importer
-            .import_block_ranges(BlockRange::LENGTH * 5)
+            .import_block_ranges(UP_TO_BLOCK_NUMBER)
             .await
             .expect("Transactions Importer should succeed");
     }

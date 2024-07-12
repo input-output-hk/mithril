@@ -22,6 +22,12 @@ impl GetBlockRangeRootQuery {
             condition: WhereCondition::new("start < ?*", vec![Value::Integer(block_number as i64)]),
         }
     }
+
+    pub fn highest() -> Self {
+        Self {
+            condition: WhereCondition::new("end = (select max(end) from block_range_root)", vec![]),
+        }
+    }
 }
 
 impl Query for GetBlockRangeRootQuery {
@@ -133,5 +139,27 @@ mod tests {
             .unwrap();
 
         assert_eq!(dataset, cursor);
+    }
+
+    #[test]
+    fn test_get_highest_with_empty_db() {
+        let connection = cardano_tx_db_connection().unwrap();
+
+        let cursor: Option<BlockRangeRootRecord> = connection
+            .fetch_first(GetBlockRangeRootQuery::highest())
+            .unwrap();
+        assert_eq!(None, cursor);
+    }
+
+    #[test]
+    fn test_get_highest() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let dataset = block_range_root_dataset();
+        insert_block_range_roots(&connection, dataset.clone());
+
+        let cursor: Option<BlockRangeRootRecord> = connection
+            .fetch_first(GetBlockRangeRootQuery::highest())
+            .unwrap();
+        assert_eq!(dataset.last().cloned(), cursor);
     }
 }
