@@ -19,7 +19,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2428.0] - UNRELEASED
+## Mithril Distribution [2428.0] - 2024-07-15
 
 - Provide a feature to the `mithril-client` crate to allow selection of the TLS implementation used by the dependent `reqwest` crate.
 
@@ -51,9 +51,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.5.40`  |
+| mithril-client      | `0.8.7`   |
+| mithril-client-cli  | `0.9.6`   |
+| mithril-client-wasm | `0.3.7`   |
+| mithril-common      | `0.4.29`  |
+| mithril-signer      | `0.2.161` |
+| mithril-stm         | `0.3.24`  |
 
 ## Mithril Distribution [2423.0] - 2024-06-12
 
