@@ -107,7 +107,7 @@ impl MithrilSignedEntityService {
         }
     }
 
-    async fn create_artifact_impl(
+    async fn create_artifact_task(
         &self,
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
@@ -116,11 +116,6 @@ impl MithrilSignedEntityService {
             "MithrilSignedEntityService::create_artifact";
             "signed_entity_type" => ?signed_entity_type,
             "certificate_hash" => &certificate.hash
-        );
-
-        println!(
-            "MithrilSignedEntityService::create_artifact: signed_entity_type: {:?}, certificate_hash: {}",
-            signed_entity_type, certificate.hash
         );
 
         let mut remaining_retries = 2;
@@ -154,47 +149,6 @@ impl MithrilSignedEntityService {
                 )
             })?;
         Ok(())
-    }
-
-    async fn create_artifact_return_join_handle(
-        &self,
-        signed_entity_type: SignedEntityType,
-        certificate: &Certificate,
-    ) -> StdResult<JoinHandle<StdResult<()>>> {
-        if self
-            .signed_entity_type_lock
-            .is_locked(&signed_entity_type)
-            .await
-        {
-            return Err(anyhow!(
-                "Signed entity type '{:?}' is already locked",
-                signed_entity_type
-            ));
-        }
-
-        let service = self.clone();
-        let certificate_cloned = certificate.clone();
-        service
-            .signed_entity_type_lock
-            .lock(&signed_entity_type)
-            .await;
-
-        Ok(tokio::task::spawn(async move {
-            let signed_entity_type_clone = signed_entity_type.clone();
-            let service_clone = service.clone();
-            let result = tokio::task::spawn(async move {
-                service_clone
-                    .create_artifact_impl(signed_entity_type_clone, &certificate_cloned)
-                    .await
-            })
-            .await;
-            service
-                .signed_entity_type_lock
-                .release(signed_entity_type)
-                .await;
-
-            result.unwrap()
-        }))
     }
 
     /// Compute artifact from signed entity type
@@ -285,7 +239,7 @@ impl SignedEntityService for MithrilSignedEntityService {
             let service_clone = service.clone();
             let result = tokio::task::spawn(async move {
                 service_clone
-                    .create_artifact_impl(signed_entity_type_clone, &certificate_cloned)
+                    .create_artifact_task(signed_entity_type_clone, &certificate_cloned)
                     .await
             })
             .await;
@@ -544,12 +498,6 @@ mod tests {
             }
         }
 
-        fn mock_immutable_files_processing(&mut self, artifact: Snapshot) {
-            self.mock_artifact_processing(artifact, &|mock_injector| {
-                &mut mock_injector.mock_cardano_immutable_files_full_artifact_builder
-            });
-        }
-
         fn mock_stake_distribution_processing(&mut self, artifact: MithrilStakeDistribution) {
             self.mock_artifact_processing(artifact, &|mock_injector| {
                 &mut mock_injector.mock_mithril_stake_distribution_artifact_builder
@@ -705,38 +653,9 @@ mod tests {
         let error_message_str = error_message.as_str();
 
         artifact_builder_service
-            .create_artifact_impl(signed_entity_type, &certificate)
+            .create_artifact_task(signed_entity_type, &certificate)
             .await
             .expect(error_message_str);
-    }
-
-    // TODO: Verify the relevance of this test
-    #[tokio::test]
-    async fn create_artifact_for_two_signed_entity_types_in_sequence() {
-        let signed_entity_type_service = {
-            let mut mock_container = MockDependencyInjector::new();
-            mock_container.mock_immutable_files_processing(
-                fake_data::snapshots(1).first().unwrap().to_owned(),
-            );
-            mock_container
-                .mock_stake_distribution_processing(create_stake_distribution(Epoch(1), 5));
-
-            mock_container.build_artifact_builder_service()
-        };
-        let certificate = fake_data::certificate("hash".to_string());
-
-        let signed_entity_type_immutable =
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
-        signed_entity_type_service
-            .create_artifact_impl(signed_entity_type_immutable, &certificate)
-            .await
-            .unwrap();
-
-        let signed_entity_type_msd = SignedEntityType::MithrilStakeDistribution(Epoch(1));
-        signed_entity_type_service
-            .create_artifact_impl(signed_entity_type_msd, &certificate)
-            .await
-            .unwrap();
     }
 
     #[tokio::test]
@@ -756,13 +675,13 @@ mod tests {
         let signed_entity_type_immutable =
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
         let first_task_that_never_finished = signed_entity_type_service
-            .create_artifact_return_join_handle(signed_entity_type_immutable, &certificate)
+            .create_artifact(signed_entity_type_immutable, &certificate)
             .await
             .unwrap();
 
         let signed_entity_type_msd = SignedEntityType::MithrilStakeDistribution(Epoch(1));
         let second_task_that_finish_first = signed_entity_type_service
-            .create_artifact_return_join_handle(signed_entity_type_msd, &certificate)
+            .create_artifact(signed_entity_type_msd, &certificate)
             .await
             .unwrap();
 
@@ -788,7 +707,7 @@ mod tests {
                 .await
         );
         let join_handle = signed_entity_type_service
-            .create_artifact_return_join_handle(signed_entity_type_immutable.clone(), &certificate)
+            .create_artifact(signed_entity_type_immutable.clone(), &certificate)
             .await
             .unwrap();
 
@@ -831,7 +750,7 @@ mod tests {
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
 
         let join_handle = signed_entity_type_service
-            .create_artifact_return_join_handle(signed_entity_type_immutable.clone(), &certificate)
+            .create_artifact(signed_entity_type_immutable.clone(), &certificate)
             .await
             .unwrap();
 
@@ -855,7 +774,7 @@ mod tests {
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
 
         let join_handle = signed_entity_type_service
-            .create_artifact_return_join_handle(signed_entity_type_immutable.clone(), &certificate)
+            .create_artifact(signed_entity_type_immutable.clone(), &certificate)
             .await
             .unwrap();
 
@@ -879,12 +798,12 @@ mod tests {
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
 
         signed_entity_service
-            .create_artifact_return_join_handle(signed_entity_type_immutable.clone(), &certificate)
+            .create_artifact(signed_entity_type_immutable.clone(), &certificate)
             .await
             .unwrap();
 
         signed_entity_service
-            .create_artifact_return_join_handle(signed_entity_type_immutable, &certificate)
+            .create_artifact(signed_entity_type_immutable, &certificate)
             .await
             .expect_err("Should return error when signed entity type is already locked");
 
