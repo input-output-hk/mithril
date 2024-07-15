@@ -207,6 +207,142 @@ In the following part of the document, you will need to replace the `./mithril-c
 
 :::
 
+## MSYS2 Windows build
+
+In order to build the `mithril-client` executable on MSYS2 (see
+[MSYS2's webpage](https://www.msys2.org/) for installation instructions), the
+following packages have to be installed:
+
+```bash
+pacman --noconfirm -S base-devel mingw-w64-<env>-x86_64-toolchain mingw-w64-<env>-x86_64-openssl
+```
+
+Where `env` has to be replaced with your particular
+[environment](https://www.msys2.org/docs/environments/) of choice, for example
+`ucrt` if running in the `UCRT64` environment. Use `pacman -Ss <package name>`
+to search for packages if unsure.
+
+:::note
+
+If you encounter the following error:
+
+```
+    This perl implementation doesn't produce Unix like paths (with forward slash
+    directory separators).  Please use an implementation that matches your
+    building platform.
+```
+
+make sure that the `perl` in `/usr/bin/perl.exe` (from the `perl` package) comes
+before the `perl` in `/<env>/bin/perl.exe` (from the
+`mingw-w64-<env>-x86_64-perl` package).
+
+:::
+
+From here you have to run the `rustup-init.exe` binary from
+[rustup](https://rustup.rs/) and follow along these steps:
+
+```bash
+Rust Visual C++ prerequisites
+
+Rust requires a linker and Windows API libraries but they don't seem to be
+available.
+
+These components can be acquired through a Visual Studio installer.
+
+1) Quick install via the Visual Studio Community installer
+   (free for individuals, academic uses, and open source).
+
+2) Manually install the prerequisites
+   (for enterprise and advanced users).
+
+3) Don't install the prerequisites
+   (if you're targeting the GNU ABI).
+
+>3
+
+
+Welcome to Rust!
+
+This will download and install the official compiler for the Rust
+programming language, and its package manager, Cargo.
+
+Rustup metadata and toolchains will be installed into the Rustup
+home directory, located at:
+
+  C:\Users\<User>\.rustup
+
+This can be modified with the RUSTUP_HOME environment variable.
+
+The Cargo home directory is located at:
+
+  C:\Users\<User>\.cargo
+
+This can be modified with the CARGO_HOME environment variable.
+
+The cargo, rustc, rustup and other commands will be added to
+Cargo's bin directory, located at:
+
+  C:\Users\<User>\.cargo\bin
+
+This path will then be added to your PATH environment variable by
+modifying the HKEY_CURRENT_USER/Environment/PATH registry key.
+
+You can uninstall at any time with rustup self uninstall and
+these changes will be reverted.
+
+Current installation options:
+
+
+   default host triple: x86_64-pc-windows-msvc
+     default toolchain: stable (default)
+               profile: default
+  modify PATH variable: yes
+
+1) Proceed with standard installation (default - just press enter)
+2) Customize installation
+3) Cancel installation
+>2
+
+I'm going to ask you the value of each of these installation options.
+You may simply press the Enter key to leave unchanged.
+
+Default host triple? [x86_64-pc-windows-msvc]
+x86_64-pc-windows-gnu
+
+Default toolchain? (stable/beta/nightly/none) [stable]
+
+
+Profile (which tools and data to install)? (minimal/default/complete) [default]
+
+
+Modify PATH variable? (Y/n)
+
+
+
+Current installation options:
+
+
+   default host triple: x86_64-pc-windows-gnu
+     default toolchain: stable
+               profile: default
+  modify PATH variable: yes
+
+1) Proceed with selected options (default - just press enter)
+2) Customize installation
+3) Cancel installation
+>1
+```
+
+Once the Rust toolchain is installed, one can build the executable normally:
+
+```bash
+cd mithril-client-cli
+make build
+```
+
+This will produce a binary `mithril-client.exe` on the current directory. It can
+be invoked the same way as in Linux, with `./mithril-client`.
+
 ## Bootstrap a Cardano node from a testnet Mithril Cardano DB snapshot
 
 ### Step 1: Prepare some useful variables
@@ -300,7 +436,7 @@ You will see more information about the snapshot:
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Size                  | 2323485648                                                                                                                                                                     |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Cardano node version  | 8.9.0                                                                                                                                                                          |
+| Cardano node version  | 9.0.0                                                                                                                                                                          |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Location              | https://storage.googleapis.com/cdn.aggregator.testing-preview.api.mithril.network/preview-e539-i10787.db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667.tar.zst |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -328,11 +464,11 @@ You will see that the selected snapshot archive has been downloaded locally, unp
 5/5 - Verifying the cardano db signature…
 Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
 
-    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 8.9.0.
+    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 9.0.0.
 
     If you are using Cardano Docker image, you can restore a Cardano Node with:
 
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:8.9.0
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:9.0.0
 ```
 
 ### Step 5: Launch a Cardano node from the restored Cardano DB snapshot
@@ -340,7 +476,7 @@ Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' ha
 Launch an empty Cardano node and make it live in minutes!
 
 ```bash
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=$CARDANO_NETWORK ghcr.io/intersectmbo/cardano-node:8.9.0
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=$CARDANO_NETWORK ghcr.io/intersectmbo/cardano-node:9.0.0
 ```
 
 You will see the Cardano node start by validating the files ingested from the snapshot archive. Then, it will synchronize with the other network nodes and start adding blocks:
