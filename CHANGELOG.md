@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX.X] - UNRELEASED
 
+- `mithril-aggregator` node produces artifact for different signed entity types in parallel.
+
 - **UNSTABLE** Cardano transactions certification:
 
   - Make Cardano transaction signing settings configurable via the CD.
