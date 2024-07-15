@@ -45,6 +45,7 @@ export default function CertifyCardanoTransactionsModal({
     setIsCertificateChainValid(true);
     setCertificate(undefined);
     setCurrentStep(validationSteps.ready);
+    setCurrentError(undefined);
 
     if (transactionHashes?.length > 0) {
       fetchGenesisVerificationKey(currentAggregator)
