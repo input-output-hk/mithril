@@ -196,6 +196,7 @@ runs:
           mithril_aggregator_cexplorer_pools_url                                    = "${{ inputs.mithril_aggregator_cexplorer_pools_url }}"
           mithril_aggregator_allow_unparsable_block                                 = "${{ inputs.mithril_aggregator_allow_unparsable_block }}"
           mithril_aggregator_cardano_transactions_prover_cache_pool_size            = "${{ inputs.mithril_aggregator_cardano_transactions_prover_cache_pool_size }}"
+          mithril_aggregator_cardano_transactions_database_connection_pool_size     = "${{ inputs.mithril_aggregator_cardano_transactions_database_connection_pool_size }}"
           mithril_aggregator_cardano_transactions_signing_config_security_parameter = "${{ inputs.mithril_aggregator_cardano_transactions_signing_config_security_parameter }}"
           mithril_aggregator_cardano_transactions_signing_config_step               = "${{ inputs.mithril_aggregator_cardano_transactions_signing_config_step }}"
           prometheus_auth_username                                                  = "${{ inputs.prometheus_auth_username }}"
