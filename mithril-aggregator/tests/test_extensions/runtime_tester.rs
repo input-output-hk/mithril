@@ -9,6 +9,7 @@ use mithril_aggregator::{
     AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
+use mithril_common::entities::SignedEntityType;
 use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
@@ -51,6 +52,13 @@ macro_rules! cycle_err {
 #[macro_export]
 macro_rules! assert_last_certificate_eq {
     ( $tester:expr, $expected_certificate:expr ) => {{
+        if let Some(signed_type) = $expected_certificate.get_signed_type() {
+            $tester
+                .wait_until_signed_entity(&signed_type)
+                .await
+                .unwrap();
+        }
+
         let last_certificate = RuntimeTester::get_last_expected_certificate(&mut $tester)
             .await
             .unwrap();
@@ -567,5 +575,29 @@ impl RuntimeTester {
         };
 
         Ok(cert_identifier)
+    }
+
+    /// Wait until the last stored signed entity of the given type
+    /// corresponds to the expected signed entity type
+    pub async fn wait_until_signed_entity(
+        &self,
+        signed_entity_type_expected: &SignedEntityType,
+    ) -> StdResult<()> {
+        let mut max_iteration = 100;
+        while !self
+            .observer
+            .is_last_signed_entity(signed_entity_type_expected)
+            .await?
+        {
+            max_iteration -= 1;
+            if max_iteration <= 0 {
+                return Err(anyhow!(
+                    "Signed entity not found: {signed_entity_type_expected}"
+                ));
+            }
+            tokio::time::sleep(Duration::from_millis(1)).await;
+        }
+
+        Ok(())
     }
 }
