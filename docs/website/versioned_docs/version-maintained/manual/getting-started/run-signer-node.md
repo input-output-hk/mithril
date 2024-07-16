@@ -447,6 +447,17 @@ tail -f /var/log/syslog | grep mithril-signer
 
 The Mithril signer node can expose basic metrics on a Prometheus endpoint, which is not activated by default.
 
+| Metrics                                                         | Description                                                                         |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **mithril_signer_signer_registration_success_since_startup**    | Number of successful signer registrations since startup on a Mithril signer node    |
+| **mithril_signer_signer_registration_total_since_startup**      | Number of signer registrations since startup on a Mithril signer node               |
+| **mithril_signer_signer_registration_success_last_epoch**       | Latest epoch at which signer successfully registered on a Mithril signer node       |
+| **mithril_signer_signature_registration_success_since_startup** | Number of successful signature registrations since startup on a Mithril signer node |
+| **mithril_signer_signature_registration_total_since_startup**   | Number of signature registrations since startup on a Mithril signer node            |
+| **mithril_signer_signature_registration_success_last_epoch**    | Latest epoch at which signature successfully registered on a Mithril signer node    |
+| **mithril_signer_runtime_cycle_success_since_startup**          | Number of successful runtime cycles since startup on a Mithril signer node          |
+| **mithril_signer_runtime_cycle_total_since_startup**            | Number of runtime cycles since startup on a Mithril signer node                     |
+
 In order to expose metrics on the endpoint, you need to append the following environment variable to your environment file. In that case, the metrics server will listen on the `9090` port:
 
 ```bash
