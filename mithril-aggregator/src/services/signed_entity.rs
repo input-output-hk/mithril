@@ -245,10 +245,12 @@ impl SignedEntityService for MithrilSignedEntityService {
             .await;
             service
                 .signed_entity_type_lock
-                .release(signed_entity_type)
+                .release(signed_entity_type.clone())
                 .await;
 
-            result.unwrap()
+            result.with_context(|| format!(
+                "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'"
+            ))?
         }))
     }
 
@@ -428,7 +430,6 @@ mod tests {
                 atomic_stop: Arc<AtomicBool>,
                 snapshot: Snapshot,
             }
-            impl LongArtifactBuilder {}
 
             let snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
 
@@ -754,7 +755,12 @@ mod tests {
             .await
             .unwrap();
 
-        join_handle.await.unwrap().unwrap_err();
+        let error = join_handle.await.unwrap().unwrap_err();
+        assert!(
+            error.to_string().contains("CardanoImmutableFilesFull"),
+            "Error should contains CardanoImmutableFilesFull but was: {}",
+            error
+        );
 
         assert!(
             !signed_entity_type_service
@@ -778,7 +784,12 @@ mod tests {
             .await
             .unwrap();
 
-        join_handle.await.unwrap_err();
+        let error = join_handle.await.unwrap().unwrap_err();
+        assert!(
+            error.to_string().contains("CardanoImmutableFilesFull"),
+            "Error should contains CardanoImmutableFilesFull but was: {}",
+            error
+        );
 
         assert!(
             !signed_entity_type_service

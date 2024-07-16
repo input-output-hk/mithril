@@ -9,7 +9,6 @@ use mithril_aggregator::{
     AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
-use mithril_common::entities::SignedEntityType;
 use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
@@ -17,7 +16,7 @@ use mithril_common::{
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
-        SignedEntityTypeDiscriminants, Snapshot, StakeDistribution, TimePoint,
+        SignedEntityType, SignedEntityTypeDiscriminants, Snapshot, StakeDistribution, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
