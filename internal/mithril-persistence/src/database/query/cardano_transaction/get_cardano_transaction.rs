@@ -132,10 +132,10 @@ mod tests {
         insert_transactions(
             &connection,
             vec![
-                CardanoTransactionRecord::new("tx-hash-0", 10, 50, "block-hash-10", 1),
-                CardanoTransactionRecord::new("tx-hash-1", 10, 51, "block-hash-10", 1),
-                CardanoTransactionRecord::new("tx-hash-2", 11, 54, "block-hash-11", 1),
-                CardanoTransactionRecord::new("tx-hash-3", 11, 55, "block-hash-11", 1),
+                CardanoTransactionRecord::new("tx-hash-0", 10, 50, "block-hash-10"),
+                CardanoTransactionRecord::new("tx-hash-1", 10, 51, "block-hash-10"),
+                CardanoTransactionRecord::new("tx-hash-2", 11, 54, "block-hash-11"),
+                CardanoTransactionRecord::new("tx-hash-3", 11, 55, "block-hash-11"),
             ],
         );
 
@@ -144,8 +144,8 @@ mod tests {
             .unwrap();
         assert_eq!(
             vec![
-                CardanoTransactionRecord::new("tx-hash-2", 11, 54, "block-hash-11", 1),
-                CardanoTransactionRecord::new("tx-hash-3", 11, 55, "block-hash-11", 1),
+                CardanoTransactionRecord::new("tx-hash-2", 11, 54, "block-hash-11"),
+                CardanoTransactionRecord::new("tx-hash-3", 11, 55, "block-hash-11"),
             ],
             records
         );

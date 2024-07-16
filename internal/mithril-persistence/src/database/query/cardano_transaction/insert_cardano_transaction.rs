@@ -35,7 +35,7 @@ impl InsertCardanoTransactionQuery {
                         Value::Integer(record.block_number.try_into()?),
                         Value::Integer(record.slot_number.try_into()?),
                         Value::String(record.block_hash.clone()),
-                        Value::Integer(record.immutable_file_number.try_into()?),
+                        Value::Integer(0),
                     ]);
                     Ok(vec)
                 });
