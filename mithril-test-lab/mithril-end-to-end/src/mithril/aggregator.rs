@@ -89,7 +89,7 @@ impl Aggregator {
             ("CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE", "5"),
             (
                 "CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER",
-                "1",
+                "15",
             ),
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
         ]);

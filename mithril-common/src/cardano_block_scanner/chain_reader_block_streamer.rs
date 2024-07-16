@@ -109,7 +109,7 @@ impl ChainReaderBlockStreamer {
         let mut chain_reader = self.chain_reader.try_lock()?;
         match chain_reader.get_next_chain_block().await? {
             Some(ChainBlockNextAction::RollForward { parsed_block }) => {
-                if parsed_block.block_number >= self.until {
+                if parsed_block.block_number > self.until {
                     trace!(
                         self.logger,
                         "ChainReaderBlockStreamer received a RollForward above threshold block number ({})",
@@ -165,7 +165,7 @@ mod tests {
     const MAX_ROLL_FORWARDS_PER_POLL: usize = 100;
 
     #[tokio::test]
-    async fn test_parse_expected_nothing_above_block_number_threshold() {
+    async fn test_parse_expected_nothing_strictly_above_block_number_threshold() {
         let until_block_number = 10;
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
@@ -190,7 +190,7 @@ mod tests {
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
             chain_reader.clone(),
             None,
-            until_block_number,
+            until_block_number - 1,
             MAX_ROLL_FORWARDS_PER_POLL,
             TestLogger::stdout(),
         )
@@ -203,7 +203,7 @@ mod tests {
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
             chain_reader,
             None,
-            until_block_number + 1,
+            until_block_number,
             MAX_ROLL_FORWARDS_PER_POLL,
             TestLogger::stdout(),
         )
