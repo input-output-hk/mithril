@@ -15,8 +15,7 @@ use mithril_common::StdResult;
 
 use crate::database::query::{
     DeleteBlockRangeRootQuery, DeleteCardanoTransactionQuery, GetBlockRangeRootQuery,
-    GetCardanoTransactionQuery, GetIntervalWithoutBlockRangeRootQuery, InsertBlockRangeRootQuery,
-    InsertCardanoTransactionQuery,
+    GetCardanoTransactionQuery, InsertBlockRangeRootQuery, InsertCardanoTransactionQuery,
 };
 use crate::database::record::{BlockRangeRootRecord, CardanoTransactionRecord};
 use crate::sqlite::{ConnectionExtensions, SqliteConnection, SqliteConnectionPool};
@@ -164,6 +163,15 @@ impl CardanoTransactionRepository {
         Ok(Box::new(block_range_roots.into_iter()))
     }
 
+    /// Retrieve the block range root with the highest bounds in the database.
+    pub async fn retrieve_highest_block_range_root(
+        &self,
+    ) -> StdResult<Option<BlockRangeRootRecord>> {
+        self.connection_pool
+            .connection()?
+            .fetch_first(GetBlockRangeRootQuery::highest())
+    }
+
     /// Retrieve all the [CardanoTransaction] in database.
     pub async fn get_all(&self) -> StdResult<Vec<CardanoTransaction>> {
         let records = self
@@ -224,22 +232,6 @@ impl CardanoTransactionRepository {
             transaction.commit()?;
         }
         Ok(())
-    }
-
-    /// Get the block interval without block range root if any.
-    pub async fn get_block_interval_without_block_range_root(
-        &self,
-    ) -> StdResult<Option<Range<BlockNumber>>> {
-        let interval = self
-            .connection_pool
-            .connection()?
-            .fetch_first(GetIntervalWithoutBlockRangeRootQuery::new())?
-            // Should be impossible - the request as written in the query always returns a single row
-            .unwrap_or_else(|| {
-                panic!("GetIntervalWithoutBlockRangeRootQuery should always return a single row")
-            });
-
-        interval.to_range()
     }
 
     /// Get the block number for a given slot number
@@ -753,41 +745,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_get_block_interval_without_block_range_root() {
-        let connection = cardano_tx_db_connection().unwrap();
-        let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
-        ));
-
-        // The last block range give the lower bound
-        let last_block_range = BlockRange::from_block_number(0);
-        repository
-            .create_block_range_roots(vec![(
-                last_block_range.clone(),
-                MKTreeNode::from_hex("AAAA").unwrap(),
-            )])
-            .await
-            .unwrap();
-
-        // The last transaction block number give the upper bound
-        let last_transaction_block_number = BlockRange::LENGTH * 4;
-        repository
-            .create_transaction("tx-1", last_transaction_block_number, 50, "block-1", 99)
-            .await
-            .unwrap();
-
-        let interval = repository
-            .get_block_interval_without_block_range_root()
-            .await
-            .unwrap();
-
-        assert_eq!(
-            Some(last_block_range.end..(last_transaction_block_number + 1)),
-            interval
-        );
-    }
-
-    #[tokio::test]
     async fn repository_get_transactions_by_block_ranges() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
@@ -978,6 +935,38 @@ mod tests {
             block_range_roots[0..2].to_vec(),
             retrieved_block_ranges.collect::<Vec<_>>()
         );
+    }
+
+    #[tokio::test]
+    async fn repository_retrieve_highest_block_range_roots() {
+        let connection = cardano_tx_db_connection().unwrap();
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build_from_connection(connection),
+        ));
+        let block_range_roots = vec![
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(15),
+                merkle_root: MKTreeNode::from_hex("AAAA").unwrap(),
+            },
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(30),
+                merkle_root: MKTreeNode::from_hex("BBBB").unwrap(),
+            },
+            BlockRangeRootRecord {
+                range: BlockRange::from_block_number(45),
+                merkle_root: MKTreeNode::from_hex("CCCC").unwrap(),
+            },
+        ];
+        repository
+            .create_block_range_roots(block_range_roots.clone())
+            .await
+            .unwrap();
+
+        let retrieved_block_range = repository
+            .retrieve_highest_block_range_root()
+            .await
+            .unwrap();
+        assert_eq!(block_range_roots.last().cloned(), retrieved_block_range);
     }
 
     #[tokio::test]
