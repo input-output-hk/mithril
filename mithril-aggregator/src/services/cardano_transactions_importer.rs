@@ -3,6 +3,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, Logger};
 use tokio::{runtime::Handle, task};
@@ -51,6 +52,7 @@ pub trait TransactionStore: Send + Sync {
 }
 
 /// Import and store [CardanoTransaction].
+#[derive(Clone)]
 pub struct CardanoTransactionsImporter {
     block_scanner: Arc<dyn BlockScanner>,
     transaction_store: Arc<dyn TransactionStore>,
@@ -174,31 +176,29 @@ impl CardanoTransactionsImporter {
             .store_block_range_roots(block_ranges_with_merkle_root)
             .await
     }
-
-    async fn import_transactions_and_block_ranges(
-        &self,
-        up_to_beacon: BlockNumber,
-    ) -> StdResult<()> {
-        self.import_transactions(up_to_beacon).await?;
-        self.import_block_ranges(up_to_beacon).await
-    }
 }
 
 #[async_trait]
 impl TransactionsImporter for CardanoTransactionsImporter {
     async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
-        task::block_in_place(move || {
+        let importer = self.clone();
+        task::spawn_blocking(move || {
             Handle::current().block_on(async move {
-                self.import_transactions_and_block_ranges(up_to_beacon)
-                    .await
+                importer.import_transactions(up_to_beacon).await?;
+                importer.import_block_ranges(up_to_beacon).await?;
+                Ok(())
             })
         })
+        .await
+        .with_context(|| "TransactionsImporter - worker thread crashed")?
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_persistence::sqlite::SqliteConnectionPool;
+    use std::sync::atomic::AtomicUsize;
+    use std::time::Duration;
+
     use mockall::mock;
 
     use mithril_common::cardano_block_scanner::{
@@ -207,6 +207,7 @@ mod tests {
     use mithril_common::crypto_helper::MKTree;
     use mithril_common::entities::{BlockNumber, BlockRangesSequence};
     use mithril_persistence::database::repository::CardanoTransactionRepository;
+    use mithril_persistence::sqlite::SqliteConnectionPool;
 
     use crate::database::test_helper::cardano_tx_db_connection;
     use crate::test_tools::TestLogger;
@@ -717,7 +718,7 @@ mod tests {
         );
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order(
     ) {
         let blocks = vec![
@@ -754,7 +755,7 @@ mod tests {
         assert_eq!(cold_imported_transactions, warm_imported_transactions);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn when_rollbackward_should_remove_transactions() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
@@ -797,7 +798,7 @@ mod tests {
         assert_eq!(expected_remaining_transactions, stored_transactions);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn when_rollbackward_should_remove_block_ranges() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
@@ -868,5 +869,93 @@ mod tests {
                 .map(|r| r.range)
                 .collect::<Vec<_>>()
         );
+    }
+
+    #[tokio::test]
+    async fn test_import_is_non_blocking() {
+        static COUNTER: AtomicUsize = AtomicUsize::new(0);
+        static MAX_COUNTER: usize = 25;
+        static WAIT_TIME: u64 = 50;
+
+        // Use a local set to ensure the counter task is not dispatched on a different thread
+        let local = task::LocalSet::new();
+        local
+            .run_until(async {
+                let importer = CardanoTransactionsImporter::new_for_test(
+                    Arc::new(DumbBlockScanner::new()),
+                    Arc::new(BlockingRepository {
+                        wait_time: Duration::from_millis(WAIT_TIME),
+                    }),
+                );
+
+                let importer_future = importer.import(100);
+                let counter_task = task::spawn_local(async {
+                    while COUNTER.load(std::sync::atomic::Ordering::SeqCst) < MAX_COUNTER {
+                        tokio::time::sleep(Duration::from_millis(1)).await;
+                        COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    }
+                });
+                importer_future.await.unwrap();
+
+                counter_task.abort();
+            })
+            .await;
+
+        assert_eq!(
+            MAX_COUNTER,
+            COUNTER.load(std::sync::atomic::Ordering::SeqCst)
+        );
+
+        struct BlockingRepository {
+            wait_time: Duration,
+        }
+
+        impl BlockingRepository {
+            fn block_thread(&self) {
+                std::thread::sleep(self.wait_time);
+            }
+        }
+
+        #[async_trait]
+        impl TransactionStore for BlockingRepository {
+            async fn get_highest_beacon(&self) -> StdResult<Option<ChainPoint>> {
+                self.block_thread();
+                Ok(None)
+            }
+
+            async fn get_highest_block_range(&self) -> StdResult<Option<BlockRange>> {
+                self.block_thread();
+                Ok(None)
+            }
+
+            async fn store_transactions(&self, _: Vec<CardanoTransaction>) -> StdResult<()> {
+                self.block_thread();
+                Ok(())
+            }
+
+            async fn get_transactions_in_range(
+                &self,
+                _: Range<BlockNumber>,
+            ) -> StdResult<Vec<CardanoTransaction>> {
+                self.block_thread();
+                Ok(vec![])
+            }
+
+            async fn store_block_range_roots(
+                &self,
+                _: Vec<(BlockRange, MKTreeNode)>,
+            ) -> StdResult<()> {
+                self.block_thread();
+                Ok(())
+            }
+
+            async fn remove_rolled_back_transactions_and_block_range(
+                &self,
+                _: SlotNumber,
+            ) -> StdResult<()> {
+                self.block_thread();
+                Ok(())
+            }
+        }
     }
 }

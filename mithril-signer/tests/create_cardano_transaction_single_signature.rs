@@ -9,7 +9,7 @@ use mithril_common::{
 use test_extensions::StateMachineTester;
 
 #[rustfmt::skip]
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_create_cardano_transaction_single_signature() {
     let protocol_parameters = tests_setup::setup_protocol_parameters();
     let fixture = MithrilFixtureBuilder::default()

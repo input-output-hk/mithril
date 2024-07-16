@@ -29,7 +29,7 @@ fn init_logger(opts: &MainOpts) -> slog_scope::GlobalLoggerGuard {
     slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()))
 }
 
-#[tokio::main(flavor = "multi_thread")]
+#[tokio::main]
 async fn main() -> StdResult<()> {
     let opts = MainOpts::parse();
     let mut reporter: Reporter = Reporter::new(opts.num_signers, opts.num_clients);
