@@ -18,14 +18,14 @@ use crate::entities::{BlockRange, CardanoTransaction};
 ///     assert_eq!(8, txs.len());
 ///     assert_eq!(
 ///         vec![
-///             CardanoTransaction::new("tx-hash-0-100", 0, 100, "block-hash-0", 1),
-///             CardanoTransaction::new("tx-hash-0-101", 0, 101, "block-hash-0", 2),
-///             CardanoTransaction::new("tx-hash-0-102", 0, 102, "block-hash-0", 3),
-///             CardanoTransaction::new("tx-hash-1-103", 1, 103, "block-hash-1", 4),
-///             CardanoTransaction::new("tx-hash-1-104", 1, 104, "block-hash-1", 5),
-///             CardanoTransaction::new("tx-hash-1-105", 1, 105, "block-hash-1", 6),
-///             CardanoTransaction::new("tx-hash-15-106", 15, 106, "block-hash-15", 7),
-///             CardanoTransaction::new("tx-hash-15-107", 15, 107, "block-hash-15", 8)
+///             CardanoTransaction::new("tx-hash-0-100", 0, 100, "block-hash-0", 0),
+///             CardanoTransaction::new("tx-hash-0-101", 0, 101, "block-hash-0", 0),
+///             CardanoTransaction::new("tx-hash-0-102", 0, 102, "block-hash-0", 0),
+///             CardanoTransaction::new("tx-hash-1-103", 1, 103, "block-hash-1", 0),
+///             CardanoTransaction::new("tx-hash-1-104", 1, 104, "block-hash-1", 0),
+///             CardanoTransaction::new("tx-hash-1-105", 1, 105, "block-hash-1", 0),
+///             CardanoTransaction::new("tx-hash-15-106", 15, 106, "block-hash-15", 0),
+///             CardanoTransaction::new("tx-hash-15-107", 15, 107, "block-hash-15", 0)
 ///         ],
 ///         txs
 ///     );
@@ -45,18 +45,18 @@ use crate::entities::{BlockRange, CardanoTransaction};
 ///     assert_eq!(3 * 2 * 2, txs.len());
 ///     assert_eq!(
 ///         vec![
-///             CardanoTransaction::new("tx-hash-0-100", 0, 100, "block-hash-0", 1),
-///             CardanoTransaction::new("tx-hash-0-101", 0, 101, "block-hash-0", 2),
-///             CardanoTransaction::new("tx-hash-0-102", 0, 102, "block-hash-0", 3),
-///             CardanoTransaction::new("tx-hash-1-103", 1, 103, "block-hash-1", 4),
-///             CardanoTransaction::new("tx-hash-1-104", 1, 104, "block-hash-1", 5),
-///             CardanoTransaction::new("tx-hash-1-105", 1, 105, "block-hash-1", 6),
-///             CardanoTransaction::new("tx-hash-15-106", 15, 106, "block-hash-15", 7),
-///             CardanoTransaction::new("tx-hash-15-107", 15, 107, "block-hash-15", 8),
-///             CardanoTransaction::new("tx-hash-15-108", 15, 108, "block-hash-15", 9),
-///             CardanoTransaction::new("tx-hash-16-109", 16, 109, "block-hash-16", 10),
-///             CardanoTransaction::new("tx-hash-16-110", 16, 110, "block-hash-16", 11),
-///             CardanoTransaction::new("tx-hash-16-111", 16, 111, "block-hash-16", 12),
+///             CardanoTransaction::new("tx-hash-0-100", 0, 100, "block-hash-0", 0),
+///             CardanoTransaction::new("tx-hash-0-101", 0, 101, "block-hash-0", 0),
+///             CardanoTransaction::new("tx-hash-0-102", 0, 102, "block-hash-0", 0),
+///             CardanoTransaction::new("tx-hash-1-103", 1, 103, "block-hash-1", 0),
+///             CardanoTransaction::new("tx-hash-1-104", 1, 104, "block-hash-1", 0),
+///             CardanoTransaction::new("tx-hash-1-105", 1, 105, "block-hash-1", 0),
+///             CardanoTransaction::new("tx-hash-15-106", 15, 106, "block-hash-15", 0),
+///             CardanoTransaction::new("tx-hash-15-107", 15, 107, "block-hash-15", 0),
+///             CardanoTransaction::new("tx-hash-15-108", 15, 108, "block-hash-15", 0),
+///             CardanoTransaction::new("tx-hash-16-109", 16, 109, "block-hash-16", 0),
+///             CardanoTransaction::new("tx-hash-16-110", 16, 110, "block-hash-16", 0),
+///             CardanoTransaction::new("tx-hash-16-111", 16, 111, "block-hash-16", 0),
 ///         ],
 ///         txs
 ///     );
@@ -64,8 +64,6 @@ use crate::entities::{BlockRange, CardanoTransaction};
 pub struct CardanoTransactionsBuilder {
     max_transactions_per_block: usize,
     max_blocks_per_block_range: usize,
-    max_transactions_per_immutable_file: usize,
-    first_immutable_file: u64,
 }
 
 impl Default for CardanoTransactionsBuilder {
@@ -80,29 +78,12 @@ impl CardanoTransactionsBuilder {
         Self {
             max_transactions_per_block: 1,
             max_blocks_per_block_range: 1,
-            max_transactions_per_immutable_file: 1,
-            first_immutable_file: 1,
         }
     }
 
     /// Define how many transactions we generate in each block.
     pub fn max_transactions_per_block(mut self, transactions_per_block: usize) -> Self {
         self.max_transactions_per_block = transactions_per_block;
-        self
-    }
-
-    /// Define how many transactions we generate for one immutable_file.
-    pub fn max_transactions_per_immutable_file(
-        mut self,
-        transactions_per_immutable_file: usize,
-    ) -> Self {
-        self.max_transactions_per_immutable_file = transactions_per_immutable_file;
-        self
-    }
-
-    /// Define the first immutable file number.
-    pub fn first_immutable_file(mut self, first_immutable_file: u64) -> Self {
-        self.first_immutable_file = first_immutable_file;
         self
     }
 
@@ -125,14 +106,10 @@ impl CardanoTransactionsBuilder {
         let first_transaction_number = 100;
         for tx_index in 0..transactions_count {
             let block_number = self.block_number_from_transaction_index(tx_index);
-            let immutable_file_number = tx_index as u64
-                / self.max_transactions_per_immutable_file as u64
-                + self.first_immutable_file;
-            transactions.push(self.create_transaction(
-                tx_index as u64 + first_transaction_number,
-                block_number,
-                immutable_file_number,
-            ))
+
+            transactions.push(
+                self.create_transaction(tx_index as u64 + first_transaction_number, block_number),
+            )
         }
 
         transactions
@@ -158,18 +135,13 @@ impl CardanoTransactionsBuilder {
     }
 
     /// Create a transaction with a given index and block number.
-    fn create_transaction(
-        &self,
-        transaction_id: u64,
-        block_number: u64,
-        immutable_file_number: u64,
-    ) -> CardanoTransaction {
+    fn create_transaction(&self, transaction_id: u64, block_number: u64) -> CardanoTransaction {
         CardanoTransaction::new(
             format!("tx-hash-{}-{}", block_number, transaction_id),
             block_number,
             transaction_id,
             format!("block-hash-{block_number}"),
-            immutable_file_number,
+            0,
         )
     }
 }
@@ -218,7 +190,6 @@ mod test {
         assert_eq!(3, count_distinct_values(&txs, &|t| t.block_number));
         assert_eq!(3, count_distinct_values(&txs, &|t| t.slot_number));
         assert_eq!(3, count_distinct_values(&txs, &|t| t.block_hash.clone()));
-        assert_eq!(3, count_distinct_values(&txs, &|t| t.immutable_file_number));
     }
 
     #[test]
@@ -370,47 +341,5 @@ mod test {
     #[should_panic]
     fn should_panic_when_too_many_blocks_per_block_range() {
         CardanoTransactionsBuilder::new().blocks_per_block_range(BlockRange::LENGTH as usize + 1);
-    }
-
-    #[test]
-    fn build_transactions_with_many_transactions_per_immutable_file() {
-        let transactions = CardanoTransactionsBuilder::new()
-            .max_transactions_per_immutable_file(5)
-            .build_transactions(18);
-
-        assert_eq!(transactions.len(), 18);
-
-        assert_eq!(
-            4,
-            count_distinct_values(&transactions, &|t| t.immutable_file_number)
-        );
-    }
-
-    #[test]
-    fn build_transactions_with_same_number_of_transactions_per_immutable_file() {
-        let transactions = CardanoTransactionsBuilder::new()
-            .max_transactions_per_immutable_file(5)
-            .build_transactions(20);
-
-        assert_eq!(transactions.len(), 20);
-
-        let grouped_by_immutable_file = group_by(&transactions, &|t| t.immutable_file_number);
-        assert_eq!(4, grouped_by_immutable_file.len());
-
-        for transaction_for_immutable_file in grouped_by_immutable_file.values() {
-            assert_eq!(5, transaction_for_immutable_file.len());
-        }
-    }
-
-    #[test]
-    fn build_transactions_with_immutable_file_starting_at_a_specific_number() {
-        let transactions = CardanoTransactionsBuilder::new()
-            .first_immutable_file(5)
-            .build_transactions(3);
-
-        assert_eq!(
-            vec![5, 6, 7],
-            extract_by(&transactions, &|t| t.immutable_file_number)
-        );
     }
 }
