@@ -340,8 +340,8 @@ mod tests {
 
         repository
             .create_transactions(vec![
-                CardanoTransaction::new("tx_hash-123", 10, 50, "block_hash-123", 99),
-                CardanoTransaction::new("tx_hash-456", 11, 51, "block_hash-456", 100),
+                CardanoTransaction::new("tx_hash-123", 10, 50, "block_hash-123"),
+                CardanoTransaction::new("tx_hash-456", 11, 51, "block_hash-456"),
             ])
             .await
             .unwrap();
@@ -354,7 +354,7 @@ mod tests {
                     block_number: 10,
                     slot_number: 50,
                     block_hash: "block_hash-123".to_string(),
-                    immutable_file_number: 99
+                    immutable_file_number: 0
                 }),
                 transaction_result
             );
@@ -471,8 +471,8 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-123", 99),
-            CardanoTransaction::new("tx-hash-456", 11, 51, "block-hash-456", 100),
+            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-123"),
+            CardanoTransaction::new("tx-hash-456", 11, 51, "block-hash-456"),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -487,7 +487,7 @@ mod tests {
                 block_number: 10,
                 slot_number: 50,
                 block_hash: "block-hash-123".to_string(),
-                immutable_file_number: 99
+                immutable_file_number: 0
             }),
             transaction_result
         );
@@ -500,7 +500,7 @@ mod tests {
                 block_number: 11,
                 slot_number: 51,
                 block_hash: "block-hash-456".to_string(),
-                immutable_file_number: 100,
+                immutable_file_number: 0,
             }),
             transaction_result
         );
@@ -514,8 +514,8 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 99),
-            CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456", 100),
+            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123"),
+            CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456"),
         ];
         repository
             .create_transactions(cardano_transactions.clone())
@@ -548,7 +548,6 @@ mod tests {
             10,
             50,
             "block-hash-123",
-            99,
         )];
         repository
             .create_transactions(cardano_transactions)
@@ -591,8 +590,8 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
-            CardanoTransaction::new("tx-hash-456", 25, 51, "block-hash-25", 100),
+            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10"),
+            CardanoTransaction::new("tx-hash-456", 25, 51, "block-hash-25"),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -622,9 +621,9 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10", 50),
-            CardanoTransaction::new("tx-hash-456", 25, 51, "block-hash-25", 100),
-            CardanoTransaction::new("tx-hash-789", 25, 51, "block-hash-25", 100),
+            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10"),
+            CardanoTransaction::new("tx-hash-456", 25, 51, "block-hash-25"),
+            CardanoTransaction::new("tx-hash-789", 25, 51, "block-hash-25"),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -667,8 +666,8 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),
-            CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456", 100),
+            CardanoTransactionRecord::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),
+            CardanoTransactionRecord::new("tx-hash-456".to_string(), 11, 51, "block-hash-456", 100),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -1056,21 +1055,14 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", BlockRange::LENGTH, 50, "block-hash-123", 50),
+            CardanoTransaction::new("tx-hash-123", BlockRange::LENGTH, 50, "block-hash-123"),
             CardanoTransaction::new(
                 "tx-hash-123",
                 BlockRange::LENGTH * 3 - 1,
                 50,
                 "block-hash-123",
-                50,
             ),
-            CardanoTransaction::new(
-                "tx-hash-456",
-                BlockRange::LENGTH * 3,
-                51,
-                "block-hash-456",
-                100,
-            ),
+            CardanoTransaction::new("tx-hash-456", BlockRange::LENGTH * 3, 51, "block-hash-456"),
         ];
         repository
             .create_transactions(cardano_transactions)

@@ -52,7 +52,7 @@ impl From<CardanoTransaction> for CardanoTransactionRecord {
             block_number: transaction.block_number,
             slot_number: transaction.slot_number,
             block_hash: transaction.block_hash,
-            immutable_file_number: transaction.immutable_file_number,
+            immutable_file_number: 0,
         }
     }
 }
@@ -64,7 +64,6 @@ impl From<CardanoTransactionRecord> for CardanoTransaction {
             block_number: other.block_number,
             slot_number: other.slot_number,
             block_hash: other.block_hash,
-            immutable_file_number: other.immutable_file_number,
         }
     }
 }

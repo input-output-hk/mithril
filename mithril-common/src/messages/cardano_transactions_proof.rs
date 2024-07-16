@@ -330,8 +330,8 @@ mod tests {
         async fn verify_hashes_from_verified_cardano_transaction_and_from_signable_builder_are_equals(
         ) {
             let transactions = vec![
-                CardanoTransaction::new("tx-hash-123", 10, 1, "block_hash", 1),
-                CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash", 1),
+                CardanoTransaction::new("tx-hash-123", 10, 1, "block_hash"),
+                CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash"),
             ];
 
             assert_eq!(

@@ -72,7 +72,6 @@ impl ScannedBlock {
                     self.block_number,
                     self.slot_number,
                     self.block_hash.clone(),
-                    self.immutable_file_number,
                 )
             })
             .collect::<Vec<_>>()

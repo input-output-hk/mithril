@@ -422,7 +422,7 @@ mod tests {
             ScannedBlock::new("block_hash-2", 20, 25, 11, vec!["tx_hash-3", "tx_hash-4"]),
         ]]);
 
-        let last_tx = CardanoTransaction::new("tx-20", 30, 35, "block_hash-3", up_to_block_number);
+        let last_tx = CardanoTransaction::new("tx-20", 30, 35, "block_hash-3");
         repository
             .store_transactions(vec![last_tx.clone()])
             .await

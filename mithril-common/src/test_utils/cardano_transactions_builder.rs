@@ -18,14 +18,14 @@ use crate::entities::{BlockRange, CardanoTransaction};
 ///     assert_eq!(8, txs.len());
 ///     assert_eq!(
 ///         vec![
-///             CardanoTransaction::new("tx-hash-0-100", 0, 100, "block-hash-0", 0),
-///             CardanoTransaction::new("tx-hash-0-101", 0, 101, "block-hash-0", 0),
-///             CardanoTransaction::new("tx-hash-0-102", 0, 102, "block-hash-0", 0),
-///             CardanoTransaction::new("tx-hash-1-103", 1, 103, "block-hash-1", 0),
-///             CardanoTransaction::new("tx-hash-1-104", 1, 104, "block-hash-1", 0),
-///             CardanoTransaction::new("tx-hash-1-105", 1, 105, "block-hash-1", 0),
-///             CardanoTransaction::new("tx-hash-15-106", 15, 106, "block-hash-15", 0),
-///             CardanoTransaction::new("tx-hash-15-107", 15, 107, "block-hash-15", 0)
+///             CardanoTransaction::new("tx-hash-0-100", 0, 100, "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-101", 0, 101, "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-102", 0, 102, "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-1-103", 1, 103, "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-104", 1, 104, "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-105", 1, 105, "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-15-106", 15, 106, "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-107", 15, 107, "block-hash-15")
 ///         ],
 ///         txs
 ///     );
@@ -45,18 +45,18 @@ use crate::entities::{BlockRange, CardanoTransaction};
 ///     assert_eq!(3 * 2 * 2, txs.len());
 ///     assert_eq!(
 ///         vec![
-///             CardanoTransaction::new("tx-hash-0-100", 0, 100, "block-hash-0", 0),
-///             CardanoTransaction::new("tx-hash-0-101", 0, 101, "block-hash-0", 0),
-///             CardanoTransaction::new("tx-hash-0-102", 0, 102, "block-hash-0", 0),
-///             CardanoTransaction::new("tx-hash-1-103", 1, 103, "block-hash-1", 0),
-///             CardanoTransaction::new("tx-hash-1-104", 1, 104, "block-hash-1", 0),
-///             CardanoTransaction::new("tx-hash-1-105", 1, 105, "block-hash-1", 0),
-///             CardanoTransaction::new("tx-hash-15-106", 15, 106, "block-hash-15", 0),
-///             CardanoTransaction::new("tx-hash-15-107", 15, 107, "block-hash-15", 0),
-///             CardanoTransaction::new("tx-hash-15-108", 15, 108, "block-hash-15", 0),
-///             CardanoTransaction::new("tx-hash-16-109", 16, 109, "block-hash-16", 0),
-///             CardanoTransaction::new("tx-hash-16-110", 16, 110, "block-hash-16", 0),
-///             CardanoTransaction::new("tx-hash-16-111", 16, 111, "block-hash-16", 0),
+///             CardanoTransaction::new("tx-hash-0-100", 0, 100, "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-101", 0, 101, "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-102", 0, 102, "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-1-103", 1, 103, "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-104", 1, 104, "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-105", 1, 105, "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-15-106", 15, 106, "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-107", 15, 107, "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-108", 15, 108, "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-16-109", 16, 109, "block-hash-16"),
+///             CardanoTransaction::new("tx-hash-16-110", 16, 110, "block-hash-16"),
+///             CardanoTransaction::new("tx-hash-16-111", 16, 111, "block-hash-16"),
 ///         ],
 ///         txs
 ///     );
@@ -141,7 +141,6 @@ impl CardanoTransactionsBuilder {
             block_number,
             transaction_id,
             format!("block-hash-{block_number}"),
-            0,
         )
     }
 }
@@ -171,10 +170,6 @@ mod test {
                 .push(t);
         }
         grouped_by_block
-    }
-
-    fn extract_by<T, R>(list: &[T], extract_value: &dyn Fn(&T) -> R) -> Vec<R> {
-        list.iter().map(extract_value).collect()
     }
 
     #[test]
