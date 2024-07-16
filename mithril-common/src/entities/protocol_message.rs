@@ -22,6 +22,14 @@ pub enum ProtocolMessagePartKey {
     /// The ProtocolMessage part key associated to the latest block number signed
     #[serde(rename = "latest_block_number")]
     LatestBlockNumber,
+
+    /// The ProtocolMessage part key associated to the Epoch when the Cardano Stake Distribution was computed
+    #[serde(rename = "cardano_transactions_epoch")]
+    CardanoStakeDistributionEpoch,
+
+    /// The ProtocolMessage part key associated to the Cardano Stake Distribution Merkle Root
+    #[serde(rename = "cardano_stake_distribution_merkle_root")]
+    CardanoStakeDistributionMerkleRoot,
 }
 
 impl Display for ProtocolMessagePartKey {
@@ -31,6 +39,10 @@ impl Display for ProtocolMessagePartKey {
             Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
             Self::CardanoTransactionsMerkleRoot => write!(f, "cardano_transactions_merkle_root"),
             Self::LatestBlockNumber => write!(f, "latest_block_number"),
+            Self::CardanoStakeDistributionEpoch => write!(f, "cardano_transactions_epoch"),
+            Self::CardanoStakeDistributionMerkleRoot => {
+                write!(f, "cardano_stake_distribution_merkle_root")
+            }
         }
     }
 }
@@ -130,6 +142,34 @@ mod tests {
     }
 
     #[test]
+    fn test_protocol_message_compute_hash_include_cardano_stake_distribution_epoch() {
+        let protocol_message = build_protocol_message_reference();
+        let hash_expected = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::CardanoStakeDistributionEpoch,
+            "cardano-stake-distribution-epoch-456".to_string(),
+        );
+
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_protocol_message_compute_hash_include_cardano_stake_distribution_merkle_root() {
+        let protocol_message = build_protocol_message_reference();
+        let hash_expected = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+            "cardano-stake-distribution-merkle-root-456".to_string(),
+        );
+
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
     fn test_protocol_message_compute_hash_include_lastest_immutable_file_number() {
         let protocol_message = build_protocol_message_reference();
         let hash_expected = protocol_message.compute_hash();
@@ -168,6 +208,14 @@ mod tests {
         protocol_message.set_message_part(
             ProtocolMessagePartKey::LatestBlockNumber,
             "latest-immutable-file-number-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::CardanoStakeDistributionEpoch,
+            "cardano-stake-distribution-epoch-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+            "cardano-stake-distribution-merkle-root-123".to_string(),
         );
 
         protocol_message
