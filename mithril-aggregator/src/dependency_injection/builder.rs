@@ -1135,6 +1135,7 @@ impl DependenciesBuilder {
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
+            self.get_signed_entity_lock().await?,
         ));
 
         // Compute the cache pool for prover service
