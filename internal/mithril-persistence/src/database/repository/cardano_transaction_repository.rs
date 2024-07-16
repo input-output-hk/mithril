@@ -4,7 +4,6 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
-use mithril_common::cardano_block_scanner::ImmutableLowerBoundFinder;
 use mithril_common::crypto_helper::MKTreeNode;
 use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoTransaction, ChainPoint, ImmutableFileNumber,
@@ -321,13 +320,6 @@ impl BlockRangeRootRetriever for CardanoTransactionRepository {
         up_to_beacon: BlockNumber,
     ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>> {
         self.retrieve_block_range_roots_up_to(up_to_beacon).await
-    }
-}
-
-#[async_trait]
-impl ImmutableLowerBoundFinder for CardanoTransactionRepository {
-    async fn find_lower_bound(&self) -> StdResult<Option<ImmutableFileNumber>> {
-        self.get_transaction_highest_immutable_file_number().await
     }
 }
 
@@ -1054,26 +1046,6 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(Some(30), highest);
-    }
-
-    #[tokio::test]
-    async fn find_block_scanner_lower_bound() {
-        let connection = cardano_tx_db_connection().unwrap();
-        let repository = CardanoTransactionRepository::new(Arc::new(
-            SqliteConnectionPool::build_from_connection(connection),
-        ));
-
-        let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123", 50),
-            CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456", 100),
-        ];
-        repository
-            .create_transactions(cardano_transactions)
-            .await
-            .unwrap();
-
-        let highest_beacon = repository.find_lower_bound().await.unwrap();
-        assert_eq!(Some(100), highest_beacon);
     }
 
     #[tokio::test]
