@@ -5,6 +5,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::entities::{Epoch, StakeDistribution};
+use mithril_common::signable_builder::StakeDistributionRetriever;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
@@ -87,6 +88,15 @@ impl StakeStorer for StakePoolStore {
     }
 }
 
+#[async_trait]
+impl StakeDistributionRetriever for StakePoolStore {
+    async fn retrieve(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
+        let stake_distribution = self.get_stakes(epoch).await?;
+
+        Ok(stake_distribution)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::database::test_helper::{insert_stake_pool, main_db_connection};
@@ -119,5 +129,33 @@ mod tests {
             epoch2_stakes.is_some(),
             "Stakes at epoch 2 should still exist",
         );
+    }
+
+    #[tokio::test]
+    async fn retrieve_with_no_stakes_returns_none() {
+        let connection = main_db_connection().unwrap();
+        let store = StakePoolStore::new(Arc::new(connection), None);
+
+        let result = store.retrieve(Epoch(1)).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn retrieve_returns_cardano_stake_distribution() {
+        let connection = main_db_connection().unwrap();
+        let store = StakePoolStore::new(Arc::new(connection), None);
+        store
+            .save_stakes(
+                Epoch(1),
+                StakeDistribution::from([("pool-123".to_string(), 123)]),
+            )
+            .await
+            .unwrap();
+
+        let stake_distribution = store.retrieve(Epoch(1)).await.unwrap();
+
+        let expected_stake_distribution = StakeDistribution::from([("pool-123".to_string(), 123)]);
+        assert_eq!(Some(expected_stake_distribution), stake_distribution);
     }
 }
