@@ -173,7 +173,6 @@ mod tests {
                     "hash-1",
                     until_block_number,
                     100,
-                    1,
                     Vec::<&str>::new(),
                 ),
             },
@@ -182,7 +181,6 @@ mod tests {
                     "hash-2",
                     until_block_number,
                     100,
-                    1,
                     Vec::<&str>::new(),
                 ),
             },
@@ -216,7 +214,6 @@ mod tests {
                 "hash-2",
                 until_block_number,
                 100,
-                1,
                 Vec::<&str>::new(),
             )])),
             scanned_blocks
@@ -227,10 +224,10 @@ mod tests {
     async fn test_parse_expected_multiple_rollforwards_below_block_number_threshold() {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-2", 2, 20, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-2", 2, 20, Vec::<&str>::new()),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -247,8 +244,8 @@ mod tests {
 
         assert_eq!(
             Some(ChainScannedBlocks::RollForwards(vec![
-                ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
-                ScannedBlock::new("hash-2", 2, 20, 1, Vec::<&str>::new())
+                ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new()),
+                ScannedBlock::new("hash-2", 2, 20, Vec::<&str>::new())
             ])),
             scanned_blocks,
         );
@@ -258,13 +255,13 @@ mod tests {
     async fn test_parse_expected_maximum_rollforwards_retrieved_per_poll() {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-2", 2, 20, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-2", 2, 20, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-3", 3, 30, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-3", 3, 30, Vec::<&str>::new()),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -281,8 +278,8 @@ mod tests {
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
         assert_eq!(
             Some(ChainScannedBlocks::RollForwards(vec![
-                ScannedBlock::new("hash-1", 1, 10, 1, Vec::<&str>::new()),
-                ScannedBlock::new("hash-2", 2, 20, 1, Vec::<&str>::new())
+                ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new()),
+                ScannedBlock::new("hash-2", 2, 20, Vec::<&str>::new())
             ])),
             scanned_blocks,
         );
@@ -293,7 +290,6 @@ mod tests {
                 "hash-3",
                 3,
                 30,
-                1,
                 Vec::<&str>::new()
             ),])),
             scanned_blocks,
@@ -351,13 +347,13 @@ mod tests {
     ) {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-8", 80, 8, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-8", 80, 8, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-9", 90, 9, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-9", 90, 9, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-10", 100, 10, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-10", 100, 10, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollBackward { slot_number: 9 },
         ])));
@@ -375,8 +371,8 @@ mod tests {
 
         assert_eq!(
             Some(ChainScannedBlocks::RollForwards(vec![
-                ScannedBlock::new("hash-8", 80, 8, 1, Vec::<&str>::new()),
-                ScannedBlock::new("hash-9", 90, 9, 1, Vec::<&str>::new())
+                ScannedBlock::new("hash-8", 80, 8, Vec::<&str>::new()),
+                ScannedBlock::new("hash-9", 90, 9, Vec::<&str>::new())
             ])),
             scanned_blocks,
         );
@@ -387,10 +383,10 @@ mod tests {
     ) {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-8", 80, 8, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-8", 80, 8, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollForward {
-                parsed_block: ScannedBlock::new("hash-9", 90, 9, 1, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new("hash-9", 90, 9, Vec::<&str>::new()),
             },
             ChainBlockNextAction::RollBackward { slot_number: 3 },
         ])));

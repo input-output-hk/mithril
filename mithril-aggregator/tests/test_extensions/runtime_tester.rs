@@ -13,7 +13,7 @@ use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
     crypto_helper::ProtocolGenesisSigner,
-    digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
+    digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
         BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
         SignedEntityType, SignedEntityTypeDiscriminants, Snapshot, StakeDistribution, TimePoint,
@@ -270,10 +270,6 @@ impl RuntimeTester {
         );
 
         // Make the block scanner return new blocks
-        let current_immutable = self
-            .immutable_file_observer
-            .get_last_immutable_number()
-            .await?;
         let blocks_to_scan: Vec<ScannedBlock> = ((expected - increment + 1)..=expected)
             .map(|block_number| {
                 let block_hash = format!("block_hash-{block_number}");
@@ -282,7 +278,6 @@ impl RuntimeTester {
                     block_hash,
                     block_number,
                     slot_number,
-                    current_immutable,
                     vec![tx_hash(block_number, 1)],
                 )
             })

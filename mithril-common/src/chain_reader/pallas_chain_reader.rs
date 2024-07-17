@@ -70,7 +70,7 @@ impl PallasChainReader {
             NextResponse::RollForward(raw_block, _forward_tip) => {
                 let multi_era_block = MultiEraBlock::decode(&raw_block)
                     .with_context(|| "PallasChainReader failed to decode raw block")?;
-                let parsed_block = ScannedBlock::convert(multi_era_block, 0);
+                let parsed_block = ScannedBlock::convert(multi_era_block);
                 Ok(Some(ChainBlockNextAction::RollForward { parsed_block }))
             }
             NextResponse::RollBackward(rollback_point, _) => {
@@ -177,7 +177,7 @@ mod tests {
         let raw_block = get_fake_raw_block();
         let multi_era_block = MultiEraBlock::decode(&raw_block).unwrap();
 
-        ScannedBlock::convert(multi_era_block, 0)
+        ScannedBlock::convert(multi_era_block)
     }
 
     /// Sets up a mock server for related tests.

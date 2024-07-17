@@ -242,7 +242,6 @@ mod tests {
                     format!("block_hash-{}", block_number),
                     block_number,
                     block_number * 100,
-                    block_number * 10,
                     vec![format!("tx_hash-{}", block_number)],
                 )
             })
@@ -272,8 +271,8 @@ mod tests {
         )));
 
         let blocks = vec![
-            ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
-            ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
+            ScannedBlock::new("block_hash-1", 10, 15, vec!["tx_hash-1", "tx_hash-2"]),
+            ScannedBlock::new("block_hash-2", 20, 25, vec!["tx_hash-3", "tx_hash-4"]),
         ];
         let expected_transactions = into_transactions(&blocks);
         let up_to_block_number = 1000;
@@ -408,8 +407,8 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         )));
         let scanner = DumbBlockScanner::new().forwards(vec![vec![
-            ScannedBlock::new("block_hash-1", 10, 15, 10, vec!["tx_hash-1", "tx_hash-2"]),
-            ScannedBlock::new("block_hash-2", 20, 25, 11, vec!["tx_hash-3", "tx_hash-4"]),
+            ScannedBlock::new("block_hash-1", 10, 15, vec!["tx_hash-1", "tx_hash-2"]),
+            ScannedBlock::new("block_hash-2", 20, 25, vec!["tx_hash-3", "tx_hash-4"]),
         ]]);
 
         let last_tx = CardanoTransaction::new("tx-20", 30, 35, "block_hash-3");
@@ -442,11 +441,10 @@ mod tests {
             highest_stored_chain_point.block_hash.clone(),
             highest_stored_chain_point.block_number,
             highest_stored_chain_point.slot_number,
-            5,
             vec!["tx_hash-1", "tx_hash-2"],
         );
         let to_store_block =
-            ScannedBlock::new("block_hash-2", 20, 229, 8, vec!["tx_hash-3", "tx_hash-4"]);
+            ScannedBlock::new("block_hash-2", 20, 229, vec!["tx_hash-3", "tx_hash-4"]);
         let expected_transactions: Vec<CardanoTransaction> = [
             stored_block.clone().into_transactions(),
             to_store_block.clone().into_transactions(),
@@ -712,8 +710,8 @@ mod tests {
     async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order(
     ) {
         let blocks = vec![
-            ScannedBlock::new("block_hash-1", 10, 15, 11, vec!["tx_hash-1", "tx_hash-2"]),
-            ScannedBlock::new("block_hash-2", 20, 25, 12, vec!["tx_hash-3", "tx_hash-4"]),
+            ScannedBlock::new("block_hash-1", 10, 15, vec!["tx_hash-1", "tx_hash-2"]),
+            ScannedBlock::new("block_hash-2", 20, 25, vec!["tx_hash-3", "tx_hash-4"]),
         ];
         let up_to_block_number = 1000;
         let transactions = into_transactions(&blocks);
@@ -753,7 +751,7 @@ mod tests {
         )));
 
         let expected_remaining_transactions =
-            ScannedBlock::new("block_hash-130", 130, 5, 1, vec!["tx_hash-6", "tx_hash-7"])
+            ScannedBlock::new("block_hash-130", 130, 5, vec!["tx_hash-6", "tx_hash-7"])
                 .into_transactions();
         repository
             .store_transactions(expected_remaining_transactions.clone())
@@ -765,7 +763,6 @@ mod tests {
                     "block_hash-131",
                     131,
                     10,
-                    2,
                     vec!["tx_hash-8", "tx_hash-9", "tx_hash-10"],
                 )
                 .into_transactions(),
@@ -829,7 +826,6 @@ mod tests {
                     "block_hash-131",
                     BlockRange::from_block_number(BlockRange::LENGTH * 3).start,
                     1,
-                    0,
                     vec!["tx_hash-1", "tx_hash-2", "tx_hash-3"],
                 )
                 .into_transactions(),
