@@ -60,10 +60,6 @@ pub struct CardanoTransactionsImporter {
 
 impl CardanoTransactionsImporter {
     /// Constructor
-    ///
-    /// About `rescan_offset`: if Some(x) the importer will be asked to rescan the previous 'x'
-    /// immutables starting after the highest immutable known in the store.
-    /// This is useful when one of the last immutable was not full scanned.
     pub fn new(
         block_scanner: Arc<dyn BlockScanner>,
         transaction_store: Arc<dyn TransactionStore>,
