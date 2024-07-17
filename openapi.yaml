@@ -1104,7 +1104,6 @@ components:
         - hash
         - previous_hash
         - epoch
-        - beacon
         - signed_entity_type
         - metadata
         - protocol_message
@@ -1228,7 +1227,6 @@ components:
         - hash
         - previous_hash
         - epoch
-        - beacon
         - signed_entity_type
         - metadata
         - protocol_message
