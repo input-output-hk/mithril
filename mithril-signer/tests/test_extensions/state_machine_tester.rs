@@ -20,8 +20,9 @@ use mithril_common::{
     },
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
-        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+        CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
+        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+        MithrilStakeDistributionSignableBuilder,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdError, TickerService,
@@ -195,10 +196,14 @@ impl StateMachineTester {
             block_range_root_retriever,
             slog_scope::logger(),
         ));
+        let cardano_stake_distribution_builder = Arc::new(
+            CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
+        );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
+            cardano_stake_distribution_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let expected_metrics_service = Arc::new(MetricsService::new().unwrap());

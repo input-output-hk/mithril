@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use mithril_common::entities::{Epoch, StakeDistribution};
+use mithril_common::signable_builder::StakeDistributionRetriever;
 use mithril_common::StdResult;
 use tokio::sync::RwLock;
 
@@ -76,6 +77,15 @@ impl StakeStorer for StakeStore {
 
     async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
         Ok(self.adapter.read().await.get_record(&epoch).await?)
+    }
+}
+
+#[async_trait]
+impl StakeDistributionRetriever for StakeStore {
+    async fn retrieve(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
+        let stake_distribution = self.get_stakes(epoch).await?;
+
+        Ok(stake_distribution)
     }
 }
 
@@ -166,5 +176,31 @@ mod tests {
             .await
             .unwrap();
         assert!(store.get_stakes(Epoch(1)).await.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn retrieve_with_no_stakes_returns_none() {
+        let store = init_store(0, 0, None);
+
+        let result = store.retrieve(Epoch(1)).await.unwrap();
+
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn retrieve_returns_cardano_stake_distribution() {
+        let store = init_store(0, 0, None);
+        store
+            .save_stakes(
+                Epoch(1),
+                StakeDistribution::from([("pool-123".to_string(), 123)]),
+            )
+            .await
+            .unwrap();
+
+        let stake_distribution = store.retrieve(Epoch(1)).await.unwrap();
+
+        let expected_stake_distribution = StakeDistribution::from([("pool-123".to_string(), 123)]);
+        assert_eq!(Some(expected_stake_distribution), stake_distribution);
     }
 }
