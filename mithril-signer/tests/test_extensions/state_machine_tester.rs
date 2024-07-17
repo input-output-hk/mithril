@@ -187,7 +187,6 @@ impl StateMachineTester {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner.clone(),
             transaction_store.clone(),
-            Path::new(""),
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();

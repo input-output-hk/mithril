@@ -562,7 +562,6 @@ mod tests {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),
             transaction_store.clone(),
-            Path::new(""),
             slog_scope::logger(),
         ));
         let block_range_root_retriever = Arc::new(MockBlockRangeRootRetrieverImpl::new());

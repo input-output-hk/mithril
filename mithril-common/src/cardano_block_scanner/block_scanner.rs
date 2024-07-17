@@ -1,4 +1,3 @@
-use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -40,7 +39,6 @@ impl CardanoBlockScanner {
 impl BlockScanner for CardanoBlockScanner {
     async fn scan(
         &self,
-        _dirpath: &Path,
         from: Option<ChainPoint>,
         until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {

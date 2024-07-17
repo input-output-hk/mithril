@@ -1,6 +1,5 @@
 use std::mem;
 use std::ops::Range;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::Context;
@@ -57,7 +56,6 @@ pub struct CardanoTransactionsImporter {
     block_scanner: Arc<dyn BlockScanner>,
     transaction_store: Arc<dyn TransactionStore>,
     logger: Logger,
-    dirpath: PathBuf,
 }
 
 impl CardanoTransactionsImporter {
@@ -69,14 +67,12 @@ impl CardanoTransactionsImporter {
     pub fn new(
         block_scanner: Arc<dyn BlockScanner>,
         transaction_store: Arc<dyn TransactionStore>,
-        dirpath: &Path,
         logger: Logger,
     ) -> Self {
         Self {
             block_scanner,
             transaction_store,
             logger,
-            dirpath: dirpath.to_owned(),
         }
     }
 
@@ -104,7 +100,7 @@ impl CardanoTransactionsImporter {
             from.as_ref().map(|c|c.block_number).unwrap_or(0)
         );
 
-        let mut streamer = self.block_scanner.scan(&self.dirpath, from, until).await?;
+        let mut streamer = self.block_scanner.scan(from, until).await?;
 
         while let Some(blocks) = streamer.poll_next().await? {
             match blocks {
@@ -221,7 +217,6 @@ mod tests {
         impl BlockScanner for BlockScannerImpl {
             async fn scan(
               &self,
-              dirpath: &Path,
               from: Option<ChainPoint>,
               until: BlockNumber,
             ) -> StdResult<Box<dyn BlockStreamer>>;
@@ -233,12 +228,7 @@ mod tests {
             scanner: Arc<dyn BlockScanner>,
             transaction_store: Arc<dyn TransactionStore>,
         ) -> Self {
-            CardanoTransactionsImporter::new(
-                scanner,
-                transaction_store,
-                Path::new(""),
-                TestLogger::stdout(),
-            )
+            CardanoTransactionsImporter::new(scanner, transaction_store, TestLogger::stdout())
         }
     }
 
@@ -292,8 +282,8 @@ mod tests {
             let mut scanner_mock = MockBlockScannerImpl::new();
             scanner_mock
                 .expect_scan()
-                .withf(move |_, from, until| from.is_none() && until == &up_to_block_number)
-                .return_once(move |_, _, _| {
+                .withf(move |from, until| from.is_none() && until == &up_to_block_number)
+                .return_once(move |_, _| {
                     Ok(Box::new(DumbBlockStreamer::new().forwards(vec![blocks])))
                 });
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner_mock), repository.clone())
@@ -474,11 +464,11 @@ mod tests {
             let mut scanner_mock = MockBlockScannerImpl::new();
             scanner_mock
                 .expect_scan()
-                .withf(move |_, from, until| {
+                .withf(move |from, until| {
                     from == &Some(highest_stored_chain_point.clone())
                         && *until == up_to_block_number
                 })
-                .return_once(move |_, _, _| {
+                .return_once(move |_, _| {
                     Ok(Box::new(
                         DumbBlockStreamer::new().forwards(vec![scanned_blocks]),
                     ))

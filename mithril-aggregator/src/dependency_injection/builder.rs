@@ -1217,7 +1217,6 @@ impl DependenciesBuilder {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             self.get_block_scanner().await?,
             self.get_transaction_repository().await?,
-            &self.configuration.db_directory,
             self.get_logger()?,
         ));
 

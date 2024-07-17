@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::path::Path;
 use std::sync::RwLock;
 
 use async_trait::async_trait;
@@ -61,7 +60,6 @@ impl Default for DumbBlockScanner {
 impl BlockScanner for DumbBlockScanner {
     async fn scan(
         &self,
-        _dirpath: &Path,
         _from: Option<ChainPoint>,
         _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
@@ -185,7 +183,7 @@ mod tests {
         let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
 
         let scanner = DumbBlockScanner::new().forwards(vec![expected_blocks.clone()]);
-        let mut streamer = scanner.scan(Path::new("dummy"), None, 5).await.unwrap();
+        let mut streamer = scanner.scan(None, 5).await.unwrap();
 
         let blocks = streamer.poll_all().await.unwrap();
         assert_eq!(blocks, expected_blocks);
@@ -199,7 +197,7 @@ mod tests {
         let scanner = DumbBlockScanner::new()
             .forwards(vec![expected_blocks.clone()])
             .backward(expected_chain_point.clone());
-        let mut streamer = scanner.scan(Path::new("dummy"), None, 5).await.unwrap();
+        let mut streamer = scanner.scan(None, 5).await.unwrap();
 
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
