@@ -187,7 +187,6 @@ impl StateMachineTester {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner.clone(),
             transaction_store.clone(),
-            Path::new(""),
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
@@ -446,7 +445,6 @@ impl StateMachineTester {
         )?;
 
         // Make the block scanner return new blocks
-        let current_immutable = self.immutable_observer.get_last_immutable_number().await?;
         let blocks_to_scan: Vec<ScannedBlock> = ((expected - increment + 1)..=expected)
             .map(|block_number| {
                 let block_hash = format!("block_hash-{block_number}");
@@ -455,7 +453,6 @@ impl StateMachineTester {
                     block_hash,
                     block_number,
                     slot_number,
-                    current_immutable,
                     vec![format!("tx_hash-{block_number}-1")],
                 )
             })

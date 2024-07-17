@@ -99,5 +99,14 @@ pragma auto_vacuum = full;
 vacuum;
 "#,
         ),
+        // Migration 8
+        // Remove Immutable File Number in Cardano Transaction
+        SqlMigration::new(
+            8,
+            r#"
+drop index cardano_tx_immutable_file_number_index;
+alter table cardano_tx drop column immutable_file_number;
+ "#,
+        ),
     ]
 }

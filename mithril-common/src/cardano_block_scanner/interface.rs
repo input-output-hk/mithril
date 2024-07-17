@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use async_trait::async_trait;
 
 use crate::cardano_block_scanner::ScannedBlock;
@@ -28,7 +26,6 @@ use crate::StdResult;
 ///         impl BlockScanner for BlockScannerImpl {
 ///             async fn scan(
 ///               &self,
-///               dirpath: &Path,
 ///               from: Option<ChainPoint>,
 ///               until: BlockNumber,
 ///             ) -> StdResult<Box<dyn BlockStreamer>>;
@@ -49,7 +46,6 @@ pub trait BlockScanner: Sync + Send {
     /// Scan the transactions
     async fn scan(
         &self,
-        dirpath: &Path,
         from: Option<ChainPoint>,
         until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>>;

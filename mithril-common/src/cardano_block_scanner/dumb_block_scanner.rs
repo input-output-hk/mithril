@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::path::Path;
 use std::sync::RwLock;
 
 use async_trait::async_trait;
@@ -61,7 +60,6 @@ impl Default for DumbBlockScanner {
 impl BlockScanner for DumbBlockScanner {
     async fn scan(
         &self,
-        _dirpath: &Path,
         _from: Option<ChainPoint>,
         _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
@@ -133,7 +131,7 @@ mod tests {
 
     #[tokio::test]
     async fn polling_with_one_set_of_block_returns_some_once() {
-        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
+        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())];
         let mut streamer = DumbBlockStreamer::new().forwards(vec![expected_blocks.clone()]);
 
         let blocks = streamer.poll_next().await.unwrap();
@@ -149,12 +147,12 @@ mod tests {
     #[tokio::test]
     async fn polling_with_multiple_sets_of_blocks_returns_some_once() {
         let expected_blocks = vec![
-            vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())],
+            vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())],
             vec![
-                ScannedBlock::new("hash-2", 2, 11, 21, Vec::<&str>::new()),
-                ScannedBlock::new("hash-3", 3, 12, 22, Vec::<&str>::new()),
+                ScannedBlock::new("hash-2", 2, 11, Vec::<&str>::new()),
+                ScannedBlock::new("hash-3", 3, 12, Vec::<&str>::new()),
             ],
-            vec![ScannedBlock::new("hash-4", 4, 13, 23, Vec::<&str>::new())],
+            vec![ScannedBlock::new("hash-4", 4, 13, Vec::<&str>::new())],
         ];
         let mut streamer = DumbBlockStreamer::new().forwards(expected_blocks.clone());
 
@@ -182,10 +180,10 @@ mod tests {
 
     #[tokio::test]
     async fn dumb_scanned_construct_a_streamer_based_on_its_stored_blocks() {
-        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
+        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())];
 
         let scanner = DumbBlockScanner::new().forwards(vec![expected_blocks.clone()]);
-        let mut streamer = scanner.scan(Path::new("dummy"), None, 5).await.unwrap();
+        let mut streamer = scanner.scan(None, 5).await.unwrap();
 
         let blocks = streamer.poll_all().await.unwrap();
         assert_eq!(blocks, expected_blocks);
@@ -193,13 +191,13 @@ mod tests {
 
     #[tokio::test]
     async fn dumb_scanned_construct_a_streamer_based_on_its_stored_chain_scanned_blocks() {
-        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())];
+        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())];
         let expected_chain_point = ChainPoint::new(10, 2, "block-hash");
 
         let scanner = DumbBlockScanner::new()
             .forwards(vec![expected_blocks.clone()])
             .backward(expected_chain_point.clone());
-        let mut streamer = scanner.scan(Path::new("dummy"), None, 5).await.unwrap();
+        let mut streamer = scanner.scan(None, 5).await.unwrap();
 
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
@@ -219,8 +217,8 @@ mod tests {
     #[tokio::test]
     async fn polling_with_can_return_roll_backward() {
         let expected_blocks = vec![
-            vec![ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new())],
-            vec![ScannedBlock::new("hash-4", 4, 13, 23, Vec::<&str>::new())],
+            vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())],
+            vec![ScannedBlock::new("hash-4", 4, 13, Vec::<&str>::new())],
         ];
 
         let expected_chain_point = ChainPoint::new(10, 2, "block-hash");

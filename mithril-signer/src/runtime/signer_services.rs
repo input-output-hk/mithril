@@ -283,7 +283,6 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner,
             transaction_store.clone(),
-            &self.config.db_directory,
             slog_scope::logger(),
         ));
         // Wrap the transaction importer with decorator to prune the transactions after import
