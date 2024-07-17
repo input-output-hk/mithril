@@ -37,7 +37,7 @@ impl CardanoStakeDistributionSignableBuilder {
     fn compute_merkle_tree(pools_with_stake: StakeDistribution) -> StdResult<MKTree> {
         let leaves: Vec<MKTreeNode> = pools_with_stake
             .iter()
-            .map(|(k, v)| MKTreeNode::new(format!("{:?}", (k, v)).as_bytes().to_vec()))
+            .map(|(k, v)| MKTreeNode::new(format!("({},{})", k, v).as_bytes().to_vec()))
             .collect();
 
         MKTree::new(&leaves)
