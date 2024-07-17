@@ -273,7 +273,7 @@ impl From<CertificateRecord> for CertificateMessage {
 
 impl From<CertificateRecord> for CertificateListItemMessage {
     fn from(value: CertificateRecord) -> Self {
-        let beacon = value.as_cardano_db_beacon();
+        let beacon = Some(value.as_cardano_db_beacon());
         let metadata = CertificateListItemMessageMetadata {
             network: value.network,
             protocol_version: value.protocol_version,
