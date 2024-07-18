@@ -155,9 +155,17 @@ mod tests {
         assert_eq!(Epoch(4), Epoch(1) + 3_u64);
         assert_eq!(Epoch(4), Epoch(1) + &3_u64);
 
+        assert_eq!(Epoch(4), 3_u64 + Epoch(1));
+        assert_eq!(Epoch(4), 3_u64 + &Epoch(1));
+        assert_eq!(Epoch(4), &3_u64 + Epoch(1));
+        assert_eq!(Epoch(4), &3_u64 + &Epoch(1));
+
         test_op_assign!(Epoch(1), +=, Epoch(3) => Epoch(4));
         test_op_assign!(Epoch(1), +=, 3_u64 => Epoch(4));
         test_op_assign!(Epoch(1), +=, &3_u64 => Epoch(4));
+
+        test_op_assign!(1_u64, +=, Epoch(3) => 4_u64);
+        test_op_assign!(1_u64, +=, &Epoch(3) => 4_u64);
     }
 
     #[test]
@@ -167,9 +175,17 @@ mod tests {
         assert_eq!(Epoch(8), Epoch(14) - 6_u64);
         assert_eq!(Epoch(8), Epoch(14) - &6_u64);
 
+        assert_eq!(Epoch(8), 6_u64 - Epoch(14));
+        assert_eq!(Epoch(8), 6_u64 - &Epoch(14));
+        assert_eq!(Epoch(8), &6_u64 - Epoch(14));
+        assert_eq!(Epoch(8), &6_u64 - &Epoch(14));
+
         test_op_assign!(Epoch(14), -=, Epoch(6) => Epoch(8));
         test_op_assign!(Epoch(14), -=, 6_u64 => Epoch(8));
         test_op_assign!(Epoch(14), -=, &6_u64 => Epoch(8));
+
+        test_op_assign!(14_u64, -=, Epoch(6) => 8_u64);
+        test_op_assign!(14_u64, -=, &Epoch(6) => 8_u64);
     }
 
     #[test]

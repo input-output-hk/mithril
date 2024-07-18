@@ -56,9 +56,17 @@ mod tests {
         assert_eq!(SlotNumber(4), SlotNumber(1) + 3_u64);
         assert_eq!(SlotNumber(4), SlotNumber(1) + &3_u64);
 
+        assert_eq!(SlotNumber(4), 3_u64 + SlotNumber(1));
+        assert_eq!(SlotNumber(4), 3_u64 + &SlotNumber(1));
+        assert_eq!(SlotNumber(4), &3_u64 + SlotNumber(1));
+        assert_eq!(SlotNumber(4), &3_u64 + &SlotNumber(1));
+
         test_op_assign!(SlotNumber(1), +=, SlotNumber(3) => SlotNumber(4));
         test_op_assign!(SlotNumber(1), +=, 3_u64 => SlotNumber(4));
         test_op_assign!(SlotNumber(1), +=, &3_u64 => SlotNumber(4));
+
+        test_op_assign!(1_u64, +=, SlotNumber(3) => 4_u64);
+        test_op_assign!(1_u64, +=, &SlotNumber(3) => 4_u64);
     }
 
     #[test]
@@ -68,9 +76,17 @@ mod tests {
         assert_eq!(SlotNumber(8), SlotNumber(14) - 6_u64);
         assert_eq!(SlotNumber(8), SlotNumber(14) - &6_u64);
 
+        assert_eq!(SlotNumber(8), 6_u64 - SlotNumber(14));
+        assert_eq!(SlotNumber(8), 6_u64 - &SlotNumber(14));
+        assert_eq!(SlotNumber(8), &6_u64 - SlotNumber(14));
+        assert_eq!(SlotNumber(8), &6_u64 - &SlotNumber(14));
+
         test_op_assign!(SlotNumber(14), -=, SlotNumber(6) => SlotNumber(8));
         test_op_assign!(SlotNumber(14), -=, 6_u64 => SlotNumber(8));
         test_op_assign!(SlotNumber(14), -=, &6_u64 => SlotNumber(8));
+
+        test_op_assign!(14_u64, -=, SlotNumber(6) => 8_u64);
+        test_op_assign!(14_u64, -=, &SlotNumber(6) => 8_u64);
     }
 
     #[test]

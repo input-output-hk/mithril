@@ -26,6 +26,38 @@ macro_rules! impl_add_to_wrapper {
             }
         }
 
+        impl Add<$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn add(self, rhs: $wrapper) -> Self::Output {
+                rhs.add(self)
+            }
+        }
+
+        impl Add<&$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn add(self, rhs: &$wrapper) -> Self::Output {
+                rhs.add(self)
+            }
+        }
+
+        impl Add<$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn add(self, rhs: $wrapper) -> Self::Output {
+                rhs.add(self)
+            }
+        }
+
+        impl Add<&$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn add(self, rhs: &$wrapper) -> Self::Output {
+                rhs.add(self)
+            }
+        }
+
         impl AddAssign for $wrapper {
             fn add_assign(&mut self, rhs: Self) {
                 *self = self.add(rhs);
@@ -41,6 +73,18 @@ macro_rules! impl_add_to_wrapper {
         impl AddAssign<&$inner> for $wrapper {
             fn add_assign(&mut self, rhs: &$inner) {
                 *self = self.add(rhs);
+            }
+        }
+
+        impl AddAssign<$wrapper> for $inner {
+            fn add_assign(&mut self, rhs: $wrapper) {
+                *self = self.add(rhs.0);
+            }
+        }
+
+        impl AddAssign<&$wrapper> for $inner {
+            fn add_assign(&mut self, rhs: &$wrapper) {
+                *self = self.add(rhs.0);
             }
         }
     };
@@ -75,6 +119,38 @@ macro_rules! impl_sub_to_wrapper {
             }
         }
 
+        impl Sub<$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn sub(self, rhs: $wrapper) -> Self::Output {
+                rhs.sub(self)
+            }
+        }
+
+        impl Sub<&$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn sub(self, rhs: &$wrapper) -> Self::Output {
+                rhs.sub(self)
+            }
+        }
+
+        impl Sub<$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn sub(self, rhs: $wrapper) -> Self::Output {
+                rhs.sub(self)
+            }
+        }
+
+        impl Sub<&$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn sub(self, rhs: &$wrapper) -> Self::Output {
+                rhs.sub(self)
+            }
+        }
+
         impl SubAssign for $wrapper {
             fn sub_assign(&mut self, rhs: Self) {
                 *self = self.sub(rhs);
@@ -90,6 +166,18 @@ macro_rules! impl_sub_to_wrapper {
         impl SubAssign<&$inner> for $wrapper {
             fn sub_assign(&mut self, rhs: &$inner) {
                 *self = self.sub(rhs);
+            }
+        }
+
+        impl SubAssign<$wrapper> for $inner {
+            fn sub_assign(&mut self, rhs: $wrapper) {
+                *self = self.sub(rhs.0);
+            }
+        }
+
+        impl SubAssign<&$wrapper> for $inner {
+            fn sub_assign(&mut self, rhs: &$wrapper) {
+                *self = self.sub(rhs.0);
             }
         }
     };
@@ -124,6 +212,38 @@ macro_rules! impl_mul_to_wrapper {
             }
         }
 
+        impl Mul<$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn mul(self, rhs: $wrapper) -> Self::Output {
+                rhs.mul(self)
+            }
+        }
+
+        impl Mul<&$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn mul(self, rhs: &$wrapper) -> Self::Output {
+                rhs.mul(self)
+            }
+        }
+
+        impl Mul<$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn mul(self, rhs: $wrapper) -> Self::Output {
+                rhs.mul(self)
+            }
+        }
+
+        impl Mul<&$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn mul(self, rhs: &$wrapper) -> Self::Output {
+                rhs.mul(self)
+            }
+        }
+
         impl MulAssign for $wrapper {
             fn mul_assign(&mut self, rhs: Self) {
                 *self = self.mul(rhs);
@@ -139,6 +259,18 @@ macro_rules! impl_mul_to_wrapper {
         impl MulAssign<&$inner> for $wrapper {
             fn mul_assign(&mut self, rhs: &$inner) {
                 *self = self.mul(rhs);
+            }
+        }
+
+        impl MulAssign<$wrapper> for $inner {
+            fn mul_assign(&mut self, rhs: $wrapper) {
+                *self = self.mul(rhs.0);
+            }
+        }
+
+        impl MulAssign<&$wrapper> for $inner {
+            fn mul_assign(&mut self, rhs: &$wrapper) {
+                *self = self.mul(rhs.0);
             }
         }
     };
