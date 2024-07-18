@@ -138,6 +138,8 @@ pub enum EpochError {
 
 #[cfg(test)]
 mod tests {
+    use crate::entities::wrapper_helpers::tests::test_op_assign;
+
     use super::*;
 
     #[test]
@@ -153,17 +155,9 @@ mod tests {
         assert_eq!(Epoch(4), Epoch(1) + 3_u64);
         assert_eq!(Epoch(4), Epoch(1) + &3_u64);
 
-        let mut epoch = Epoch(1);
-        epoch += Epoch(3);
-        assert_eq!(Epoch(4), epoch);
-
-        let mut epoch = Epoch(1);
-        epoch += 3_u64;
-        assert_eq!(Epoch(4), epoch);
-
-        let mut epoch = Epoch(1);
-        epoch += &3_u64;
-        assert_eq!(Epoch(4), epoch);
+        test_op_assign!(Epoch(1), +=, Epoch(3) => Epoch(4));
+        test_op_assign!(Epoch(1), +=, 3_u64 => Epoch(4));
+        test_op_assign!(Epoch(1), +=, &3_u64 => Epoch(4));
     }
 
     #[test]
@@ -173,17 +167,9 @@ mod tests {
         assert_eq!(Epoch(8), Epoch(14) - 6_u64);
         assert_eq!(Epoch(8), Epoch(14) - &6_u64);
 
-        let mut epoch = Epoch(14);
-        epoch -= Epoch(6);
-        assert_eq!(Epoch(8), epoch);
-
-        let mut epoch = Epoch(14);
-        epoch -= 6_u64;
-        assert_eq!(Epoch(8), epoch);
-
-        let mut epoch = Epoch(14);
-        epoch -= &6_u64;
-        assert_eq!(Epoch(8), epoch);
+        test_op_assign!(Epoch(14), -=, Epoch(6) => Epoch(8));
+        test_op_assign!(Epoch(14), -=, 6_u64 => Epoch(8));
+        test_op_assign!(Epoch(14), -=, &6_u64 => Epoch(8));
     }
 
     #[test]

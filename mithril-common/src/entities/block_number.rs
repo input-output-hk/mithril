@@ -43,6 +43,8 @@ impl_partial_eq_to_wrapper!(BlockNumber, u64);
 
 #[cfg(test)]
 mod tests {
+    use crate::entities::wrapper_helpers::tests::test_op_assign;
+
     use super::*;
 
     #[test]
@@ -58,17 +60,9 @@ mod tests {
         assert_eq!(BlockNumber(4), BlockNumber(1) + 3_u64);
         assert_eq!(BlockNumber(4), BlockNumber(1) + &3_u64);
 
-        let mut block_number = BlockNumber(1);
-        block_number += BlockNumber(3);
-        assert_eq!(BlockNumber(4), block_number);
-
-        let mut block_number = BlockNumber(1);
-        block_number += 3_u64;
-        assert_eq!(BlockNumber(4), block_number);
-
-        let mut block_number = BlockNumber(1);
-        block_number += &3_u64;
-        assert_eq!(BlockNumber(4), block_number);
+        test_op_assign!(BlockNumber(1), +=, BlockNumber(3) => BlockNumber(4));
+        test_op_assign!(BlockNumber(1), +=, 3_u64 => BlockNumber(4));
+        test_op_assign!(BlockNumber(1), +=, &3_u64 => BlockNumber(4));
     }
 
     #[test]
@@ -78,17 +72,9 @@ mod tests {
         assert_eq!(BlockNumber(8), BlockNumber(14) - 6_u64);
         assert_eq!(BlockNumber(8), BlockNumber(14) - &6_u64);
 
-        let mut block_number = BlockNumber(14);
-        block_number -= BlockNumber(6);
-        assert_eq!(BlockNumber(8), block_number);
-
-        let mut block_number = BlockNumber(14);
-        block_number -= 6_u64;
-        assert_eq!(BlockNumber(8), block_number);
-
-        let mut block_number = BlockNumber(14);
-        block_number -= &6_u64;
-        assert_eq!(BlockNumber(8), block_number);
+        test_op_assign!(BlockNumber(14), -=, BlockNumber(6) => BlockNumber(8));
+        test_op_assign!(BlockNumber(14), -=, 6_u64 => BlockNumber(8));
+        test_op_assign!(BlockNumber(14), -=, &6_u64 => BlockNumber(8));
     }
 
     #[test]
@@ -104,17 +90,9 @@ mod tests {
         assert_eq!(BlockNumber(6), BlockNumber(2) * 3_u64);
         assert_eq!(BlockNumber(6), BlockNumber(2) * &3_u64);
 
-        let mut block_number = BlockNumber(2);
-        block_number *= BlockNumber(3);
-        assert_eq!(BlockNumber(6), block_number);
-
-        let mut block_number = BlockNumber(2);
-        block_number *= 3_u64;
-        assert_eq!(BlockNumber(6), block_number);
-
-        let mut block_number = BlockNumber(2);
-        block_number *= &3_u64;
-        assert_eq!(BlockNumber(6), block_number);
+        test_op_assign!(BlockNumber(2), *=, BlockNumber(3) => BlockNumber(6));
+        test_op_assign!(BlockNumber(2), *=, 3_u64 => BlockNumber(6));
+        test_op_assign!(BlockNumber(2), *=, &3_u64 => BlockNumber(6));
     }
 
     #[test]
