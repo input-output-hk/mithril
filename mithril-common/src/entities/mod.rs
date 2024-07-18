@@ -1,5 +1,6 @@
 //! The entities used by, and exchanged between, the aggregator, signers and client.
 
+mod block_number;
 mod block_range;
 mod cardano_chain_point;
 mod cardano_db_beacon;
