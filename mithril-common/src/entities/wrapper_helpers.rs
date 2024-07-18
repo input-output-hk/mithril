@@ -96,6 +96,55 @@ macro_rules! impl_sub_to_wrapper {
 }
 pub(crate) use impl_sub_to_wrapper;
 
+macro_rules! impl_mul_to_wrapper {
+    ( $wrapper:ident, $inner:ty ) => {
+        use std::ops::{Mul, MulAssign};
+
+        impl Mul for $wrapper {
+            type Output = Self;
+
+            fn mul(self, rhs: Self) -> Self::Output {
+                self * *rhs
+            }
+        }
+
+        impl Mul<$inner> for $wrapper {
+            type Output = Self;
+
+            fn mul(self, rhs: $inner) -> Self::Output {
+                $wrapper(*self * rhs)
+            }
+        }
+
+        impl Mul<&$inner> for $wrapper {
+            type Output = Self;
+
+            fn mul(self, rhs: &$inner) -> Self::Output {
+                self.mul(*rhs)
+            }
+        }
+
+        impl MulAssign for $wrapper {
+            fn mul_assign(&mut self, rhs: Self) {
+                *self = self.mul(rhs);
+            }
+        }
+
+        impl MulAssign<$inner> for $wrapper {
+            fn mul_assign(&mut self, rhs: $inner) {
+                *self = self.mul(rhs);
+            }
+        }
+
+        impl MulAssign<&$inner> for $wrapper {
+            fn mul_assign(&mut self, rhs: &$inner) {
+                *self = self.mul(rhs);
+            }
+        }
+    };
+}
+pub(crate) use impl_mul_to_wrapper;
+
 macro_rules! impl_partial_eq_to_wrapper {
     ( $wrapper:ty, $inner:ty ) => {
         impl PartialEq<$inner> for $wrapper {

@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::entities::wrapper_helpers::{
-    impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
+    impl_add_to_wrapper, impl_mul_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
 };
 
 /// BlockNumber is the block number of a Cardano transaction.
@@ -35,6 +35,7 @@ impl DerefMut for BlockNumber {
 
 impl_add_to_wrapper!(BlockNumber, u64);
 impl_sub_to_wrapper!(BlockNumber, u64);
+impl_mul_to_wrapper!(BlockNumber, u64);
 impl_partial_eq_to_wrapper!(BlockNumber, u64);
 
 #[cfg(test)]
@@ -91,6 +92,26 @@ mod tests {
     fn saturating_sub() {
         assert_eq!(BlockNumber(0), BlockNumber(1) - BlockNumber(5));
         assert_eq!(BlockNumber(0), BlockNumber(1) - 5_u64);
+    }
+
+    #[test]
+    #[allow(clippy::op_ref)]
+    fn test_mul() {
+        assert_eq!(BlockNumber(6), BlockNumber(2) * BlockNumber(3));
+        assert_eq!(BlockNumber(6), BlockNumber(2) * 3_u64);
+        assert_eq!(BlockNumber(6), BlockNumber(2) * &3_u64);
+
+        let mut block_number = BlockNumber(2);
+        block_number *= BlockNumber(3);
+        assert_eq!(BlockNumber(6), block_number);
+
+        let mut block_number = BlockNumber(2);
+        block_number *= 3_u64;
+        assert_eq!(BlockNumber(6), block_number);
+
+        let mut block_number = BlockNumber(2);
+        block_number *= &3_u64;
+        assert_eq!(BlockNumber(6), block_number);
     }
 
     #[test]
