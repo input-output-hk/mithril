@@ -1,12 +1,13 @@
-use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 use std::num::TryFromIntError;
 use std::ops::{Deref, DerefMut};
-use std::{
-    fmt::{Display, Formatter},
-    ops::{Add, AddAssign, Sub, SubAssign},
-};
+
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::entities::wrapper_helpers::{
+    impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
+};
 use crate::signable_builder::Beacon as SignableBeacon;
 
 /// Epoch represents a Cardano epoch
@@ -99,85 +100,9 @@ impl DerefMut for Epoch {
     }
 }
 
-impl Add for Epoch {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Epoch(self.0 + rhs.0)
-    }
-}
-
-impl Add<u64> for Epoch {
-    type Output = Self;
-
-    fn add(self, rhs: u64) -> Self::Output {
-        Self(self.0 + rhs)
-    }
-}
-
-impl AddAssign for Epoch {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = self.add(rhs);
-    }
-}
-
-impl AddAssign<u64> for Epoch {
-    fn add_assign(&mut self, rhs: u64) {
-        *self = self.add(rhs);
-    }
-}
-
-impl Sub for Epoch {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0.saturating_sub(rhs.0))
-    }
-}
-
-impl Sub<u64> for Epoch {
-    type Output = Self;
-
-    fn sub(self, rhs: u64) -> Self::Output {
-        Self(self.0.saturating_sub(rhs))
-    }
-}
-
-impl SubAssign for Epoch {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = self.sub(rhs);
-    }
-}
-
-impl SubAssign<u64> for Epoch {
-    fn sub_assign(&mut self, rhs: u64) {
-        *self = self.sub(rhs);
-    }
-}
-
-impl PartialEq<u64> for Epoch {
-    fn eq(&self, other: &u64) -> bool {
-        self.0.eq(other)
-    }
-}
-
-impl PartialEq<Epoch> for u64 {
-    fn eq(&self, other: &Epoch) -> bool {
-        other.0.eq(self)
-    }
-}
-
-impl PartialEq<u64> for &Epoch {
-    fn eq(&self, other: &u64) -> bool {
-        self.0.eq(other)
-    }
-}
-
-impl PartialEq<&Epoch> for u64 {
-    fn eq(&self, other: &&Epoch) -> bool {
-        other.0.eq(self)
-    }
-}
+impl_add_to_wrapper!(Epoch, u64);
+impl_sub_to_wrapper!(Epoch, u64);
+impl_partial_eq_to_wrapper!(Epoch, u64);
 
 impl Display for Epoch {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -216,9 +141,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_display() {
+        assert_eq!(format!("{}", Epoch(72)), "72");
+        assert_eq!(format!("{}", &Epoch(13224)), "13224");
+    }
+
+    #[test]
+    #[allow(clippy::op_ref)]
     fn test_add() {
         assert_eq!(Epoch(4), Epoch(1) + Epoch(3));
         assert_eq!(Epoch(4), Epoch(1) + 3_u64);
+        assert_eq!(Epoch(4), Epoch(1) + &3_u64);
 
         let mut epoch = Epoch(1);
         epoch += Epoch(3);
@@ -227,12 +160,18 @@ mod tests {
         let mut epoch = Epoch(1);
         epoch += 3_u64;
         assert_eq!(Epoch(4), epoch);
+
+        let mut epoch = Epoch(1);
+        epoch += &3_u64;
+        assert_eq!(Epoch(4), epoch);
     }
 
     #[test]
+    #[allow(clippy::op_ref)]
     fn test_sub() {
         assert_eq!(Epoch(8), Epoch(14) - Epoch(6));
         assert_eq!(Epoch(8), Epoch(14) - 6_u64);
+        assert_eq!(Epoch(8), Epoch(14) - &6_u64);
 
         let mut epoch = Epoch(14);
         epoch -= Epoch(6);
@@ -240,6 +179,10 @@ mod tests {
 
         let mut epoch = Epoch(14);
         epoch -= 6_u64;
+        assert_eq!(Epoch(8), epoch);
+
+        let mut epoch = Epoch(14);
+        epoch -= &6_u64;
         assert_eq!(Epoch(8), epoch);
     }
 
@@ -262,10 +205,20 @@ mod tests {
 
     #[test]
     fn test_eq() {
-        assert_eq!(Epoch(3), 3);
-        assert_eq!(&Epoch(4), 4);
-        assert_eq!(5, Epoch(5));
-        assert_eq!(6, &Epoch(6));
+        assert_eq!(Epoch(1), Epoch(1));
+        assert_eq!(Epoch(2), &Epoch(2));
+        assert_eq!(&Epoch(3), Epoch(3));
+        assert_eq!(&Epoch(4), &Epoch(4));
+
+        assert_eq!(Epoch(5), 5);
+        assert_eq!(Epoch(6), &6);
+        assert_eq!(&Epoch(7), 7);
+        assert_eq!(&Epoch(8), &8);
+
+        assert_eq!(9, Epoch(9));
+        assert_eq!(10, &Epoch(10));
+        assert_eq!(&11, Epoch(11));
+        assert_eq!(&12, &Epoch(12));
     }
 
     #[test]

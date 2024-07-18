@@ -1,7 +1,11 @@
 use std::fmt::{Display, Formatter};
-use std::ops::{Add, AddAssign, Deref, DerefMut, Sub, SubAssign};
+use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Serialize};
+
+use crate::entities::wrapper_helpers::{
+    impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
+};
 
 /// BlockNumber is the block number of a Cardano transaction.
 #[derive(
@@ -29,137 +33,9 @@ impl DerefMut for BlockNumber {
     }
 }
 
-impl Add for BlockNumber {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        self + *rhs
-    }
-}
-
-impl Add<u64> for BlockNumber {
-    type Output = Self;
-
-    fn add(self, rhs: u64) -> Self::Output {
-        BlockNumber(*self + rhs)
-    }
-}
-
-impl Add<&u64> for BlockNumber {
-    type Output = Self;
-
-    fn add(self, rhs: &u64) -> Self::Output {
-        self.add(*rhs)
-    }
-}
-
-impl AddAssign for BlockNumber {
-    fn add_assign(&mut self, rhs: Self) {
-        *self = self.add(rhs);
-    }
-}
-
-impl AddAssign<u64> for BlockNumber {
-    fn add_assign(&mut self, rhs: u64) {
-        *self = self.add(rhs);
-    }
-}
-
-impl AddAssign<&u64> for BlockNumber {
-    fn add_assign(&mut self, rhs: &u64) {
-        *self = self.add(rhs);
-    }
-}
-
-impl Sub for BlockNumber {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        self - *rhs
-    }
-}
-
-impl Sub<u64> for BlockNumber {
-    type Output = Self;
-
-    fn sub(self, rhs: u64) -> Self::Output {
-        BlockNumber(self.saturating_sub(rhs))
-    }
-}
-
-impl Sub<&u64> for BlockNumber {
-    type Output = Self;
-
-    fn sub(self, rhs: &u64) -> Self::Output {
-        self.sub(*rhs)
-    }
-}
-
-impl SubAssign for BlockNumber {
-    fn sub_assign(&mut self, rhs: Self) {
-        *self = self.sub(rhs);
-    }
-}
-
-impl SubAssign<u64> for BlockNumber {
-    fn sub_assign(&mut self, rhs: u64) {
-        *self = self.sub(rhs);
-    }
-}
-
-impl SubAssign<&u64> for BlockNumber {
-    fn sub_assign(&mut self, rhs: &u64) {
-        *self = self.sub(rhs);
-    }
-}
-
-impl PartialEq<u64> for BlockNumber {
-    fn eq(&self, other: &u64) -> bool {
-        self.0.eq(other)
-    }
-}
-
-impl PartialEq<&u64> for BlockNumber {
-    fn eq(&self, other: &&u64) -> bool {
-        self.0.eq(*other)
-    }
-}
-
-impl PartialEq<&BlockNumber> for BlockNumber {
-    fn eq(&self, other: &&BlockNumber) -> bool {
-        other.0.eq(self)
-    }
-}
-
-impl PartialEq<u64> for &BlockNumber {
-    fn eq(&self, other: &u64) -> bool {
-        self.0.eq(other)
-    }
-}
-
-impl PartialEq<BlockNumber> for &BlockNumber {
-    fn eq(&self, other: &BlockNumber) -> bool {
-        other.0.eq(self)
-    }
-}
-
-impl PartialEq<BlockNumber> for u64 {
-    fn eq(&self, other: &BlockNumber) -> bool {
-        other.0.eq(self)
-    }
-}
-
-impl PartialEq<&BlockNumber> for u64 {
-    fn eq(&self, other: &&BlockNumber) -> bool {
-        other.0.eq(self)
-    }
-}
-
-impl PartialEq<BlockNumber> for &u64 {
-    fn eq(&self, other: &BlockNumber) -> bool {
-        other.0.eq(*self)
-    }
-}
+impl_add_to_wrapper!(BlockNumber, u64);
+impl_sub_to_wrapper!(BlockNumber, u64);
+impl_partial_eq_to_wrapper!(BlockNumber, u64);
 
 #[cfg(test)]
 mod tests {

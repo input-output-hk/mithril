@@ -25,6 +25,7 @@ mod single_signatures;
 mod snapshot;
 mod time_point;
 mod type_alias;
+pub(crate) mod wrapper_helpers;
 
 pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
 pub use cardano_chain_point::{BlockHash, BlockNumber, ChainPoint, SlotNumber};
