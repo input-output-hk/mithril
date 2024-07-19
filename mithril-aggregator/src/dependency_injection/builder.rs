@@ -52,8 +52,8 @@ use mithril_persistence::{
 
 use crate::{
     artifact_builder::{
-        CardanoImmutableFilesFullArtifactBuilder, CardanoTransactionsArtifactBuilder,
-        MithrilStakeDistributionArtifactBuilder,
+        CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
+        CardanoTransactionsArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
     database::repository::{
@@ -1134,12 +1134,16 @@ impl DependenciesBuilder {
         let cardano_transactions_artifact_builder = Arc::new(
             CardanoTransactionsArtifactBuilder::new(prover_service.clone()),
         );
+        let stake_store = self.get_stake_store().await?;
+        let cardano_stake_distribution_artifact_builder =
+            Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
             self.get_signed_entity_lock().await?,
+            cardano_stake_distribution_artifact_builder,
         ));
 
         // Compute the cache pool for prover service

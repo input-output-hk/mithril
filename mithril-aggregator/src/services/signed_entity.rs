@@ -11,9 +11,9 @@ use tokio::task::JoinHandle;
 
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoDbBeacon, CardanoTransactionsSnapshot, Certificate, Epoch,
-        MithrilStakeDistribution, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants,
-        Snapshot,
+        BlockNumber, CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot,
+        Certificate, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType,
+        SignedEntityTypeDiscriminants, Snapshot,
     },
     signable_builder::Artifact,
     signed_entity_type_lock::SignedEntityTypeLock,
@@ -81,6 +81,8 @@ pub struct MithrilSignedEntityService {
     cardano_transactions_artifact_builder:
         Arc<dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>>,
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+    cardano_stake_distribution_artifact_builder:
+        Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
 }
 
 impl MithrilSignedEntityService {
@@ -97,6 +99,9 @@ impl MithrilSignedEntityService {
             dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>,
         >,
         signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+        cardano_stake_distribution_artifact_builder: Arc<
+            dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>,
+        >,
     ) -> Self {
         Self {
             signed_entity_storer,
@@ -104,6 +109,7 @@ impl MithrilSignedEntityService {
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
             signed_entity_type_lock,
+            cardano_stake_distribution_artifact_builder,
         }
     }
 
@@ -391,6 +397,8 @@ mod tests {
             MockArtifactBuilder<CardanoDbBeacon, Snapshot>,
         mock_cardano_transactions_artifact_builder:
             MockArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>,
+        mock_cardano_stake_distribution_artifact_builder:
+            MockArtifactBuilder<Epoch, CardanoStakeDistribution>,
     }
 
     impl MockDependencyInjector {
@@ -409,6 +417,10 @@ mod tests {
                     BlockNumber,
                     CardanoTransactionsSnapshot,
                 >::new(),
+                mock_cardano_stake_distribution_artifact_builder: MockArtifactBuilder::<
+                    Epoch,
+                    CardanoStakeDistribution,
+                >::new(),
             }
         }
 
@@ -419,6 +431,7 @@ mod tests {
                 Arc::new(self.mock_cardano_immutable_files_full_artifact_builder),
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
                 Arc::new(SignedEntityTypeLock::default()),
+                Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
             )
         }
 
@@ -469,6 +482,7 @@ mod tests {
                 Arc::new(cardano_immutable_files_full_long_artifact_builder),
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
                 Arc::new(SignedEntityTypeLock::default()),
+                Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
             )
         }
 
