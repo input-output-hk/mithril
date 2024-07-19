@@ -122,7 +122,10 @@ mod tests {
 
         let initial_size = db_path.metadata().unwrap().len();
 
-        importer.import(100).await.expect("Import should not fail");
+        importer
+            .import(BlockNumber(100))
+            .await
+            .expect("Import should not fail");
 
         let after_import_size = db_path.metadata().unwrap().len();
 

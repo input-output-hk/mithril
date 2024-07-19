@@ -15,7 +15,7 @@ use mithril_common::{
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
+        BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
         SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
@@ -129,8 +129,8 @@ impl StateMachineTester {
             immutable_observer.clone(),
         ));
         let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: 0,
-            step: 30,
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
         };
         let certificate_handler = Arc::new(FakeAggregator::new(
             SignedEntityConfig {
@@ -203,7 +203,7 @@ impl StateMachineTester {
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let expected_metrics_service = Arc::new(MetricsService::new().unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        let security_parameter = 0;
+        let security_parameter = BlockNumber(0);
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
             transactions_importer.clone(),
@@ -451,7 +451,7 @@ impl StateMachineTester {
                 let slot_number = block_number;
                 ScannedBlock::new(
                     block_hash,
-                    block_number,
+                    BlockNumber(block_number),
                     slot_number,
                     vec![format!("tx_hash-{block_number}-1")],
                 )
@@ -488,7 +488,7 @@ impl StateMachineTester {
 
         let chain_point = ChainPoint {
             slot_number: rollback_to_slot_number,
-            block_number: rollback_to_slot_number,
+            block_number: BlockNumber(rollback_to_slot_number),
             block_hash: format!("block_hash-{rollback_to_slot_number}"),
         };
         self.block_scanner.add_backward(chain_point);

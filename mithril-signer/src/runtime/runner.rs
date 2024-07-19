@@ -577,7 +577,7 @@ mod tests {
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        let security_parameter = 0;
+        let security_parameter = BlockNumber(0);
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
             transactions_importer.clone(),

@@ -132,8 +132,8 @@ impl Configuration {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
-            network_security_parameter: 2160,
-            preload_security_parameter: 30,
+            network_security_parameter: BlockNumber(2160),
+            preload_security_parameter: BlockNumber(30),
             party_id: Some(party_id),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
@@ -151,7 +151,7 @@ impl Configuration {
             metrics_server_port: 9090,
             allow_unparsable_block: false,
             enable_transaction_pruning: false,
-            transactions_import_block_chunk_size: 1000,
+            transactions_import_block_chunk_size: BlockNumber(1000),
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
         }
     }
@@ -215,16 +215,16 @@ pub struct DefaultConfiguration {
     pub metrics_server_port: u16,
 
     /// Network security parameter
-    pub network_security_parameter: BlockNumber,
+    pub network_security_parameter: u64,
 
     /// Transaction pruning toggle
     pub enable_transaction_pruning: bool,
 
     /// Preload security parameter
-    pub preload_security_parameter: BlockNumber,
+    pub preload_security_parameter: u64,
 
     /// Chunk size for importing transactions
-    pub transactions_import_block_chunk_size: BlockNumber,
+    pub transactions_import_block_chunk_size: u64,
 
     /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
     pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: u32,
