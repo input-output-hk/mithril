@@ -11,10 +11,14 @@ use crate::entities::wrapper_helpers::{
 };
 use crate::signable_builder::Beacon;
 
+#[cfg(target_family = "wasm")]
+use wasm_bindgen::prelude::*;
+
 /// BlockNumber is the block number of a Cardano transaction.
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd, Ord,
 )]
+#[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct BlockNumber(pub u64);
 
 impl Beacon for BlockNumber {}
