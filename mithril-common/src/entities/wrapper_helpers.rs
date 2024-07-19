@@ -277,6 +277,99 @@ macro_rules! impl_mul_to_wrapper {
 }
 pub(crate) use impl_mul_to_wrapper;
 
+macro_rules! impl_div_to_wrapper {
+    ( $wrapper:ident, $inner:ty ) => {
+        use std::ops::{Div, DivAssign};
+
+        impl Div for $wrapper {
+            type Output = Self;
+
+            fn div(self, rhs: Self) -> Self::Output {
+                self / *rhs
+            }
+        }
+
+        impl Div<$inner> for $wrapper {
+            type Output = Self;
+
+            fn div(self, rhs: $inner) -> Self::Output {
+                $wrapper(*self / rhs)
+            }
+        }
+
+        impl Div<&$inner> for $wrapper {
+            type Output = Self;
+
+            fn div(self, rhs: &$inner) -> Self::Output {
+                self.div(*rhs)
+            }
+        }
+
+        impl Div<$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn div(self, rhs: $wrapper) -> Self::Output {
+                $wrapper(self.div(rhs.0))
+            }
+        }
+
+        impl Div<&$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn div(self, rhs: &$wrapper) -> Self::Output {
+                self.div(*rhs)
+            }
+        }
+
+        impl Div<$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn div(self, rhs: $wrapper) -> Self::Output {
+                (*self).div(rhs)
+            }
+        }
+
+        impl Div<&$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn div(self, rhs: &$wrapper) -> Self::Output {
+                (*self).div(*rhs)
+            }
+        }
+
+        impl DivAssign for $wrapper {
+            fn div_assign(&mut self, rhs: Self) {
+                *self = self.div(rhs);
+            }
+        }
+
+        impl DivAssign<$inner> for $wrapper {
+            fn div_assign(&mut self, rhs: $inner) {
+                *self = self.div(rhs);
+            }
+        }
+
+        impl DivAssign<&$inner> for $wrapper {
+            fn div_assign(&mut self, rhs: &$inner) {
+                *self = self.div(rhs);
+            }
+        }
+
+        impl DivAssign<$wrapper> for $inner {
+            fn div_assign(&mut self, rhs: $wrapper) {
+                *self = self.div(rhs.0);
+            }
+        }
+
+        impl DivAssign<&$wrapper> for $inner {
+            fn div_assign(&mut self, rhs: &$wrapper) {
+                *self = self.div(rhs.0);
+            }
+        }
+    };
+}
+pub(crate) use impl_div_to_wrapper;
+
 macro_rules! impl_partial_eq_to_wrapper {
     ( $wrapper:ty, $inner:ty ) => {
         impl PartialEq<$inner> for $wrapper {
@@ -346,6 +439,11 @@ pub(crate) mod tests {
         ( $right:expr, *=, $left:expr => $expected:expr ) => {{
             let mut number = $right;
             number *= $left;
+            assert_eq!($expected, number);
+        }};
+        ( $right:expr, /=, $left:expr => $expected:expr ) => {{
+            let mut number = $right;
+            number /= $left;
             assert_eq!($expected, number);
         }};
     }
