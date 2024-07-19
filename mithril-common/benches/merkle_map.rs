@@ -1,5 +1,3 @@
-use std::ops::Range;
-
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_common::{
     crypto_helper::{MKMap, MKMapNode, MKMapValue, MKTree, MKTreeNode},
@@ -45,7 +43,7 @@ fn generate_block_ranges_nodes_iterator(
         );
         let mk_map_node = if block_range_index <= total_block_ranges - max_uncompressed_block_ranges
         {
-            let leaves = <Range<u64> as Clone>::clone(&block_range)
+            let leaves = (*block_range.start..*block_range.end)
                 .map(|leaf_index| leaf_index.to_string())
                 .collect::<Vec<_>>();
             let merkle_tree_block_range = MKTree::new(&leaves).unwrap();

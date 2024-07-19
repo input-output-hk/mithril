@@ -116,9 +116,7 @@ impl CardanoTransactionsPreloader {
             .with_context(|| {
                 "No chain point yielded by the chain observer, is your cardano node ready?"
             })?;
-        let up_to_block_number = chain_point
-            .block_number
-            .saturating_sub(self.security_parameter);
+        let up_to_block_number = chain_point.block_number - self.security_parameter;
         self.importer.import(up_to_block_number).await?;
 
         Ok(())
@@ -154,8 +152,8 @@ mod tests {
 
     #[tokio::test]
     async fn call_its_inner_importer_when_is_activated() {
-        let chain_block_number = 5000;
-        let security_parameter = 542;
+        let chain_block_number = BlockNumber(5000);
+        let security_parameter = BlockNumber(542);
         let chain_observer = FakeObserver::new(Some(TimePoint {
             chain_point: ChainPoint {
                 block_number: chain_block_number,
@@ -194,7 +192,7 @@ mod tests {
         let preloader = CardanoTransactionsPreloader::new(
             Arc::new(SignedEntityTypeLock::default()),
             Arc::new(importer),
-            542,
+            BlockNumber(542),
             Arc::new(chain_observer),
             TestLogger::stdout(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(false)),
@@ -218,7 +216,7 @@ mod tests {
         let preloader = CardanoTransactionsPreloader::new(
             Arc::new(SignedEntityTypeLock::default()),
             Arc::new(importer),
-            542,
+            BlockNumber(542),
             Arc::new(chain_observer),
             TestLogger::stdout(),
             Arc::new(preloader_checker),
@@ -239,7 +237,7 @@ mod tests {
         let preloader = CardanoTransactionsPreloader::new(
             Arc::new(SignedEntityTypeLock::default()),
             Arc::new(importer),
-            0,
+            BlockNumber(0),
             Arc::new(chain_observer),
             TestLogger::stdout(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
@@ -260,7 +258,7 @@ mod tests {
             Arc::new(ImporterWithSignedEntityTypeLockCheck {
                 signed_entity_type_lock: signed_entity_type_lock.clone(),
             }),
-            0,
+            BlockNumber(0),
             Arc::new(FakeObserver::new(Some(TimePoint::dummy()))),
             TestLogger::stdout(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
@@ -291,7 +289,7 @@ mod tests {
             Arc::new(ImporterWithSignedEntityTypeLockCheck {
                 signed_entity_type_lock: signed_entity_type_lock.clone(),
             }),
-            0,
+            BlockNumber(0),
             Arc::new(chain_observer),
             TestLogger::stdout(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),

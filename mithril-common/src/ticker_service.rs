@@ -106,7 +106,7 @@ impl TickerService for MithrilTickerService {
 mod tests {
     use crate::chain_observer::{ChainAddress, ChainObserver, ChainObserverError, TxDatum};
     use crate::digesters::DumbImmutableFileObserver;
-    use crate::entities::{ChainPoint, Epoch, StakeDistribution};
+    use crate::entities::{BlockNumber, ChainPoint, Epoch, StakeDistribution};
     use anyhow::anyhow;
 
     use super::*;
@@ -129,7 +129,7 @@ mod tests {
         async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError> {
             Ok(Some(ChainPoint {
                 slot_number: 800,
-                block_number: 51,
+                block_number: BlockNumber(51),
                 block_hash: "1b69b3202fbe500".to_string(),
             }))
         }
@@ -168,7 +168,7 @@ mod tests {
                 500,
                 ChainPoint {
                     slot_number: 800,
-                    block_number: 51,
+                    block_number: BlockNumber(51),
                     block_hash: "1b69b3202fbe500".to_string(),
                 },
             ),

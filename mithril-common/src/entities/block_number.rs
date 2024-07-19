@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::ops::{Deref, DerefMut};
 
@@ -34,6 +35,42 @@ impl Deref for BlockNumber {
 impl DerefMut for BlockNumber {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl From<u64> for BlockNumber {
+    fn from(value: u64) -> Self {
+        Self(value)
+    }
+}
+
+impl From<&u64> for BlockNumber {
+    fn from(value: &u64) -> Self {
+        (*value).into()
+    }
+}
+
+impl PartialOrd<u64> for BlockNumber {
+    fn partial_cmp(&self, other: &u64) -> Option<Ordering> {
+        self.0.partial_cmp(other)
+    }
+}
+
+impl PartialOrd<&u64> for BlockNumber {
+    fn partial_cmp(&self, other: &&u64) -> Option<Ordering> {
+        self.0.partial_cmp(*other)
+    }
+}
+
+impl PartialOrd<BlockNumber> for u64 {
+    fn partial_cmp(&self, other: &BlockNumber) -> Option<Ordering> {
+        self.partial_cmp(&other.0)
+    }
+}
+
+impl PartialOrd<&BlockNumber> for u64 {
+    fn partial_cmp(&self, other: &&BlockNumber) -> Option<Ordering> {
+        self.partial_cmp(&other.0)
     }
 }
 

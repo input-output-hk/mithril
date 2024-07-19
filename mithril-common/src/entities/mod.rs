@@ -28,8 +28,9 @@ mod time_point;
 mod type_alias;
 pub(crate) mod wrapper_helpers;
 
+pub use block_number::BlockNumber;
 pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
-pub use cardano_chain_point::{BlockHash, BlockNumber, ChainPoint, SlotNumber};
+pub use cardano_chain_point::{BlockHash, ChainPoint, SlotNumber};
 pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};

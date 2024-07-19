@@ -1,3 +1,6 @@
+use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
+
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use pallas_addresses::Address;
@@ -15,17 +18,12 @@ use pallas_network::{
         Point,
     },
 };
-
 use pallas_primitives::ToCanonicalJson;
-use std::{
-    collections::BTreeSet,
-    path::{Path, PathBuf},
-};
 
 use crate::{
     chain_observer::{interface::*, ChainAddress, TxDatum},
     crypto_helper::{encode_bech32, KESPeriod, OpCert},
-    entities::{ChainPoint, Epoch, StakeDistribution},
+    entities::{BlockNumber, ChainPoint, Epoch, StakeDistribution},
     CardanoNetwork, StdResult,
 };
 
@@ -333,7 +331,7 @@ impl PallasChainObserver {
         Ok(ChainPoint {
             slot_number: chain_point.slot_or_default(),
             block_hash: header_hash.unwrap_or_default(),
-            block_number: chain_block_number.block_number as u64,
+            block_number: BlockNumber(chain_block_number.block_number as u64),
         })
     }
 
@@ -494,9 +492,10 @@ mod tests {
     };
     use tokio::net::UnixListener;
 
-    use super::*;
     use crate::test_utils::TempDir;
     use crate::{crypto_helper::ColdKeyGenerator, CardanoNetwork};
+
+    use super::*;
 
     fn get_fake_utxo_by_address() -> UTxOByAddress {
         let tx_hex = "1e4e5cf2889d52f1745b941090f04a65dea6ce56c5e5e66e69f65c8e36347c17";
@@ -879,7 +878,7 @@ mod tests {
             Some(ChainPoint {
                 slot_number: 52851885,
                 block_hash: "010203".to_string(),
-                block_number: 52851885
+                block_number: BlockNumber(52851885)
             })
         );
     }

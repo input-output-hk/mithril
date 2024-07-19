@@ -57,17 +57,20 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), 50).compute_hash()
+            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), BlockNumber(50))
+                .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            CardanoTransactionsSnapshot::new("mk-root-456".to_string(), 50).compute_hash()
+            CardanoTransactionsSnapshot::new("mk-root-456".to_string(), BlockNumber(50))
+                .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), 47).compute_hash()
+            CardanoTransactionsSnapshot::new("mk-root-123".to_string(), BlockNumber(47))
+                .compute_hash()
         );
     }
 }

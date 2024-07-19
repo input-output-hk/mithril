@@ -461,11 +461,9 @@ impl<K: MKMapKey> TryFrom<MKMapNode<K>> for MKTreeNode {
 
 #[cfg(test)]
 mod tests {
-
     use std::collections::BTreeSet;
-    use std::ops::Range;
 
-    use crate::entities::BlockRange;
+    use crate::entities::{BlockNumber, BlockRange};
 
     use super::*;
 
@@ -475,9 +473,11 @@ mod tests {
     ) -> Vec<(BlockRange, MKTree)> {
         (0..total_leaves / block_range_length)
             .map(|block_range_index| {
-                let block_range =
-                    BlockRange::from_block_number_and_length(block_range_index, block_range_length)
-                        .unwrap();
+                let block_range = BlockRange::from_block_number_and_length(
+                    BlockNumber(block_range_index),
+                    BlockNumber(block_range_length),
+                )
+                .unwrap();
                 let merkle_tree_block_range = generate_merkle_tree(&block_range);
                 (block_range, merkle_tree_block_range)
             })
@@ -485,7 +485,7 @@ mod tests {
     }
 
     fn generate_merkle_tree(block_range: &BlockRange) -> MKTree {
-        let leaves = <Range<u64> as Clone>::clone(block_range)
+        let leaves = (*block_range.start..*block_range.end)
             .map(|leaf_index| leaf_index.to_string())
             .collect::<Vec<_>>();
         MKTree::new(&leaves).unwrap()

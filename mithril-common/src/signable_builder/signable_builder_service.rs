@@ -185,7 +185,7 @@ mod tests {
             Arc::new(mock_cardano_transactions_signable_builder),
         );
 
-        let signed_entity_type = SignedEntityType::CardanoTransactions(Epoch(5), 1000);
+        let signed_entity_type = SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(1000));
         signable_builder_service
             .compute_protocol_message(signed_entity_type)
             .await

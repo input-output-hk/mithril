@@ -154,7 +154,7 @@ mod tests {
 
     /// Returns a fake block number for testing purposes.
     fn get_fake_block_number() -> BlockNumber {
-        1337
+        BlockNumber(1337)
     }
 
     /// Returns a fake chain point for testing purposes.
@@ -206,7 +206,7 @@ mod tests {
                 chainsync_server
                     .send_intersect_found(
                         known_point.clone(),
-                        Tip(known_point.clone(), tip_block_number),
+                        Tip(known_point.clone(), *tip_block_number),
                     )
                     .await
                     .unwrap();
@@ -222,7 +222,7 @@ mod tests {
                         chainsync_server
                             .send_roll_backward(
                                 known_point.clone(),
-                                Tip(known_point.clone(), tip_block_number),
+                                Tip(known_point.clone(), *tip_block_number),
                             )
                             .await
                             .unwrap();
@@ -230,7 +230,7 @@ mod tests {
                     ServerAction::RollForward => {
                         let block = BlockContent(get_fake_raw_block());
                         chainsync_server
-                            .send_roll_forward(block, Tip(known_point.clone(), tip_block_number))
+                            .send_roll_forward(block, Tip(known_point.clone(), *tip_block_number))
                             .await
                             .unwrap();
                     }
