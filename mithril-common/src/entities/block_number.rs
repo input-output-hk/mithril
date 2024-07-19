@@ -6,12 +6,15 @@ use serde::{Deserialize, Serialize};
 use crate::entities::wrapper_helpers::{
     impl_add_to_wrapper, impl_mul_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
 };
+use crate::signable_builder::Beacon;
 
 /// BlockNumber is the block number of a Cardano transaction.
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd, Ord,
 )]
-pub struct BlockNumber(u64);
+pub struct BlockNumber(pub u64);
+
+impl Beacon for BlockNumber {}
 
 impl Display for BlockNumber {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
