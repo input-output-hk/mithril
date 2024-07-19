@@ -149,6 +149,17 @@ mod tests {
     }
 
     #[test]
+    fn test_serialize() {
+        assert_eq!(serde_json::to_string(&Epoch(72)).unwrap(), "72");
+    }
+
+    #[test]
+    fn test_deserialize() {
+        let block_number: Epoch = serde_json::from_str("13224").unwrap();
+        assert_eq!(block_number, Epoch(13224));
+    }
+
+    #[test]
     #[allow(clippy::op_ref)]
     fn test_add() {
         assert_eq!(Epoch(4), Epoch(1) + Epoch(3));

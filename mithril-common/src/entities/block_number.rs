@@ -54,6 +54,17 @@ mod tests {
     }
 
     #[test]
+    fn test_serialize() {
+        assert_eq!(serde_json::to_string(&BlockNumber(72)).unwrap(), "72");
+    }
+
+    #[test]
+    fn test_deserialize() {
+        let block_number: BlockNumber = serde_json::from_str("13224").unwrap();
+        assert_eq!(block_number, BlockNumber(13224));
+    }
+
+    #[test]
     #[allow(clippy::op_ref)]
     fn test_add() {
         assert_eq!(BlockNumber(4), BlockNumber(1) + BlockNumber(3));

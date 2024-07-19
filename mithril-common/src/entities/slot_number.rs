@@ -50,6 +50,17 @@ mod tests {
     }
 
     #[test]
+    fn test_serialize() {
+        assert_eq!(serde_json::to_string(&SlotNumber(72)).unwrap(), "72");
+    }
+
+    #[test]
+    fn test_deserialize() {
+        let slot_number: SlotNumber = serde_json::from_str("13224").unwrap();
+        assert_eq!(slot_number, SlotNumber(13224));
+    }
+
+    #[test]
     #[allow(clippy::op_ref)]
     fn test_add() {
         assert_eq!(SlotNumber(4), SlotNumber(1) + SlotNumber(3));
