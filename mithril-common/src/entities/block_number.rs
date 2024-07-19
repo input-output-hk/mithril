@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::wrapper_helpers::{
     impl_add_to_wrapper, impl_div_to_wrapper, impl_mul_to_wrapper, impl_partial_eq_to_wrapper,
-    impl_sub_to_wrapper,
+    impl_rem_to_wrapper, impl_sub_to_wrapper,
 };
 use crate::signable_builder::Beacon;
 
@@ -41,6 +41,7 @@ impl_add_to_wrapper!(BlockNumber, u64);
 impl_sub_to_wrapper!(BlockNumber, u64);
 impl_mul_to_wrapper!(BlockNumber, u64);
 impl_div_to_wrapper!(BlockNumber, u64);
+impl_rem_to_wrapper!(BlockNumber, u64);
 impl_partial_eq_to_wrapper!(BlockNumber, u64);
 
 #[cfg(test)]
@@ -150,6 +151,26 @@ mod tests {
 
         test_op_assign!(18_u64, /=, BlockNumber(3) => 6_u64);
         test_op_assign!(18_u64, /=, &BlockNumber(3) => 6_u64);
+    }
+
+    #[test]
+    #[allow(clippy::op_ref)]
+    fn test_rem() {
+        assert_eq!(BlockNumber(3), BlockNumber(18) % BlockNumber(5));
+        assert_eq!(BlockNumber(3), BlockNumber(18) % 5_u64);
+        assert_eq!(BlockNumber(3), BlockNumber(18) % &5_u64);
+
+        assert_eq!(BlockNumber(6), 20_u64 % BlockNumber(7));
+        assert_eq!(BlockNumber(6), 20_u64 % &BlockNumber(7));
+        assert_eq!(BlockNumber(6), &20_u64 % BlockNumber(7));
+        assert_eq!(BlockNumber(6), &20_u64 % &BlockNumber(7));
+
+        test_op_assign!(BlockNumber(18), %=, BlockNumber(5) => BlockNumber(3));
+        test_op_assign!(BlockNumber(18), %=, 5_u64 => BlockNumber(3));
+        test_op_assign!(BlockNumber(18), %=, &5_u64 => BlockNumber(3));
+
+        test_op_assign!(18_u64, %=, BlockNumber(5) => 3_u64);
+        test_op_assign!(18_u64, %=, &BlockNumber(5) => 3_u64);
     }
 
     #[test]

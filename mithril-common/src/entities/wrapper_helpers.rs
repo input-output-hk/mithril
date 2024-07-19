@@ -370,6 +370,99 @@ macro_rules! impl_div_to_wrapper {
 }
 pub(crate) use impl_div_to_wrapper;
 
+macro_rules! impl_rem_to_wrapper {
+    ( $wrapper:ident, $inner:ty ) => {
+        use std::ops::{Rem, RemAssign};
+
+        impl Rem for $wrapper {
+            type Output = Self;
+
+            fn rem(self, rhs: Self) -> Self::Output {
+                self % *rhs
+            }
+        }
+
+        impl Rem<$inner> for $wrapper {
+            type Output = Self;
+
+            fn rem(self, rhs: $inner) -> Self::Output {
+                $wrapper(*self % rhs)
+            }
+        }
+
+        impl Rem<&$inner> for $wrapper {
+            type Output = Self;
+
+            fn rem(self, rhs: &$inner) -> Self::Output {
+                self.rem(*rhs)
+            }
+        }
+
+        impl Rem<$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn rem(self, rhs: $wrapper) -> Self::Output {
+                $wrapper(self.rem(rhs.0))
+            }
+        }
+
+        impl Rem<&$wrapper> for $inner {
+            type Output = $wrapper;
+
+            fn rem(self, rhs: &$wrapper) -> Self::Output {
+                self.rem(*rhs)
+            }
+        }
+
+        impl Rem<$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn rem(self, rhs: $wrapper) -> Self::Output {
+                (*self).rem(rhs)
+            }
+        }
+
+        impl Rem<&$wrapper> for &$inner {
+            type Output = $wrapper;
+
+            fn rem(self, rhs: &$wrapper) -> Self::Output {
+                (*self).rem(*rhs)
+            }
+        }
+
+        impl RemAssign for $wrapper {
+            fn rem_assign(&mut self, rhs: Self) {
+                *self = self.rem(rhs);
+            }
+        }
+
+        impl RemAssign<$inner> for $wrapper {
+            fn rem_assign(&mut self, rhs: $inner) {
+                *self = self.rem(rhs);
+            }
+        }
+
+        impl RemAssign<&$inner> for $wrapper {
+            fn rem_assign(&mut self, rhs: &$inner) {
+                *self = self.rem(rhs);
+            }
+        }
+
+        impl RemAssign<$wrapper> for $inner {
+            fn rem_assign(&mut self, rhs: $wrapper) {
+                *self = self.rem(rhs.0);
+            }
+        }
+
+        impl RemAssign<&$wrapper> for $inner {
+            fn rem_assign(&mut self, rhs: &$wrapper) {
+                *self = self.rem(rhs.0);
+            }
+        }
+    };
+}
+pub(crate) use impl_rem_to_wrapper;
+
 macro_rules! impl_partial_eq_to_wrapper {
     ( $wrapper:ty, $inner:ty ) => {
         impl PartialEq<$inner> for $wrapper {
@@ -444,6 +537,11 @@ pub(crate) mod tests {
         ( $right:expr, /=, $left:expr => $expected:expr ) => {{
             let mut number = $right;
             number /= $left;
+            assert_eq!($expected, number);
+        }};
+        ( $right:expr, %=, $left:expr => $expected:expr ) => {{
+            let mut number = $right;
+            number %= $left;
             assert_eq!($expected, number);
         }};
     }
