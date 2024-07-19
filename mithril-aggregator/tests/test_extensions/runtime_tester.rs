@@ -276,7 +276,7 @@ impl RuntimeTester {
                 let slot_number = 10 * block_number;
                 ScannedBlock::new(
                     block_hash,
-                    block_number,
+                    BlockNumber(block_number),
                     slot_number,
                     vec![tx_hash(block_number, 1)],
                 )
@@ -300,7 +300,7 @@ impl RuntimeTester {
         let decrement = actual_block_number - rollback_to_block_number;
         let new_block_number = self
             .chain_observer
-            .decrease_block_number(decrement)
+            .decrease_block_number(*decrement)
             .await
             .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
 

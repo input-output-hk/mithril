@@ -104,7 +104,7 @@ impl OpenMessageRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::CardanoDbBeacon;
+    use mithril_common::entities::{BlockNumber, CardanoDbBeacon};
 
     use crate::database::record::SingleSignatureRecord;
     use crate::database::test_helper::{
@@ -184,7 +184,7 @@ mod tests {
         for signed_entity_type in [
             SignedEntityType::MithrilStakeDistribution(epoch),
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", *epoch, 1)),
-            SignedEntityType::CardanoTransactions(epoch, 100),
+            SignedEntityType::CardanoTransactions(epoch, BlockNumber(100)),
         ] {
             repository
                 .create_open_message(epoch, &signed_entity_type, &ProtocolMessage::new())
