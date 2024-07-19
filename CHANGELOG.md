@@ -9,6 +9,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- **UNSTABLE** Cardano stake distribution certification:
+
+  - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`
+
 - Crates versions:
 
 | Crate | Version |
