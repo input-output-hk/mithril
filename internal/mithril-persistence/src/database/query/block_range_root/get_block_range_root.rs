@@ -17,9 +17,12 @@ impl GetBlockRangeRootQuery {
         }
     }
 
-    pub fn contains_or_below_block_number(block_number: BlockNumber) -> Self {
+    pub fn contains_or_below_block_number<T: Into<BlockNumber>>(block_number: T) -> Self {
         Self {
-            condition: WhereCondition::new("start < ?*", vec![Value::Integer(block_number as i64)]),
+            condition: WhereCondition::new(
+                "start < ?*",
+                vec![Value::Integer(*block_number.into() as i64)],
+            ),
         }
     }
 
@@ -60,15 +63,15 @@ mod tests {
     fn block_range_root_dataset() -> Vec<BlockRangeRootRecord> {
         [
             (
-                BlockRange::from_block_number(15),
+                BlockRange::from_block_number(BlockNumber(15)),
                 MKTreeNode::from_hex("AAAA").unwrap(),
             ),
             (
-                BlockRange::from_block_number(30),
+                BlockRange::from_block_number(BlockNumber(30)),
                 MKTreeNode::from_hex("BBBB").unwrap(),
             ),
             (
-                BlockRange::from_block_number(45),
+                BlockRange::from_block_number(BlockNumber(45)),
                 MKTreeNode::from_hex("CCCC").unwrap(),
             ),
         ]

@@ -136,6 +136,7 @@ impl CardanoTransactionRepository {
         highest
             .map(u64::try_from)
             .transpose()
+            .map(|num| num.map(BlockNumber))
             .with_context(||
                 format!("Integer field max(start) (value={highest:?}) is incompatible with u64 representation.")
             )
@@ -262,7 +263,7 @@ impl CardanoTransactionRepository {
             .get_highest_start_block_number_for_block_range_roots()
             .await?
         {
-            let threshold = highest_block_range_start.saturating_sub(number_of_blocks_to_keep);
+            let threshold = highest_block_range_start - number_of_blocks_to_keep;
             let query = DeleteCardanoTransactionQuery::below_block_number_threshold(threshold)?;
 
             let connection = self.connection_pool.connection()?;
@@ -278,7 +279,7 @@ impl CardanoTransactionRepository {
     /// * Remove block range roots that have lower bound range strictly above the given block number
     pub async fn remove_rolled_back_transactions_and_block_range(
         &self,
-        block_number: SlotNumber,
+        block_number: BlockNumber,
     ) -> StdResult<()> {
         let connection = self.connection_pool.connection()?;
         let transaction = connection.begin_transaction()?;
@@ -321,8 +322,8 @@ mod tests {
 
         repository
             .create_transactions(vec![
-                CardanoTransaction::new("tx_hash-123", 10, 50, "block_hash-123"),
-                CardanoTransaction::new("tx_hash-456", 11, 51, "block_hash-456"),
+                CardanoTransaction::new("tx_hash-123", BlockNumber(10), 50, "block_hash-123"),
+                CardanoTransaction::new("tx_hash-456", BlockNumber(11), 51, "block_hash-456"),
             ])
             .await
             .unwrap();
@@ -332,7 +333,7 @@ mod tests {
             assert_eq!(
                 Some(CardanoTransactionRecord {
                     transaction_hash: "tx_hash-123".to_string(),
-                    block_number: 10,
+                    block_number: BlockNumber(10),
                     slot_number: 50,
                     block_hash: "block_hash-123".to_string(),
                 }),
@@ -353,60 +354,106 @@ mod tests {
 
         repository
             .create_transactions(vec![
-                CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123"),
-                CardanoTransactionRecord::new("tx_hash-456", 11, 51, "block_hash-456"),
-                CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789"),
-                CardanoTransactionRecord::new("tx_hash-000", 101, 100, "block_hash-000"),
+                CardanoTransactionRecord::new("tx_hash-123", BlockNumber(10), 50, "block_hash-123"),
+                CardanoTransactionRecord::new("tx_hash-456", BlockNumber(11), 51, "block_hash-456"),
+                CardanoTransactionRecord::new("tx_hash-789", BlockNumber(12), 52, "block_hash-789"),
+                CardanoTransactionRecord::new(
+                    "tx_hash-000",
+                    BlockNumber(101),
+                    100,
+                    "block_hash-000",
+                ),
             ])
             .await
             .unwrap();
 
         {
             let transactions = repository
-                .get_transaction_by_hashes(vec!["tx_hash-123", "tx_hash-789"], 100)
+                .get_transaction_by_hashes(vec!["tx_hash-123", "tx_hash-789"], BlockNumber(100))
                 .await
                 .unwrap();
 
             assert_eq!(
                 vec![
-                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123"),
-                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789"),
+                    CardanoTransactionRecord::new(
+                        "tx_hash-123",
+                        BlockNumber(10),
+                        50,
+                        "block_hash-123"
+                    ),
+                    CardanoTransactionRecord::new(
+                        "tx_hash-789",
+                        BlockNumber(12),
+                        52,
+                        "block_hash-789"
+                    ),
                 ],
                 transactions
             );
         }
         {
             let transactions = repository
-                .get_transaction_by_hashes(vec!["tx_hash-123", "tx_hash-789", "tx_hash-000"], 100)
+                .get_transaction_by_hashes(
+                    vec!["tx_hash-123", "tx_hash-789", "tx_hash-000"],
+                    BlockNumber(100),
+                )
                 .await
                 .unwrap();
 
             assert_eq!(
                 vec![
-                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123"),
-                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789"),
+                    CardanoTransactionRecord::new(
+                        "tx_hash-123",
+                        BlockNumber(10),
+                        50,
+                        "block_hash-123"
+                    ),
+                    CardanoTransactionRecord::new(
+                        "tx_hash-789",
+                        BlockNumber(12),
+                        52,
+                        "block_hash-789"
+                    ),
                 ],
                 transactions
             );
         }
         {
             let transactions = repository
-                .get_transaction_by_hashes(vec!["tx_hash-123", "tx_hash-789", "tx_hash-000"], 101)
+                .get_transaction_by_hashes(
+                    vec!["tx_hash-123", "tx_hash-789", "tx_hash-000"],
+                    BlockNumber(101),
+                )
                 .await
                 .unwrap();
 
             assert_eq!(
                 vec![
-                    CardanoTransactionRecord::new("tx_hash-123", 10, 50, "block_hash-123"),
-                    CardanoTransactionRecord::new("tx_hash-789", 12, 52, "block_hash-789"),
-                    CardanoTransactionRecord::new("tx_hash-000", 101, 100, "block_hash-000"),
+                    CardanoTransactionRecord::new(
+                        "tx_hash-123",
+                        BlockNumber(10),
+                        50,
+                        "block_hash-123"
+                    ),
+                    CardanoTransactionRecord::new(
+                        "tx_hash-789",
+                        BlockNumber(12),
+                        52,
+                        "block_hash-789"
+                    ),
+                    CardanoTransactionRecord::new(
+                        "tx_hash-000",
+                        BlockNumber(101),
+                        100,
+                        "block_hash-000"
+                    ),
                 ],
                 transactions
             );
         }
         {
             let transactions = repository
-                .get_transaction_by_hashes(vec!["not-exist".to_string()], 100)
+                .get_transaction_by_hashes(vec!["not-exist".to_string()], BlockNumber(100))
                 .await
                 .unwrap();
 
@@ -422,11 +469,11 @@ mod tests {
         ));
 
         repository
-            .create_transaction("tx-hash-123", 10, 50, "block_hash-123")
+            .create_transaction("tx-hash-123", BlockNumber(10), 50, "block_hash-123")
             .await
             .unwrap();
         repository
-            .create_transaction("tx-hash-123", 11, 51, "block_hash-123-bis")
+            .create_transaction("tx-hash-123", BlockNumber(11), 51, "block_hash-123-bis")
             .await
             .unwrap();
         let transaction_result = repository.get_transaction("tx-hash-123").await.unwrap();
@@ -434,7 +481,7 @@ mod tests {
         assert_eq!(
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-123".to_string(),
-                block_number: 10,
+                block_number: BlockNumber(10),
                 slot_number: 50,
                 block_hash: "block_hash-123".to_string(),
             }),
@@ -450,8 +497,8 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-123"),
-            CardanoTransaction::new("tx-hash-456", 11, 51, "block-hash-456"),
+            CardanoTransaction::new("tx-hash-123", BlockNumber(10), 50, "block-hash-123"),
+            CardanoTransaction::new("tx-hash-456", BlockNumber(11), 51, "block-hash-456"),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -463,7 +510,7 @@ mod tests {
         assert_eq!(
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-123".to_string(),
-                block_number: 10,
+                block_number: BlockNumber(10),
                 slot_number: 50,
                 block_hash: "block-hash-123".to_string(),
             }),
@@ -475,7 +522,7 @@ mod tests {
         assert_eq!(
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-456".to_string(),
-                block_number: 11,
+                block_number: BlockNumber(11),
                 slot_number: 51,
                 block_hash: "block-hash-456".to_string(),
             }),
@@ -491,8 +538,8 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123".to_string(), 10, 50, "block-hash-123"),
-            CardanoTransaction::new("tx-hash-456".to_string(), 11, 51, "block-hash-456"),
+            CardanoTransaction::new("tx-hash-123", BlockNumber(10), 50, "block-hash-123"),
+            CardanoTransaction::new("tx-hash-456", BlockNumber(11), 51, "block-hash-456"),
         ];
         repository
             .create_transactions(cardano_transactions.clone())
@@ -516,13 +563,13 @@ mod tests {
         ));
 
         repository
-            .create_transaction("tx-hash-000", 1, 5, "block-hash")
+            .create_transaction("tx-hash-000", BlockNumber(1), 5, "block-hash")
             .await
             .unwrap();
 
         let cardano_transactions = vec![CardanoTransaction::new(
             "tx-hash-123",
-            10,
+            BlockNumber(10),
             50,
             "block-hash-123",
         )];
@@ -536,7 +583,7 @@ mod tests {
         assert_eq!(
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-000".to_string(),
-                block_number: 1,
+                block_number: BlockNumber(1),
                 slot_number: 5,
                 block_hash: "block-hash".to_string(),
             }),
@@ -566,8 +613,8 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10"),
-            CardanoTransaction::new("tx-hash-456", 25, 51, "block-hash-25"),
+            CardanoTransaction::new("tx-hash-123", BlockNumber(10), 50, "block-hash-10"),
+            CardanoTransaction::new("tx-hash-456", BlockNumber(25), 51, "block-hash-25"),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -581,7 +628,7 @@ mod tests {
         assert_eq!(
             Some(ChainPoint {
                 slot_number: 51,
-                block_number: 25,
+                block_number: BlockNumber(25),
                 block_hash: "block-hash-25".to_string()
             }),
             highest_beacon
@@ -597,9 +644,9 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", 10, 50, "block-hash-10"),
-            CardanoTransaction::new("tx-hash-456", 25, 51, "block-hash-25"),
-            CardanoTransaction::new("tx-hash-789", 25, 51, "block-hash-25"),
+            CardanoTransaction::new("tx-hash-123", BlockNumber(10), 50, "block-hash-10"),
+            CardanoTransaction::new("tx-hash-456", BlockNumber(25), 51, "block-hash-25"),
+            CardanoTransaction::new("tx-hash-789", BlockNumber(25), 51, "block-hash-25"),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -613,7 +660,7 @@ mod tests {
         assert_eq!(
             Some(ChainPoint {
                 slot_number: 51,
-                block_number: 25,
+                block_number: BlockNumber(25),
                 block_hash: "block-hash-25".to_string()
             }),
             highest_beacon
@@ -628,9 +675,9 @@ mod tests {
         ));
 
         let transactions = vec![
-            CardanoTransactionRecord::new("tx-hash-1", 10, 50, "block-hash-1"),
-            CardanoTransactionRecord::new("tx-hash-2", 11, 51, "block-hash-2"),
-            CardanoTransactionRecord::new("tx-hash-3", 12, 52, "block-hash-3"),
+            CardanoTransactionRecord::new("tx-hash-1", BlockNumber(10), 50, "block-hash-1"),
+            CardanoTransactionRecord::new("tx-hash-2", BlockNumber(11), 51, "block-hash-2"),
+            CardanoTransactionRecord::new("tx-hash-3", BlockNumber(12), 52, "block-hash-3"),
         ];
         repository
             .create_transactions(transactions.clone())
@@ -639,35 +686,35 @@ mod tests {
 
         {
             let transaction_result = repository
-                .get_transactions_in_range_blocks(0..10)
+                .get_transactions_in_range_blocks(BlockNumber(0)..BlockNumber(10))
                 .await
                 .unwrap();
             assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
         }
         {
             let transaction_result = repository
-                .get_transactions_in_range_blocks(13..21)
+                .get_transactions_in_range_blocks(BlockNumber(13)..BlockNumber(21))
                 .await
                 .unwrap();
             assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
         }
         {
             let transaction_result = repository
-                .get_transactions_in_range_blocks(9..12)
+                .get_transactions_in_range_blocks(BlockNumber(9)..BlockNumber(12))
                 .await
                 .unwrap();
             assert_eq!(transactions[0..=1].to_vec(), transaction_result);
         }
         {
             let transaction_result = repository
-                .get_transactions_in_range_blocks(10..13)
+                .get_transactions_in_range_blocks(BlockNumber(10)..BlockNumber(13))
                 .await
                 .unwrap();
             assert_eq!(transactions.clone(), transaction_result);
         }
         {
             let transaction_result = repository
-                .get_transactions_in_range_blocks(11..14)
+                .get_transactions_in_range_blocks(BlockNumber(11)..BlockNumber(14))
                 .await
                 .unwrap();
             assert_eq!(transactions[1..=2].to_vec(), transaction_result);
@@ -682,12 +729,12 @@ mod tests {
         ));
 
         let transactions = vec![
-            CardanoTransactionRecord::new("tx-hash-1", 10, 50, "block-hash-1"),
-            CardanoTransactionRecord::new("tx-hash-2", 11, 51, "block-hash-2"),
-            CardanoTransactionRecord::new("tx-hash-3", 20, 52, "block-hash-3"),
-            CardanoTransactionRecord::new("tx-hash-4", 31, 53, "block-hash-4"),
-            CardanoTransactionRecord::new("tx-hash-5", 35, 54, "block-hash-5"),
-            CardanoTransactionRecord::new("tx-hash-6", 46, 55, "block-hash-6"),
+            CardanoTransactionRecord::new("tx-hash-1", BlockNumber(10), 50, "block-hash-1"),
+            CardanoTransactionRecord::new("tx-hash-2", BlockNumber(11), 51, "block-hash-2"),
+            CardanoTransactionRecord::new("tx-hash-3", BlockNumber(20), 52, "block-hash-3"),
+            CardanoTransactionRecord::new("tx-hash-4", BlockNumber(31), 53, "block-hash-4"),
+            CardanoTransactionRecord::new("tx-hash-5", BlockNumber(35), 54, "block-hash-5"),
+            CardanoTransactionRecord::new("tx-hash-6", BlockNumber(46), 55, "block-hash-6"),
         ];
         repository
             .create_transactions(transactions.clone())
@@ -696,14 +743,18 @@ mod tests {
 
         {
             let transaction_result = repository
-                .get_transaction_by_block_ranges(vec![BlockRange::from_block_number(100)])
+                .get_transaction_by_block_ranges(vec![BlockRange::from_block_number(BlockNumber(
+                    100,
+                ))])
                 .await
                 .unwrap();
             assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
         }
         {
             let transaction_result = repository
-                .get_transaction_by_block_ranges(vec![BlockRange::from_block_number(0)])
+                .get_transaction_by_block_ranges(vec![BlockRange::from_block_number(BlockNumber(
+                    0,
+                ))])
                 .await
                 .unwrap();
             assert_eq!(transactions[0..=1].to_vec(), transaction_result);
@@ -711,8 +762,8 @@ mod tests {
         {
             let transaction_result = repository
                 .get_transaction_by_block_ranges(vec![
-                    BlockRange::from_block_number(0),
-                    BlockRange::from_block_number(15),
+                    BlockRange::from_block_number(BlockNumber(0)),
+                    BlockRange::from_block_number(BlockNumber(15)),
                 ])
                 .await
                 .unwrap();
@@ -721,8 +772,8 @@ mod tests {
         {
             let transaction_result = repository
                 .get_transaction_by_block_ranges(vec![
-                    BlockRange::from_block_number(0),
-                    BlockRange::from_block_number(30),
+                    BlockRange::from_block_number(BlockNumber(0)),
+                    BlockRange::from_block_number(BlockNumber(30)),
                 ])
                 .await
                 .unwrap();
@@ -741,9 +792,9 @@ mod tests {
         ));
 
         let transactions = vec![
-            CardanoTransactionRecord::new("tx-1", 100, 500, "block-1"),
-            CardanoTransactionRecord::new("tx-2", 100, 500, "block-1"),
-            CardanoTransactionRecord::new("tx-3", 101, 501, "block-1"),
+            CardanoTransactionRecord::new("tx-1", BlockNumber(100), 500, "block-1"),
+            CardanoTransactionRecord::new("tx-2", BlockNumber(100), 500, "block-1"),
+            CardanoTransactionRecord::new("tx-3", BlockNumber(101), 501, "block-1"),
         ];
         repository
             .create_transactions(transactions.clone())
@@ -755,7 +806,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(transaction_block_number_retrieved, Some(100));
+        assert_eq!(transaction_block_number_retrieved, Some(BlockNumber(100)));
     }
 
     #[tokio::test]
@@ -768,7 +819,7 @@ mod tests {
         repository
             .create_block_range_roots(vec![
                 (
-                    BlockRange::from_block_number(0),
+                    BlockRange::from_block_number(BlockNumber(0)),
                     MKTreeNode::from_hex("AAAA").unwrap(),
                 ),
                 (
@@ -788,7 +839,7 @@ mod tests {
         assert_eq!(
             vec![
                 BlockRangeRootRecord {
-                    range: BlockRange::from_block_number(0),
+                    range: BlockRange::from_block_number(BlockNumber(0)),
                     merkle_root: MKTreeNode::from_hex("AAAA").unwrap(),
                 },
                 BlockRangeRootRecord {
@@ -806,7 +857,7 @@ mod tests {
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::build_from_connection(connection),
         ));
-        let range = BlockRange::from_block_number(0);
+        let range = BlockRange::from_block_number(BlockNumber(0));
 
         repository
             .create_block_range_roots(vec![(range.clone(), MKTreeNode::from_hex("AAAA").unwrap())])
@@ -840,15 +891,15 @@ mod tests {
         ));
         let block_range_roots = vec![
             (
-                BlockRange::from_block_number(15),
+                BlockRange::from_block_number(BlockNumber(15)),
                 MKTreeNode::from_hex("AAAA").unwrap(),
             ),
             (
-                BlockRange::from_block_number(30),
+                BlockRange::from_block_number(BlockNumber(30)),
                 MKTreeNode::from_hex("BBBB").unwrap(),
             ),
             (
-                BlockRange::from_block_number(45),
+                BlockRange::from_block_number(BlockNumber(45)),
                 MKTreeNode::from_hex("CCCC").unwrap(),
             ),
         ];
@@ -858,7 +909,7 @@ mod tests {
             .unwrap();
 
         let retrieved_block_ranges = repository
-            .retrieve_block_range_roots_up_to(45)
+            .retrieve_block_range_roots_up_to(BlockNumber(45))
             .await
             .unwrap();
         assert_eq!(
@@ -875,15 +926,15 @@ mod tests {
         ));
         let block_range_roots = vec![
             BlockRangeRootRecord {
-                range: BlockRange::from_block_number(15),
+                range: BlockRange::from_block_number(BlockNumber(15)),
                 merkle_root: MKTreeNode::from_hex("AAAA").unwrap(),
             },
             BlockRangeRootRecord {
-                range: BlockRange::from_block_number(30),
+                range: BlockRange::from_block_number(BlockNumber(30)),
                 merkle_root: MKTreeNode::from_hex("BBBB").unwrap(),
             },
             BlockRangeRootRecord {
-                range: BlockRange::from_block_number(45),
+                range: BlockRange::from_block_number(BlockNumber(45)),
                 merkle_root: MKTreeNode::from_hex("CCCC").unwrap(),
             },
         ];
@@ -920,7 +971,7 @@ mod tests {
         // Use by 'prune_transaction' to get the block_range of the highest block number
         repository
             .create_block_range_roots(vec![(
-                BlockRange::from_block_number(45),
+                BlockRange::from_block_number(BlockNumber(45)),
                 MKTreeNode::from_hex("BBBB").unwrap(),
             )])
             .await
@@ -931,21 +982,24 @@ mod tests {
 
         // Pruning with a number of block to keep greater than the highest block range start should
         // do nothing.
-        repository.prune_transaction(10_000_000).await.unwrap();
+        repository
+            .prune_transaction(BlockNumber(10_000_000))
+            .await
+            .unwrap();
         let transaction_result = repository.get_all_transactions().await.unwrap();
         assert_eq!(cardano_transactions, transaction_result);
 
         // Since the highest block range start is 45, pruning with 20 should remove transactions
         // with a block number strictly below 25.
-        repository.prune_transaction(20).await.unwrap();
+        repository.prune_transaction(BlockNumber(20)).await.unwrap();
         let transaction_result = repository
-            .get_transactions_in_range_blocks(0..25)
+            .get_transactions_in_range_blocks(BlockNumber(0)..BlockNumber(25))
             .await
             .unwrap();
         assert_eq!(Vec::<CardanoTransactionRecord>::new(), transaction_result);
 
         let transaction_result = repository
-            .get_transactions_in_range_blocks(25..1000)
+            .get_transactions_in_range_blocks(BlockNumber(25)..BlockNumber(1000))
             .await
             .unwrap();
         assert_eq!(28, transaction_result.len());
@@ -966,11 +1020,11 @@ mod tests {
 
         let block_range_roots = vec![
             (
-                BlockRange::from_block_number(15),
+                BlockRange::from_block_number(BlockNumber(15)),
                 MKTreeNode::from_hex("AAAA").unwrap(),
             ),
             (
-                BlockRange::from_block_number(30),
+                BlockRange::from_block_number(BlockNumber(30)),
                 MKTreeNode::from_hex("BBBB").unwrap(),
             ),
         ];
@@ -983,7 +1037,7 @@ mod tests {
             .get_highest_start_block_number_for_block_range_roots()
             .await
             .unwrap();
-        assert_eq!(Some(30), highest);
+        assert_eq!(Some(BlockNumber(30)), highest);
     }
 
     #[tokio::test]

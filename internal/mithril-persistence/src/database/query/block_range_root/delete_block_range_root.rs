@@ -30,13 +30,17 @@ impl Query for DeleteBlockRangeRootQuery {
 }
 
 impl DeleteBlockRangeRootQuery {
-    pub fn contains_or_above_block_number_threshold(
-        block_number_threshold: BlockNumber,
+    pub fn contains_or_above_block_number_threshold<T: Into<BlockNumber>>(
+        block_number_threshold: T,
     ) -> StdResult<Self> {
-        let block_range = BlockRange::from_block_number(block_number_threshold);
-        let threshold = Value::Integer(block_range.start.try_into().with_context(|| {
-            format!("Failed to convert threshold `{block_number_threshold}` to i64")
-        })?);
+        let threshold = block_number_threshold.into();
+        let block_range = BlockRange::from_block_number(threshold);
+        let threshold = Value::Integer(
+            block_range
+                .start
+                .try_into()
+                .with_context(|| format!("Failed to convert threshold `{threshold}` to i64"))?,
+        );
 
         Ok(Self {
             condition: WhereCondition::new("start >= ?*", vec![threshold]),
@@ -90,13 +94,13 @@ mod tests {
 
     #[test]
     fn test_prune_all_data_if_given_block_number_is_lower_than_stored_number_of_block() {
-        parameterized_test_prune_block_range(0, block_range_root_dataset().len());
+        parameterized_test_prune_block_range(BlockNumber(0), block_range_root_dataset().len());
     }
 
     #[test]
     fn test_prune_keep_all_block_range_root_if_given_number_of_block_is_greater_than_the_highest_one(
     ) {
-        parameterized_test_prune_block_range(100_000, 0);
+        parameterized_test_prune_block_range(BlockNumber(100_000), 0);
     }
 
     #[test]

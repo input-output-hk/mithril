@@ -30,20 +30,30 @@ impl Query for DeleteCardanoTransactionQuery {
 }
 
 impl DeleteCardanoTransactionQuery {
-    pub fn below_block_number_threshold(block_number_threshold: BlockNumber) -> StdResult<Self> {
-        let threshold = Value::Integer(block_number_threshold.try_into().with_context(|| {
-            format!("Failed to convert threshold `{block_number_threshold}` to i64")
-        })?);
+    pub fn below_block_number_threshold<T: Into<BlockNumber>>(
+        block_number_threshold: T,
+    ) -> StdResult<Self> {
+        let threshold = block_number_threshold.into();
+        let threshold = Value::Integer(
+            threshold
+                .try_into()
+                .with_context(|| format!("Failed to convert threshold `{threshold}` to i64"))?,
+        );
 
         Ok(Self {
             condition: WhereCondition::new("block_number < ?*", vec![threshold]),
         })
     }
 
-    pub fn above_block_number_threshold(block_number_threshold: BlockNumber) -> StdResult<Self> {
-        let threshold = Value::Integer(block_number_threshold.try_into().with_context(|| {
-            format!("Failed to convert threshold `{block_number_threshold}` to i64")
-        })?);
+    pub fn above_block_number_threshold<T: Into<BlockNumber>>(
+        block_number_threshold: T,
+    ) -> StdResult<Self> {
+        let threshold = block_number_threshold.into();
+        let threshold = Value::Integer(
+            threshold
+                .try_into()
+                .with_context(|| format!("Failed to convert threshold `{threshold}` to i64"))?,
+        );
 
         Ok(Self {
             condition: WhereCondition::new("block_number > ?*", vec![threshold]),
@@ -67,12 +77,12 @@ mod tests {
 
     fn test_transaction_set() -> Vec<CardanoTransactionRecord> {
         vec![
-            CardanoTransactionRecord::new("tx-hash-0", 10, 50, "block-hash-10"),
-            CardanoTransactionRecord::new("tx-hash-1", 10, 51, "block-hash-10"),
-            CardanoTransactionRecord::new("tx-hash-2", 11, 52, "block-hash-11"),
-            CardanoTransactionRecord::new("tx-hash-3", 11, 53, "block-hash-11"),
-            CardanoTransactionRecord::new("tx-hash-4", 12, 54, "block-hash-12"),
-            CardanoTransactionRecord::new("tx-hash-5", 12, 55, "block-hash-12"),
+            CardanoTransactionRecord::new("tx-hash-0", BlockNumber(10), 50, "block-hash-10"),
+            CardanoTransactionRecord::new("tx-hash-1", BlockNumber(10), 51, "block-hash-10"),
+            CardanoTransactionRecord::new("tx-hash-2", BlockNumber(11), 52, "block-hash-11"),
+            CardanoTransactionRecord::new("tx-hash-3", BlockNumber(11), 53, "block-hash-11"),
+            CardanoTransactionRecord::new("tx-hash-4", BlockNumber(12), 54, "block-hash-12"),
+            CardanoTransactionRecord::new("tx-hash-5", BlockNumber(12), 55, "block-hash-12"),
         ]
     }
 

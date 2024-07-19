@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
+use std::num::TryFromIntError;
 use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Serialize};
@@ -47,6 +48,15 @@ impl From<u64> for BlockNumber {
 impl From<&u64> for BlockNumber {
     fn from(value: &u64) -> Self {
         (*value).into()
+    }
+}
+
+// Useful for conversion to sqlite number (that use i64)
+impl TryFrom<BlockNumber> for i64 {
+    type Error = TryFromIntError;
+
+    fn try_from(value: BlockNumber) -> Result<Self, Self::Error> {
+        value.0.try_into()
     }
 }
 

@@ -74,7 +74,7 @@ impl SqLiteEntity for CardanoTransactionRecord {
 
         Ok(Self {
             transaction_hash: transaction_hash.to_string(),
-            block_number,
+            block_number: BlockNumber(block_number),
             slot_number,
             block_hash: block_hash.to_string(),
         })

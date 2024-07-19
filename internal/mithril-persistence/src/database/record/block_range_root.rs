@@ -1,7 +1,7 @@
 use sqlite::Row;
 
 use mithril_common::crypto_helper::MKTreeNode;
-use mithril_common::entities::BlockRange;
+use mithril_common::entities::{BlockNumber, BlockRange};
 
 use crate::database::Hydrator;
 use crate::sqlite::{HydrationError, Projection, SqLiteEntity};
@@ -37,7 +37,7 @@ impl SqLiteEntity for BlockRangeRootRecord {
     {
         let start = Hydrator::try_to_u64("block_range.start", row.read::<i64, _>(0))?;
         let end = Hydrator::try_to_u64("block_range.end", row.read::<i64, _>(1))?;
-        let range = BlockRange::from_block_number(start);
+        let range = BlockRange::from_block_number(BlockNumber(start));
         let merkle_root = row.read::<&str, _>(2);
 
         if range.start != start || range.end != end {
@@ -71,8 +71,6 @@ impl SqLiteEntity for BlockRangeRootRecord {
 mod tests {
     use sqlite::Connection;
 
-    use mithril_common::entities::BlockNumber;
-
     use super::*;
 
     fn select_block_range_from_db(start: BlockNumber, end: BlockNumber, merkle_root: &str) -> Row {
@@ -86,13 +84,13 @@ mod tests {
     fn hydrate_succeed_if_valid_block_range_in_row() {
         // A valid block range has both bounds as multiples of block range length and the interval
         // size is equal to block range length.
-        let row = select_block_range_from_db(0, BlockRange::LENGTH, "AAAA");
+        let row = select_block_range_from_db(BlockNumber(0), BlockRange::LENGTH, "AAAA");
         let res = BlockRangeRootRecord::hydrate(row).expect("Expected hydrate to succeed");
 
         assert_eq!(
             res,
             BlockRangeRootRecord {
-                range: BlockRange::from_block_number(0),
+                range: BlockRange::from_block_number(BlockNumber(0)),
                 merkle_root: MKTreeNode::from_hex("AAAA").unwrap(),
             }
         );
@@ -102,11 +100,11 @@ mod tests {
     fn hydrate_fail_if_invalid_block_range_in_row() {
         for invalid_row in [
             // Start is not a multiple of block range length
-            select_block_range_from_db(1, BlockRange::LENGTH, "AAAA"),
+            select_block_range_from_db(BlockNumber(1), BlockRange::LENGTH, "AAAA"),
             // End is not a multiple of block range length
-            select_block_range_from_db(0, BlockRange::LENGTH - 1, "AAAA"),
+            select_block_range_from_db(BlockNumber(0), BlockRange::LENGTH - 1, "AAAA"),
             // Interval is not equal to block range length
-            select_block_range_from_db(0, BlockRange::LENGTH * 4, "AAAA"),
+            select_block_range_from_db(BlockNumber(0), BlockRange::LENGTH * 4, "AAAA"),
         ] {
             let res =
                 BlockRangeRootRecord::hydrate(invalid_row).expect_err("Expected hydrate to fail");
