@@ -22,7 +22,6 @@ mod signed_entity_config;
 mod signed_entity_type;
 mod signer;
 mod single_signatures;
-mod slot_number;
 mod snapshot;
 mod time_point;
 mod type_alias;
