@@ -21,6 +21,20 @@ pub trait StakeDistributionRetriever: Send + Sync {
     async fn retrieve(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>>;
 }
 
+struct StakeDistributionEntry(String, u64);
+
+impl StakeDistributionEntry {
+    pub fn new(pool_id: &str, stake: u64) -> Self {
+        Self(pool_id.to_string(), stake)
+    }
+}
+
+impl From<StakeDistributionEntry> for MKTreeNode {
+    fn from(entry: StakeDistributionEntry) -> Self {
+        MKTreeNode::new(format!("{}{}", entry.0, entry.1).into())
+    }
+}
+
 /// A [CardanoStakeDistributionSignableBuilder] builder
 pub struct CardanoStakeDistributionSignableBuilder {
     cardano_stake_distribution_retriever: Arc<dyn StakeDistributionRetriever>,
@@ -37,7 +51,7 @@ impl CardanoStakeDistributionSignableBuilder {
     fn compute_merkle_tree(pools_with_stake: StakeDistribution) -> StdResult<MKTree> {
         let leaves: Vec<MKTreeNode> = pools_with_stake
             .iter()
-            .map(|(k, v)| MKTreeNode::new(format!("({},{})", k, v).as_bytes().to_vec()))
+            .map(|(k, v)| StakeDistributionEntry::new(k, *v).into())
             .collect();
 
         MKTree::new(&leaves)
