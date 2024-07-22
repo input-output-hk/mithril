@@ -4,21 +4,23 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::{CardanoStakeDistribution, Certificate, Epoch},
+    signable_builder::StakeDistributionRetriever,
     StdResult,
 };
-use mithril_persistence::store::StakeStorer;
 
 use crate::ArtifactBuilder;
 
 /// A [CardanoStakeDistributionArtifact] builder
 pub struct CardanoStakeDistributionArtifactBuilder {
-    stake_store: Arc<dyn StakeStorer>,
+    stake_distribution_retriever: Arc<dyn StakeDistributionRetriever>,
 }
 
 impl CardanoStakeDistributionArtifactBuilder {
     /// CardanoStakeDistribution artifact builder factory
-    pub fn new(stake_store: Arc<dyn StakeStorer>) -> Self {
-        Self { stake_store }
+    pub fn new(stake_distribution_retriever: Arc<dyn StakeDistributionRetriever>) -> Self {
+        Self {
+            stake_distribution_retriever,
+        }
     }
 }
 
@@ -30,8 +32,8 @@ impl ArtifactBuilder<Epoch, CardanoStakeDistribution> for CardanoStakeDistributi
         _certificate: &Certificate,
     ) -> StdResult<CardanoStakeDistribution> {
         let stake_distribution = self
-            .stake_store
-            .get_stakes(epoch)
+            .stake_distribution_retriever
+            .retrieve(epoch)
             .await?
             .ok_or_else(|| anyhow!("No stake distribution found for epoch '{}'", epoch))?;
 
@@ -47,16 +49,11 @@ mod tests {
     use super::*;
 
     mock! {
-        pub StakeStorerImpl {}
+        pub StakeDistributionRetrieverImpl {}
 
         #[async_trait]
-        impl StakeStorer for StakeStorerImpl {
-            async fn save_stakes(
-                &self,
-                epoch: Epoch,
-                stakes: StakeDistribution,
-            ) -> StdResult<Option<StakeDistribution>>;
-            async fn get_stakes(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>>;
+        impl StakeDistributionRetriever for StakeDistributionRetrieverImpl {
+            async fn retrieve(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>>;
         }
     }
 
@@ -66,9 +63,9 @@ mod tests {
         let certificate = fake_data::certificate("whatever".to_string());
         let stake_distribution = StakeDistribution::from([("pool-123".to_string(), 123)]);
         let stake_distribution_clone = stake_distribution.clone();
-        let mut mock_storer = MockStakeStorerImpl::new();
+        let mut mock_storer = MockStakeDistributionRetrieverImpl::new();
         mock_storer
-            .expect_get_stakes()
+            .expect_retrieve()
             .with(eq(epoch))
             .return_once(move |_| Ok(Some(stake_distribution_clone)));
         let builder = CardanoStakeDistributionArtifactBuilder::new(Arc::new(mock_storer));
@@ -84,9 +81,9 @@ mod tests {
     async fn compute_artifact_returns_error_if_no_stakes_found_for_epoch() {
         let epoch = Epoch(1);
         let certificate = fake_data::certificate("whatever".to_string());
-        let mut mock_storer = MockStakeStorerImpl::new();
+        let mut mock_storer = MockStakeDistributionRetrieverImpl::new();
         mock_storer
-            .expect_get_stakes()
+            .expect_retrieve()
             .with(eq(epoch))
             .return_once(move |_| Ok(None));
         let builder = CardanoStakeDistributionArtifactBuilder::new(Arc::new(mock_storer));
