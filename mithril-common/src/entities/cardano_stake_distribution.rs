@@ -11,10 +11,10 @@ pub struct CardanoStakeDistribution {
     /// Unique hash of the Cardano Stake Distribution
     pub hash: String,
 
-    /// Epoch at which the Cardano Stake Distribution is created
+    /// Epoch at which the Cardano Stake Distribution is computed
     pub epoch: Epoch,
 
-    /// List of pools with their stakes of the Cardano Stake Distribution
+    /// StakeDistribution represents the list of participants in the Cardano chain with their associated stake
     pub stake_distribution: StakeDistribution,
 }
 

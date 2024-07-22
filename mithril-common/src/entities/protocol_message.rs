@@ -23,11 +23,11 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "latest_block_number")]
     LatestBlockNumber,
 
-    /// The ProtocolMessage part key associated to the Epoch when the Cardano Stake Distribution was computed
-    #[serde(rename = "cardano_transactions_epoch")]
+    /// The ProtocolMessage part key associated to the epoch for which the Cardano stake distribution is computed
+    #[serde(rename = "cardano_stake_distribution_epoch")]
     CardanoStakeDistributionEpoch,
 
-    /// The ProtocolMessage part key associated to the Cardano Stake Distribution Merkle Root
+    /// The ProtocolMessage part key associated to the Cardano stake distribution Merkle root
     #[serde(rename = "cardano_stake_distribution_merkle_root")]
     CardanoStakeDistributionMerkleRoot,
 }
@@ -39,7 +39,7 @@ impl Display for ProtocolMessagePartKey {
             Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
             Self::CardanoTransactionsMerkleRoot => write!(f, "cardano_transactions_merkle_root"),
             Self::LatestBlockNumber => write!(f, "latest_block_number"),
-            Self::CardanoStakeDistributionEpoch => write!(f, "cardano_transactions_epoch"),
+            Self::CardanoStakeDistributionEpoch => write!(f, "cardano_stake_distribution_epoch"),
             Self::CardanoStakeDistributionMerkleRoot => {
                 write!(f, "cardano_stake_distribution_merkle_root")
             }

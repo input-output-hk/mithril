@@ -72,7 +72,7 @@ impl SignableBuilderService for MithrilSignableBuilderService {
                 .cardano_stake_distribution_builder
                 .compute_protocol_message(e)
                 .await
-                .with_context(|| "Signable builder service can not compute protocol message with epoch: '{e}")?,
+                .with_context(|| "Signable builder service can not compute protocol message for Cardano stake distribution with epoch: '{e}")?,
             SignedEntityType::CardanoTransactions(_, block_number) => self
                 .cardano_transactions_signable_builder
                 .compute_protocol_message(block_number)
