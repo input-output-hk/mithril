@@ -14,27 +14,27 @@ use crate::{
 };
 
 /// BlockRangeLength is the length of a block range.
-pub type BlockRangeLength = u64;
+pub type BlockRangeLength = BlockNumber;
 
 /// BlockRange for the Cardano chain
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct BlockRange {
-    inner_range: Range<u64>,
+    inner_range: Range<BlockNumber>,
 }
 
 impl BlockRange {
     /// The length of the block range
     /// Important: this value should be updated with extreme care (probably with an era change) in order to avoid signing disruptions.
-    pub const LENGTH: BlockRangeLength = 15;
-
-    /// BlockRange factory
-    pub fn new(start: BlockNumber, end: BlockNumber) -> Self {
-        Self {
-            inner_range: start..end,
-        }
-    }
+    pub const LENGTH: BlockRangeLength = BlockNumber(15);
 
     cfg_test_tools! {
+        /// BlockRange factory
+        pub fn new(start: u64, end: u64) -> Self {
+            Self {
+                inner_range: BlockNumber(start)..BlockNumber(end),
+            }
+        }
+
         /// Try to add two BlockRanges
         pub fn try_add(&self, other: &BlockRange) -> StdResult<BlockRange> {
             if self.inner_range.end.max(other.inner_range.end)
@@ -82,9 +82,7 @@ impl BlockRange {
         }
         let block_range_start = Self::start_with_length(number, length);
         let block_range_end = block_range_start + length;
-        Ok(Self {
-            inner_range: block_range_start..block_range_end,
-        })
+        Ok(Self::from(*block_range_start..*block_range_end))
     }
 
     /// Get the start of the block range of given length that contains the given block number
@@ -102,7 +100,7 @@ impl Display for BlockRange {
 }
 
 impl Deref for BlockRange {
-    type Target = Range<u64>;
+    type Target = Range<BlockNumber>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner_range
@@ -127,7 +125,9 @@ impl Ord for BlockRange {
 
 impl From<Range<u64>> for BlockRange {
     fn from(other: Range<u64>) -> Self {
-        BlockRange { inner_range: other }
+        BlockRange {
+            inner_range: BlockNumber(other.start)..BlockNumber(other.end),
+        }
     }
 }
 
@@ -160,7 +160,7 @@ impl BlockRangesSequence {
     ///
     /// The interval bounds will be corrected to be multiples of [BlockRange::LENGTH].
     pub fn new(interval: RangeInclusive<BlockNumber>) -> Self {
-        let start = if (interval.start() % BlockRange::LENGTH) == 0 {
+        let start = if (*interval.start() % BlockRange::LENGTH) == 0 {
             *interval.start()
         } else {
             BlockRange::start(*interval.start()) + BlockRange::LENGTH
@@ -169,7 +169,10 @@ impl BlockRangesSequence {
         let end = BlockRange::start(*interval.end() + 1);
 
         if start >= end {
-            Self { start: 0, end: 0 }
+            Self {
+                start: BlockNumber(0),
+                end: BlockNumber(0),
+            }
         } else {
             Self { start, end }
         }
@@ -215,13 +218,13 @@ impl Iterator for BlockRangesSequence {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.start as usize, Some(self.end as usize))
+        (*self.start as usize, Some(*self.end as usize))
     }
 }
 
 impl ExactSizeIterator for BlockRangesSequence {
     fn len(&self) -> usize {
-        ((self.end - self.start) / BlockRange::LENGTH) as usize
+        *((self.end - self.start) / BlockRange::LENGTH) as usize
     }
 }
 
@@ -235,13 +238,13 @@ mod tests {
     fn test_block_range_contains() {
         let block_range = BlockRange::new(1, 10);
 
-        assert!(block_range.contains(&1));
-        assert!(block_range.contains(&6));
-        assert!(block_range.contains(&9));
+        assert!(block_range.contains(&BlockNumber(1)));
+        assert!(block_range.contains(&BlockNumber(6)));
+        assert!(block_range.contains(&BlockNumber(9)));
 
-        assert!(block_range.contains(&0).not());
+        assert!(block_range.contains(&BlockNumber(0)).not());
         // The end of the range is exclusive
-        assert!(block_range.contains(&10).not());
+        assert!(block_range.contains(&BlockNumber(10)).not());
     }
 
     #[test]
@@ -280,38 +283,50 @@ mod tests {
 
     #[test]
     fn test_block_range_start() {
-        assert_eq!(BlockRange::start(0), 0);
-        assert_eq!(BlockRange::start(1), 0);
-        assert_eq!(BlockRange::start(14), 0);
-        assert_eq!(BlockRange::start(15), 15);
-        assert_eq!(BlockRange::start(16), 15);
-        assert_eq!(BlockRange::start(29), 15);
+        assert_eq!(BlockRange::start(BlockNumber(0)), 0);
+        assert_eq!(BlockRange::start(BlockNumber(1)), 0);
+        assert_eq!(BlockRange::start(BlockNumber(14)), 0);
+        assert_eq!(BlockRange::start(BlockNumber(15)), 15);
+        assert_eq!(BlockRange::start(BlockNumber(16)), 15);
+        assert_eq!(BlockRange::start(BlockNumber(29)), 15);
     }
 
     #[test]
     fn test_block_range_all_block_ranges_in() {
-        assert_eq!(BlockRange::all_block_ranges_in(0..=0).into_vec(), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(0..=1).into_vec(), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(0..=13).into_vec(), vec![]);
-        assert_eq!(BlockRange::all_block_ranges_in(1..=14).into_vec(), vec![]);
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..=14).into_vec(),
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(0)).into_vec(),
+            vec![]
+        );
+        assert_eq!(
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(1)).into_vec(),
+            vec![]
+        );
+        assert_eq!(
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(13)).into_vec(),
+            vec![]
+        );
+        assert_eq!(
+            BlockRange::all_block_ranges_in(BlockNumber(1)..=BlockNumber(14)).into_vec(),
+            vec![]
+        );
+        assert_eq!(
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(14)).into_vec(),
             vec![BlockRange::new(0, 15)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..=15).into_vec(),
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(15)).into_vec(),
             vec![BlockRange::new(0, 15)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..=29).into_vec(),
+            BlockRange::all_block_ranges_in(BlockNumber(14)..=BlockNumber(29)).into_vec(),
             vec![BlockRange::new(15, 30)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..=30).into_vec(),
+            BlockRange::all_block_ranges_in(BlockNumber(14)..=BlockNumber(30)).into_vec(),
             vec![BlockRange::new(15, 30)]
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(14..=60).into_vec(),
+            BlockRange::all_block_ranges_in(BlockNumber(14)..=BlockNumber(60)).into_vec(),
             vec![
                 BlockRange::new(15, 30),
                 BlockRange::new(30, 45),
@@ -322,29 +337,49 @@ mod tests {
 
     #[test]
     fn test_block_ranges_sequence_is_empty() {
-        assert!(BlockRange::all_block_ranges_in(0..=0).is_empty());
-        assert!(BlockRange::all_block_ranges_in(0..=1).is_empty());
-        assert!(BlockRange::all_block_ranges_in(0..=13).is_empty());
-        assert!(BlockRange::all_block_ranges_in(1..=14).is_empty());
-        assert!(BlockRange::all_block_ranges_in(0..=14).is_empty().not());
-        assert!(BlockRange::all_block_ranges_in(0..=15).is_empty().not());
-        assert!(BlockRange::all_block_ranges_in(14..=29).is_empty().not());
-        assert!(BlockRange::all_block_ranges_in(14..=30).is_empty().not());
-        assert!(BlockRange::all_block_ranges_in(14..=60).is_empty().not());
+        assert!(BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(0)).is_empty());
+        assert!(BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(1)).is_empty());
+        assert!(BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(13)).is_empty());
+        assert!(BlockRange::all_block_ranges_in(BlockNumber(1)..=BlockNumber(14)).is_empty());
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(14))
+                .is_empty()
+                .not()
+        );
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(15))
+                .is_empty()
+                .not()
+        );
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(14)..=BlockNumber(29))
+                .is_empty()
+                .not()
+        );
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(14)..=BlockNumber(30))
+                .is_empty()
+                .not()
+        );
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(14)..=BlockNumber(60))
+                .is_empty()
+                .not()
+        );
     }
 
     #[test]
     fn test_block_ranges_sequence_len() {
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..=(BlockRange::LENGTH - 2)).len(),
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=(BlockRange::LENGTH - 2)).len(),
             0
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..=(BlockRange::LENGTH - 1)).len(),
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=(BlockRange::LENGTH - 1)).len(),
             1
         );
         assert_eq!(
-            BlockRange::all_block_ranges_in(0..=(BlockRange::LENGTH * 15)).len(),
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=(BlockRange::LENGTH * 15)).len(),
             15
         );
     }
@@ -352,58 +387,89 @@ mod tests {
     #[test]
     fn test_block_ranges_sequence_contains() {
         let block_range = BlockRange::new(15, 30);
-        assert!(BlockRange::all_block_ranges_in(0..=14)
-            .contains(&block_range)
-            .not());
-        assert!(BlockRange::all_block_ranges_in(30..=59)
-            .contains(&block_range)
-            .not());
-        assert!(BlockRange::all_block_ranges_in(0..=29).contains(&block_range));
-        assert!(BlockRange::all_block_ranges_in(15..=29).contains(&block_range));
-        assert!(BlockRange::all_block_ranges_in(15..=44).contains(&block_range));
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(14))
+                .contains(&block_range)
+                .not()
+        );
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(30)..=BlockNumber(59))
+                .contains(&block_range)
+                .not()
+        );
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(0)..=BlockNumber(29))
+                .contains(&block_range)
+        );
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(15)..=BlockNumber(29))
+                .contains(&block_range)
+        );
+        assert!(
+            BlockRange::all_block_ranges_in(BlockNumber(15)..=BlockNumber(44))
+                .contains(&block_range)
+        );
     }
 
     #[test]
     fn test_block_range_from_number() {
-        assert_eq!(BlockRange::from_block_number(0), BlockRange::new(0, 15));
-        assert_eq!(BlockRange::from_block_number(1), BlockRange::new(0, 15));
-        assert_eq!(BlockRange::from_block_number(14), BlockRange::new(0, 15));
-        assert_eq!(BlockRange::from_block_number(15), BlockRange::new(15, 30));
-        assert_eq!(BlockRange::from_block_number(16), BlockRange::new(15, 30));
-        assert_eq!(BlockRange::from_block_number(29), BlockRange::new(15, 30));
+        assert_eq!(
+            BlockRange::from_block_number(BlockNumber(0)),
+            BlockRange::new(0, 15)
+        );
+        assert_eq!(
+            BlockRange::from_block_number(BlockNumber(1)),
+            BlockRange::new(0, 15)
+        );
+        assert_eq!(
+            BlockRange::from_block_number(BlockNumber(14)),
+            BlockRange::new(0, 15)
+        );
+        assert_eq!(
+            BlockRange::from_block_number(BlockNumber(15)),
+            BlockRange::new(15, 30)
+        );
+        assert_eq!(
+            BlockRange::from_block_number(BlockNumber(16)),
+            BlockRange::new(15, 30)
+        );
+        assert_eq!(
+            BlockRange::from_block_number(BlockNumber(29)),
+            BlockRange::new(15, 30)
+        );
     }
 
     #[test]
     fn test_block_range_from_number_and_length_with_valid_input() {
         assert_eq!(
-            BlockRange::from_block_number_and_length(0, 10).unwrap(),
+            BlockRange::from_block_number_and_length(BlockNumber(0), BlockNumber(10)).unwrap(),
             BlockRange::new(0, 10)
         );
         assert_eq!(
-            BlockRange::from_block_number_and_length(1, 10).unwrap(),
+            BlockRange::from_block_number_and_length(BlockNumber(1), BlockNumber(10)).unwrap(),
             BlockRange::new(0, 10)
         );
         assert_eq!(
-            BlockRange::from_block_number_and_length(9, 10).unwrap(),
+            BlockRange::from_block_number_and_length(BlockNumber(9), BlockNumber(10)).unwrap(),
             BlockRange::new(0, 10)
         );
         assert_eq!(
-            BlockRange::from_block_number_and_length(10, 10).unwrap(),
+            BlockRange::from_block_number_and_length(BlockNumber(10), BlockNumber(10)).unwrap(),
             BlockRange::new(10, 20)
         );
         assert_eq!(
-            BlockRange::from_block_number_and_length(11, 10).unwrap(),
+            BlockRange::from_block_number_and_length(BlockNumber(11), BlockNumber(10)).unwrap(),
             BlockRange::new(10, 20)
         );
         assert_eq!(
-            BlockRange::from_block_number_and_length(19, 10).unwrap(),
+            BlockRange::from_block_number_and_length(BlockNumber(19), BlockNumber(10)).unwrap(),
             BlockRange::new(10, 20)
         );
     }
 
     #[test]
     fn test_block_range_from_number_and_length_with_invalid_input() {
-        BlockRange::from_block_number_and_length(10, 0)
+        BlockRange::from_block_number_and_length(BlockNumber(10), BlockNumber(0))
             .expect_err("BlockRange should not be computed with a length of 0");
     }
 
@@ -411,7 +477,7 @@ mod tests {
     // allow to specify a range with start > end
     #[allow(clippy::reversed_empty_ranges)]
     fn test_building_sequence_with_start_greater_than_end_yield_empty_iterator() {
-        let sequence = BlockRange::all_block_ranges_in(30..=15);
+        let sequence = BlockRange::all_block_ranges_in(BlockNumber(30)..=BlockNumber(15));
         assert_eq!(sequence.clone().into_vec(), vec![]);
         assert!(sequence.is_empty());
     }

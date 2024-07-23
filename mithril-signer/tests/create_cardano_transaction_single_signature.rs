@@ -2,7 +2,7 @@ mod test_extensions;
 
 use mithril_common::{
     crypto_helper::tests_setup,
-    entities::{ChainPoint, Epoch, SignedEntityTypeDiscriminants, TimePoint},
+    entities::{BlockNumber, ChainPoint, Epoch, SignedEntityTypeDiscriminants, TimePoint},
     test_utils::MithrilFixtureBuilder,
 };
 
@@ -24,7 +24,7 @@ async fn test_create_cardano_transaction_single_signature() {
             slot_number: 100,
             // Note: the starting block number must be greater than the cardano_transactions_signing_config.step
             // so first block range root computation is not on block 0.
-            block_number: 100,
+            block_number: BlockNumber(100),
             block_hash: "block_hash-100".to_string(),
         },
     };

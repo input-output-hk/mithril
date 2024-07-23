@@ -82,7 +82,7 @@ mod tests {
                 ..fake_data::certificate("certificate-123".to_string())
             }
         };
-        let beacon = 100;
+        let beacon = BlockNumber(100);
 
         let artifact = cardano_transaction_artifact_builder
             .compute_artifact(beacon, &certificate_with_merkle_root)
@@ -106,7 +106,7 @@ mod tests {
             protocol_message: ProtocolMessage::new(),
             ..fake_data::certificate("certificate-123".to_string())
         };
-        let beacon = 100;
+        let beacon = BlockNumber(100);
 
         cardano_transaction_artifact_builder
             .compute_artifact(beacon, &certificate_without_merkle_root)

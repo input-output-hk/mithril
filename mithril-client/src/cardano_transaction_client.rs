@@ -158,16 +158,18 @@ impl CardanoTransactionClient {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use anyhow::anyhow;
+    use chrono::{DateTime, Utc};
+    use mockall::predicate::eq;
+
     use crate::aggregator_client::{AggregatorClientError, MockAggregatorHTTPClient};
-    use crate::common::Epoch;
+    use crate::common::{BlockNumber, Epoch};
     use crate::{
         CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
         CardanoTransactionsSetProof,
     };
-    use anyhow::anyhow;
-    use chrono::{DateTime, Utc};
-    use mockall::predicate::eq;
-    use std::sync::Arc;
 
     use super::*;
 
@@ -176,7 +178,7 @@ mod tests {
             CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-123".to_string(),
                 epoch: Epoch(1),
-                block_number: 24,
+                block_number: BlockNumber(24),
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -186,7 +188,7 @@ mod tests {
             CardanoTransactionSnapshotListItem {
                 merkle_root: "mk-456".to_string(),
                 epoch: Epoch(1),
-                block_number: 24,
+                block_number: BlockNumber(24),
                 hash: "hash-456".to_string(),
                 certificate_hash: "cert-hash-456".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -217,7 +219,7 @@ mod tests {
         let message = CardanoTransactionSnapshot {
             merkle_root: "mk-123".to_string(),
             epoch: Epoch(1),
-            block_number: 24,
+            block_number: BlockNumber(24),
             hash: "hash-123".to_string(),
             certificate_hash: "cert-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -250,7 +252,7 @@ mod tests {
             &certificate_hash,
             vec![set_proof.clone()],
             vec![],
-            99999,
+            BlockNumber(99999),
         );
         let expected_transactions_proofs = transactions_proofs.clone();
         aggregator_client

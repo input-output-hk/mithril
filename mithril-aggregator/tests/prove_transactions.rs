@@ -1,7 +1,7 @@
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
+        BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
         ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
         SignedEntityTypeDiscriminants, TimePoint,
     },
@@ -25,8 +25,8 @@ async fn prove_transactions() {
         signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
         data_stores_directory: get_test_dir("prove_transactions"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-            security_parameter: 0,
-            step: 30,
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
         },
         ..Configuration::new_sample()
     };
@@ -36,7 +36,7 @@ async fn prove_transactions() {
             immutable_file_number: 1,
             chain_point: ChainPoint {
                 slot_number: 10,
-                block_number: 100,
+                block_number: BlockNumber(100),
                 block_hash: "block_hash-100".to_string(),
             },
         },
@@ -107,7 +107,7 @@ async fn prove_transactions() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoTransactions(Epoch(1), 179),
+            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new("devnet", 1, 1)),
         )
     );

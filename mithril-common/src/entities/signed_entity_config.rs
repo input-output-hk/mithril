@@ -118,8 +118,8 @@ impl CardanoTransactionsSigningConfig {
         /// Create a dummy config
         pub fn dummy() -> Self {
             Self {
-                security_parameter: 0,
-                step: 15,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
             }
         }
     }
@@ -148,8 +148,8 @@ impl CardanoTransactionsSigningConfig {
         let adjusted_step = std::cmp::max(adjusted_step, BlockRange::LENGTH);
 
         let block_number_to_be_signed =
-            (block_number.saturating_sub(self.security_parameter)) / adjusted_step * adjusted_step;
-        block_number_to_be_signed.saturating_sub(1)
+            (block_number - self.security_parameter) / adjusted_step * adjusted_step;
+        block_number_to_be_signed - 1
     }
 }
 
@@ -167,7 +167,7 @@ mod tests {
             immutable_file_number: 5,
             chain_point: ChainPoint {
                 slot_number: 73,
-                block_number: 20,
+                block_number: BlockNumber(20),
                 block_hash: "block_hash-20".to_string(),
             },
         };
@@ -175,8 +175,8 @@ mod tests {
             allowed_discriminants: SignedEntityTypeDiscriminants::all(),
             network: CardanoNetwork::DevNet(12),
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 15,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
             },
         };
 
@@ -208,7 +208,7 @@ mod tests {
         // the security parameter is 0.
         // This is further tested in the "computing_block_number_to_be_signed" tests below.
         assert_eq!(
-            SignedEntityType::CardanoTransactions(Epoch(1), 14),
+            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(14)),
             config.time_point_to_signed_entity(
                 SignedEntityTypeDiscriminants::CardanoTransactions,
                 &time_point
@@ -221,37 +221,37 @@ mod tests {
         // **block_number = ((tip.block_number - k') / n) × n**
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 15,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
             }
-            .compute_block_number_to_be_signed(105),
+            .compute_block_number_to_be_signed(BlockNumber(105)),
             104
         );
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 5,
-                step: 15,
+                security_parameter: BlockNumber(5),
+                step: BlockNumber(15),
             }
-            .compute_block_number_to_be_signed(100),
+            .compute_block_number_to_be_signed(BlockNumber(100)),
             89
         );
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 85,
-                step: 15,
+                security_parameter: BlockNumber(85),
+                step: BlockNumber(15),
             }
-            .compute_block_number_to_be_signed(100),
+            .compute_block_number_to_be_signed(BlockNumber(100)),
             14
         );
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 30,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(30),
             }
-            .compute_block_number_to_be_signed(29),
+            .compute_block_number_to_be_signed(BlockNumber(29)),
             0
         );
     }
@@ -260,10 +260,10 @@ mod tests {
     fn computing_block_number_to_be_signed_should_not_overlow_on_security_parameter() {
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 100,
-                step: 30,
+                security_parameter: BlockNumber(100),
+                step: BlockNumber(30),
             }
-            .compute_block_number_to_be_signed(50),
+            .compute_block_number_to_be_signed(BlockNumber(50)),
             0
         );
     }
@@ -272,7 +272,7 @@ mod tests {
     fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
+                security_parameter: BlockNumber(0),
                 step: BlockRange::LENGTH * 2 - 1,
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
@@ -281,7 +281,7 @@ mod tests {
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
+                security_parameter: BlockNumber(0),
                 step: BlockRange::LENGTH * 2 + 1,
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
@@ -291,7 +291,7 @@ mod tests {
         // Adjusted step is always at least BLOCK_RANGE_LENGTH.
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
+                security_parameter: BlockNumber(0),
                 step: BlockRange::LENGTH - 1,
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH * 10 - 1),
@@ -300,7 +300,7 @@ mod tests {
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
+                security_parameter: BlockNumber(0),
                 step: BlockRange::LENGTH - 1,
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH - 1),
@@ -402,7 +402,7 @@ mod tests {
             ..fake_data::beacon()
         };
         let chain_point = ChainPoint {
-            block_number: 45,
+            block_number: BlockNumber(45),
             ..ChainPoint::dummy()
         };
         let time_point = TimePoint::new(
@@ -417,8 +417,8 @@ mod tests {
             ]),
             network,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 15,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
             },
         };
 

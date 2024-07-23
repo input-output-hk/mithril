@@ -93,7 +93,7 @@ impl CardanoTransactionsImporter {
         debug!(
             self.logger,
             "TransactionsImporter will retrieve Cardano transactions between block_number '{}' and '{until}'",
-            from.as_ref().map(|c|c.block_number).unwrap_or(0)
+            from.as_ref().map(|c|c.block_number).unwrap_or(BlockNumber(0))
         );
 
         let mut streamer = self.block_scanner.scan(from, until).await?;
@@ -130,7 +130,7 @@ impl CardanoTransactionsImporter {
             },
         ) {
             // No block range root stored yet, start from the beginning
-            None => BlockRange::all_block_ranges_in(0..=(until)),
+            None => BlockRange::all_block_ranges_in(BlockNumber(0)..=(until)),
             // Not enough block to form at least one block range
             Some(ranges) if ranges.is_empty() => return Ok(()),
             Some(ranges) => ranges,
@@ -138,7 +138,7 @@ impl CardanoTransactionsImporter {
 
         debug!(
             self.logger, "TransactionsImporter - computing Block Range Roots";
-            "start_block" => block_ranges.start(), "end_block" => block_ranges.end(),
+            "start_block" => *block_ranges.start(), "end_block" => *block_ranges.end(),
         );
 
         let mut block_ranges_with_merkle_root: Vec<(BlockRange, MKTreeNode)> = vec![];
@@ -232,11 +232,11 @@ mod tests {
         start_block_number: BlockNumber,
         number_of_consecutive_block: BlockNumber,
     ) -> Vec<ScannedBlock> {
-        (start_block_number..(start_block_number + number_of_consecutive_block))
+        (*start_block_number..*(start_block_number + number_of_consecutive_block))
             .map(|block_number| {
                 ScannedBlock::new(
                     format!("block_hash-{}", block_number),
-                    block_number,
+                    BlockNumber(block_number),
                     block_number * 100,
                     vec![format!("tx_hash-{}", block_number)],
                 )
@@ -267,17 +267,27 @@ mod tests {
         )));
 
         let blocks = vec![
-            ScannedBlock::new("block_hash-1", 10, 15, vec!["tx_hash-1", "tx_hash-2"]),
-            ScannedBlock::new("block_hash-2", 20, 25, vec!["tx_hash-3", "tx_hash-4"]),
+            ScannedBlock::new(
+                "block_hash-1",
+                BlockNumber(10),
+                15,
+                vec!["tx_hash-1", "tx_hash-2"],
+            ),
+            ScannedBlock::new(
+                "block_hash-2",
+                BlockNumber(20),
+                25,
+                vec!["tx_hash-3", "tx_hash-4"],
+            ),
         ];
         let expected_transactions = into_transactions(&blocks);
-        let up_to_block_number = 1000;
+        let up_to_block_number = BlockNumber(1000);
 
         let importer = {
             let mut scanner_mock = MockBlockScannerImpl::new();
             scanner_mock
                 .expect_scan()
-                .withf(move |from, until| from.is_none() && until == &up_to_block_number)
+                .withf(move |from, until| from.is_none() && until == up_to_block_number)
                 .return_once(move |_, _| {
                     Ok(Box::new(DumbBlockStreamer::new().forwards(vec![blocks])))
                 });
@@ -301,7 +311,7 @@ mod tests {
         )));
 
         let up_to_block_number = BlockRange::LENGTH * 5;
-        let blocks = build_blocks(0, up_to_block_number + 1);
+        let blocks = build_blocks(BlockNumber(0), up_to_block_number + 1);
         let transactions = into_transactions(&blocks);
         repository.store_transactions(transactions).await.unwrap();
 
@@ -318,7 +328,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(
             vec![
-                BlockRange::from_block_number(0),
+                BlockRange::from_block_number(BlockNumber(0)),
                 BlockRange::from_block_number(BlockRange::LENGTH),
                 BlockRange::from_block_number(BlockRange::LENGTH * 2),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
@@ -341,7 +351,7 @@ mod tests {
         let up_to_block_number = BlockRange::LENGTH * 4;
         // Two block ranges with a gap
         let blocks: Vec<ScannedBlock> = [
-            build_blocks(0, BlockRange::LENGTH),
+            build_blocks(BlockNumber(0), BlockRange::LENGTH),
             build_blocks(BlockRange::LENGTH * 3, BlockRange::LENGTH),
         ]
         .concat();
@@ -361,7 +371,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(
             vec![
-                BlockRange::from_block_number(0),
+                BlockRange::from_block_number(BlockNumber(0)),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
             ],
             block_range_roots
@@ -384,7 +394,7 @@ mod tests {
         );
 
         importer
-            .import_block_ranges(10_000)
+            .import_block_ranges(BlockNumber(10_000))
             .await
             .expect("Transactions Importer should succeed");
 
@@ -397,17 +407,27 @@ mod tests {
 
     #[tokio::test]
     async fn if_all_transactions_stored_nothing_is_parsed_and_stored() {
-        let up_to_block_number = 12;
+        let up_to_block_number = BlockNumber(12);
         let connection = cardano_tx_db_connection().unwrap();
         let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::build_from_connection(connection),
         )));
         let scanner = DumbBlockScanner::new().forwards(vec![vec![
-            ScannedBlock::new("block_hash-1", 10, 15, vec!["tx_hash-1", "tx_hash-2"]),
-            ScannedBlock::new("block_hash-2", 20, 25, vec!["tx_hash-3", "tx_hash-4"]),
+            ScannedBlock::new(
+                "block_hash-1",
+                BlockNumber(10),
+                15,
+                vec!["tx_hash-1", "tx_hash-2"],
+            ),
+            ScannedBlock::new(
+                "block_hash-2",
+                BlockNumber(20),
+                25,
+                vec!["tx_hash-3", "tx_hash-4"],
+            ),
         ]]);
 
-        let last_tx = CardanoTransaction::new("tx-20", 30, 35, "block_hash-3");
+        let last_tx = CardanoTransaction::new("tx-20", BlockNumber(30), 35, "block_hash-3");
         repository
             .store_transactions(vec![last_tx.clone()])
             .await
@@ -432,21 +452,25 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         )));
 
-        let highest_stored_chain_point = ChainPoint::new(134, 10, "block_hash-1");
+        let highest_stored_chain_point = ChainPoint::new(134, BlockNumber(10), "block_hash-1");
         let stored_block = ScannedBlock::new(
             highest_stored_chain_point.block_hash.clone(),
             highest_stored_chain_point.block_number,
             highest_stored_chain_point.slot_number,
             vec!["tx_hash-1", "tx_hash-2"],
         );
-        let to_store_block =
-            ScannedBlock::new("block_hash-2", 20, 229, vec!["tx_hash-3", "tx_hash-4"]);
+        let to_store_block = ScannedBlock::new(
+            "block_hash-2",
+            BlockNumber(20),
+            229,
+            vec!["tx_hash-3", "tx_hash-4"],
+        );
         let expected_transactions: Vec<CardanoTransaction> = [
             stored_block.clone().into_transactions(),
             to_store_block.clone().into_transactions(),
         ]
         .concat();
-        let up_to_block_number = 22;
+        let up_to_block_number = BlockNumber(22);
 
         repository
             .store_transactions(stored_block.clone().into_transactions())
@@ -491,12 +515,12 @@ mod tests {
         )));
 
         let up_to_block_number = BlockRange::LENGTH * 4;
-        let blocks = build_blocks(0, up_to_block_number + 1);
+        let blocks = build_blocks(BlockNumber(0), up_to_block_number + 1);
         let transactions = into_transactions(&blocks);
         repository.store_transactions(transactions).await.unwrap();
         repository
             .store_block_range_roots(
-                blocks[0..((BlockRange::LENGTH * 2) as usize)]
+                blocks[0..(*(BlockRange::LENGTH * 2) as usize)]
                     .iter()
                     .map(|b| {
                         (
@@ -517,7 +541,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(
             vec![
-                BlockRange::from_block_number(0),
+                BlockRange::from_block_number(BlockNumber(0)),
                 BlockRange::from_block_number(BlockRange::LENGTH),
             ],
             block_range_roots
@@ -534,7 +558,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(
             vec![
-                BlockRange::from_block_number(0),
+                BlockRange::from_block_number(BlockNumber(0)),
                 BlockRange::from_block_number(BlockRange::LENGTH),
                 BlockRange::from_block_number(BlockRange::LENGTH * 2),
                 BlockRange::from_block_number(BlockRange::LENGTH * 3),
@@ -586,7 +610,7 @@ mod tests {
         )));
 
         // For the block range (15..=29) we only have transactions in the 10 first blocks (15..=24)
-        let blocks = build_blocks(BlockRange::LENGTH, 10);
+        let blocks = build_blocks(BlockRange::LENGTH, BlockNumber(10));
         let transactions = into_transactions(&blocks);
         repository.store_transactions(transactions).await.unwrap();
 
@@ -613,13 +637,13 @@ mod tests {
     #[tokio::test]
     async fn block_range_root_retrieves_only_strictly_required_transactions() {
         fn transactions_for_block(range: Range<BlockNumber>) -> StdResult<Vec<CardanoTransaction>> {
-            Ok(build_blocks(range.start, range.count() as BlockNumber)
+            Ok(build_blocks(range.start, range.end - range.start)
                 .into_iter()
                 .flat_map(|b| b.into_transactions())
                 .collect())
         }
         const HIGHEST_BLOCK_RANGE_START: BlockNumber = BlockRange::LENGTH;
-        const UP_TO_BLOCK_NUMBER: BlockNumber = BlockRange::LENGTH * 5;
+        let up_to_block_number = BlockRange::LENGTH * 5;
 
         let importer = {
             let mut store_mock = MockTransactionStore::new();
@@ -635,8 +659,8 @@ mod tests {
                 .expect_get_transactions_in_range()
                 // Lower bound should be the end block number of the last known block range
                 // Upper bound should be the block number provided to `import_block_ranges`
-                .withf(|range| {
-                    BlockRangesSequence::new(HIGHEST_BLOCK_RANGE_START..=UP_TO_BLOCK_NUMBER)
+                .withf(move |range| {
+                    BlockRangesSequence::new(HIGHEST_BLOCK_RANGE_START..=up_to_block_number)
                         .contains(range)
                 })
                 .returning(transactions_for_block);
@@ -651,7 +675,7 @@ mod tests {
         };
 
         importer
-            .import_block_ranges(UP_TO_BLOCK_NUMBER)
+            .import_block_ranges(up_to_block_number)
             .await
             .expect("Transactions Importer should succeed");
     }
@@ -665,17 +689,17 @@ mod tests {
 
         // 2 block ranges worth of blocks with one more block that should be ignored for merkle root computation
         let up_to_block_number = BlockRange::LENGTH * 2;
-        let blocks = build_blocks(0, up_to_block_number + 1);
+        let blocks = build_blocks(BlockNumber(0), up_to_block_number + 1);
         let transactions = into_transactions(&blocks);
         let expected_block_range_roots = vec![
             (
-                BlockRange::from_block_number(0),
-                merkle_root_for_blocks(&blocks[0..(BlockRange::LENGTH as usize)]),
+                BlockRange::from_block_number(BlockNumber(0)),
+                merkle_root_for_blocks(&blocks[0..(*BlockRange::LENGTH as usize)]),
             ),
             (
                 BlockRange::from_block_number(BlockRange::LENGTH),
                 merkle_root_for_blocks(
-                    &blocks[(BlockRange::LENGTH as usize)..((BlockRange::LENGTH * 2) as usize)],
+                    &blocks[(*BlockRange::LENGTH as usize)..((*BlockRange::LENGTH * 2) as usize)],
                 ),
             ),
         ];
@@ -706,10 +730,20 @@ mod tests {
     async fn importing_twice_starting_with_nothing_in_a_real_db_should_yield_transactions_in_same_order(
     ) {
         let blocks = vec![
-            ScannedBlock::new("block_hash-1", 10, 15, vec!["tx_hash-1", "tx_hash-2"]),
-            ScannedBlock::new("block_hash-2", 20, 25, vec!["tx_hash-3", "tx_hash-4"]),
+            ScannedBlock::new(
+                "block_hash-1",
+                BlockNumber(10),
+                15,
+                vec!["tx_hash-1", "tx_hash-2"],
+            ),
+            ScannedBlock::new(
+                "block_hash-2",
+                BlockNumber(20),
+                25,
+                vec!["tx_hash-3", "tx_hash-4"],
+            ),
         ];
-        let up_to_block_number = 1000;
+        let up_to_block_number = BlockNumber(1000);
         let transactions = into_transactions(&blocks);
 
         let (importer, repository) = {
@@ -746,9 +780,13 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         )));
 
-        let expected_remaining_transactions =
-            ScannedBlock::new("block_hash-130", 130, 5, vec!["tx_hash-6", "tx_hash-7"])
-                .into_transactions();
+        let expected_remaining_transactions = ScannedBlock::new(
+            "block_hash-130",
+            BlockNumber(130),
+            5,
+            vec!["tx_hash-6", "tx_hash-7"],
+        )
+        .into_transactions();
         repository
             .store_transactions(expected_remaining_transactions.clone())
             .await
@@ -757,7 +795,7 @@ mod tests {
             .store_transactions(
                 ScannedBlock::new(
                     "block_hash-131",
-                    131,
+                    BlockNumber(131),
                     10,
                     vec!["tx_hash-8", "tx_hash-9", "tx_hash-10"],
                 )
@@ -766,14 +804,14 @@ mod tests {
             .await
             .unwrap();
 
-        let chain_point = ChainPoint::new(5, 130, "block_hash-130");
+        let chain_point = ChainPoint::new(5, BlockNumber(130), "block_hash-130");
         let scanner = DumbBlockScanner::new().backward(chain_point);
 
         let importer =
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
 
         importer
-            .import_transactions(3000)
+            .import_transactions(BlockNumber(3000))
             .await
             .expect("Transactions Importer should succeed");
 
@@ -789,7 +827,7 @@ mod tests {
         )));
 
         let expected_remaining_block_ranges = vec![
-            BlockRange::from_block_number(0),
+            BlockRange::from_block_number(BlockNumber(0)),
             BlockRange::from_block_number(BlockRange::LENGTH),
             BlockRange::from_block_number(BlockRange::LENGTH * 2),
         ];
@@ -839,7 +877,7 @@ mod tests {
             CardanoTransactionsImporter::new_for_test(Arc::new(scanner), repository.clone());
 
         importer
-            .import_transactions(3000)
+            .import_transactions(BlockNumber(3000))
             .await
             .expect("Transactions Importer should succeed");
 
@@ -870,7 +908,7 @@ mod tests {
                     }),
                 );
 
-                let importer_future = importer.import(100);
+                let importer_future = importer.import(BlockNumber(100));
                 let counter_task = task::spawn_local(async {
                     while COUNTER.load(std::sync::atomic::Ordering::SeqCst) < MAX_COUNTER {
                         tokio::time::sleep(Duration::from_millis(1)).await;

@@ -3,8 +3,9 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters,
-        SignedEntityType, SignedEntityTypeDiscriminants, StakeDistributionParty, TimePoint,
+        BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
+        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
+        StakeDistributionParty, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -22,8 +23,8 @@ async fn create_certificate() {
         signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
         data_stores_directory: get_test_dir("create_certificate"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-            security_parameter: 0,
-            step: 30,
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
         },
         ..Configuration::new_sample()
     };
@@ -33,7 +34,7 @@ async fn create_certificate() {
             immutable_file_number: 1,
             chain_point: ChainPoint {
                 slot_number: 10,
-                block_number: 100,
+                block_number: BlockNumber(100),
                 block_hash: "block_hash-100".to_string(),
             },
         },
@@ -166,7 +167,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoTransactions(Epoch(1), 179),
+            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,
@@ -179,7 +180,10 @@ async fn create_certificate() {
         "Got rollback to block number 149 from cardano chain, 
         the state machine should be signing CardanoTransactions for block 120"
     );
-    tester.cardano_chain_send_rollback(149).await.unwrap();
+    tester
+        .cardano_chain_send_rollback(BlockNumber(149))
+        .await
+        .unwrap();
     cycle!(tester, "signing");
     let signers_for_transaction = &fixture.signers_fixture()[2..=6];
     tester
@@ -201,7 +205,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoTransactions(Epoch(1), 119),
+            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(119)),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,

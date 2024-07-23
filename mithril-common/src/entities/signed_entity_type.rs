@@ -263,14 +263,23 @@ mod tests {
             ))
         );
 
-        let reference_hash = hash(SignedEntityType::CardanoTransactions(Epoch(35), 77));
+        let reference_hash = hash(SignedEntityType::CardanoTransactions(
+            Epoch(35),
+            BlockNumber(77),
+        ));
         assert_ne!(
             reference_hash,
-            hash(SignedEntityType::CardanoTransactions(Epoch(3), 77))
+            hash(SignedEntityType::CardanoTransactions(
+                Epoch(3),
+                BlockNumber(77)
+            ))
         );
         assert_ne!(
             reference_hash,
-            hash(SignedEntityType::CardanoTransactions(Epoch(35), 98765))
+            hash(SignedEntityType::CardanoTransactions(
+                Epoch(35),
+                BlockNumber(98765)
+            ))
         );
     }
 
@@ -281,9 +290,10 @@ mod tests {
             .unwrap();
         assert_same_json!("25", &cardano_stake_distribution_json);
 
-        let cardano_transactions_json = SignedEntityType::CardanoTransactions(Epoch(35), 77)
-            .get_json_beacon()
-            .unwrap();
+        let cardano_transactions_json =
+            SignedEntityType::CardanoTransactions(Epoch(35), BlockNumber(77))
+                .get_json_beacon()
+                .unwrap();
         assert_same_json!(
             r#"{"epoch":35,"block_number":77}"#,
             &cardano_transactions_json

@@ -10,8 +10,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, CompressionAlgorithm, HexEncodedGenesisVerificationKey,
-    ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants,
+    BlockNumber, CardanoTransactionsSigningConfig, CompressionAlgorithm,
+    HexEncodedGenesisVerificationKey, ProtocolParameters, SignedEntityConfig,
+    SignedEntityTypeDiscriminants,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -248,8 +249,8 @@ impl Configuration {
             cardano_transactions_prover_cache_pool_size: 3,
             cardano_transactions_database_connection_pool_size: 5,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 100,
-                step: 15,
+                security_parameter: BlockNumber(100),
+                step: BlockNumber(15),
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
@@ -395,8 +396,8 @@ impl Default for DefaultConfiguration {
             cardano_transactions_prover_cache_pool_size: 10,
             cardano_transactions_database_connection_pool_size: 10,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 3000,
-                step: 120,
+                security_parameter: BlockNumber(3000),
+                step: BlockNumber(120),
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
@@ -473,14 +474,14 @@ impl Source for DefaultConfiguration {
                 (
                     "security_parameter".to_string(),
                     ValueKind::from(
-                        myself
+                        *myself
                             .cardano_transactions_signing_config
                             .security_parameter,
                     ),
                 ),
                 (
                     "step".to_string(),
-                    ValueKind::from(myself.cardano_transactions_signing_config.step),
+                    ValueKind::from(*myself.cardano_transactions_signing_config.step),
                 ),
             ])),
         );

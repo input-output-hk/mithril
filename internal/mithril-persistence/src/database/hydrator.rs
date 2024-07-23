@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn hydrate_cardano_transaction_signed_entity_type() {
-        let expected = SignedEntityType::CardanoTransactions(Epoch(35), 77);
+        let expected = SignedEntityType::CardanoTransactions(Epoch(35), BlockNumber(77));
         let signed_entity = Hydrator::hydrate_signed_entity_type(
             SignedEntityTypeDiscriminants::CardanoTransactions.index(),
             &expected.get_json_beacon().unwrap(),

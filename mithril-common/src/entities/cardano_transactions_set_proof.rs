@@ -57,12 +57,12 @@ impl CardanoTransactionsSetProof {
         /// Retrieve a dummy proof (for test only)
         pub fn dummy() -> Self {
             let leaves = vec![
-                (0, "tx-1".to_string()),
-                (1, "tx-2".to_string()),
-                (1, "tx-3".to_string()),
-                (10, "tx-4".to_string()),
-                (20, "tx-5".to_string()),
-                (22, "tx-6".to_string()),
+                (BlockNumber(0), "tx-1".to_string()),
+                (BlockNumber(1), "tx-2".to_string()),
+                (BlockNumber(1), "tx-3".to_string()),
+                (BlockNumber(10), "tx-4".to_string()),
+                (BlockNumber(20), "tx-5".to_string()),
+                (BlockNumber(22), "tx-6".to_string()),
             ];
 
             Self::from_leaves(&leaves).unwrap()
@@ -133,12 +133,12 @@ mod tests {
     #[test]
     fn should_verify_where_all_hashes_are_contained_in_the_proof() {
         let leaves = vec![
-            (0, "tx-1".to_string()),
-            (1, "tx-2".to_string()),
-            (1, "tx-3".to_string()),
-            (10, "tx-4".to_string()),
-            (20, "tx-5".to_string()),
-            (22, "tx-6".to_string()),
+            (BlockNumber(0), "tx-1".to_string()),
+            (BlockNumber(1), "tx-2".to_string()),
+            (BlockNumber(1), "tx-3".to_string()),
+            (BlockNumber(10), "tx-4".to_string()),
+            (BlockNumber(20), "tx-5".to_string()),
+            (BlockNumber(22), "tx-6".to_string()),
         ];
         let proof = CardanoTransactionsSetProof::from_leaves(&leaves).unwrap();
 
@@ -148,12 +148,12 @@ mod tests {
     #[test]
     fn shouldnt_verify_where_at_least_one_hash_is_not_contained_in_the_proof() {
         let leaves = vec![
-            (0, "tx-1".to_string()),
-            (1, "tx-2".to_string()),
-            (1, "tx-3".to_string()),
-            (10, "tx-4".to_string()),
-            (20, "tx-5".to_string()),
-            (22, "tx-6".to_string()),
+            (BlockNumber(0), "tx-1".to_string()),
+            (BlockNumber(1), "tx-2".to_string()),
+            (BlockNumber(1), "tx-3".to_string()),
+            (BlockNumber(10), "tx-4".to_string()),
+            (BlockNumber(20), "tx-5".to_string()),
+            (BlockNumber(22), "tx-6".to_string()),
         ];
         let proof = CardanoTransactionsSetProof::from_leaves(&leaves).unwrap();
         let mut transactions_hashes_tampered = proof.transactions_hashes().to_vec();

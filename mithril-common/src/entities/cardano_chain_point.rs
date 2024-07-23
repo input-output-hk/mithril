@@ -3,19 +3,14 @@ use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
+use crate::entities::BlockNumber;
+
 cfg_fs! {
     use pallas_network::miniprotocols::{chainsync::Tip, Point};
 }
 
-use crate::signable_builder::Beacon;
-
 /// [Cardano Slot number](https://docs.cardano.org/learn/cardano-node/#slotsandepochs)
 pub type SlotNumber = u64;
-
-/// BlockNumber is the block number of a Cardano transaction.
-pub type BlockNumber = u64;
-
-impl Beacon for BlockNumber {}
 
 /// Hash of a Cardano Block
 pub type BlockHash = String;
@@ -51,7 +46,7 @@ impl ChainPoint {
     pub fn origin() -> ChainPoint {
         ChainPoint {
             slot_number: 0,
-            block_number: 0,
+            block_number: BlockNumber(0),
             block_hash: String::new(),
         }
     }
@@ -66,7 +61,7 @@ impl ChainPoint {
         pub fn dummy() -> Self {
             Self {
                 slot_number: 100,
-                block_number: 50,
+                block_number: BlockNumber(0),
                 block_hash: "block_hash-50".to_string(),
             }
         }
@@ -116,12 +111,12 @@ cfg_fs! {
             match point {
                 Point::Specific(slot_number, block_hash) => Self {
                     slot_number,
-                    block_number: 0,
+                    block_number: BlockNumber(0),
                     block_hash: hex::encode(block_hash),
                 },
                 Point::Origin => Self {
                     slot_number: 0,
-                    block_number: 0,
+                    block_number: BlockNumber(0),
                     block_hash: String::new(),
                 },
             }
@@ -133,7 +128,7 @@ cfg_fs! {
             let chain_point: Self = tip.0.into();
             Self {
                 slot_number: chain_point.slot_number,
-                block_number: tip.1,
+                block_number: BlockNumber(tip.1),
                 block_hash: chain_point.block_hash,
             }
         }
@@ -143,7 +138,7 @@ cfg_fs! {
         fn from(chain_point: ChainPoint) -> Self {
             let block_number = chain_point.block_number;
             let point: Point = chain_point.into();
-            Tip(point, block_number)
+            Tip(point, *block_number)
         }
     }
 }
@@ -158,12 +153,12 @@ mod tests {
     fn chain_point_ord_cmp_block_number_take_precedence_over_other_fields() {
         let chain_point1 = ChainPoint {
             slot_number: 15,
-            block_number: 10,
+            block_number: BlockNumber(10),
             block_hash: "hash2".to_string(),
         };
         let chain_point2 = ChainPoint {
             slot_number: 5,
-            block_number: 20,
+            block_number: BlockNumber(20),
             block_hash: "hash1".to_string(),
         };
 
@@ -174,12 +169,12 @@ mod tests {
     fn chain_point_ord_cmp_if_block_number_equals_then_compare_slot_numbers() {
         let chain_point1 = ChainPoint {
             slot_number: 15,
-            block_number: 0,
+            block_number: BlockNumber(0),
             block_hash: "hash2".to_string(),
         };
         let chain_point2 = ChainPoint {
             slot_number: 5,
-            block_number: 0,
+            block_number: BlockNumber(0),
             block_hash: "hash1".to_string(),
         };
 
@@ -190,12 +185,12 @@ mod tests {
     fn chain_point_ord_cmp_if_block_number_and_slot_number_equals_then_compare_block_hash() {
         let chain_point1 = ChainPoint {
             slot_number: 5,
-            block_number: 10,
+            block_number: BlockNumber(10),
             block_hash: "hash1".to_string(),
         };
         let chain_point2 = ChainPoint {
             slot_number: 5,
-            block_number: 10,
+            block_number: BlockNumber(10),
             block_hash: "hash2".to_string(),
         };
 

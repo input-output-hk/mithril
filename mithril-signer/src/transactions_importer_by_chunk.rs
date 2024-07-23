@@ -47,7 +47,7 @@ impl TransactionsImporter for TransactionsImporterByChunk {
             .highest_transaction_block_number_getter
             .get()
             .await?
-            .unwrap_or(0);
+            .unwrap_or(BlockNumber(0));
 
         while intermediate_up_to < up_to_beacon {
             let next_up_to = (intermediate_up_to + self.chunk_size).min(up_to_beacon);
@@ -92,7 +92,9 @@ mod tests {
         })
     }
 
-    fn create_transaction_importer_mock(expected_values: Vec<u64>) -> MockTransactionImporterImpl {
+    fn create_transaction_importer_mock(
+        expected_values: Vec<BlockNumber>,
+    ) -> MockTransactionImporterImpl {
         let mut seq = Sequence::new();
         let mut wrapped_importer = MockTransactionImporterImpl::new();
         for expected_value in expected_values {
@@ -108,8 +110,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_import_nothing_to_do_when_highest_block_number_lower_or_equal_up_to_beacon() {
-        let highest_block_number = 10;
-        let chunk_size = 5;
+        let highest_block_number = BlockNumber(10);
+        let chunk_size = BlockNumber(5);
 
         let highest_transaction_block_number_getter =
             create_highest_transaction_block_number_getter_mock(highest_block_number);
@@ -133,7 +135,7 @@ mod tests {
     #[tokio::test]
     async fn test_import_even_when_highest_block_number_is_none() {
         let highest_block_number = None;
-        let chunk_size = 5;
+        let chunk_size = BlockNumber(5);
         let up_to_beacon = chunk_size - 1;
 
         let highest_transaction_block_number_getter = Arc::new({
@@ -156,8 +158,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_import_only_once_when_block_delta_less_than_chunk_size() {
-        let highest_block_number = 10;
-        let chunk_size = 5;
+        let highest_block_number = BlockNumber(10);
+        let chunk_size = BlockNumber(5);
         let up_to_beacon = highest_block_number + chunk_size - 1;
 
         let highest_transaction_block_number_getter =
@@ -176,8 +178,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_import_multiple_times_when_block_delta_is_not_a_multiple_of_chunk_size() {
-        let highest_block_number = 10;
-        let chunk_size = 5;
+        let highest_block_number = BlockNumber(10);
+        let chunk_size = BlockNumber(5);
         let up_to_beacon = highest_block_number + chunk_size * 2 + 1;
 
         let highest_transaction_block_number_getter =
@@ -200,8 +202,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_import_multiple_times_when_block_delta_is_a_multiple_of_chunk_size() {
-        let highest_block_number = 10;
-        let chunk_size = 5;
+        let highest_block_number = BlockNumber(10);
+        let chunk_size = BlockNumber(5);
         let up_to_beacon = highest_block_number + chunk_size * 2;
 
         let highest_transaction_block_number_getter =

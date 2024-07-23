@@ -68,6 +68,8 @@ impl Display for TimePoint {
 mod tests {
     use std::cmp::Ordering;
 
+    use crate::entities::BlockNumber;
+
     use super::*;
 
     #[test]
@@ -77,7 +79,7 @@ mod tests {
             immutable_file_number: 0,
             chain_point: ChainPoint {
                 slot_number: 10,
-                block_number: 20,
+                block_number: BlockNumber(20),
                 block_hash: "hash1".to_string(),
             },
         };
@@ -86,7 +88,7 @@ mod tests {
             immutable_file_number: 1,
             chain_point: ChainPoint {
                 slot_number: 15,
-                block_number: 25,
+                block_number: BlockNumber(25),
                 block_hash: "hash2".to_string(),
             },
         };
@@ -101,7 +103,7 @@ mod tests {
             immutable_file_number: 5,
             chain_point: ChainPoint {
                 slot_number: 10,
-                block_number: 20,
+                block_number: BlockNumber(20),
                 block_hash: "hash1".to_string(),
             },
         };
@@ -110,7 +112,7 @@ mod tests {
             immutable_file_number: 0,
             chain_point: ChainPoint {
                 slot_number: 15,
-                block_number: 25,
+                block_number: BlockNumber(25),
                 block_hash: "hash2".to_string(),
             },
         };
@@ -125,7 +127,7 @@ mod tests {
             immutable_file_number: 0,
             chain_point: ChainPoint {
                 slot_number: 10,
-                block_number: 20,
+                block_number: BlockNumber(20),
                 block_hash: "hash1".to_string(),
             },
         };
@@ -134,7 +136,7 @@ mod tests {
             immutable_file_number: 0,
             chain_point: ChainPoint {
                 slot_number: 15,
-                block_number: 25,
+                block_number: BlockNumber(25),
                 block_hash: "hash2".to_string(),
             },
         };

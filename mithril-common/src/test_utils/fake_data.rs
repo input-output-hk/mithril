@@ -3,16 +3,13 @@
 use chrono::{DateTime, Utc};
 use semver::Version;
 
-use crate::crypto_helper::ProtocolMultiSignature;
-use crate::{
-    crypto_helper,
-    entities::{
-        self, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch, LotteryIndex,
-        ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
-        StakeDistributionParty,
-    },
-    test_utils::MithrilFixtureBuilder,
+use crate::crypto_helper::{self, ProtocolMultiSignature};
+use crate::entities::{
+    self, BlockNumber, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch,
+    LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
+    StakeDistributionParty,
 };
+use crate::test_utils::MithrilFixtureBuilder;
 
 use super::fake_keys;
 
@@ -32,7 +29,7 @@ pub fn beacon() -> entities::CardanoDbBeacon {
 pub fn chain_point() -> entities::ChainPoint {
     entities::ChainPoint {
         slot_number: 500,
-        block_number: 42,
+        block_number: BlockNumber(42),
         block_hash: "1b69b3202fbe500".to_string(),
     }
 }
@@ -242,7 +239,12 @@ pub fn mithril_stake_distributions(total: u64) -> Vec<entities::MithrilStakeDist
 /// Fake Cardano Transactions
 pub fn cardano_transactions_snapshot(total: u64) -> Vec<entities::CardanoTransactionsSnapshot> {
     (1..total + 1)
-        .map(|idx| entities::CardanoTransactionsSnapshot::new(format!("merkleroot-{idx}"), idx))
+        .map(|idx| {
+            entities::CardanoTransactionsSnapshot::new(
+                format!("merkleroot-{idx}"),
+                BlockNumber(idx),
+            )
+        })
         .collect()
 }
 

@@ -194,7 +194,7 @@ mod tests {
                 proof: "invalid".to_string(),
             }],
             vec![],
-            99999,
+            BlockNumber(99999),
         );
 
         let error = txs_proofs
@@ -212,7 +212,8 @@ mod tests {
 
     #[test]
     fn verify_no_certified_transaction_fail() {
-        let txs_proofs = CardanoTransactionsProofsMessage::new("whatever", vec![], vec![], 99999);
+        let txs_proofs =
+            CardanoTransactionsProofsMessage::new("whatever", vec![], vec![], BlockNumber(99999));
 
         let error = txs_proofs
             .verify()
@@ -234,13 +235,13 @@ mod tests {
             certificate_hash: "whatever".to_string(),
             merkle_root: set_proof.merkle_root(),
             certified_transactions: set_proof.transactions_hashes().to_vec(),
-            latest_block_number: 99999,
+            latest_block_number: BlockNumber(99999),
         };
         let txs_proofs = CardanoTransactionsProofsMessage::new(
             "whatever",
             vec![set_proof.try_into().unwrap()],
             vec![],
-            99999,
+            BlockNumber(99999),
         );
 
         let verified_txs = txs_proofs
@@ -260,7 +261,7 @@ mod tests {
             "whatever",
             vec![set_proof.try_into().unwrap()],
             vec![],
-            99999,
+            BlockNumber(99999),
         );
 
         let error = txs_proofs
@@ -296,7 +297,7 @@ mod tests {
                 .map(|p| p.try_into().unwrap())
                 .collect(),
             vec![],
-            99999,
+            BlockNumber(99999),
         );
 
         let error = txs_proofs
@@ -330,20 +331,20 @@ mod tests {
         async fn verify_hashes_from_verified_cardano_transaction_and_from_signable_builder_are_equals(
         ) {
             let transactions = vec![
-                CardanoTransaction::new("tx-hash-123", 10, 1, "block_hash"),
-                CardanoTransaction::new("tx-hash-456", 20, 2, "block_hash"),
+                CardanoTransaction::new("tx-hash-123", BlockNumber(10), 1, "block_hash"),
+                CardanoTransaction::new("tx-hash-456", BlockNumber(20), 2, "block_hash"),
             ];
 
             assert_eq!(
                 from_verified_cardano_transaction(&transactions, 99999).compute_hash(),
-                from_signable_builder(&transactions, 99999)
+                from_signable_builder(&transactions, BlockNumber(99999))
                     .await
                     .compute_hash()
             );
 
             assert_ne!(
                 from_verified_cardano_transaction(&transactions, 99999).compute_hash(),
-                from_signable_builder(&transactions, 123456)
+                from_signable_builder(&transactions, BlockNumber(123456))
                     .await
                     .compute_hash()
             );
@@ -366,7 +367,7 @@ mod tests {
                 certificate_hash: "whatever".to_string(),
                 merkle_root: set_proof.merkle_root(),
                 certified_transactions: set_proof.transactions_hashes().to_vec(),
-                latest_block_number: block_number,
+                latest_block_number: BlockNumber(block_number),
             };
 
             let mut message = ProtocolMessage::new();

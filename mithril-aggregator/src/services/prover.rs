@@ -168,7 +168,7 @@ impl ProverService for MithrilProverService {
         info!(
             self.logger,
             "Prover starts computing the Merkle map pool resource of size {pool_size}";
-            "up_to_block_number" => up_to,
+            "up_to_block_number" => *up_to,
         );
         let mk_map_cache = self
             .block_range_root_retriever

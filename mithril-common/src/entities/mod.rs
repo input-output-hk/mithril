@@ -1,5 +1,7 @@
 //! The entities used by, and exchanged between, the aggregator, signers and client.
 
+pub(crate) mod arithmetic_operation_wrapper;
+mod block_number;
 mod block_range;
 mod cardano_chain_point;
 mod cardano_db_beacon;
@@ -25,8 +27,9 @@ mod snapshot;
 mod time_point;
 mod type_alias;
 
+pub use block_number::BlockNumber;
 pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
-pub use cardano_chain_point::{BlockHash, BlockNumber, ChainPoint, SlotNumber};
+pub use cardano_chain_point::{BlockHash, ChainPoint, SlotNumber};
 pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};

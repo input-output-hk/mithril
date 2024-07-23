@@ -2,7 +2,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use sqlite::ConnectionThreadSafe;
 use std::sync::Arc;
 
-use mithril_common::{entities::CardanoTransaction, test_utils::TempDir};
+use mithril_common::entities::{BlockNumber, CardanoTransaction};
+use mithril_common::test_utils::TempDir;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
 
@@ -27,7 +28,7 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
         .map(|i| {
             CardanoTransaction::new(
                 format!("tx_hash-{}", i),
-                i as u64,
+                BlockNumber(i as u64),
                 i as u64 + 1,
                 format!("block_hash-{}", i),
             )

@@ -82,7 +82,10 @@ mod tests {
 
         let cursor = connection
             .fetch(
-                DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(100).unwrap(),
+                DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(BlockNumber(
+                    100,
+                ))
+                .unwrap(),
             )
             .expect("pruning shouldn't crash without block range root stored");
         assert_eq!(0, cursor.count());
@@ -90,13 +93,13 @@ mod tests {
 
     #[test]
     fn test_prune_all_data_if_given_block_number_is_lower_than_stored_number_of_block() {
-        parameterized_test_prune_block_range(0, block_range_root_dataset().len());
+        parameterized_test_prune_block_range(BlockNumber(0), block_range_root_dataset().len());
     }
 
     #[test]
     fn test_prune_keep_all_block_range_root_if_given_number_of_block_is_greater_than_the_highest_one(
     ) {
-        parameterized_test_prune_block_range(100_000, 0);
+        parameterized_test_prune_block_range(BlockNumber(100_000), 0);
     }
 
     #[test]

@@ -141,7 +141,9 @@ mod tests {
     };
 
     use mithril_common::{
-        entities::{CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity},
+        entities::{
+            BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
+        },
         test_utils::{apispec::APISpec, assert_equivalent, fake_data},
     };
 
@@ -174,7 +176,8 @@ mod tests {
             .expect_compute_transactions_proofs()
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
 
-        let cardano_transactions_snapshot = CardanoTransactionsSnapshot::new(String::new(), 2309);
+        let cardano_transactions_snapshot =
+            CardanoTransactionsSnapshot::new(String::new(), BlockNumber(2309));
 
         let signed_entity = SignedEntity::<CardanoTransactionsSnapshot> {
             artifact: cardano_transactions_snapshot,

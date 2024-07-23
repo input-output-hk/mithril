@@ -131,7 +131,12 @@ mod tests {
 
     #[tokio::test]
     async fn polling_with_one_set_of_block_returns_some_once() {
-        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())];
+        let expected_blocks = vec![ScannedBlock::new(
+            "hash-1",
+            BlockNumber(1),
+            10,
+            Vec::<&str>::new(),
+        )];
         let mut streamer = DumbBlockStreamer::new().forwards(vec![expected_blocks.clone()]);
 
         let blocks = streamer.poll_next().await.unwrap();
@@ -147,12 +152,22 @@ mod tests {
     #[tokio::test]
     async fn polling_with_multiple_sets_of_blocks_returns_some_once() {
         let expected_blocks = vec![
-            vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())],
+            vec![ScannedBlock::new(
+                "hash-1",
+                BlockNumber(1),
+                10,
+                Vec::<&str>::new(),
+            )],
             vec![
-                ScannedBlock::new("hash-2", 2, 11, Vec::<&str>::new()),
-                ScannedBlock::new("hash-3", 3, 12, Vec::<&str>::new()),
+                ScannedBlock::new("hash-2", BlockNumber(2), 11, Vec::<&str>::new()),
+                ScannedBlock::new("hash-3", BlockNumber(3), 12, Vec::<&str>::new()),
             ],
-            vec![ScannedBlock::new("hash-4", 4, 13, Vec::<&str>::new())],
+            vec![ScannedBlock::new(
+                "hash-4",
+                BlockNumber(4),
+                13,
+                Vec::<&str>::new(),
+            )],
         ];
         let mut streamer = DumbBlockStreamer::new().forwards(expected_blocks.clone());
 
@@ -180,10 +195,15 @@ mod tests {
 
     #[tokio::test]
     async fn dumb_scanned_construct_a_streamer_based_on_its_stored_blocks() {
-        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())];
+        let expected_blocks = vec![ScannedBlock::new(
+            "hash-1",
+            BlockNumber(1),
+            10,
+            Vec::<&str>::new(),
+        )];
 
         let scanner = DumbBlockScanner::new().forwards(vec![expected_blocks.clone()]);
-        let mut streamer = scanner.scan(None, 5).await.unwrap();
+        let mut streamer = scanner.scan(None, BlockNumber(5)).await.unwrap();
 
         let blocks = streamer.poll_all().await.unwrap();
         assert_eq!(blocks, expected_blocks);
@@ -191,13 +211,18 @@ mod tests {
 
     #[tokio::test]
     async fn dumb_scanned_construct_a_streamer_based_on_its_stored_chain_scanned_blocks() {
-        let expected_blocks = vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())];
-        let expected_chain_point = ChainPoint::new(10, 2, "block-hash");
+        let expected_blocks = vec![ScannedBlock::new(
+            "hash-1",
+            BlockNumber(1),
+            10,
+            Vec::<&str>::new(),
+        )];
+        let expected_chain_point = ChainPoint::new(10, BlockNumber(2), "block-hash");
 
         let scanner = DumbBlockScanner::new()
             .forwards(vec![expected_blocks.clone()])
             .backward(expected_chain_point.clone());
-        let mut streamer = scanner.scan(None, 5).await.unwrap();
+        let mut streamer = scanner.scan(None, BlockNumber(5)).await.unwrap();
 
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(
@@ -217,11 +242,21 @@ mod tests {
     #[tokio::test]
     async fn polling_with_can_return_roll_backward() {
         let expected_blocks = vec![
-            vec![ScannedBlock::new("hash-1", 1, 10, Vec::<&str>::new())],
-            vec![ScannedBlock::new("hash-4", 4, 13, Vec::<&str>::new())],
+            vec![ScannedBlock::new(
+                "hash-1",
+                BlockNumber(1),
+                10,
+                Vec::<&str>::new(),
+            )],
+            vec![ScannedBlock::new(
+                "hash-4",
+                BlockNumber(4),
+                13,
+                Vec::<&str>::new(),
+            )],
         ];
 
-        let expected_chain_point = ChainPoint::new(10, 2, "block-hash");
+        let expected_chain_point = ChainPoint::new(10, BlockNumber(2), "block-hash");
 
         let mut streamer = DumbBlockStreamer::new()
             .forwards(expected_blocks.clone())

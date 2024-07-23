@@ -125,7 +125,7 @@ mod tests {
     #[tokio::test]
     async fn test_compute_signable() {
         // Arrange
-        let block_number = 1453;
+        let block_number = BlockNumber(1453);
         let transactions = CardanoTransactionsBuilder::new().build_transactions(3);
         let mk_map = compute_mk_map_from_transactions(transactions.clone());
         let mut transaction_importer = MockTransactionsImporter::new();
@@ -165,7 +165,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_signable_with_no_block_range_root_return_error() {
-        let block_number = 50;
+        let block_number = BlockNumber(50);
         let mut transaction_importer = MockTransactionsImporter::new();
         transaction_importer.expect_import().return_once(|_| Ok(()));
         let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();

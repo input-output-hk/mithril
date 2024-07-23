@@ -580,7 +580,7 @@ mod tests {
     async fn build_cardano_transactions_snapshot_artifact_when_given_cardano_transactions_type() {
         let mut mock_container = MockDependencyInjector::new();
 
-        let block_number = 151;
+        let block_number = BlockNumber(151);
         let expected = CardanoTransactionsSnapshot::new("merkle_root".to_string(), block_number);
 
         mock_container
@@ -608,7 +608,7 @@ mod tests {
 
     #[tokio::test]
     async fn should_store_the_artifact_when_creating_artifact_for_cardano_transactions() {
-        let block_number = 149;
+        let block_number = BlockNumber(149);
         generic_test_that_the_artifact_is_stored(
             SignedEntityType::CardanoTransactions(Epoch(1), block_number),
             CardanoTransactionsSnapshot::new("merkle_root".to_string(), block_number),

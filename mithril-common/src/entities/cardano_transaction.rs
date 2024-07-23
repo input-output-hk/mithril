@@ -57,7 +57,7 @@ mod tests {
 
     #[test]
     fn test_convert_cardano_transaction_to_merkle_tree_node() {
-        let transaction = CardanoTransaction::new("tx-hash-123", 10, 4, "block_hash");
+        let transaction = CardanoTransaction::new("tx-hash-123", BlockNumber(10), 4, "block_hash");
 
         let computed_mktree_node: MKTreeNode = transaction.into();
         let expected_mk_tree_node = MKTreeNode::new("tx-hash-123".as_bytes().to_vec());
