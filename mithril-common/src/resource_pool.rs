@@ -76,6 +76,8 @@ impl<T: Reset + Send + Sync> ResourcePool<T> {
     /// A resource is given back to the pool only if the discriminant matches
     /// and if the pool is not already full
     pub fn give_back_resource(&self, resource: T, discriminant: u64) -> StdResult<()> {
+        let mut resource = resource;
+        resource.reset()?;
         if self.count()? == self.size {
             // Pool is full
             return Ok(());
@@ -103,12 +105,9 @@ impl<T: Reset + Send + Sync> ResourcePool<T> {
         resource_pool_item: ResourcePoolItem<'_, T>,
     ) -> StdResult<()> {
         let mut resource_pool_item = resource_pool_item;
-        resource_pool_item.take().map(|resource_item| {
-            let mut resource_item = resource_item;
-            resource_item.reset()?;
-
-            self.give_back_resource(resource_item, self.discriminant()?)
-        });
+        resource_pool_item
+            .take()
+            .map(|resource_item| self.give_back_resource(resource_item, self.discriminant()?));
 
         Ok(())
     }
@@ -227,6 +226,20 @@ mod tests {
     use std::time::Duration;
 
     use super::*;
+
+    /// Resource for testing reset
+    #[derive(Default)]
+    struct TestResetResource {
+        reset: bool,
+    }
+
+    impl Reset for TestResetResource {
+        fn reset(&mut self) -> StdResult<()> {
+            self.reset = true;
+
+            Ok(())
+        }
+    }
 
     #[test]
     fn test_resource_pool_acquire_returns_resource_when_available() {
@@ -368,5 +381,31 @@ mod tests {
         }
 
         assert_eq!(pool.count().unwrap(), pool_size - 1);
+    }
+
+    #[tokio::test]
+    async fn test_resource_pool_is_reset_when_given_back() {
+        let pool = ResourcePool::<TestResetResource>::new(1, vec![TestResetResource::default()]);
+
+        let mut resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
+        let resource = resource_item.take().unwrap();
+        pool.give_back_resource(resource, pool.discriminant().unwrap())
+            .unwrap();
+
+        // Acquire the resource again and make sure it has been reseted
+        let resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
+        assert!(resource_item.reset);
+    }
+
+    #[tokio::test]
+    async fn test_resource_pool_item_is_reset_when_given_back() {
+        let pool = ResourcePool::<TestResetResource>::new(1, vec![TestResetResource::default()]);
+
+        let resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
+        pool.give_back_resource_pool_item(resource_item).unwrap();
+
+        // Acquire the resource again and make sure it has been reseted
+        let resource_item = pool.acquire_resource(Duration::from_millis(10)).unwrap();
+        assert!(resource_item.reset);
     }
 }
