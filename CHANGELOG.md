@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - `mithril-aggregator` node produces artifact for different signed entity types in parallel.
 
+- Fix `Agency is theirs` error in the `ChainReader` when the underlying `Chain sync` client does not have agency.
+
 - **UNSTABLE** Cardano transactions certification:
 
   - Make Cardano transaction signing settings configurable via the CD.
