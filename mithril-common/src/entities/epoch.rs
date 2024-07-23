@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::entities::wrapper_helpers::{
+use crate::entities::arithmetic_operation_wrapper::{
     impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
 };
 use crate::signable_builder::Beacon as SignableBeacon;
@@ -138,7 +138,7 @@ pub enum EpochError {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::wrapper_helpers::tests::test_op_assign;
+    use crate::entities::arithmetic_operation_wrapper::tests::test_op_assign;
 
     use super::*;
 

@@ -1,5 +1,6 @@
 //! The entities used by, and exchanged between, the aggregator, signers and client.
 
+pub(crate) mod arithmetic_operation_wrapper;
 mod block_number;
 mod block_range;
 mod cardano_chain_point;
@@ -25,7 +26,6 @@ mod single_signatures;
 mod snapshot;
 mod time_point;
 mod type_alias;
-pub(crate) mod wrapper_helpers;
 
 pub use block_number::BlockNumber;
 pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};

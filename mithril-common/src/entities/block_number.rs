@@ -4,7 +4,7 @@ use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Serialize};
 
-use crate::entities::wrapper_helpers::{
+use crate::entities::arithmetic_operation_wrapper::{
     impl_add_to_wrapper, impl_div_to_wrapper, impl_mul_to_wrapper, impl_partial_eq_to_wrapper,
     impl_rem_to_wrapper, impl_sub_to_wrapper,
 };
@@ -60,7 +60,7 @@ impl_partial_eq_to_wrapper!(BlockNumber, u64);
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::wrapper_helpers::tests::test_op_assign;
+    use crate::entities::arithmetic_operation_wrapper::tests::test_op_assign;
 
     use super::*;
 
