@@ -27,14 +27,14 @@ impl BlockRange {
     /// Important: this value should be updated with extreme care (probably with an era change) in order to avoid signing disruptions.
     pub const LENGTH: BlockRangeLength = BlockNumber(15);
 
-    /// BlockRange factory
-    pub fn new<T1: Into<BlockNumber>, T2: Into<BlockNumber>>(start: T1, end: T2) -> Self {
-        Self {
-            inner_range: start.into()..end.into(),
-        }
-    }
-
     cfg_test_tools! {
+        /// BlockRange factory
+        pub fn new(start: u64, end: u64) -> Self {
+            Self {
+                inner_range: BlockNumber(start)..BlockNumber(end),
+            }
+        }
+
         /// Try to add two BlockRanges
         pub fn try_add(&self, other: &BlockRange) -> StdResult<BlockRange> {
             if self.inner_range.end.max(other.inner_range.end)
@@ -82,7 +82,7 @@ impl BlockRange {
         }
         let block_range_start = Self::start_with_length(number, length);
         let block_range_end = block_range_start + length;
-        Ok(Self::new(*block_range_start, *block_range_end))
+        Ok(Self::from(*block_range_start..*block_range_end))
     }
 
     /// Get the start of the block range of given length that contains the given block number
@@ -238,11 +238,11 @@ mod tests {
     fn test_block_range_contains() {
         let block_range = BlockRange::new(1, 10);
 
-        assert!(block_range.contains(&1));
-        assert!(block_range.contains(&6));
+        assert!(block_range.contains(&BlockNumber(1)));
+        assert!(block_range.contains(&BlockNumber(6)));
         assert!(block_range.contains(&BlockNumber(9)));
 
-        assert!(block_range.contains(&0).not());
+        assert!(block_range.contains(&BlockNumber(0)).not());
         // The end of the range is exclusive
         assert!(block_range.contains(&BlockNumber(10)).not());
     }

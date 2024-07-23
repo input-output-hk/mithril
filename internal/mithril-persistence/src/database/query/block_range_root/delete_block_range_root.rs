@@ -30,17 +30,13 @@ impl Query for DeleteBlockRangeRootQuery {
 }
 
 impl DeleteBlockRangeRootQuery {
-    pub fn contains_or_above_block_number_threshold<T: Into<BlockNumber>>(
-        block_number_threshold: T,
+    pub fn contains_or_above_block_number_threshold(
+        block_number_threshold: BlockNumber,
     ) -> StdResult<Self> {
-        let threshold = block_number_threshold.into();
-        let block_range = BlockRange::from_block_number(threshold);
-        let threshold = Value::Integer(
-            block_range
-                .start
-                .try_into()
-                .with_context(|| format!("Failed to convert threshold `{threshold}` to i64"))?,
-        );
+        let block_range = BlockRange::from_block_number(block_number_threshold);
+        let threshold = Value::Integer(block_range.start.try_into().with_context(|| {
+            format!("Failed to convert threshold `{block_number_threshold}` to i64")
+        })?);
 
         Ok(Self {
             condition: WhereCondition::new("start >= ?*", vec![threshold]),
@@ -86,7 +82,10 @@ mod tests {
 
         let cursor = connection
             .fetch(
-                DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(100).unwrap(),
+                DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(BlockNumber(
+                    100,
+                ))
+                .unwrap(),
             )
             .expect("pruning shouldn't crash without block range root stored");
         assert_eq!(0, cursor.count());

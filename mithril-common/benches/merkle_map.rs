@@ -37,10 +37,9 @@ fn generate_block_ranges_nodes_iterator(
         "total_block_ranges should be strictly greater than 0"
     );
     (0..total_block_ranges).map(move |block_range_index| {
-        let block_range = BlockRange::new(
-            block_range_index * total_transactions_per_block_range,
-            (block_range_index + 1) * total_transactions_per_block_range,
-        );
+        let start = block_range_index * total_transactions_per_block_range;
+        let end = (block_range_index + 1) * total_transactions_per_block_range;
+        let block_range = BlockRange::from(start..end);
         let mk_map_node = if block_range_index <= total_block_ranges - max_uncompressed_block_ranges
         {
             let leaves = (*block_range.start..*block_range.end)

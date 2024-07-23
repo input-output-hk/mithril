@@ -659,8 +659,8 @@ mod tests {
                 .expect_get_transactions_in_range()
                 // Lower bound should be the end block number of the last known block range
                 // Upper bound should be the block number provided to `import_block_ranges`
-                .withf(|range| {
-                    BlockRangesSequence::new(HIGHEST_BLOCK_RANGE_START..=(BlockRange::LENGTH * 5))
+                .withf(move |range| {
+                    BlockRangesSequence::new(HIGHEST_BLOCK_RANGE_START..=up_to_block_number)
                         .contains(range)
                 })
                 .returning(transactions_for_block);

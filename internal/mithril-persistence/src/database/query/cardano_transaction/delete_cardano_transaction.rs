@@ -30,30 +30,20 @@ impl Query for DeleteCardanoTransactionQuery {
 }
 
 impl DeleteCardanoTransactionQuery {
-    pub fn below_block_number_threshold<T: Into<BlockNumber>>(
-        block_number_threshold: T,
-    ) -> StdResult<Self> {
-        let threshold = block_number_threshold.into();
-        let threshold = Value::Integer(
-            threshold
-                .try_into()
-                .with_context(|| format!("Failed to convert threshold `{threshold}` to i64"))?,
-        );
+    pub fn below_block_number_threshold(block_number_threshold: BlockNumber) -> StdResult<Self> {
+        let threshold = Value::Integer(block_number_threshold.try_into().with_context(|| {
+            format!("Failed to convert threshold `{block_number_threshold}` to i64")
+        })?);
 
         Ok(Self {
             condition: WhereCondition::new("block_number < ?*", vec![threshold]),
         })
     }
 
-    pub fn above_block_number_threshold<T: Into<BlockNumber>>(
-        block_number_threshold: T,
-    ) -> StdResult<Self> {
-        let threshold = block_number_threshold.into();
-        let threshold = Value::Integer(
-            threshold
-                .try_into()
-                .with_context(|| format!("Failed to convert threshold `{threshold}` to i64"))?,
-        );
+    pub fn above_block_number_threshold(block_number_threshold: BlockNumber) -> StdResult<Self> {
+        let threshold = Value::Integer(block_number_threshold.try_into().with_context(|| {
+            format!("Failed to convert threshold `{block_number_threshold}` to i64")
+        })?);
 
         Ok(Self {
             condition: WhereCondition::new("block_number > ?*", vec![threshold]),
@@ -94,7 +84,10 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
 
             let cursor = connection
-                .fetch(DeleteCardanoTransactionQuery::below_block_number_threshold(100).unwrap())
+                .fetch(
+                    DeleteCardanoTransactionQuery::below_block_number_threshold(BlockNumber(100))
+                        .unwrap(),
+                )
                 .expect("pruning shouldn't crash without transactions stored");
             assert_eq!(0, cursor.count());
         }
@@ -105,7 +98,8 @@ mod tests {
             insert_transactions(&connection, test_transaction_set());
 
             let query =
-                DeleteCardanoTransactionQuery::below_block_number_threshold(100_000).unwrap();
+                DeleteCardanoTransactionQuery::below_block_number_threshold(BlockNumber(100_000))
+                    .unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(test_transaction_set().len(), cursor.count());
 
@@ -118,7 +112,8 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
             insert_transactions(&connection, test_transaction_set());
 
-            let query = DeleteCardanoTransactionQuery::below_block_number_threshold(0).unwrap();
+            let query = DeleteCardanoTransactionQuery::below_block_number_threshold(BlockNumber(0))
+                .unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(0, cursor.count());
 
@@ -131,7 +126,9 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
             insert_transactions(&connection, test_transaction_set());
 
-            let query = DeleteCardanoTransactionQuery::below_block_number_threshold(12).unwrap();
+            let query =
+                DeleteCardanoTransactionQuery::below_block_number_threshold(BlockNumber(12))
+                    .unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(4, cursor.count());
 
@@ -148,7 +145,10 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
 
             let cursor = connection
-                .fetch(DeleteCardanoTransactionQuery::above_block_number_threshold(100).unwrap())
+                .fetch(
+                    DeleteCardanoTransactionQuery::above_block_number_threshold(BlockNumber(100))
+                        .unwrap(),
+                )
                 .expect("pruning shouldn't crash without transactions stored");
             assert_eq!(0, cursor.count());
         }
@@ -158,7 +158,8 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
             insert_transactions(&connection, test_transaction_set());
 
-            let query = DeleteCardanoTransactionQuery::above_block_number_threshold(0).unwrap();
+            let query = DeleteCardanoTransactionQuery::above_block_number_threshold(BlockNumber(0))
+                .unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(test_transaction_set().len(), cursor.count());
 
@@ -173,7 +174,8 @@ mod tests {
             insert_transactions(&connection, test_transaction_set());
 
             let query =
-                DeleteCardanoTransactionQuery::above_block_number_threshold(100_000).unwrap();
+                DeleteCardanoTransactionQuery::above_block_number_threshold(BlockNumber(100_000))
+                    .unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(0, cursor.count());
 
@@ -186,7 +188,9 @@ mod tests {
             let connection = cardano_tx_db_connection().unwrap();
             insert_transactions(&connection, test_transaction_set());
 
-            let query = DeleteCardanoTransactionQuery::above_block_number_threshold(10).unwrap();
+            let query =
+                DeleteCardanoTransactionQuery::above_block_number_threshold(BlockNumber(10))
+                    .unwrap();
             let cursor = connection.fetch(query).unwrap();
             assert_eq!(4, cursor.count());
 

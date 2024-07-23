@@ -17,11 +17,11 @@ impl GetBlockRangeRootQuery {
         }
     }
 
-    pub fn contains_or_below_block_number<T: Into<BlockNumber>>(block_number: T) -> Self {
+    pub fn contains_or_below_block_number(block_number: BlockNumber) -> Self {
         Self {
             condition: WhereCondition::new(
                 "start < ?*",
-                vec![Value::Integer(*block_number.into() as i64)],
+                vec![Value::Integer(*block_number as i64)],
             ),
         }
     }
@@ -85,7 +85,9 @@ mod tests {
         let connection = cardano_tx_db_connection().unwrap();
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(100))
+            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
+                BlockNumber(100),
+            ))
             .unwrap();
         assert_eq!(Vec::<BlockRangeRootRecord>::new(), cursor);
     }
@@ -98,7 +100,7 @@ mod tests {
 
         let cursor: Vec<BlockRangeRootRecord> = connection
             .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
-                10_000,
+                BlockNumber(10_000),
             ))
             .unwrap();
 
@@ -112,7 +114,9 @@ mod tests {
         insert_block_range_roots(&connection, dataset.clone());
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(44))
+            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
+                BlockNumber(44),
+            ))
             .unwrap();
 
         assert_eq!(&dataset[0..2], &cursor);
@@ -125,7 +129,9 @@ mod tests {
         insert_block_range_roots(&connection, dataset.clone());
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(45))
+            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
+                BlockNumber(45),
+            ))
             .unwrap();
 
         assert_eq!(&dataset[0..2], &cursor);
@@ -138,7 +144,9 @@ mod tests {
         insert_block_range_roots(&connection, dataset.clone());
 
         let cursor: Vec<BlockRangeRootRecord> = connection
-            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(46))
+            .fetch_collect(GetBlockRangeRootQuery::contains_or_below_block_number(
+                BlockNumber(46),
+            ))
             .unwrap();
 
         assert_eq!(dataset, cursor);
