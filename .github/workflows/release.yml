@@ -92,7 +92,9 @@ jobs:
             google_zone: europe-west1-b
             google_machine_type: e2-highmem-2
             google_compute_instance_boot_disk_size: 200
+            google_compute_instance_boot_disk_type: pd-standard
             google_compute_instance_data_disk_size: 250
+            google_compute_instance_data_disk_type: pd-standard
           - environment: release-mainnet
             environment_prefix: release
             cardano_network: mainnet
@@ -110,7 +112,9 @@ jobs:
             google_zone: europe-west1-b
             google_machine_type: e2-highmem-8
             google_compute_instance_boot_disk_size: 250
+            google_compute_instance_boot_disk_type: pd-standard
             google_compute_instance_data_disk_size: 1000
+            google_compute_instance_data_disk_type: pd-standard
 
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
@@ -140,7 +144,10 @@ jobs:
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
           google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
+          google_compute_instance_boot_disk_type: ${{ matrix.google_compute_instance_boot_disk_type }}
           google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
+          google_compute_instance_data_disk_type: ${{ matrix.google_compute_instance_data_disk_type }}
+          google_compute_instance_data_disk_snapshot: ${{ vars.GOOGLE_COMPUTE_INSTANCE_DATA_DISK_SNAPSHOT }}
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
