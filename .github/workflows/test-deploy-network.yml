@@ -118,7 +118,7 @@ jobs:
             google_compute_instance_boot_disk_size: 250
             google_compute_instance_boot_disk_type: pd-standard
             google_compute_instance_data_disk_size: 1000
-            google_compute_instance_data_disk_type: pd-standard
+            google_compute_instance_data_disk_type: pd-balanced
 
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
