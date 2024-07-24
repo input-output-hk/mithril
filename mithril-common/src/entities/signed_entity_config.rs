@@ -155,7 +155,9 @@ impl CardanoTransactionsSigningConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::{CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, TimePoint};
+    use crate::entities::{
+        CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, SlotNumber, TimePoint,
+    };
     use crate::test_utils::fake_data;
 
     use super::*;
@@ -166,7 +168,7 @@ mod tests {
             epoch: Epoch(1),
             immutable_file_number: 5,
             chain_point: ChainPoint {
-                slot_number: 73,
+                slot_number: SlotNumber(73),
                 block_number: BlockNumber(20),
                 block_hash: "block_hash-20".to_string(),
             },

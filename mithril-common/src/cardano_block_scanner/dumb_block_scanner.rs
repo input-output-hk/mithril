@@ -122,6 +122,8 @@ mod tests {
 
     use super::*;
 
+    use crate::entities::SlotNumber;
+
     #[tokio::test]
     async fn polling_without_set_of_block_return_none() {
         let mut streamer = DumbBlockStreamer::new().forwards(vec![]);
@@ -134,7 +136,7 @@ mod tests {
         let expected_blocks = vec![ScannedBlock::new(
             "hash-1",
             BlockNumber(1),
-            10,
+            SlotNumber(10),
             Vec::<&str>::new(),
         )];
         let mut streamer = DumbBlockStreamer::new().forwards(vec![expected_blocks.clone()]);
@@ -155,17 +157,17 @@ mod tests {
             vec![ScannedBlock::new(
                 "hash-1",
                 BlockNumber(1),
-                10,
+                SlotNumber(10),
                 Vec::<&str>::new(),
             )],
             vec![
-                ScannedBlock::new("hash-2", BlockNumber(2), 11, Vec::<&str>::new()),
-                ScannedBlock::new("hash-3", BlockNumber(3), 12, Vec::<&str>::new()),
+                ScannedBlock::new("hash-2", BlockNumber(2), SlotNumber(11), Vec::<&str>::new()),
+                ScannedBlock::new("hash-3", BlockNumber(3), SlotNumber(12), Vec::<&str>::new()),
             ],
             vec![ScannedBlock::new(
                 "hash-4",
                 BlockNumber(4),
-                13,
+                SlotNumber(13),
                 Vec::<&str>::new(),
             )],
         ];
@@ -198,7 +200,7 @@ mod tests {
         let expected_blocks = vec![ScannedBlock::new(
             "hash-1",
             BlockNumber(1),
-            10,
+            SlotNumber(10),
             Vec::<&str>::new(),
         )];
 
@@ -214,10 +216,10 @@ mod tests {
         let expected_blocks = vec![ScannedBlock::new(
             "hash-1",
             BlockNumber(1),
-            10,
+            SlotNumber(10),
             Vec::<&str>::new(),
         )];
-        let expected_chain_point = ChainPoint::new(10, BlockNumber(2), "block-hash");
+        let expected_chain_point = ChainPoint::new(SlotNumber(10), BlockNumber(2), "block-hash");
 
         let scanner = DumbBlockScanner::new()
             .forwards(vec![expected_blocks.clone()])
@@ -245,18 +247,18 @@ mod tests {
             vec![ScannedBlock::new(
                 "hash-1",
                 BlockNumber(1),
-                10,
+                SlotNumber(10),
                 Vec::<&str>::new(),
             )],
             vec![ScannedBlock::new(
                 "hash-4",
                 BlockNumber(4),
-                13,
+                SlotNumber(13),
                 Vec::<&str>::new(),
             )],
         ];
 
-        let expected_chain_point = ChainPoint::new(10, BlockNumber(2), "block-hash");
+        let expected_chain_point = ChainPoint::new(SlotNumber(10), BlockNumber(2), "block-hash");
 
         let mut streamer = DumbBlockStreamer::new()
             .forwards(expected_blocks.clone())

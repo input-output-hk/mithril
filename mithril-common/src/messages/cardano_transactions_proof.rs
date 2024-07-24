@@ -317,7 +317,7 @@ mod tests {
     #[cfg(feature = "fs")]
     mod fs_only {
         use crate::crypto_helper::{MKMap, MKMapNode};
-        use crate::entities::{BlockNumber, BlockRange, CardanoTransaction};
+        use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
         use crate::signable_builder::{
             CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever,
             MockTransactionsImporter, SignableBuilder,
@@ -331,8 +331,18 @@ mod tests {
         async fn verify_hashes_from_verified_cardano_transaction_and_from_signable_builder_are_equals(
         ) {
             let transactions = vec![
-                CardanoTransaction::new("tx-hash-123", BlockNumber(10), 1, "block_hash"),
-                CardanoTransaction::new("tx-hash-456", BlockNumber(20), 2, "block_hash"),
+                CardanoTransaction::new(
+                    "tx-hash-123",
+                    BlockNumber(10),
+                    SlotNumber(1),
+                    "block_hash",
+                ),
+                CardanoTransaction::new(
+                    "tx-hash-456",
+                    BlockNumber(20),
+                    SlotNumber(2),
+                    "block_hash",
+                ),
             ];
 
             assert_eq!(

@@ -80,19 +80,22 @@ impl FakeObserver {
 
     /// Increase the slot number of the [current_time_point][`FakeObserver::current_time_point`] by
     /// the given increment.
-    pub async fn increase_slot_number(&self, increment: SlotNumber) -> Option<SlotNumber> {
+    pub async fn increase_slot_number(&self, increment: u64) -> Option<SlotNumber> {
         self.change_slot_number(|actual_slot_number| actual_slot_number + increment)
             .await
     }
 
     /// Decrease the slot number of the [current_time_point][`FakeObserver::current_time_point`] by
     /// the given decrement.
-    pub async fn decrease_slot_number(&self, decrement: SlotNumber) -> Option<SlotNumber> {
+    pub async fn decrease_slot_number(&self, decrement: u64) -> Option<SlotNumber> {
         self.change_slot_number(|actual_slot_number| actual_slot_number - decrement)
             .await
     }
 
-    async fn change_slot_number(&self, change_to_apply: impl Fn(u64) -> u64) -> Option<SlotNumber> {
+    async fn change_slot_number(
+        &self,
+        change_to_apply: impl Fn(SlotNumber) -> SlotNumber,
+    ) -> Option<SlotNumber> {
         let mut current_time_point = self.current_time_point.write().await;
 
         *current_time_point = current_time_point.as_ref().map(|time_point| TimePoint {
@@ -318,7 +321,7 @@ mod tests {
         fake_observer
             .set_current_time_point(Some(TimePoint {
                 chain_point: ChainPoint {
-                    slot_number: 1000,
+                    slot_number: SlotNumber(1000),
                     ..TimePoint::dummy().chain_point
                 },
                 ..TimePoint::dummy()
@@ -329,7 +332,7 @@ mod tests {
         let chain_point = fake_observer.get_current_chain_point().await.unwrap();
         assert_eq!(
             Some(ChainPoint {
-                slot_number: 200,
+                slot_number: SlotNumber(200),
                 ..TimePoint::dummy().chain_point
             }),
             chain_point,
