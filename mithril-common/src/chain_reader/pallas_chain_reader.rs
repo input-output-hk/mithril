@@ -54,9 +54,11 @@ impl PallasChainReader {
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
 
-        chainsync
-            .find_intersect(vec![point.to_owned().into()])
-            .await?;
+        if chainsync.has_agency() {
+            chainsync
+                .find_intersect(vec![point.to_owned().into()])
+                .await?;
+        }
 
         Ok(())
     }
@@ -326,6 +328,19 @@ mod tests {
             // forces the client to change the chainsync server agency state
             let client = chain_reader.get_client().await.unwrap();
             client.chainsync().request_next().await.unwrap();
+
+            // make sure that the chainsync client returns an error when attempting to find intersection without agency
+            client
+                .chainsync()
+                .find_intersect(vec![known_point.clone()])
+                .await
+                .expect_err("chainsync find_intersect without agency should fail");
+
+            // make sure that setting the chain point is harmless when the chainsync client does not have agency
+            chain_reader
+                .set_chain_point(&ChainPoint::from(known_point.clone()))
+                .await
+                .unwrap();
 
             chain_reader.get_next_chain_block().await.unwrap().unwrap()
         });
