@@ -16,7 +16,8 @@ use mithril_common::{
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
         BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
-        SignedEntityType, SignedEntityTypeDiscriminants, Snapshot, StakeDistribution, TimePoint,
+        SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, Snapshot, StakeDistribution,
+        TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
@@ -256,28 +257,43 @@ impl RuntimeTester {
         Ok(new_epoch)
     }
 
-    /// increase the block number in the fake observer
-    pub async fn increase_block_number(&mut self, increment: u64, expected: u64) -> StdResult<()> {
+    /// increase the block number and the slot number in the fake observer
+    pub async fn increase_block_number_and_slot_number(
+        &mut self,
+        increment: u64,
+        expected: u64,
+    ) -> StdResult<()> {
         let new_block_number = self
             .chain_observer
             .increase_block_number(increment)
             .await
             .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
 
+        let new_slot_number = self
+            .chain_observer
+            .increase_slot_number(increment)
+            .await
+            .ok_or_else(|| anyhow!("no slot number returned".to_string()))?;
+
         anyhow::ensure!(
             expected == new_block_number,
             "expected to increase block number up to {expected}, got {new_block_number}",
+        );
+
+        anyhow::ensure!(
+            expected == new_slot_number,
+            format!("expected to increase slot number up to {expected}, got {new_slot_number}"),
         );
 
         // Make the block scanner return new blocks
         let blocks_to_scan: Vec<ScannedBlock> = ((expected - increment + 1)..=expected)
             .map(|block_number| {
                 let block_hash = format!("block_hash-{block_number}");
-                let slot_number = 10 * block_number;
+                let slot_number = block_number;
                 ScannedBlock::new(
                     block_hash,
                     BlockNumber(block_number),
-                    slot_number,
+                    SlotNumber(slot_number),
                     vec![tx_hash(block_number, 1)],
                 )
             })
@@ -289,30 +305,39 @@ impl RuntimeTester {
 
     pub async fn cardano_chain_send_rollback(
         &mut self,
-        rollback_to_block_number: BlockNumber,
+        rollback_to_slot_number: SlotNumber,
     ) -> StdResult<()> {
-        let actual_block_number = self
+        let actual_slot_number = self
             .chain_observer
             .get_current_chain_point()
             .await?
-            .map(|c| c.block_number)
-            .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
-        let decrement = actual_block_number - rollback_to_block_number;
-        let new_block_number = self
+            .map(|c| c.slot_number)
+            .ok_or_else(|| anyhow!("no slot number returned".to_string()))?;
+
+        let decrement = actual_slot_number - rollback_to_slot_number;
+        let new_slot_number = self
+            .chain_observer
+            .decrease_slot_number(*decrement)
+            .await
+            .ok_or_else(|| anyhow!("no slot number returned".to_string()))?;
+
+        // TODO: Needed for CardanoTransaction that use the block number. Is it normal ?
+        // Without this decrease_block_number, the create_certificate fail trying to sign a CardanoTransaction after a rollback.
+        let _new_block_number = self
             .chain_observer
             .decrease_block_number(*decrement)
             .await
             .ok_or_else(|| anyhow!("no block number returned".to_string()))?;
 
         anyhow::ensure!(
-            rollback_to_block_number == new_block_number,
-            "expected to increase block number up to {rollback_to_block_number}, got {new_block_number}",
+            rollback_to_slot_number == new_slot_number,
+            "expected to increase slot number up to {rollback_to_slot_number}, got {new_slot_number}",
         );
 
         let chain_point = ChainPoint {
-            slot_number: 1,
-            block_number: rollback_to_block_number,
-            block_hash: format!("block_hash-{rollback_to_block_number}"),
+            slot_number: rollback_to_slot_number,
+            block_number: BlockNumber(*rollback_to_slot_number),
+            block_hash: format!("block_hash-{rollback_to_slot_number}"),
         };
         self.block_scanner.add_backward(chain_point);
 
