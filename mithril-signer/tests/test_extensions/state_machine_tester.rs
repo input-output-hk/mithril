@@ -452,7 +452,7 @@ impl StateMachineTester {
                 ScannedBlock::new(
                     block_hash,
                     BlockNumber(block_number),
-                    slot_number,
+                    SlotNumber(slot_number),
                     vec![format!("tx_hash-{block_number}-1")],
                 )
             })
@@ -472,12 +472,12 @@ impl StateMachineTester {
             .await
             .map_err(|err| TestError::SubsystemError(anyhow!(err)))?
             .map(|c| c.slot_number)
-            .ok_or_else(|| TestError::ValueError("no block number returned".to_string()))?;
+            .ok_or_else(|| TestError::ValueError("no slot number returned".to_string()))?;
 
         let decrement = actual_slot_number - rollback_to_slot_number;
         let new_slot_number = self
             .chain_observer
-            .decrease_slot_number(decrement)
+            .decrease_slot_number(*decrement)
             .await
             .ok_or_else(|| TestError::ValueError("no slot number returned".to_string()))?;
 
@@ -488,7 +488,7 @@ impl StateMachineTester {
 
         let chain_point = ChainPoint {
             slot_number: rollback_to_slot_number,
-            block_number: BlockNumber(rollback_to_slot_number),
+            block_number: BlockNumber(*rollback_to_slot_number),
             block_hash: format!("block_hash-{rollback_to_slot_number}"),
         };
         self.block_scanner.add_backward(chain_point);
