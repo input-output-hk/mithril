@@ -1,4 +1,5 @@
 use std::fmt::{Display, Formatter};
+use std::num::TryFromIntError;
 use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Serialize};
@@ -30,6 +31,15 @@ impl Deref for SlotNumber {
 impl DerefMut for SlotNumber {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+// Useful for conversion to sqlite number (that use i64)
+impl TryFrom<SlotNumber> for i64 {
+    type Error = TryFromIntError;
+
+    fn try_from(value: SlotNumber) -> Result<Self, Self::Error> {
+        value.0.try_into()
     }
 }
 
@@ -122,5 +132,12 @@ mod tests {
         assert_eq!(10, &SlotNumber(10));
         assert_eq!(&11, SlotNumber(11));
         assert_eq!(&12, &SlotNumber(12));
+    }
+
+    #[test]
+    fn test_try_into_i64() {
+        let slot_number = SlotNumber(42);
+        let number: i64 = slot_number.try_into().unwrap();
+        assert_eq!(42, number);
     }
 }
