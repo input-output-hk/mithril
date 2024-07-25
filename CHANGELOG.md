@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Fix `Agency is theirs` error in the `ChainReader` when the underlying `Chain sync` client does not have agency.
 
+- Support for `Cardano node` `9.1.0` in the signer and the aggregator.
+
 - **UNSTABLE** Cardano transactions certification:
 
   - Make Cardano transaction signing settings configurable via the CD.
