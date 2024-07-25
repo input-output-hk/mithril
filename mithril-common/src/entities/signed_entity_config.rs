@@ -137,9 +137,9 @@ impl CardanoTransactionsSigningConfig {
     ///
     /// *Notes:*
     /// * *The step is adjusted to be a multiple of the block range length in order
-    /// to guarantee that the block number signed in a certificate is effectively signed.*
+    ///   to guarantee that the block number signed in a certificate is effectively signed.*
     /// * *1 is subtracted to the result because block range end is exclusive (ie: a BlockRange over
-    /// `30..45` finish at 44 included, 45 is included in the next block range).*
+    ///   `30..45` finish at 44 included, 45 is included in the next block range).*
     pub fn compute_block_number_to_be_signed(&self, block_number: BlockNumber) -> BlockNumber {
         // TODO: See if we can remove this adjustment by including a "partial" block range in
         // the signed data.

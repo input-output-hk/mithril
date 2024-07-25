@@ -774,7 +774,7 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     /// * the lottery is indeed won by each one of them,
     /// * the merkle tree path is valid,
     /// * the aggregate signature validates with respect to the aggregate verification key
-    /// (aggregation is computed using functions `MSP.BKey` and `MSP.BSig` as described in Section 2.4 of the paper).
+    ///   (aggregation is computed using functions `MSP.BKey` and `MSP.BSig` as described in Section 2.4 of the paper).
     pub fn verify(
         &self,
         msg: &[u8],

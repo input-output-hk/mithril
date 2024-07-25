@@ -36,7 +36,7 @@ impl FakeAggregatorData {
 
         for entry in list_json_files_in_folder(folder) {
             let filename = entry.file_name().to_string_lossy().to_string();
-            let file_content = fs::read_to_string(&entry.path()).unwrap_or_else(|_| {
+            let file_content = fs::read_to_string(entry.path()).unwrap_or_else(|_| {
                 panic!(
                     "Could not read file content, file_path: {}",
                     entry.path().display()

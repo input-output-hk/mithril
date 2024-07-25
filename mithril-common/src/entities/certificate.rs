@@ -104,7 +104,7 @@ impl Certificate {
             }
             CertificateSignature::MultiSignature(signed_entity_type, signature) => {
                 signed_entity_type.feed_hash(&mut hasher);
-                hasher.update(&signature.to_json_hex().unwrap());
+                hasher.update(signature.to_json_hex().unwrap());
             }
         };
         hex::encode(hasher.finalize())
