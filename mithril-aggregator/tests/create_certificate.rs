@@ -33,10 +33,7 @@ async fn create_certificate() {
             epoch: Epoch(1),
             immutable_file_number: 1,
             chain_point: ChainPoint {
-                // TODO: It's probably not a good idea to have the same slot_number and block_number. Can we change this?
-                // Note: slot_number and block_number need to be equal
-                // to check the expected when we increase both with `increase_block_number_and_slot_number`
-                slot_number: SlotNumber(100),
+                slot_number: SlotNumber(10),
                 block_number: BlockNumber(100),
                 block_hash: "block_hash-100".to_string(),
             },
@@ -149,7 +146,7 @@ async fn create_certificate() {
         the state machine should be signing CardanoTransactions for block 179"
     );
     tester
-        .increase_block_number_and_slot_number(85, 185)
+        .increase_block_number_and_slot_number(85, SlotNumber(95), BlockNumber(185))
         .await
         .unwrap();
     cycle!(tester, "signing");
@@ -187,7 +184,7 @@ async fn create_certificate() {
         the state machine should be signing CardanoTransactions for block 120"
     );
     tester
-        .cardano_chain_send_rollback(SlotNumber(149))
+        .cardano_chain_send_rollback(SlotNumber(95), BlockNumber(149))
         .await
         .unwrap();
     cycle!(tester, "signing");
