@@ -91,7 +91,7 @@ impl StakeStorer for StakePoolStore {
 #[async_trait]
 impl StakeDistributionRetriever for StakePoolStore {
     async fn retrieve(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
-        let stake_distribution = self.get_stakes(epoch).await?;
+        let stake_distribution = self.get_stakes(epoch.offset_to_recording_epoch()).await?;
 
         Ok(stake_distribution)
     }
@@ -142,20 +142,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn retrieve_returns_cardano_stake_distribution() {
+    async fn retrieve_returns_cardano_stake_distribution_with_epoch_offset() {
+        let initial_stake_distribution = StakeDistribution::from([("pool-123".to_string(), 123)]);
         let connection = main_db_connection().unwrap();
         let store = StakePoolStore::new(Arc::new(connection), None);
         store
-            .save_stakes(
-                Epoch(1),
-                StakeDistribution::from([("pool-123".to_string(), 123)]),
-            )
+            .save_stakes(Epoch(1), initial_stake_distribution.clone())
+            .await
+            .unwrap();
+
+        let mut next_stake_distribution = initial_stake_distribution;
+        next_stake_distribution.insert("pool-456".to_string(), 456);
+        store
+            .save_stakes(Epoch(2), next_stake_distribution.clone())
             .await
             .unwrap();
 
         let stake_distribution = store.retrieve(Epoch(1)).await.unwrap();
 
-        let expected_stake_distribution = StakeDistribution::from([("pool-123".to_string(), 123)]);
-        assert_eq!(Some(expected_stake_distribution), stake_distribution);
+        assert_eq!(Some(next_stake_distribution), stake_distribution);
     }
 }
