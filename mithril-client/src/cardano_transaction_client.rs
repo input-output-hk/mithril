@@ -2,11 +2,11 @@
 //!
 //! In order to do so it defines a [CardanoTransactionClient] which exposes the following features:
 //!  - [get_proofs][CardanoTransactionClient::get_proofs]: get a [cryptographic proof][CardanoTransactionsProofs]
-//! that the transactions with given hash are included in the global Cardano transactions set.
+//!    that the transactions with given hash are included in the global Cardano transactions set.
 //!  - [get][CardanoTransactionClient::get_snapshot]: get a [Cardano transaction snapshot][CardanoTransactionSnapshot]
-//! data from its hash.
+//!    data from its hash.
 //!  - [list][CardanoTransactionClient::list_snapshots]: get the list of the latest available Cardano transaction
-//! snapshot.
+//!    snapshot.
 //!
 //!  **Important:** Verifying a proof **only** means that its cryptography is valid, in order to certify that a Cardano
 //! transactions subset is valid, the associated proof must be tied to a valid Mithril certificate (see the example below).
