@@ -147,15 +147,18 @@ impl AggregatorRunner {
     async fn list_available_signed_entity_types(
         &self,
         time_point: &TimePoint,
-    ) -> Vec<SignedEntityType> {
+    ) -> StdResult<Vec<SignedEntityType>> {
         let signed_entity_types = self
             .dependencies
             .signed_entity_config
-            .list_allowed_signed_entity_types(time_point);
-        self.dependencies
+            .list_allowed_signed_entity_types(time_point)?;
+        let unlocked_signed_entities = self
+            .dependencies
             .signed_entity_type_lock
             .filter_unlocked_entries(signed_entity_types)
-            .await
+            .await;
+
+        Ok(unlocked_signed_entities)
     }
 }
 
@@ -197,7 +200,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         debug!("RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
         let signed_entity_types = self
             .list_available_signed_entity_types(current_time_point)
-            .await;
+            .await?;
         for signed_entity_type in signed_entity_types {
             let current_open_message = self.get_current_open_message_for_signed_entity_type(&signed_entity_type)
                 .await
@@ -1192,6 +1195,7 @@ pub mod tests {
         let signed_entities: Vec<SignedEntityTypeDiscriminants> = runner
             .list_available_signed_entity_types(&time_point)
             .await
+            .unwrap()
             .into_iter()
             .map(Into::into)
             .collect();
@@ -1223,6 +1227,7 @@ pub mod tests {
         let signed_entities: Vec<SignedEntityTypeDiscriminants> = runner
             .list_available_signed_entity_types(&time_point)
             .await
+            .unwrap()
             .into_iter()
             .map(Into::into)
             .collect();

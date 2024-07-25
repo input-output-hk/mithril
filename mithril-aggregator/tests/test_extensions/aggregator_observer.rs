@@ -110,7 +110,8 @@ impl AggregatorObserver {
 
         Ok(self
             .signed_entity_config
-            .time_point_to_signed_entity(discriminant, &time_point))
+            .time_point_to_signed_entity(discriminant, &time_point)
+            .unwrap())
     }
 
     pub async fn is_last_signed_entity(

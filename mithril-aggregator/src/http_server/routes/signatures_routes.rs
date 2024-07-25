@@ -52,11 +52,17 @@ mod handlers {
 
         let signed_entity_type = match message.signed_entity_type.clone() {
             Some(signed_entity_type) => Ok(signed_entity_type),
+            // The '.unwrap()' inside the 'None' branch is safe
+            // This case does not occur anymore, as there are no signers using the Mithril Signer node
+            // version that sends a 'RegisterSignatureMessage' without the 'signed_entity_type' field.
+            // Make the 'signed_entity_type' field mandatory in the 'RegisterSignatureMessage' will be done in a new PR.
             None => ticker_service.get_current_time_point().await.map(|t| {
-                signed_entity_config.time_point_to_signed_entity(
-                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                    &t,
-                )
+                signed_entity_config
+                    .time_point_to_signed_entity(
+                        SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                        &t,
+                    )
+                    .unwrap()
             }),
         };
 
