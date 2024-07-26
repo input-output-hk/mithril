@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for `Cardano node` `9.1.0` in the signer and the aggregator.
 
+- Support better disk configuration in terraform deployments with the CI/CD workflows.
+
 - **UNSTABLE** Cardano transactions certification:
 
   - Make Cardano transaction signing settings configurable via the CD.

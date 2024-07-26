@@ -70,7 +70,7 @@ resource "null_resource" "mithril_mount_data_disk" {
       <<-EOT
 set -e
 # Format data disk if necessary
-if sudo blkid /dev/sdb; then 
+if sudo blkid /dev/disk/by-id/google-mithril-data-disk; then 
   echo "Data disk already formatted"
 else 
   # Format data disk

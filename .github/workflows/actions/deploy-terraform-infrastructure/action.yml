@@ -36,9 +36,23 @@ inputs:
   google_compute_instance_boot_disk_size:
     description: Google Cloud attached boot disk size in GB.
     required: true
+  google_compute_instance_boot_disk_type:
+    description: Google Cloud type of attached boot disk.
+    required: false
+    default: "pd-standard"
+  google_compute_instance_boot_disk_snapshot:
+    description: Google Cloud snapshot used to restore the boot disk.
+    required: false
   google_compute_instance_data_disk_size:
     description: Google Cloud attached data disk size in GB.
     required: true
+  google_compute_instance_data_disk_type:
+    description: Google Cloud type of attached data disk.
+    required: false
+    default: "pd-standard"
+  google_compute_instance_data_disk_snapshot:
+    description: Google Cloud snapshot used to restore the data disk.
+    required: false
   google_application_credentials:
     description: Google Cloud application credentials (service account).
     required: true
@@ -174,7 +188,11 @@ runs:
           google_zone                                                               = "${{ inputs.google_zone }}"
           google_machine_type                                                       = "${{ inputs.google_machine_type }}"
           google_compute_instance_boot_disk_size                                    = "${{ inputs.google_compute_instance_boot_disk_size }}"
+          google_compute_instance_boot_disk_type                                    = "${{ inputs.google_compute_instance_boot_disk_type }}"
+          google_compute_instance_boot_disk_snapshot                                = "${{ inputs.google_compute_instance_boot_disk_snapshot }}"
           google_compute_instance_data_disk_size                                    = "${{ inputs.google_compute_instance_data_disk_size }}"
+          google_compute_instance_data_disk_type                                    = "${{ inputs.google_compute_instance_data_disk_type }}"
+          google_compute_instance_data_disk_snapshot                                = "${{ inputs.google_compute_instance_data_disk_snapshot }}"
           google_service_credentials_json_file                                      = "./google-application-credentials.json"
           mithril_use_p2p_network                                                   = "${{ inputs.mithril_use_p2p_network }}"
           mithril_api_domain                                                        = "${{ inputs.mithril_api_domain }}"
