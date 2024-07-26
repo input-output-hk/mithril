@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 As a minor extension, we have adopted a slightly different versioning convention for the Mithril distributions (<https://mithril.network/doc/adr/3#decision>)
 
-## Mithril Distribution [XXXX.X] - UNRELEASED
+## Mithril Distribution [XXXX] - UNRELEASED
+
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2430.0] - UNRELEASED
 
 - `mithril-aggregator` node produces artifact for different signed entity types in parallel.
 
