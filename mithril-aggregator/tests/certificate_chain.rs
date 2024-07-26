@@ -4,7 +4,8 @@ use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
         BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
-        SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty, TimePoint,
+        SignedEntityTypeDiscriminants, SlotNumber, StakeDistribution, StakeDistributionParty,
+        TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -23,7 +24,11 @@ async fn certificate_chain() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(
-        TimePoint::new(1, 1, ChainPoint::new(10, BlockNumber(1), "block_hash-1")),
+        TimePoint::new(
+            1,
+            1,
+            ChainPoint::new(SlotNumber(10), BlockNumber(1), "block_hash-1"),
+        ),
         configuration,
     )
     .await;

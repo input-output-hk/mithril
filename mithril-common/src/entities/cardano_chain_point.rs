@@ -3,22 +3,19 @@ use std::fmt::{Display, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::entities::BlockNumber;
+use crate::entities::{BlockNumber, SlotNumber};
 
 cfg_fs! {
     use pallas_network::miniprotocols::{chainsync::Tip, Point};
 }
 
-/// [Cardano Slot number](https://docs.cardano.org/learn/cardano-node/#slotsandepochs)
-pub type SlotNumber = u64;
-
 /// Hash of a Cardano Block
 pub type BlockHash = String;
 
-///The Cardano chain point which is used to identify a specific point in the Cardano chain.
+/// The Cardano chain point which is used to identify a specific point in the Cardano chain.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ChainPoint {
-    /// The slot number
+    /// The [slot number](https://docs.cardano.org/learn/cardano-node/#slotsandepochs)
     pub slot_number: SlotNumber,
 
     ///  The block number
@@ -45,7 +42,7 @@ impl ChainPoint {
     /// Create a new origin chain point
     pub fn origin() -> ChainPoint {
         ChainPoint {
-            slot_number: 0,
+            slot_number: SlotNumber(0),
             block_number: BlockNumber(0),
             block_hash: String::new(),
         }
@@ -60,7 +57,7 @@ impl ChainPoint {
         /// Create a dummy ChainPoint
         pub fn dummy() -> Self {
             Self {
-                slot_number: 100,
+                slot_number: SlotNumber(100),
                 block_number: BlockNumber(0),
                 block_hash: "block_hash-50".to_string(),
             }
@@ -99,7 +96,7 @@ cfg_fs! {
             match chain_point.is_origin() {
                 true => Self::Origin,
                 false => Self::Specific(
-                    chain_point.slot_number,
+                    *chain_point.slot_number,
                     hex::decode(&chain_point.block_hash).unwrap(), // TODO: keep block_hash as a Vec<u8>
                 ),
             }
@@ -110,12 +107,12 @@ cfg_fs! {
         fn from(point: Point) -> Self {
             match point {
                 Point::Specific(slot_number, block_hash) => Self {
-                    slot_number,
+                    slot_number: SlotNumber(slot_number),
                     block_number: BlockNumber(0),
                     block_hash: hex::encode(block_hash),
                 },
                 Point::Origin => Self {
-                    slot_number: 0,
+                    slot_number: SlotNumber(0),
                     block_number: BlockNumber(0),
                     block_hash: String::new(),
                 },
@@ -152,12 +149,12 @@ mod tests {
     #[test]
     fn chain_point_ord_cmp_block_number_take_precedence_over_other_fields() {
         let chain_point1 = ChainPoint {
-            slot_number: 15,
+            slot_number: SlotNumber(15),
             block_number: BlockNumber(10),
             block_hash: "hash2".to_string(),
         };
         let chain_point2 = ChainPoint {
-            slot_number: 5,
+            slot_number: SlotNumber(5),
             block_number: BlockNumber(20),
             block_hash: "hash1".to_string(),
         };
@@ -168,12 +165,12 @@ mod tests {
     #[test]
     fn chain_point_ord_cmp_if_block_number_equals_then_compare_slot_numbers() {
         let chain_point1 = ChainPoint {
-            slot_number: 15,
+            slot_number: SlotNumber(15),
             block_number: BlockNumber(0),
             block_hash: "hash2".to_string(),
         };
         let chain_point2 = ChainPoint {
-            slot_number: 5,
+            slot_number: SlotNumber(5),
             block_number: BlockNumber(0),
             block_hash: "hash1".to_string(),
         };
@@ -184,12 +181,12 @@ mod tests {
     #[test]
     fn chain_point_ord_cmp_if_block_number_and_slot_number_equals_then_compare_block_hash() {
         let chain_point1 = ChainPoint {
-            slot_number: 5,
+            slot_number: SlotNumber(5),
             block_number: BlockNumber(10),
             block_hash: "hash1".to_string(),
         };
         let chain_point2 = ChainPoint {
-            slot_number: 5,
+            slot_number: SlotNumber(5),
             block_number: BlockNumber(10),
             block_hash: "hash2".to_string(),
         };

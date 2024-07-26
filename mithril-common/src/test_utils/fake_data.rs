@@ -7,7 +7,7 @@ use crate::crypto_helper::{self, ProtocolMultiSignature};
 use crate::entities::{
     self, BlockNumber, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch,
     LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
-    StakeDistributionParty,
+    SlotNumber, StakeDistributionParty,
 };
 use crate::test_utils::MithrilFixtureBuilder;
 
@@ -28,7 +28,7 @@ pub fn beacon() -> entities::CardanoDbBeacon {
 /// Fake ChainPoint
 pub fn chain_point() -> entities::ChainPoint {
     entities::ChainPoint {
-        slot_number: 500,
+        slot_number: SlotNumber(500),
         block_number: BlockNumber(42),
         block_hash: "1b69b3202fbe500".to_string(),
     }

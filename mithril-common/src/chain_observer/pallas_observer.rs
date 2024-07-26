@@ -23,7 +23,7 @@ use pallas_primitives::ToCanonicalJson;
 use crate::{
     chain_observer::{interface::*, ChainAddress, TxDatum},
     crypto_helper::{encode_bech32, KESPeriod, OpCert},
-    entities::{BlockNumber, ChainPoint, Epoch, StakeDistribution},
+    entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution},
     CardanoNetwork, StdResult,
 };
 
@@ -329,7 +329,7 @@ impl PallasChainObserver {
         let chain_block_number = self.do_get_chain_block_no(statequery).await?;
 
         Ok(ChainPoint {
-            slot_number: chain_point.slot_or_default(),
+            slot_number: SlotNumber(chain_point.slot_or_default()),
             block_hash: header_hash.unwrap_or_default(),
             block_number: BlockNumber(chain_block_number.block_number as u64),
         })
@@ -876,7 +876,7 @@ mod tests {
         assert_eq!(
             chain_point,
             Some(ChainPoint {
-                slot_number: 52851885,
+                slot_number: SlotNumber(52851885),
                 block_hash: "010203".to_string(),
                 block_number: BlockNumber(52851885)
             })

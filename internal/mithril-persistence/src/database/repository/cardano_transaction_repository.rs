@@ -322,8 +322,18 @@ mod tests {
 
         repository
             .create_transactions(vec![
-                CardanoTransaction::new("tx_hash-123", BlockNumber(10), 50, "block_hash-123"),
-                CardanoTransaction::new("tx_hash-456", BlockNumber(11), 51, "block_hash-456"),
+                CardanoTransaction::new(
+                    "tx_hash-123",
+                    BlockNumber(10),
+                    SlotNumber(50),
+                    "block_hash-123",
+                ),
+                CardanoTransaction::new(
+                    "tx_hash-456",
+                    BlockNumber(11),
+                    SlotNumber(51),
+                    "block_hash-456",
+                ),
             ])
             .await
             .unwrap();
@@ -334,7 +344,7 @@ mod tests {
                 Some(CardanoTransactionRecord {
                     transaction_hash: "tx_hash-123".to_string(),
                     block_number: BlockNumber(10),
-                    slot_number: 50,
+                    slot_number: SlotNumber(50),
                     block_hash: "block_hash-123".to_string(),
                 }),
                 transaction_result
@@ -354,13 +364,28 @@ mod tests {
 
         repository
             .create_transactions(vec![
-                CardanoTransactionRecord::new("tx_hash-123", BlockNumber(10), 50, "block_hash-123"),
-                CardanoTransactionRecord::new("tx_hash-456", BlockNumber(11), 51, "block_hash-456"),
-                CardanoTransactionRecord::new("tx_hash-789", BlockNumber(12), 52, "block_hash-789"),
+                CardanoTransactionRecord::new(
+                    "tx_hash-123",
+                    BlockNumber(10),
+                    SlotNumber(50),
+                    "block_hash-123",
+                ),
+                CardanoTransactionRecord::new(
+                    "tx_hash-456",
+                    BlockNumber(11),
+                    SlotNumber(51),
+                    "block_hash-456",
+                ),
+                CardanoTransactionRecord::new(
+                    "tx_hash-789",
+                    BlockNumber(12),
+                    SlotNumber(52),
+                    "block_hash-789",
+                ),
                 CardanoTransactionRecord::new(
                     "tx_hash-000",
                     BlockNumber(101),
-                    100,
+                    SlotNumber(100),
                     "block_hash-000",
                 ),
             ])
@@ -378,13 +403,13 @@ mod tests {
                     CardanoTransactionRecord::new(
                         "tx_hash-123",
                         BlockNumber(10),
-                        50,
+                        SlotNumber(50),
                         "block_hash-123"
                     ),
                     CardanoTransactionRecord::new(
                         "tx_hash-789",
                         BlockNumber(12),
-                        52,
+                        SlotNumber(52),
                         "block_hash-789"
                     ),
                 ],
@@ -405,13 +430,13 @@ mod tests {
                     CardanoTransactionRecord::new(
                         "tx_hash-123",
                         BlockNumber(10),
-                        50,
+                        SlotNumber(50),
                         "block_hash-123"
                     ),
                     CardanoTransactionRecord::new(
                         "tx_hash-789",
                         BlockNumber(12),
-                        52,
+                        SlotNumber(52),
                         "block_hash-789"
                     ),
                 ],
@@ -432,19 +457,19 @@ mod tests {
                     CardanoTransactionRecord::new(
                         "tx_hash-123",
                         BlockNumber(10),
-                        50,
+                        SlotNumber(50),
                         "block_hash-123"
                     ),
                     CardanoTransactionRecord::new(
                         "tx_hash-789",
                         BlockNumber(12),
-                        52,
+                        SlotNumber(52),
                         "block_hash-789"
                     ),
                     CardanoTransactionRecord::new(
                         "tx_hash-000",
                         BlockNumber(101),
-                        100,
+                        SlotNumber(100),
                         "block_hash-000"
                     ),
                 ],
@@ -469,11 +494,21 @@ mod tests {
         ));
 
         repository
-            .create_transaction("tx-hash-123", BlockNumber(10), 50, "block_hash-123")
+            .create_transaction(
+                "tx-hash-123",
+                BlockNumber(10),
+                SlotNumber(50),
+                "block_hash-123",
+            )
             .await
             .unwrap();
         repository
-            .create_transaction("tx-hash-123", BlockNumber(11), 51, "block_hash-123-bis")
+            .create_transaction(
+                "tx-hash-123",
+                BlockNumber(11),
+                SlotNumber(51),
+                "block_hash-123-bis",
+            )
             .await
             .unwrap();
         let transaction_result = repository.get_transaction("tx-hash-123").await.unwrap();
@@ -482,7 +517,7 @@ mod tests {
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-123".to_string(),
                 block_number: BlockNumber(10),
-                slot_number: 50,
+                slot_number: SlotNumber(50),
                 block_hash: "block_hash-123".to_string(),
             }),
             transaction_result
@@ -497,8 +532,18 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", BlockNumber(10), 50, "block-hash-123"),
-            CardanoTransaction::new("tx-hash-456", BlockNumber(11), 51, "block-hash-456"),
+            CardanoTransaction::new(
+                "tx-hash-123",
+                BlockNumber(10),
+                SlotNumber(50),
+                "block-hash-123",
+            ),
+            CardanoTransaction::new(
+                "tx-hash-456",
+                BlockNumber(11),
+                SlotNumber(51),
+                "block-hash-456",
+            ),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -511,7 +556,7 @@ mod tests {
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-123".to_string(),
                 block_number: BlockNumber(10),
-                slot_number: 50,
+                slot_number: SlotNumber(50),
                 block_hash: "block-hash-123".to_string(),
             }),
             transaction_result
@@ -523,7 +568,7 @@ mod tests {
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-456".to_string(),
                 block_number: BlockNumber(11),
-                slot_number: 51,
+                slot_number: SlotNumber(51),
                 block_hash: "block-hash-456".to_string(),
             }),
             transaction_result
@@ -538,8 +583,18 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", BlockNumber(10), 50, "block-hash-123"),
-            CardanoTransaction::new("tx-hash-456", BlockNumber(11), 51, "block-hash-456"),
+            CardanoTransaction::new(
+                "tx-hash-123",
+                BlockNumber(10),
+                SlotNumber(50),
+                "block-hash-123",
+            ),
+            CardanoTransaction::new(
+                "tx-hash-456",
+                BlockNumber(11),
+                SlotNumber(51),
+                "block-hash-456",
+            ),
         ];
         repository
             .create_transactions(cardano_transactions.clone())
@@ -563,14 +618,14 @@ mod tests {
         ));
 
         repository
-            .create_transaction("tx-hash-000", BlockNumber(1), 5, "block-hash")
+            .create_transaction("tx-hash-000", BlockNumber(1), SlotNumber(5), "block-hash")
             .await
             .unwrap();
 
         let cardano_transactions = vec![CardanoTransaction::new(
             "tx-hash-123",
             BlockNumber(10),
-            50,
+            SlotNumber(50),
             "block-hash-123",
         )];
         repository
@@ -584,7 +639,7 @@ mod tests {
             Some(CardanoTransactionRecord {
                 transaction_hash: "tx-hash-000".to_string(),
                 block_number: BlockNumber(1),
-                slot_number: 5,
+                slot_number: SlotNumber(5),
                 block_hash: "block-hash".to_string(),
             }),
             transaction_result
@@ -613,8 +668,18 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", BlockNumber(10), 50, "block-hash-10"),
-            CardanoTransaction::new("tx-hash-456", BlockNumber(25), 51, "block-hash-25"),
+            CardanoTransaction::new(
+                "tx-hash-123",
+                BlockNumber(10),
+                SlotNumber(50),
+                "block-hash-10",
+            ),
+            CardanoTransaction::new(
+                "tx-hash-456",
+                BlockNumber(25),
+                SlotNumber(51),
+                "block-hash-25",
+            ),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -627,7 +692,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             Some(ChainPoint {
-                slot_number: 51,
+                slot_number: SlotNumber(51),
                 block_number: BlockNumber(25),
                 block_hash: "block-hash-25".to_string()
             }),
@@ -644,9 +709,24 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", BlockNumber(10), 50, "block-hash-10"),
-            CardanoTransaction::new("tx-hash-456", BlockNumber(25), 51, "block-hash-25"),
-            CardanoTransaction::new("tx-hash-789", BlockNumber(25), 51, "block-hash-25"),
+            CardanoTransaction::new(
+                "tx-hash-123",
+                BlockNumber(10),
+                SlotNumber(50),
+                "block-hash-10",
+            ),
+            CardanoTransaction::new(
+                "tx-hash-456",
+                BlockNumber(25),
+                SlotNumber(51),
+                "block-hash-25",
+            ),
+            CardanoTransaction::new(
+                "tx-hash-789",
+                BlockNumber(25),
+                SlotNumber(51),
+                "block-hash-25",
+            ),
         ];
         repository
             .create_transactions(cardano_transactions)
@@ -659,7 +739,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             Some(ChainPoint {
-                slot_number: 51,
+                slot_number: SlotNumber(51),
                 block_number: BlockNumber(25),
                 block_hash: "block-hash-25".to_string()
             }),
@@ -675,9 +755,24 @@ mod tests {
         ));
 
         let transactions = vec![
-            CardanoTransactionRecord::new("tx-hash-1", BlockNumber(10), 50, "block-hash-1"),
-            CardanoTransactionRecord::new("tx-hash-2", BlockNumber(11), 51, "block-hash-2"),
-            CardanoTransactionRecord::new("tx-hash-3", BlockNumber(12), 52, "block-hash-3"),
+            CardanoTransactionRecord::new(
+                "tx-hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                "block-hash-1",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                "block-hash-2",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-3",
+                BlockNumber(12),
+                SlotNumber(52),
+                "block-hash-3",
+            ),
         ];
         repository
             .create_transactions(transactions.clone())
@@ -729,12 +824,42 @@ mod tests {
         ));
 
         let transactions = vec![
-            CardanoTransactionRecord::new("tx-hash-1", BlockNumber(10), 50, "block-hash-1"),
-            CardanoTransactionRecord::new("tx-hash-2", BlockNumber(11), 51, "block-hash-2"),
-            CardanoTransactionRecord::new("tx-hash-3", BlockNumber(20), 52, "block-hash-3"),
-            CardanoTransactionRecord::new("tx-hash-4", BlockNumber(31), 53, "block-hash-4"),
-            CardanoTransactionRecord::new("tx-hash-5", BlockNumber(35), 54, "block-hash-5"),
-            CardanoTransactionRecord::new("tx-hash-6", BlockNumber(46), 55, "block-hash-6"),
+            CardanoTransactionRecord::new(
+                "tx-hash-1",
+                BlockNumber(10),
+                SlotNumber(50),
+                "block-hash-1",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-2",
+                BlockNumber(11),
+                SlotNumber(51),
+                "block-hash-2",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-3",
+                BlockNumber(20),
+                SlotNumber(52),
+                "block-hash-3",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-4",
+                BlockNumber(31),
+                SlotNumber(53),
+                "block-hash-4",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-5",
+                BlockNumber(35),
+                SlotNumber(54),
+                "block-hash-5",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-6",
+                BlockNumber(46),
+                SlotNumber(55),
+                "block-hash-6",
+            ),
         ];
         repository
             .create_transactions(transactions.clone())
@@ -792,9 +917,9 @@ mod tests {
         ));
 
         let transactions = vec![
-            CardanoTransactionRecord::new("tx-1", BlockNumber(100), 500, "block-1"),
-            CardanoTransactionRecord::new("tx-2", BlockNumber(100), 500, "block-1"),
-            CardanoTransactionRecord::new("tx-3", BlockNumber(101), 501, "block-1"),
+            CardanoTransactionRecord::new("tx-1", BlockNumber(100), SlotNumber(500), "block-1"),
+            CardanoTransactionRecord::new("tx-2", BlockNumber(100), SlotNumber(500), "block-1"),
+            CardanoTransactionRecord::new("tx-3", BlockNumber(101), SlotNumber(501), "block-1"),
         ];
         repository
             .create_transactions(transactions.clone())
@@ -802,7 +927,7 @@ mod tests {
             .unwrap();
 
         let transaction_block_number_retrieved = repository
-            .get_block_number_by_slot_number(500)
+            .get_block_number_by_slot_number(SlotNumber(500))
             .await
             .unwrap();
 
@@ -1048,14 +1173,24 @@ mod tests {
         ));
 
         let cardano_transactions = vec![
-            CardanoTransaction::new("tx-hash-123", BlockRange::LENGTH, 50, "block-hash-123"),
+            CardanoTransaction::new(
+                "tx-hash-123",
+                BlockRange::LENGTH,
+                SlotNumber(50),
+                "block-hash-123",
+            ),
             CardanoTransaction::new(
                 "tx-hash-123",
                 BlockRange::LENGTH * 3 - 1,
-                50,
+                SlotNumber(50),
                 "block-hash-123",
             ),
-            CardanoTransaction::new("tx-hash-456", BlockRange::LENGTH * 3, 51, "block-hash-456"),
+            CardanoTransaction::new(
+                "tx-hash-456",
+                BlockRange::LENGTH * 3,
+                SlotNumber(51),
+                "block-hash-456",
+            ),
         ];
         repository
             .create_transactions(cardano_transactions)

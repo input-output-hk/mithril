@@ -76,7 +76,7 @@ impl GetCardanoTransactionQuery {
         Self {
             condition: WhereCondition::new(
                 "slot_number = ?*",
-                vec![Value::Integer(slot_number as i64)],
+                vec![Value::Integer(*slot_number as i64)],
             ),
         }
     }
@@ -132,10 +132,30 @@ mod tests {
         insert_transactions(
             &connection,
             vec![
-                CardanoTransactionRecord::new("tx-hash-0", BlockNumber(10), 50, "block-hash-10"),
-                CardanoTransactionRecord::new("tx-hash-1", BlockNumber(10), 51, "block-hash-10"),
-                CardanoTransactionRecord::new("tx-hash-2", BlockNumber(11), 54, "block-hash-11"),
-                CardanoTransactionRecord::new("tx-hash-3", BlockNumber(11), 55, "block-hash-11"),
+                CardanoTransactionRecord::new(
+                    "tx-hash-0",
+                    BlockNumber(10),
+                    SlotNumber(50),
+                    "block-hash-10",
+                ),
+                CardanoTransactionRecord::new(
+                    "tx-hash-1",
+                    BlockNumber(10),
+                    SlotNumber(51),
+                    "block-hash-10",
+                ),
+                CardanoTransactionRecord::new(
+                    "tx-hash-2",
+                    BlockNumber(11),
+                    SlotNumber(54),
+                    "block-hash-11",
+                ),
+                CardanoTransactionRecord::new(
+                    "tx-hash-3",
+                    BlockNumber(11),
+                    SlotNumber(55),
+                    "block-hash-11",
+                ),
             ],
         );
 
@@ -144,8 +164,18 @@ mod tests {
             .unwrap();
         assert_eq!(
             vec![
-                CardanoTransactionRecord::new("tx-hash-2", BlockNumber(11), 54, "block-hash-11"),
-                CardanoTransactionRecord::new("tx-hash-3", BlockNumber(11), 55, "block-hash-11"),
+                CardanoTransactionRecord::new(
+                    "tx-hash-2",
+                    BlockNumber(11),
+                    SlotNumber(54),
+                    "block-hash-11"
+                ),
+                CardanoTransactionRecord::new(
+                    "tx-hash-3",
+                    BlockNumber(11),
+                    SlotNumber(55),
+                    "block-hash-11"
+                ),
             ],
             records
         );

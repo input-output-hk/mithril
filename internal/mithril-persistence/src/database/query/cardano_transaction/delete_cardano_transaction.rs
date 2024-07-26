@@ -59,6 +59,8 @@ mod tests {
 
     use super::*;
 
+    use mithril_common::entities::SlotNumber;
+
     fn insert_transactions(connection: &SqliteConnection, records: Vec<CardanoTransactionRecord>) {
         connection
             .fetch_first(InsertCardanoTransactionQuery::insert_many(records).unwrap())
@@ -67,12 +69,42 @@ mod tests {
 
     fn test_transaction_set() -> Vec<CardanoTransactionRecord> {
         vec![
-            CardanoTransactionRecord::new("tx-hash-0", BlockNumber(10), 50, "block-hash-10"),
-            CardanoTransactionRecord::new("tx-hash-1", BlockNumber(10), 51, "block-hash-10"),
-            CardanoTransactionRecord::new("tx-hash-2", BlockNumber(11), 52, "block-hash-11"),
-            CardanoTransactionRecord::new("tx-hash-3", BlockNumber(11), 53, "block-hash-11"),
-            CardanoTransactionRecord::new("tx-hash-4", BlockNumber(12), 54, "block-hash-12"),
-            CardanoTransactionRecord::new("tx-hash-5", BlockNumber(12), 55, "block-hash-12"),
+            CardanoTransactionRecord::new(
+                "tx-hash-0",
+                BlockNumber(10),
+                SlotNumber(50),
+                "block-hash-10",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-1",
+                BlockNumber(10),
+                SlotNumber(51),
+                "block-hash-10",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-2",
+                BlockNumber(11),
+                SlotNumber(52),
+                "block-hash-11",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-3",
+                BlockNumber(11),
+                SlotNumber(53),
+                "block-hash-11",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-4",
+                BlockNumber(12),
+                SlotNumber(54),
+                "block-hash-12",
+            ),
+            CardanoTransactionRecord::new(
+                "tx-hash-5",
+                BlockNumber(12),
+                SlotNumber(55),
+                "block-hash-12",
+            ),
         ]
     }
 

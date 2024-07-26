@@ -12,7 +12,7 @@ use tokio::process::Command;
 use crate::chain_observer::interface::{ChainObserver, ChainObserverError};
 use crate::chain_observer::{ChainAddress, TxDatum};
 use crate::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFormat};
-use crate::entities::{BlockNumber, ChainPoint, Epoch, StakeDistribution};
+use crate::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use crate::{CardanoNetwork, StdResult};
 
 /// `CliRunner` trait defines the asynchronous methods
@@ -445,7 +445,7 @@ impl ChainObserver for CardanoCliChainObserver {
 
         if let Value::String(hash) = &v["hash"] {
             Ok(Some(ChainPoint {
-                slot_number: v["slot"].as_u64().unwrap_or_default(),
+                slot_number: SlotNumber(v["slot"].as_u64().unwrap_or_default()),
                 block_number: BlockNumber(v["block"].as_u64().unwrap_or_default()),
                 block_hash: hash.to_string(),
             }))
@@ -539,7 +539,7 @@ mod tests {
 
         assert_eq!(
             ChainPoint {
-                slot_number: 25886617,
+                slot_number: SlotNumber(25886617),
                 block_number: BlockNumber(1270276),
                 block_hash: "7383b17d7b05b0953cf0649abff60173995eb9febe556889333e20e1e5b7ca84"
                     .to_string(),

@@ -4,7 +4,7 @@ use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
         BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
+        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
         StakeDistributionParty, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
@@ -33,7 +33,7 @@ async fn create_certificate() {
             epoch: Epoch(1),
             immutable_file_number: 1,
             chain_point: ChainPoint {
-                slot_number: 10,
+                slot_number: SlotNumber(10),
                 block_number: BlockNumber(100),
                 block_hash: "block_hash-100".to_string(),
             },
@@ -145,7 +145,10 @@ async fn create_certificate() {
         "Increase cardano chain block number to 185, 
         the state machine should be signing CardanoTransactions for block 179"
     );
-    tester.increase_block_number(85, 185).await.unwrap();
+    tester
+        .increase_block_number_and_slot_number(85, SlotNumber(95), BlockNumber(185))
+        .await
+        .unwrap();
     cycle!(tester, "signing");
     let signers_for_transaction = &fixture.signers_fixture()[2..=6];
     tester
@@ -181,7 +184,7 @@ async fn create_certificate() {
         the state machine should be signing CardanoTransactions for block 120"
     );
     tester
-        .cardano_chain_send_rollback(BlockNumber(149))
+        .cardano_chain_send_rollback(SlotNumber(95), BlockNumber(149))
         .await
         .unwrap();
     cycle!(tester, "signing");

@@ -237,7 +237,7 @@ mod tests {
                 ScannedBlock::new(
                     format!("block_hash-{}", block_number),
                     BlockNumber(block_number),
-                    block_number * 100,
+                    SlotNumber(block_number * 100),
                     vec![format!("tx_hash-{}", block_number)],
                 )
             })
@@ -270,13 +270,13 @@ mod tests {
             ScannedBlock::new(
                 "block_hash-1",
                 BlockNumber(10),
-                15,
+                SlotNumber(15),
                 vec!["tx_hash-1", "tx_hash-2"],
             ),
             ScannedBlock::new(
                 "block_hash-2",
                 BlockNumber(20),
-                25,
+                SlotNumber(25),
                 vec!["tx_hash-3", "tx_hash-4"],
             ),
         ];
@@ -416,18 +416,19 @@ mod tests {
             ScannedBlock::new(
                 "block_hash-1",
                 BlockNumber(10),
-                15,
+                SlotNumber(15),
                 vec!["tx_hash-1", "tx_hash-2"],
             ),
             ScannedBlock::new(
                 "block_hash-2",
                 BlockNumber(20),
-                25,
+                SlotNumber(25),
                 vec!["tx_hash-3", "tx_hash-4"],
             ),
         ]]);
 
-        let last_tx = CardanoTransaction::new("tx-20", BlockNumber(30), 35, "block_hash-3");
+        let last_tx =
+            CardanoTransaction::new("tx-20", BlockNumber(30), SlotNumber(35), "block_hash-3");
         repository
             .store_transactions(vec![last_tx.clone()])
             .await
@@ -452,7 +453,8 @@ mod tests {
             SqliteConnectionPool::build_from_connection(connection),
         )));
 
-        let highest_stored_chain_point = ChainPoint::new(134, BlockNumber(10), "block_hash-1");
+        let highest_stored_chain_point =
+            ChainPoint::new(SlotNumber(134), BlockNumber(10), "block_hash-1");
         let stored_block = ScannedBlock::new(
             highest_stored_chain_point.block_hash.clone(),
             highest_stored_chain_point.block_number,
@@ -462,7 +464,7 @@ mod tests {
         let to_store_block = ScannedBlock::new(
             "block_hash-2",
             BlockNumber(20),
-            229,
+            SlotNumber(229),
             vec!["tx_hash-3", "tx_hash-4"],
         );
         let expected_transactions: Vec<CardanoTransaction> = [
@@ -733,13 +735,13 @@ mod tests {
             ScannedBlock::new(
                 "block_hash-1",
                 BlockNumber(10),
-                15,
+                SlotNumber(15),
                 vec!["tx_hash-1", "tx_hash-2"],
             ),
             ScannedBlock::new(
                 "block_hash-2",
                 BlockNumber(20),
-                25,
+                SlotNumber(25),
                 vec!["tx_hash-3", "tx_hash-4"],
             ),
         ];
@@ -783,7 +785,7 @@ mod tests {
         let expected_remaining_transactions = ScannedBlock::new(
             "block_hash-130",
             BlockNumber(130),
-            5,
+            SlotNumber(5),
             vec!["tx_hash-6", "tx_hash-7"],
         )
         .into_transactions();
@@ -796,7 +798,7 @@ mod tests {
                 ScannedBlock::new(
                     "block_hash-131",
                     BlockNumber(131),
-                    10,
+                    SlotNumber(10),
                     vec!["tx_hash-8", "tx_hash-9", "tx_hash-10"],
                 )
                 .into_transactions(),
@@ -804,7 +806,7 @@ mod tests {
             .await
             .unwrap();
 
-        let chain_point = ChainPoint::new(5, BlockNumber(130), "block_hash-130");
+        let chain_point = ChainPoint::new(SlotNumber(5), BlockNumber(130), "block_hash-130");
         let scanner = DumbBlockScanner::new().backward(chain_point);
 
         let importer =
@@ -859,7 +861,7 @@ mod tests {
                 ScannedBlock::new(
                     "block_hash-131",
                     BlockRange::from_block_number(BlockRange::LENGTH * 3).start,
-                    1,
+                    SlotNumber(1),
                     vec!["tx_hash-1", "tx_hash-2", "tx_hash-3"],
                 )
                 .into_transactions(),
@@ -870,7 +872,7 @@ mod tests {
         let block_range_roots = repository.get_all_block_range_root().unwrap();
         assert_eq!(6, block_range_roots.len());
 
-        let chain_point = ChainPoint::new(1, BlockRange::LENGTH * 3, "block_hash-131");
+        let chain_point = ChainPoint::new(SlotNumber(1), BlockRange::LENGTH * 3, "block_hash-131");
         let scanner = DumbBlockScanner::new().backward(chain_point);
 
         let importer =

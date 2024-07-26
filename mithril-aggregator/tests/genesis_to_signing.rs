@@ -2,7 +2,9 @@ mod test_extensions;
 
 use mithril_aggregator::Configuration;
 use mithril_common::{
-    entities::{BlockNumber, CardanoDbBeacon, ChainPoint, ProtocolParameters, TimePoint},
+    entities::{
+        BlockNumber, CardanoDbBeacon, ChainPoint, ProtocolParameters, SlotNumber, TimePoint,
+    },
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
@@ -20,7 +22,11 @@ async fn genesis_to_signing() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(
-        TimePoint::new(1, 1, ChainPoint::new(10, BlockNumber(1), "block_hash-1")),
+        TimePoint::new(
+            1,
+            1,
+            ChainPoint::new(SlotNumber(10), BlockNumber(1), "block_hash-1"),
+        ),
         configuration,
     )
     .await;

@@ -1,4 +1,4 @@
-use crate::entities::{BlockNumber, BlockRange, CardanoTransaction};
+use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
 
 /// Builder to easily build transactions with consistent values.
 ///
@@ -7,7 +7,7 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction};
 /// # Example 'build_transactions'
 ///
 /// ```
-///     use mithril_common::entities::{BlockNumber, CardanoTransaction};
+///     use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
 ///     use mithril_common::test_utils::CardanoTransactionsBuilder;
 ///
 ///     let txs = CardanoTransactionsBuilder::new()
@@ -18,14 +18,14 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction};
 ///     assert_eq!(8, txs.len());
 ///     assert_eq!(
 ///         vec![
-///             CardanoTransaction::new("tx-hash-0-100", BlockNumber(0), 100, "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-0-101", BlockNumber(0), 101, "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-0-102", BlockNumber(0), 102, "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-1-103", BlockNumber(1), 103, "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-1-104", BlockNumber(1), 104, "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-1-105", BlockNumber(1), 105, "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-15-106", BlockNumber(15), 106, "block-hash-15"),
-///             CardanoTransaction::new("tx-hash-15-107", BlockNumber(15), 107, "block-hash-15")
+///             CardanoTransaction::new("tx-hash-0-100", BlockNumber(0), SlotNumber(100), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-101", BlockNumber(0), SlotNumber(101), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-102", BlockNumber(0), SlotNumber(102), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-1-103", BlockNumber(1), SlotNumber(103), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-104", BlockNumber(1), SlotNumber(104), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-105", BlockNumber(1), SlotNumber(105), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-15-106", BlockNumber(15), SlotNumber(106), "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-107", BlockNumber(15), SlotNumber(107), "block-hash-15")
 ///         ],
 ///         txs
 ///     );
@@ -34,7 +34,7 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction};
 /// # Example 'build_block_ranges'
 ///
 /// ```
-///     use mithril_common::entities::{BlockNumber, CardanoTransaction};
+///     use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
 ///     use mithril_common::test_utils::CardanoTransactionsBuilder;
 ///
 ///     let txs = CardanoTransactionsBuilder::new()
@@ -45,18 +45,18 @@ use crate::entities::{BlockNumber, BlockRange, CardanoTransaction};
 ///     assert_eq!(3 * 2 * 2, txs.len());
 ///     assert_eq!(
 ///         vec![
-///             CardanoTransaction::new("tx-hash-0-100", BlockNumber(0), 100, "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-0-101", BlockNumber(0), 101, "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-0-102", BlockNumber(0), 102, "block-hash-0"),
-///             CardanoTransaction::new("tx-hash-1-103", BlockNumber(1), 103, "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-1-104", BlockNumber(1), 104, "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-1-105", BlockNumber(1), 105, "block-hash-1"),
-///             CardanoTransaction::new("tx-hash-15-106", BlockNumber(15), 106, "block-hash-15"),
-///             CardanoTransaction::new("tx-hash-15-107", BlockNumber(15), 107, "block-hash-15"),
-///             CardanoTransaction::new("tx-hash-15-108", BlockNumber(15), 108, "block-hash-15"),
-///             CardanoTransaction::new("tx-hash-16-109", BlockNumber(16), 109, "block-hash-16"),
-///             CardanoTransaction::new("tx-hash-16-110", BlockNumber(16), 110, "block-hash-16"),
-///             CardanoTransaction::new("tx-hash-16-111", BlockNumber(16), 111, "block-hash-16"),
+///             CardanoTransaction::new("tx-hash-0-100", BlockNumber(0), SlotNumber(100), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-101", BlockNumber(0), SlotNumber(101), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-0-102", BlockNumber(0), SlotNumber(102), "block-hash-0"),
+///             CardanoTransaction::new("tx-hash-1-103", BlockNumber(1), SlotNumber(103), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-104", BlockNumber(1), SlotNumber(104), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-1-105", BlockNumber(1), SlotNumber(105), "block-hash-1"),
+///             CardanoTransaction::new("tx-hash-15-106", BlockNumber(15), SlotNumber(106), "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-107", BlockNumber(15), SlotNumber(107), "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-15-108", BlockNumber(15), SlotNumber(108), "block-hash-15"),
+///             CardanoTransaction::new("tx-hash-16-109", BlockNumber(16), SlotNumber(109), "block-hash-16"),
+///             CardanoTransaction::new("tx-hash-16-110", BlockNumber(16), SlotNumber(110), "block-hash-16"),
+///             CardanoTransaction::new("tx-hash-16-111", BlockNumber(16), SlotNumber(111), "block-hash-16"),
 ///         ],
 ///         txs
 ///     );
@@ -106,10 +106,8 @@ impl CardanoTransactionsBuilder {
         let first_transaction_number = 100;
         for tx_index in 0..transactions_count {
             let block_number = self.block_number_from_transaction_index(tx_index);
-
-            transactions.push(
-                self.create_transaction(tx_index as u64 + first_transaction_number, block_number),
-            )
+            let slot_number = SlotNumber(tx_index as u64 + first_transaction_number);
+            transactions.push(self.create_transaction(slot_number, block_number))
         }
 
         transactions
@@ -137,13 +135,13 @@ impl CardanoTransactionsBuilder {
     /// Create a transaction with a given index and block number.
     fn create_transaction(
         &self,
-        transaction_id: u64,
+        slot_number: SlotNumber,
         block_number: BlockNumber,
     ) -> CardanoTransaction {
         CardanoTransaction::new(
-            format!("tx-hash-{}-{}", block_number, transaction_id),
+            format!("tx-hash-{}-{}", block_number, slot_number),
             block_number,
-            transaction_id,
+            slot_number,
             format!("block-hash-{block_number}"),
         )
     }

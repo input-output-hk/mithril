@@ -40,7 +40,7 @@ impl ScannedBlock {
         Self::new(
             multi_era_block.hash().to_string(),
             BlockNumber(multi_era_block.number()),
-            multi_era_block.slot(),
+            SlotNumber(multi_era_block.slot()),
             transactions,
         )
     }

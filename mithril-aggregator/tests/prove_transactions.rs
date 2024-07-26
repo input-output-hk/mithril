@@ -3,7 +3,7 @@ use mithril_common::{
     entities::{
         BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
         ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
-        SignedEntityTypeDiscriminants, TimePoint,
+        SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -35,7 +35,7 @@ async fn prove_transactions() {
             epoch: Epoch(1),
             immutable_file_number: 1,
             chain_point: ChainPoint {
-                slot_number: 10,
+                slot_number: SlotNumber(10),
                 block_number: BlockNumber(100),
                 block_hash: "block_hash-100".to_string(),
             },
@@ -89,7 +89,10 @@ async fn prove_transactions() {
         "Increase cardano chain block number to 185, 
         the state machine should be signing CardanoTransactions up to block 179 included"
     );
-    tester.increase_block_number(85, 185).await.unwrap();
+    tester
+        .increase_block_number_and_slot_number(85, SlotNumber(95), BlockNumber(185))
+        .await
+        .unwrap();
     cycle!(tester, "signing");
     tester
         .send_single_signatures(SignedEntityTypeDiscriminants::CardanoTransactions, signers)
