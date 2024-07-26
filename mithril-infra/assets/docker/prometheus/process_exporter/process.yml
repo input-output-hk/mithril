@@ -1,0 +1,8 @@
+process_names:
+  - comm:
+      - cardano-node
+      - mithril-aggregator
+      - mithril-aggrega
+      - mithril-client
+      - mithril-signer
+      - mithril-relay

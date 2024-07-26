@@ -52,6 +52,27 @@ services:
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
 
+  process-exporter:
+    image: ncabatoff/process-exporter:latest
+    container_name: process-exporter
+    profiles:
+      - tools
+      - monitoring
+      - all
+    restart: always
+    ports:
+      - "9256:9256"
+    volumes:
+      - /proc:/host/proc:ro
+      - ./prometheus/process_exporter/process.yml:/config/process.yml:ro
+    command:
+      - "-procfs=/host/proc"
+      - "-config.path=/config/process.yml"
+    logging:
+      driver: "${LOGGING_DRIVER}"
+      options:
+        tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
+
   loki:
     image: grafana/loki:2.8.0
     container_name: loki
