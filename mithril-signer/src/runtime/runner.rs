@@ -75,6 +75,9 @@ pub trait Runner: Send + Sync {
 
     /// Read the current era and update the EraChecker.
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()>;
+
+    /// Perform the upkeep tasks.
+    async fn upkeep(&self) -> StdResult<()>;
 }
 
 /// This type represents the errors thrown from the Runner.
@@ -452,6 +455,12 @@ impl Runner for SignerRunner {
 
         Ok(())
     }
+
+    async fn upkeep(&self) -> StdResult<()> {
+        debug!("RUNNER: upkeep");
+        self.services.upkeep_service.run().await?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -459,7 +468,9 @@ mod tests {
     use mithril_common::{
         api_version::APIVersionProvider,
         cardano_block_scanner::DumbBlockScanner,
-        cardano_transactions_preloader::CardanoTransactionsPreloader,
+        cardano_transactions_preloader::{
+            CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
+        },
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -482,7 +493,7 @@ mod tests {
     use crate::{
         metrics::MetricsService, AggregatorClient, CardanoTransactionsImporter,
         DumbAggregatorClient, MithrilSingleSigner, MockAggregatorClient, MockTransactionStore,
-        ProtocolInitializerStore, SingleSigner,
+        MockUpkeepService, ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
@@ -503,10 +514,10 @@ mod tests {
 
         #[async_trait]
         impl BlockRangeRootRetriever for BlockRangeRootRetrieverImpl {
-            async fn retrieve_block_range_roots(
-                &self,
+            async fn retrieve_block_range_roots<'a>(
+                &'a self,
                 up_to_beacon: BlockNumber,
-            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
+            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
 
             async fn compute_merkle_map_from_block_range_roots(
                 &self,
@@ -551,7 +562,6 @@ mod tests {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),
             transaction_store.clone(),
-            Path::new(""),
             slog_scope::logger(),
         ));
         let block_range_root_retriever = Arc::new(MockBlockRangeRootRetrieverImpl::new());
@@ -567,14 +577,16 @@ mod tests {
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        let security_parameter = 0;
+        let security_parameter = BlockNumber(0);
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
             transactions_importer.clone(),
             security_parameter,
             chain_observer.clone(),
             slog_scope::logger(),
+            Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
+        let upkeep_service = Arc::new(MockUpkeepService::new());
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
@@ -594,6 +606,7 @@ mod tests {
             metrics_service,
             signed_entity_type_lock,
             cardano_transactions_preloader,
+            upkeep_service,
         }
     }
 
@@ -928,5 +941,16 @@ mod tests {
         runner.update_era_checker(time_point.epoch).await.unwrap();
 
         assert_eq!(time_point.epoch, era_checker.current_epoch());
+    }
+
+    #[tokio::test]
+    async fn test_upkeep() {
+        let mut services = init_services().await;
+        let mut upkeep_service_mock = MockUpkeepService::new();
+        upkeep_service_mock.expect_run().returning(|| Ok(())).once();
+        services.upkeep_service = Arc::new(upkeep_service_mock);
+
+        let runner = init_runner(Some(services), None).await;
+        runner.upkeep().await.expect("upkeep should not fail");
     }
 }

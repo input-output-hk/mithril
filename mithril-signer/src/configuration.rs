@@ -113,6 +113,9 @@ pub struct Configuration {
     /// storage footprint of the signer by reducing the number of transactions stored on disk
     /// at any given time.
     pub transactions_import_block_chunk_size: BlockNumber,
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: usize,
 }
 
 impl Configuration {
@@ -129,8 +132,8 @@ impl Configuration {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
-            network_security_parameter: 2160,
-            preload_security_parameter: 30,
+            network_security_parameter: BlockNumber(2160),
+            preload_security_parameter: BlockNumber(30),
             party_id: Some(party_id),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
@@ -148,7 +151,8 @@ impl Configuration {
             metrics_server_port: 9090,
             allow_unparsable_block: false,
             enable_transaction_pruning: false,
-            transactions_import_block_chunk_size: 1000,
+            transactions_import_block_chunk_size: BlockNumber(1000),
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
         }
     }
 
@@ -211,16 +215,19 @@ pub struct DefaultConfiguration {
     pub metrics_server_port: u16,
 
     /// Network security parameter
-    pub network_security_parameter: BlockNumber,
+    pub network_security_parameter: u64,
 
     /// Transaction pruning toggle
     pub enable_transaction_pruning: bool,
 
     /// Preload security parameter
-    pub preload_security_parameter: BlockNumber,
+    pub preload_security_parameter: u64,
 
     /// Chunk size for importing transactions
-    pub transactions_import_block_chunk_size: BlockNumber,
+    pub transactions_import_block_chunk_size: u64,
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: u32,
 }
 
 impl DefaultConfiguration {
@@ -236,9 +243,10 @@ impl Default for DefaultConfiguration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             network_security_parameter: 2160, // 2160 is the mainnet value
-            preload_security_parameter: 3000,
+            preload_security_parameter: 1000,
             enable_transaction_pruning: true,
             transactions_import_block_chunk_size: 1500,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
         }
     }
 }
@@ -249,45 +257,31 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        macro_rules! insert_default_configuration {
+            ( $map:ident, $config:ident.$parameter:ident ) => {{
+                $map.insert(
+                    stringify!($parameter).to_string(),
+                    into_value($config.$parameter),
+                );
+            }};
+        }
+
         fn into_value<V: Into<ValueKind>>(value: V) -> Value {
             Value::new(Some(&DefaultConfiguration::namespace()), value.into())
         }
         let mut result = Map::new();
         let myself = self.clone();
 
-        result.insert(
-            "era_reader_adapter_type".to_string(),
-            into_value(myself.era_reader_adapter_type),
-        );
-
-        result.insert(
-            "metrics_server_ip".to_string(),
-            into_value(myself.metrics_server_ip),
-        );
-
-        result.insert(
-            "metrics_server_port".to_string(),
-            into_value(myself.metrics_server_port),
-        );
-
-        result.insert(
-            "network_security_parameter".to_string(),
-            into_value(myself.network_security_parameter),
-        );
-
-        result.insert(
-            "preload_security_parameter".to_string(),
-            into_value(myself.preload_security_parameter),
-        );
-
-        result.insert(
-            "enable_transaction_pruning".to_string(),
-            into_value(myself.enable_transaction_pruning),
-        );
-
-        result.insert(
-            "transactions_import_block_chunk_size".to_string(),
-            into_value(myself.transactions_import_block_chunk_size),
+        insert_default_configuration!(result, myself.era_reader_adapter_type);
+        insert_default_configuration!(result, myself.metrics_server_ip);
+        insert_default_configuration!(result, myself.metrics_server_port);
+        insert_default_configuration!(result, myself.network_security_parameter);
+        insert_default_configuration!(result, myself.preload_security_parameter);
+        insert_default_configuration!(result, myself.enable_transaction_pruning);
+        insert_default_configuration!(result, myself.transactions_import_block_chunk_size);
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
 
         Ok(result)

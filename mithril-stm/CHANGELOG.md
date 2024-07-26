@@ -8,8 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## 0.3.18 (11-04-2024)
 
 - Deprecate `portable` feature:
-    - Instead, always enable BLST `portable` feature for runtime check of intel ADX instruction set.
-    - `portable` feature now has no effect and should be removed from crate dependencies.
+  - Instead, always enable BLST `portable` feature for runtime check of intel ADX instruction set.
+  - `portable` feature now has no effect and should be removed from crate dependencies.
 
 ## 0.3.7 (10-10-2023)
 

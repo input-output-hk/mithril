@@ -10,8 +10,9 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, CompressionAlgorithm, HexEncodedGenesisVerificationKey,
-    ProtocolParameters, SignedEntityConfig, SignedEntityTypeDiscriminants,
+    BlockNumber, CardanoTransactionsSigningConfig, CompressionAlgorithm,
+    HexEncodedGenesisVerificationKey, ProtocolParameters, SignedEntityConfig,
+    SignedEntityTypeDiscriminants,
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -167,6 +168,12 @@ pub struct Configuration {
     /// Cardano transactions signing configuration
     #[example = "`{ security_parameter: 3000, step: 120 }`"]
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+
+    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
+    pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: usize,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -242,9 +249,11 @@ impl Configuration {
             cardano_transactions_prover_cache_pool_size: 3,
             cardano_transactions_database_connection_pool_size: 5,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 100,
-                step: 15,
+                security_parameter: BlockNumber(100),
+                step: BlockNumber(15),
             },
+            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
         }
     }
 
@@ -358,6 +367,12 @@ pub struct DefaultConfiguration {
 
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+
+    /// Maximum number of transactions hashes allowed by request to the prover of the Cardano transactions
+    pub cardano_transactions_prover_max_hashes_allowed_by_request: u32,
+
+    /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
+    pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: u32,
 }
 
 impl Default for DefaultConfiguration {
@@ -381,9 +396,11 @@ impl Default for DefaultConfiguration {
             cardano_transactions_prover_cache_pool_size: 10,
             cardano_transactions_database_connection_pool_size: 10,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 3000,
-                step: 120,
+                security_parameter: BlockNumber(3000),
+                step: BlockNumber(120),
             },
+            cardano_transactions_prover_max_hashes_allowed_by_request: 100,
+            cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
         }
     }
 }
@@ -409,62 +426,47 @@ impl Source for DefaultConfiguration {
     }
 
     fn collect(&self) -> Result<Map<String, Value>, ConfigError> {
+        macro_rules! insert_default_configuration {
+            ( $map:ident, $config:ident.$parameter:ident ) => {{
+                $map.insert(
+                    stringify!($parameter).to_string(),
+                    into_value($config.$parameter),
+                );
+            }};
+        }
+
         fn into_value<V: Into<ValueKind>>(value: V) -> Value {
             Value::new(Some(&DefaultConfiguration::namespace()), value.into())
         }
         let mut result = Map::new();
         let myself = self.clone();
-        result.insert("environment".to_string(), into_value(myself.environment));
-        result.insert("server_ip".to_string(), into_value(myself.server_ip));
-        result.insert("server_port".to_string(), into_value(myself.server_port));
-        result.insert("db_directory".to_string(), into_value(myself.db_directory));
-        result.insert(
-            "snapshot_directory".to_string(),
-            into_value(myself.snapshot_directory),
+
+        insert_default_configuration!(result, myself.environment);
+        insert_default_configuration!(result, myself.server_ip);
+        insert_default_configuration!(result, myself.server_port);
+        insert_default_configuration!(result, myself.db_directory);
+        insert_default_configuration!(result, myself.snapshot_directory);
+        insert_default_configuration!(result, myself.snapshot_store_type);
+        insert_default_configuration!(result, myself.snapshot_uploader_type);
+        insert_default_configuration!(result, myself.era_reader_adapter_type);
+        insert_default_configuration!(result, myself.reset_digests_cache);
+        insert_default_configuration!(result, myself.disable_digests_cache);
+        insert_default_configuration!(result, myself.snapshot_compression_algorithm);
+        insert_default_configuration!(result, myself.snapshot_use_cdn_domain);
+        insert_default_configuration!(result, myself.signer_importer_run_interval);
+        insert_default_configuration!(result, myself.allow_unparsable_block);
+        insert_default_configuration!(result, myself.cardano_transactions_prover_cache_pool_size);
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_database_connection_pool_size
         );
-        result.insert(
-            "snapshot_store_type".to_string(),
-            into_value(myself.snapshot_store_type),
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_prover_max_hashes_allowed_by_request
         );
-        result.insert(
-            "snapshot_uploader_type".to_string(),
-            into_value(myself.snapshot_uploader_type),
-        );
-        result.insert(
-            "era_reader_adapter_type".to_string(),
-            into_value(myself.era_reader_adapter_type),
-        );
-        result.insert(
-            "reset_digests_cache".to_string(),
-            into_value(myself.reset_digests_cache),
-        );
-        result.insert(
-            "disable_digests_cache".to_string(),
-            into_value(myself.disable_digests_cache),
-        );
-        result.insert(
-            "snapshot_compression_algorithm".to_string(),
-            into_value(myself.snapshot_compression_algorithm),
-        );
-        result.insert(
-            "snapshot_use_cdn_domain".to_string(),
-            into_value(myself.snapshot_use_cdn_domain),
-        );
-        result.insert(
-            "signer_importer_run_interval".to_string(),
-            into_value(myself.signer_importer_run_interval),
-        );
-        result.insert(
-            "allow_unparsable_block".to_string(),
-            into_value(myself.allow_unparsable_block),
-        );
-        result.insert(
-            "cardano_transactions_prover_cache_pool_size".to_string(),
-            into_value(myself.cardano_transactions_prover_cache_pool_size),
-        );
-        result.insert(
-            "cardano_transactions_prover_cache_pool_size".to_string(),
-            into_value(myself.cardano_transactions_database_connection_pool_size),
+        insert_default_configuration!(
+            result,
+            myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
         result.insert(
             "cardano_transactions_signing_config".to_string(),
@@ -472,14 +474,14 @@ impl Source for DefaultConfiguration {
                 (
                     "security_parameter".to_string(),
                     ValueKind::from(
-                        myself
+                        *myself
                             .cardano_transactions_signing_config
                             .security_parameter,
                     ),
                 ),
                 (
                     "step".to_string(),
-                    ValueKind::from(myself.cardano_transactions_signing_config.step),
+                    ValueKind::from(*myself.cardano_transactions_signing_config.step),
                 ),
             ])),
         );

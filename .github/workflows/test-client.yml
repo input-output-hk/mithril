@@ -7,7 +7,7 @@ on:
         description: |
           SHA of the commit on which the mithril-client binary should be obtained, a "ci.yml" workflow must have run
           on it else no binary would be available leading to the failure of this.
-          
+
           If not provided the last commit on the main branch will be used instead.
         required: false
         type: string
@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-22.04, macos-12, macos-14, windows-latest ]
+        os: [ubuntu-22.04, macos-12, macos-14, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
@@ -61,11 +61,11 @@ jobs:
           else
             echo "branch=main" >> $GITHUB_OUTPUT
           fi
-          
+
           if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
             echo "debug_level=-vvv" >> $GITHUB_OUTPUT
           fi
-          
+
           echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
           echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
@@ -156,7 +156,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-22.04 ]
+        os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Prepare environment variables
@@ -166,7 +166,7 @@ jobs:
           if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
             echo "debug_level=-vvv" >> $GITHUB_OUTPUT
           fi
-          
+
           echo "MITHRIL_IMAGE_ID=${{ inputs.docker_image_id }}" >> $GITHUB_ENV
           echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
           echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
@@ -231,7 +231,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-22.04 ]
+        os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources

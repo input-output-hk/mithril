@@ -1,12 +1,14 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::{fs, sync::Arc, time::Duration};
+use tokio::sync::Mutex;
 
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::CardanoBlockScanner,
     cardano_transactions_preloader::CardanoTransactionsPreloader,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
+    chain_reader::PallasChainReader,
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
@@ -30,10 +32,11 @@ use mithril_persistence::{
 
 use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
-    AggregatorHTTPClient, CardanoTransactionsImporter, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, TransactionsImporterByChunk,
-    TransactionsImporterWithPruner, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
-    SQLITE_FILE_CARDANO_TRANSACTION,
+    AggregatorHTTPClient, CardanoTransactionsImporter,
+    CardanoTransactionsPreloaderActivationSigner, Configuration, MithrilSingleSigner,
+    ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
+    TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
+    UpkeepService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -169,10 +172,11 @@ impl<'a> ProductionServiceBuilder<'a> {
         migrations: Vec<SqlMigration>,
     ) -> StdResult<SqliteConnection> {
         let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
+        let logger = slog_scope::logger();
         let connection = ConnectionBuilder::open_file(&sqlite_db_path)
             .with_node_type(ApplicationNodeType::Signer)
             .with_migrations(migrations)
-            .with_logger(slog_scope::logger())
+            .with_logger(logger.clone())
             .build()
             .with_context(|| "Database connection initialisation error")?;
 
@@ -222,7 +226,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
         ));
         let stake_store = Arc::new(StakeStore::new(
-            Box::new(SQLiteAdapter::new("stake", sqlite_connection)?),
+            Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone())?),
             self.config.store_retention_limit,
         ));
         let chain_observer = {
@@ -250,7 +254,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
-        let certificate_handler = Arc::new(AggregatorHTTPClient::new(
+        let aggregator_client = Arc::new(AggregatorHTTPClient::new(
             self.config.aggregator_endpoint.clone(),
             self.config.relay_endpoint.clone(),
             api_version_provider.clone(),
@@ -266,19 +270,19 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            sqlite_connection_cardano_transaction_pool,
+            sqlite_connection_cardano_transaction_pool.clone(),
         ));
+        let chain_block_reader =
+            PallasChainReader::new(&self.config.cardano_node_socket_path, network);
         let block_scanner = Arc::new(CardanoBlockScanner::new(
+            Arc::new(Mutex::new(chain_block_reader)),
+            self.config
+                .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
             slog_scope::logger(),
-            network.compute_allow_unparsable_block(self.config.allow_unparsable_block)?,
-            transaction_store.clone(),
-            // Rescan the last immutable when importing transactions, it may have been partially imported
-            Some(1),
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner,
             transaction_store.clone(),
-            &self.config.db_directory,
             slog_scope::logger(),
         ));
         // Wrap the transaction importer with decorator to prune the transactions after import
@@ -292,15 +296,27 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         // Wrap the transaction importer with decorator to chunk its workload, so it prunes
         // transactions after each chunk, reducing the storage footprint
-        let transactions_importer = Arc::new(TransactionsImporterByChunk::new(
+        let state_machine_transactions_importer = Arc::new(TransactionsImporterByChunk::new(
             transaction_store.clone(),
-            transactions_importer,
+            transactions_importer.clone(),
+            self.config.transactions_import_block_chunk_size,
+            slog_scope::logger(),
+        ));
+        // For the preloader, we want to vacuum the database after each chunk, to reclaim disk space
+        // earlier than with just auto_vacuum (that execute only after the end of all import).
+        let preloader_transactions_importer = Arc::new(TransactionsImporterByChunk::new(
+            transaction_store.clone(),
+            Arc::new(TransactionsImporterWithVacuum::new(
+                sqlite_connection_cardano_transaction_pool.clone(),
+                transactions_importer.clone(),
+                slog_scope::logger(),
+            )),
             self.config.transactions_import_block_chunk_size,
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
-            transactions_importer.clone(),
+            state_machine_transactions_importer,
             block_range_root_retriever,
             slog_scope::logger(),
         ));
@@ -310,17 +326,26 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             cardano_transactions_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let preloader_activation =
+            CardanoTransactionsPreloaderActivationSigner::new(aggregator_client.clone());
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
-            transactions_importer.clone(),
+            preloader_transactions_importer,
             self.config.preload_security_parameter,
             chain_observer.clone(),
+            slog_scope::logger(),
+            Arc::new(preloader_activation),
+        ));
+        let upkeep_service = Arc::new(SignerUpkeepService::new(
+            sqlite_connection.clone(),
+            sqlite_connection_cardano_transaction_pool,
+            signed_entity_type_lock.clone(),
             slog_scope::logger(),
         ));
 
         let services = SignerServices {
             ticker_service,
-            certificate_handler,
+            certificate_handler: aggregator_client,
             chain_observer,
             digester,
             single_signer,
@@ -333,6 +358,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             metrics_service,
             signed_entity_type_lock,
             cardano_transactions_preloader,
+            upkeep_service,
         };
 
         Ok(services)
@@ -382,6 +408,9 @@ pub struct SignerServices {
 
     /// Cardano transactions preloader
     pub cardano_transactions_preloader: Arc<CardanoTransactionsPreloader>,
+
+    /// Upkeep service
+    pub upkeep_service: Arc<dyn UpkeepService>,
 }
 
 #[cfg(test)]

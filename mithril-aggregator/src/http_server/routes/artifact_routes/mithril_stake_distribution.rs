@@ -55,8 +55,7 @@ pub mod handlers {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
                 warn!("list_artifacts_mithril_stake_distribution"; "error" => ?err);
-
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }
@@ -79,7 +78,7 @@ pub mod handlers {
             }
             Err(err) => {
                 warn!("get_mithril_stake_distribution_details::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }

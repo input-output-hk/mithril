@@ -5,6 +5,7 @@
 This example shows how to implement a Mithril client and use the features related to the `Mithril stake distribution` type.
 
 In this example, the client interacts by default with a real aggregator on the network `testing-preview` to:
+
 - list the available Mithril stake distributions
 - get a single Mithril stake distribution
 - verify a certificate chain
@@ -30,5 +31,6 @@ AGGREGATOR_ENDPOINT=https://aggregator.pre-release-preview.api.mithril.network/a
 ```
 
 ## Links
+
 - **Developer documentation**: https://docs.rs/mithril-client/latest/mithril_client/
 - **Crates.io**: https://crates.io/crates/mithril-client

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-persistence"
-version = "0.2.9"
+version = "0.2.21"
 description = "Common types, interfaces, and utilities to persist data for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -28,7 +28,7 @@ tokio = { version = "1.37.0", features = ["sync"] }
 
 [dev-dependencies]
 mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
-mockall = "0.12.1"
+mockall = "0.13.0"
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"

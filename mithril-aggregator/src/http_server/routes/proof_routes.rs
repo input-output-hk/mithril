@@ -11,8 +11,18 @@ struct CardanoTransactionProofQueryParams {
 }
 
 impl CardanoTransactionProofQueryParams {
-    pub fn split_transactions_hashes(&self) -> Vec<&str> {
-        self.transaction_hashes.split(',').collect()
+    pub fn split_transactions_hashes(&self) -> Vec<String> {
+        self.transaction_hashes
+            .split(',')
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    pub fn sanitize(&self) -> Vec<String> {
+        let mut transaction_hashes = self.split_transactions_hashes();
+        transaction_hashes.sort();
+        transaction_hashes.dedup();
+        transaction_hashes
     }
 }
 
@@ -32,6 +42,11 @@ fn proof_cardano_transaction(
         .and(middlewares::with_signed_entity_service(
             dependency_manager.clone(),
         ))
+        .and(
+            middlewares::validators::with_prover_transations_hash_validator(
+                dependency_manager.clone(),
+            ),
+        )
         .and(middlewares::with_prover_service(dependency_manager))
         .and_then(handlers::proof_cardano_transaction)
 }
@@ -47,7 +62,7 @@ mod handlers {
     use warp::http::StatusCode;
 
     use crate::{
-        http_server::routes::reply,
+        http_server::{routes::reply, validators::ProverTransactionsHashValidator},
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
         services::{ProverService, SignedEntityService},
         unwrap_to_internal_server_error,
@@ -58,17 +73,21 @@ mod handlers {
     pub async fn proof_cardano_transaction(
         transaction_parameters: CardanoTransactionProofQueryParams,
         signed_entity_service: Arc<dyn SignedEntityService>,
+        validator: ProverTransactionsHashValidator,
         prover_service: Arc<dyn ProverService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let transaction_hashes = transaction_parameters
-            .split_transactions_hashes()
-            .iter()
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
+        let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
             "⇄ HTTP SERVER: proof_cardano_transaction?transaction_hashes={}",
             transaction_parameters.transaction_hashes
         );
+
+        if let Err(error) = validator.validate(&transaction_hashes) {
+            warn!("proof_cardano_transaction::bad_request");
+            return Ok(reply::bad_request(error.label, error.message));
+        }
+
+        let sanitized_hashes = transaction_parameters.sanitize();
 
         match unwrap_to_internal_server_error!(
             signed_entity_service
@@ -78,7 +97,7 @@ mod handlers {
         ) {
             Some(signed_entity) => {
                 let message = unwrap_to_internal_server_error!(
-                    build_response_message(prover_service, signed_entity, transaction_hashes).await,
+                    build_response_message(prover_service, signed_entity, sanitized_hashes).await,
                     "proof_cardano_transaction"
                 );
                 Ok(reply::json(&message, StatusCode::OK))
@@ -122,8 +141,10 @@ mod tests {
     };
 
     use mithril_common::{
-        entities::{CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity},
-        test_utils::apispec::APISpec,
+        entities::{
+            BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
+        },
+        test_utils::{apispec::APISpec, assert_equivalent, fake_data},
     };
 
     use crate::services::MockSignedEntityService;
@@ -155,7 +176,8 @@ mod tests {
             .expect_compute_transactions_proofs()
             .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
 
-        let cardano_transactions_snapshot = CardanoTransactionsSnapshot::new(String::new(), 2309);
+        let cardano_transactions_snapshot =
+            CardanoTransactionsSnapshot::new(String::new(), BlockNumber(2309));
 
         let signed_entity = SignedEntity::<CardanoTransactionsSnapshot> {
             artifact: cardano_transactions_snapshot,
@@ -199,7 +221,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes=tx-123,tx-456"
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
             ))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
@@ -228,7 +252,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes=tx-123,tx-456"
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
             ))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
@@ -262,7 +288,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes=tx-123,tx-456"
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1]
             ))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
@@ -277,5 +305,82 @@ mod tests {
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_cardano_transaction_return_bad_request_with_invalid_hashes() {
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new(config);
+        let dependency_manager = builder.build_dependency_container().await.unwrap();
+
+        let method = Method::GET.as_str();
+        let path = "/proof/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes=invalid%3A%2F%2Fid,,tx-456"
+            ))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::BAD_REQUEST,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn proof_cardano_transaction_route_deduplicate_hashes() {
+        let tx = fake_data::transaction_hashes()[0].to_string();
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new(config);
+        let mut dependency_manager = builder.build_dependency_container().await.unwrap();
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_last_cardano_transaction_snapshot()
+            .returning(|| Ok(Some(SignedEntity::<CardanoTransactionsSnapshot>::dummy())));
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
+
+        let mut mock_prover_service = MockProverService::new();
+        let txs_expected = vec![tx.clone()];
+        mock_prover_service
+            .expect_compute_transactions_proofs()
+            .withf(move |_, transaction_hashes| transaction_hashes == txs_expected)
+            .returning(|_, _| Ok(vec![CardanoTransactionsSetProof::dummy()]));
+        dependency_manager.prover_service = Arc::new(mock_prover_service);
+
+        let method = Method::GET.as_str();
+        let path = "/proof/cardano-transaction";
+
+        let response = request()
+            .method(method)
+            .path(&format!(
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={tx},{tx}",
+            ))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[test]
+    fn sanitize_cardano_transaction_proof_query_params_remove_duplicate() {
+        let tx1 = fake_data::transaction_hashes()[0].to_string();
+        let tx2 = fake_data::transaction_hashes()[1].to_string();
+
+        // We are testing on an unordered list of transaction hashes
+        // as some rust dedup methods only remove consecutive duplicates
+        let params = CardanoTransactionProofQueryParams {
+            transaction_hashes: format!("{tx1},{tx2},{tx2},{tx1},{tx2}",),
+        };
+
+        assert_equivalent(params.sanitize(), vec![tx1, tx2]);
     }
 }

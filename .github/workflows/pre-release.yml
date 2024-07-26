@@ -3,8 +3,8 @@ name: Pre-release
 on:
   push:
     tags:
-      - '[0-9][0-9][0-9][0-9].[0-9]+'
-      - '[0-9][0-9][0-9][0-9].[0-9]+-**'
+      - "[0-9][0-9][0-9][0-9].[0-9]+"
+      - "[0-9][0-9][0-9][0-9].[0-9]+-**"
 
 jobs:
   create-pre-release:
@@ -99,12 +99,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ mithril-aggregator, mithril-client-cli, mithril-signer ]
+        project: [mithril-aggregator, mithril-client-cli, mithril-signer]
 
         include:
           - project: mithril-client-cli
             package: mithril-client
-    
+
     permissions:
       contents: read
       packages: write
@@ -152,12 +152,12 @@ jobs:
           file: ${{ env.DOCKER_FILE }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-  
+
   deploy-pre-release:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ pre-release-preview ]
+        environment: [pre-release-preview]
         include:
           - environment: pre-release-preview
             environment_prefix: pre-release
@@ -181,7 +181,9 @@ jobs:
             google_zone: europe-west1-b
             google_machine_type: e2-highmem-2
             google_compute_instance_boot_disk_size: 200
+            google_compute_instance_boot_disk_type: pd-standard
             google_compute_instance_data_disk_size: 250
+            google_compute_instance_data_disk_type: pd-standard
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
     needs:
@@ -210,7 +212,10 @@ jobs:
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
           google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
+          google_compute_instance_boot_disk_type: ${{ matrix.google_compute_instance_boot_disk_type }}
           google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
+          google_compute_instance_data_disk_type: ${{ matrix.google_compute_instance_data_disk_type }}
+          google_compute_instance_data_disk_snapshot: ${{ vars.GOOGLE_COMPUTE_INSTANCE_DATA_DISK_SNAPSHOT }}
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
           mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
@@ -229,7 +234,9 @@ jobs:
           mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
           mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
           mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
-          cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
+          mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
+          mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
+          mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
           prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
           prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
           prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
@@ -246,7 +253,8 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-stm, mithril-build-script, mithril-common, mithril-client ]
+        package:
+          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
 
     runs-on: ubuntu-22.04
     steps:
@@ -269,7 +277,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-client-wasm ]
+        package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
             scope: mithril-dev
@@ -287,6 +295,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish package to npm
         uses: ./.github/workflows/actions/publish-npm-package

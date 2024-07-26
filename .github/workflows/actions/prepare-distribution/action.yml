@@ -1,7 +1,7 @@
 name: prepare-distribution
 description: |
   Package, add crates table, sign artifacts
-  
+
   The artifacts for all supported environments must have been downloaded
   in "package-{EnvName}-x64" subfolders before calling this action.
 inputs:
@@ -88,7 +88,7 @@ runs:
       shell: bash
       run: |
         cat >> ./release-notes-addon.txt << EOF
-        
+
         ## Linux Requirements
         The Linux binaries target \`glibc\`: to run them or install the \`.deb\` packages you must have \`glibc\` version \`2.31+\` installed.
         Compatible systems include, but are not limited to, \`Ubuntu 20.04+\` or \`Debian 11+\` (Bullseye)).
@@ -99,7 +99,7 @@ runs:
       shell: bash
       run: |
         cat >> ./release-notes-addon.txt << EOF
-        
+
         ## Fetch the latest version of the \`unstable\` tag
         The \`unstable\` tag is updated with a new commit id when a new \`unstable\` release is published.
         To fetch the latest version of the unstable tag, execute the command:

@@ -27,7 +27,7 @@ runs:
         LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="${{ inputs.package}}") | .version')
         echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
         echo "Local version: $LOCAL_VERSION"
-        
+
         if [ "$LOCAL_VERSION" != "$LATEST_REMOTE_VERSION" ]; then 
           echo "Local version is newer than remote version: we will publish to crates.io"
           echo "should_deploy=true" >> $GITHUB_OUTPUT
@@ -47,7 +47,7 @@ runs:
       shell: bash
       run: |
         echo "Cargo publish '${{ inputs.package }}' package (dry run)"
-        cargo publish -p ${{ inputs.package }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }} 
+        cargo publish -p ${{ inputs.package }} --dry-run --no-verify --allow-dirty ${{ inputs.publish_args }}
 
     - name: Cargo package list
       shell: bash

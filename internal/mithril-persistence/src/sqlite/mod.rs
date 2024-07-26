@@ -2,6 +2,7 @@
 //! This module provides a minimal yet useful Entity framework on top of SQLite
 //! with ability to perform any SQL query possible and hydrate results in Rust
 //! structs.
+mod cleaner;
 mod condition;
 mod connection_builder;
 mod connection_extensions;
@@ -13,6 +14,7 @@ mod query;
 mod source_alias;
 mod transaction;
 
+pub use cleaner::{SqliteCleaner, SqliteCleaningTask};
 pub use condition::{GetAllCondition, WhereCondition};
 pub use connection_builder::{ConnectionBuilder, ConnectionOptions};
 pub use connection_extensions::ConnectionExtensions;
@@ -24,33 +26,23 @@ pub use query::Query;
 pub use source_alias::SourceAlias;
 pub use transaction::Transaction;
 
-use mithril_common::StdResult;
-use sqlite::ConnectionThreadSafe;
-
 /// Type of the connection used in Mithril
-pub type SqliteConnection = ConnectionThreadSafe;
+pub type SqliteConnection = sqlite::ConnectionThreadSafe;
 
-/// Do a [vacuum](https://www.sqlite.org/lang_vacuum.html) on the given connection, this will
-/// reconstruct the database file, repacking it into a minimal amount of disk space.
-pub async fn vacuum_database(connection: &SqliteConnection) -> StdResult<()> {
-    connection.execute("vacuum")?;
+/// Helpers to handle SQLite errors
+pub mod error {
+    /// Sqlite error type used in Mithril
+    pub type SqliteError = sqlite::Error;
 
-    Ok(())
+    /// SQLITE_BUSY error code
+    ///
+    /// see: <https://www.sqlite.org/rescode.html#busy>
+    pub const SQLITE_BUSY: isize = 5;
 }
 
 #[cfg(test)]
 mod test {
-    use crate::sqlite::vacuum_database;
     use sqlite::Connection;
-
-    #[tokio::test]
-    async fn calling_vacuum_on_an_empty_in_memory_db_should_not_fail() {
-        let connection = Connection::open_thread_safe(":memory:").unwrap();
-
-        vacuum_database(&connection)
-            .await
-            .expect("Vacuum should not fail");
-    }
 
     #[test]
     fn sqlite_version_should_be_3_42_or_more() {

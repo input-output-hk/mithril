@@ -4,8 +4,10 @@
   font-display: block;
   font-family: "mithril-icons";
   src:
-    url("/explorer/fonts/mithril-icons.woff?8d21e9f40b887c0b8205d69650427c98") format("woff"),
-    url("/explorer/fonts/mithril-icons.woff2?8d21e9f40b887c0b8205d69650427c98") format("woff2");
+    url("/explorer/fonts/mithril-icons.woff?8d21e9f40b887c0b8205d69650427c98")
+      format("woff"),
+    url("/explorer/fonts/mithril-icons.woff2?8d21e9f40b887c0b8205d69650427c98")
+      format("woff2");
 }
 
 .mi::before,

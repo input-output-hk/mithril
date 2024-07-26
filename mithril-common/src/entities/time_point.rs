@@ -68,6 +68,8 @@ impl Display for TimePoint {
 mod tests {
     use std::cmp::Ordering;
 
+    use crate::entities::{BlockNumber, SlotNumber};
+
     use super::*;
 
     #[test]
@@ -76,8 +78,8 @@ mod tests {
             epoch: Epoch(5),
             immutable_file_number: 0,
             chain_point: ChainPoint {
-                slot_number: 10,
-                block_number: 20,
+                slot_number: SlotNumber(10),
+                block_number: BlockNumber(20),
                 block_hash: "hash1".to_string(),
             },
         };
@@ -85,8 +87,8 @@ mod tests {
             epoch: Epoch(0),
             immutable_file_number: 1,
             chain_point: ChainPoint {
-                slot_number: 15,
-                block_number: 25,
+                slot_number: SlotNumber(15),
+                block_number: BlockNumber(25),
                 block_hash: "hash2".to_string(),
             },
         };
@@ -100,8 +102,8 @@ mod tests {
             epoch: Epoch(0),
             immutable_file_number: 5,
             chain_point: ChainPoint {
-                slot_number: 10,
-                block_number: 20,
+                slot_number: SlotNumber(10),
+                block_number: BlockNumber(20),
                 block_hash: "hash1".to_string(),
             },
         };
@@ -109,8 +111,8 @@ mod tests {
             epoch: Epoch(0),
             immutable_file_number: 0,
             chain_point: ChainPoint {
-                slot_number: 15,
-                block_number: 25,
+                slot_number: SlotNumber(15),
+                block_number: BlockNumber(25),
                 block_hash: "hash2".to_string(),
             },
         };
@@ -124,8 +126,8 @@ mod tests {
             epoch: Epoch(0),
             immutable_file_number: 0,
             chain_point: ChainPoint {
-                slot_number: 10,
-                block_number: 20,
+                slot_number: SlotNumber(10),
+                block_number: BlockNumber(20),
                 block_hash: "hash1".to_string(),
             },
         };
@@ -133,8 +135,8 @@ mod tests {
             epoch: Epoch(0),
             immutable_file_number: 0,
             chain_point: ChainPoint {
-                slot_number: 15,
-                block_number: 25,
+                slot_number: SlotNumber(15),
+                block_number: BlockNumber(25),
                 block_hash: "hash2".to_string(),
             },
         };

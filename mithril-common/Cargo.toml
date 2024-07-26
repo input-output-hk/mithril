@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.4.19"
+version = "0.4.38"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -48,12 +48,12 @@ kes-summed-ed25519 = { version = "0.2.1", features = [
     "sk_clone_enabled",
 ] }
 nom = "7.1.3"
-pallas-addresses = { version = "0.27.0", optional = true }
-pallas-codec = { version = "0.27.0", optional = true }
-pallas-hardano = { version = "0.27.0", optional = true }
-pallas-network = { version = "0.27.0", optional = true }
-pallas-primitives = { version = "0.27.0", optional = true }
-pallas-traverse = { version = "0.27.0", optional = true }
+pallas-addresses = { version = "0.29.0", optional = true }
+pallas-codec = { version = "0.29.0", optional = true }
+pallas-hardano = { version = "0.29.0", optional = true }
+pallas-network = { version = "0.29.0", optional = true }
+pallas-primitives = { version = "0.29.0", optional = true }
+pallas-traverse = { version = "0.29.0", optional = true }
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 rayon = "1.8.1"
@@ -92,8 +92,8 @@ wasm-bindgen = "0.2.90"
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
-mockall = "0.12.1"
-pallas-crypto = "0.27.0"
+mockall = "0.13.0"
+pallas-crypto = "0.29.0"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 reqwest = { version = "0.12.0", features = ["json"] }
 slog-async = "2.8.0"

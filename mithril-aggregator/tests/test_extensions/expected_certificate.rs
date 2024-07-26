@@ -50,4 +50,8 @@ impl ExpectedCertificate {
     pub fn genesis_identifier(beacon: &CardanoDbBeacon) -> String {
         format!("genesis-{:?}", beacon)
     }
+
+    pub fn get_signed_type(&self) -> Option<SignedEntityType> {
+        self.signed_type.clone()
+    }
 }

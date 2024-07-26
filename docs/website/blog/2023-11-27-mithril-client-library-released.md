@@ -12,6 +12,7 @@ The Mithril team has published the first release (**v0.5.7)** of its [mithril-cl
 The **Mithril client library** allows developers to use all the tooling necessary to manipulate Mithril certified types from a Mithril Aggregator directly in their (Rust) applications and to develop their own Mithril clients!
 
 Here are some useful documentation that can be used by developers:
+
 - **Developer documentation**: https://docs.rs/mithril-client/0.5.7/mithril_client/
 - **Example of implementations**:https://github.com/input-output-hk/mithril/blob/main/examples/
 - **Mithril client repository**: https://github.com/input-output-hk/mithril/tree/main/mithril-client

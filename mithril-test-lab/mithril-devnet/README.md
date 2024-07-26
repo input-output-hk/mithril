@@ -4,10 +4,10 @@
 
 It scaffolds a private compound devnet with Cardano and Mithril nodes:
 
-* `N` Cardano Full nodes
-* `P` Cardano SPO nodes
-* `1` Mithril Aggregator node (attached to the first Cardano Full node)
-* `P` Mithril Signer nodes (attached to each Cardano SPO nodes)
+- `N` Cardano Full nodes
+- `P` Cardano SPO nodes
+- `1` Mithril Aggregator node (attached to the first Cardano Full node)
+- `P` Mithril Signer nodes (attached to each Cardano SPO nodes)
 
 ## Credits
 
@@ -15,8 +15,8 @@ This cli is inspired by this [script](https://github.com/input-output-hk/cardano
 
 ## Pre-requisites
 
-* You need to run a Linux computer
-* You need to have a recent version of `jq` running (1.6+)
+- You need to run a Linux computer
+- You need to have a recent version of `jq` running (1.6+)
 
 ## Download source code
 
@@ -52,7 +52,7 @@ NODES=mithril ./devnet-run.sh
 ### or
 MITHRIL_NODE_DOCKER_BUILD_TYPE=ci ./devnet-run.sh
 
-## from locally built binaries with a custom slim image used as Docker image source 
+## from locally built binaries with a custom slim image used as Docker image source
 ### This configuration depends on the version of 'glibc' on your computer
 ### 'debian:12-slim': default value, works on Ubuntu 22.04
 ### 'debian:11-slim': works on Ubuntu 20.04

@@ -52,7 +52,7 @@ impl TransactionsImporter for TransactionsImporterWithPruner {
             debug!(
                 self.logger,
                 "Transaction Import finished - Pruning transactions included in block range roots";
-                "number_of_blocks_to_keep" => number_of_blocks_to_keep,
+                "number_of_blocks_to_keep" => *number_of_blocks_to_keep,
             );
             self.transaction_pruner
                 .prune(number_of_blocks_to_keep)
@@ -67,6 +67,8 @@ impl TransactionsImporter for TransactionsImporterWithPruner {
 mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
+
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -98,7 +100,7 @@ mod tests {
                 number_of_blocks_to_keep,
                 Arc::new(transaction_pruner),
                 Arc::new(transaction_importer),
-                crate::test_tools::logger_for_tests(),
+                TestLogger::stdout(),
             )
         }
     }
@@ -115,12 +117,15 @@ mod tests {
             },
         );
 
-        importer.import(100).await.expect("Import should not fail");
+        importer
+            .import(BlockNumber(100))
+            .await
+            .expect("Import should not fail");
     }
 
     #[tokio::test]
     async fn test_does_prune_if_a_block_number_is_configured() {
-        let expected_block_number: BlockNumber = 5;
+        let expected_block_number = BlockNumber(5);
         let importer = TransactionsImporterWithPruner::new_with_mock(
             Some(expected_block_number),
             |mock| {
@@ -134,6 +139,9 @@ mod tests {
             },
         );
 
-        importer.import(100).await.expect("Import should not fail");
+        importer
+            .import(BlockNumber(100))
+            .await
+            .expect("Import should not fail");
     }
 }

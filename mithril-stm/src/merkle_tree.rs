@@ -367,7 +367,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
                         new_hashes.push(
                             D::new()
                                 .chain(&leaves[i])
-                                .chain(&D::digest([0u8]))
+                                .chain(D::digest([0u8]))
                                 .finalize()
                                 .to_vec(),
                         );

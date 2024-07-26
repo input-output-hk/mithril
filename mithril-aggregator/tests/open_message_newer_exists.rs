@@ -3,8 +3,8 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
-        SignedEntityTypeDiscriminants, StakeDistributionParty, TimePoint,
+        BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, SlotNumber, StakeDistributionParty, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -23,7 +23,11 @@ async fn open_message_newer_exists() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(
-        TimePoint::new(1, 1, ChainPoint::new(10, 1, "block_hash-1")),
+        TimePoint::new(
+            1,
+            1,
+            ChainPoint::new(SlotNumber(10), BlockNumber(1), "block_hash-1"),
+        ),
         configuration,
     )
     .await;

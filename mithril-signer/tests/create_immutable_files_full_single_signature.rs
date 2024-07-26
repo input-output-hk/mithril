@@ -2,7 +2,7 @@ mod test_extensions;
 
 use mithril_common::{
     crypto_helper::tests_setup,
-    entities::{ChainPoint, Epoch, TimePoint},
+    entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, TimePoint},
     test_utils::MithrilFixtureBuilder,
 };
 
@@ -19,8 +19,8 @@ async fn test_create_immutable_files_full_single_signature() {
         epoch: Epoch(1),
         immutable_file_number: 1,
         chain_point: ChainPoint {
-            slot_number: 1,
-            block_number: 100,
+            slot_number: SlotNumber(100),
+            block_number: BlockNumber(100),
             block_hash: "block_hash-100".to_string(),
         },
     };

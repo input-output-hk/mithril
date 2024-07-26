@@ -33,7 +33,7 @@ impl CardanoTransactionSnapshotMessage {
             Self {
                 merkle_root: "mkroot-123".to_string(),
                 epoch: Epoch(10),
-                block_number: 100,
+                block_number: BlockNumber(100),
                 hash: "hash-123".to_string(),
                 certificate_hash: "cert-hash-123".to_string(),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
@@ -52,7 +52,7 @@ mod tests {
         CardanoTransactionSnapshotMessage {
             merkle_root: "mkroot-123".to_string(),
             epoch: Epoch(8),
-            block_number: 6,
+            block_number: BlockNumber(6),
             hash: "hash-123".to_string(),
             certificate_hash: "certificate-hash-123".to_string(),
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")

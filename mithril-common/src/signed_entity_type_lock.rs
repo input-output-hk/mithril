@@ -45,6 +45,12 @@ impl SignedEntityTypeLock {
         locked_entities.remove(&entity_type.into());
     }
 
+    /// Check if there are any locked signed entities.
+    pub async fn has_locked_entities(&self) -> bool {
+        let locked_entities = self.locked_entities.read().await;
+        !locked_entities.is_empty()
+    }
+
     /// List only the unlocked signed entities in the given list.
     pub async fn filter_unlocked_entries<T: Into<SignedEntityTypeDiscriminants> + Clone>(
         &self,
@@ -188,5 +194,17 @@ mod tests {
                 .await,
             vec![SignedEntityTypeDiscriminants::CardanoTransactions]
         );
+    }
+
+    #[tokio::test]
+    async fn has_locked_entities() {
+        let signed_entity_type_lock = SignedEntityTypeLock::new();
+
+        assert!(!signed_entity_type_lock.has_locked_entities().await);
+
+        signed_entity_type_lock
+            .lock(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+            .await;
+        assert!(signed_entity_type_lock.has_locked_entities().await);
     }
 }

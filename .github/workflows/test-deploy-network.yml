@@ -15,6 +15,7 @@ on:
         type: choice
         options:
           - dev-preview
+          - dev-mainnet
           - testing-mainnet
       dry_run:
         description: Dry run will not deploy the distribution to the Mithril network
@@ -27,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ dev-preview, testing-mainnet ]
+        environment: [dev-preview, dev-mainnet, testing-mainnet]
         include:
           - environment: dev-preview
             environment_prefix: dev
@@ -61,7 +62,36 @@ jobs:
             google_zone: europe-west1-b
             google_machine_type: e2-highmem-4
             google_compute_instance_boot_disk_size: 200
+            google_compute_instance_boot_disk_type: pd-standard
             google_compute_instance_data_disk_size: 250
+            google_compute_instance_data_disk_type: pd-standard
+          - environment: dev-mainnet
+            environment_prefix: dev
+            cardano_network: mainnet
+            mithril_use_p2p_network: false
+            mithril_api_domain: api.mithril.network
+            mithril_era_reader_adapter_type: bootstrap
+            mithril_protocol_parameters: |
+              {
+                k     = 2422
+                m     = 20973
+                phi_f = 0.20
+              }
+            mithril_signers: |
+              {
+                "1" = {
+                  type    = "unverified-alone",
+                  pool_id = "pool1re8cmjt895tpx8dx2veg0cew5yqtxnt82sll03e433a4ugnh9w7",
+                }
+              }
+            terraform_backend_bucket: hydra-terraform-admin
+            google_region: europe-west1
+            google_zone: europe-west1-b
+            google_machine_type: e2-highmem-8
+            google_compute_instance_boot_disk_size: 250
+            google_compute_instance_boot_disk_type: pd-standard
+            google_compute_instance_data_disk_size: 1000
+            google_compute_instance_data_disk_type: pd-balanced
           - environment: testing-mainnet
             environment_prefix: testing
             cardano_network: mainnet
@@ -86,7 +116,9 @@ jobs:
             google_zone: europe-west1-b
             google_machine_type: e2-highmem-8
             google_compute_instance_boot_disk_size: 250
+            google_compute_instance_boot_disk_type: pd-standard
             google_compute_instance_data_disk_size: 1000
+            google_compute_instance_data_disk_type: pd-balanced
 
     environment: ${{ matrix.environment }}
     runs-on: ubuntu-22.04
@@ -113,7 +145,10 @@ jobs:
           google_zone: ${{ matrix.google_zone }}
           google_machine_type: ${{ matrix.google_machine_type }}
           google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
+          google_compute_instance_boot_disk_type: ${{ matrix.google_compute_instance_boot_disk_type }}
           google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
+          google_compute_instance_data_disk_type: ${{ matrix.google_compute_instance_data_disk_type }}
+          google_compute_instance_data_disk_snapshot: ${{ vars.GOOGLE_COMPUTE_INSTANCE_DATA_DISK_SNAPSHOT }}
           google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
           mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
           mithril_api_domain: ${{ matrix.mithril_api_domain }}
@@ -133,9 +168,11 @@ jobs:
           mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
           mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
           mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
-          mithril_aggregator_allow_unparsable_block:  ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
+          mithril_aggregator_allow_unparsable_block: ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
           mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
-          cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
+          mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
+          mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
+          mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
           prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
           prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
           prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}

@@ -27,10 +27,10 @@ pub trait TransactionsImporter: Send + Sync {
 #[async_trait]
 pub trait BlockRangeRootRetriever: Send + Sync {
     /// Returns a Merkle map of the block ranges roots up to a given beacon
-    async fn retrieve_block_range_roots(
-        &self,
+    async fn retrieve_block_range_roots<'a>(
+        &'a self,
         up_to_beacon: BlockNumber,
-    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
+    ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
 
     /// Returns a Merkle map of the block ranges roots up to a given beacon
     async fn compute_merkle_map_from_block_range_roots(
@@ -125,7 +125,7 @@ mod tests {
     #[tokio::test]
     async fn test_compute_signable() {
         // Arrange
-        let block_number = 1453;
+        let block_number = BlockNumber(1453);
         let transactions = CardanoTransactionsBuilder::new().build_transactions(3);
         let mk_map = compute_mk_map_from_transactions(transactions.clone());
         let mut transaction_importer = MockTransactionsImporter::new();
@@ -165,7 +165,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_signable_with_no_block_range_root_return_error() {
-        let block_number = 50;
+        let block_number = BlockNumber(50);
         let mut transaction_importer = MockTransactionsImporter::new();
         transaction_importer.expect_import().return_once(|_| Ok(()));
         let mut block_range_root_retriever = MockBlockRangeRootRetriever::new();

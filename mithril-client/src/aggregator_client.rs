@@ -7,19 +7,18 @@
 //!
 //! An implementation using HTTP is available: [AggregatorHTTPClient].
 
+use std::sync::Arc;
+
 use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use reqwest::{header::HeaderMap, Response, StatusCode, Url};
 use semver::Version;
 use slog::{debug, Logger};
-use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-#[cfg(test)]
-use mockall::automock;
-
+use mithril_common::entities::{ClientError, ServerError};
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
 use crate::{MithrilError, MithrilResult};
@@ -28,11 +27,11 @@ use crate::{MithrilError, MithrilResult};
 #[derive(Error, Debug)]
 pub enum AggregatorClientError {
     /// Error raised when querying the aggregator returned a 5XX error.
-    #[error("remote server technical error")]
+    #[error("Internal error of the Aggregator")]
     RemoteServerTechnical(#[source] MithrilError),
 
     /// Error raised when querying the aggregator returned a 4XX error.
-    #[error("remote server logical error")]
+    #[error("Invalid request to the Aggregator")]
     RemoteServerLogical(#[source] MithrilError),
 
     /// Error raised when the server API version mismatch the client API version.
@@ -264,14 +263,13 @@ impl AggregatorHTTPClient {
                     return self.get(url).await;
                 }
 
-                Err(self.handle_api_error(&response).await)
+                Err(self.handle_api_error(response.headers()).await)
             }
-            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                "Url='{url} not found"
-            ))),
-            status_code => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                "Unhandled error {status_code}"
-            ))),
+            StatusCode::NOT_FOUND => Err(Self::not_found_error(url)),
+            status_code if status_code.is_client_error() => {
+                Err(Self::remote_logical_error(response).await)
+            }
+            _ => Err(Self::remote_technical_error(response).await),
         }
     }
 
@@ -313,30 +311,13 @@ impl AggregatorHTTPClient {
                     return self.post(url, json).await;
                 }
 
-                Err(self.handle_api_error(&response).await)
+                Err(self.handle_api_error(response.headers()).await)
             }
-            StatusCode::NOT_FOUND => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                "Url='{url} not found"
-            ))),
-            status_code => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                "Unhandled error {status_code}"
-            ))),
-        }
-    }
-
-    /// API version error handling
-    async fn handle_api_error(&self, response: &Response) -> AggregatorClientError {
-        if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
-            AggregatorClientError::ApiVersionMismatch(anyhow!(
-                "server version: '{}', signer version: '{}'",
-                version.to_str().unwrap(),
-                self.compute_current_api_version().await.unwrap()
-            ))
-        } else {
-            AggregatorClientError::ApiVersionMismatch(anyhow!(
-                "version precondition failed, sent version '{}'.",
-                self.compute_current_api_version().await.unwrap()
-            ))
+            StatusCode::NOT_FOUND => Err(Self::not_found_error(url)),
+            status_code if status_code.is_client_error() => {
+                Err(Self::remote_logical_error(response).await)
+            }
+            _ => Err(Self::remote_technical_error(response).await),
         }
     }
 
@@ -352,6 +333,49 @@ impl AggregatorHTTPClient {
             .map_err(AggregatorClientError::SubsystemError)
     }
 
+    /// API version error handling
+    async fn handle_api_error(&self, response_header: &HeaderMap) -> AggregatorClientError {
+        if let Some(version) = response_header.get(MITHRIL_API_VERSION_HEADER) {
+            AggregatorClientError::ApiVersionMismatch(anyhow!(
+                "server version: '{}', signer version: '{}'",
+                version.to_str().unwrap(),
+                self.compute_current_api_version().await.unwrap()
+            ))
+        } else {
+            AggregatorClientError::ApiVersionMismatch(anyhow!(
+                "version precondition failed, sent version '{}'.",
+                self.compute_current_api_version().await.unwrap()
+            ))
+        }
+    }
+
+    fn not_found_error(url: Url) -> AggregatorClientError {
+        AggregatorClientError::RemoteServerLogical(anyhow!("Url='{url}' not found"))
+    }
+
+    async fn remote_logical_error(response: Response) -> AggregatorClientError {
+        let status_code = response.status();
+        let client_error = response
+            .json::<ClientError>()
+            .await
+            .unwrap_or(ClientError::new(
+                format!("Unhandled error {status_code}"),
+                "",
+            ));
+
+        AggregatorClientError::RemoteServerLogical(anyhow!("{client_error}"))
+    }
+
+    async fn remote_technical_error(response: Response) -> AggregatorClientError {
+        let status_code = response.status();
+        let server_error = response
+            .json::<ServerError>()
+            .await
+            .unwrap_or(ServerError::new(format!("Unhandled error {status_code}")));
+
+        AggregatorClientError::RemoteServerTechnical(anyhow!("{server_error}"))
+    }
+
     /// Set additional headers to the requests
     pub fn with_additional_headers(mut self, headers: HeaderMap) -> Self {
         self.additional_headers = Some(headers);
@@ -359,7 +383,7 @@ impl AggregatorHTTPClient {
     }
 }
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl AggregatorClient for AggregatorHTTPClient {
@@ -398,7 +422,44 @@ impl AggregatorClient for AggregatorHTTPClient {
 
 #[cfg(test)]
 mod tests {
+    use httpmock::MockServer;
+    use reqwest::header::{HeaderName, HeaderValue};
+
+    use mithril_common::api_version::APIVersionProvider;
+    use mithril_common::entities::{ClientError, ServerError};
+
     use super::*;
+
+    macro_rules! assert_error_eq {
+        ($left:expr, $right:expr) => {
+            assert_eq!(format!("{:?}", &$left), format!("{:?}", &$right),);
+        };
+    }
+
+    fn setup_client(server_url: &str, api_versions: Vec<Version>) -> AggregatorHTTPClient {
+        AggregatorHTTPClient::new(
+            Url::parse(server_url).unwrap(),
+            api_versions,
+            crate::test_utils::test_logger(),
+        )
+        .expect("building aggregator http client should not fail")
+    }
+
+    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
+        let server = MockServer::start();
+        let client = setup_client(
+            &server.url(""),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
+        (server, client)
+    }
+
+    fn mithril_api_version_headers(version: &str) -> HeaderMap {
+        HeaderMap::from_iter([(
+            HeaderName::from_static(MITHRIL_API_VERSION_HEADER),
+            HeaderValue::from_str(version).unwrap(),
+        )])
+    }
 
     #[test]
     fn always_append_trailing_slash_at_build() {
@@ -502,5 +563,177 @@ mod tests {
                 AggregatorRequest::ListCardanoTransactionSnapshots.route()
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_client_handle_4xx_errors() {
+        let client_error = ClientError::new("label", "message");
+
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|_when, then| {
+            then.status(StatusCode::IM_A_TEAPOT.as_u16())
+                .json_body_obj(&client_error);
+        });
+
+        let expected_error = AggregatorClientError::RemoteServerLogical(anyhow!("{client_error}"));
+
+        let get_content_error = client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(get_content_error, expected_error);
+
+        let post_content_error = client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_handle_404_not_found_error() {
+        let client_error = ClientError::new("label", "message");
+
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|_when, then| {
+            then.status(StatusCode::NOT_FOUND.as_u16())
+                .json_body_obj(&client_error);
+        });
+
+        let expected_error = AggregatorHTTPClient::not_found_error(
+            Url::parse(&format!(
+                "{}/{}",
+                aggregator.base_url(),
+                AggregatorRequest::ListCertificates.route()
+            ))
+            .unwrap(),
+        );
+
+        let get_content_error = client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(get_content_error, expected_error);
+
+        let post_content_error = client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_handle_5xx_errors() {
+        let server_error = ServerError::new("message");
+
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|_when, then| {
+            then.status(StatusCode::INTERNAL_SERVER_ERROR.as_u16())
+                .json_body_obj(&server_error);
+        });
+
+        let expected_error =
+            AggregatorClientError::RemoteServerTechnical(anyhow!("{server_error}"));
+
+        let get_content_error = client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(get_content_error, expected_error);
+
+        let post_content_error = client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_handle_412_api_version_mismatch_with_version_in_response_header() {
+        let version = "0.0.0";
+
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|_when, then| {
+            then.status(StatusCode::PRECONDITION_FAILED.as_u16())
+                .header(MITHRIL_API_VERSION_HEADER, version);
+        });
+
+        let expected_error = client
+            .handle_api_error(&mithril_api_version_headers(version))
+            .await;
+
+        let get_content_error = client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(get_content_error, expected_error);
+
+        let post_content_error = client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_handle_412_api_version_mismatch_without_version_in_response_header() {
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|_when, then| {
+            then.status(StatusCode::PRECONDITION_FAILED.as_u16());
+        });
+
+        let expected_error = client.handle_api_error(&HeaderMap::new()).await;
+
+        let get_content_error = client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(get_content_error, expected_error);
+
+        let post_content_error = client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .unwrap_err();
+        assert_error_eq!(post_content_error, expected_error);
+    }
+
+    #[tokio::test]
+    async fn test_client_can_fallback_to_a_second_version_when_412_api_version_mistmatch() {
+        let bad_version = "0.0.0";
+        let good_version = "1.0.0";
+
+        let aggregator = MockServer::start();
+        let client = setup_client(
+            &aggregator.url(""),
+            vec![
+                Version::parse(bad_version).unwrap(),
+                Version::parse(good_version).unwrap(),
+            ],
+        );
+        aggregator.mock(|when, then| {
+            when.header(MITHRIL_API_VERSION_HEADER, bad_version);
+            then.status(StatusCode::PRECONDITION_FAILED.as_u16())
+                .header(MITHRIL_API_VERSION_HEADER, bad_version);
+        });
+        aggregator.mock(|when, then| {
+            when.header(MITHRIL_API_VERSION_HEADER, good_version);
+            then.status(StatusCode::OK.as_u16());
+        });
+
+        assert_eq!(
+            client.compute_current_api_version().await,
+            Some(Version::parse(bad_version).unwrap()),
+            "Bad version should be tried first"
+        );
+
+        client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect("should have run with a fallback version");
+
+        client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect("should have run with a fallback version");
     }
 }

@@ -1,5 +1,7 @@
 ## Content
+
 <!-- Explain the reason for this change, if a feature is added, a bug is fixed, ... -->
+
 This PR includes...
 
 ## Pre-submit checklist
@@ -21,8 +23,11 @@ This PR includes...
   - [ ] Add dev blog post (if relevant)
 
 ## Comments
+
 <!-- Some optional comments about the PR, such as how to run a command, or warnings about usage, .... -->
 
 ## Issue(s)
+
 <!-- The issue(s) this PR relates to or closes -->
+
 Relates to #YYY or Closes #YYY

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-build-script"
-version = "0.2.5"
+version = "0.2.8"
 description = "A toolbox for Mithril crates build scripts"
 authors = { workspace = true }
 edition = { workspace = true }

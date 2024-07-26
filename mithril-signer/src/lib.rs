@@ -8,6 +8,7 @@
 
 mod aggregator_client;
 mod cardano_transactions_importer;
+mod cardano_transactions_preloader_checker;
 mod configuration;
 pub mod database;
 mod message_adapters;
@@ -17,11 +18,14 @@ mod runtime;
 mod single_signer;
 mod transactions_importer_by_chunk;
 mod transactions_importer_with_pruner;
+mod transactions_importer_with_vacuum;
+mod upkeep_service;
 
 #[cfg(test)]
 pub use aggregator_client::dumb::DumbAggregatorClient;
 pub use aggregator_client::*;
 pub use cardano_transactions_importer::*;
+pub use cardano_transactions_preloader_checker::*;
 pub use configuration::{Configuration, DefaultConfiguration};
 pub use message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
@@ -32,6 +36,8 @@ pub use runtime::*;
 pub use single_signer::*;
 pub use transactions_importer_by_chunk::*;
 pub use transactions_importer_with_pruner::*;
+pub use transactions_importer_with_vacuum::*;
+pub use upkeep_service::*;
 
 /// HTTP request timeout duration in milliseconds
 const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;
@@ -50,13 +56,30 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 #[cfg(test)]
 pub mod test_tools {
-    use slog::Drain;
+    use std::fs::File;
+    use std::io;
     use std::sync::Arc;
 
-    pub fn logger_for_tests() -> slog::Logger {
-        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-        slog::Logger::root(Arc::new(drain), slog::o!())
+    use slog::{Drain, Logger};
+    use slog_async::Async;
+    use slog_term::{CompactFormat, PlainDecorator};
+
+    pub struct TestLogger;
+
+    impl TestLogger {
+        fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
+            let decorator = PlainDecorator::new(writer);
+            let drain = CompactFormat::new(decorator).build().fuse();
+            let drain = Async::new(drain).build().fuse();
+            Logger::root(Arc::new(drain), slog::o!())
+        }
+
+        pub fn stdout() -> Logger {
+            Self::from_writer(slog_term::TestStdoutWriter)
+        }
+
+        pub fn file(filepath: &std::path::Path) -> Logger {
+            Self::from_writer(File::create(filepath).unwrap())
+        }
     }
 }

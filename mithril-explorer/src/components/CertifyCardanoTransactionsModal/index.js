@@ -37,6 +37,7 @@ export default function CertifyCardanoTransactionsModal({
   const [isCertificateChainValid, setIsCertificateChainValid] = useState(true);
   const [currentStep, setCurrentStep] = useState(validationSteps.ready);
   const [currentTab, setCurrentTab] = useState(getTabForStep(validationSteps.ready));
+  const [currentError, setCurrentError] = useState(undefined);
 
   useEffect(() => {
     setShowLoadingWarning(false);
@@ -44,6 +45,7 @@ export default function CertifyCardanoTransactionsModal({
     setIsCertificateChainValid(true);
     setCertificate(undefined);
     setCurrentStep(validationSteps.ready);
+    setCurrentError(undefined);
 
     if (transactionHashes?.length > 0) {
       fetchGenesisVerificationKey(currentAggregator)
@@ -124,6 +126,7 @@ export default function CertifyCardanoTransactionsModal({
 
   function handleError(error) {
     console.error("Cardano Transactions Certification Error:", error);
+    setCurrentError(error);
     setCurrentStep(validationSteps.done);
   }
 
@@ -219,13 +222,28 @@ export default function CertifyCardanoTransactionsModal({
                     )}
                   </Tab.Pane>
                   <Tab.Pane eventKey={getTabForStep(validationSteps.done)}>
-                    {currentStep === validationSteps.done && (
+                    {currentStep === validationSteps.done && currentError === undefined && (
                       <TransactionCertificationResult
                         isSuccess={isProofValid && isCertificateChainValid}
                         certificate={certificate}
                         certifiedTransactions={transactionsProofs.transactions_hashes}
                         nonCertifiedTransactions={transactionsProofs.non_certified_transactions}
                       />
+                    )}
+                    {currentStep === validationSteps.done && currentError !== undefined && (
+                      <Alert variant="danger" className="mb-2">
+                        <Alert.Heading>
+                          <i className="text-danger bi bi-shield-slash"></i> Mithril could not
+                          certify the transactions
+                        </Alert.Heading>
+                        <p className="mb-2">
+                          An error occurred during the verification process. Please try again.
+                        </p>
+                        <hr />
+                        <pre className="mb-0">
+                          <code>{currentError.toString()}</code>
+                        </pre>
+                      </Alert>
                     )}
                   </Tab.Pane>
                 </Tab.Content>

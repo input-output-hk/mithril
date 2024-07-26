@@ -1,6 +1,7 @@
 # Mithril Client
 
 ## Documentation
+
 :rocket: The documentation is available at [`Mithril Client Node`](https://mithril.network/doc/manual/developer-docs/nodes/mithril-client)
 
 :bulb: A guide on how to [`Bootstrap a Cardano Node`](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node) with Mithril

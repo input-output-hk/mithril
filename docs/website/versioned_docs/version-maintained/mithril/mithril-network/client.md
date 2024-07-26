@@ -9,16 +9,16 @@ sidebar_label: Mithril client
 
 The Mithril client node is used to list, show or verify artifacts certified by Mithril certificates:
 
- 1. Cardano full node snapshots
- 1. Stake distribution involved in Mithril signatures.
+1.  Cardano full node snapshots
+1.  Stake distribution involved in Mithril signatures.
 
 :::
 
 :::tip
 
-* For more information about the Mithril protocol, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
+- For more information about the Mithril protocol, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
 
-* For more information about the Mithril client, see the [developer manual](../../manual/developer-docs/nodes/mithril-client.md).
+- For more information about the Mithril client, see the [developer manual](../../manual/developer-docs/nodes/mithril-client.md).
 
 :::
 
@@ -26,8 +26,8 @@ The Mithril client node is used to list, show or verify artifacts certified by M
 
 A Mithril client can be used by anyone who needs to rapidly restore and bootstrap a Cardano full node:
 
-* A full-node wallet such as Daedalus
-* A node operator (SPO, exchange, DApp).
+- A full-node wallet such as Daedalus
+- A node operator (SPO, exchange, DApp).
 
 In the long run, the Mithril client will be incorporated in light clients and wallets.
 
@@ -39,8 +39,8 @@ The initial action of the Mithril client involves downloading the corresponding 
 2. The locally computed message is the same as in the certificate
 3. The multi-signature of the certificate is valid and computed with the certificate message
 4. The stake distribution used to compute the multi-signature is signed:
-    * By a multi-signature of a previous certificate of the chain (if there is one available)
-    * Or by a valid genesis certificate (in case this is the first certificate of the chain).
+   - By a multi-signature of a previous certificate of the chain (if there is one available)
+   - Or by a valid genesis certificate (in case this is the first certificate of the chain).
 
 The Mithril aggregator is used as a provider for the certificate chain.
 
@@ -52,7 +52,7 @@ For more information about the Mithril certificate chain, see the [certificate c
 
 ### Snapshot artifacts retrieval
 
-Once the certificate chain is verified, the Mithril client will try to download a full Cardano node snapshot. The Mithril aggregator is used as a provider for the snapshot locations. The snapshots might be stored at several locations, the client will try the given locations until it finds one that responds well. 
+Once the certificate chain is verified, the Mithril client will try to download a full Cardano node snapshot. The Mithril aggregator is used as a provider for the snapshot locations. The snapshots might be stored at several locations, the client will try the given locations until it finds one that responds well.
 
 These artifacts are downloaded locally in a temporary directory and then uncompressed in the location given on the command line. The uncompressed files are used to compute the message that is then compared with the one that is signed by the Mithril signers. If the verification fails, the uncompressed files are removed from the disk.
 

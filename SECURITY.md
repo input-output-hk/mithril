@@ -21,11 +21,10 @@ to draft a new _Security advisory_.
 
 Please include as much details as needed to clearly qualify the issue:
 
-* A description of the vulnerability and its potential impact.
-* Steps to reproduce the vulnerability.
-* The version of `mithril-node` package where the vulnerability exists.
-* Any relevant proof-of-concept or exploit code (if applicable).
-
+- A description of the vulnerability and its potential impact.
+- Steps to reproduce the vulnerability.
+- The version of `mithril-node` package where the vulnerability exists.
+- Any relevant proof-of-concept or exploit code (if applicable).
 
 ### Processing Vulnerability
 
@@ -55,19 +54,19 @@ Please include as much details as needed to clearly qualify the issue:
 
    b. **Fix**: When a fix is available and approved, it should be merged and made available as quickly as possible:
 
-      * All commits to the private repository are squashed into a single commit whose description _should not_ make any reference it relates to a security vulnerability
-      * A new Pull Request is created with this single commit
-      * This PR's review and merging is expedited as all the work as already been done
+   - All commits to the private repository are squashed into a single commit whose description _should not_ make any reference it relates to a security vulnerability
+   - A new Pull Request is created with this single commit
+   - This PR's review and merging is expedited as all the work as already been done
 
 6. **Release**: The team creates and publish a release that includes the fix
 
 7. **Announcement**: Concommitant to the release annoucement, the team announces the security vulnerability by making the GitHub issue public. This is the first point that any information regarding the vulnerability is made public.
 
-    a. **Credit**: The team publicly acknowledges the contributions of the
-       reporter once the vulnerability is resolved, subject to the
-       reporter's preferences for attribution.
+   a. **Credit**: The team publicly acknowledges the contributions of the
+   reporter once the vulnerability is resolved, subject to the
+   reporter's preferences for attribution.
 
-7. **Disagreements**: In case of disagreements with the reporter on the fix, mitigation, timing, or announcement, the team has the final say.
+8. **Disagreements**: In case of disagreements with the reporter on the fix, mitigation, timing, or announcement, the team has the final say.
 
 ## Responsible Disclosure
 

@@ -78,13 +78,15 @@ services:
       - ALLOW_UNPARSABLE_BLOCK=${ALLOW_UNPARSABLE_BLOCK}
       - CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE=${CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE}
       - CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE=${CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE}
+      - CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER=${CARDANO_TRANSACTIONS_SIGNING_CONFIG__SECURITY_PARAMETER}
+      - CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP=${CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP}
     volumes:
       - ../data/${NETWORK}/mithril-aggregator/mithril:/mithril-aggregator/mithril
       - ../data/${NETWORK}/mithril-aggregator/cardano/db:/db
       - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
     ports:
       - "8080:8080"
-    command: [ "-vvv", "serve" ]
+    command: ["-vvv", "serve"]
     depends_on:
       cardano-node-aggregator:
         condition: service_started
@@ -93,10 +95,10 @@ services:
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
     labels:
-      - 'traefik.enable=true'
-      - 'traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)'
-      - 'traefik.http.routers.mithril-aggregator.tls=true'
-      - 'traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt'
+      - "traefik.enable=true"
+      - "traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)"
+      - "traefik.http.routers.mithril-aggregator.tls=true"
+      - "traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt"
 
   mithril-aggregator-relay:
     image: ghcr.io/input-output-hk/mithril-relay:${MITHRIL_IMAGE_ID}
@@ -112,7 +114,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://${AGGREGATOR_CREDENTIALS}mithril-aggregator:8080/aggregator
     ports:
       - "${AGGREGATOR_RELAY_LISTEN_PORT}:${AGGREGATOR_RELAY_LISTEN_PORT}"
-    command: [ "-vvv", "aggregator" ]
+    command: ["-vvv", "aggregator"]
     depends_on:
       mithril-aggregator:
         condition: service_started

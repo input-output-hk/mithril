@@ -3,16 +3,13 @@
 use chrono::{DateTime, Utc};
 use semver::Version;
 
-use crate::crypto_helper::ProtocolMultiSignature;
-use crate::{
-    crypto_helper,
-    entities::{
-        self, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch, LotteryIndex,
-        ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
-        StakeDistributionParty,
-    },
-    test_utils::MithrilFixtureBuilder,
+use crate::crypto_helper::{self, ProtocolMultiSignature};
+use crate::entities::{
+    self, BlockNumber, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch,
+    LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
+    SlotNumber, StakeDistributionParty,
 };
+use crate::test_utils::MithrilFixtureBuilder;
 
 use super::fake_keys;
 
@@ -31,8 +28,8 @@ pub fn beacon() -> entities::CardanoDbBeacon {
 /// Fake ChainPoint
 pub fn chain_point() -> entities::ChainPoint {
     entities::ChainPoint {
-        slot_number: 500,
-        block_number: 42,
+        slot_number: SlotNumber(500),
+        block_number: BlockNumber(42),
         block_hash: "1b69b3202fbe500".to_string(),
     }
 }
@@ -242,6 +239,22 @@ pub fn mithril_stake_distributions(total: u64) -> Vec<entities::MithrilStakeDist
 /// Fake Cardano Transactions
 pub fn cardano_transactions_snapshot(total: u64) -> Vec<entities::CardanoTransactionsSnapshot> {
     (1..total + 1)
-        .map(|idx| entities::CardanoTransactionsSnapshot::new(format!("merkleroot-{idx}"), idx))
+        .map(|idx| {
+            entities::CardanoTransactionsSnapshot::new(
+                format!("merkleroot-{idx}"),
+                BlockNumber(idx),
+            )
+        })
         .collect()
+}
+
+/// Fake transaction hashes that have valid length & characters
+pub const fn transaction_hashes<'a>() -> [&'a str; 5] {
+    [
+        "c96809e2cecd9e27499a4379094c4e1f7b59d918c96327bd8daf1bf909dae332",
+        "5b8788784af9c414f18fc1e6161005b13b839fd91130b7c109aeba1792feb843",
+        "8b6ae44edf877ff2ac80cf067809d575ab2bad234b668f91e90decde837b154a",
+        "3f6f3c981c89097f62c9b43632875db7a52183ad3061c822d98259d18cd63dcf",
+        "f4fd91dccc25fd63f2caebab3d3452bc4b2944fcc11652214a3e8f1d32b09713",
+    ]
 }

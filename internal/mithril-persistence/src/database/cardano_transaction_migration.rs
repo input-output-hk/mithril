@@ -86,5 +86,27 @@ delete from block_range_root;
 vacuum;
 "#,
         ),
+        // Migration 7
+        // Enable full `auto_vacuum` on the database to prevent the database from growing
+        // indefinitely since data is often deleted with chain rollbacks or, only on signers,
+        // transactions pruning.
+        SqlMigration::new(
+            7,
+            r#"
+-- 'pragma auto_vacuum = full' can't be applied to an existing database, so we need to recreate
+-- the database by using 'vacuum'.
+pragma auto_vacuum = full;
+vacuum;
+"#,
+        ),
+        // Migration 8
+        // Remove Immutable File Number in Cardano Transaction
+        SqlMigration::new(
+            8,
+            r#"
+drop index cardano_tx_immutable_file_number_index;
+alter table cardano_tx drop column immutable_file_number;
+ "#,
+        ),
     ]
 }

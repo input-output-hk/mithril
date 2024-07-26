@@ -14,11 +14,18 @@ on:
           on it otherwise no binary would be available leading to the failure of this workflow.
         required: true
         type: string
+      embed_cardano_cli:
+        description: |
+          Embed Cardano-cli in the Docker image. 
+          Only needed if you want to use cardano-cli chain observer.
+        required: true
+        type: boolean
+        default: false
       cardano_bin_url:
         description: The url of the archive of the Cardano binaries
         required: true
         type: string
-        default: https://github.com/IntersectMBO/cardano-node/releases/download/8.9.0/cardano-node-8.9.0-linux.tar.gz
+        default: https://github.com/IntersectMBO/cardano-node/releases/download/9.0.0/cardano-node-9.0.0-linux.tar.gz
       dry_run:
         description: Dry run will not push the Docker images to the registry
         required: true
@@ -31,12 +38,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ mithril-aggregator, mithril-client-cli, mithril-signer, mithril-relay ]
+        project:
+          [
+            mithril-aggregator,
+            mithril-client-cli,
+            mithril-signer,
+            mithril-relay,
+          ]
 
         include:
           - project: mithril-client-cli
             package: mithril-client
-    
+
     permissions:
       contents: read
       packages: write
@@ -90,6 +103,8 @@ jobs:
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
-          build-args: CARDANO_BIN_URL=${{ inputs.cardano_bin_url }}
+          build-args: |
+            EMBED-CARDANO-CLI=${{ inputs.embed_cardano_cli && 1 || 0 }}
+            CARDANO_BIN_URL=${{ inputs.cardano_bin_url }}
           push: ${{ inputs.dry_run == false }}
           tags: ${{ steps.meta.outputs.tags }}

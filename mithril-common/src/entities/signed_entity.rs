@@ -1,12 +1,14 @@
 use chrono::{DateTime, Utc};
 
+use crate::entities::{
+    CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntityType, Snapshot,
+};
 use crate::signable_builder::Artifact;
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_data;
 
 #[cfg(any(test, feature = "test_tools"))]
 use super::{CardanoDbBeacon, Epoch};
-use super::{CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntityType, Snapshot};
 
 /// Aggregate for signed entity
 #[derive(Debug, Clone)]
@@ -68,7 +70,7 @@ impl SignedEntity<CardanoTransactionsSnapshot> {
     cfg_test_tools! {
         /// Create a dummy [SignedEntity] for [CardanoTransactionsSnapshot] entity
         pub fn dummy() -> Self {
-            let block_number = 50;
+            let block_number = crate::entities::BlockNumber(50);
             SignedEntity {
                 signed_entity_id: "snapshot-id-123".to_string(),
                 signed_entity_type: SignedEntityType::CardanoTransactions(Epoch(5), block_number),

@@ -4,7 +4,8 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use sqlite::ConnectionThreadSafe;
 
 use mithril_aggregator::services::TransactionStore;
-use mithril_common::{entities::CardanoTransaction, test_utils::TempDir};
+use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
+use mithril_common::test_utils::TempDir;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
 
@@ -32,10 +33,9 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
         .map(|i| {
             CardanoTransaction::new(
                 format!("tx_hash-{}", i),
-                i as u64,
-                i as u64 * 100,
+                BlockNumber(i as u64),
+                SlotNumber(i as u64 * 100),
                 format!("block_hash-{}", i),
-                i as u64 + 1,
             )
         })
         .collect()
@@ -69,7 +69,7 @@ fn run_bench(c: &mut Criterion, nb_transaction_in_db: usize) {
             |b, &max_block_number| {
                 b.to_async(&runtime).iter(|| async {
                     let _transactions = repository
-                        .get_transactions_in_range(0..max_block_number)
+                        .get_transactions_in_range(BlockNumber(0)..BlockNumber(max_block_number))
                         .await
                         .unwrap();
                 });

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.8.5"
+version = "0.8.10"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -72,7 +72,7 @@ mithril-common = { path = "../mithril-common", version = "=0.4", features = [
     "random",
     "test_tools",
 ] }
-mockall = "0.12.1"
+mockall = "0.13.0"
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"

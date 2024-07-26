@@ -2,7 +2,7 @@ use anyhow::Context;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::vacuum_database;
+use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask};
 use slog_scope::debug;
 use std::sync::Arc;
 
@@ -74,8 +74,9 @@ impl RecomputeCertificatesHashCommand {
             .await
             .with_context(|| "recompute-certificates-hash: database migration error")?;
 
-        vacuum_database(&connection)
-            .await
+        SqliteCleaner::new(&connection)
+            .with_tasks(&[SqliteCleaningTask::Vacuum])
+            .run()
             .with_context(|| "recompute-certificates-hash: database vacuum error")?;
 
         Ok(())

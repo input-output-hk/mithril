@@ -1,7 +1,7 @@
 ---
 title: Genesis Certificate support added
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [genesis, certificate, breaking-change]
 ---
 
@@ -15,9 +15,9 @@ tags: [genesis, certificate, breaking-change]
 
 This will involve some manual operations that will prevent temporarily the service to be running:
 
-* We will have to reset the stores of the `Snapshots` and `Certificates`. This means that the [Mithril Explorer](https://mithril.network/explorer/) will display a `No snapshot available` message.
+- We will have to reset the stores of the `Snapshots` and `Certificates`. This means that the [Mithril Explorer](https://mithril.network/explorer/) will display a `No snapshot available` message.
 
-* The Mithril Signers will have to wait until the next epoch `#30` to be able to sign. This means that we should see the first available `Snapshot` 1 hour after the epoch transition.
+- The Mithril Signers will have to wait until the next epoch `#30` to be able to sign. This means that we should see the first available `Snapshot` 1 hour after the epoch transition.
 
 The SPOs that are currently running a Mithril Signer will have to recompile their node in order ot take advantage of the latest improvements (such as the registration of the nodes that will take few minutes instead of few hours). However, the previously compiled node will be able to contribute to signatures.
 

@@ -54,9 +54,11 @@ impl PallasChainReader {
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
 
-        chainsync
-            .find_intersect(vec![point.to_owned().into()])
-            .await?;
+        if chainsync.has_agency() {
+            chainsync
+                .find_intersect(vec![point.to_owned().into()])
+                .await?;
+        }
 
         Ok(())
     }
@@ -67,18 +69,16 @@ impl PallasChainReader {
         next: NextResponse<BlockContent>,
     ) -> StdResult<Option<ChainBlockNextAction>> {
         match next {
-            NextResponse::RollForward(raw_block, forward_tip) => {
+            NextResponse::RollForward(raw_block, _forward_tip) => {
                 let multi_era_block = MultiEraBlock::decode(&raw_block)
                     .with_context(|| "PallasChainReader failed to decode raw block")?;
-                let parsed_block = ScannedBlock::convert(multi_era_block, 0);
-                Ok(Some(ChainBlockNextAction::RollForward {
-                    next_point: forward_tip.into(),
-                    parsed_block,
-                }))
+                let parsed_block = ScannedBlock::convert(multi_era_block);
+                Ok(Some(ChainBlockNextAction::RollForward { parsed_block }))
             }
             NextResponse::RollBackward(rollback_point, _) => {
+                let chain_point = ChainPoint::from(rollback_point);
                 Ok(Some(ChainBlockNextAction::RollBackward {
-                    rollback_point: rollback_point.into(),
+                    slot_number: chain_point.slot_number,
                 }))
             }
             NextResponse::Await => Ok(None),
@@ -156,17 +156,12 @@ mod tests {
 
     /// Returns a fake block number for testing purposes.
     fn get_fake_block_number() -> BlockNumber {
-        1337
+        BlockNumber(1337)
     }
 
     /// Returns a fake chain point for testing purposes.
     fn get_fake_chain_point_backwards() -> ChainPoint {
         ChainPoint::from(get_fake_specific_point())
-    }
-
-    /// Returns a fake chain point for testing purposes.
-    fn get_fake_chain_point_forwards() -> ChainPoint {
-        Tip(get_fake_specific_point(), get_fake_block_number()).into()
     }
 
     /// Creates a new work directory in the system's temporary folder.
@@ -184,7 +179,7 @@ mod tests {
         let raw_block = get_fake_raw_block();
         let multi_era_block = MultiEraBlock::decode(&raw_block).unwrap();
 
-        ScannedBlock::convert(multi_era_block, 0)
+        ScannedBlock::convert(multi_era_block)
     }
 
     /// Sets up a mock server for related tests.
@@ -213,7 +208,7 @@ mod tests {
                 chainsync_server
                     .send_intersect_found(
                         known_point.clone(),
-                        Tip(known_point.clone(), tip_block_number),
+                        Tip(known_point.clone(), *tip_block_number),
                     )
                     .await
                     .unwrap();
@@ -229,7 +224,7 @@ mod tests {
                         chainsync_server
                             .send_roll_backward(
                                 known_point.clone(),
-                                Tip(known_point.clone(), tip_block_number),
+                                Tip(known_point.clone(), *tip_block_number),
                             )
                             .await
                             .unwrap();
@@ -237,7 +232,7 @@ mod tests {
                     ServerAction::RollForward => {
                         let block = BlockContent(get_fake_raw_block());
                         chainsync_server
-                            .send_roll_forward(block, Tip(known_point.clone(), tip_block_number))
+                            .send_roll_forward(block, Tip(known_point.clone(), *tip_block_number))
                             .await
                             .unwrap();
                     }
@@ -272,8 +267,8 @@ mod tests {
         let (_, client_res) = tokio::join!(server, client);
         let chain_block = client_res.expect("Client failed to get next chain block");
         match chain_block {
-            ChainBlockNextAction::RollBackward { rollback_point } => {
-                assert_eq!(rollback_point, get_fake_chain_point_backwards());
+            ChainBlockNextAction::RollBackward { slot_number } => {
+                assert_eq!(slot_number, get_fake_chain_point_backwards().slot_number);
             }
             _ => panic!("Unexpected chain block action"),
         }
@@ -304,11 +299,7 @@ mod tests {
         let (_, client_res) = tokio::join!(server, client);
         let chain_block = client_res.expect("Client failed to get next chain block");
         match chain_block {
-            ChainBlockNextAction::RollForward {
-                next_point,
-                parsed_block,
-            } => {
-                assert_eq!(next_point, get_fake_chain_point_forwards());
+            ChainBlockNextAction::RollForward { parsed_block } => {
                 assert_eq!(parsed_block, get_fake_scanned_block());
             }
             _ => panic!("Unexpected chain block action"),
@@ -338,17 +329,26 @@ mod tests {
             let client = chain_reader.get_client().await.unwrap();
             client.chainsync().request_next().await.unwrap();
 
+            // make sure that the chainsync client returns an error when attempting to find intersection without agency
+            client
+                .chainsync()
+                .find_intersect(vec![known_point.clone()])
+                .await
+                .expect_err("chainsync find_intersect without agency should fail");
+
+            // make sure that setting the chain point is harmless when the chainsync client does not have agency
+            chain_reader
+                .set_chain_point(&ChainPoint::from(known_point.clone()))
+                .await
+                .unwrap();
+
             chain_reader.get_next_chain_block().await.unwrap().unwrap()
         });
 
         let (_, client_res) = tokio::join!(server, client);
         let chain_block = client_res.expect("Client failed to get next chain block");
         match chain_block {
-            ChainBlockNextAction::RollForward {
-                next_point,
-                parsed_block,
-            } => {
-                assert_eq!(next_point, get_fake_chain_point_forwards());
+            ChainBlockNextAction::RollForward { parsed_block } => {
                 assert_eq!(parsed_block, get_fake_scanned_block());
             }
             _ => panic!("Unexpected chain block action"),

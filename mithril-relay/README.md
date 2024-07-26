@@ -4,17 +4,17 @@
 > **Do not use in production** 🔥
 
 > [!NOTE]  
-> **This is a work in progress** 🛠 
+> **This is a work in progress** 🛠
 
 The **Mithril relay** is an experimental implementation of a relay for Mithril signer and aggregator which supports partial P2P network layer for a Mithril network.
 
 ## Pre-requisites
 
-* Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
+- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
 
-* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
 
-* Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
+- Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
 ## Download the source file
 
@@ -38,7 +38,7 @@ Switch to the desired branch/tag:
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
-Change the directory: 
+Change the directory:
 
 ```bash
 cd mithril/mithril-relay
@@ -106,26 +106,29 @@ Options:
 ```
 
 Run a relay for an aggregator:
+
 ```bash
 ./mithril-relay aggregator --listen-port **P2P_LISTEN_PORT** --aggregator-endpoint **AGGREGATOR_ENDPOINT** --dial-to **OTHER_P2P_PEER_TO_CONNECT_TO**
 ```
 
 Run a relay for a signer:
+
 ```bash
 ./mithril-relay signer --server-port **HTTP_SERVER_LISTENING_PORT** --listen-port **P2P_LISTEN_PORT** --aggregator-endpoint **AGGREGATOR_ENDPOINT** --dial-to **OTHER_P2P_PEER_TO_CONNECT_TO**
 ```
 
 Run a passive relay:
+
 ```bash
 ./mithril-relay passive --dial-to **OTHER_P2P_PEER_TO_CONNECT_TO**
 ```
 
 If you wish to delve deeper and access several levels of logs from the Mithril client, use the following:
 
-* Add `-v` for some logs (WARN)
-* Add `-vv` for more logs (INFO)
-* Add `-vvv` for even more logs (DEBUG)
-* Add `-vvvv` for all logs (TRACE)
+- Add `-v` for some logs (WARN)
+- Add `-vv` for more logs (INFO)
+- Add `-vvv` for even more logs (DEBUG)
+- Add `-vvvv` for all logs (TRACE)
 
 ## Run a Docker container
 
@@ -189,11 +192,11 @@ make docker-run
 
 Here are the subcommands available:
 
-| Subcommand | Performed action |
-|------------|------------------|
-| **aggregator** | Runs a relay for a Mithril aggregator|
-| **signer** | Runs a relay for a Mithril signer|
-| **passive** | Runs a passive relay (just a peer in the P2P network)|
+| Subcommand     | Performed action                                      |
+| -------------- | ----------------------------------------------------- |
+| **aggregator** | Runs a relay for a Mithril aggregator                 |
+| **signer**     | Runs a relay for a Mithril signer                     |
+| **passive**    | Runs a passive relay (just a peer in the P2P network) |
 
 ## Configuration parameters
 
@@ -205,31 +208,31 @@ The configuration parameters can be set in either of the following ways:
 
 Here is a list of the available parameters:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
-| `run_mode` | `--run-mode` | - | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
+| Parameter  | Command line (long) | Command line (short) | Environment variable | Description     | Default value | Example                                                                                                                 |     Mandatory      |
+| ---------- | ------------------- | :------------------: | -------------------- | --------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------- | :----------------: |
+| `verbose`  | `--verbose`         |         `-v`         | `VERBOSE`            | Verbosity level | -             | Parsed from the number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+| `run_mode` | `--run-mode`        |          -           | `RUN_MODE`           | Runtime mode    | `dev`         | -                                                                                                                       | :heavy_check_mark: |
 
 `aggregator` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `listen_port` | `--listen-port` | - | `LISTEN_PORT` | P2P peer listening port | 0 | `9090` | :heavy_check_mark: |
-| `dial_to` | `--dial-to` | - | `DIAL_TO` | P2P peer address to connect to (not needed for first peer) | - | `/ip4/0.0.0.0/tcp/1234` | - |
-| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                | Default value | Example                                                                 |     Mandatory      |
+| --------------------- | ----------------------- | :------------------: | --------------------- | ---------------------------------------------------------- | ------------- | ----------------------------------------------------------------------- | :----------------: |
+| `listen_port`         | `--listen-port`         |          -           | `LISTEN_PORT`         | P2P peer listening port                                    | 0             | `9090`                                                                  | :heavy_check_mark: |
+| `dial_to`             | `--dial-to`             |          -           | `DIAL_TO`             | P2P peer address to connect to (not needed for first peer) | -             | `/ip4/0.0.0.0/tcp/1234`                                                 |         -          |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint                                   | -             | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
 
 `signer` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `listen_port` | `--listen-port` | - | `LISTEN_PORT` | P2P peer listening port | 0 | `9090` | :heavy_check_mark: |
-| `dial_to` | `--dial-to` | - | `DIAL_TO` | P2P peer address to connect to (not needed for first peer) | - | `/ip4/0.0.0.0/tcp/1234` | - |
-| `server_port` | `--server-port` | - | `SERVER_PORT` | HTTP server listening port | 3132 | `8181` | :heavy_check_mark: |
-| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
+| Parameter             | Command line (long)     | Command line (short) | Environment variable  | Description                                                | Default value | Example                                                                 |     Mandatory      |
+| --------------------- | ----------------------- | :------------------: | --------------------- | ---------------------------------------------------------- | ------------- | ----------------------------------------------------------------------- | :----------------: |
+| `listen_port`         | `--listen-port`         |          -           | `LISTEN_PORT`         | P2P peer listening port                                    | 0             | `9090`                                                                  | :heavy_check_mark: |
+| `dial_to`             | `--dial-to`             |          -           | `DIAL_TO`             | P2P peer address to connect to (not needed for first peer) | -             | `/ip4/0.0.0.0/tcp/1234`                                                 |         -          |
+| `server_port`         | `--server-port`         |          -           | `SERVER_PORT`         | HTTP server listening port                                 | 3132          | `8181`                                                                  | :heavy_check_mark: |
+| `aggregator_endpoint` | `--aggregator-endpoint` |          -           | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint                                   | -             | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
 
 `passive` command:
 
-| Parameter | Command line (long) |  Command line (short) | Environment variable | Description | Default value | Example | Mandatory |
-|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `listen_port` | `--listen-port` | - | `LISTEN_PORT` | P2P peer listening port | 0 | `9090` | :heavy_check_mark: |
-| `dial_to` | `--dial-to` | - | `DIAL_TO` | P2P peer address to connect to (not needed for first peer) | - | `/ip4/0.0.0.0/tcp/1234` | - |
+| Parameter     | Command line (long) | Command line (short) | Environment variable | Description                                                | Default value | Example                 |     Mandatory      |
+| ------------- | ------------------- | :------------------: | -------------------- | ---------------------------------------------------------- | ------------- | ----------------------- | :----------------: |
+| `listen_port` | `--listen-port`     |          -           | `LISTEN_PORT`        | P2P peer listening port                                    | 0             | `9090`                  | :heavy_check_mark: |
+| `dial_to`     | `--dial-to`         |          -           | `DIAL_TO`            | P2P peer address to connect to (not needed for first peer) | -             | `/ip4/0.0.0.0/tcp/1234` |         -          |

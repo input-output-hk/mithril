@@ -53,11 +53,11 @@ pub struct Args {
     cardano_slot_length: f64,
 
     /// Length of a Cardano epoch in the devnet (in s)
-    #[clap(long, default_value_t = 30.0)]
+    #[clap(long, default_value_t = 35.0)]
     cardano_epoch_length: f64,
 
     /// Cardano node version
-    #[clap(long, default_value = "8.9.0")]
+    #[clap(long, default_value = "9.1.0")]
     cardano_node_version: String,
 
     /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
@@ -65,7 +65,7 @@ pub struct Args {
     cardano_hard_fork_latest_era_at_epoch: u16,
 
     /// Mithril run interval for nodes (in ms)
-    #[clap(long, default_value_t = 150)]
+    #[clap(long, default_value_t = 125)]
     mithril_run_interval: u32,
 
     /// Mithril era to run

@@ -15,6 +15,6 @@ Protocol attacks:
 - [ ] Sending invalid signatures
 - [ ] Invalidation of signature if adversary did not get "satisfactory" result of the election
 - [ ] Test the claims made in the paper. What portion of the stake does the adversary need to break the system. Ideally,
-  this would be combined with network attacks, where the adversary, controlling a smaller portion that the expected
-  threshold, isolates honest nodes, or disqualifies them somehow.
+      this would be combined with network attacks, where the adversary, controlling a smaller portion that the expected
+      threshold, isolates honest nodes, or disqualifies them somehow.
 - [ ] Improve testing framework of rust library with more engaged attacks.

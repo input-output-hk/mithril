@@ -36,7 +36,7 @@ jobs:
       fail-fast: true
       max-parallel: 1
       matrix:
-        package: [ mithril-client-wasm ]
+        package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
             scope: mithril-dev
@@ -58,6 +58,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish package to npm
         if: inputs.package == matrix.package || inputs.package == 'all'

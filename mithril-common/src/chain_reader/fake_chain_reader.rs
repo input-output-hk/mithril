@@ -1,5 +1,6 @@
-use async_trait::async_trait;
 use std::{collections::VecDeque, sync::Mutex};
+
+use async_trait::async_trait;
 
 use crate::{entities::ChainPoint, StdResult};
 
@@ -33,13 +34,14 @@ impl ChainBlockReader for FakeChainReader {
 #[cfg(test)]
 mod tests {
     use crate::cardano_block_scanner::ScannedBlock;
+    use crate::entities::{BlockNumber, SlotNumber};
 
     use super::*;
 
     fn build_chain_point(id: u64) -> ChainPoint {
         ChainPoint {
-            slot_number: id,
-            block_number: id,
+            slot_number: SlotNumber(id),
+            block_number: BlockNumber(id),
             block_hash: format!("point-hash-{id}"),
         }
     }
@@ -48,15 +50,23 @@ mod tests {
     async fn test_get_next_chain_block() {
         let expected_chain_point_next_actions = vec![
             ChainBlockNextAction::RollForward {
-                next_point: build_chain_point(1),
-                parsed_block: ScannedBlock::new("hash-1", 1, 10, 20, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new(
+                    "hash-1",
+                    BlockNumber(1),
+                    SlotNumber(10),
+                    Vec::<&str>::new(),
+                ),
             },
             ChainBlockNextAction::RollForward {
-                next_point: build_chain_point(2),
-                parsed_block: ScannedBlock::new("hash-2", 2, 11, 21, Vec::<&str>::new()),
+                parsed_block: ScannedBlock::new(
+                    "hash-2",
+                    BlockNumber(2),
+                    SlotNumber(11),
+                    Vec::<&str>::new(),
+                ),
             },
             ChainBlockNextAction::RollBackward {
-                rollback_point: build_chain_point(1),
+                slot_number: build_chain_point(1).slot_number,
             },
         ];
 
