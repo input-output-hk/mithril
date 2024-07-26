@@ -28,7 +28,7 @@ tokio = { version = "1.37.0", features = ["sync"] }
 
 [dev-dependencies]
 mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
-mockall = "0.12.1"
+mockall = "0.13.0"
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
