@@ -33,7 +33,7 @@ impl ArtifactBuilder<Epoch, CardanoStakeDistribution> for CardanoStakeDistributi
     ) -> StdResult<CardanoStakeDistribution> {
         let stake_distribution = self
             .stake_distribution_retriever
-            .retrieve(epoch)
+            .retrieve(epoch.offset_to_recording_epoch())
             .await?
             .ok_or_else(|| anyhow!("No stake distribution found for epoch '{}'", epoch))?;
 
@@ -58,15 +58,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compute_artifact_returns_valid_artifact_if_stakes_stored_for_epoch() {
+    async fn compute_artifact_returns_valid_artifact_and_retrieve_with_epoch_offset() {
         let epoch = Epoch(1);
+        let epoch_to_retrieve = Epoch(2);
         let certificate = fake_data::certificate("whatever".to_string());
         let stake_distribution = StakeDistribution::from([("pool-123".to_string(), 123)]);
         let stake_distribution_clone = stake_distribution.clone();
         let mut mock_storer = MockStakeDistributionRetrieverImpl::new();
         mock_storer
             .expect_retrieve()
-            .with(eq(epoch))
+            .with(eq(epoch_to_retrieve))
             .return_once(move |_| Ok(Some(stake_distribution_clone)));
         let builder = CardanoStakeDistributionArtifactBuilder::new(Arc::new(mock_storer));
 
@@ -80,11 +81,12 @@ mod tests {
     #[tokio::test]
     async fn compute_artifact_returns_error_if_no_stakes_found_for_epoch() {
         let epoch = Epoch(1);
+        let epoch_to_retrieve = Epoch(2);
         let certificate = fake_data::certificate("whatever".to_string());
         let mut mock_storer = MockStakeDistributionRetrieverImpl::new();
         mock_storer
             .expect_retrieve()
-            .with(eq(epoch))
+            .with(eq(epoch_to_retrieve))
             .return_once(move |_| Ok(None));
         let builder = CardanoStakeDistributionArtifactBuilder::new(Arc::new(mock_storer));
 

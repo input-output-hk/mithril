@@ -63,7 +63,7 @@ impl SignableBuilder<Epoch> for CardanoStakeDistributionSignableBuilder {
     async fn compute_protocol_message(&self, epoch: Epoch) -> StdResult<ProtocolMessage> {
         let pools_with_stake = self
             .cardano_stake_distribution_retriever
-            .retrieve(epoch)
+            .retrieve(epoch.offset_to_recording_epoch())
             .await?.ok_or(anyhow!(
                 "CardanoStakeDistributionSignableBuilder could not find the stake distribution for epoch: '{epoch}'"
             ))?;
@@ -86,6 +86,8 @@ impl SignableBuilder<Epoch> for CardanoStakeDistributionSignableBuilder {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::eq;
+
     use crate::entities::ProtocolMessagePartKey;
 
     use super::*;
@@ -150,14 +152,16 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compute_protocol_message_returns_signable() {
+    async fn compute_protocol_message_returns_signable_and_retrieve_with_epoch_offset() {
         let epoch = Epoch(1);
+        let epoch_to_retrieve = Epoch(2);
         let stake_distribution = StakeDistribution::from([("pool-123".to_string(), 100)]);
         let stake_distribution_clone = stake_distribution.clone();
 
         let mut pools_with_stake_retriever = MockStakeDistributionRetriever::new();
         pools_with_stake_retriever
             .expect_retrieve()
+            .with(eq(epoch_to_retrieve))
             .return_once(move |_| Ok(Some(stake_distribution)));
         let cardano_stake_distribution_signable_builder =
             CardanoStakeDistributionSignableBuilder::new(Arc::new(pools_with_stake_retriever));
