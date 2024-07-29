@@ -2,11 +2,14 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use mithril_common::crypto_helper::ProtocolParameters;
-use mithril_common::entities::{BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot};
+use mithril_common::entities::{
+    BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot, StakeDistribution,
+};
 use mithril_common::messages::{
-    CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
-    MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
-    SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
+    CardanoStakeDistributionMessage, CardanoTransactionSnapshotListItemMessage,
+    CardanoTransactionSnapshotMessage, MithrilStakeDistributionListItemMessage,
+    MithrilStakeDistributionMessage, SignerWithStakeMessagePart, SnapshotListItemMessage,
+    SnapshotMessage,
 };
 use mithril_common::signable_builder::Artifact;
 use mithril_common::StdError;
@@ -230,6 +233,29 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
         };
 
         Ok(message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for CardanoStakeDistributionMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpCardanoStakeDistribution {
+            epoch: Epoch,
+            hash: String,
+            stake_distribution: StakeDistribution,
+        }
+        let artifact = serde_json::from_str::<TmpCardanoStakeDistribution>(&value.artifact)?;
+        let cardano_stake_distribution_message = CardanoStakeDistributionMessage {
+            epoch: artifact.epoch,
+            stake_distribution: artifact.stake_distribution,
+            hash: artifact.hash,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
+        };
+
+        Ok(cardano_stake_distribution_message)
     }
 }
 
