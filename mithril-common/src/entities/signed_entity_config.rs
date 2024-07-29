@@ -92,13 +92,10 @@ impl SignedEntityConfig {
         &self,
         time_point: &TimePoint,
     ) -> StdResult<Vec<SignedEntityType>> {
-        let mut list_allowed_signed_entity_types: Vec<SignedEntityType> = vec![];
-        for discriminant in self.list_allowed_signed_entity_types_discriminants() {
-            list_allowed_signed_entity_types
-                .push(self.time_point_to_signed_entity(discriminant, time_point)?);
-        }
-
-        Ok(list_allowed_signed_entity_types)
+        self.list_allowed_signed_entity_types_discriminants()
+            .into_iter()
+            .map(|discriminant| self.time_point_to_signed_entity(discriminant, time_point))
+            .collect()
     }
 }
 

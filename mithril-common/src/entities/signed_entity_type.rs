@@ -82,7 +82,7 @@ impl SignedEntityType {
     pub fn get_epoch_when_signed_entity_type_is_signed(&self) -> Epoch {
         match self {
             Self::CardanoImmutableFilesFull(beacon) => beacon.epoch,
-            Self::CardanoStakeDistribution(epoch) => *epoch + 1,
+            Self::CardanoStakeDistribution(epoch) => epoch.next(),
             Self::MithrilStakeDistribution(epoch) | Self::CardanoTransactions(epoch, _) => *epoch,
         }
     }
