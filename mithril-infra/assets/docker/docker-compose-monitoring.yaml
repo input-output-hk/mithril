@@ -73,6 +73,23 @@ services:
       options:
         tag: "{{.ImageName}}|{{.Name}}|{{.ImageFullID}}|{{.FullID}}"
 
+  disk-usage-exporter:
+    container_name: disk-usage-exporter
+    restart: always
+    build:
+      context: .
+      dockerfile: ./prometheus/disk_usage_exporter/Dockerfile
+      args:
+        DISK_USAGE_EXPORTER_VERSION: 0.6.0
+    profiles:
+      - all
+    ports:
+      - "9995:9995"
+    volumes:
+      - ./prometheus/disk_usage_exporter/disk_usage_exporter.yml:/config/disk_usage_exporter.yml:ro
+      - ../data/${NETWORK}/:/data
+    command: ["run", "--config", "/config/disk_usage_exporter.yml"]
+
   loki:
     image: grafana/loki:2.8.0
     container_name: loki

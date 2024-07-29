@@ -23,6 +23,10 @@ scrape_configs:
     static_configs:
       - targets: ["process-exporter:9256"]
 
+  - job_name: "disk-usage-exporter"
+    static_configs:
+      - targets: ["disk-usage-exporter:9995"]
+
   - job_name: "reverse-proxy"
     static_configs:
       - targets: ["reverse-proxy:8080"]
