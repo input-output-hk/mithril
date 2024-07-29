@@ -249,7 +249,8 @@ mod test {
             time_point.epoch,
             time_point.immutable_file_number,
             SignedEntityConfig::dummy()
-                .time_point_to_signed_entity(signed_entity_type, &time_point),
+                .time_point_to_signed_entity(signed_entity_type, &time_point)
+                .unwrap(),
         );
 
         certificate.into()

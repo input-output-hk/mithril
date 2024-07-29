@@ -6,7 +6,7 @@ use crate::entities::{
     BlockNumber, BlockRange, CardanoDbBeacon, SignedEntityType, SignedEntityTypeDiscriminants,
     TimePoint,
 };
-use crate::CardanoNetwork;
+use crate::{CardanoNetwork, StdResult};
 
 /// Convert [TimePoint] to [SignedEntityType] and list allowed signed entity types and
 /// discriminants.
@@ -57,13 +57,13 @@ impl SignedEntityConfig {
         &self,
         discriminant: D,
         time_point: &TimePoint,
-    ) -> SignedEntityType {
-        match discriminant.into() {
+    ) -> StdResult<SignedEntityType> {
+        let signed_entity_type = match discriminant.into() {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
                 SignedEntityType::MithrilStakeDistribution(time_point.epoch)
             }
             SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                SignedEntityType::CardanoStakeDistribution(time_point.epoch)
+                SignedEntityType::CardanoStakeDistribution(time_point.epoch.previous()?)
             }
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
                 SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
@@ -79,7 +79,9 @@ impl SignedEntityConfig {
                         .compute_block_number_to_be_signed(time_point.chain_point.block_number),
                 )
             }
-        }
+        };
+
+        Ok(signed_entity_type)
     }
 
     /// Create the deduplicated list of allowed signed entity types discriminants.
@@ -89,7 +91,7 @@ impl SignedEntityConfig {
     pub fn list_allowed_signed_entity_types(
         &self,
         time_point: &TimePoint,
-    ) -> Vec<SignedEntityType> {
+    ) -> StdResult<Vec<SignedEntityType>> {
         self.list_allowed_signed_entity_types_discriminants()
             .into_iter()
             .map(|discriminant| self.time_point_to_signed_entity(discriminant, time_point))
@@ -184,26 +186,33 @@ mod tests {
 
         assert_eq!(
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            config.time_point_to_signed_entity(
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                &time_point
-            )
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    &time_point
+                )
+                .unwrap()
         );
 
+        // An offset of -1 is applied to the epoch of the time point to get the epoch of the stake distribution to be signed
         assert_eq!(
-            SignedEntityType::CardanoStakeDistribution(Epoch(1)),
-            config.time_point_to_signed_entity(
-                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                &time_point
-            )
+            SignedEntityType::CardanoStakeDistribution(Epoch(0)),
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                    &time_point
+                )
+                .unwrap()
         );
 
         assert_eq!(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 1, 5)),
-            config.time_point_to_signed_entity(
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                &time_point
-            )
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                    &time_point
+                )
+                .unwrap()
         );
 
         // The block number to be signed is 14 because the step is 15, the block number is 20, and
@@ -211,10 +220,12 @@ mod tests {
         // This is further tested in the "computing_block_number_to_be_signed" tests below.
         assert_eq!(
             SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(14)),
-            config.time_point_to_signed_entity(
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-                &time_point
-            )
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    &time_point
+                )
+                .unwrap()
         );
     }
 
@@ -424,12 +435,14 @@ mod tests {
             },
         };
 
-        let signed_entity_types = config.list_allowed_signed_entity_types(&time_point);
+        let signed_entity_types = config
+            .list_allowed_signed_entity_types(&time_point)
+            .unwrap();
 
         assert_eq!(
             vec![
                 SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-                SignedEntityType::CardanoStakeDistribution(beacon.epoch),
+                SignedEntityType::CardanoStakeDistribution(beacon.epoch - 1),
                 SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
                 SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number - 1),
             ],

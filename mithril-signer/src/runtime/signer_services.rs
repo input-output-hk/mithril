@@ -17,9 +17,9 @@ use mithril_common::{
     },
     era::{EraChecker, EraReader},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
-        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
-        SignableBuilderService,
+        CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
+        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+        MithrilStakeDistributionSignableBuilder, SignableBuilderService,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdResult, TickerService,
@@ -320,10 +320,14 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             block_range_root_retriever,
             slog_scope::logger(),
         ));
+        let cardano_stake_distribution_signable_builder = Arc::new(
+            CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
+        );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
+            cardano_stake_distribution_signable_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let preloader_activation =

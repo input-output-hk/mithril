@@ -45,7 +45,7 @@ impl OpenMessageRepository {
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
         self.connection.fetch_first(
             GetOpenMessageWithSingleSignaturesQuery::by_epoch_and_signed_entity_type(
-                signed_entity_type.get_epoch(),
+                signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
                 signed_entity_type,
             )?,
         )

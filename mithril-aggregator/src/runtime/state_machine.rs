@@ -240,7 +240,7 @@ impl AggregatorRuntime {
                         .time_point_to_signed_entity(
                             &state.open_message.signed_entity_type,
                             &last_time_point,
-                        );
+                        )?;
                     new_signed_entity_type != state.open_message.signed_entity_type
                 };
 

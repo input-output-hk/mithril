@@ -37,9 +37,9 @@ use mithril_common::{
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
     },
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
-        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
-        SignableBuilderService, TransactionsImporter,
+        CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
+        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+        MithrilStakeDistributionSignableBuilder, SignableBuilderService, TransactionsImporter,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, TickerService,
@@ -52,8 +52,8 @@ use mithril_persistence::{
 
 use crate::{
     artifact_builder::{
-        CardanoImmutableFilesFullArtifactBuilder, CardanoTransactionsArtifactBuilder,
-        MithrilStakeDistributionArtifactBuilder,
+        CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
+        CardanoTransactionsArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
     database::repository::{
@@ -1090,10 +1090,14 @@ impl DependenciesBuilder {
             block_range_root_retriever,
             self.get_logger()?,
         ));
+        let cardano_stake_distribution_builder = Arc::new(
+            CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
+        );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
             cardano_transactions_builder,
+            cardano_stake_distribution_builder,
         ));
 
         Ok(signable_builder_service)
@@ -1130,12 +1134,16 @@ impl DependenciesBuilder {
         let cardano_transactions_artifact_builder = Arc::new(
             CardanoTransactionsArtifactBuilder::new(prover_service.clone()),
         );
+        let stake_store = self.get_stake_store().await?;
+        let cardano_stake_distribution_artifact_builder =
+            Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
             self.get_signed_entity_lock().await?,
+            cardano_stake_distribution_artifact_builder,
         ));
 
         // Compute the cache pool for prover service

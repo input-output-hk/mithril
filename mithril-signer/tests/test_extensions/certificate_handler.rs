@@ -99,7 +99,8 @@ impl AggregatorClient for FakeAggregator {
             epoch: time_point.epoch,
             signed_entity_type: self
                 .signed_entity_config
-                .time_point_to_signed_entity(current_signed_entity, &time_point),
+                .time_point_to_signed_entity(current_signed_entity, &time_point)
+                .unwrap(),
             ..fake_data::certificate_pending()
         };
 

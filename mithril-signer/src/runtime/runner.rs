@@ -478,8 +478,8 @@ mod tests {
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
-            CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-            MithrilStakeDistributionSignableBuilder,
+            CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
+            MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         },
         signed_entity_type_lock::SignedEntityTypeLock,
         test_utils::{fake_data, MithrilFixtureBuilder},
@@ -570,10 +570,15 @@ mod tests {
             block_range_root_retriever,
             slog_scope::logger(),
         ));
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let cardano_stake_distribution_builder = Arc::new(
+            CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
+        );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
+            cardano_stake_distribution_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
@@ -589,7 +594,7 @@ mod tests {
         let upkeep_service = Arc::new(MockUpkeepService::new());
 
         SignerServices {
-            stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
+            stake_store,
             certificate_handler: Arc::new(DumbAggregatorClient::default()),
             chain_observer,
             digester,

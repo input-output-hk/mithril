@@ -274,7 +274,7 @@ impl CertifierService for MithrilCertifierService {
         let open_message = self
             .open_message_repository
             .create_open_message(
-                signed_entity_type.get_epoch(),
+                signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
                 signed_entity_type,
                 protocol_message,
             )
@@ -283,7 +283,7 @@ impl CertifierService for MithrilCertifierService {
                 format!(
                     "Certifier can not create open message from protocol_message: '{:?}, epoch: '{}''",
                     protocol_message,
-                    signed_entity_type.get_epoch()
+                    signed_entity_type.get_epoch_when_signed_entity_type_is_signed()
                 )
             })?;
         info!("CertifierService::create_open_message: created open message for {signed_entity_type:?}");
