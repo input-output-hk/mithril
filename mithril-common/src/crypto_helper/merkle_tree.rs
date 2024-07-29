@@ -327,7 +327,7 @@ impl MKTree {
 
 impl Clone for MKTree {
     fn clone(&self) -> Self {
-        // Cloning should never fail so uwnrap is safe
+        // Cloning should never fail so unwrap is safe
         Self::new(&self.leaves()).unwrap()
     }
 }

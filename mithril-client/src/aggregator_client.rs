@@ -678,7 +678,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_client_can_fallback_to_a_second_version_when_412_api_version_mistmatch() {
+    async fn test_client_can_fallback_to_a_second_version_when_412_api_version_mismatch() {
         let bad_version = "0.0.0";
         let good_version = "1.0.0";
 

@@ -21,7 +21,7 @@ impl ProtocolParameters {
         ProtocolParameters { k, m, phi_f }
     }
 
-    /// phi_f_fixed is a fixed decimal representatio of phi_f
+    /// phi_f_fixed is a fixed decimal representation of phi_f
     /// used for PartialEq and Hash implementation
     pub fn phi_f_fixed(&self) -> U8F24 {
         U8F24::from_num(self.phi_f)

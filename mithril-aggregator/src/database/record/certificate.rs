@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 
 use mithril_common::entities::{
     CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
-    HexEncodedAgregateVerificationKey, HexEncodedKey, ImmutableFileNumber, ProtocolMessage,
+    HexEncodedAggregateVerificationKey, HexEncodedKey, ImmutableFileNumber, ProtocolMessage,
     ProtocolParameters, ProtocolVersion, SignedEntityType, StakeDistributionParty,
 };
 use mithril_common::era_deprecate;
@@ -36,7 +36,7 @@ pub struct CertificateRecord {
 
     /// Aggregate verification key
     /// Note: used only if signature is a multi-signature
-    pub aggregate_verification_key: HexEncodedAgregateVerificationKey,
+    pub aggregate_verification_key: HexEncodedAggregateVerificationKey,
 
     /// Epoch of creation of the certificate.
     pub epoch: Epoch,

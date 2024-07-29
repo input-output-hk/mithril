@@ -93,7 +93,7 @@ mod tests {
             "protocol_parameters": {"k": 5, "m": 100, "phi_f": 0.65 }
         }"#;
         let message: MithrilStakeDistributionMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a MithrilStakeDistributionMessage instance.",
+            "This JSON is expected to be successfully parsed into a MithrilStakeDistributionMessage instance.",
         );
 
         assert_eq!(golden_message(), message);

@@ -19,7 +19,7 @@ impl<MSG> TransmitterService<MSG>
 where
     MSG: Debug + Sync + Send,
 {
-    /// Instanciate a new Service by passing a MPSC transmitter.
+    /// Instantiate a new Service by passing a MPSC transmitter.
     pub fn new(transmitter: UnboundedSender<MSG>) -> Self {
         Self { transmitter }
     }
@@ -62,7 +62,7 @@ impl TransmitterService<EventMessage> {
         };
         self.get_transmitter().send(message.clone()).map_err(|e| {
             let error_msg =
-                format!("An error occured when sending message {message:?} to monitoring: '{e}'.");
+                format!("An error occurred when sending message {message:?} to monitoring: '{e}'.");
             warn!("Event message error => «{error_msg}»");
 
             error_msg

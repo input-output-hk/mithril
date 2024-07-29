@@ -46,7 +46,7 @@ async fn certificate_chain() {
         .unwrap();
     let mut current_epoch = observer.current_epoch().await;
 
-    comment!("Boostrap the genesis certificate, {:?}", current_epoch);
+    comment!("Bootstrap the genesis certificate, {:?}", current_epoch);
     tester
         .register_genesis_certificate(&initial_fixture)
         .await

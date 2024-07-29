@@ -14,7 +14,7 @@ use crate::{
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
-        Certificate, Epoch, HexEncodedAgregateVerificationKey, ImmutableFileNumber, PartyId,
+        Certificate, Epoch, HexEncodedAggregateVerificationKey, ImmutableFileNumber, PartyId,
         ProtocolMessage, ProtocolParameters, Signer, SignerWithStake, SingleSignatures, Stake,
         StakeDistribution, StakeDistributionParty,
     },
@@ -163,8 +163,8 @@ impl MithrilFixture {
             .compute_aggregate_verification_key()
     }
 
-    /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAgregateVerificationKey].
-    pub fn compute_and_encode_avk(&self) -> HexEncodedAgregateVerificationKey {
+    /// Compute the Aggregate Verification Key for this fixture and returns it has a [HexEncodedAggregateVerificationKey].
+    pub fn compute_and_encode_avk(&self) -> HexEncodedAggregateVerificationKey {
         let avk = self.compute_avk();
         avk.to_json_hex().unwrap()
     }

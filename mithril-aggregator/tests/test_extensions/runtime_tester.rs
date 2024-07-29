@@ -408,7 +408,7 @@ impl RuntimeTester {
             } else {
                 panic!(
                     "Signer '{}' could not sign. \
-                    This test is based on the assumption that every signer signs everytime. \
+                    This test is based on the assumption that every signer signs every time. \
                     Possible fix: relax the protocol parameters or give more stakes to this signer.",
                     signer_fixture.signer_with_stake.party_id,
                 );

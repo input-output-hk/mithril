@@ -128,7 +128,7 @@ impl TryInto<i64> for &Epoch {
     }
 }
 
-/// EpochError is an error triggerred by an [Epoch]
+/// EpochError is an error triggered by an [Epoch]
 #[derive(Error, Debug)]
 pub enum EpochError {
     /// Error raised when the [computation of an epoch using an offset][Epoch::offset_by] fails.

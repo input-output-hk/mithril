@@ -62,7 +62,7 @@ impl RemoteFileUploader for GcpFileUploader {
         info!("uploaded {}", filename);
 
         // ensure the uploaded file as public read access
-        // when a file is uploaded to gcloud storage its permissions are overwritten so
+        // when a file is uploaded to Google cloud storage its permissions are overwritten so
         // we need to put them back
         let new_bucket_access_control = NewObjectAccessControl {
             entity: Entity::AllUsers,

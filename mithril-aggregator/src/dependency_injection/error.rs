@@ -8,7 +8,7 @@ use mithril_common::StdError;
 /// Result with the [DependenciesBuilderError] error.
 pub type Result<T> = std::result::Result<T, DependenciesBuilderError>;
 
-/// Error that can occure during dependencies initialization process.
+/// Error that can occur during dependencies initialization process.
 #[derive(Debug)]
 pub enum DependenciesBuilderError {
     /// Unrecoverable system initialization failure

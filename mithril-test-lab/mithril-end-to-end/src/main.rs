@@ -23,7 +23,7 @@ pub struct Args {
     #[command(subcommand)]
     command: Option<EndToEndCommands>,
 
-    /// A directory where all logs, generated devnet artefacts, snapshots and store folder
+    /// A directory where all logs, generated devnet artifacts, snapshots and store folder
     /// will be located.
     ///
     /// Optional: if not set it will default to `{system_temp_folder}/mithril-end-to-end`
@@ -32,7 +32,7 @@ pub struct Args {
     #[clap(long)]
     work_directory: Option<PathBuf>,
 
-    /// Directory containing scripts to boostrap a devnet
+    /// Directory containing scripts to bootstrap a devnet
     #[clap(long, default_value = "./devnet")]
     devnet_scripts_directory: PathBuf,
 

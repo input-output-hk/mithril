@@ -652,7 +652,7 @@ mod tests {
     /// Sets up a mock server for related tests.
     ///
     /// Use the `intersections` parameter to define exactly how many
-    /// local state queries should be intersepted by the `mock_server`
+    /// local state queries should be intercepted by the `mock_server`
     /// and avoid any panic errors.
     async fn setup_server(socket_path: PathBuf, intersections: u32) -> tokio::task::JoinHandle<()> {
         tokio::spawn({

@@ -58,7 +58,7 @@ pub enum SignedEntityType {
 }
 
 impl SignedEntityType {
-    /// Retrieve a dummy enty (for test only)
+    /// Retrieve a dummy entity type (for test only)
     pub fn dummy() -> Self {
         Self::MithrilStakeDistribution(Epoch(5))
     }

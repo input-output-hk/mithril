@@ -34,7 +34,7 @@ pub type HexEncodedKeySlice<'a> = &'a str;
 pub type HexEncodedSingleSignature = HexEncodedKey;
 
 /// Hex encoded Aggregate Verification Key
-pub type HexEncodedAgregateVerificationKey = HexEncodedKey;
+pub type HexEncodedAggregateVerificationKey = HexEncodedKey;
 
 /// Hex encoded Verification Key
 pub type HexEncodedVerificationKey = HexEncodedKey;

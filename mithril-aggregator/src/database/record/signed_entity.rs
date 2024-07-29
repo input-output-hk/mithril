@@ -131,7 +131,7 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionMessage {
             protocol_parameters: ProtocolParameters,
         }
         let artifact = serde_json::from_str::<TmpMithrilStakeDistribution>(&value.artifact)?;
-        let mithtril_stake_distribution_message = MithrilStakeDistributionMessage {
+        let mithril_stake_distribution_message = MithrilStakeDistributionMessage {
             epoch: artifact.epoch,
             signers_with_stake: artifact.signers_with_stake,
             hash: artifact.hash,
@@ -140,7 +140,7 @@ impl TryFrom<SignedEntityRecord> for MithrilStakeDistributionMessage {
             protocol_parameters: artifact.protocol_parameters.into(),
         };
 
-        Ok(mithtril_stake_distribution_message)
+        Ok(mithril_stake_distribution_message)
     }
 }
 

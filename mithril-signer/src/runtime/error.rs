@@ -58,7 +58,7 @@ impl Display for RuntimeError {
                 };
                 write!(
                     f,
-                    "An error occured, runtime state kept. message = '{message}'. {nested}"
+                    "An error occurred, runtime state kept. message = '{message}'. {nested}"
                 )
             }
             Self::Critical {
@@ -72,7 +72,7 @@ impl Display for RuntimeError {
                 };
                 write!(
                     f,
-                    "A critical error occured, aborting runtime. message = '{message}'. {nested}"
+                    "A critical error occurred, aborting runtime. message = '{message}'. {nested}"
                 )
             }
         }

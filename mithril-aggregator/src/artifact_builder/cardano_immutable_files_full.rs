@@ -300,7 +300,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn remove_snapshot_archive_after_upload_even_if_an_error_occured() {
+    async fn remove_snapshot_archive_after_upload_even_if_an_error_occurred() {
         let file = NamedTempFile::new().unwrap();
         let file_path = file.path();
         let snapshot = OngoingSnapshot::new(file_path.to_path_buf(), 7331);

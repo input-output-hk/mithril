@@ -79,7 +79,7 @@ mod tests {
 "indexes": [1, 3]
 }"#;
         let message: RegisterSignatureMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a RegisterSignatureMessage instance.",
+            "This JSON is expected to be successfully parsed into a RegisterSignatureMessage instance.",
         );
 
         assert_eq!(golden_message(), message);
