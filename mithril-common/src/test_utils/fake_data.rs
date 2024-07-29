@@ -7,7 +7,7 @@ use crate::crypto_helper::{self, ProtocolMultiSignature};
 use crate::entities::{
     self, BlockNumber, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch,
     LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
-    SlotNumber, StakeDistributionParty,
+    SlotNumber, StakeDistribution, StakeDistributionParty,
 };
 use crate::test_utils::MithrilFixtureBuilder;
 
@@ -257,4 +257,17 @@ pub const fn transaction_hashes<'a>() -> [&'a str; 5] {
         "3f6f3c981c89097f62c9b43632875db7a52183ad3061c822d98259d18cd63dcf",
         "f4fd91dccc25fd63f2caebab3d3452bc4b2944fcc11652214a3e8f1d32b09713",
     ]
+}
+
+/// Fake Cardano Stake Distribution
+pub fn cardano_stake_distributions(total: u64) -> Vec<entities::CardanoStakeDistribution> {
+    let stake_distribution = StakeDistribution::from([("pool-1".to_string(), 100)]);
+
+    (1..total + 1)
+        .map(|epoch_idx| entities::CardanoStakeDistribution {
+            hash: format!("hash-epoch-{epoch_idx}"),
+            epoch: Epoch(epoch_idx),
+            stake_distribution: stake_distribution.clone(),
+        })
+        .collect::<Vec<entities::CardanoStakeDistribution>>()
 }

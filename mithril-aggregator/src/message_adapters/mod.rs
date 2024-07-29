@@ -1,5 +1,6 @@
 mod from_register_signature;
 mod from_register_signer;
+mod to_cardano_stake_distribution_message;
 mod to_cardano_transaction_list_message;
 mod to_cardano_transaction_message;
 mod to_cardano_transactions_proof_message;
@@ -12,6 +13,8 @@ mod to_snapshot_message;
 
 pub use from_register_signature::FromRegisterSingleSignatureAdapter;
 pub use from_register_signer::FromRegisterSignerAdapter;
+#[cfg(test)]
+pub use to_cardano_stake_distribution_message::ToCardanoStakeDistributionMessageAdapter;
 #[cfg(test)]
 pub use to_cardano_transaction_list_message::ToCardanoTransactionListMessageAdapter;
 #[cfg(test)]
