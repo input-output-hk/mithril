@@ -254,7 +254,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> Reset for MKMap<K, V> {
 
 impl<K: MKMapKey, V: MKMapValue<K>> Clone for MKMap<K, V> {
     fn clone(&self) -> Self {
-        // Cloning should never fail so uwnrap is safe
+        // Cloning should never fail so unwrap is safe
         let mut clone = Self::new(&[]).unwrap();
         for (k, v) in self.inner_map_values.iter() {
             clone.insert(k.to_owned(), v.to_owned()).unwrap();
@@ -618,7 +618,7 @@ mod tests {
                 BlockRange::new(10, 12),
                 MKMapNode::TreeNode("whatever".into()),
             )
-            .expect_err("the MKMap should reject replacement for inexisting key");
+            .expect_err("the MKMap should reject replacement for nonexisting key");
 
         assert!(
             error

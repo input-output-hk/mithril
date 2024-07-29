@@ -261,7 +261,7 @@ impl AggregatorRuntime {
                     let new_state = self
                         .transition_from_signing_to_ready_multisignature(state)
                         .await?;
-                    info!("→ a multi-signature have been created, build an artifact & a certificate and transitioning back to READY");
+                    info!("→ a multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
                     self.state = AggregatorState::Ready(new_state);
                 }
             }

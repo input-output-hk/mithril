@@ -40,7 +40,7 @@ impl StakePoolDistributionServiceError {
     /// Simple way to nest technical errors
     pub fn technical_subsystem(error: StdError) -> Box<Self> {
         Box::new(Self::Technical {
-            message: "Stake pool service subsystem error occured.".to_string(),
+            message: "Stake pool service subsystem error occurred.".to_string(),
             error: Some(error),
         })
     }

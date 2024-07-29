@@ -25,7 +25,7 @@ pub enum SignerState {
         epoch: Epoch,
     },
 
-    /// `Registered` state. The Signer has successfuly registered against the
+    /// `Registered` state. The Signer has successfully registered against the
     /// Aggregator for this Epoch, it is now able to sign.
     Registered {
         /// Epoch when Signer may sign.

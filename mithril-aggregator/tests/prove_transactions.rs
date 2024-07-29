@@ -55,7 +55,7 @@ async fn prove_transactions() {
 
     tester.init_state_from_fixture(&fixture).await.unwrap();
 
-    comment!("Boostrap the genesis certificate");
+    comment!("Bootstrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
 
     assert_last_certificate_eq!(

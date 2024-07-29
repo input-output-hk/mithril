@@ -43,7 +43,7 @@ fn proof_cardano_transaction(
             dependency_manager.clone(),
         ))
         .and(
-            middlewares::validators::with_prover_transations_hash_validator(
+            middlewares::validators::with_prover_transactions_hash_validator(
                 dependency_manager.clone(),
             ),
         )

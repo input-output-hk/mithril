@@ -7,9 +7,9 @@ use std::{
 
 pub static COMMENT_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-/// Create a directory to save test artefacts. This directory is cleaned if it
+/// Create a directory to save test artifacts. This directory is cleaned if it
 /// already exists, it is created if not. This directory is kept at the end to
-/// allow debuging.
+/// allow debugging.
 pub fn get_test_dir(subdir_name: &str) -> PathBuf {
     TempDir::create("aggregator-integration", subdir_name)
 }

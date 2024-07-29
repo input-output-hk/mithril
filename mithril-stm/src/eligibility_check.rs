@@ -148,7 +148,7 @@ mod tests {
 
         #[cfg(feature = "num-integer-backend")]
         #[test]
-        /// Checking the early break of Taylor compuation
+        /// Checking the early break of Taylor computation
         fn early_break_taylor(
             x in -0.9..0.9f64,
         ) {

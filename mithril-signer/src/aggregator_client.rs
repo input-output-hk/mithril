@@ -352,7 +352,7 @@ pub(crate) mod dumb {
     }
 
     impl DumbAggregatorClient {
-        /// Instanciate a new DumbCertificateHandler.
+        /// Instantiate a new DumbCertificateHandler.
         pub fn new() -> Self {
             Self {
                 epoch_settings: RwLock::new(None),

@@ -119,7 +119,7 @@ pub mod validators {
     use super::*;
 
     /// With Prover Transactions Hash Validator
-    pub fn with_prover_transations_hash_validator(
+    pub fn with_prover_transactions_hash_validator(
         dependency_manager: Arc<DependencyContainer>,
     ) -> impl Filter<Extract = (ProverTransactionsHashValidator,), Error = Infallible> + Clone {
         let max_hashes = dependency_manager

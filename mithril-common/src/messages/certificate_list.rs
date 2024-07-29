@@ -330,7 +330,7 @@ mod tests {
         }]"#;
 
         let message: CertificateListMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a CertificateListMessage instance.",
+            "This JSON is expected to be successfully parsed into a CertificateListMessage instance.",
         );
 
         #[allow(deprecated)]

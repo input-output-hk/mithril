@@ -1,5 +1,5 @@
 use mithril_common::entities::{
-    CardanoDbBeacon, HexEncodedAgregateVerificationKey, PartyId, SignedEntityType, Stake,
+    CardanoDbBeacon, HexEncodedAggregateVerificationKey, PartyId, SignedEntityType, Stake,
     StakeDistributionParty,
 };
 use std::collections::BTreeMap;
@@ -10,7 +10,7 @@ pub struct ExpectedCertificate {
     previous_identifier: Option<String>,
     beacon: CardanoDbBeacon,
     signers: BTreeMap<PartyId, Stake>,
-    avk: HexEncodedAgregateVerificationKey,
+    avk: HexEncodedAggregateVerificationKey,
     signed_type: Option<SignedEntityType>,
 }
 
@@ -18,7 +18,7 @@ impl ExpectedCertificate {
     pub fn new(
         beacon: CardanoDbBeacon,
         signers: &[StakeDistributionParty],
-        avk: HexEncodedAgregateVerificationKey,
+        avk: HexEncodedAggregateVerificationKey,
         signed_type: SignedEntityType,
         previous_identifier: String,
     ) -> Self {
@@ -32,7 +32,7 @@ impl ExpectedCertificate {
         }
     }
 
-    pub fn new_genesis(beacon: CardanoDbBeacon, avk: HexEncodedAgregateVerificationKey) -> Self {
+    pub fn new_genesis(beacon: CardanoDbBeacon, avk: HexEncodedAggregateVerificationKey) -> Self {
         Self {
             identifier: Self::genesis_identifier(&beacon),
             previous_identifier: None,

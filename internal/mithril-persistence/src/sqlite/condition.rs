@@ -62,7 +62,7 @@ impl Default for WhereCondition {
 }
 
 impl WhereCondition {
-    /// Instanciate a new condition from an expression.
+    /// Instantiate a new condition from an expression.
     pub fn new(expression: &str, parameters: Vec<Value>) -> Self {
         Self {
             condition: BooleanCondition::Expression(expression.to_string()),
@@ -88,7 +88,7 @@ impl WhereCondition {
         (final_expression, parameters)
     }
 
-    /// Instanciate a condition with a `IN` statement.
+    /// Instantiate a condition with a `IN` statement.
     pub fn where_in(field: &str, parameters: Vec<Value>) -> Self {
         let params: Vec<&str> = repeat("?*").take(parameters.len()).collect();
         let expression = format!("{} in ({})", field, params.join(", "));

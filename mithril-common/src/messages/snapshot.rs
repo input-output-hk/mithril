@@ -118,7 +118,7 @@ mod tests {
 ]
 }"#;
         let message: SnapshotMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a SnapshotMessage instance.",
+            "This JSON is expected to be successfully parsed into a SnapshotMessage instance.",
         );
 
         assert_eq!(golden_message_v1(), message);
@@ -143,7 +143,7 @@ mod tests {
 "cardano_node_version": "0.0.1"
 }"#;
         let message: SnapshotMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a SnapshotMessage instance.",
+            "This JSON is expected to be successfully parsed into a SnapshotMessage instance.",
         );
 
         assert_eq!(golden_message_v2(), message);

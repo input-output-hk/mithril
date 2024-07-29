@@ -21,7 +21,7 @@ pub struct OpenMessageRepository {
 }
 
 impl OpenMessageRepository {
-    /// Instanciate service
+    /// Instantiate service
     pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }

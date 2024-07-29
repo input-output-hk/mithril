@@ -64,7 +64,7 @@ mod tests {
 "next_protocol":  { "k": 50, "m": 1000, "phi_f": 0.65 }
 }"#;
         let message: EpochSettingsMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a EpochSettingsMessage instance.",
+            "This JSON is expected to be successfully parsed into a EpochSettingsMessage instance.",
         );
 
         assert_eq!(golden_message(), message);

@@ -218,11 +218,11 @@ mod tests {
 
         // test
         let certificate_hash = "whatever";
-        let certficate_message = service
+        let certificate_message = service
             .get_certificate_message(certificate_hash)
             .await
             .unwrap();
-        assert!(certficate_message.is_none());
+        assert!(certificate_message.is_none());
     }
 
     #[tokio::test]

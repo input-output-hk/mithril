@@ -37,7 +37,7 @@ pub struct ProgressPrinter {
 }
 
 impl ProgressPrinter {
-    /// Instanciate a new progress printer
+    /// Instantiate a new progress printer
     pub fn new(output_type: ProgressOutputType, number_of_steps: u16) -> Self {
         Self {
             multi_progress: MultiProgress::with_draw_target(output_type.into()),

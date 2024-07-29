@@ -63,13 +63,13 @@ impl ProtocolParametersStorer for FakeProtocolParametersStorer {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
     ) -> StdResult<Option<ProtocolParameters>> {
-        let mut protocol_paremeters = self.protocol_parameters.write().await;
-        Ok(protocol_paremeters.insert(epoch, protocol_parameters))
+        let mut protocol_parameters_write = self.protocol_parameters.write().await;
+        Ok(protocol_parameters_write.insert(epoch, protocol_parameters))
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
-        let protocol_paremeters = self.protocol_parameters.read().await;
-        Ok(protocol_paremeters.get(&epoch).cloned())
+        let protocol_parameters = self.protocol_parameters.read().await;
+        Ok(protocol_parameters.get(&epoch).cloned())
     }
 }
 
@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_discrepandies_at_startup_should_complete_at_least_two_epochs() {
+    async fn test_handle_discrepancies_at_startup_should_complete_at_least_two_epochs() {
         let protocol_parameters = fake_data::protocol_parameters();
         let protocol_parameters_new = ProtocolParameters {
             k: protocol_parameters.k + 1,

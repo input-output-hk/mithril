@@ -29,7 +29,7 @@ impl CardanoTransactionsPreloaderChecker for CardanoTransactionsPreloaderActivat
             .aggregator_client
             .retrieve_aggregator_features()
             .await
-            .with_context(|| "An error occured while calling the Aggregator")?;
+            .with_context(|| "An error occurred while calling the Aggregator")?;
 
         let activated_signed_entity_types = message.capabilities.signed_entity_types;
 

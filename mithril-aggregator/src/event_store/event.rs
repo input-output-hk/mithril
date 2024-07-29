@@ -30,7 +30,7 @@ pub struct EventMessage {
 }
 
 impl EventMessage {
-    /// Instanciate a new EventMessage.
+    /// Instantiate a new EventMessage.
     pub fn new(source: &str, action: &str, content: &str) -> Self {
         Self {
             source: source.to_string(),
@@ -147,7 +147,7 @@ pub struct EventPersister {
 }
 
 impl EventPersister {
-    /// Instanciate an EventPersister
+    /// Instantiate an EventPersister
     pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }

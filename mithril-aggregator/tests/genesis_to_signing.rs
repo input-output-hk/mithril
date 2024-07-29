@@ -40,7 +40,7 @@ async fn genesis_to_signing() {
 
     cycle_err!(tester, "idle");
 
-    comment!("Boostrap the genesis certificate");
+    comment!("Bootstrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
 
     assert_last_certificate_eq!(

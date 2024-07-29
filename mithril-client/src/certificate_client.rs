@@ -144,7 +144,7 @@ impl CertificateClient {
             .verify_chain(&certificate)
             .await
             .with_context(|| {
-                format!("Certicate chain of certificate '{certificate_hash}' is invalid")
+                format!("Certificate chain of certificate '{certificate_hash}' is invalid")
             })?;
 
         Ok(certificate)

@@ -37,7 +37,7 @@ Here is a high-level picture of this process:
 - The `Cargo.toml` versions of the crates are updated (if required) just before creating the `YYWW.0-prerelease` tag .
 - The documentation website is also updated at the same time where the `next` version becomes the `current` version, leaving future updates be appended to the `next` version during the upcoming developments.
 - In order to simplify the life of Mithril users, we have introduced a version of the `Mithril API` used between client/signer and aggregators to check if the nodes are able to communicate together (following semver and considering the versions are compatible only if they share the same minor).
-- Our main distribution artefact is currently docker (OCI) images. We also provide more packages, eg. `.deb` packages or compiled binaries (some of them available on multiple platforms, e.g. Windows or macOS) to simplify users' life.
+- Our main distribution artifact is currently docker (OCI) images. We also provide more packages, eg. `.deb` packages or compiled binaries (some of them available on multiple platforms, e.g. Windows or macOS) to simplify users' life.
 - We also publish some of our crates on the `crates.io` registry whenever a new version is created (e.g. [`mithril-stm`](https://crates.io/crates/mithril-stm)).
 
 ### Networks

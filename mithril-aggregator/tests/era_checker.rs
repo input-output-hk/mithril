@@ -65,7 +65,7 @@ async fn testing_eras() {
         .build();
     tester.init_state_from_fixture(&fixture).await.unwrap();
 
-    comment!("Boostrap the genesis certificate");
+    comment!("Bootstrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
 
     comment!("Increase immutable number");
