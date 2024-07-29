@@ -8,10 +8,10 @@ use thiserror::Error;
 use mithril_common::{
     entities::SignedEntityTypeDiscriminants,
     messages::{
-        CardanoStakeDistributionMessage, CardanoTransactionSnapshotListMessage,
-        CardanoTransactionSnapshotMessage, CertificateListMessage, CertificateMessage,
-        MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage, SnapshotListMessage,
-        SnapshotMessage,
+        CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
+        CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
+        CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
+        MithrilStakeDistributionMessage, SnapshotListMessage, SnapshotMessage,
     },
     StdResult,
 };
@@ -81,6 +81,12 @@ pub trait MessageService: Sync + Send {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoStakeDistributionMessage>>;
+
+    /// Return the list of the last Cardano stake distributions message
+    async fn get_cardano_stake_distribution_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CardanoStakeDistributionListMessage>;
 }
 
 /// Implementation of the [MessageService]
@@ -205,6 +211,19 @@ impl MessageService for MithrilMessageService {
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
+
+    async fn get_cardano_stake_distribution_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CardanoStakeDistributionListMessage> {
+        let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoStakeDistribution;
+        let entities = self
+            .signed_entity_storer
+            .get_last_signed_entities_by_type(&signed_entity_type_id, limit)
+            .await?;
+
+        entities.into_iter().map(|i| i.try_into()).collect()
+    }
 }
 
 #[cfg(test)]
@@ -222,10 +241,10 @@ mod tests {
     use crate::database::repository::MockSignedEntityStorer;
     use crate::dependency_injection::DependenciesBuilder;
     use crate::message_adapters::{
-        ToCardanoStakeDistributionMessageAdapter, ToCardanoTransactionListMessageAdapter,
-        ToCardanoTransactionMessageAdapter, ToMithrilStakeDistributionListMessageAdapter,
-        ToMithrilStakeDistributionMessageAdapter, ToSnapshotListMessageAdapter,
-        ToSnapshotMessageAdapter,
+        ToCardanoStakeDistributionListMessageAdapter, ToCardanoStakeDistributionMessageAdapter,
+        ToCardanoTransactionListMessageAdapter, ToCardanoTransactionMessageAdapter,
+        ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
+        ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter,
     };
     use crate::Configuration;
 
@@ -566,5 +585,33 @@ mod tests {
             .unwrap();
 
         assert!(response.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_cardano_stake_distribution_list_message() {
+        let entity = SignedEntity::<CardanoStakeDistribution>::dummy();
+        let records = vec![SignedEntityRecord {
+            signed_entity_id: entity.signed_entity_id.clone(),
+            signed_entity_type: SignedEntityType::CardanoStakeDistribution(entity.artifact.epoch),
+            certificate_id: entity.certificate_id.clone(),
+            artifact: serde_json::to_string(&entity.artifact).unwrap(),
+            created_at: entity.created_at,
+        }];
+        let message = ToCardanoStakeDistributionListMessageAdapter::adapt(vec![entity]);
+        let configuration = Configuration::new_sample();
+        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut storer = MockSignedEntityStorer::new();
+        storer
+            .expect_get_last_signed_entities_by_type()
+            .return_once(|_, _| Ok(records))
+            .once();
+        dep_builder.signed_entity_storer = Some(Arc::new(storer));
+        let service = dep_builder.get_message_service().await.unwrap();
+        let response = service
+            .get_cardano_stake_distribution_list_message(10)
+            .await
+            .unwrap();
+
+        assert_eq!(message, response);
     }
 }
