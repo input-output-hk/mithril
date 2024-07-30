@@ -19,8 +19,6 @@ fn register_signatures(
         .and(middlewares::with_certifier_service(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_ticker_service(dependency_manager.clone()))
-        .and(middlewares::with_signed_entity_config(dependency_manager))
         .and_then(handlers::register_signatures)
 }
 
@@ -30,9 +28,7 @@ mod handlers {
     use std::sync::Arc;
     use warp::http::StatusCode;
 
-    use mithril_common::entities::{SignedEntityConfig, SignedEntityTypeDiscriminants};
     use mithril_common::messages::{RegisterSignatureMessage, TryFromMessageAdapter};
-    use mithril_common::TickerService;
 
     use crate::{
         http_server::routes::reply,
@@ -44,67 +40,43 @@ mod handlers {
     pub async fn register_signatures(
         message: RegisterSignatureMessage,
         certifier_service: Arc<dyn CertifierService>,
-        ticker_service: Arc<dyn TickerService>,
-        signed_entity_config: SignedEntityConfig,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
         trace!("⇄ HTTP SERVER: register_signatures"; "complete_message" => #?message );
 
-        let signed_entity_type = match message.signed_entity_type.clone() {
-            Some(signed_entity_type) => Ok(signed_entity_type),
-            // The '.unwrap()' inside the 'None' branch is safe
-            // This case does not occur anymore, as there are no signers using the Mithril Signer node
-            // version that sends a 'RegisterSignatureMessage' without the 'signed_entity_type' field.
-            // TODO: Make the 'signed_entity_type' field mandatory in the 'RegisterSignatureMessage'.
-            None => ticker_service.get_current_time_point().await.map(|t| {
-                signed_entity_config
-                    .time_point_to_signed_entity(
-                        SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                        &t,
-                    )
-                    .unwrap()
-            }),
+        let signed_entity_type = message.signed_entity_type.clone();
+
+        let signatures = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
+            Ok(signature) => signature,
+            Err(err) => {
+                warn!("register_signatures::payload decoding error"; "error" => ?err);
+
+                return Ok(reply::bad_request(
+                    "Could not decode signature payload".to_string(),
+                    err.to_string(),
+                ));
+            }
         };
 
-        match signed_entity_type {
-            Ok(signed_entity_type) => {
-                let signatures = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
-                    Ok(signature) => signature,
-                    Err(err) => {
-                        warn!("register_signatures::payload decoding error"; "error" => ?err);
-
-                        return Ok(reply::bad_request(
-                            "Could not decode signature payload".to_string(),
-                            err.to_string(),
-                        ));
-                    }
-                };
-
-                match certifier_service
-                    .register_single_signature(&signed_entity_type, &signatures)
-                    .await
-                {
-                    Err(err) => match err.downcast_ref::<CertifierServiceError>() {
-                        Some(CertifierServiceError::AlreadyCertified(signed_entity_type)) => {
-                            debug!("register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
-                            Ok(reply::empty(StatusCode::GONE))
-                        }
-                        Some(CertifierServiceError::NotFound(signed_entity_type)) => {
-                            debug!("register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
-                            Ok(reply::empty(StatusCode::NOT_FOUND))
-                        }
-                        Some(_) | None => {
-                            warn!("register_signatures::error"; "error" => ?err);
-                            Ok(reply::server_error(err))
-                        }
-                    },
-                    Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+        match certifier_service
+            .register_single_signature(&signed_entity_type, &signatures)
+            .await
+        {
+            Err(err) => match err.downcast_ref::<CertifierServiceError>() {
+                Some(CertifierServiceError::AlreadyCertified(signed_entity_type)) => {
+                    debug!("register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
+                    Ok(reply::empty(StatusCode::GONE))
                 }
-            }
-            Err(err) => {
-                warn!("register_signatures::cant_retrieve_signed_entity_type"; "error" => ?err);
-                Ok(reply::server_error(err))
-            }
+                Some(CertifierServiceError::NotFound(signed_entity_type)) => {
+                    debug!("register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
+                    Ok(reply::empty(StatusCode::NOT_FOUND))
+                }
+                Some(_) | None => {
+                    warn!("register_signatures::error"; "error" => ?err);
+                    Ok(reply::server_error(err))
+                }
+            },
+            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
         }
     }
 }
