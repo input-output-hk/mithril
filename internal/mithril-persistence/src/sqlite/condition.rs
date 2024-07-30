@@ -2,7 +2,7 @@ use sqlite::Value;
 use std::iter::repeat;
 
 /// Internal Boolean representation
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 enum BooleanCondition {
     /// Empty tree
     None,
@@ -43,7 +43,7 @@ impl BooleanCondition {
 }
 
 /// Where condition builder.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WhereCondition {
     /// Boolean condition internal tree
     condition: BooleanCondition,

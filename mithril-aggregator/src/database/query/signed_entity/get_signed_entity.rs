@@ -1,12 +1,13 @@
 use sqlite::Value;
 
-use mithril_common::entities::SignedEntityTypeDiscriminants;
+use mithril_common::entities::{Epoch, SignedEntityTypeDiscriminants};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::SignedEntityRecord;
 
 /// Simple queries to retrieve [SignedEntityRecord] from the sqlite database.
+#[derive(Debug, PartialEq)]
 pub struct GetSignedEntityRecordQuery {
     condition: WhereCondition,
 }
@@ -59,6 +60,31 @@ impl GetSignedEntityRecordQuery {
                 vec![Value::Integer(signed_entity_type_id)],
             ),
         })
+    }
+
+    pub fn by_signed_entity_type_and_epoch(
+        signed_entity_type: &SignedEntityTypeDiscriminants,
+        epoch: Epoch,
+    ) -> Self {
+        let signed_entity_type_id: i64 = signed_entity_type.index() as i64;
+        let epoch = *epoch as i64;
+
+        match signed_entity_type {
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution
+            | SignedEntityTypeDiscriminants::CardanoStakeDistribution => Self {
+                condition: WhereCondition::new(
+                    "signed_entity_type_id = ?* and beacon = ?*",
+                    vec![Value::Integer(signed_entity_type_id), Value::Integer(epoch)],
+                ),
+            },
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
+            | SignedEntityTypeDiscriminants::CardanoTransactions => Self {
+                condition: WhereCondition::new(
+                    "signed_entity_type_id = ?* and json_extract(beacon, '$.epoch') = ?*",
+                    vec![Value::Integer(signed_entity_type_id), Value::Integer(epoch)],
+                ),
+            },
+        }
     }
 }
 
@@ -127,5 +153,89 @@ mod tests {
         let expected_signed_entity_records: Vec<SignedEntityRecord> =
             signed_entity_records.iter().map(|c| c.to_owned()).collect();
         assert_eq!(expected_signed_entity_records, signed_entity_records);
+    }
+
+    #[test]
+    fn by_signed_entity_type_and_epoch_with_mithril_stake_distribution() {
+        assert_eq!(
+            0,
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution.index()
+        );
+        let expected = GetSignedEntityRecordQuery {
+            condition: WhereCondition::new(
+                "signed_entity_type_id = ?* and beacon = ?*",
+                vec![Value::Integer(0), Value::Integer(4)],
+            ),
+        };
+
+        let query = GetSignedEntityRecordQuery::by_signed_entity_type_and_epoch(
+            &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            Epoch(4),
+        );
+
+        assert_eq!(expected, query);
+    }
+
+    #[test]
+    fn by_signed_entity_type_and_epoch_with_cardano_stake_distribution() {
+        assert_eq!(
+            1,
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution.index()
+        );
+        let expected = GetSignedEntityRecordQuery {
+            condition: WhereCondition::new(
+                "signed_entity_type_id = ?* and beacon = ?*",
+                vec![Value::Integer(1), Value::Integer(4)],
+            ),
+        };
+
+        let query = GetSignedEntityRecordQuery::by_signed_entity_type_and_epoch(
+            &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            Epoch(4),
+        );
+
+        assert_eq!(expected, query);
+    }
+
+    #[test]
+    fn by_signed_entity_type_and_epoch_with_cardano_immutable_files_full() {
+        assert_eq!(
+            2,
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull.index()
+        );
+        let expected = GetSignedEntityRecordQuery {
+            condition: WhereCondition::new(
+                "signed_entity_type_id = ?* and json_extract(beacon, '$.epoch') = ?*",
+                vec![Value::Integer(2), Value::Integer(4)],
+            ),
+        };
+
+        let query = GetSignedEntityRecordQuery::by_signed_entity_type_and_epoch(
+            &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            Epoch(4),
+        );
+
+        assert_eq!(expected, query);
+    }
+
+    #[test]
+    fn by_signed_entity_type_and_epoch_with_cardano_transactions() {
+        assert_eq!(
+            3,
+            SignedEntityTypeDiscriminants::CardanoTransactions.index()
+        );
+        let expected = GetSignedEntityRecordQuery {
+            condition: WhereCondition::new(
+                "signed_entity_type_id = ?* and json_extract(beacon, '$.epoch') = ?*",
+                vec![Value::Integer(3), Value::Integer(4)],
+            ),
+        };
+
+        let query = GetSignedEntityRecordQuery::by_signed_entity_type_and_epoch(
+            &SignedEntityTypeDiscriminants::CardanoTransactions,
+            Epoch(4),
+        );
+
+        assert_eq!(expected, query);
     }
 }
