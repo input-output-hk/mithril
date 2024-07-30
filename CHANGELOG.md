@@ -19,7 +19,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2430.0] - UNRELEASED
+## Mithril Distribution [2430.0] - 2024-07-30
 
 - `mithril-aggregator` node produces artifact for different signed entity types in parallel.
 
