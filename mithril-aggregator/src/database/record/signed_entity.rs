@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use mithril_common::crypto_helper::ProtocolParameters;
+#[cfg(test)]
+use mithril_common::entities::CardanoStakeDistribution;
 use mithril_common::entities::{
     BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot, StakeDistribution,
 };
@@ -50,6 +52,24 @@ impl SignedEntityRecord {
             certificate_id,
             artifact: entity,
             created_at,
+        }
+    }
+
+    pub(crate) fn from_cardano_stake_distribution(
+        cardano_stake_distribution: CardanoStakeDistribution,
+    ) -> Self {
+        let entity = serde_json::to_string(&cardano_stake_distribution).unwrap();
+
+        SignedEntityRecord {
+            signed_entity_id: cardano_stake_distribution.hash.clone(),
+            signed_entity_type: SignedEntityType::CardanoStakeDistribution(
+                cardano_stake_distribution.epoch,
+            ),
+            certificate_id: format!("certificate-{}", cardano_stake_distribution.hash),
+            artifact: entity,
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
         }
     }
 
