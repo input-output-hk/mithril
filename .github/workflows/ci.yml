@@ -909,6 +909,7 @@ jobs:
         run: |
           echo "mithril.network" > ./github-pages/CNAME
           echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ./github-pages/index.html
+          sed -i '1s/^/<script type="text/javascript"> if (window.location.href.endsWith("/index.html")) { end_of_clean_url = window.location.href.lastIndexOf("/"); window.location.href = window.location.href.substring(0, end_of_clean_url); } </script>\n/' ./github-pages/doc/index.html
 
       - name: Mithril / Publish GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
