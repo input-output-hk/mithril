@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Support for Mithril nodes footprint support in Prometheus monitoring in infrastructure
+
 - **UNSTABLE** Cardano stake distribution certification:
 
   - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`
