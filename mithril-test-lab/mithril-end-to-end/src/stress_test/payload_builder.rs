@@ -54,7 +54,7 @@ pub fn generate_register_signature_message(
     signatures
         .iter()
         .map(|s| RegisterSignatureMessage {
-            signed_entity_type: Some(signed_entity_type.clone()),
+            signed_entity_type: signed_entity_type.clone(),
             party_id: s.party_id.clone(),
             signature: s.signature.clone().to_json_hex().unwrap(),
             won_indexes: s.won_indexes.clone(),
