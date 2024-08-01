@@ -202,7 +202,8 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
     (1..total + 1)
         .map(|snapshot_id| {
             let digest = format!("1{snapshot_id}").repeat(20);
-            let beacon = beacon();
+            let mut beacon = beacon();
+            beacon.immutable_file_number += snapshot_id;
             let certificate_hash = "123".to_string();
             let size = snapshot_id * 100000;
             let cardano_node_version = Version::parse("1.0.0").unwrap();

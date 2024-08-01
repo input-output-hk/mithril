@@ -752,5 +752,13 @@ pragma foreign_keys=true;
                 SignedEntityTypeDiscriminants::CardanoTransactions.index()
             ),
         ),
+        // Migration 26
+        // Alter `signed_entity` table, add a unique index on `signed_entity_type_id` and `beacon`
+        SqlMigration::new(
+            26,
+            r#"
+create unique index signed_entity_unique_index on signed_entity(signed_entity_type_id, beacon);
+"#,
+        ),
     ]
 }
