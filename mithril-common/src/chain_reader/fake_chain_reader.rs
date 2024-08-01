@@ -18,6 +18,11 @@ impl FakeChainReader {
             chain_point_next_actions: Mutex::new(chain_point_next_actions.into()),
         }
     }
+
+    /// Total remaining next actions
+    pub fn get_total_remaining_next_actions(&self) -> usize {
+        self.chain_point_next_actions.lock().unwrap().len()
+    }
 }
 
 #[async_trait]
