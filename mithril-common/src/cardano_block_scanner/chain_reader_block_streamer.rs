@@ -121,14 +121,14 @@ impl ChainReaderBlockStreamer {
         match chain_reader.get_next_chain_block().await? {
             Some(ChainBlockNextAction::RollForward { parsed_block }) => {
                 if parsed_block.block_number > self.until {
-                    trace!(
+                    debug!(
                         self.logger,
                         "received a RollForward above threshold block number ({})",
                         parsed_block.block_number
                     );
                     Ok(None)
                 } else {
-                    trace!(
+                    debug!(
                         self.logger,
                         "received a RollForward below threshold block number ({})",
                         parsed_block.block_number
