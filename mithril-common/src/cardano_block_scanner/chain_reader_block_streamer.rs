@@ -41,8 +41,11 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                 Some(BlockStreamerNextAction::ChainBlockNextAction(
                     ChainBlockNextAction::RollForward { parsed_block },
                 )) => {
+                    let parsed_block_number = parsed_block.block_number;
                     roll_forwards.push(parsed_block);
-                    if roll_forwards.len() >= self.max_roll_forwards_per_poll {
+                    if roll_forwards.len() >= self.max_roll_forwards_per_poll
+                        || parsed_block_number >= self.until
+                    {
                         return Ok(Some(ChainScannedBlocks::RollForwards(roll_forwards)));
                     }
                 }
@@ -221,7 +224,61 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_parse_expected_multiple_rollforwards_below_block_number_threshold() {
+    async fn test_parse_expected_multiple_rollforwards_up_to_block_number_threshold() {
+        let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
+            ChainBlockNextAction::RollForward {
+                parsed_block: ScannedBlock::new(
+                    "hash-1",
+                    BlockNumber(1),
+                    SlotNumber(10),
+                    Vec::<&str>::new(),
+                ),
+            },
+            ChainBlockNextAction::RollForward {
+                parsed_block: ScannedBlock::new(
+                    "hash-2",
+                    BlockNumber(2),
+                    SlotNumber(20),
+                    Vec::<&str>::new(),
+                ),
+            },
+            ChainBlockNextAction::RollForward {
+                parsed_block: ScannedBlock::new(
+                    "hash-3",
+                    BlockNumber(3),
+                    SlotNumber(30),
+                    Vec::<&str>::new(),
+                ),
+            },
+        ])));
+        let mut block_streamer = ChainReaderBlockStreamer::try_new(
+            chain_reader.clone(),
+            None,
+            BlockNumber(2),
+            MAX_ROLL_FORWARDS_PER_POLL,
+            TestLogger::stdout(),
+        )
+        .await
+        .unwrap();
+
+        let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
+
+        assert_eq!(
+            Some(ChainScannedBlocks::RollForwards(vec![
+                ScannedBlock::new("hash-1", BlockNumber(1), SlotNumber(10), Vec::<&str>::new()),
+                ScannedBlock::new("hash-2", BlockNumber(2), SlotNumber(20), Vec::<&str>::new())
+            ])),
+            scanned_blocks,
+        );
+
+        let chain_reader_total_remaining_next_actions =
+            chain_reader.lock().await.get_total_remaining_next_actions();
+        assert_eq!(1, chain_reader_total_remaining_next_actions);
+    }
+
+    #[tokio::test]
+    async fn test_parse_expected_all_rollforwards_below_threshold_when_above_highest_block_number()
+    {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new(
@@ -241,7 +298,7 @@ mod tests {
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
-            chain_reader,
+            chain_reader.clone(),
             None,
             BlockNumber(100),
             MAX_ROLL_FORWARDS_PER_POLL,
