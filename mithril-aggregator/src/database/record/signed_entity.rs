@@ -5,7 +5,8 @@ use mithril_common::crypto_helper::ProtocolParameters;
 #[cfg(test)]
 use mithril_common::entities::CardanoStakeDistribution;
 use mithril_common::entities::{
-    BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot, StakeDistribution,
+    BlockNumber, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType, Snapshot,
+    StakeDistribution,
 };
 use mithril_common::messages::{
     CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage,
@@ -35,6 +36,32 @@ pub struct SignedEntityRecord {
 
     /// Date and time when the signed_entity was created
     pub created_at: DateTime<Utc>,
+}
+
+#[cfg(test)]
+impl From<CardanoStakeDistribution> for SignedEntityRecord {
+    fn from(cardano_stake_distribution: CardanoStakeDistribution) -> Self {
+        SignedEntityRecord::from_cardano_stake_distribution(cardano_stake_distribution)
+    }
+}
+
+#[cfg(test)]
+impl From<MithrilStakeDistribution> for SignedEntityRecord {
+    fn from(mithril_stake_distribution: MithrilStakeDistribution) -> Self {
+        let entity = serde_json::to_string(&mithril_stake_distribution).unwrap();
+
+        SignedEntityRecord {
+            signed_entity_id: mithril_stake_distribution.hash.clone(),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                mithril_stake_distribution.epoch,
+            ),
+            certificate_id: format!("certificate-{}", mithril_stake_distribution.hash),
+            artifact: entity,
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        }
+    }
 }
 
 #[cfg(test)]

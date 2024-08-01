@@ -260,15 +260,19 @@ pub const fn transaction_hashes<'a>() -> [&'a str; 5] {
     ]
 }
 
-/// Fake Cardano Stake Distribution
+/// Fake Cardano Stake Distributions
 pub fn cardano_stake_distributions(total: u64) -> Vec<entities::CardanoStakeDistribution> {
-    let stake_distribution = StakeDistribution::from([("pool-1".to_string(), 100)]);
-
     (1..total + 1)
-        .map(|epoch_idx| entities::CardanoStakeDistribution {
-            hash: format!("hash-epoch-{epoch_idx}"),
-            epoch: Epoch(epoch_idx),
-            stake_distribution: stake_distribution.clone(),
-        })
+        .map(|epoch_idx| cardano_stake_distribution(Epoch(epoch_idx)))
         .collect::<Vec<entities::CardanoStakeDistribution>>()
+}
+
+/// Fake Cardano Stake Distribution
+pub fn cardano_stake_distribution(epoch: Epoch) -> entities::CardanoStakeDistribution {
+    let stake_distribution = StakeDistribution::from([("pool-1".to_string(), 100)]);
+    entities::CardanoStakeDistribution {
+        hash: format!("hash-epoch-{epoch}"),
+        epoch,
+        stake_distribution,
+    }
 }
