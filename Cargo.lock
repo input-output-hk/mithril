@@ -3695,7 +3695,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.4.41"
+version = "0.4.42"
 dependencies = [
  "anyhow",
  "async-trait",
