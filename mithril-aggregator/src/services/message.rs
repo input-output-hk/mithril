@@ -222,13 +222,10 @@ impl MessageService for MithrilMessageService {
         &self,
         epoch: Epoch,
     ) -> StdResult<Option<CardanoStakeDistributionMessage>> {
-        let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoStakeDistribution;
         let signed_entity = self
             .signed_entity_storer
-            .get_signed_entities_by_type_and_epoch(&signed_entity_type_id, epoch)
-            .await?
-            .first()
-            .cloned();
+            .get_cardano_stake_distribution_signed_entity_by_epoch(epoch)
+            .await?;
 
         signed_entity.map(|v| v.try_into()).transpose()
     }
@@ -253,8 +250,7 @@ mod tests {
 
     use mithril_common::entities::{
         CardanoStakeDistribution, CardanoTransactionsSnapshot, Certificate, Epoch,
-        MithrilStakeDistribution, SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants,
-        Snapshot,
+        MithrilStakeDistribution, SignedEntity, SignedEntityType, Snapshot,
     };
     use mithril_common::messages::ToMessageAdapter;
     use mithril_common::test_utils::MithrilFixtureBuilder;
@@ -624,11 +620,8 @@ mod tests {
         let mut dep_builder = DependenciesBuilder::new(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
-            .expect_get_signed_entities_by_type_and_epoch()
-            .withf(|discriminant, _| {
-                discriminant == &SignedEntityTypeDiscriminants::CardanoStakeDistribution
-            })
-            .return_once(|_, _| Ok(vec![record]))
+            .expect_get_cardano_stake_distribution_signed_entity_by_epoch()
+            .return_once(|_| Ok(Some(record)))
             .once();
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
         let service = dep_builder.get_message_service().await.unwrap();
@@ -647,11 +640,8 @@ mod tests {
         let mut dep_builder = DependenciesBuilder::new(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
-            .expect_get_signed_entities_by_type_and_epoch()
-            .withf(|discriminant, _| {
-                discriminant == &SignedEntityTypeDiscriminants::CardanoStakeDistribution
-            })
-            .return_once(|_, _| Ok(vec![]))
+            .expect_get_cardano_stake_distribution_signed_entity_by_epoch()
+            .return_once(|_| Ok(None))
             .once();
         dep_builder.signed_entity_storer = Some(Arc::new(storer));
         let service = dep_builder.get_message_service().await.unwrap();

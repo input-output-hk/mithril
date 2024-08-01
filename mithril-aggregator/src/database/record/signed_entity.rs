@@ -2,12 +2,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use mithril_common::crypto_helper::ProtocolParameters;
-#[cfg(test)]
-use mithril_common::entities::CardanoStakeDistribution;
 use mithril_common::entities::{
-    BlockNumber, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType, Snapshot,
-    StakeDistribution,
+    BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot, StakeDistribution,
 };
+#[cfg(test)]
+use mithril_common::entities::{CardanoStakeDistribution, MithrilStakeDistribution};
 use mithril_common::messages::{
     CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage,
     CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,

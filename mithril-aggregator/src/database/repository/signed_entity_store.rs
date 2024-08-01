@@ -44,12 +44,11 @@ pub trait SignedEntityStorer: Sync + Send {
         total: usize,
     ) -> StdResult<Vec<SignedEntityRecord>>;
 
-    /// Get signed entities by signed entity type and epoch
-    async fn get_signed_entities_by_type_and_epoch(
+    /// Get Cardano stake distribution signed entity by epoch
+    async fn get_cardano_stake_distribution_signed_entity_by_epoch(
         &self,
-        signed_entity_type_id: &SignedEntityTypeDiscriminants,
         epoch: Epoch,
-    ) -> StdResult<Vec<SignedEntityRecord>>;
+    ) -> StdResult<Option<SignedEntityRecord>>;
 
     /// Perform an update for all the given signed entities.
     async fn update_signed_entities(
@@ -134,16 +133,12 @@ impl SignedEntityStorer for SignedEntityStore {
         Ok(signed_entities)
     }
 
-    async fn get_signed_entities_by_type_and_epoch(
+    async fn get_cardano_stake_distribution_signed_entity_by_epoch(
         &self,
-        signed_entity_type_id: &SignedEntityTypeDiscriminants,
         epoch: Epoch,
-    ) -> StdResult<Vec<SignedEntityRecord>> {
+    ) -> StdResult<Option<SignedEntityRecord>> {
         self.connection
-            .fetch_collect(GetSignedEntityRecordQuery::by_signed_entity_type_and_epoch(
-                signed_entity_type_id,
-                epoch,
-            ))
+            .fetch_first(GetSignedEntityRecordQuery::cardano_stake_distribution_by_epoch(epoch))
     }
 
     async fn update_signed_entities(
@@ -169,7 +164,6 @@ impl SignedEntityStorer for SignedEntityStore {
 
 #[cfg(test)]
 mod tests {
-    use chrono::DateTime;
     use mithril_common::{
         entities::{Epoch, MithrilStakeDistribution, SignedEntity, Snapshot},
         test_utils::fake_data,
@@ -335,89 +329,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_signed_entities_by_type_and_epoch_when_only_epoch_in_beacon() {
-        let mut cardano_stake_distributions = fake_data::cardano_stake_distributions(2);
-        let epoch_to_retrieve = cardano_stake_distributions[0].epoch;
-        cardano_stake_distributions[1].epoch = epoch_to_retrieve;
-
-        let expected_records = cardano_stake_distributions
-            .iter()
-            .map(|cardano_stake_distribution| {
-                SignedEntityRecord::from_cardano_stake_distribution(
-                    cardano_stake_distribution.clone(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        let connection = main_db_connection().unwrap();
-        insert_signed_entities(&connection, expected_records.clone()).unwrap();
-        let store = SignedEntityStore::new(Arc::new(connection));
-
-        let records = store
-            .get_signed_entities_by_type_and_epoch(
-                &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                epoch_to_retrieve,
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(
-            // Records are inserted older to earlier and queried the other way round
-            expected_records.into_iter().rev().collect::<Vec<_>>(),
-            records
-        );
-    }
-
-    #[tokio::test]
-    async fn get_signed_entities_by_type_and_epoch_when_json_in_beacon() {
-        let mut snapshots = fake_data::snapshots(2);
-        let epoch_to_retrieve = snapshots[0].beacon.epoch;
-        snapshots[1].beacon.epoch = epoch_to_retrieve;
-
-        let expected_records = snapshots
-            .iter()
-            .map(|snapshot| {
-                SignedEntityRecord::from_snapshot(
-                    snapshot.clone(),
-                    "whatever".to_string(),
-                    DateTime::default(),
-                )
-            })
-            .collect::<Vec<_>>();
-
-        let connection = main_db_connection().unwrap();
-        insert_signed_entities(&connection, expected_records.clone()).unwrap();
-        let store = SignedEntityStore::new(Arc::new(connection));
-
-        let records = store
-            .get_signed_entities_by_type_and_epoch(
-                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                epoch_to_retrieve,
-            )
-            .await
-            .unwrap();
-
-        assert_eq!(
-            // Records are inserted older to earlier and queried the other way round
-            expected_records.into_iter().rev().collect::<Vec<_>>(),
-            records
-        );
-    }
-
-    #[tokio::test]
-    async fn get_signed_entities_by_type_and_epoch_when_nothing_found() {
+    async fn get_cardano_stake_distribution_signed_entity_by_epoch_when_nothing_found() {
         let epoch_to_retrieve = Epoch(4);
         let connection = main_db_connection().unwrap();
         let store = SignedEntityStore::new(Arc::new(connection));
 
         let record = store
-            .get_signed_entities_by_type_and_epoch(
-                &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                epoch_to_retrieve,
-            )
+            .get_cardano_stake_distribution_signed_entity_by_epoch(epoch_to_retrieve)
             .await
             .unwrap();
 
-        assert_eq!(record, vec![]);
+        assert_eq!(None, record);
+    }
+
+    #[tokio::test]
+    async fn get_cardano_stake_distribution_signed_entity_by_epoch_when_signed_entity_found_for_epoch(
+    ) {
+        let cardano_stake_distribution = fake_data::cardano_stake_distribution(Epoch(4));
+
+        let expected_record: SignedEntityRecord = cardano_stake_distribution.into();
+
+        let connection = main_db_connection().unwrap();
+        insert_signed_entities(&connection, vec![expected_record.clone()]).unwrap();
+        let store = SignedEntityStore::new(Arc::new(connection));
+
+        let record = store
+            .get_cardano_stake_distribution_signed_entity_by_epoch(Epoch(4))
+            .await
+            .unwrap();
+
+        assert_eq!(Some(expected_record), record);
     }
 }
