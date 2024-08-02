@@ -11,7 +11,9 @@ impl ToMessageAdapter<SignedEntity<CardanoStakeDistribution>, CardanoStakeDistri
     /// Method to trigger the conversion
     fn adapt(from: SignedEntity<CardanoStakeDistribution>) -> CardanoStakeDistributionMessage {
         CardanoStakeDistributionMessage {
-            epoch: from.artifact.epoch,
+            // The epoch stored in the signed entity type beacon corresponds to epoch
+            // at the end of which the Cardano stake distribution is computed by the Cardano node.
+            epoch: from.signed_entity_type.get_epoch(),
             hash: from.artifact.hash,
             certificate_hash: from.certificate_id,
             stake_distribution: from.artifact.stake_distribution,

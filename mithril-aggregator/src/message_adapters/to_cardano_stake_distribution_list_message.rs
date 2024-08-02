@@ -20,7 +20,9 @@ impl
         snapshots
             .into_iter()
             .map(|entity| CardanoStakeDistributionListItemMessage {
-                epoch: entity.artifact.epoch,
+                // The epoch stored in the signed entity type beacon corresponds to epoch
+                // at the end of which the Cardano stake distribution is computed by the Cardano node.
+                epoch: entity.signed_entity_type.get_epoch(),
                 hash: entity.artifact.hash,
                 certificate_hash: entity.certificate_id,
                 created_at: entity.created_at,

@@ -288,13 +288,14 @@ impl TryFrom<SignedEntityRecord> for CardanoStakeDistributionMessage {
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
         #[derive(Deserialize)]
         struct TmpCardanoStakeDistribution {
-            epoch: Epoch,
             hash: String,
             stake_distribution: StakeDistribution,
         }
         let artifact = serde_json::from_str::<TmpCardanoStakeDistribution>(&value.artifact)?;
         let cardano_stake_distribution_message = CardanoStakeDistributionMessage {
-            epoch: artifact.epoch,
+            // The epoch stored in the signed entity type beacon corresponds to epoch
+            // at the end of which the Cardano stake distribution is computed by the Cardano node.
+            epoch: value.signed_entity_type.get_epoch(),
             stake_distribution: artifact.stake_distribution,
             hash: artifact.hash,
             certificate_hash: value.certificate_id,
@@ -311,12 +312,13 @@ impl TryFrom<SignedEntityRecord> for CardanoStakeDistributionListItemMessage {
     fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
         #[derive(Deserialize)]
         struct TmpCardanoStakeDistribution {
-            epoch: Epoch,
             hash: String,
         }
         let artifact = serde_json::from_str::<TmpCardanoStakeDistribution>(&value.artifact)?;
         let message = CardanoStakeDistributionListItemMessage {
-            epoch: artifact.epoch,
+            // The epoch stored in the signed entity type beacon corresponds to epoch
+            // at the end of which the Cardano stake distribution is computed by the Cardano node.
+            epoch: value.signed_entity_type.get_epoch(),
             hash: artifact.hash,
             certificate_hash: value.certificate_id,
             created_at: value.created_at,
