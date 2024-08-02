@@ -1701,6 +1701,7 @@ components:
           - created_at
         properties:
           epoch:
+            description: Epoch at the end of which the Cardano stake distribution is computed by the Cardano node
             $ref: "#/components/schemas/Epoch"
           hash:
             description: Hash of the Cardano stake distribution
@@ -1734,6 +1735,7 @@ components:
         - created_at
       properties:
         epoch:
+          description: Epoch at the end of which the Cardano stake distribution is computed by the Cardano node
           $ref: "#/components/schemas/Epoch"
         hash:
           description: Hash of the Cardano stake distribution
