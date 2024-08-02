@@ -1,0 +1,184 @@
+mod test_extensions;
+
+use mithril_aggregator::Configuration;
+use mithril_common::entities::SignerWithStake;
+use mithril_common::{
+    entities::{
+        BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, SlotNumber, StakeDistribution, StakeDistributionParty,
+        TimePoint,
+    },
+    test_utils::MithrilFixtureBuilder,
+};
+use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
+
+#[tokio::test]
+async fn cardano_stake_distribution_verify_stakes() {
+    let protocol_parameters = ProtocolParameters {
+        k: 5,
+        m: 150,
+        phi_f: 0.95,
+    };
+    let configuration = Configuration {
+        protocol_parameters: protocol_parameters.clone(),
+        signed_entity_types: Some(
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution.to_string(),
+        ),
+        data_stores_directory: get_test_dir("cardano_stake_distribution_verify_stakes"),
+        ..Configuration::new_sample()
+    };
+    let mut tester = RuntimeTester::build(
+        TimePoint::new(
+            2,
+            1,
+            ChainPoint::new(SlotNumber(10), BlockNumber(1), "block_hash-1"),
+        ),
+        configuration,
+    )
+    .await;
+
+    comment!("create signers & declare the initial stake distribution");
+    let fixture = MithrilFixtureBuilder::default()
+        .with_signers(5)
+        .with_protocol_parameters(protocol_parameters.clone())
+        .build();
+    let signers = &fixture.signers_fixture();
+
+    tester.init_state_from_fixture(&fixture).await.unwrap();
+
+    comment!("Bootstrap the genesis certificate");
+    tester.register_genesis_certificate(&fixture).await.unwrap();
+
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new_genesis(
+            CardanoDbBeacon::new("devnet".to_string(), 2, 1),
+            fixture.compute_and_encode_avk()
+        )
+    );
+
+    comment!("Start the runtime state machine and register signers");
+    cycle!(tester, "ready");
+    tester.register_signers(signers).await.unwrap();
+
+    comment!("Increase epoch and register signers with a different stake distribution");
+    tester.increase_epoch().await.unwrap();
+    let signers_with_updated_stake_distribution = fixture
+        .signers_with_stake()
+        .iter()
+        .map(|signer_with_stake| {
+            SignerWithStake::from_signer(
+                signer_with_stake.to_owned().into(),
+                signer_with_stake.stake + 999,
+            )
+        })
+        .collect::<Vec<_>>();
+    let updated_stake_distribution: StakeDistribution = signers_with_updated_stake_distribution
+        .iter()
+        .map(|s| (s.party_id.clone(), s.stake))
+        .collect();
+    tester
+        .chain_observer
+        .set_signers(signers_with_updated_stake_distribution)
+        .await;
+    cycle!(tester, "idle");
+    cycle!(tester, "ready");
+    cycle!(tester, "signing");
+    tester.register_signers(signers).await.unwrap();
+    tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            signers,
+        )
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            CardanoDbBeacon::new("devnet".to_string(), 3, 1),
+            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
+            fixture.compute_and_encode_avk(),
+            SignedEntityType::MithrilStakeDistribution(Epoch(3)),
+            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
+                "devnet".to_string(),
+                2,
+                1
+            )),
+        )
+    );
+
+    comment!("Increase epoch and register signers with a different stake distribution");
+    let signers_with_updated_stake_distribution = fixture
+        .signers_with_stake()
+        .iter()
+        .map(|signer_with_stake| {
+            SignerWithStake::from_signer(
+                signer_with_stake.to_owned().into(),
+                signer_with_stake.stake + 9999,
+            )
+        })
+        .collect::<Vec<_>>();
+    tester
+        .chain_observer
+        .set_signers(signers_with_updated_stake_distribution)
+        .await;
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
+    cycle!(tester, "ready");
+    cycle!(tester, "signing");
+    tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            signers,
+        )
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            CardanoDbBeacon::new("devnet".to_string(), 4, 1),
+            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
+            fixture.compute_and_encode_avk(),
+            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
+        )
+    );
+
+    cycle!(tester, "signing");
+    tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            signers,
+        )
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the CardanoStakeDistribution");
+    cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            CardanoDbBeacon::new("devnet".to_string(), 4, 1),
+            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
+            fixture.compute_and_encode_avk(),
+            SignedEntityType::CardanoStakeDistribution(Epoch(3)),
+            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
+        )
+    );
+
+    comment!("The message service should return the expected stake distribution");
+    let message = tester
+        .dependencies
+        .message_service
+        .get_cardano_stake_distribution_message_by_epoch(Epoch(3))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(updated_stake_distribution, message.stake_distribution);
+}

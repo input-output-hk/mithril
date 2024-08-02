@@ -68,6 +68,13 @@ pub trait SignedEntityService: Send + Sync {
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntity<MithrilStakeDistribution>>>;
+
+    /// Return a list of signed Cardano stake distribution order by creation
+    /// date descending.
+    async fn get_last_signed_cardano_stake_distributions(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<CardanoStakeDistribution>>>;
 }
 
 /// Mithril ArtifactBuilder Service
@@ -357,6 +364,25 @@ impl SignedEntityService for MithrilSignedEntityService {
         };
 
         Ok(entity)
+    }
+
+    async fn get_last_signed_cardano_stake_distributions(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<CardanoStakeDistribution>>> {
+        let signed_entities_records = self
+            .get_last_signed_entities(
+                total,
+                &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            )
+            .await?;
+        let mut signed_entities: Vec<SignedEntity<CardanoStakeDistribution>> = Vec::new();
+
+        for record in signed_entities_records {
+            signed_entities.push(record.try_into()?);
+        }
+
+        Ok(signed_entities)
     }
 }
 

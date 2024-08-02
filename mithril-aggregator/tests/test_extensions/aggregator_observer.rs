@@ -140,7 +140,13 @@ impl AggregatorObserver {
                     .await?
                     .map(|s| s.signed_entity_type)
                     .as_ref()),
-            _ => Ok(false),
+            SignedEntityType::CardanoStakeDistribution(_) => Ok(Some(signed_entity_type_expected)
+                == self
+                    .signed_entity_service
+                    .get_last_signed_cardano_stake_distributions(1)
+                    .await?
+                    .first()
+                    .map(|s| &s.signed_entity_type)),
         }
     }
 }
