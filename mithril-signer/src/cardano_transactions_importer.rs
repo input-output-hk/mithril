@@ -8,7 +8,7 @@ use slog::{debug, Logger};
 use tokio::{runtime::Handle, task};
 
 use mithril_common::cardano_block_scanner::{BlockScanner, ChainScannedBlocks};
-use mithril_common::crypto_helper::{MKTree, MKTreeNode};
+use mithril_common::crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory};
 use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
 };
@@ -152,7 +152,8 @@ impl CardanoTransactionsImporter {
                 continue;
             }
 
-            let merkle_root = MKTree::new(&transactions)?.compute_root()?;
+            let merkle_root =
+                MKTree::<MKTreeStoreInMemory>::new(&transactions)?.compute_root()?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
             if block_ranges_with_merkle_root.len() >= 100 {
@@ -256,7 +257,10 @@ mod tests {
             .iter()
             .flat_map(|br| br.clone().into_transactions())
             .collect();
-        MKTree::new(&tx).unwrap().compute_root().unwrap()
+        MKTree::<MKTreeStoreInMemory>::new(&tx)
+            .unwrap()
+            .compute_root()
+            .unwrap()
     }
 
     #[tokio::test]

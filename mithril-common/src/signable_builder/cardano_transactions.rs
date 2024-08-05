@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use crate::{
-    crypto_helper::{MKMap, MKMapNode, MKTreeNode},
+    crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStore},
     entities::{BlockNumber, BlockRange, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
@@ -25,7 +25,7 @@ pub trait TransactionsImporter: Send + Sync {
 /// Block Range Merkle roots retriever
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait BlockRangeRootRetriever: Send + Sync {
+pub trait BlockRangeRootRetriever<S: MKTreeStore>: Send + Sync {
     /// Returns a Merkle map of the block ranges roots up to a given beacon
     async fn retrieve_block_range_roots<'a>(
         &'a self,
@@ -36,7 +36,7 @@ pub trait BlockRangeRootRetriever: Send + Sync {
     async fn compute_merkle_map_from_block_range_roots(
         &self,
         up_to_beacon: BlockNumber,
-    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>> {
+    ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>> {
         let block_range_roots_iterator = self
             .retrieve_block_range_roots(up_to_beacon)
             .await?
@@ -49,17 +49,17 @@ pub trait BlockRangeRootRetriever: Send + Sync {
 }
 
 /// A [CardanoTransactionsSignableBuilder] builder
-pub struct CardanoTransactionsSignableBuilder {
+pub struct CardanoTransactionsSignableBuilder<S: MKTreeStore> {
     transaction_importer: Arc<dyn TransactionsImporter>,
-    block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
+    block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
     logger: Logger,
 }
 
-impl CardanoTransactionsSignableBuilder {
+impl<S: MKTreeStore> CardanoTransactionsSignableBuilder<S> {
     /// Constructor
     pub fn new(
         transaction_importer: Arc<dyn TransactionsImporter>,
-        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
+        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
         logger: Logger,
     ) -> Self {
         Self {
@@ -71,7 +71,7 @@ impl CardanoTransactionsSignableBuilder {
 }
 
 #[async_trait]
-impl SignableBuilder<BlockNumber> for CardanoTransactionsSignableBuilder {
+impl<S: MKTreeStore> SignableBuilder<BlockNumber> for CardanoTransactionsSignableBuilder<S> {
     async fn compute_protocol_message(&self, beacon: BlockNumber) -> StdResult<ProtocolMessage> {
         debug!(
             self.logger,
@@ -104,6 +104,7 @@ impl SignableBuilder<BlockNumber> for CardanoTransactionsSignableBuilder {
 mod tests {
 
     use crate::{
+        crypto_helper::MKTreeStoreInMemory,
         entities::CardanoTransaction,
         test_utils::{CardanoTransactionsBuilder, TestLogger},
     };
@@ -112,7 +113,8 @@ mod tests {
 
     fn compute_mk_map_from_transactions(
         transactions: Vec<CardanoTransaction>,
-    ) -> MKMap<BlockRange, MKMapNode<BlockRange>> {
+    ) -> MKMap<BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>, MKTreeStoreInMemory>
+    {
         MKMap::new_from_iter(transactions.iter().map(|tx| {
             (
                 BlockRange::from_block_number(tx.block_number),

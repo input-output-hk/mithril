@@ -4,7 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::{
-    crypto_helper::{MKTree, MKTreeNode},
+    crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory},
     entities::{Epoch, ProtocolMessage, ProtocolMessagePartKey, StakeDistribution},
     signable_builder::SignableBuilder,
     StdResult,
@@ -48,7 +48,9 @@ impl CardanoStakeDistributionSignableBuilder {
         }
     }
 
-    fn compute_merkle_tree(pools_with_stake: StakeDistribution) -> StdResult<MKTree> {
+    fn compute_merkle_tree(
+        pools_with_stake: StakeDistribution,
+    ) -> StdResult<MKTree<MKTreeStoreInMemory>> {
         let leaves: Vec<MKTreeNode> = pools_with_stake
             .iter()
             .map(|(k, v)| StakeDistributionEntry::new(k, *v).into())

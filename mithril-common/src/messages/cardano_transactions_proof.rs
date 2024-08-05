@@ -316,7 +316,7 @@ mod tests {
 
     #[cfg(feature = "fs")]
     mod fs_only {
-        use crate::crypto_helper::{MKMap, MKMapNode};
+        use crate::crypto_helper::{MKMap, MKMapNode, MKTreeStoreInMemory};
         use crate::entities::{BlockNumber, BlockRange, CardanoTransaction, SlotNumber};
         use crate::signable_builder::{
             CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever,
@@ -364,7 +364,7 @@ mod tests {
             transactions: &[CardanoTransaction],
             block_number: u64,
         ) -> ProtocolMessage {
-            let set_proof = CardanoTransactionsSetProof::from_leaves(
+            let set_proof = CardanoTransactionsSetProof::from_leaves::<MKTreeStoreInMemory>(
                 transactions
                     .iter()
                     .map(|t| (t.block_number, t.transaction_hash.clone()))
@@ -400,14 +400,18 @@ mod tests {
             block_range_root_retriever
                 .expect_compute_merkle_map_from_block_range_roots()
                 .return_once(move |_| {
-                    MKMap::<BlockRange, MKMapNode<BlockRange>>::new_from_iter(
-                        transactions_imported.into_iter().map(|tx| {
+                    MKMap::<
+                        BlockRange,
+                        MKMapNode<BlockRange, MKTreeStoreInMemory>,
+                        MKTreeStoreInMemory,
+                    >::new_from_iter(transactions_imported.into_iter().map(
+                        |tx| {
                             (
                                 BlockRange::from_block_number(tx.block_number),
                                 MKMapNode::TreeNode(tx.transaction_hash.clone().into()),
                             )
-                        }),
-                    )
+                        },
+                    ))
                 });
             let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
                 Arc::new(transaction_importer),

@@ -67,16 +67,16 @@ impl From<&str> for MKTreeNode {
     }
 }
 
-impl TryFrom<MKTree> for MKTreeNode {
+impl<S: MKTreeStore> TryFrom<MKTree<S>> for MKTreeNode {
     type Error = StdError;
-    fn try_from(other: MKTree) -> Result<Self, Self::Error> {
+    fn try_from(other: MKTree<S>) -> Result<Self, Self::Error> {
         other.compute_root()
     }
 }
 
-impl TryFrom<&MKTree> for MKTreeNode {
+impl<S: MKTreeStore> TryFrom<&MKTree<S>> for MKTreeNode {
     type Error = StdError;
-    fn try_from(other: &MKTree) -> Result<Self, Self::Error> {
+    fn try_from(other: &MKTree<S>) -> Result<Self, Self::Error> {
         other.compute_root()
     }
 }
@@ -178,7 +178,7 @@ impl MKProof {
                 Self::list_to_mknode(leaves_to_verify);
 
             let mktree =
-                MKTree::new(&leaves).with_context(|| "MKTree creation should not fail")?;
+                MKTree::<MKTreeStoreInMemory>::new(&leaves).with_context(|| "MKTree creation should not fail")?;
             mktree.compute_proof(&leaves_to_verify)
         }
 
@@ -194,20 +194,24 @@ impl From<MKProof> for MKTreeNode {
     }
 }
 
+/// Merkle tree store in memory
+pub type MKTreeStoreInMemory = MKTreeStoreInMemoryProvider<Arc<MKTreeNode>>;
+
 /// A Merkle tree store
-pub struct MKTreeStore<T> {
-    inner_store: RwLock<HashMap<u64, T>>,
+#[derive(Clone)]
+pub struct MKTreeStoreInMemoryProvider<T> {
+    inner_store: Arc<RwLock<HashMap<u64, T>>>,
 }
 
-impl<T> MKTreeStore<T> {
+impl<T> MKTreeStoreInMemoryProvider<T> {
     fn new() -> Self {
         Self {
-            inner_store: RwLock::new(HashMap::new()),
+            inner_store: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
 
-impl<T: Clone> MMRStoreReadOps<T> for MKTreeStore<T> {
+impl<T: Clone> MMRStoreReadOps<T> for MKTreeStoreInMemoryProvider<T> {
     fn get_elem(&self, pos: u64) -> MMRResult<Option<T>> {
         let inner_store = self.inner_store.read().unwrap();
 
@@ -215,7 +219,7 @@ impl<T: Clone> MMRStoreReadOps<T> for MKTreeStore<T> {
     }
 }
 
-impl<T> MMRStoreWriteOps<T> for MKTreeStore<T> {
+impl<T> MMRStoreWriteOps<T> for MKTreeStoreInMemoryProvider<T> {
     fn append(&mut self, pos: u64, elems: Vec<T>) -> MMRResult<()> {
         let mut inner_store = self.inner_store.write().unwrap();
         for (i, elem) in elems.into_iter().enumerate() {
@@ -226,22 +230,28 @@ impl<T> MMRStoreWriteOps<T> for MKTreeStore<T> {
     }
 }
 
-impl<T> Default for MKTreeStore<T> {
+impl<T> Default for MKTreeStoreInMemoryProvider<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
+impl<T: Clone + Send + Sync> MKTreeStore for MKTreeStoreInMemoryProvider<T> {}
+
+/// A Merkle tree store trait
+pub trait MKTreeStore: Clone + Default + Send + Sync {}
+
 /// A Merkle tree
-pub struct MKTree {
+pub struct MKTree<S: MKTreeStore> {
     inner_leaves: HashMap<Arc<MKTreeNode>, MKTreeLeafPosition>,
-    inner_tree: MMR<Arc<MKTreeNode>, MergeMKTreeNode, MKTreeStore<Arc<MKTreeNode>>>,
+    inner_tree: MMR<Arc<MKTreeNode>, MergeMKTreeNode, MKTreeStoreInMemoryProvider<Arc<MKTreeNode>>>,
+    phantom: std::marker::PhantomData<S>,
 }
 
-impl MKTree {
+impl<S: MKTreeStore> MKTree<S> {
     /// MKTree factory
     pub fn new<T: Into<MKTreeNode> + Clone>(leaves: &[T]) -> StdResult<Self> {
-        let mut inner_tree = MMR::<_, _, _>::new(0, MKTreeStore::default());
+        let mut inner_tree = MMR::<_, _, _>::new(0, MKTreeStoreInMemoryProvider::default());
         let mut inner_leaves = HashMap::new();
         for leaf in leaves {
             let leaf = Arc::new(leaf.to_owned().into());
@@ -253,6 +263,7 @@ impl MKTree {
         Ok(Self {
             inner_leaves,
             inner_tree,
+            phantom: std::marker::PhantomData,
         })
     }
 
@@ -325,7 +336,7 @@ impl MKTree {
     }
 }
 
-impl Clone for MKTree {
+impl<S: MKTreeStore> Clone for MKTree<S> {
     fn clone(&self) -> Self {
         // Cloning should never fail so unwrap is safe
         Self::new(&self.leaves()).unwrap()
@@ -345,7 +356,8 @@ mod tests {
     #[test]
     fn test_golden_merkle_root() {
         let leaves = vec!["golden-1", "golden-2", "golden-3", "golden-4", "golden-5"];
-        let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
+        let mktree =
+            MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
         let mkroot = mktree
             .compute_root()
             .expect("MKRoot generation should not fail");
@@ -378,7 +390,8 @@ mod tests {
     #[test]
     fn test_should_list_leaves() {
         let leaves: Vec<MKTreeNode> = vec!["test-0".into(), "test-1".into(), "test-2".into()];
-        let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
+        let mktree =
+            MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
         let leaves_retrieved = mktree.leaves();
 
         assert_eq!(
@@ -390,7 +403,8 @@ mod tests {
     #[test]
     fn test_should_clone_and_compute_same_root() {
         let leaves = generate_leaves(10);
-        let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
+        let mktree =
+            MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
         let mktree_clone = mktree.clone();
 
         assert_eq!(
@@ -404,7 +418,8 @@ mod tests {
         let leaves = generate_leaves(10);
         let leaves_creation = &leaves[..9];
         let leaves_to_append = &leaves[9..];
-        let mut mktree = MKTree::new(leaves_creation).expect("MKTree creation should not fail");
+        let mut mktree = MKTree::<MKTreeStoreInMemory>::new(leaves_creation)
+            .expect("MKTree creation should not fail");
         mktree
             .append(leaves_to_append)
             .expect("MKTree append leaves should not fail");

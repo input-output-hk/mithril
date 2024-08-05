@@ -6,7 +6,7 @@ use crate::{StdError, StdResult};
 use super::BlockRange;
 
 cfg_test_tools! {
-    use crate::crypto_helper::{MKMap, MKTree, MKTreeNode, MKMapNode};
+    use crate::crypto_helper::{MKMap, MKTree, MKTreeNode, MKMapNode, MKTreeStore, MKTreeStoreInMemory};
     use crate::entities::BlockNumber;
     use std::collections::HashMap;
 }
@@ -65,11 +65,11 @@ impl CardanoTransactionsSetProof {
                 (BlockNumber(22), "tx-6".to_string()),
             ];
 
-            Self::from_leaves(&leaves).unwrap()
+            Self::from_leaves::<MKTreeStoreInMemory>(&leaves).unwrap()
         }
 
         /// Helper to create a proof from a list of leaves
-        pub fn from_leaves(leaves: &[(BlockNumber, TransactionHash)]) -> StdResult<Self> {
+        pub fn from_leaves<S: MKTreeStore>(leaves: &[(BlockNumber, TransactionHash)]) -> StdResult<Self> {
             let transactions_hashes: Vec<TransactionHash> =
                 leaves.iter().map(|(_, t)| t.into()).collect();
             let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
@@ -81,13 +81,13 @@ impl CardanoTransactionsSetProof {
                     .or_default()
                     .push(transaction_hash.to_owned());
             }
-            let mk_map = MKMap::new(
+            let mk_map = MKMap::<_, _, MKTreeStoreInMemory>::new(
                 transactions_by_block_ranges
                     .into_iter()
                     .try_fold(
                         vec![],
-                        |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_>)>> {
-                            acc.push((block_range, MKTree::new(&transactions)?.into()));
+                        |mut acc, (block_range, transactions)| -> StdResult<Vec<(_, MKMapNode<_,S>)>> {
+                            acc.push((block_range, MKTree::<S>::new(&transactions)?.into()));
                             Ok(acc)
                         },
                     )?
@@ -140,7 +140,8 @@ mod tests {
             (BlockNumber(20), "tx-5".to_string()),
             (BlockNumber(22), "tx-6".to_string()),
         ];
-        let proof = CardanoTransactionsSetProof::from_leaves(&leaves).unwrap();
+        let proof =
+            CardanoTransactionsSetProof::from_leaves::<MKTreeStoreInMemory>(&leaves).unwrap();
 
         proof.verify().expect("The proof should be valid");
     }
@@ -155,7 +156,8 @@ mod tests {
             (BlockNumber(20), "tx-5".to_string()),
             (BlockNumber(22), "tx-6".to_string()),
         ];
-        let proof = CardanoTransactionsSetProof::from_leaves(&leaves).unwrap();
+        let proof =
+            CardanoTransactionsSetProof::from_leaves::<MKTreeStoreInMemory>(&leaves).unwrap();
         let mut transactions_hashes_tampered = proof.transactions_hashes().to_vec();
         transactions_hashes_tampered.push("tx-123".to_string());
         let proof = CardanoTransactionsSetProof {

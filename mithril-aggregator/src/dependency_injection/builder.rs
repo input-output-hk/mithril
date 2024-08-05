@@ -21,7 +21,8 @@ use mithril_common::{
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
     chain_reader::{ChainBlockReader, PallasChainReader},
     crypto_helper::{
-        ProtocolGenesisSigner, ProtocolGenesisVerificationKey, ProtocolGenesisVerifier,
+        MKTreeStoreInMemory, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
+        ProtocolGenesisVerifier,
     },
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
@@ -1085,7 +1086,9 @@ impl DependenciesBuilder {
         ));
         let transactions_importer = self.get_transactions_importer().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
+            MKTreeStoreInMemory,
+        >::new(
             transactions_importer,
             block_range_root_retriever,
             self.get_logger()?,
@@ -1487,7 +1490,7 @@ impl DependenciesBuilder {
         let transaction_retriever = self.get_transaction_repository().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
         let logger = self.get_logger()?;
-        let prover_service = MithrilProverService::new(
+        let prover_service = MithrilProverService::<MKTreeStoreInMemory>::new(
             transaction_retriever,
             block_range_root_retriever,
             mk_map_pool_size,

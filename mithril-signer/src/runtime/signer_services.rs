@@ -9,7 +9,7 @@ use mithril_common::{
     cardano_transactions_preloader::CardanoTransactionsPreloader,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     chain_reader::PallasChainReader,
-    crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
+    crypto_helper::{MKTreeStoreInMemory, OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         CardanoImmutableDigester, ImmutableDigester, ImmutableFileObserver,
@@ -315,7 +315,9 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
+            MKTreeStoreInMemory,
+        >::new(
             state_machine_transactions_importer,
             block_range_root_retriever,
             slog_scope::logger(),

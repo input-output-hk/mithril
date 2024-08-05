@@ -1,12 +1,12 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use mithril_common::crypto_helper::{MKTree, MKTreeNode};
+use mithril_common::crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory};
 
 // Shortcuts for magnitudes: K for thousand, M for million
 const K: usize = 1_000;
 const M: usize = 1_000 * K;
 const TOTAL_LEAVES_BENCHES: &[usize] = &[K, 10 * K, 100 * K, M, 10 * M];
 
-fn generate_merkle_tree(total_leaves: usize) -> MKTree {
+fn generate_merkle_tree(total_leaves: usize) -> MKTree<MKTreeStoreInMemory> {
     MKTree::new(
         (0..total_leaves)
             .map(|i| format!("bench-{i}").into())
