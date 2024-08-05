@@ -13,7 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - **UNSTABLE** Cardano stake distribution certification:
 
-  - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`
+  - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`.
+  - Implement the HTTP routes related to the signed entity type `CardanoStakeDistribution` on the aggregator REST API.
 
 - Crates versions:
 

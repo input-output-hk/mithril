@@ -41,6 +41,7 @@ pub struct MithrilInfrastructure {
     cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
     is_signing_cardano_transactions: bool,
+    is_signing_cardano_stake_distribution: bool,
 }
 
 impl MithrilInfrastructure {
@@ -87,6 +88,11 @@ impl MithrilInfrastructure {
             run_only_mode: config.run_only_mode,
             is_signing_cardano_transactions: config.signed_entity_types.contains(
                 &SignedEntityTypeDiscriminants::CardanoTransactions
+                    .as_ref()
+                    .to_string(),
+            ),
+            is_signing_cardano_stake_distribution: config.signed_entity_types.contains(
+                &SignedEntityTypeDiscriminants::CardanoStakeDistribution
                     .as_ref()
                     .to_string(),
             ),
@@ -283,6 +289,10 @@ impl MithrilInfrastructure {
 
     pub fn is_signing_cardano_transactions(&self) -> bool {
         self.is_signing_cardano_transactions
+    }
+
+    pub fn is_signing_cardano_stake_distribution(&self) -> bool {
+        self.is_signing_cardano_stake_distribution
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {

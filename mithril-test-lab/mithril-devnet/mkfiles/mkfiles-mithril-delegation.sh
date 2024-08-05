@@ -85,7 +85,7 @@ done
 # Prepare transactions for delegating to stake pools
 for N in ${POOL_NODES_N}; do
   cat >> delegate.sh <<EOF
-    AMOUNT_STAKED=\$(( $N*1000000 +  DELEGATION_ROUND*1 ))
+    AMOUNT_STAKED=\$(( $N*1000000 +  \$DELEGATION_ROUND*1 ))
 
     # Get the UTxO
     TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\

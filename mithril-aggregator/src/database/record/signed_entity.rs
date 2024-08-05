@@ -2,8 +2,13 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use mithril_common::crypto_helper::ProtocolParameters;
-use mithril_common::entities::{BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot};
+use mithril_common::entities::{
+    BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot, StakeDistribution,
+};
+#[cfg(test)]
+use mithril_common::entities::{CardanoStakeDistribution, MithrilStakeDistribution};
 use mithril_common::messages::{
+    CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage,
     CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
     SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
@@ -33,6 +38,32 @@ pub struct SignedEntityRecord {
 }
 
 #[cfg(test)]
+impl From<CardanoStakeDistribution> for SignedEntityRecord {
+    fn from(cardano_stake_distribution: CardanoStakeDistribution) -> Self {
+        SignedEntityRecord::from_cardano_stake_distribution(cardano_stake_distribution)
+    }
+}
+
+#[cfg(test)]
+impl From<MithrilStakeDistribution> for SignedEntityRecord {
+    fn from(mithril_stake_distribution: MithrilStakeDistribution) -> Self {
+        let entity = serde_json::to_string(&mithril_stake_distribution).unwrap();
+
+        SignedEntityRecord {
+            signed_entity_id: mithril_stake_distribution.hash.clone(),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                mithril_stake_distribution.epoch,
+            ),
+            certificate_id: format!("certificate-{}", mithril_stake_distribution.hash),
+            artifact: entity,
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
+        }
+    }
+}
+
+#[cfg(test)]
 impl SignedEntityRecord {
     pub(crate) fn from_snapshot(
         snapshot: Snapshot,
@@ -47,6 +78,24 @@ impl SignedEntityRecord {
             certificate_id,
             artifact: entity,
             created_at,
+        }
+    }
+
+    pub(crate) fn from_cardano_stake_distribution(
+        cardano_stake_distribution: CardanoStakeDistribution,
+    ) -> Self {
+        let entity = serde_json::to_string(&cardano_stake_distribution).unwrap();
+
+        SignedEntityRecord {
+            signed_entity_id: cardano_stake_distribution.hash.clone(),
+            signed_entity_type: SignedEntityType::CardanoStakeDistribution(
+                cardano_stake_distribution.epoch,
+            ),
+            certificate_id: format!("certificate-{}", cardano_stake_distribution.hash),
+            artifact: entity,
+            created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                .unwrap()
+                .with_timezone(&Utc),
         }
     }
 
@@ -227,6 +276,52 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
             locations: artifact.locations,
             compression_algorithm: Some(artifact.compression_algorithm),
             cardano_node_version: Some(artifact.cardano_node_version),
+        };
+
+        Ok(message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for CardanoStakeDistributionMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpCardanoStakeDistribution {
+            hash: String,
+            stake_distribution: StakeDistribution,
+        }
+        let artifact = serde_json::from_str::<TmpCardanoStakeDistribution>(&value.artifact)?;
+        let cardano_stake_distribution_message = CardanoStakeDistributionMessage {
+            // The epoch stored in the signed entity type beacon corresponds to epoch
+            // at the end of which the Cardano stake distribution is computed by the Cardano node.
+            epoch: value.signed_entity_type.get_epoch(),
+            stake_distribution: artifact.stake_distribution,
+            hash: artifact.hash,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
+        };
+
+        Ok(cardano_stake_distribution_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for CardanoStakeDistributionListItemMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        #[derive(Deserialize)]
+        struct TmpCardanoStakeDistribution {
+            hash: String,
+        }
+        let artifact = serde_json::from_str::<TmpCardanoStakeDistribution>(&value.artifact)?;
+        let message = CardanoStakeDistributionListItemMessage {
+            // The epoch stored in the signed entity type beacon corresponds to epoch
+            // at the end of which the Cardano stake distribution is computed by the Cardano node.
+            epoch: value.signed_entity_type.get_epoch(),
+            hash: artifact.hash,
+            certificate_hash: value.certificate_id,
+            created_at: value.created_at,
         };
 
         Ok(message)

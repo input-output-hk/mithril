@@ -49,6 +49,9 @@ pub fn routes(
                 .or(artifact_routes::mithril_stake_distribution::routes(
                     dependency_manager.clone(),
                 ))
+                .or(artifact_routes::cardano_stake_distribution::routes(
+                    dependency_manager.clone(),
+                ))
                 .or(artifact_routes::cardano_transaction::routes(
                     dependency_manager.clone(),
                 ))

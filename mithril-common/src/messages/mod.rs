@@ -1,6 +1,8 @@
 //! Messages module
 //! This module aims at providing shared structures for API communications.
 mod aggregator_features;
+mod cardano_stake_distribution;
+mod cardano_stake_distribution_list;
 mod cardano_transaction_snapshot;
 mod cardano_transaction_snapshot_list;
 mod cardano_transactions_proof;
@@ -20,6 +22,10 @@ mod snapshot_list;
 
 pub use aggregator_features::{
     AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
+};
+pub use cardano_stake_distribution::CardanoStakeDistributionMessage;
+pub use cardano_stake_distribution_list::{
+    CardanoStakeDistributionListItemMessage, CardanoStakeDistributionListMessage,
 };
 pub use cardano_transaction_snapshot::CardanoTransactionSnapshotMessage;
 pub use cardano_transaction_snapshot_list::{
