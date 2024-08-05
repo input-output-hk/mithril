@@ -28,7 +28,9 @@ pub use era::{
 };
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
 pub use merkle_map::{MKMap, MKMapKey, MKMapNode, MKMapProof, MKMapValue};
-pub use merkle_tree::{MKProof, MKTree, MKTreeNode, MKTreeStore};
+pub use merkle_tree::{
+    MKProof, MKTree, MKTreeNode, MKTreeStore, MKTreeStoreInMemoryProvider, MKTreeStoreInMemory,
+};
 pub use types::*;
 
 /// The current protocol version

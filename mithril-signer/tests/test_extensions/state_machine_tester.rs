@@ -13,6 +13,7 @@ use mithril_common::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
     },
     chain_observer::{ChainObserver, FakeObserver},
+    crypto_helper::MKTreeStoreInMemory,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
@@ -191,7 +192,9 @@ impl StateMachineTester {
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
+            MKTreeStoreInMemory,
+        >::new(
             transactions_importer.clone(),
             block_range_root_retriever,
             slog_scope::logger(),

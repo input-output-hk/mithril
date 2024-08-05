@@ -8,7 +8,7 @@ use std::{
 };
 
 use mithril_common::{
-    crypto_helper::{MKMap, MKMapNode, MKTree},
+    crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeStore},
     entities::{
         BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
     },
@@ -51,18 +51,18 @@ pub trait TransactionsRetriever: Sync + Send {
 }
 
 /// Mithril prover
-pub struct MithrilProverService {
+pub struct MithrilProverService<S: MKTreeStore> {
     transaction_retriever: Arc<dyn TransactionsRetriever>,
-    block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
-    mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange>>>,
+    block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
+    mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>,
     logger: Logger,
 }
 
-impl MithrilProverService {
+impl<S: MKTreeStore> MithrilProverService<S> {
     /// Create a new Mithril prover
     pub fn new(
         transaction_retriever: Arc<dyn TransactionsRetriever>,
-        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever>,
+        block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
         mk_map_pool_size: usize,
         logger: Logger,
     ) -> Self {
@@ -113,7 +113,7 @@ impl MithrilProverService {
 }
 
 #[async_trait]
-impl ProverService for MithrilProverService {
+impl<S: MKTreeStore> ProverService for MithrilProverService<S> {
     async fn compute_transactions_proofs(
         &self,
         up_to: BlockNumber,
@@ -126,7 +126,7 @@ impl ProverService for MithrilProverService {
             .await?;
 
         // 2 - Compute block ranges sub Merkle trees
-        let mk_trees: StdResult<Vec<(BlockRange, MKTree)>> = block_range_transactions
+        let mk_trees: StdResult<Vec<(BlockRange, MKTree<S>)>> = block_range_transactions
             .into_iter()
             .map(|(block_range, transactions)| {
                 let mk_tree = MKTree::new(&transactions)?;
@@ -183,7 +183,7 @@ impl ProverService for MithrilProverService {
                 );
                 mk_map_cache.clone()
             })
-            .collect::<Vec<MKMap<_, _>>>();
+            .collect::<Vec<MKMap<_, _, _>>>();
         debug!(self.logger, "Prover is draining the Merkle map pool");
         let discriminant_new = self.mk_map_pool.discriminant()? + 1;
         self.mk_map_pool.set_discriminant(discriminant_new)?;
@@ -211,7 +211,9 @@ impl ProverService for MithrilProverService {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
-    use mithril_common::crypto_helper::{MKMap, MKMapNode, MKTreeNode};
+    use mithril_common::crypto_helper::{
+        MKMap, MKMapNode, MKTreeNode, MKTreeStore, MKTreeStoreInMemory,
+    };
     use mithril_common::entities::CardanoTransaction;
     use mithril_common::test_utils::CardanoTransactionsBuilder;
     use mockall::mock;
@@ -220,10 +222,10 @@ mod tests {
     use super::*;
 
     mock! {
-        pub BlockRangeRootRetrieverImpl { }
+        pub BlockRangeRootRetrieverImpl<S: MKTreeStore> { }
 
         #[async_trait]
-        impl BlockRangeRootRetriever for BlockRangeRootRetrieverImpl {
+        impl<S: MKTreeStore> BlockRangeRootRetriever<S> for BlockRangeRootRetrieverImpl<S> {
             async fn retrieve_block_range_roots<'a>(
                 &'a self,
                 up_to_beacon: BlockNumber,
@@ -232,11 +234,13 @@ mod tests {
             async fn compute_merkle_map_from_block_range_roots(
                 &self,
                 up_to_beacon: BlockNumber,
-            ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>>;
+            ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>;
         }
     }
 
     mod test_data {
+        use mithril_common::crypto_helper::MKTreeStoreInMemory;
+
         use super::*;
 
         pub fn filter_transactions_for_indices(
@@ -287,7 +291,11 @@ mod tests {
 
         pub fn compute_mk_map_from_block_ranges_map(
             block_ranges_map: BTreeMap<BlockRange, Vec<CardanoTransaction>>,
-        ) -> MKMap<BlockRange, MKMapNode<BlockRange>> {
+        ) -> MKMap<
+            BlockRange,
+            MKMapNode<BlockRange, MKTreeStoreInMemory>,
+            MKTreeStoreInMemory,
+        > {
             MKMap::new_from_iter(
                 block_ranges_map
                     .into_iter()
@@ -295,7 +303,7 @@ mod tests {
                         (
                             block_range,
                             MKMapNode::TreeNode(
-                                MKTree::new(&transactions)
+                                MKTree::<MKTreeStoreInMemory>::new(&transactions)
                                     .unwrap()
                                     .compute_root()
                                     .unwrap()
@@ -348,13 +356,13 @@ mod tests {
         }
     }
 
-    fn build_prover<F, G>(
+    fn build_prover<F, G, S: MKTreeStore + 'static>(
         transaction_retriever_mock_config: F,
         block_range_root_retriever_mock_config: G,
-    ) -> MithrilProverService
+    ) -> MithrilProverService<S>
     where
         F: FnOnce(&mut MockTransactionsRetriever),
-        G: FnOnce(&mut MockBlockRangeRootRetrieverImpl),
+        G: FnOnce(&mut MockBlockRangeRootRetrieverImpl<S>),
     {
         let mut transaction_retriever = MockTransactionsRetriever::new();
         transaction_retriever_mock_config(&mut transaction_retriever);
@@ -581,7 +589,7 @@ mod tests {
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
-        let prover = build_prover(
+        let prover = build_prover::<_, _, MKTreeStoreInMemory>(
             |transaction_retriever_mock| {
                 transaction_retriever_mock
                     .expect_get_by_hashes()
@@ -610,7 +618,7 @@ mod tests {
         let transactions_to_prove =
             test_data::filter_transactions_for_indices(&[1, 2, 4], &transactions);
         let test_data = test_data::build_test_data(&transactions_to_prove, &transactions);
-        let prover = build_prover(
+        let prover = build_prover::<_, _, MKTreeStoreInMemory>(
             |transaction_retriever_mock| {
                 let transactions_to_prove = transactions_to_prove.clone();
                 transaction_retriever_mock
