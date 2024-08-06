@@ -6,6 +6,8 @@ use std::sync::Arc;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
+use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
+#[cfg(feature = "unstable")]
 use crate::cardano_transaction_client::CardanoTransactionClient;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
@@ -24,6 +26,8 @@ use crate::MithrilResult;
 pub struct Client {
     #[cfg(feature = "unstable")]
     cardano_transaction_client: Arc<CardanoTransactionClient>,
+    #[cfg(feature = "unstable")]
+    cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
     certificate_client: Arc<CertificateClient>,
     mithril_stake_distribution_client: Arc<MithrilStakeDistributionClient>,
     snapshot_client: Arc<SnapshotClient>,
@@ -49,6 +53,12 @@ impl Client {
     /// Get the client that fetches and downloads Mithril snapshots.
     pub fn snapshot(&self) -> Arc<SnapshotClient> {
         self.snapshot_client.clone()
+    }
+
+    /// Get the client that fetches Cardano stake distributions.
+    #[cfg(feature = "unstable")]
+    pub fn cardano_stake_distribution(&self) -> Arc<CardanoStakeDistributionClient> {
+        self.cardano_stake_distribution_client.clone()
     }
 }
 
@@ -165,7 +175,7 @@ impl ClientBuilder {
             aggregator_client.clone(),
         ));
         let snapshot_client = Arc::new(SnapshotClient::new(
-            aggregator_client,
+            aggregator_client.clone(),
             #[cfg(feature = "fs")]
             snapshot_downloader,
             #[cfg(feature = "fs")]
@@ -174,9 +184,15 @@ impl ClientBuilder {
             logger,
         ));
 
+        #[cfg(feature = "unstable")]
+        let cardano_stake_distribution_client =
+            Arc::new(CardanoStakeDistributionClient::new(aggregator_client));
+
         Ok(Client {
             #[cfg(feature = "unstable")]
             cardano_transaction_client,
+            #[cfg(feature = "unstable")]
+            cardano_stake_distribution_client,
             certificate_client,
             mithril_stake_distribution_client,
             snapshot_client,

@@ -37,6 +37,10 @@ pub use mithril_common::messages::CertificateListItemMessageMetadata as MithrilC
 pub use mithril_common::messages::SignerWithStakeMessagePart as MithrilSigner;
 
 cfg_unstable! {
+    /// A Cardano stake distribution.
+    ///
+    pub use mithril_common::messages::CardanoStakeDistributionMessage as CardanoStakeDistribution;
+
     pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTransactionsProofs;
 
     pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
@@ -62,5 +66,6 @@ pub mod common {
     };
     cfg_unstable! {
         pub use mithril_common::entities::{ChainPoint, TransactionHash, SlotNumber, BlockHash, BlockNumber};
+        pub use mithril_common::entities::{StakeDistribution};
     }
 }
