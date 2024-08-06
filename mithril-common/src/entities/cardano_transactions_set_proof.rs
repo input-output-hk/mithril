@@ -6,7 +6,7 @@ use crate::{StdError, StdResult};
 use super::BlockRange;
 
 cfg_test_tools! {
-    use crate::crypto_helper::{MKMap, MKTree, MKTreeNode, MKMapNode, MKTreeStore, MKTreeStoreInMemory};
+    use crate::crypto_helper::{MKMap, MKTree, MKTreeNode, MKMapNode, MKTreeStorer, MKTreeStoreInMemory};
     use crate::entities::BlockNumber;
     use std::collections::HashMap;
 }
@@ -69,7 +69,7 @@ impl CardanoTransactionsSetProof {
         }
 
         /// Helper to create a proof from a list of leaves
-        pub fn from_leaves<S: MKTreeStore>(leaves: &[(BlockNumber, TransactionHash)]) -> StdResult<Self> {
+        pub fn from_leaves<S: MKTreeStorer>(leaves: &[(BlockNumber, TransactionHash)]) -> StdResult<Self> {
             let transactions_hashes: Vec<TransactionHash> =
                 leaves.iter().map(|(_, t)| t.into()).collect();
             let mut transactions_by_block_ranges: HashMap<BlockRange, Vec<TransactionHash>> =
