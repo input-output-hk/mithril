@@ -72,9 +72,9 @@ Thus, there are no extra requirements on the recommended hardware than for runni
 Here are some figures about the Mithril signer node running on the `mainnet` Cardano network:
 
 - It is **idle** most of the time with a very low **CPU** usage of less than `5%`.
-- It is using less than `700MB` of **resident memory**.
+- It is using less than `400MB` of **resident memory**.
 - It sends to the aggregator a **new signature** roughly every `10 minutes` and a **new registration** every `5 days` (`<1MB` per day).
-- When launched for the **first time**, a **pre-loading** phase occurs where the Cardano transactions will be imported with a spike of `50-70%` CPU on one core for `~8 hours`.
+- When launched for the **first time**, a **pre-loading** phase occurs where the Cardano transactions will be imported with a spike of `50-70%` CPU on one core for `~6 hours`.
 - When signing for the **first time**, the Cardano database digest cache needs to be built with a spike of `50-70%` CPU on one core for `~1 hour`.
 - Also, the full Cardano database files will be **read from disk once** during this cache building process.
 - Only **stake distributions**, **Mithril keys** and some **cache** (for the **Cardano database** and the **Cardano transactions**) are stored on the disk (`<200MB`).
