@@ -8,7 +8,7 @@ use std::{
 };
 
 use mithril_common::{
-    crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeStore},
+    crypto_helper::{MKMap, MKMapNode, MKTree, MKTreeStorer},
     entities::{
         BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
     },
@@ -51,14 +51,14 @@ pub trait TransactionsRetriever: Sync + Send {
 }
 
 /// Mithril prover
-pub struct MithrilProverService<S: MKTreeStore> {
+pub struct MithrilProverService<S: MKTreeStorer> {
     transaction_retriever: Arc<dyn TransactionsRetriever>,
     block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
     mk_map_pool: ResourcePool<MKMap<BlockRange, MKMapNode<BlockRange, S>, S>>,
     logger: Logger,
 }
 
-impl<S: MKTreeStore> MithrilProverService<S> {
+impl<S: MKTreeStorer> MithrilProverService<S> {
     /// Create a new Mithril prover
     pub fn new(
         transaction_retriever: Arc<dyn TransactionsRetriever>,
@@ -113,7 +113,7 @@ impl<S: MKTreeStore> MithrilProverService<S> {
 }
 
 #[async_trait]
-impl<S: MKTreeStore> ProverService for MithrilProverService<S> {
+impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
     async fn compute_transactions_proofs(
         &self,
         up_to: BlockNumber,
@@ -212,7 +212,7 @@ impl<S: MKTreeStore> ProverService for MithrilProverService<S> {
 mod tests {
     use anyhow::anyhow;
     use mithril_common::crypto_helper::{
-        MKMap, MKMapNode, MKTreeNode, MKTreeStore, MKTreeStoreInMemory,
+        MKMap, MKMapNode, MKTreeNode, MKTreeStorer, MKTreeStoreInMemory,
     };
     use mithril_common::entities::CardanoTransaction;
     use mithril_common::test_utils::CardanoTransactionsBuilder;
@@ -222,10 +222,10 @@ mod tests {
     use super::*;
 
     mock! {
-        pub BlockRangeRootRetrieverImpl<S: MKTreeStore> { }
+        pub BlockRangeRootRetrieverImpl<S: MKTreeStorer> { }
 
         #[async_trait]
-        impl<S: MKTreeStore> BlockRangeRootRetriever<S> for BlockRangeRootRetrieverImpl<S> {
+        impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for BlockRangeRootRetrieverImpl<S> {
             async fn retrieve_block_range_roots<'a>(
                 &'a self,
                 up_to_beacon: BlockNumber,
@@ -356,7 +356,7 @@ mod tests {
         }
     }
 
-    fn build_prover<F, G, S: MKTreeStore + 'static>(
+    fn build_prover<F, G, S: MKTreeStorer + 'static>(
         transaction_retriever_mock_config: F,
         block_range_root_retriever_mock_config: G,
     ) -> MithrilProverService<S>

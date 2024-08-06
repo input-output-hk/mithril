@@ -4,7 +4,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
-use mithril_common::crypto_helper::{MKTreeNode, MKTreeStore};
+use mithril_common::crypto_helper::{MKTreeNode, MKTreeStorer};
 use mithril_common::entities::{
     BlockHash, BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
 };
@@ -296,7 +296,7 @@ impl CardanoTransactionRepository {
 }
 
 #[async_trait]
-impl<S: MKTreeStore> BlockRangeRootRetriever<S> for CardanoTransactionRepository {
+impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for CardanoTransactionRepository {
     async fn retrieve_block_range_roots<'a>(
         &'a self,
         up_to_beacon: BlockNumber,

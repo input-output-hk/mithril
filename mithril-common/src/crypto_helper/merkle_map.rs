@@ -10,7 +10,7 @@ use std::{
 
 use crate::{resource_pool::Reset, StdError, StdResult};
 
-use super::{MKProof, MKTree, MKTreeNode, MKTreeStore};
+use super::{MKProof, MKTree, MKTreeNode, MKTreeStorer};
 
 /// The trait implemented by the keys of a MKMap
 pub trait MKMapKey: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode> {}
@@ -34,13 +34,13 @@ pub trait MKMapValue<K: MKMapKey>: Clone + TryInto<MKTreeNode> + TryFrom<MKTreeN
 }
 
 /// A map, where the keys and values are merkelized and provable
-pub struct MKMap<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStore> {
+pub struct MKMap<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> {
     inner_map_values: BTreeMap<K, V>,
     inner_merkle_tree: MKTree<S>,
     provable_keys: BTreeSet<K>,
 }
 
-impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStore> MKMap<K, V, S> {
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> MKMap<K, V, S> {
     /// MKMap factory
     pub fn new(entries: &[(K, V)]) -> StdResult<Self> {
         Self::new_from_iter(entries.to_vec())
@@ -246,13 +246,13 @@ impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStore> MKMap<K, V, S> {
     }
 }
 
-impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStore> Reset for MKMap<K, V, S> {
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> Reset for MKMap<K, V, S> {
     fn reset(&mut self) -> StdResult<()> {
         self.compress()
     }
 }
 
-impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStore> Clone for MKMap<K, V, S> {
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> Clone for MKMap<K, V, S> {
     fn clone(&self) -> Self {
         // Cloning should never fail so unwrap is safe
         let mut clone = Self::new(&[]).unwrap();
@@ -264,13 +264,13 @@ impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStore> Clone for MKMap<K, V, S> {
     }
 }
 
-impl<'a, K: MKMapKey, V: MKMapValue<K>, S: MKTreeStore> From<&'a MKMap<K, V, S>> for &'a MKTree<S> {
+impl<'a, K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> From<&'a MKMap<K, V, S>> for &'a MKTree<S> {
     fn from(other: &'a MKMap<K, V, S>) -> Self {
         &other.inner_merkle_tree
     }
 }
 
-impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStore> TryFrom<MKMap<K, V, S>> for MKTreeNode {
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> TryFrom<MKMap<K, V, S>> for MKTreeNode {
     type Error = StdError;
     fn try_from(other: MKMap<K, V, S>) -> Result<Self, Self::Error> {
         other.compute_root()
@@ -365,7 +365,7 @@ impl<K: MKMapKey> From<MKProof> for MKMapProof<K> {
 /// The MKMapNode can be either a MKMap (Merkle map), a MKTree (full Merkle tree) or a MKTreeNode (Merkle tree node, e.g the root of a Merkle tree)
 /// Both MKMap and MKTree can generate proofs of membership for elements that they contain, which allows for recursive proof generation for the multiple layers
 #[derive(Clone)]
-pub enum MKMapNode<K: MKMapKey, S: MKTreeStore> {
+pub enum MKMapNode<K: MKMapKey, S: MKTreeStorer> {
     /// A Merkle map
     Map(Arc<MKMap<K, Self, S>>),
 
@@ -376,7 +376,7 @@ pub enum MKMapNode<K: MKMapKey, S: MKTreeStore> {
     TreeNode(MKTreeNode),
 }
 
-impl<K: MKMapKey, S: MKTreeStore> MKMapValue<K> for MKMapNode<K, S> {
+impl<K: MKMapKey, S: MKTreeStorer> MKMapValue<K> for MKMapNode<K, S> {
     fn compute_root(&self) -> StdResult<MKTreeNode> {
         match self {
             MKMapNode::Map(mk_map) => mk_map.compute_root(),
@@ -434,25 +434,25 @@ impl<K: MKMapKey, S: MKTreeStore> MKMapValue<K> for MKMapNode<K, S> {
     }
 }
 
-impl<K: MKMapKey, S: MKTreeStore> From<MKMap<K, MKMapNode<K, S>, S>> for MKMapNode<K, S> {
+impl<K: MKMapKey, S: MKTreeStorer> From<MKMap<K, MKMapNode<K, S>, S>> for MKMapNode<K, S> {
     fn from(other: MKMap<K, MKMapNode<K, S>, S>) -> Self {
         MKMapNode::Map(Arc::new(other))
     }
 }
 
-impl<K: MKMapKey, S: MKTreeStore> From<MKTree<S>> for MKMapNode<K, S> {
+impl<K: MKMapKey, S: MKTreeStorer> From<MKTree<S>> for MKMapNode<K, S> {
     fn from(other: MKTree<S>) -> Self {
         MKMapNode::Tree(Arc::new(other))
     }
 }
 
-impl<K: MKMapKey, S: MKTreeStore> From<MKTreeNode> for MKMapNode<K, S> {
+impl<K: MKMapKey, S: MKTreeStorer> From<MKTreeNode> for MKMapNode<K, S> {
     fn from(other: MKTreeNode) -> Self {
         MKMapNode::TreeNode(other)
     }
 }
 
-impl<K: MKMapKey, S: MKTreeStore> TryFrom<MKMapNode<K, S>> for MKTreeNode {
+impl<K: MKMapKey, S: MKTreeStorer> TryFrom<MKMapNode<K, S>> for MKTreeNode {
     type Error = StdError;
     fn try_from(other: MKMapNode<K, S>) -> Result<Self, Self::Error> {
         other.compute_root()

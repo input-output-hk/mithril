@@ -473,7 +473,7 @@ mod tests {
         },
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{
-            MKMap, MKMapNode, MKTreeNode, MKTreeStore, MKTreeStoreInMemory,
+            MKMap, MKMapNode, MKTreeNode, MKTreeStorer, MKTreeStoreInMemory,
             ProtocolInitializer,
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -513,10 +513,10 @@ mod tests {
     }
 
     mock! {
-        pub BlockRangeRootRetrieverImpl<S: MKTreeStore> { }
+        pub BlockRangeRootRetrieverImpl<S: MKTreeStorer> { }
 
         #[async_trait]
-        impl<S: MKTreeStore> BlockRangeRootRetriever<S> for BlockRangeRootRetrieverImpl<S> {
+        impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for BlockRangeRootRetrieverImpl<S> {
             async fn retrieve_block_range_roots<'a>(
                 &'a self,
                 up_to_beacon: BlockNumber,
