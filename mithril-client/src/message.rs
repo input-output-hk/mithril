@@ -1,5 +1,7 @@
 use anyhow::Context;
 use mithril_common::protocol::SignerBuilder;
+#[cfg(feature = "unstable")]
+use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 #[cfg(feature = "fs")]
 use mithril_common::{
     digesters::{CardanoImmutableDigester, ImmutableDigester},
@@ -12,6 +14,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::common::{ProtocolMessage, ProtocolMessagePartKey};
+#[cfg(feature = "unstable")]
+use crate::CardanoStakeDistribution;
 #[cfg(any(feature = "fs", feature = "unstable"))]
 use crate::MithrilCertificate;
 #[cfg(feature = "unstable")]
@@ -137,6 +141,29 @@ impl MessageBuilder {
             let mut message = transactions_proofs_certificate.protocol_message.clone();
             verified_transactions.fill_protocol_message(&mut message);
             message
+        }
+
+        /// Compute message for a Cardano stake distribution.
+        pub fn compute_cardano_stake_distribution_message(
+            &self,
+            certificate: &MithrilCertificate,
+            cardano_stake_distribution: &CardanoStakeDistribution,
+        ) -> MithrilResult<ProtocolMessage> {
+            let mk_tree = CardanoStakeDistributionSignableBuilder::compute_merkle_tree_from_stake_distribution(
+                cardano_stake_distribution.stake_distribution.clone(),
+            )?;
+
+            let mut message = certificate.protocol_message.clone();
+            message.set_message_part(
+                ProtocolMessagePartKey::CardanoStakeDistributionEpoch,
+                cardano_stake_distribution.epoch.to_string(),
+            );
+            message.set_message_part(
+                ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+                mk_tree.compute_root()?.to_hex(),
+            );
+
+            Ok(message)
         }
     }
 }
