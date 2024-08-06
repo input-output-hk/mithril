@@ -6,6 +6,7 @@ set -e
 if [[ -n $DEBUG ]]; then
     set -x
 fi
+set -x
 
 # Script directory variable
 SCRIPT_DIRECTORY=$(dirname $0)

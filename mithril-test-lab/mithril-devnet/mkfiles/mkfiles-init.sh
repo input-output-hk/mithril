@@ -75,7 +75,7 @@ if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" != "true" ]]; then
   rm -f cardano-bin.tar.gz
 fi
 
-cp ./bin/* "${ARTIFACTS_DIR}/" 2>/dev/null || true
+cp -r ./bin "${ARTIFACTS_DIR}/" 2>/dev/null || true
 rm -rf ./bin
 
 # Switch to artifacts directory
