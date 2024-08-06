@@ -112,3 +112,20 @@ pub fn with_prover_service(
 ) -> impl Filter<Extract = (Arc<dyn ProverService>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.prover_service.clone())
 }
+
+pub mod validators {
+    use crate::http_server::validators::ProverTransactionsHashValidator;
+
+    use super::*;
+
+    /// With Prover Transactions Hash Validator
+    pub fn with_prover_transactions_hash_validator(
+        dependency_manager: Arc<DependencyContainer>,
+    ) -> impl Filter<Extract = (ProverTransactionsHashValidator,), Error = Infallible> + Clone {
+        let max_hashes = dependency_manager
+            .config
+            .cardano_transactions_prover_max_hashes_allowed_by_request;
+
+        warp::any().map(move || ProverTransactionsHashValidator::new(max_hashes))
+    }
+}

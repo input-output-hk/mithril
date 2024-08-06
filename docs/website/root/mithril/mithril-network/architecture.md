@@ -7,7 +7,7 @@ sidebar_label: Architecture
 
 :::info
 
-* The current Mithril network relies on a single aggregator. However, the team is working on a more decentralized version, where multiple aggregators will operate within the same Mithril network.
+- The current Mithril network relies on a single aggregator. However, the team is working on a more decentralized version, where multiple aggregators will operate within the same Mithril network.
 
 :::
 
@@ -19,19 +19,19 @@ sidebar_label: Architecture
 
 The network is composed of the following nodes:
 
-* [**Mithril aggregator**](./aggregator.md):
+- [**Mithril aggregator**](./aggregator.md):
 
 > The trustless node that orchestrates the work of the Mithril signer nodes, gathering their individual signatures to produce Mithril multi-signatures and their associated certificates. The aggregator is also in charge of creating and storing the ledger state snapshot archives.
 
-* [**Mithril signer**](./signer.md):
+- [**Mithril signer**](./signer.md):
 
 > The node that works transparently on top of the stake pool operator's Cardano node and individually signs the Cardano chain state.
 
-* [**Mithril client**](./client.md):
+- [**Mithril client**](./client.md):
 
 > The node used to restore artifacts produced by a Mithril aggregator. It then employs Mithril cryptographic primitives to verify their authenticity and validity.
 
-* **Mithril relay**:
+- **Mithril relay**:
 
 > A forward proxy that is used to secure communications between the Mithril signer and the Mithril aggregator. More information is available in the [Mithril signer deployment model](../../manual/getting-started/run-signer-node#mithril-signer-deployment-model) section.
 

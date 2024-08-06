@@ -3,8 +3,9 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters,
-        SignedEntityType, SignedEntityTypeDiscriminants, StakeDistributionParty, TimePoint,
+        BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
+        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
+        StakeDistributionParty, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -22,8 +23,8 @@ async fn create_certificate() {
         signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
         data_stores_directory: get_test_dir("create_certificate"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-            security_parameter: 0,
-            step: 30,
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
         },
         ..Configuration::new_sample()
     };
@@ -32,8 +33,8 @@ async fn create_certificate() {
             epoch: Epoch(1),
             immutable_file_number: 1,
             chain_point: ChainPoint {
-                slot_number: 10,
-                block_number: 100,
+                slot_number: SlotNumber(10),
+                block_number: BlockNumber(100),
                 block_hash: "block_hash-100".to_string(),
             },
         },
@@ -49,7 +50,7 @@ async fn create_certificate() {
 
     tester.init_state_from_fixture(&fixture).await.unwrap();
 
-    comment!("Boostrap the genesis certificate");
+    comment!("Bootstrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
 
     assert_last_certificate_eq!(
@@ -142,9 +143,12 @@ async fn create_certificate() {
 
     comment!(
         "Increase cardano chain block number to 185, 
-        the state machine should be signing CardanoTransactions for block 180"
+        the state machine should be signing CardanoTransactions for block 179"
     );
-    tester.increase_block_number(85, 185).await.unwrap();
+    tester
+        .increase_block_number_and_slot_number(85, SlotNumber(95), BlockNumber(185))
+        .await
+        .unwrap();
     cycle!(tester, "signing");
     let signers_for_transaction = &fixture.signers_fixture()[2..=6];
     tester
@@ -166,7 +170,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoTransactions(Epoch(1), 180),
+            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,
@@ -179,7 +183,10 @@ async fn create_certificate() {
         "Got rollback to block number 149 from cardano chain, 
         the state machine should be signing CardanoTransactions for block 120"
     );
-    tester.cardano_chain_send_rollback(149).await.unwrap();
+    tester
+        .cardano_chain_send_rollback(SlotNumber(95), BlockNumber(149))
+        .await
+        .unwrap();
     cycle!(tester, "signing");
     let signers_for_transaction = &fixture.signers_fixture()[2..=6];
     tester
@@ -201,7 +208,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoTransactions(Epoch(1), 120),
+            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(119)),
             ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
                 "devnet".to_string(),
                 1,

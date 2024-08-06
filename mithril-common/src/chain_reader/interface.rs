@@ -9,7 +9,7 @@ use super::ChainBlockNextAction;
 /// - rollback to another point in case of rollback
 /// - do nothing when tip of the chain is reached
 #[async_trait]
-pub trait ChainBlockReader {
+pub trait ChainBlockReader: Send + Sync {
     /// Sets the chain point
     async fn set_chain_point(&mut self, point: &ChainPoint) -> StdResult<()>;
 

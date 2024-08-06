@@ -22,7 +22,7 @@ should be able to answer the following about a node or collection of nodes:
 The test-lab should be depolyable by anyone who might want to deploy their own node, and programmable by anyone who
 might want to program a node. An example of things that a programmer might ask the test lab to do is:
 
-- Does this network succesfully produce a correct signature in n seconds?
+- Does this network successfully produce a correct signature in n seconds?
 - If a node lies about their stake, will other nodes still include them in a signature output?
 - If a cryptographic value is replaced, will a valid signature still be produced eventually?
 - What happens if two nodes try to use the same public key?

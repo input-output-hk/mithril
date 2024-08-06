@@ -67,7 +67,7 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/mithril-signer-${SIGNER_ID}/cardano/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
-    command: [ "-vvv" ]
+    command: ["-vvv"]
     depends_on:
       cardano-node-signer:
         condition: service_started
@@ -94,7 +94,7 @@ services:
     ports:
       - "${SIGNER_RELAY_LISTEN_PORT}:${SIGNER_RELAY_LISTEN_PORT}"
       - "${SIGNER_RELAY_SERVER_PORT}:${SIGNER_RELAY_SERVER_PORT}"
-    command: [ "-vvv", "signer" ]
+    command: ["-vvv", "signer"]
     depends_on:
       mithril-signer:
         condition: service_started

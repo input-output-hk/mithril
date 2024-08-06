@@ -6,6 +6,7 @@ use anyhow::{anyhow, Context};
 use mithril_common::{
     entities::{Epoch, TransactionHash},
     messages::{
+        CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
         CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
         CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
         SnapshotMessage,
@@ -233,6 +234,77 @@ pub async fn assert_signer_is_signing_cardano_transactions(
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_cardano_transactions, no response from `{url}`"
+        )),
+    }
+}
+
+pub async fn assert_node_producing_cardano_stake_distribution(
+    aggregator_endpoint: &str,
+) -> StdResult<String> {
+    let url = format!("{aggregator_endpoint}/artifact/cardano-stake-distributions");
+    info!("Waiting for the aggregator to produce a Cardano stake distribution");
+
+    match attempt!(45, Duration::from_millis(2000), {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<CardanoStakeDistributionListMessage>().await.as_deref() {
+                    Ok([stake_distribution, ..]) => Ok(Some(stake_distribution.hash.clone())),
+                    Ok(&[]) => Ok(None),
+                    Err(err) => Err(anyhow!("Invalid Cardano stake distribution body : {err}",)),
+                },
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+            },
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        }
+    }) {
+        AttemptResult::Ok(hash) => {
+            info!("Aggregator produced a Cardano stake distribution"; "hash" => &hash);
+            Ok(hash)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_node_producing_cardano_stake_distribution, no response from `{url}`"
+        )),
+    }
+}
+
+pub async fn assert_signer_is_signing_cardano_stake_distribution(
+    aggregator_endpoint: &str,
+    hash: &str,
+    expected_epoch_min: Epoch,
+) -> StdResult<String> {
+    let url = format!("{aggregator_endpoint}/artifact/cardano-stake-distribution/{hash}");
+    info!(
+        "Asserting the aggregator is signing the Cardano stake distribution message `{}` with an expected min epoch of `{}`",
+        hash,
+        expected_epoch_min
+    );
+
+    match attempt!(10, Duration::from_millis(1000), {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<CardanoStakeDistributionMessage>().await {
+                    Ok(stake_distribution) => match stake_distribution.epoch {
+                        epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
+                        epoch => Err(anyhow!(
+                            "Minimum expected Cardano stake distribution epoch not reached : {epoch} < {expected_epoch_min}"
+                        )),
+                    },
+                    Err(err) => Err(anyhow!(err).context("Invalid Cardano stake distribution body",)),
+                },
+                StatusCode::NOT_FOUND => Ok(None),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+            },
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        }
+    }) {
+        AttemptResult::Ok(cardano_stake_distribution) => {
+            info!("Signer signed a Cardano stake distribution"; "certificate_hash" => &cardano_stake_distribution.certificate_hash);
+            Ok(cardano_stake_distribution.certificate_hash)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_signer_is_signing_cardano_stake_distribution, no response from `{url}`"
         )),
     }
 }

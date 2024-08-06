@@ -2,7 +2,7 @@ use std::ops::Range;
 
 use sqlite::Value;
 
-use mithril_common::entities::{BlockNumber, BlockRange, TransactionHash};
+use mithril_common::entities::{BlockNumber, BlockRange, SlotNumber, TransactionHash};
 
 use crate::database::record::CardanoTransactionRecord;
 use crate::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
@@ -37,7 +37,7 @@ impl GetCardanoTransactionQuery {
         let condition = WhereCondition::where_in("transaction_hash", hashes_values).and_where(
             WhereCondition::new(
                 "block_number <= ?*",
-                vec![Value::Integer(up_to_or_equal as i64)],
+                vec![Value::Integer(*up_to_or_equal as i64)],
             ),
         );
 
@@ -50,8 +50,8 @@ impl GetCardanoTransactionQuery {
             condition = condition.or_where(WhereCondition::new(
                 "(block_number >= ?* and block_number < ?*)",
                 vec![
-                    Value::Integer(block_range.start as i64),
-                    Value::Integer(block_range.end as i64),
+                    Value::Integer(*block_range.start as i64),
+                    Value::Integer(*block_range.end as i64),
                 ],
             ))
         }
@@ -62,14 +62,23 @@ impl GetCardanoTransactionQuery {
     pub fn between_blocks(range: Range<BlockNumber>) -> Self {
         let condition = WhereCondition::new(
             "block_number >= ?*",
-            vec![Value::Integer(range.start as i64)],
+            vec![Value::Integer(*range.start as i64)],
         )
         .and_where(WhereCondition::new(
             "block_number < ?*",
-            vec![Value::Integer(range.end as i64)],
+            vec![Value::Integer(*range.end as i64)],
         ));
 
         Self { condition }
+    }
+
+    pub fn by_slot_number(slot_number: SlotNumber) -> Self {
+        Self {
+            condition: WhereCondition::new(
+                "slot_number = ?*",
+                vec![Value::Integer(*slot_number as i64)],
+            ),
+        }
     }
 
     pub fn with_highest_block_number() -> Self {
@@ -123,10 +132,30 @@ mod tests {
         insert_transactions(
             &connection,
             vec![
-                CardanoTransactionRecord::new("tx-hash-0", 10, 50, "block-hash-10", 1),
-                CardanoTransactionRecord::new("tx-hash-1", 10, 51, "block-hash-10", 1),
-                CardanoTransactionRecord::new("tx-hash-2", 11, 54, "block-hash-11", 1),
-                CardanoTransactionRecord::new("tx-hash-3", 11, 55, "block-hash-11", 1),
+                CardanoTransactionRecord::new(
+                    "tx-hash-0",
+                    BlockNumber(10),
+                    SlotNumber(50),
+                    "block-hash-10",
+                ),
+                CardanoTransactionRecord::new(
+                    "tx-hash-1",
+                    BlockNumber(10),
+                    SlotNumber(51),
+                    "block-hash-10",
+                ),
+                CardanoTransactionRecord::new(
+                    "tx-hash-2",
+                    BlockNumber(11),
+                    SlotNumber(54),
+                    "block-hash-11",
+                ),
+                CardanoTransactionRecord::new(
+                    "tx-hash-3",
+                    BlockNumber(11),
+                    SlotNumber(55),
+                    "block-hash-11",
+                ),
             ],
         );
 
@@ -135,8 +164,18 @@ mod tests {
             .unwrap();
         assert_eq!(
             vec![
-                CardanoTransactionRecord::new("tx-hash-2", 11, 54, "block-hash-11", 1),
-                CardanoTransactionRecord::new("tx-hash-3", 11, 55, "block-hash-11", 1),
+                CardanoTransactionRecord::new(
+                    "tx-hash-2",
+                    BlockNumber(11),
+                    SlotNumber(54),
+                    "block-hash-11"
+                ),
+                CardanoTransactionRecord::new(
+                    "tx-hash-3",
+                    BlockNumber(11),
+                    SlotNumber(55),
+                    "block-hash-11"
+                ),
             ],
             records
         );

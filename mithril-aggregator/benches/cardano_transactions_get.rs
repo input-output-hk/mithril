@@ -4,9 +4,10 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use sqlite::ConnectionThreadSafe;
 
 use mithril_aggregator::services::TransactionStore;
-use mithril_common::{entities::CardanoTransaction, test_utils::TempDir};
+use mithril_common::entities::{BlockNumber, CardanoTransaction, SlotNumber};
+use mithril_common::test_utils::TempDir;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::sqlite::ConnectionBuilder;
+use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnectionPool};
 
 fn cardano_tx_db_connection(db_file_name: &str) -> ConnectionThreadSafe {
     let db_path =
@@ -32,10 +33,9 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
         .map(|i| {
             CardanoTransaction::new(
                 format!("tx_hash-{}", i),
-                i as u64,
-                i as u64 * 100,
+                BlockNumber(i as u64),
+                SlotNumber(i as u64 * 100),
                 format!("block_hash-{}", i),
-                i as u64 + 1,
             )
         })
         .collect()
@@ -44,10 +44,10 @@ fn generate_transactions(nb_transactions: usize) -> Vec<CardanoTransaction> {
 async fn init_db(nb_transaction_in_db: usize) -> CardanoTransactionRepository {
     println!("Generating a db with {nb_transaction_in_db} transactions, one per block ...");
     let transactions = generate_transactions(nb_transaction_in_db);
-    let connection = Arc::new(cardano_tx_db_connection(&format!(
-        "cardano_tx-{nb_transaction_in_db}.db",
-    )));
-    let repository = CardanoTransactionRepository::new(connection);
+    let connection = cardano_tx_db_connection(&format!("cardano_tx-{nb_transaction_in_db}.db",));
+    let repository = CardanoTransactionRepository::new(Arc::new(
+        SqliteConnectionPool::build_from_connection(connection),
+    ));
     repository.store_transactions(transactions).await.unwrap();
 
     repository
@@ -69,7 +69,7 @@ fn run_bench(c: &mut Criterion, nb_transaction_in_db: usize) {
             |b, &max_block_number| {
                 b.to_async(&runtime).iter(|| async {
                     let _transactions = repository
-                        .get_transactions_in_range(0..max_block_number)
+                        .get_transactions_in_range(BlockNumber(0)..BlockNumber(max_block_number))
                         .await
                         .unwrap();
                 });

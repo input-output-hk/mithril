@@ -7,6 +7,7 @@ use mithril_common::{
         CertificatePending, Epoch, EpochSettings, SignedEntityConfig, SignedEntityType,
         SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
     },
+    messages::AggregatorFeaturesMessage,
     test_utils::fake_data,
     MithrilTickerService, TickerService,
 };
@@ -98,7 +99,8 @@ impl AggregatorClient for FakeAggregator {
             epoch: time_point.epoch,
             signed_entity_type: self
                 .signed_entity_config
-                .time_point_to_signed_entity(current_signed_entity, &time_point),
+                .time_point_to_signed_entity(current_signed_entity, &time_point)
+                .unwrap(),
             ..fake_data::certificate_pending()
         };
 
@@ -136,6 +138,12 @@ impl AggregatorClient for FakeAggregator {
         _signatures: &SingleSignatures,
     ) -> Result<(), AggregatorClientError> {
         Ok(())
+    }
+
+    async fn retrieve_aggregator_features(
+        &self,
+    ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
+        Ok(AggregatorFeaturesMessage::dummy())
     }
 }
 

@@ -21,7 +21,7 @@ pub struct OpenMessageRepository {
 }
 
 impl OpenMessageRepository {
-    /// Instanciate service
+    /// Instantiate service
     pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }
@@ -45,7 +45,7 @@ impl OpenMessageRepository {
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
         self.connection.fetch_first(
             GetOpenMessageWithSingleSignaturesQuery::by_epoch_and_signed_entity_type(
-                signed_entity_type.get_epoch(),
+                signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
                 signed_entity_type,
             )?,
         )
@@ -104,7 +104,7 @@ impl OpenMessageRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::CardanoDbBeacon;
+    use mithril_common::entities::{BlockNumber, CardanoDbBeacon};
 
     use crate::database::record::SingleSignatureRecord;
     use crate::database::test_helper::{
@@ -184,7 +184,7 @@ mod tests {
         for signed_entity_type in [
             SignedEntityType::MithrilStakeDistribution(epoch),
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", *epoch, 1)),
-            SignedEntityType::CardanoTransactions(epoch, 100),
+            SignedEntityType::CardanoTransactions(epoch, BlockNumber(100)),
         ] {
             repository
                 .create_open_message(epoch, &signed_entity_type, &ProtocolMessage::new())

@@ -48,7 +48,7 @@ You also acknowledge and agree to have an adequate understanding of the risks as
 
 ## :rocket: Getting started with Mithril
 
-If you are a **Cardano SPO**, a good entry point is the [SPO onboarding guide](https://mithril.network/doc/manual/getting-started/SPO-on-boarding-guide). 
+If you are a **Cardano SPO**, a good entry point is the [SPO onboarding guide](https://mithril.network/doc/manual/getting-started/SPO-on-boarding-guide).
 Additionally, you can find detailed instructions for running a **signer node** in [this guide](https://mithril.network/doc/manual/getting-started/run-signer-node).
 
 If you are interested in **fast bootstrapping** of a Cardano node, please refer to [this guide](https://mithril.network/doc/manual/getting-started/bootstrap-cardano-node).
@@ -61,43 +61,43 @@ Mithril wiki is also available [here](https://github.com/input-output-hk/mithril
 
 This repository consists of the following parts:
 
-* [**Mithril aggregator**](./mithril-aggregator): the node of the **Mithril network** responsible for collecting individual signatures from the **Mithril signers** and aggregating them into a multi-signature. The **Mithril aggregator** uses this ability to provide certified snapshots of the **Cardano** blockchain.
+- [**Mithril aggregator**](./mithril-aggregator): the node of the **Mithril network** responsible for collecting individual signatures from the **Mithril signers** and aggregating them into a multi-signature. The **Mithril aggregator** uses this ability to provide certified snapshots of the **Cardano** blockchain.
 
-* [**Mithril client**](./mithril-client): this is the **client** library that can be used by developers to interact with Mithril certified data in their applications.
+- [**Mithril client**](./mithril-client): this is the **client** library that can be used by developers to interact with Mithril certified data in their applications.
 
-* [**Mithril client CLI**](./mithril-client-cli): the CLI used for retrieving the certified artifacts produced by the **Mithril network**, eg the **Cardano** chain certified snapshots used to securely restore a **Cardano node**.
+- [**Mithril client CLI**](./mithril-client-cli): the CLI used for retrieving the certified artifacts produced by the **Mithril network**, eg the **Cardano** chain certified snapshots used to securely restore a **Cardano node**.
 
-* [**Mithril client WASM**](./mithril-client-wasm): the WASM compatible library used for retrieving the certified artifacts produced by the **Mithril network**.
+- [**Mithril client WASM**](./mithril-client-wasm): the WASM compatible library used for retrieving the certified artifacts produced by the **Mithril network**.
 
-* [**Mithril common**](./mithril-common): this is the **common** library that is used by the **Mithril network** nodes.
- 
-* [**Mithril STM**](./mithril-stm): the **core** library that implements **Mithril** protocol cryptographic engine.
+- [**Mithril common**](./mithril-common): this is the **common** library that is used by the **Mithril network** nodes.
 
-* [**Mithril explorer**](./mithril-explorer): the **explorer** website that connects to a **Mithril aggregator** and displays its **Certificate chain** and artifacts.
+- [**Mithril STM**](./mithril-stm): the **core** library that implements **Mithril** protocol cryptographic engine.
 
-* [**Mithril infrastructure**](./mithril-infra): the infrastructure used to power a **Mithril network** in the cloud.
+- [**Mithril explorer**](./mithril-explorer): the **explorer** website that connects to a **Mithril aggregator** and displays its **Certificate chain** and artifacts.
 
-* [**Mithril signer**](./mithril-signer): the node of the **Mithril network** responsible for producing individual signatures that are collected and aggregated by the **Mithril aggregator**.
+- [**Mithril infrastructure**](./mithril-infra): the infrastructure used to power a **Mithril network** in the cloud.
 
-* [**Internal**](./internal): the shared tools and API used by **Mithril** crates.
+- [**Mithril signer**](./mithril-signer): the node of the **Mithril network** responsible for producing individual signatures that are collected and aggregated by the **Mithril aggregator**.
 
-  * [**Mithril build script**](./internal/mithril-build-script): a toolbox for Mithril crates using a build scripts phase.
+- [**Internal**](./internal): the shared tools and API used by **Mithril** crates.
 
-  * [**Mithril doc**](./internal/mithril-doc): an API that generates markdown documentation for a crate command lines arguments.
+  - [**Mithril build script**](./internal/mithril-build-script): a toolbox for Mithril crates using a build scripts phase.
 
-  * [**Mithril doc derive**](./internal/mithril-doc-derive): a macro implementation used by **Mithril doc**.
+  - [**Mithril doc**](./internal/mithril-doc): an API that generates markdown documentation for a crate command lines arguments.
 
-  * [**Mithril persistence**](./internal/mithril-persistence): the **persistence** library that is used by the **Mithril network** nodes.
+  - [**Mithril doc derive**](./internal/mithril-doc-derive): a macro implementation used by **Mithril doc**.
 
-* [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
+  - [**Mithril persistence**](./internal/mithril-persistence): the **persistence** library that is used by the **Mithril network** nodes.
 
-  * [**Mithril devnet**](./mithril-test-lab/mithril-devnet): the private **Mithril/Cardano network** used to scaffold a **Mithril network** on top of a **Cardano network**.
+- [**Mithril test lab**](./mithril-test-lab): the suite of tools that allow us to test and stress the **Mithril** protocol implementations.
 
-  * [**Mithril end to end**](./mithril-test-lab/mithril-end-to-end): the tool used to run tests scenarios against a **Mithril devnet**.
+  - [**Mithril devnet**](./mithril-test-lab/mithril-devnet): the private **Mithril/Cardano network** used to scaffold a **Mithril network** on top of a **Cardano network**.
 
-* [**Protocol demonstration**](./demo/protocol-demo): a simple CLI that helps understand how the **Mithril** protocol works and the role of its **protocol parameters**.
+  - [**Mithril end to end**](./mithril-test-lab/mithril-end-to-end): the tool used to run tests scenarios against a **Mithril devnet**.
 
-* [**Examples**](./examples): out of the box working examples to get familiar with **Mithril**.
+- [**Protocol demonstration**](./demo/protocol-demo): a simple CLI that helps understand how the **Mithril** protocol works and the role of its **protocol parameters**.
+
+- [**Examples**](./examples): out of the box working examples to get familiar with **Mithril**.
 
 ## :bridge_at_night: Contributing
 
@@ -105,10 +105,10 @@ The best way to contribute right now is to provide feedback. Start by giving a l
 
 Should you have any questions, ideas or issues, we would like to hear from you:
 
-* #ask-mithril on the IOG [Discord server](https://discord.gg/5kaErDKDRq)
-* Create a GitHub [Discussion](https://github.com/input-output-hk/mithril/discussions)
-* Create a GitHub [Issue](https://github.com/input-output-hk/mithril/issues/new)
-* Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mithril` tag
+- #ask-mithril on the IOG [Discord server](https://discord.gg/5kaErDKDRq)
+- Create a GitHub [Discussion](https://github.com/input-output-hk/mithril/discussions)
+- Create a GitHub [Issue](https://github.com/input-output-hk/mithril/issues/new)
+- Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mithril` tag
 
 When contributing to this project and interacting with others, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md) and our [Contributing Guidelines](./CONTRIBUTING.md).
 

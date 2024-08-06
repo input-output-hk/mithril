@@ -141,7 +141,7 @@ mod tests {
 ]
 }]"#;
         let message: SnapshotListMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a SnapshotListMessage instance.",
+            "This JSON is expected to be successfully parsed into a SnapshotListMessage instance.",
         );
 
         assert_eq!(golden_message_v1(), message);
@@ -166,7 +166,7 @@ mod tests {
 "cardano_node_version": "1.0.0"
 }]"#;
         let message: SnapshotListMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a SnapshotListMessage instance.",
+            "This JSON is expected to be successfully parsed into a SnapshotListMessage instance.",
         );
 
         assert_eq!(golden_message_v2(), message);
@@ -192,7 +192,7 @@ mod tests {
 "cardano_node_version": "1.0.0"
 }]"#;
         let message: SnapshotListMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a SnapshotListMessage instance.",
+            "This JSON is expected to be successfully parsed into a SnapshotListMessage instance.",
         );
 
         assert_eq!(golden_message_v3(), message);

@@ -1,12 +1,15 @@
 use chrono::{DateTime, Utc};
 
+use crate::entities::{
+    CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntityType, Snapshot,
+};
 use crate::signable_builder::Artifact;
 #[cfg(any(test, feature = "test_tools"))]
 use crate::test_utils::fake_data;
 
+use super::CardanoStakeDistribution;
 #[cfg(any(test, feature = "test_tools"))]
 use super::{CardanoDbBeacon, Epoch};
-use super::{CardanoTransactionsSnapshot, MithrilStakeDistribution, SignedEntityType, Snapshot};
 
 /// Aggregate for signed entity
 #[derive(Debug, Clone)]
@@ -68,13 +71,30 @@ impl SignedEntity<CardanoTransactionsSnapshot> {
     cfg_test_tools! {
         /// Create a dummy [SignedEntity] for [CardanoTransactionsSnapshot] entity
         pub fn dummy() -> Self {
-            let block_number = 50;
+            let block_number = crate::entities::BlockNumber(50);
             SignedEntity {
                 signed_entity_id: "snapshot-id-123".to_string(),
                 signed_entity_type: SignedEntityType::CardanoTransactions(Epoch(5), block_number),
                 certificate_id: "certificate-hash-123".to_string(),
                 artifact: CardanoTransactionsSnapshot::new("mkroot123".to_string(), block_number),
                 created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            }
+        }
+    }
+}
+
+impl SignedEntity<CardanoStakeDistribution> {
+    cfg_test_tools! {
+        /// Create a dummy [SignedEntity] for [CardanoStakeDistribution] entity
+        pub fn dummy() -> Self {
+            SignedEntity {
+                signed_entity_id: "cardano-stake-distribution-id-123".to_string(),
+                signed_entity_type: SignedEntityType::CardanoStakeDistribution(Epoch(1)),
+                certificate_id: "certificate-hash-123".to_string(),
+                artifact: fake_data::cardano_stake_distributions(1)[0].to_owned(),
+                created_at: DateTime::parse_from_rfc3339("2024-07-29T16:15:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),
             }

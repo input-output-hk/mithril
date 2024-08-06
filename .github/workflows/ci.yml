@@ -3,12 +3,12 @@ name: CI
 on:
   push:
     branches:
-      - 'main'
-      - 'hotfix**'
+      - "main"
+      - "hotfix**"
   pull_request:
-    types: [ opened, reopened, synchronize ]
+    types: [opened, reopened, synchronize]
     branches-ignore:
-      - 'hotfix**' # hotfix are handled by the push trigger
+      - "hotfix**" # hotfix are handled by the push trigger
 
 concurrency:
   group: ci-build-test-${{ github.ref }}
@@ -28,6 +28,7 @@ jobs:
         with:
           cache-version: 20.04-${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-deb
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
@@ -75,7 +76,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macos-12, macos-14, windows-latest ]
+        os: [macos-12, macos-14, windows-latest]
 
         include:
           # Only build client on windows & mac
@@ -100,6 +101,7 @@ jobs:
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
@@ -119,6 +121,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build 'mithril-client-wasm' library
         shell: bash
@@ -166,7 +169,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-22.04, macos-12, macos-14, windows-latest ]
+        os: [ubuntu-22.04, macos-12, macos-14, windows-latest]
 
         include:
           - os: ubuntu-22.04
@@ -190,6 +193,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-nextest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build tests
         run: cargo nextest run --no-run ${{ matrix.test-args }}
@@ -227,6 +231,11 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-sort clippy-sarif sarif-fmt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install prettier
+        shell: bash
+        run: npm install -g prettier
 
       - name: Clippy Check
         if: success() || failure()
@@ -268,21 +277,25 @@ jobs:
         if: success() || failure()
         run: jq . networks.json
 
+      - name: Check code formatting
+        if: success() || failure()
+        run: make check-format
+
   e2e:
     runs-on: ubuntu-22.04
-    needs: [ build-ubuntu-X64 ]
+    needs: [build-ubuntu-X64]
     strategy:
       fail-fast: false
       matrix:
-        mode: [ "std" ]
+        mode: ["std"]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        cardano_node_version: [ "8.7.3", "8.9.0", "8.11.0-pre" ]
-        hard_fork_latest_era_at_epoch: [ 0,10,100 ]
-        run_id: [ "#1" ]
-        extra_args: [ "" ]
+        cardano_node_version: ["8.9.4", "8.12.2", "9.0.0", "9.1.0"]
+        hard_fork_latest_era_at_epoch: [0]
+        run_id: ["#1"]
+        extra_args: [""]
 
         include:
-          # Include a test for `8.1.2` which is not concerned by the hard fork 
+          # Include a test for `8.1.2` which is not concerned by the hard fork
           - mode: "std"
             era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
             cardano_node_version: "8.1.2"
@@ -292,10 +305,24 @@ jobs:
           # Include a test for the P2P mode
           - mode: "p2p"
             era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            cardano_node_version: "8.7.3"
+            cardano_node_version: "8.9.4"
             hard_fork_latest_era_at_epoch: 100
             run_id: "#1"
             extra_args: "--use-p2p-network"
+          # Include tests for hard fork transitions
+          - mode: "std"
+            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            cardano_node_version: "8.9.4"
+            hard_fork_latest_era_at_epoch: 10
+            run_id: "#1"
+            extra_args: ""
+          # Include tests for hard fork transitions
+          - mode: "std"
+            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            cardano_node_version: "8.9.4"
+            hard_fork_latest_era_at_epoch: 100
+            run_id: "#1"
+            extra_args: ""
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -373,7 +400,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: [ mithril-aggregator, mithril-client-cli, mithril-signer, mithril-relay ]
+        project:
+          [
+            mithril-aggregator,
+            mithril-client-cli,
+            mithril-signer,
+            mithril-relay,
+          ]
 
         include:
           - project: mithril-client-cli
@@ -429,7 +462,8 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-stm, mithril-build-script, mithril-common, mithril-client ]
+        package:
+          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
 
     runs-on: ubuntu-22.04
     needs:
@@ -457,7 +491,7 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        package: [ mithril-client-wasm ]
+        package: [mithril-client-wasm]
         include:
           - package: mithril-client-wasm
             scope: mithril-dev
@@ -477,6 +511,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish package to npm
         uses: ./.github/workflows/actions/publish-npm-package
@@ -569,7 +604,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ testing-preview, testing-sanchonet ]
+        environment: [testing-preview, testing-sanchonet]
         include:
           - environment: testing-preview
             environment_prefix: testing
@@ -676,8 +711,11 @@ jobs:
           mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
           mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
           mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
-          mithril_aggregator_allow_unparsable_block:  ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
+          mithril_aggregator_allow_unparsable_block: ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
           mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
+          mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
+          mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
+          mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
           prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
           prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
           prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
@@ -700,6 +738,7 @@ jobs:
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
           cargo-tools: clippy-sarif sarif-fmt
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Generate cargo doc
         run: |
@@ -710,14 +749,14 @@ jobs:
                     -p mithril-aggregator -p mithril-signer -p mithril-client -p mithril-client-cli \
                     --all-features --message-format=json \
                     | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt
-          
+
           # Update tool sarif metadata from "clippy" to "cargo-doc" (since it's set this way by clippy-sarif)
           contents=$(cat rust-cargo-doc-results.sarif \
               | jq '.runs[].tool.driver.name = "cargo-doc"' \
               | jq '.runs[].tool.driver.informationUri = "https://doc.rust-lang.org/cargo/commands/cargo-doc.html"' \
           )
           echo -E "${contents}" > rust-cargo-doc-results.sarif
-          
+
           # Make this step fail if any warning has been found
           if [[ $(cat rust-cargo-doc-results.sarif | jq '.runs[0].results') != "[]" ]]; then
             false
@@ -737,7 +776,7 @@ jobs:
           if-no-files-found: error
           path: |
             target/doc/
-  
+
   build-docusaurus:
     runs-on: ubuntu-22.04
     steps:
@@ -748,7 +787,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: docs/website/package-lock.json
 
       - name: Install dependencies
@@ -767,7 +806,7 @@ jobs:
           if-no-files-found: error
           path: |
             docs/website/build/*
-  
+
   build-test-explorer:
     runs-on: ubuntu-22.04
     needs: build-test-wasm
@@ -783,14 +822,13 @@ jobs:
 
       - name: Unpack 'mithril-client-wasm' package
         working-directory: mithril-client-wasm
-        run:
-          tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
+        run: tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
           cache-dependency-path: mithril-explorer/package-lock.json
 
       - name: Install dependencies
@@ -800,10 +838,6 @@ jobs:
       - name: Test explorer
         working-directory: mithril-explorer
         run: make test
-
-      - name: Check explorer
-        working-directory: mithril-explorer
-        run: make lint
 
       - name: Build Explorer
         working-directory: mithril-explorer
@@ -845,6 +879,7 @@ jobs:
       - build-docusaurus
       - build-test-explorer
       - build-open-api-ui
+      - check
     steps:
       - name: Download mithril-rust-doc artifact
         uses: actions/download-artifact@v4
@@ -874,6 +909,8 @@ jobs:
         run: |
           echo "mithril.network" > ./github-pages/CNAME
           echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ./github-pages/index.html
+          # Remove the index.html from the url to avoid a display issue that duplicates the content of the page
+          sed -i '1s/^/<script type="text\/javascript"> if (window.location.href.endsWith("\/index.html")) { end_of_clean_url = window.location.href.lastIndexOf("\/"); window.location.href = window.location.href.substring(0, end_of_clean_url); } <\/script>\n/' ./github-pages/doc/index.html
 
       - name: Mithril / Publish GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

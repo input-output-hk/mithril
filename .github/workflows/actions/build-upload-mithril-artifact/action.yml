@@ -21,7 +21,7 @@ runs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.x'
+        python-version: "3.x"
 
     - name: Add commit short sha to Cargo.tomls version
       shell: ${{ runner.os == 'Windows' && 'pwsh' || 'bash' }}

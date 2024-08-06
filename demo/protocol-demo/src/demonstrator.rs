@@ -162,7 +162,7 @@ impl Party {
         }
     }
 
-    /// Retrieve agreggate signature associated to a message
+    /// Retrieve aggregate signature associated to a message
     pub fn get_aggregate(&self, message: &Vec<u8>) -> Option<&ProtocolMultiSignature> {
         self.msigs.get(message)
     }

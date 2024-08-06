@@ -1,9 +1,9 @@
 {
-    "network": "testnet",
-    "aggregator_endpoint": "http://localhost:8080/aggregator",
-    "party_id": 0,
-    "run_interval": 20000,
-    "db_directory": "/db",
-    "data_stores_directory": "/tmp/mithril-signer/stores",
-    "era_adapter_type": "bootstrap"
+  "network": "testnet",
+  "aggregator_endpoint": "http://localhost:8080/aggregator",
+  "party_id": 0,
+  "run_interval": 20000,
+  "db_directory": "/db",
+  "data_stores_directory": "/tmp/mithril-signer/stores",
+  "era_adapter_type": "bootstrap"
 }

@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 
 use mithril_common::entities::{
     CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
-    HexEncodedAgregateVerificationKey, HexEncodedKey, ImmutableFileNumber, ProtocolMessage,
+    HexEncodedAggregateVerificationKey, HexEncodedKey, ImmutableFileNumber, ProtocolMessage,
     ProtocolParameters, ProtocolVersion, SignedEntityType, StakeDistributionParty,
 };
 use mithril_common::era_deprecate;
@@ -36,7 +36,7 @@ pub struct CertificateRecord {
 
     /// Aggregate verification key
     /// Note: used only if signature is a multi-signature
-    pub aggregate_verification_key: HexEncodedAgregateVerificationKey,
+    pub aggregate_verification_key: HexEncodedAggregateVerificationKey,
 
     /// Epoch of creation of the certificate.
     pub epoch: Epoch,
@@ -239,7 +239,7 @@ impl From<CertificateRecord> for Certificate {
 
 impl From<CertificateRecord> for CertificateMessage {
     fn from(value: CertificateRecord) -> Self {
-        let beacon = value.as_cardano_db_beacon();
+        let beacon = Some(value.as_cardano_db_beacon());
         let metadata = CertificateMetadataMessagePart {
             network: value.network,
             protocol_version: value.protocol_version,
@@ -273,7 +273,7 @@ impl From<CertificateRecord> for CertificateMessage {
 
 impl From<CertificateRecord> for CertificateListItemMessage {
     fn from(value: CertificateRecord) -> Self {
-        let beacon = value.as_cardano_db_beacon();
+        let beacon = Some(value.as_cardano_db_beacon());
         let metadata = CertificateListItemMessageMetadata {
             network: value.network,
             protocol_version: value.protocol_version,

@@ -12,7 +12,7 @@ impl TryToMessageAdapter<(SignedEntityType, SingleSignatures), RegisterSignature
         (signed_entity_type, single_signature): (SignedEntityType, SingleSignatures),
     ) -> StdResult<RegisterSignatureMessage> {
         let message = RegisterSignatureMessage {
-            signed_entity_type: Some(signed_entity_type),
+            signed_entity_type,
             party_id: single_signature.party_id,
             signature: single_signature.signature.try_into().with_context(|| {
                 "'ToRegisterSignatureMessageAdapter' can not convert the single signature"

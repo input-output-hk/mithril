@@ -46,7 +46,7 @@ pub struct EraEpochToken {
 }
 
 impl EraEpochToken {
-    /// Instanciate a new [EraMarker].
+    /// Instantiate a new [EraMarker].
     pub fn new(current_epoch: Epoch, current_era: EraMarker, next_era: Option<EraMarker>) -> Self {
         Self {
             current_epoch,

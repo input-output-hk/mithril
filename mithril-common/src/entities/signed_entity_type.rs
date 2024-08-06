@@ -58,7 +58,7 @@ pub enum SignedEntityType {
 }
 
 impl SignedEntityType {
-    /// Retrieve a dummy enty (for test only)
+    /// Retrieve a dummy entity type (for test only)
     pub fn dummy() -> Self {
         Self::MithrilStakeDistribution(Epoch(5))
     }
@@ -68,13 +68,22 @@ impl SignedEntityType {
         Self::MithrilStakeDistribution(epoch)
     }
 
-    /// Return the epoch from the intern beacon.
+    /// Return the epoch from the signed entity.
     pub fn get_epoch(&self) -> Epoch {
         match self {
             Self::CardanoImmutableFilesFull(b) => b.epoch,
             Self::CardanoStakeDistribution(e)
             | Self::MithrilStakeDistribution(e)
             | Self::CardanoTransactions(e, _) => *e,
+        }
+    }
+
+    /// Return the epoch at which the signed entity type is signed.
+    pub fn get_epoch_when_signed_entity_type_is_signed(&self) -> Epoch {
+        match self {
+            Self::CardanoImmutableFilesFull(beacon) => beacon.epoch,
+            Self::CardanoStakeDistribution(epoch) => epoch.next(),
+            Self::MithrilStakeDistribution(epoch) | Self::CardanoTransactions(epoch, _) => *epoch,
         }
     }
 
@@ -222,6 +231,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_stake_distribution_return_epoch_with_offset(
+    ) {
+        let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(3));
+
+        assert_eq!(
+            signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
+            Epoch(4)
+        );
+    }
+
+    #[test]
+    fn get_epoch_when_signed_entity_type_is_signed_for_mithril_stake_distribution_return_epoch_stored_in_signed_entity_type(
+    ) {
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(3));
+        assert_eq!(
+            signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
+            Epoch(3)
+        );
+    }
+
+    #[test]
+    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_immutable_files_full_return_epoch_stored_in_signed_entity_type(
+    ) {
+        let signed_entity_type =
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("network", 3, 100));
+        assert_eq!(
+            signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
+            Epoch(3)
+        );
+    }
+
+    #[test]
+    fn get_epoch_when_signed_entity_type_is_signed_for_cardano_transactions_return_epoch_stored_in_signed_entity_type(
+    ) {
+        let signed_entity_type = SignedEntityType::CardanoTransactions(Epoch(3), BlockNumber(77));
+        assert_eq!(
+            signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
+            Epoch(3)
+        );
+    }
+
+    #[test]
     fn verify_signed_entity_type_properties_are_included_in_computed_hash() {
         fn hash(signed_entity_type: SignedEntityType) -> String {
             let mut hasher = Sha256::new();
@@ -263,14 +314,23 @@ mod tests {
             ))
         );
 
-        let reference_hash = hash(SignedEntityType::CardanoTransactions(Epoch(35), 77));
+        let reference_hash = hash(SignedEntityType::CardanoTransactions(
+            Epoch(35),
+            BlockNumber(77),
+        ));
         assert_ne!(
             reference_hash,
-            hash(SignedEntityType::CardanoTransactions(Epoch(3), 77))
+            hash(SignedEntityType::CardanoTransactions(
+                Epoch(3),
+                BlockNumber(77)
+            ))
         );
         assert_ne!(
             reference_hash,
-            hash(SignedEntityType::CardanoTransactions(Epoch(35), 98765))
+            hash(SignedEntityType::CardanoTransactions(
+                Epoch(35),
+                BlockNumber(98765)
+            ))
         );
     }
 
@@ -281,9 +341,10 @@ mod tests {
             .unwrap();
         assert_same_json!("25", &cardano_stake_distribution_json);
 
-        let cardano_transactions_json = SignedEntityType::CardanoTransactions(Epoch(35), 77)
-            .get_json_beacon()
-            .unwrap();
+        let cardano_transactions_json =
+            SignedEntityType::CardanoTransactions(Epoch(35), BlockNumber(77))
+                .get_json_beacon()
+                .unwrap();
         assert_same_json!(
             r#"{"epoch":35,"block_number":77}"#,
             &cardano_transactions_json

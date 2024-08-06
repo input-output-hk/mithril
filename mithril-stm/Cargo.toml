@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.3.22"
+version = "0.3.27"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -54,5 +54,7 @@ harness = false
 default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
-portable = []                                                      # deprecated, will be removed soon
-benchmark-internals = []                                           # For benchmarking multi_sig
+portable = [] # deprecated, will be removed soon
+benchmark-internals = [] # For benchmarking multi_sig
+batch-verify-aggregates = [
+] # For batch verification of multi-signatures (set automatically by build script)

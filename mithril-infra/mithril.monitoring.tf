@@ -76,11 +76,23 @@ cat >> /home/curry/docker/promtail/promtail-config.yml << EOF
 EOF
 fi
 EOT
+      ,
+      <<-EOT
+set -e
+# Setup disk usage exporter configuration
+cp /home/curry/docker/prometheus/disk_usage_exporter/disk_usage_exporter-base.yml /home/curry/docker/prometheus/disk_usage_exporter/disk_usage_exporter.yml
+# Setup disk usage exporter targets for Mithril signers
+MITHRIL_SIGNER_NODES=$(docker ps --format='{{.Names}},' | grep "mithril-signer" | grep -v "www" | grep -v "relay" | sort | tr -d '\n\t\r ' | sed 's/.$//' | tr ',' ' ')
+for MITHRIL_SIGNER_NODE in $MITHRIL_SIGNER_NODES; do
+    echo "  /data/$MITHRIL_SIGNER_NODE/mithril: 1" >> /home/curry/docker/prometheus/disk_usage_exporter/disk_usage_exporter.yml 
+done
+EOT
     ]
   }
 
   provisioner "remote-exec" {
     inline = [
+      "export NETWORK=${var.cardano_network}",
       "export LOGGING_DRIVER='${var.mithril_container_logging_driver}'",
       "export PROMETHEUS_HOST=${local.prometheus_host}",
       "export PROMETHEUS_AUTH_USER_PASSWORD=$(htpasswd -nb ${var.prometheus_auth_username} ${var.prometheus_auth_password})",

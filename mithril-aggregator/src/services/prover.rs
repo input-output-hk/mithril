@@ -141,7 +141,7 @@ impl ProverService for MithrilProverService {
 
         // 4 - Enrich the Merkle map with the block ranges Merkle trees
         for (block_range, mk_tree) in mk_trees {
-            mk_map.insert(block_range, mk_tree.into())?;
+            mk_map.replace(block_range, mk_tree.into())?;
         }
 
         // 5 - Compute the proof for all transactions
@@ -167,26 +167,38 @@ impl ProverService for MithrilProverService {
         let pool_size = self.mk_map_pool.size();
         info!(
             self.logger,
-            "Prover starts computing the Merkle map pool resource of size {pool_size}"
+            "Prover starts computing the Merkle map pool resource of size {pool_size}";
+            "up_to_block_number" => *up_to,
         );
         let mk_map_cache = self
             .block_range_root_retriever
             .compute_merkle_map_from_block_range_roots(up_to)
             .await?;
-        let discriminant_new = self.mk_map_pool.discriminant()? + 1;
-        self.mk_map_pool.set_discriminant(discriminant_new)?;
-        self.mk_map_pool.clear();
-        (1..=pool_size)
+        let mk_maps_new = (1..=pool_size)
             .into_par_iter()
             .map(|i| {
                 debug!(
                     self.logger,
                     "Prover is computing the Merkle map pool resource {i}/{pool_size}"
                 );
-                self.mk_map_pool
-                    .give_back_resource(mk_map_cache.clone(), discriminant_new)
+                mk_map_cache.clone()
             })
-            .collect::<StdResult<()>>()?;
+            .collect::<Vec<MKMap<_, _>>>();
+        debug!(self.logger, "Prover is draining the Merkle map pool");
+        let discriminant_new = self.mk_map_pool.discriminant()? + 1;
+        self.mk_map_pool.set_discriminant(discriminant_new)?;
+        self.mk_map_pool.clear();
+        debug!(
+            self.logger,
+            "Prover is giving back new resources to the Merkle map pool"
+        );
+        mk_maps_new
+            .into_iter()
+            .map(|mk_map| {
+                self.mk_map_pool
+                    .give_back_resource(mk_map, discriminant_new)
+            })
+            .collect::<StdResult<Vec<_>>>()?;
         info!(
             self.logger,
             "Prover completed computing the Merkle map pool resource of size {pool_size}"
@@ -212,10 +224,10 @@ mod tests {
 
         #[async_trait]
         impl BlockRangeRootRetriever for BlockRangeRootRetrieverImpl {
-            async fn retrieve_block_range_roots(
-                &self,
+            async fn retrieve_block_range_roots<'a>(
+                &'a self,
                 up_to_beacon: BlockNumber,
-            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)>>>;
+            ) -> StdResult<Box<dyn Iterator<Item = (BlockRange, MKTreeNode)> + 'a>>;
 
             async fn compute_merkle_map_from_block_range_roots(
                 &self,

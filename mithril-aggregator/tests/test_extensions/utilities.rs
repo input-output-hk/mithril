@@ -7,9 +7,9 @@ use std::{
 
 pub static COMMENT_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-/// Create a directory to save test artefacts. This directory is cleaned if it
+/// Create a directory to save test artifacts. This directory is cleaned if it
 /// already exists, it is created if not. This directory is kept at the end to
-/// allow debuging.
+/// allow debugging.
 pub fn get_test_dir(subdir_name: &str) -> PathBuf {
     TempDir::create("aggregator-integration", subdir_name)
 }
@@ -17,6 +17,10 @@ pub fn get_test_dir(subdir_name: &str) -> PathBuf {
 pub fn comment(comment: String) {
     let old_count = COMMENT_COUNT.fetch_add(1, Ordering::SeqCst);
     debug!("COMMENT {:02} 💬 {}", old_count + 1, comment);
+}
+
+pub fn tx_hash(block_number: u64, tx_index: u64) -> String {
+    format!("tx_hash-{block_number}-{tx_index}")
 }
 
 #[macro_export]

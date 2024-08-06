@@ -154,7 +154,7 @@ impl StmInitializerWrapper {
 
             Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
         } else {
-            println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissionned and must be used for tests only!");
+            println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissioned and must be used for tests only!");
             None
         };
 

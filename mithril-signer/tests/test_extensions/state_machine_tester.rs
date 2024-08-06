@@ -9,29 +9,35 @@ use thiserror::Error;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
-    cardano_transactions_preloader::CardanoTransactionsPreloader,
+    cardano_transactions_preloader::{
+        CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
+    },
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
-        SignedEntityTypeDiscriminants, SignerWithStake, TimePoint,
+        SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, CardanoTransactionsSignableBuilder,
-        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+        CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
+        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+        MithrilStakeDistributionSignableBuilder,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdError, TickerService,
 };
 use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::store::{adapter::MemoryAdapter, StakeStore, StakeStorer};
-
+use mithril_persistence::store::adapter::SQLiteAdapter;
+use mithril_persistence::{
+    sqlite::SqliteConnectionPool,
+    store::{StakeStore, StakeStorer},
+};
 use mithril_signer::{
     metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MetricsService,
     MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
-    StateMachine,
+    SignerUpkeepService, StateMachine,
 };
 
 use super::FakeAggregator;
@@ -89,6 +95,15 @@ impl StateMachineTester {
         let config = Configuration::new_sample(&selected_signer_party_id);
 
         let production_service_builder = ProductionServiceBuilder::new(&config);
+        let sqlite_connection = Arc::new(
+            production_service_builder
+                .build_sqlite_connection(
+                    ":memory:",
+                    mithril_signer::database::migration::get_migrations(),
+                )
+                .await
+                .unwrap(),
+        );
         let transaction_sqlite_connection = production_service_builder
             .build_sqlite_connection(
                 ":memory:",
@@ -96,6 +111,9 @@ impl StateMachineTester {
             )
             .await
             .unwrap();
+        let sqlite_connection_cardano_transaction_pool = Arc::new(
+            SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),
+        );
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
@@ -112,8 +130,8 @@ impl StateMachineTester {
             immutable_observer.clone(),
         ));
         let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: 0,
-            step: 30,
+            security_parameter: BlockNumber(0),
+            step: BlockNumber(30),
         };
         let certificate_handler = Arc::new(FakeAggregator::new(
             SignedEntityConfig {
@@ -125,14 +143,16 @@ impl StateMachineTester {
         ));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
+            Box::new(
+                SQLiteAdapter::new("protocol_initializer", sqlite_connection.clone()).unwrap(),
+            ),
             config.store_retention_limit,
         ));
         let single_signer = Arc::new(MithrilSingleSigner::new(
             config.party_id.to_owned().unwrap_or_default(),
         ));
         let stake_store = Arc::new(StakeStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
+            Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone()).unwrap()),
             config.store_retention_limit,
         ));
         let era_reader_adapter = Arc::new(EraReaderDummyAdapter::from_markers(vec![
@@ -163,12 +183,11 @@ impl StateMachineTester {
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let block_scanner = Arc::new(DumbBlockScanner::new());
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
-            transaction_sqlite_connection,
+            sqlite_connection_cardano_transaction_pool.clone(),
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner.clone(),
             transaction_store.clone(),
-            Path::new(""),
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
@@ -177,20 +196,31 @@ impl StateMachineTester {
             block_range_root_retriever,
             slog_scope::logger(),
         ));
+        let cardano_stake_distribution_builder = Arc::new(
+            CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
+        );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
+            cardano_stake_distribution_builder,
         ));
         let metrics_service = Arc::new(MetricsService::new().unwrap());
         let expected_metrics_service = Arc::new(MetricsService::new().unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        let security_parameter = 0;
+        let security_parameter = BlockNumber(0);
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
             signed_entity_type_lock.clone(),
             transactions_importer.clone(),
             security_parameter,
             chain_observer.clone(),
+            slog_scope::logger(),
+            Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
+        ));
+        let upkeep_service = Arc::new(SignerUpkeepService::new(
+            sqlite_connection.clone(),
+            sqlite_connection_cardano_transaction_pool,
+            signed_entity_type_lock.clone(),
             slog_scope::logger(),
         ));
 
@@ -209,6 +239,7 @@ impl StateMachineTester {
             metrics_service: metrics_service.clone(),
             signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
             cardano_transactions_preloader,
+            upkeep_service,
         };
         // set up stake distribution
         chain_observer
@@ -390,12 +421,19 @@ impl StateMachineTester {
         Ok(self)
     }
 
-    /// increase the block number in the fake observer
-    pub async fn increase_block_number(
+    /// increase the block number and the slot number in the fake observer
+    pub async fn increase_block_number_and_slot_number(
         &mut self,
         increment: u64,
-        expected: u64,
+        expected_slot_number: SlotNumber,
+        expected_block_number: BlockNumber,
     ) -> Result<&mut Self> {
+        let new_slot_number = self
+            .chain_observer
+            .increase_slot_number(increment)
+            .await
+            .ok_or_else(|| TestError::ValueError("no slot number returned".to_string()))?;
+
         let new_block_number = self
             .chain_observer
             .increase_block_number(increment)
@@ -403,21 +441,25 @@ impl StateMachineTester {
             .ok_or_else(|| TestError::ValueError("no block number returned".to_string()))?;
 
         self.assert(
-            expected == new_block_number,
-            format!("expected to increase block number up to {expected}, got {new_block_number}"),
+            expected_slot_number == new_slot_number,
+            format!("expected to increase slot number up to {expected_slot_number}, got {new_slot_number}"),
+        )?;
+
+        self.assert(
+            expected_block_number == new_block_number,
+            format!("expected to increase block number up to {expected_block_number}, got {new_block_number}"),
         )?;
 
         // Make the block scanner return new blocks
-        let current_immutable = self.immutable_observer.get_last_immutable_number().await?;
-        let blocks_to_scan: Vec<ScannedBlock> = ((expected - increment + 1)..=expected)
-            .map(|block_number| {
+        let blocks_to_scan: Vec<ScannedBlock> = (1..=increment)
+            .map(|index_number| {
+                let block_number = expected_block_number - increment + index_number;
+                let slot_number = expected_slot_number - increment + index_number;
                 let block_hash = format!("block_hash-{block_number}");
-                let slot_number = 10 * block_number;
                 ScannedBlock::new(
                     block_hash,
                     block_number,
                     slot_number,
-                    current_immutable,
                     vec![format!("tx_hash-{block_number}-1")],
                 )
             })
@@ -429,31 +471,45 @@ impl StateMachineTester {
 
     pub async fn cardano_chain_send_rollback(
         &mut self,
+        rollback_to_slot_number: SlotNumber,
         rollback_to_block_number: BlockNumber,
     ) -> Result<&mut Self> {
-        let actual_block_number = self
+        let chain_point = self
             .chain_observer
             .get_current_chain_point()
             .await
             .map_err(|err| TestError::SubsystemError(anyhow!(err)))?
-            .map(|c| c.block_number)
-            .ok_or_else(|| TestError::ValueError("no block number returned".to_string()))?;
-        let decrement = actual_block_number - rollback_to_block_number;
+            .ok_or_else(|| anyhow!("no chain point returned".to_string()))?;
+
+        let decrement_slot_number = chain_point.slot_number - rollback_to_slot_number;
+        let decrement_block_number = chain_point.block_number - rollback_to_block_number;
+
+        let new_slot_number = self
+            .chain_observer
+            .decrease_slot_number(*decrement_slot_number)
+            .await
+            .ok_or_else(|| TestError::ValueError("no slot number returned".to_string()))?;
+
         let new_block_number = self
             .chain_observer
-            .decrease_block_number(decrement)
+            .decrease_block_number(*decrement_block_number)
             .await
             .ok_or_else(|| TestError::ValueError("no block number returned".to_string()))?;
 
         self.assert(
+            rollback_to_slot_number == new_slot_number,
+            format!("expected to decrease slot number to {rollback_to_slot_number}, got {new_slot_number}"),
+        )?;
+
+        self.assert(
             rollback_to_block_number == new_block_number,
-            format!("expected to increase block number up to {rollback_to_block_number}, got {new_block_number}"),
+            format!("expected to decrease block number to {rollback_to_block_number}, got {new_block_number}"),
         )?;
 
         let chain_point = ChainPoint {
-            slot_number: 1,
+            slot_number: rollback_to_slot_number,
             block_number: rollback_to_block_number,
-            block_hash: format!("block_hash-{rollback_to_block_number}"),
+            block_hash: format!("block_hash-{rollback_to_slot_number}-{rollback_to_block_number}"),
         };
         self.block_scanner.add_backward(chain_point);
 

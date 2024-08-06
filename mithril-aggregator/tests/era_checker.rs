@@ -1,7 +1,7 @@
 mod test_extensions;
 use mithril_aggregator::{Configuration, RuntimeError};
 use mithril_common::{
-    entities::{ChainPoint, Epoch, ProtocolParameters, TimePoint},
+    entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
     era::{EraMarker, SupportedEra},
     test_utils::MithrilFixtureBuilder,
 };
@@ -24,7 +24,11 @@ async fn testing_eras() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(
-        TimePoint::new(1, 1, ChainPoint::new(10, 1, "block_hash-1")),
+        TimePoint::new(
+            1,
+            1,
+            ChainPoint::new(SlotNumber(10), BlockNumber(1), "block_hash-1"),
+        ),
         configuration,
     )
     .await;
@@ -61,7 +65,7 @@ async fn testing_eras() {
         .build();
     tester.init_state_from_fixture(&fixture).await.unwrap();
 
-    comment!("Boostrap the genesis certificate");
+    comment!("Bootstrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
 
     comment!("Increase immutable number");

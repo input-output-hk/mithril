@@ -118,6 +118,9 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Ask services to update themselves for the new epoch
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
 
+    /// Perform the upkeep tasks.
+    async fn upkeep(&self) -> StdResult<()>;
+
     /// Precompute what doesn't change for the actual epoch
     async fn precompute_epoch_data(&self) -> StdResult<()>;
 
@@ -144,15 +147,18 @@ impl AggregatorRunner {
     async fn list_available_signed_entity_types(
         &self,
         time_point: &TimePoint,
-    ) -> Vec<SignedEntityType> {
+    ) -> StdResult<Vec<SignedEntityType>> {
         let signed_entity_types = self
             .dependencies
             .signed_entity_config
-            .list_allowed_signed_entity_types(time_point);
-        self.dependencies
+            .list_allowed_signed_entity_types(time_point)?;
+        let unlocked_signed_entities = self
+            .dependencies
             .signed_entity_type_lock
             .filter_unlocked_entries(signed_entity_types)
-            .await
+            .await;
+
+        Ok(unlocked_signed_entities)
     }
 }
 
@@ -194,7 +200,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         debug!("RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
         let signed_entity_types = self
             .list_available_signed_entity_types(current_time_point)
-            .await;
+            .await?;
         for signed_entity_type in signed_entity_types {
             let current_open_message = self.get_current_open_message_for_signed_entity_type(&signed_entity_type)
                 .await
@@ -475,6 +481,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
+    async fn upkeep(&self) -> StdResult<()> {
+        debug!("RUNNER: upkeep");
+        self.dependencies.upkeep_service.run().await
+    }
+
     async fn create_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -489,7 +500,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::services::FakeEpochService;
+    use crate::services::{FakeEpochService, MockUpkeepService};
     use crate::{
         entities::OpenMessage,
         initialize_dependencies,
@@ -887,7 +898,6 @@ pub mod tests {
             .expect_inform_epoch()
             .returning(|_| Ok(()))
             .times(1);
-
         let mut deps = initialize_dependencies().await;
         let current_epoch = deps
             .chain_observer
@@ -905,6 +915,19 @@ pub mod tests {
         let runner = AggregatorRunner::new(Arc::new(deps));
 
         runner.inform_new_epoch(current_epoch).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_upkeep() {
+        let mut upkeep_service = MockUpkeepService::new();
+        upkeep_service.expect_run().returning(|| Ok(())).times(1);
+
+        let mut deps = initialize_dependencies().await;
+        deps.upkeep_service = Arc::new(upkeep_service);
+
+        let runner = AggregatorRunner::new(Arc::new(deps));
+
+        runner.upkeep().await.unwrap();
     }
 
     #[tokio::test]
@@ -1172,6 +1195,7 @@ pub mod tests {
         let signed_entities: Vec<SignedEntityTypeDiscriminants> = runner
             .list_available_signed_entity_types(&time_point)
             .await
+            .unwrap()
             .into_iter()
             .map(Into::into)
             .collect();
@@ -1203,6 +1227,7 @@ pub mod tests {
         let signed_entities: Vec<SignedEntityTypeDiscriminants> = runner
             .list_available_signed_entity_types(&time_point)
             .await
+            .unwrap()
             .into_iter()
             .map(Into::into)
             .collect();

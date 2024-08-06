@@ -4,11 +4,14 @@ inputs:
   cache-version:
     description: Version of the current cache
     required: false
-    default: ''
+    default: ""
   cargo-tools:
     description: Space seperated list of cargo tools to install
     required: false
-    default: ''
+    default: ""
+  github-token:
+    description: GitHub token to use for installing cargo tools
+    required: true
 runs:
   using: "composite"
   steps:
@@ -21,17 +24,21 @@ runs:
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
       with:
+        # only save the cache on the main branch to limit github actions total cache size
+        save-if: ${{ github.ref == 'refs/heads/main' }}
         key: ${{ runner.os }}-cache-v${{ inputs.cache-version }}
-    
+
     - name: Install cargo tools installer
       uses: taiki-e/install-action@v2
       if: inputs.cargo-tools != ''
       with:
         tool: cargo-binstall
-    
+
     - name: Install cargo tools
       if: inputs.cargo-tools != ''
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
       run: |
         # Sometimes without the `--force` options the installed binaries are not found by cargo
         # leading to error such as: `error: no such command: `my-tool``

@@ -143,10 +143,11 @@ impl FakeAggregator {
 
 #[cfg(feature = "unstable")]
 mod proof {
-    use super::*;
-    use mithril_client::common::ProtocolMessagePartKey;
+    use mithril_client::common::{BlockNumber, ProtocolMessagePartKey};
     use mithril_client::{CardanoTransactionsProofs, CardanoTransactionsSetProof};
     use mithril_common::crypto_helper::{MKProof, ProtocolMkProof};
+
+    use super::*;
 
     impl FakeAggregator {
         pub fn spawn_with_transactions_proofs(
@@ -165,7 +166,7 @@ mod proof {
                         .unwrap(),
                 }],
                 non_certified_transactions: vec![],
-                latest_block_number: 9999,
+                latest_block_number: BlockNumber(9999),
             })
             .unwrap();
 

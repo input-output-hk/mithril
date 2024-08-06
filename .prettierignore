@@ -1,0 +1,13 @@
+demo/protocol-demo/artifacts/
+docs/website/.docusaurus/
+mithril-client-wasm/pkg/
+mithril-explorer/font.css.hbs
+mithril-explorer/out/
+mithril-explorer/.next/
+mithril-explorer/explorer/
+mithril-infra/assets/docker/cardano/
+mithril-test-lab/mithril-devnet/artifacts/
+mithril-test-lab/mithril-end-to-end/monitor/config/grafana/provisioning/dashboards/*.json
+mithril-test-lab/mithril-aggregator-fake/default_data/
+mithril-test-lab/mithril-devnet/configuration/
+flake.lock

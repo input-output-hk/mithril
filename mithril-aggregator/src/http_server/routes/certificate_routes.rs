@@ -17,8 +17,6 @@ fn certificate_pending(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate-pending")
         .and(warp::get())
-        .and(middlewares::with_config(dependency_manager.clone()))
-        .and(middlewares::with_ticker_service(dependency_manager.clone()))
         .and(middlewares::with_certificate_pending_store(
             dependency_manager,
         ))
@@ -47,11 +45,10 @@ fn certificate_certificate_hash(
 
 mod handlers {
     use crate::{
-        http_server::routes::reply, services::MessageService, unwrap_to_internal_server_error,
-        CertificatePendingStore, Configuration, ToCertificatePendingMessageAdapter,
+        http_server::routes::reply, services::MessageService, CertificatePendingStore,
+        ToCertificatePendingMessageAdapter,
     };
 
-    use mithril_common::TickerService;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -61,32 +58,19 @@ mod handlers {
 
     /// Certificate Pending
     pub async fn certificate_pending(
-        config: Configuration,
-        ticker_service: Arc<dyn TickerService>,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: certificate_pending");
 
-        let network =
-            unwrap_to_internal_server_error!(config.get_network(), "certificate_pending::error");
-        let time_point = unwrap_to_internal_server_error!(
-            ticker_service.get_current_time_point().await,
-            "certificate_pending::error"
-        );
-
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(
-                &ToCertificatePendingMessageAdapter::adapt(
-                    certificate_pending,
-                    network,
-                    time_point.immutable_file_number,
-                ),
+                &ToCertificatePendingMessageAdapter::adapt(certificate_pending),
                 StatusCode::OK,
             )),
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
             Err(err) => {
                 warn!("certificate_pending::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }
@@ -104,7 +88,7 @@ mod handlers {
             Ok(certificates) => Ok(reply::json(&certificates, StatusCode::OK)),
             Err(err) => {
                 warn!("certificate_certificates::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }
@@ -127,7 +111,7 @@ mod handlers {
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
             Err(err) => {
                 warn!("certificate_certificate_hash::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err))
+                Ok(reply::server_error(err))
             }
         }
     }

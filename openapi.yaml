@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.23
+  version: 0.1.27
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -31,13 +31,14 @@ paths:
           * Open API version
           * URL of Mithril documentation
           * Capabilities of the aggregator
+          * Cardano transactions prover capabilities
       responses:
         "200":
           description: root found
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RootMessage"
+                $ref: "#/components/schemas/AggregatorFeaturesMessage"
         "412":
           description: API version mismatch
         default:
@@ -69,7 +70,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  
+
   /certificate-pending:
     get:
       summary: Get current pending certificate information
@@ -289,6 +290,91 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /artifact/cardano-stake-distributions:
+    get:
+      summary: Get most recent Cardano stake distributions
+      description: |
+        Returns the list of the most recent Cardano stake distributions
+      responses:
+        "200":
+          description: Cardano stake distribution found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoStakeDistributionListMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano stake distribution retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artifact/cardano-stake-distribution/{hash}:
+    get:
+      summary: Get Cardano stake distribution information
+      description: |
+        Returns the information of a Cardano stake distribution
+      parameters:
+        - name: hash
+          in: path
+          description: Hash of the Cardano stake distribution to retrieve
+          required: true
+          schema:
+            type: string
+            format: bytes
+          example: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
+      responses:
+        "200":
+          description: Cardano stake distribution found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoStakeDistributionMessage"
+        "404":
+          description: Cardano stake distribution not found
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano stake distribution retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artifact/cardano-stake-distribution/epoch/{epoch}:
+    get:
+      summary: Get Cardano stake distribution information for a specific epoch
+      description: |
+        Returns the information of a Cardano stake distribution at a given epoch
+      parameters:
+        - name: epoch
+          in: path
+          description: Epoch of the Cardano stake distribution to retrieve
+          required: true
+          schema:
+            type: integer
+            format: int64
+          example: 419
+      responses:
+        "200":
+          description: Cardano stake distribution found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoStakeDistributionMessage"
+        "404":
+          description: Cardano stake distribution not found
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano stake distribution retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /artifact/cardano-transactions:
     get:
       summary: Get most recent Cardano transactions set snapshots
@@ -341,7 +427,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  
+
   /proof/cardano-transaction:
     get:
       summary: Get the proofs of a Cardano transaction list
@@ -376,7 +462,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  
+
   /signers/registered/{epoch}:
     get:
       summary: Get registered signers for an epoch
@@ -530,8 +616,8 @@ paths:
 
 components:
   schemas:
-    RootMessage:
-      description: Aggregator public information
+    AggregatorFeaturesMessage:
+      description: Represents general information about Aggregator public information and signing capabilities
       type: object
       additionalProperties: false
       required:
@@ -566,13 +652,31 @@ components:
                   - CardanoStakeDistribution
                   - CardanoImmutableFilesFull
                   - CardanoTransactions
+            cardano_transactions_prover:
+              description: Cardano transactions prover capabilities
+              type: object
+              additionalProperties: false
+              required:
+                - max_hashes_allowed_by_request
+              properties:
+                max_hashes_allowed_by_request:
+                  description: Maximum number of hashes allowed for a single request
+                  type: integer
+                  format: int64
       example:
         {
           "open_api_version": "0.1.17",
           "documentation_url": "https://mithril.network",
           "capabilities":
             {
-              "signed_entity_types": [ "MithrilStakeDistribution", "CardanoImmutableFilesFull", "CardanoTransactions" ]
+              "signed_entity_types":
+                [
+                  "MithrilStakeDistribution",
+                  "CardanoImmutableFilesFull",
+                  "CardanoTransactions"
+                ],
+              "cardano_transactions_prover":
+                { "max_hashes_allowed_by_request": 100 }
             }
         }
 
@@ -580,7 +684,7 @@ components:
       description: Cardano chain epoch number
       type: integer
       format: int64
-    
+
     EpochSettingsMessage:
       description: Epoch settings
       type: object
@@ -651,8 +755,7 @@ components:
       description: Entity type of the message that is signed
       type: object
       additionalProperties: true
-      example:
-        { "MithrilStakeDistribution": 246 }
+      example: { "MithrilStakeDistribution": 246 }
 
     CertificatePendingMessage:
       description: CertificatePendingMessage represents all the information related to the certificate currently expecting to receive quorum of single signatures
@@ -660,7 +763,6 @@ components:
       additionalProperties: false
       required:
         - epoch
-        - beacon
         - entity_type
         - protocol
         - next_protocol
@@ -831,11 +933,7 @@ components:
           description: Stake share as computed in the 'stake distribution' by the Cardano Node, multiplied by a billion (1.0e9)
           type: integer
           format: int64
-      example:
-        {
-          "party_id": "1234567890",
-          "stake": 1234
-        }
+      example: { "party_id": "1234567890", "stake": 1234 }
 
     SignerRegistrationsMessage:
       description: |
@@ -855,14 +953,9 @@ components:
         {
           "registered_at": 420,
           "signing_at": 422,
-          "registrations": [
-            {
-              "party_id": "1234567890",
-              "stake": 1234
-            }
-          ]
+          "registrations": [{ "party_id": "1234567890", "stake": 1234 }]
         }
-    
+
     SignerRegistrationsListItemMessage:
       description: represents an item of a SignerRegistrationsMessage registration
       type: object
@@ -892,17 +985,15 @@ components:
       example:
         {
           "network": "mainnet",
-          "signers": [
-            {
-              "party_id": "pool1234567890",
-              "pool_ticker": "[Pool_Name]",
-              "has_registered": true
-            },
-            {
-              "party_id": "pool0987654321",
-              "has_registered": false
-            }
-          ]
+          "signers":
+            [
+              {
+                "party_id": "pool1234567890",
+                "pool_ticker": "[Pool_Name]",
+                "has_registered": true
+              },
+              { "party_id": "pool0987654321", "has_registered": false }
+            ]
         }
 
     SignerTickerListItemMessage:
@@ -961,7 +1052,7 @@ components:
           "entity_type": { "MithrilStakeDistribution": 246 },
           "party_id": "1234567890",
           "signature": "7b2c36322c3130352c3232322c31302c3131302c33312c37312c39372c22766b223a5b3136342c2c31393137352c313834",
-          "indexes": [ 25, 35 ]
+          "indexes": [25, 35]
         }
 
     ProtocolMessageParts:
@@ -1067,10 +1158,7 @@ components:
                 "epoch": 329,
                 "immutable_file_number": 7060000
               },
-            signed_entity_type:
-              {
-                "MithrilStakeDistribution": 246
-              },
+            signed_entity_type: { "MithrilStakeDistribution": 246 },
             "metadata":
               {
                 "network": "mainnet",
@@ -1101,7 +1189,6 @@ components:
         - hash
         - previous_hash
         - epoch
-        - beacon
         - signed_entity_type
         - metadata
         - protocol_message
@@ -1147,10 +1234,7 @@ components:
               "epoch": 329,
               "immutable_file_number": 7060000
             },
-          signed_entity_type:
-            {
-              "MithrilStakeDistribution": 246
-            },
+          signed_entity_type: { "MithrilStakeDistribution": 246 },
           "metadata":
             {
               "network": "mainnet",
@@ -1215,14 +1299,8 @@ components:
           "sealed_at": "2022-07-17T18:51:35.830832580Z",
           "signers":
             [
-              {
-                "party_id": "1234567890",
-                "stake": 1234
-              },
-              {
-                "party_id": "2345678900",
-                "stake": 2345
-              }
+              { "party_id": "1234567890", "stake": 1234 },
+              { "party_id": "2345678900", "stake": 2345 }
             ]
         }
 
@@ -1234,7 +1312,6 @@ components:
         - hash
         - previous_hash
         - epoch
-        - beacon
         - signed_entity_type
         - metadata
         - protocol_message
@@ -1290,10 +1367,7 @@ components:
               "epoch": 329,
               "immutable_file_number": 7060000
             },
-          signed_entity_type:
-            {
-              "MithrilStakeDistribution": 246
-            },
+          signed_entity_type: { "MithrilStakeDistribution": 246 },
           "metadata":
             {
               "network": "mainnet",
@@ -1601,6 +1675,98 @@ components:
           "protocol_parameters": { "k": 5, "m": 100, "phi_f": 0.65 }
         }
 
+    StakeDistribution:
+      description: The list of Stake Pool Operator pool identifiers with their associated stake in the Cardano chain
+      properties:
+        code:
+          type: string
+        text:
+          type: integer
+      example:
+        {
+          "pool15ka28a4a3qxgcgh60wavkylku4vqjg385jezsrqxlafyrhahf02": 1192520901428,
+          "pool1aymf474uv528zafxlpfg3yr55zp267wj5mpu4qt557z5k5frn9p": 1009503382720
+        }
+
+    CardanoStakeDistributionListMessage:
+      description: CardanoStakeDistributionListMessage represents a list of Cardano stake distribution
+      type: array
+      items:
+        type: object
+        additionalProperties: false
+        required:
+          - epoch
+          - hash
+          - certificate_hash
+          - created_at
+        properties:
+          epoch:
+            description: Epoch at the end of which the Cardano stake distribution is computed by the Cardano node
+            $ref: "#/components/schemas/Epoch"
+          hash:
+            description: Hash of the Cardano stake distribution
+            type: string
+            format: bytes
+          certificate_hash:
+            description: Hash of the associated certificate
+            type: string
+            format: bytes
+          created_at:
+            description: Date and time at which the Cardano stake distribution was created
+            type: string
+            format: date-time,
+        example:
+          {
+            "epoch": 123,
+            "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+            "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
+            "created_at": "2022-06-14T10:52:31Z"
+          }
+
+    CardanoStakeDistributionMessage:
+      description: This message represents a Cardano stake distribution.
+      type: object
+      additionalProperties: false
+      required:
+        - epoch
+        - hash
+        - certificate_hash
+        - stake_distribution
+        - created_at
+      properties:
+        epoch:
+          description: Epoch at the end of which the Cardano stake distribution is computed by the Cardano node
+          $ref: "#/components/schemas/Epoch"
+        hash:
+          description: Hash of the Cardano stake distribution
+          type: string
+          format: bytes
+        certificate_hash:
+          description: Hash of the associated certificate
+          type: string
+          format: bytes
+        stake_distribution:
+          description: The list of Stake Pool Operator pool identifiers with their associated stake in the Cardano chain
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/StakeDistribution"
+        created_at:
+          description: Date and time of the entity creation
+          type: string
+          format: date-time,
+      example:
+        {
+          "epoch": 123,
+          "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+          "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
+          "stake_distribution":
+            {
+              "pool15ka28a4a3qxgcgh60wavkylku4vqjg385jezsrqxlafyrhahf02": 1192520901428,
+              "pool1aymf474uv528zafxlpfg3yr55zp267wj5mpu4qt557z5k5frn9p": 1009503382720
+            },
+          "created_at": "2022-06-14T10:52:31Z"
+        }
+
     CardanoTransactionSnapshotListMessage:
       description: CardanoTransactionSnapshotListMessage represents a list of Cardano transactions set snapshots
       type: array
@@ -1737,11 +1903,19 @@ components:
       example:
         {
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
-          "certified_transactions": [ {
-            "transactions_hashes": [ "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732", "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732" ],
-            "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
-          } ],
-          "non_certified_transactions": [ "732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517" ],
+          "certified_transactions":
+            [
+              {
+                "transactions_hashes":
+                  [
+                    "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+                    "5d0d1272e6e70736a1ea2cae34015876367ee64517f6328364f6b73930966732"
+                  ],
+                "proof": "5b73136372c38302c37342c3136362c313535b5b323136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c313532352c3230332c3235352c313030262c33136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c31358322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537"
+              }
+            ],
+          "non_certified_transactions":
+            ["732d0d1272e6e70736367ee6f6328364f6b739309666a1ea2cae34015874517"],
           "latest_block_number": 7060000
         }
 

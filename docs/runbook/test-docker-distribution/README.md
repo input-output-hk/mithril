@@ -17,12 +17,12 @@ Then fill the form to manually run the workflow:
 
 ![Run workflow form](./img/run-workflow-form.png)
 
-> [!WARNING]  
+> [!WARNING]
+>
 > - The SHA of the commit must have been run successfully in the CI workflow beforehand
 
 > [!CAUTION]
 > It is highly recommended to run with the **Dry run** option checked at first and make sure that the process works as expected
-
 
 The result should look like this in the GitHub Actions:
 

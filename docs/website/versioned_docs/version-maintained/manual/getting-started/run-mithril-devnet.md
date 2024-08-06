@@ -12,8 +12,8 @@ In this guide, you will learn how to run a demonstration of a **Mithril network*
 
 You can launch a private Mithril network using the following topology:
 
-* `2` **Cardano nodes** configured as **stake pool operators (SPOs)** with a **Mithril signer** on top
-* `1` **Cardano node** configured as a **Full node** with a **Mithril aggregator** on top
+- `2` **Cardano nodes** configured as **stake pool operators (SPOs)** with a **Mithril signer** on top
+- `1` **Cardano node** configured as a **Full node** with a **Mithril aggregator** on top
 
 ![Devnet Topology](images/devnet-topology.png)
 
@@ -35,11 +35,11 @@ More information about the private Cardano/Mithril `devnet` is available [here](
 
 ## Pre-requisites
 
-* Install the latest stable version of a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
+- Install the latest stable version of a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
 
-* Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
 
-* Install the OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
+- Install the OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 ## Download the source file
 
@@ -63,7 +63,7 @@ To change the directory, go to the devnet folder:
 cd mithril-test-lab/mithril-devnet
 ```
 
-## Run a private Mithril/Cardano network (`devnet`) locally 
+## Run a private Mithril/Cardano network (`devnet`) locally
 
 ### Step 1: Launch the devnet
 
@@ -89,9 +89,9 @@ FULL_NODES=1 NUM_POOL_NODES=2 ./devnet-run.sh
 
 Throughout the devnet launch process, you will encounter the following steps:
 
-* **Bootstrapping the devnet**: generate the artifacts of the devnet, depending on the configuration parameters (cryptographic keys, network topology, transactions to set up pool nodes, etc)
-* **Starting the Cardano network**: run the nodes of the **Cardano network**, wait for it to be ready, and activate the pool nodes.
-* **Starting the Mithril network**: run the nodes of the **Mithril network**, which will work on top of the **Cardano network**.
+- **Bootstrapping the devnet**: generate the artifacts of the devnet, depending on the configuration parameters (cryptographic keys, network topology, transactions to set up pool nodes, etc)
+- **Starting the Cardano network**: run the nodes of the **Cardano network**, wait for it to be ready, and activate the pool nodes.
+- **Starting the Mithril network**: run the nodes of the **Mithril network**, which will work on top of the **Cardano network**.
 
 :::
 
@@ -486,7 +486,7 @@ You will see more information about the snapshot:
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Size                  | 2323485648                                                                                                                                                                     |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| Cardano node version  | 8.9.0                                                                                                                                                                          |
+| Cardano node version  | 9.1.0                                                                                                                                                                          |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | Location              | https://storage.googleapis.com/cdn.aggregator.testing-preview.api.mithril.network/preview-e539-i10787.db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667.tar.zst |
 +-----------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -509,14 +509,14 @@ You will see that the certificate chain is validated to ensure the issued certif
 ```bash
 1/5 - Checking local disk info…
 2/5 - Fetching the certificate and verifying the certificate chain…
-3/5 - Downloading and unpacking the cardano db 
+3/5 - Downloading and unpacking the cardano db
 4/5 - Computing the cardano db message
 5/5 - Verifying the cardano db signature…
 Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
 
-    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 8.9.0.
+    Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 9.1.0.
 
     If you are using Cardano Docker image, you can restore a Cardano Node with:
 
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:8.9.0
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:9.1.0
 ```

@@ -1,13 +1,13 @@
 ---
 title: Mithril client has got a brand new interface
 authors:
-- name: Mithril Team
+  - name: Mithril Team
 tags: [client, certificate, mithril-stake-distribution]
 ---
 
 ### Mithril client interface is evolving
 
-For the last few months, we have implemented the capability for the Mithril protocol to sign multiple types of data: on top of the already existing Cardano node database snapshots, the Mithril stake distribution is now also signed on its own. 
+For the last few months, we have implemented the capability for the Mithril protocol to sign multiple types of data: on top of the already existing Cardano node database snapshots, the Mithril stake distribution is now also signed on its own.
 In order to make the client able to work on the different types of data that are certified, we have changed its command line API.
 For example:
 

@@ -71,6 +71,7 @@ impl<'a> Spec<'a> {
         )
         .await?;
 
+        let expected_epoch_min = target_epoch - 3;
         // Verify that mithril stake distribution artifacts are produced and signed correctly
         {
             let hash =
@@ -79,7 +80,7 @@ impl<'a> Spec<'a> {
             let certificate_hash = assertions::assert_signer_is_signing_mithril_stake_distribution(
                 &aggregator_endpoint,
                 &hash,
-                target_epoch - 3,
+                expected_epoch_min,
             )
             .await?;
             assertions::assert_is_creating_certificate_with_enough_signers(
@@ -99,7 +100,7 @@ impl<'a> Spec<'a> {
             let certificate_hash = assertions::assert_signer_is_signing_snapshot(
                 &aggregator_endpoint,
                 &digest,
-                target_epoch - 3,
+                expected_epoch_min,
             )
             .await?;
 
@@ -121,7 +122,7 @@ impl<'a> Spec<'a> {
             let certificate_hash = assertions::assert_signer_is_signing_cardano_transactions(
                 &aggregator_endpoint,
                 &hash,
-                target_epoch - 3,
+                expected_epoch_min,
             )
             .await?;
 
@@ -139,6 +140,29 @@ impl<'a> Spec<'a> {
             let mut client = self.infrastructure.build_client()?;
             assertions::assert_client_can_verify_transactions(&mut client, transaction_hashes)
                 .await?;
+        }
+
+        // Verify that Cardano stake distribution artifacts are produced and signed correctly
+        if self.infrastructure.is_signing_cardano_stake_distribution() {
+            {
+                let hash = assertions::assert_node_producing_cardano_stake_distribution(
+                    &aggregator_endpoint,
+                )
+                .await?;
+                let certificate_hash =
+                    assertions::assert_signer_is_signing_cardano_stake_distribution(
+                        &aggregator_endpoint,
+                        &hash,
+                        expected_epoch_min,
+                    )
+                    .await?;
+                assertions::assert_is_creating_certificate_with_enough_signers(
+                    &aggregator_endpoint,
+                    &certificate_hash,
+                    self.infrastructure.signers().len(),
+                )
+                .await?;
+            }
         }
 
         Ok(())

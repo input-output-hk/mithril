@@ -1,19 +1,19 @@
 ---
 sidebar_position: 3
-sidebar_label: Simulation 
+sidebar_label: Simulation
 ---
 
 # Mithril protocol simulation
 
 :::info
 
-* This demo will improve your understanding of the **Mithril protocol**. By engaging with it, you will gain insights into how participants interact to create a multi-signature and understand the impact of the protocol parameters.
+- This demo will improve your understanding of the **Mithril protocol**. By engaging with it, you will gain insights into how participants interact to create a multi-signature and understand the impact of the protocol parameters.
 
-* This simulation is run by a CLI that you will build and run, and that will ultimately generate real Mithril multi-signatures.
+- This simulation is run by a CLI that you will build and run, and that will ultimately generate real Mithril multi-signatures.
 
-* For reproducibility of the results, the simulation uses a deterministic source of randomness.
+- For reproducibility of the results, the simulation uses a deterministic source of randomness.
 
-* During the simulation, some artifacts will be written to an `artifacts` folder, such as `verification keys`, `individual signatures` and `multi signatures`.
+- During the simulation, some artifacts will be written to an `artifacts` folder, such as `verification keys`, `individual signatures` and `multi signatures`.
 
 :::
 
@@ -21,10 +21,10 @@ sidebar_label: Simulation
 
 Ensure you have the following:
 
-* A computer running Linux (preferred) or macOS
-* The latest stable version of the correctly configured [Rust toolchain](https://www.rust-lang.org/learn/get-started).
+- A computer running Linux (preferred) or macOS
+- The latest stable version of the correctly configured [Rust toolchain](https://www.rust-lang.org/learn/get-started).
 
-## Download the source 
+## Download the source
 
 You can download the source file from GitHub (HTTPS):
 
@@ -69,7 +69,7 @@ Check that the Mithril client binary is working correctly by running its help fu
 You should see:
 
 ```bash
-mithrildemo 
+mithrildemo
 Simple demonstration of the Mithril protocol
 
 USAGE:
@@ -91,9 +91,9 @@ OPTIONS:
 
 A friendly reminder about the protocol parameters:
 
-* `k`: the `quorum` parameter represents the minimum number of individual signatures (gathered from multiple participants) required to be aggregated in a multi-signature.
-* `m`: the `security` parameter represents the total number of `lotteries` in which each participant can participate to sign the message.
-* `phi-f`: the parameter that controls the probability of a participant winning a `lottery`. It varies between `0.0` (less chance) and `1.0` (more chance).
+- `k`: the `quorum` parameter represents the minimum number of individual signatures (gathered from multiple participants) required to be aggregated in a multi-signature.
+- `m`: the `security` parameter represents the total number of `lotteries` in which each participant can participate to sign the message.
+- `phi-f`: the parameter that controls the probability of a participant winning a `lottery`. It varies between `0.0` (less chance) and `1.0` (more chance).
 
 :::
 
@@ -116,7 +116,7 @@ Run the simulation with `5` participants:
 The simulation should succeed and produce (or aggregate) a multi-signature:
 
 ```bash
->> Launch Mithril protocol demonstrator with configuration: 
+>> Launch Mithril protocol demonstrator with configuration:
 Config {
     m: 50,
     k: 5,
@@ -238,7 +238,7 @@ Run the simulation with `5` participants:
 The simulation should fail and not produce (or aggregate) any multi-signature:
 
 ```bash
->> Launch Mithril protocol demonstrator with configuration: 
+>> Launch Mithril protocol demonstrator with configuration:
 Config {
     m: 5,
     k: 5,

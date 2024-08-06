@@ -240,7 +240,7 @@ impl AggregatorRuntime {
                         .time_point_to_signed_entity(
                             &state.open_message.signed_entity_type,
                             &last_time_point,
-                        );
+                        )?;
                     new_signed_entity_type != state.open_message.signed_entity_type
                 };
 
@@ -261,7 +261,7 @@ impl AggregatorRuntime {
                     let new_state = self
                         .transition_from_signing_to_ready_multisignature(state)
                         .await?;
-                    info!("→ a multi-signature have been created, build an artifact & a certificate and transitioning back to READY");
+                    info!("→ a multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
                     self.state = AggregatorState::Ready(new_state);
                 }
             }
@@ -290,6 +290,7 @@ impl AggregatorRuntime {
             self.runner
                 .update_stake_distribution(&new_time_point)
                 .await?;
+            self.runner.upkeep().await?;
             self.runner
                 .open_signer_registration_round(&new_time_point)
                 .await?;
@@ -469,6 +470,7 @@ mod tests {
             .expect_precompute_epoch_data()
             .once()
             .returning(|| Ok(()));
+        runner.expect_upkeep().once().returning(|| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
@@ -525,6 +527,7 @@ mod tests {
             .expect_precompute_epoch_data()
             .once()
             .returning(|| Ok(()));
+        runner.expect_upkeep().once().returning(|| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {

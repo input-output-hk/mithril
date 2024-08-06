@@ -130,10 +130,13 @@ impl ConnectionBuilder {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::sqlite::ConnectionOptions::ForceDisableForeignKeys;
-    use mithril_common::test_utils::TempDir;
     use sqlite::Value;
+
+    use mithril_common::test_utils::TempDir;
+
+    use crate::sqlite::ConnectionOptions::ForceDisableForeignKeys;
+
+    use super::*;
 
     // see: https://www.sqlite.org/pragma.html#pragma_journal_mode
     const DEFAULT_SQLITE_JOURNAL_MODE: &str = "delete";

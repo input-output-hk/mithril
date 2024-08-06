@@ -14,7 +14,7 @@ pub struct EventStore {
 }
 
 impl EventStore {
-    /// Instanciate the EventMessage receiver service.
+    /// Instantiate the EventMessage receiver service.
     pub fn new(receiver: UnboundedReceiver<EventMessage>) -> Self {
         Self { receiver }
     }

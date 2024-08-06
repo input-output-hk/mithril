@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use slog::{debug, Logger};
 
 use mithril_common::entities::BlockNumber;
 use mithril_common::signable_builder::TransactionsImporter;
@@ -22,6 +23,7 @@ pub struct TransactionsImporterWithPruner {
     number_of_blocks_to_keep: Option<BlockNumber>,
     transaction_pruner: Arc<dyn TransactionPruner>,
     wrapped_importer: Arc<dyn TransactionsImporter>,
+    logger: Logger,
 }
 
 impl TransactionsImporterWithPruner {
@@ -30,11 +32,13 @@ impl TransactionsImporterWithPruner {
         number_of_blocks_to_keep: Option<BlockNumber>,
         transaction_pruner: Arc<dyn TransactionPruner>,
         wrapped_importer: Arc<dyn TransactionsImporter>,
+        logger: Logger,
     ) -> Self {
         Self {
             number_of_blocks_to_keep,
             transaction_pruner,
             wrapped_importer,
+            logger,
         }
     }
 }
@@ -45,6 +49,11 @@ impl TransactionsImporter for TransactionsImporterWithPruner {
         self.wrapped_importer.import(up_to_beacon).await?;
 
         if let Some(number_of_blocks_to_keep) = self.number_of_blocks_to_keep {
+            debug!(
+                self.logger,
+                "Transaction Import finished - Pruning transactions included in block range roots";
+                "number_of_blocks_to_keep" => *number_of_blocks_to_keep,
+            );
             self.transaction_pruner
                 .prune(number_of_blocks_to_keep)
                 .await?;
@@ -58,6 +67,8 @@ impl TransactionsImporter for TransactionsImporterWithPruner {
 mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
+
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -89,6 +100,7 @@ mod tests {
                 number_of_blocks_to_keep,
                 Arc::new(transaction_pruner),
                 Arc::new(transaction_importer),
+                TestLogger::stdout(),
             )
         }
     }
@@ -105,12 +117,15 @@ mod tests {
             },
         );
 
-        importer.import(100).await.expect("Import should not fail");
+        importer
+            .import(BlockNumber(100))
+            .await
+            .expect("Import should not fail");
     }
 
     #[tokio::test]
     async fn test_does_prune_if_a_block_number_is_configured() {
-        let expected_block_number: BlockNumber = 5;
+        let expected_block_number = BlockNumber(5);
         let importer = TransactionsImporterWithPruner::new_with_mock(
             Some(expected_block_number),
             |mock| {
@@ -124,6 +139,9 @@ mod tests {
             },
         );
 
-        importer.import(100).await.expect("Import should not fail");
+        importer
+            .import(BlockNumber(100))
+            .await
+            .expect("Import should not fail");
     }
 }

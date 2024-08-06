@@ -141,19 +141,13 @@ locals {
 variable "cardano_image_id" {
   type        = string
   description = "The Cardano image tag of service to deploy"
-  default     = "8.9.0"
+  default     = "9.1.0"
 }
 
 variable "cardano_image_registry" {
   type        = string
   description = "The Cardano image repository of service to deploy"
   default     = "ghcr.io/intersectmbo/cardano-node"
-}
-
-variable "cardano_configurations_repository_commit" {
-  type        = string
-  description = "The Cardano configurations commit to use"
-  default     = "692010ed0f454bfbb566c06443227c79e2f4dbab"
 }
 
 variable "mithril_api_domain" {
@@ -231,6 +225,23 @@ variable "mithril_aggregator_cardano_transactions_prover_cache_pool_size" {
   default     = 10
 }
 
+variable "mithril_aggregator_cardano_transactions_database_connection_pool_size" {
+  type        = number
+  description = "Cardano transactions database connection pool size"
+  default     = 10
+}
+
+variable "mithril_aggregator_cardano_transactions_signing_config_security_parameter" {
+  type        = number
+  description = "Number of blocks to discard from the tip of the chain when importing Cardano transactions"
+  default     = 100
+}
+
+variable "mithril_aggregator_cardano_transactions_signing_config_step" {
+  type        = number
+  description = "Number of blocks between signature of the Cardano transactions"
+  default     = 30
+}
 
 variable "mithril_aggregator_cdn_cname" {
   type        = string

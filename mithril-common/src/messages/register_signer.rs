@@ -131,7 +131,7 @@ mod tests {
 "kes_period": 6
 }"#;
         let message: RegisterSignerMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a RegisterSignerMessage instance.",
+            "This JSON is expected to be successfully parsed into a RegisterSignerMessage instance.",
         );
 
         assert_eq!(golden_message_v1(), message);
@@ -149,7 +149,7 @@ mod tests {
 "kes_period": 6
 }"#;
         let message: RegisterSignerMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a RegisterSignerMessage instance.",
+            "This JSON is expected to be successfully parsed into a RegisterSignerMessage instance.",
         );
 
         assert_eq!(golden_message_v2(), message);

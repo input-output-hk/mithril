@@ -44,7 +44,7 @@ pub struct Projection {
 }
 
 impl Projection {
-    /// Instanciate a new Projection
+    /// Instantiate a new Projection
     pub fn new(fields: Vec<ProjectionField>) -> Self {
         Self { fields }
     }

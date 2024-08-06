@@ -8,11 +8,12 @@ resource "null_resource" "mithril_bootstrap" {
   }
 
   triggers = {
-    image_id                                 = var.mithril_image_id,
-    vm_instance                              = google_compute_instance.vm_instance.id,
-    mithril_aggregator_auth_username         = var.mithril_aggregator_auth_username,
-    mithril_aggregator_auth_password         = var.mithril_aggregator_auth_password,
-    cardano_configurations_repository_commit = var.cardano_configurations_repository_commit
+    vm_instance                      = google_compute_instance.vm_instance.id,
+    image_id                         = var.mithril_image_id,
+    cardano_image_id                 = var.cardano_image_id,
+    cardano_image_registry           = var.cardano_image_registry,
+    mithril_aggregator_auth_username = var.mithril_aggregator_auth_username,
+    mithril_aggregator_auth_password = var.mithril_aggregator_auth_password,
   }
 
   provisioner "file" {
@@ -41,20 +42,7 @@ done
 echo "Startup script complete!"
 EOT
       ,
-      "find /home/curry/tools -name '*.sh' -type f | xargs chmod u+x",
-      <<-EOT
-# Clone Cardano configurations repository if not exists
-if [ ! -d "/home/curry/docker/cardano-configurations" ] ; then
-  git clone https://github.com/input-output-hk/cardano-configurations.git /home/curry/docker/cardano-configurations
-fi
-
-# Checkout specific commit
-cd /home/curry/docker/cardano-configurations
-git checkout .
-git checkout master
-git pull
-git checkout ${var.cardano_configurations_repository_commit}
-EOT
+      "find /home/curry/tools -name '*.sh' -type f | xargs chmod u+x"
     ]
   }
 }

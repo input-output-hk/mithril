@@ -3,6 +3,7 @@
 This tool will run a set of benchmarks (based on [Apache Benchmark](https://httpd.apache.org/docs/2.4/programs/ab.html)) on the aggregator route of an aggregator given a list of transactions. It will produce a CSV file with results of the benchmarks.
 
 First set enviroment variables:
+
 ```bash
 # Aggregator endpoint
 export AGGREGATOR_ENDPOINT=https://aggregator.testing-mainnet.api.mithril.network/aggregator
@@ -25,11 +26,13 @@ export AB_CONCURRENCY_STEP=50
 ```
 
 Then, run the benchmarks:
+
 ```bash
 ./benchmark-aggregator-prover.sh
 ```
 
 Which will output these type of results:
+
 ```bash
 MITHRIL AGGREGATOR PROVER ROUTE BENCHMARK
 

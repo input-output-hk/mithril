@@ -460,7 +460,7 @@ components:
         // for this route, so it's the default response spec that is used.
         let response = build_json_response(
             StatusCode::INTERNAL_SERVER_ERROR.into(),
-            entities::InternalServerError::new("an error occurred".to_string()),
+            entities::ServerError::new("an error occurred".to_string()),
         );
 
         APISpec::from_file(&APISpec::get_default_spec_file())
@@ -474,7 +474,7 @@ components:
     fn test_should_fail_when_the_status_code_is_not_the_expected_one() {
         let response = build_json_response(
             StatusCode::INTERNAL_SERVER_ERROR.into(),
-            entities::InternalServerError::new("an error occurred".to_string()),
+            entities::ServerError::new("an error occurred".to_string()),
         );
 
         let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
@@ -500,7 +500,7 @@ components:
     fn test_should_be_ok_when_the_status_code_is_the_right_one() {
         let response = build_json_response(
             StatusCode::INTERNAL_SERVER_ERROR.into(),
-            entities::InternalServerError::new("an error occurred".to_string()),
+            entities::ServerError::new("an error occurred".to_string()),
         );
 
         APISpec::from_file(&APISpec::get_default_spec_file())

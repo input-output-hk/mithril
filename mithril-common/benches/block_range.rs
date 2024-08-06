@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 
-use mithril_common::entities::BlockRange;
+use mithril_common::entities::{BlockNumber, BlockRange};
 
 fn all_block_ranges_in(c: &mut Criterion) {
     let mut group = c.benchmark_group("all_block_ranges_in");
@@ -14,7 +14,7 @@ fn all_block_ranges_in(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("0..{end_bound}")),
             &end_bound,
             |b, &end_bound| {
-                b.iter(|| BlockRange::all_block_ranges_in(0..end_bound));
+                b.iter(|| BlockRange::all_block_ranges_in(BlockNumber(0)..=end_bound));
             },
         );
     }

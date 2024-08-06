@@ -1,7 +1,10 @@
 import { Button, Form, FormGroup, InputGroup } from "react-bootstrap";
 import React from "react";
 
-export default function CardanoTransactionsFormInput() {
+export default function CardanoTransactionsFormInput({ maxAllowedHashesByRequest }) {
+  const maxHashesAllowed = Math.max(maxAllowedHashesByRequest, 1);
+  const validationPattern = ` *(\\w+ *, *){0,${maxHashesAllowed - 1}}\\w+,? *`;
+
   return (
     <FormGroup>
       <InputGroup hasValidation>
@@ -11,7 +14,7 @@ export default function CardanoTransactionsFormInput() {
           type="text"
           placeholder="comma-separated list of transactions hashes"
           required
-          pattern=" *(\w+ *, *)*\w+,? *"
+          pattern={validationPattern}
         />
         <Form.Control.Feedback type="invalid">
           Please provide a comma-separated list of transactions hashes.

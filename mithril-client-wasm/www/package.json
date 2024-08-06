@@ -1,17 +1,20 @@
 {
   "name": "www",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "private": true,
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "start": "webpack-dev-server"
+    "start": "webpack-dev-server",
+    "pretty:check": "prettier --check '**/*.{js,md}'",
+    "pretty:write": "prettier --write '**/*.{js,md}'"
   },
   "dependencies": {
     "@mithril-dev/mithril-client-wasm": "file:../pkg"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^12.0.2",
-    "webpack": "^5.91.0",
+    "prettier": "^3.3.2",
+    "webpack": "^5.92.0",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.0.4"
   }

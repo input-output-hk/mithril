@@ -6,7 +6,7 @@ use crate::entities::{
     BlockNumber, BlockRange, CardanoDbBeacon, SignedEntityType, SignedEntityTypeDiscriminants,
     TimePoint,
 };
-use crate::CardanoNetwork;
+use crate::{CardanoNetwork, StdResult};
 
 /// Convert [TimePoint] to [SignedEntityType] and list allowed signed entity types and
 /// discriminants.
@@ -57,13 +57,13 @@ impl SignedEntityConfig {
         &self,
         discriminant: D,
         time_point: &TimePoint,
-    ) -> SignedEntityType {
-        match discriminant.into() {
+    ) -> StdResult<SignedEntityType> {
+        let signed_entity_type = match discriminant.into() {
             SignedEntityTypeDiscriminants::MithrilStakeDistribution => {
                 SignedEntityType::MithrilStakeDistribution(time_point.epoch)
             }
             SignedEntityTypeDiscriminants::CardanoStakeDistribution => {
-                SignedEntityType::CardanoStakeDistribution(time_point.epoch)
+                SignedEntityType::CardanoStakeDistribution(time_point.epoch.previous()?)
             }
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
                 SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
@@ -79,7 +79,9 @@ impl SignedEntityConfig {
                         .compute_block_number_to_be_signed(time_point.chain_point.block_number),
                 )
             }
-        }
+        };
+
+        Ok(signed_entity_type)
     }
 
     /// Create the deduplicated list of allowed signed entity types discriminants.
@@ -89,7 +91,7 @@ impl SignedEntityConfig {
     pub fn list_allowed_signed_entity_types(
         &self,
         time_point: &TimePoint,
-    ) -> Vec<SignedEntityType> {
+    ) -> StdResult<Vec<SignedEntityType>> {
         self.list_allowed_signed_entity_types_discriminants()
             .into_iter()
             .map(|discriminant| self.time_point_to_signed_entity(discriminant, time_point))
@@ -118,8 +120,8 @@ impl CardanoTransactionsSigningConfig {
         /// Create a dummy config
         pub fn dummy() -> Self {
             Self {
-                security_parameter: 0,
-                step: 15,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
             }
         }
     }
@@ -131,12 +133,15 @@ impl CardanoTransactionsSigningConfig {
     ///
     /// The formula is as follows:
     ///
-    /// `block_number = ⌊(tip.block_number - security_parameter) / step⌋ × step`
+    /// `block_number = ⌊(tip.block_number - security_parameter) / step⌋ × step - 1`
     ///
     /// where `⌊x⌋` is the floor function which rounds to the greatest integer less than or equal to `x`.
     ///
-    /// *Note: The step is adjusted to be a multiple of the block range length in order
-    /// to guarantee that the block number signed in a certificate is effectively signed.*
+    /// *Notes:*
+    /// * *The step is adjusted to be a multiple of the block range length in order
+    ///   to guarantee that the block number signed in a certificate is effectively signed.*
+    /// * *1 is subtracted to the result because block range end is exclusive (ie: a BlockRange over
+    ///   `30..45` finish at 44 included, 45 is included in the next block range).*
     pub fn compute_block_number_to_be_signed(&self, block_number: BlockNumber) -> BlockNumber {
         // TODO: See if we can remove this adjustment by including a "partial" block range in
         // the signed data.
@@ -144,13 +149,17 @@ impl CardanoTransactionsSigningConfig {
         // We can't have a step lower than the block range length.
         let adjusted_step = std::cmp::max(adjusted_step, BlockRange::LENGTH);
 
-        (block_number.saturating_sub(self.security_parameter)) / adjusted_step * adjusted_step
+        let block_number_to_be_signed =
+            (block_number - self.security_parameter) / adjusted_step * adjusted_step;
+        block_number_to_be_signed - 1
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::{CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, TimePoint};
+    use crate::entities::{
+        CardanoDbBeacon, ChainPoint, Epoch, SignedEntityType, SlotNumber, TimePoint,
+    };
     use crate::test_utils::fake_data;
 
     use super::*;
@@ -161,8 +170,8 @@ mod tests {
             epoch: Epoch(1),
             immutable_file_number: 5,
             chain_point: ChainPoint {
-                slot_number: 73,
-                block_number: 20,
+                slot_number: SlotNumber(73),
+                block_number: BlockNumber(20),
                 block_hash: "block_hash-20".to_string(),
             },
         };
@@ -170,44 +179,53 @@ mod tests {
             allowed_discriminants: SignedEntityTypeDiscriminants::all(),
             network: CardanoNetwork::DevNet(12),
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 15,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
             },
         };
 
         assert_eq!(
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            config.time_point_to_signed_entity(
-                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                &time_point
-            )
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    &time_point
+                )
+                .unwrap()
         );
 
+        // An offset of -1 is applied to the epoch of the time point to get the epoch of the stake distribution to be signed
         assert_eq!(
-            SignedEntityType::CardanoStakeDistribution(Epoch(1)),
-            config.time_point_to_signed_entity(
-                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                &time_point
-            )
+            SignedEntityType::CardanoStakeDistribution(Epoch(0)),
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                    &time_point
+                )
+                .unwrap()
         );
 
         assert_eq!(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 1, 5)),
-            config.time_point_to_signed_entity(
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                &time_point
-            )
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                    &time_point
+                )
+                .unwrap()
         );
 
-        // The block number to be signed is 0 because the step is 15, the block number is 20, and
+        // The block number to be signed is 14 because the step is 15, the block number is 20, and
         // the security parameter is 0.
         // This is further tested in the "computing_block_number_to_be_signed" tests below.
         assert_eq!(
-            SignedEntityType::CardanoTransactions(Epoch(1), 15),
-            config.time_point_to_signed_entity(
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-                &time_point
-            )
+            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(14)),
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    &time_point
+                )
+                .unwrap()
         );
     }
 
@@ -216,37 +234,37 @@ mod tests {
         // **block_number = ((tip.block_number - k') / n) × n**
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 15,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
             }
-            .compute_block_number_to_be_signed(105),
-            105
+            .compute_block_number_to_be_signed(BlockNumber(105)),
+            104
         );
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 5,
-                step: 15,
+                security_parameter: BlockNumber(5),
+                step: BlockNumber(15),
             }
-            .compute_block_number_to_be_signed(100),
-            90
+            .compute_block_number_to_be_signed(BlockNumber(100)),
+            89
         );
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 85,
-                step: 15,
+                security_parameter: BlockNumber(85),
+                step: BlockNumber(15),
             }
-            .compute_block_number_to_be_signed(100),
-            15
+            .compute_block_number_to_be_signed(BlockNumber(100)),
+            14
         );
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 30,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(30),
             }
-            .compute_block_number_to_be_signed(29),
+            .compute_block_number_to_be_signed(BlockNumber(29)),
             0
         );
     }
@@ -255,10 +273,10 @@ mod tests {
     fn computing_block_number_to_be_signed_should_not_overlow_on_security_parameter() {
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 100,
-                step: 30,
+                security_parameter: BlockNumber(100),
+                step: BlockNumber(30),
             }
-            .compute_block_number_to_be_signed(50),
+            .compute_block_number_to_be_signed(BlockNumber(50)),
             0
         );
     }
@@ -267,35 +285,35 @@ mod tests {
     fn computing_block_number_to_be_signed_round_step_to_a_block_range_start() {
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
+                security_parameter: BlockNumber(0),
                 step: BlockRange::LENGTH * 2 - 1,
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
-            BlockRange::LENGTH * 5
+            BlockRange::LENGTH * 5 - 1
         );
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
+                security_parameter: BlockNumber(0),
                 step: BlockRange::LENGTH * 2 + 1,
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH * 5 + 1),
-            BlockRange::LENGTH * 4
+            BlockRange::LENGTH * 4 - 1
         );
 
         // Adjusted step is always at least BLOCK_RANGE_LENGTH.
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
+                security_parameter: BlockNumber(0),
                 step: BlockRange::LENGTH - 1,
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH * 10 - 1),
-            BlockRange::LENGTH * 9
+            BlockRange::LENGTH * 9 - 1
         );
 
         assert_eq!(
             CardanoTransactionsSigningConfig {
-                security_parameter: 0,
+                security_parameter: BlockNumber(0),
                 step: BlockRange::LENGTH - 1,
             }
             .compute_block_number_to_be_signed(BlockRange::LENGTH - 1),
@@ -397,7 +415,7 @@ mod tests {
             ..fake_data::beacon()
         };
         let chain_point = ChainPoint {
-            block_number: 45,
+            block_number: BlockNumber(45),
             ..ChainPoint::dummy()
         };
         let time_point = TimePoint::new(
@@ -412,19 +430,21 @@ mod tests {
             ]),
             network,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: 0,
-                step: 15,
+                security_parameter: BlockNumber(0),
+                step: BlockNumber(15),
             },
         };
 
-        let signed_entity_types = config.list_allowed_signed_entity_types(&time_point);
+        let signed_entity_types = config
+            .list_allowed_signed_entity_types(&time_point)
+            .unwrap();
 
         assert_eq!(
             vec![
                 SignedEntityType::MithrilStakeDistribution(beacon.epoch),
-                SignedEntityType::CardanoStakeDistribution(beacon.epoch),
+                SignedEntityType::CardanoStakeDistribution(beacon.epoch - 1),
                 SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
-                SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number),
+                SignedEntityType::CardanoTransactions(beacon.epoch, chain_point.block_number - 1),
             ],
             signed_entity_types
         );

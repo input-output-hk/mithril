@@ -3,8 +3,9 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
-        SignedEntityTypeDiscriminants, StakeDistribution, StakeDistributionParty, TimePoint,
+        BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
+        SignedEntityTypeDiscriminants, SlotNumber, StakeDistribution, StakeDistributionParty,
+        TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -23,7 +24,11 @@ async fn certificate_chain() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(
-        TimePoint::new(1, 1, ChainPoint::new(10, 1, "block_hash-1")),
+        TimePoint::new(
+            1,
+            1,
+            ChainPoint::new(SlotNumber(10), BlockNumber(1), "block_hash-1"),
+        ),
         configuration,
     )
     .await;
@@ -41,7 +46,7 @@ async fn certificate_chain() {
         .unwrap();
     let mut current_epoch = observer.current_epoch().await;
 
-    comment!("Boostrap the genesis certificate, {:?}", current_epoch);
+    comment!("Bootstrap the genesis certificate, {:?}", current_epoch);
     tester
         .register_genesis_certificate(&initial_fixture)
         .await

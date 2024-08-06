@@ -1,9 +1,12 @@
 //! The entities used by, and exchanged between, the aggregator, signers and client.
 
+pub(crate) mod arithmetic_operation_wrapper;
+mod block_number;
 mod block_range;
 mod cardano_chain_point;
 mod cardano_db_beacon;
 mod cardano_network;
+mod cardano_stake_distribution;
 mod cardano_transaction;
 mod cardano_transactions_set_proof;
 mod cardano_transactions_snapshot;
@@ -21,14 +24,17 @@ mod signed_entity_config;
 mod signed_entity_type;
 mod signer;
 mod single_signatures;
+mod slot_number;
 mod snapshot;
 mod time_point;
 mod type_alias;
 
+pub use block_number::BlockNumber;
 pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
-pub use cardano_chain_point::{BlockHash, BlockNumber, ChainPoint, SlotNumber};
+pub use cardano_chain_point::{BlockHash, ChainPoint};
 pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
+pub use cardano_stake_distribution::CardanoStakeDistribution;
 pub use cardano_transaction::{CardanoTransaction, TransactionHash};
 pub use cardano_transactions_set_proof::CardanoTransactionsSetProof;
 pub use cardano_transactions_snapshot::CardanoTransactionsSnapshot;
@@ -37,7 +43,7 @@ pub use certificate_metadata::{CertificateMetadata, StakeDistributionParty};
 pub use certificate_pending::CertificatePending;
 pub use epoch::{Epoch, EpochError};
 pub use epoch_settings::EpochSettings;
-pub use http_server_error::{ClientError, InternalServerError};
+pub use http_server_error::{ClientError, ServerError};
 pub use mithril_stake_distribution::MithrilStakeDistribution;
 pub use protocol_message::{ProtocolMessage, ProtocolMessagePartKey, ProtocolMessagePartValue};
 pub use protocol_parameters::ProtocolParameters;
@@ -46,6 +52,7 @@ pub use signed_entity_config::*;
 pub use signed_entity_type::*;
 pub use signer::{Signer, SignerWithStake};
 pub use single_signatures::*;
+pub use slot_number::SlotNumber;
 pub use snapshot::{CompressionAlgorithm, Snapshot};
 pub use time_point::*;
 pub use type_alias::*;

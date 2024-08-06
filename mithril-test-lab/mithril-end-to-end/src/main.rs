@@ -23,7 +23,7 @@ pub struct Args {
     #[command(subcommand)]
     command: Option<EndToEndCommands>,
 
-    /// A directory where all logs, generated devnet artefacts, snapshots and store folder
+    /// A directory where all logs, generated devnet artifacts, snapshots and store folder
     /// will be located.
     ///
     /// Optional: if not set it will default to `{system_temp_folder}/mithril-end-to-end`
@@ -32,7 +32,7 @@ pub struct Args {
     #[clap(long)]
     work_directory: Option<PathBuf>,
 
-    /// Directory containing scripts to boostrap a devnet
+    /// Directory containing scripts to bootstrap a devnet
     #[clap(long, default_value = "./devnet")]
     devnet_scripts_directory: PathBuf,
 
@@ -53,11 +53,11 @@ pub struct Args {
     cardano_slot_length: f64,
 
     /// Length of a Cardano epoch in the devnet (in s)
-    #[clap(long, default_value_t = 30.0)]
+    #[clap(long, default_value_t = 35.0)]
     cardano_epoch_length: f64,
 
     /// Cardano node version
-    #[clap(long, default_value = "8.9.0")]
+    #[clap(long, default_value = "9.1.0")]
     cardano_node_version: String,
 
     /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
@@ -65,7 +65,7 @@ pub struct Args {
     cardano_hard_fork_latest_era_at_epoch: u16,
 
     /// Mithril run interval for nodes (in ms)
-    #[clap(long, default_value_t = 150)]
+    #[clap(long, default_value_t = 125)]
     mithril_run_interval: u32,
 
     /// Mithril era to run
@@ -77,7 +77,11 @@ pub struct Args {
     mithril_era_reader_adapter: String,
 
     /// Signed entity types parameters (discriminants names in an ordered comma separated list).
-    #[clap(long, value_delimiter = ',', default_value = "CardanoTransactions")]
+    #[clap(
+        long,
+        value_delimiter = ',',
+        default_value = "CardanoTransactions,CardanoStakeDistribution"
+    )]
     signed_entity_types: Vec<String>,
 
     /// Enable run only mode
