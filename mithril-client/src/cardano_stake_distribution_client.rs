@@ -98,38 +98,32 @@ impl CardanoStakeDistributionClient {
         Ok(items)
     }
 
-    /// Get the given Cardano stake distribution data. If it cannot be found, a None is returned.
+    /// Get the given Cardano stake distribution data by hash.
     pub async fn get(&self, hash: &str) -> MithrilResult<Option<CardanoStakeDistribution>> {
-        match self
-            .aggregator_client
-            .get_content(AggregatorRequest::GetCardanoStakeDistribution {
-                hash: hash.to_string(),
-            })
-            .await
-        {
-            Ok(content) => {
-                let cardano_stake_distribution: CardanoStakeDistribution =
-                    serde_json::from_str(&content).with_context(|| {
-                        "CardanoStakeDistribution client can not deserialize artifact"
-                    })?;
-
-                Ok(Some(cardano_stake_distribution))
-            }
-            Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
-            Err(e) => Err(e.into()),
-        }
+        self.fetch_with_aggregator_request(AggregatorRequest::GetCardanoStakeDistribution {
+            hash: hash.to_string(),
+        })
+        .await
     }
 
-    /// Get the given Cardano stake distribution data by epoch. If it cannot be found, a None is returned.
+    /// Get the given Cardano stake distribution data by epoch.
     pub async fn get_by_epoch(
         &self,
         epoch: Epoch,
     ) -> MithrilResult<Option<CardanoStakeDistribution>> {
-        match self
-            .aggregator_client
-            .get_content(AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch })
-            .await
-        {
+        self.fetch_with_aggregator_request(AggregatorRequest::GetCardanoStakeDistributionByEpoch {
+            epoch,
+        })
+        .await
+    }
+
+    /// Fetch the given Cardano stake distribution data with an aggregator request.
+    /// If it cannot be found, a None is returned.
+    async fn fetch_with_aggregator_request(
+        &self,
+        request: AggregatorRequest,
+    ) -> MithrilResult<Option<CardanoStakeDistribution>> {
+        match self.aggregator_client.get_content(request).await {
             Ok(content) => {
                 let cardano_stake_distribution: CardanoStakeDistribution =
                     serde_json::from_str(&content).with_context(|| {
