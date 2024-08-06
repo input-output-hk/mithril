@@ -194,70 +194,38 @@ impl From<MKProof> for MKTreeNode {
     }
 }
 
-/// A Merkle tree store
-#[derive(Clone)]
-pub struct MKTreeStoreInMemoryProvider<T> {
-    inner_store: Arc<RwLock<HashMap<u64, T>>>,
-}
-
-impl<T> MKTreeStoreInMemoryProvider<T> {
-    fn new() -> Self {
-        Self {
-            inner_store: Arc::new(RwLock::new(HashMap::new())),
-        }
-    }
-}
-
-impl<T: Clone> MMRStoreReadOps<T> for MKTreeStoreInMemoryProvider<T> {
-    fn get_elem(&self, pos: u64) -> MMRResult<Option<T>> {
-        let inner_store = self.inner_store.read().unwrap();
-
-        Ok((*inner_store).get(&pos).cloned())
-    }
-}
-
-impl<T> MMRStoreWriteOps<T> for MKTreeStoreInMemoryProvider<T> {
-    fn append(&mut self, pos: u64, elems: Vec<T>) -> MMRResult<()> {
-        let mut inner_store = self.inner_store.write().unwrap();
-        for (i, elem) in elems.into_iter().enumerate() {
-            (*inner_store).insert(pos + i as u64, elem);
-        }
-
-        Ok(())
-    }
-}
-
-impl<T> Default for MKTreeStoreInMemoryProvider<T> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-/// A Merkle tree store
+/// A Merkle tree store in memory
 #[derive(Clone)]
 pub struct MKTreeStoreInMemory {
     inner_leaves: Arc<RwLock<HashMap<Arc<MKTreeNode>, MKTreeLeafPosition>>>,
-    inner_provider: MKTreeStoreInMemoryProvider<Arc<MKTreeNode>>,
+    inner_store: Arc<RwLock<HashMap<u64, Arc<MKTreeNode>>>>,
 }
 
 impl MKTreeStoreInMemory {
     fn new() -> Self {
         Self {
-            inner_provider: MKTreeStoreInMemoryProvider::<Arc<MKTreeNode>>::default(),
             inner_leaves: Arc::new(RwLock::new(HashMap::new())),
+            inner_store: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
 
 impl MMRStoreReadOps<Arc<MKTreeNode>> for MKTreeStoreInMemory {
     fn get_elem(&self, pos: u64) -> MMRResult<Option<Arc<MKTreeNode>>> {
-        self.inner_provider.get_elem(pos)
+        let inner_store = self.inner_store.read().unwrap();
+
+        Ok((*inner_store).get(&pos).cloned())
     }
 }
 
 impl MMRStoreWriteOps<Arc<MKTreeNode>> for MKTreeStoreInMemory {
     fn append(&mut self, pos: u64, elems: Vec<Arc<MKTreeNode>>) -> MMRResult<()> {
-        self.inner_provider.append(pos, elems)
+        let mut inner_store = self.inner_store.write().unwrap();
+        for (i, elem) in elems.into_iter().enumerate() {
+            (*inner_store).insert(pos + i as u64, elem);
+        }
+
+        Ok(())
     }
 }
 
@@ -268,9 +236,11 @@ impl Default for MKTreeStoreInMemory {
 }
 
 impl MKTreeLeafIndexer for MKTreeStoreInMemory {
-    fn set_leaf_position(&self, pos: MKTreeLeafPosition, node: Arc<MKTreeNode>) {
+    fn set_leaf_position(&self, pos: MKTreeLeafPosition, node: Arc<MKTreeNode>) -> StdResult<()> {
         let mut inner_leaves = self.inner_leaves.write().unwrap();
         (*inner_leaves).insert(node, pos);
+
+        Ok(())
     }
 
     fn get_leaf_position(&self, node: &MKTreeNode) -> Option<MKTreeLeafPosition> {
