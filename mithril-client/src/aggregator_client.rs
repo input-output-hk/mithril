@@ -100,6 +100,10 @@ pub enum AggregatorRequest {
         /// Hash of the Cardano stake distribution to retrieve
         hash: String,
     },
+
+    /// Lists the aggregator [Cardano stake distribution][crate::CardanoStakeDistribution]
+    #[cfg(feature = "unstable")]
+    ListCardanoStakeDistributions,
 }
 
 impl AggregatorRequest {
@@ -141,6 +145,10 @@ impl AggregatorRequest {
             #[cfg(feature = "unstable")]
             AggregatorRequest::GetCardanoStakeDistribution { hash } => {
                 format!("artifact/cardano-stake-distribution/{hash}")
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::ListCardanoStakeDistributions => {
+                "artifact/cardano-stake-distributions".to_string()
             }
         }
     }
@@ -561,6 +569,11 @@ mod tests {
                     hash: "abc".to_string()
                 }
                 .route()
+            );
+
+            assert_eq!(
+                "artifact/cardano-stake-distributions".to_string(),
+                AggregatorRequest::ListCardanoStakeDistributions.route()
             );
         }
     }

@@ -41,6 +41,11 @@ cfg_unstable! {
     ///
     pub use mithril_common::messages::CardanoStakeDistributionMessage as CardanoStakeDistribution;
 
+    /// List item of Cardano stake distributions.
+    ///
+    pub use mithril_common::messages::CardanoStakeDistributionListItemMessage as CardanoStakeDistributionListItem;
+
+
     pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTransactionsProofs;
 
     pub use mithril_common::messages::CardanoTransactionsSetProofMessagePart as CardanoTransactionsSetProof;
@@ -50,11 +55,9 @@ cfg_unstable! {
     pub use mithril_common::messages::VerifyCardanoTransactionsProofsError;
 
     /// A snapshot that allow to know up to which [point of time][common::CardanoDbBeacon] Mithril have certified Cardano transactions.
-    ///
     pub use mithril_common::messages::CardanoTransactionSnapshotMessage as CardanoTransactionSnapshot;
 
     /// List item of a Cardano transaction snapshot.
-    ///
     pub use mithril_common::messages::CardanoTransactionSnapshotListItemMessage as CardanoTransactionSnapshotListItem;
 }
 

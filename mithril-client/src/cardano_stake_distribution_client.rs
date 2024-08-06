@@ -2,6 +2,7 @@
 //!
 //! In order to do so it defines a [CardanoStakeDistributionClient] which exposes the following features:
 //!  - [get][CardanoStakeDistributionClient::get]: get a Cardano stake distribution data from its hash
+//!  - [list][CardanoStakeDistributionClient::list]: get the list of available Cardano stake distribution
 //!
 //! # Get a Cardano stake distribution
 //!
@@ -23,12 +24,30 @@
 //! #    Ok(())
 //! # }
 //! ```
+//!
+//! # List available Cardano stake distributions
+//!
+//! To list available Cardano stake distributions using the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let cardano_stake_distributions = client.cardano_stake_distribution().list().await?;
+//!
+//! for cardano_stake_distribution in cardano_stake_distributions {
+//!     println!("Cardano stake distribution hash={}, epoch={}", cardano_stake_distribution.hash, cardano_stake_distribution.epoch);
+//! }
+//! #    Ok(())
+//! # }
+//! ```
 
 use anyhow::Context;
 use std::sync::Arc;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
-use crate::{CardanoStakeDistribution, MithrilResult};
+use crate::{CardanoStakeDistribution, CardanoStakeDistributionListItem, MithrilResult};
 
 /// HTTP client for CardanoStakeDistribution API from the Aggregator
 pub struct CardanoStakeDistributionClient {
@@ -39,6 +58,19 @@ impl CardanoStakeDistributionClient {
     /// Constructs a new `CardanoStakeDistribution`.
     pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {
         Self { aggregator_client }
+    }
+
+    /// Fetch a list of signed CardanoStakeDistribution
+    pub async fn list(&self) -> MithrilResult<Vec<CardanoStakeDistributionListItem>> {
+        let response = self
+            .aggregator_client
+            .get_content(AggregatorRequest::ListCardanoStakeDistributions)
+            .await
+            .with_context(|| "CardanoStakeDistribution client can not get the artifact list")?;
+        let items = serde_json::from_str::<Vec<CardanoStakeDistributionListItem>>(&response)
+            .with_context(|| "CardanoStakeDistribution client can not deserialize artifact list")?;
+
+        Ok(items)
     }
 
     /// Get the given Cardano stake distribution data. If it cannot be found, a None is returned.
@@ -74,6 +106,59 @@ mod tests {
     use crate::common::{Epoch, StakeDistribution};
 
     use super::*;
+
+    fn fake_messages() -> Vec<CardanoStakeDistributionListItem> {
+        vec![
+            CardanoStakeDistributionListItem {
+                epoch: Epoch(1),
+                hash: "hash-123".to_string(),
+                certificate_hash: "cert-hash-123".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2024-08-06T12:13:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            },
+            CardanoStakeDistributionListItem {
+                epoch: Epoch(2),
+                hash: "hash-456".to_string(),
+                certificate_hash: "cert-hash-456".to_string(),
+                created_at: DateTime::parse_from_rfc3339("2024-08-06T12:13:05.618857482Z")
+                    .unwrap()
+                    .with_timezone(&Utc),
+            },
+        ]
+    }
+
+    #[tokio::test]
+    async fn list_mithril_stake_distributions_returns_messages() {
+        let message = fake_messages();
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .with(eq(AggregatorRequest::ListCardanoStakeDistributions))
+            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
+
+        let messages = client.list().await.unwrap();
+
+        assert_eq!(2, messages.len());
+        assert_eq!("hash-123".to_string(), messages[0].hash);
+        assert_eq!("hash-456".to_string(), messages[1].hash);
+    }
+
+    #[tokio::test]
+    async fn list_mithril_stake_distributions_returns_error_when_invalid_json_structure_in_response(
+    ) {
+        let mut http_client = MockAggregatorHTTPClient::new();
+        http_client
+            .expect_get_content()
+            .return_once(move |_| Ok("invalid json structure".to_string()));
+        let client = CardanoStakeDistributionClient::new(Arc::new(http_client));
+
+        client
+            .list()
+            .await
+            .expect_err("List Cardano stake distributions should return an error");
+    }
 
     #[tokio::test]
     async fn get_cardano_stake_distribution_returns_message() {
