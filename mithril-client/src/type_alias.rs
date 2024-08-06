@@ -38,13 +38,10 @@ pub use mithril_common::messages::SignerWithStakeMessagePart as MithrilSigner;
 
 cfg_unstable! {
     /// A Cardano stake distribution.
-    ///
     pub use mithril_common::messages::CardanoStakeDistributionMessage as CardanoStakeDistribution;
 
     /// List item of Cardano stake distributions.
-    ///
     pub use mithril_common::messages::CardanoStakeDistributionListItemMessage as CardanoStakeDistributionListItem;
-
 
     pub use mithril_common::messages::CardanoTransactionsProofsMessage as CardanoTransactionsProofs;
 
