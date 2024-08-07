@@ -22,6 +22,7 @@ use tokio::sync::RwLock;
 use mithril_common::entities::{ClientError, ServerError};
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
+use crate::common::Epoch;
 use crate::{MithrilError, MithrilResult};
 
 /// Error tied with the Aggregator client
@@ -92,6 +93,24 @@ pub enum AggregatorRequest {
     /// Lists the aggregator [Cardano transaction snapshot][crate::CardanoTransactionSnapshot]
     #[cfg(feature = "unstable")]
     ListCardanoTransactionSnapshots,
+
+    /// Get a specific [Cardano stake distribution][crate::CardanoStakeDistribution] from the aggregator by hash
+    #[cfg(feature = "unstable")]
+    GetCardanoStakeDistribution {
+        /// Hash of the Cardano stake distribution to retrieve
+        hash: String,
+    },
+
+    /// Get a specific [Cardano stake distribution][crate::CardanoStakeDistribution] from the aggregator by epoch
+    #[cfg(feature = "unstable")]
+    GetCardanoStakeDistributionByEpoch {
+        /// Epoch at the end of which the Cardano stake distribution is computed by the Cardano node
+        epoch: Epoch,
+    },
+
+    /// Lists the aggregator [Cardano stake distribution][crate::CardanoStakeDistribution]
+    #[cfg(feature = "unstable")]
+    ListCardanoStakeDistributions,
 }
 
 impl AggregatorRequest {
@@ -129,6 +148,18 @@ impl AggregatorRequest {
             #[cfg(feature = "unstable")]
             AggregatorRequest::ListCardanoTransactionSnapshots => {
                 "artifact/cardano-transactions".to_string()
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::GetCardanoStakeDistribution { hash } => {
+                format!("artifact/cardano-stake-distribution/{hash}")
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch } => {
+                format!("artifact/cardano-stake-distribution/epoch/{epoch}")
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::ListCardanoStakeDistributions => {
+                "artifact/cardano-stake-distributions".to_string()
             }
         }
     }
@@ -541,6 +572,24 @@ mod tests {
             assert_eq!(
                 "artifact/cardano-transactions".to_string(),
                 AggregatorRequest::ListCardanoTransactionSnapshots.route()
+            );
+
+            assert_eq!(
+                "artifact/cardano-stake-distribution/abc".to_string(),
+                AggregatorRequest::GetCardanoStakeDistribution {
+                    hash: "abc".to_string()
+                }
+                .route()
+            );
+
+            assert_eq!(
+                "artifact/cardano-stake-distribution/epoch/123".to_string(),
+                AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch: Epoch(123) }.route()
+            );
+
+            assert_eq!(
+                "artifact/cardano-stake-distributions".to_string(),
+                AggregatorRequest::ListCardanoStakeDistributions.route()
             );
         }
     }

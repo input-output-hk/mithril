@@ -15,6 +15,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
   - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`.
   - Implement the HTTP routes related to the signed entity type `CardanoStakeDistribution` on the aggregator REST API.
+  - Added support in the `mithril-client` library for retrieving `CardanoStakeDistribution` by epoch or by hash, and for listing all available `CardanoStakeDistribution`.
 
 - Crates versions:
 

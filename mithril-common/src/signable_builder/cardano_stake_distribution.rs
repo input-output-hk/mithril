@@ -48,7 +48,10 @@ impl CardanoStakeDistributionSignableBuilder {
         }
     }
 
-    fn compute_merkle_tree(pools_with_stake: StakeDistribution) -> StdResult<MKTree> {
+    /// Compute the Merkle tree of a given [StakeDistribution]
+    pub fn compute_merkle_tree_from_stake_distribution(
+        pools_with_stake: StakeDistribution,
+    ) -> StdResult<MKTree> {
         let leaves: Vec<MKTreeNode> = pools_with_stake
             .iter()
             .map(|(k, v)| StakeDistributionEntry::new(k, *v).into())
@@ -68,7 +71,7 @@ impl SignableBuilder<Epoch> for CardanoStakeDistributionSignableBuilder {
                 "CardanoStakeDistributionSignableBuilder could not find the stake distribution for epoch: '{epoch}'"
             ))?;
 
-        let mk_tree = Self::compute_merkle_tree(pools_with_stake)?;
+        let mk_tree = Self::compute_merkle_tree_from_stake_distribution(pools_with_stake)?;
 
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
@@ -97,11 +100,15 @@ mod tests {
         second_pools_with_stake: StakeDistribution,
     ) -> bool {
         let first_merkle_tree =
-            CardanoStakeDistributionSignableBuilder::compute_merkle_tree(first_pools_with_stake)
-                .unwrap();
+            CardanoStakeDistributionSignableBuilder::compute_merkle_tree_from_stake_distribution(
+                first_pools_with_stake,
+            )
+            .unwrap();
         let second_merkle_tree =
-            CardanoStakeDistributionSignableBuilder::compute_merkle_tree(second_pools_with_stake)
-                .unwrap();
+            CardanoStakeDistributionSignableBuilder::compute_merkle_tree_from_stake_distribution(
+                second_pools_with_stake,
+            )
+            .unwrap();
 
         first_merkle_tree.compute_root().unwrap() == second_merkle_tree.compute_root().unwrap()
     }
@@ -172,8 +179,10 @@ mod tests {
             .unwrap();
 
         let expected_mktree =
-            CardanoStakeDistributionSignableBuilder::compute_merkle_tree(stake_distribution_clone)
-                .unwrap();
+            CardanoStakeDistributionSignableBuilder::compute_merkle_tree_from_stake_distribution(
+                stake_distribution_clone,
+            )
+            .unwrap();
         let mut signable_expected = ProtocolMessage::new();
         signable_expected.set_message_part(
             ProtocolMessagePartKey::CardanoStakeDistributionEpoch,
