@@ -12,8 +12,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
-use reqwest::header::HeaderMap;
-use reqwest::{Response, StatusCode, Url};
+use reqwest::{header::HeaderMap, Response, StatusCode, Url};
 use semver::Version;
 use slog::{debug, Logger};
 use thiserror::Error;
@@ -198,6 +197,7 @@ pub struct AggregatorHTTPClient {
     aggregator_endpoint: Url,
     api_versions: Arc<RwLock<Vec<Version>>>,
     logger: Logger,
+    additional_headers: Option<HeaderMap>,
 }
 
 impl AggregatorHTTPClient {
@@ -227,6 +227,7 @@ impl AggregatorHTTPClient {
             aggregator_endpoint,
             api_versions: Arc::new(RwLock::new(api_versions)),
             logger,
+            additional_headers: None,
         })
     }
 
@@ -235,7 +236,7 @@ impl AggregatorHTTPClient {
         self.api_versions.read().await.first().cloned()
     }
 
-    /// Discards the current api version
+    /// Discards the curr    ent api version
     /// It discards the current version if and only if there is at least 2 versions available
     async fn discard_current_api_version(&self) -> Option<Version> {
         if self.api_versions.read().await.len() < 2 {
@@ -269,8 +270,15 @@ impl AggregatorHTTPClient {
             self.logger,
             "Prepare request with version: {current_api_version}"
         );
-        let request_builder =
+        let mut request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
+
+        if let Some(additional_headers) = &self.additional_headers {
+            for (key, value) in additional_headers.iter() {
+                request_builder = request_builder.header(key, value);
+            }
+        }
+
         let response = request_builder.send().await.map_err(|e| {
             AggregatorClientError::SubsystemError(anyhow!(e).context(format!(
                 "Cannot perform a GET against the Aggregator HTTP server (url='{url}')"
@@ -310,8 +318,14 @@ impl AggregatorHTTPClient {
             self.logger,
             "Prepare request with version: {current_api_version}"
         );
-        let request_builder =
+        let mut request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
+
+        if let Some(additional_headers) = &self.additional_headers {
+            for (key, value) in additional_headers.iter() {
+                request_builder = request_builder.header(key, value);
+            }
+        }
 
         let response = request_builder.send().await.map_err(|e| {
             AggregatorClientError::SubsystemError(
@@ -391,6 +405,12 @@ impl AggregatorHTTPClient {
             .unwrap_or(ServerError::new(format!("Unhandled error {status_code}")));
 
         AggregatorClientError::RemoteServerTechnical(anyhow!("{server_error}"))
+    }
+
+    /// Set additional headers to the requests
+    pub fn with_additional_headers(mut self, headers: HeaderMap) -> Self {
+        self.additional_headers = Some(headers);
+        self
     }
 }
 

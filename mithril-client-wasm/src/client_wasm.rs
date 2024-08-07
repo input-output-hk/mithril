@@ -1,7 +1,10 @@
 use async_trait::async_trait;
+use http::{HeaderMap, HeaderName, HeaderValue};
 use serde::Serialize;
 use std::sync::Arc;
+use std::sync::Mutex;
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_futures::js_sys;
 
 use mithril_client::{
     feedback::{FeedbackReceiver, MithrilEvent},
@@ -55,6 +58,7 @@ impl From<MithrilEvent> for MithrilEventWasm {
 #[wasm_bindgen(getter_with_clone)]
 pub struct MithrilClient {
     client: Client,
+    additional_headers: Arc<Mutex<HeaderMap>>,
 
     /// Unstable functions
     pub unstable: MithrilUnstableClient,
@@ -68,17 +72,39 @@ pub struct MithrilUnstableClient {
 
 #[wasm_bindgen]
 impl MithrilClient {
-    /// Constructor for wasm client
     #[wasm_bindgen(constructor)]
     pub fn new(aggregator_endpoint: &str, genesis_verification_key: &str) -> MithrilClient {
         let feedback_receiver = Arc::new(JSBroadcastChannelFeedbackReceiver::new("mithril-client"));
+        let additional_headers = Arc::new(Mutex::new(HeaderMap::new()));
+
         let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
             .add_feedback_receiver(feedback_receiver)
+            .with_additional_headers(additional_headers.clone())
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
         let unstable = MithrilUnstableClient::new(client.clone());
-        MithrilClient { client, unstable }
+
+        MithrilClient {
+            client,
+            unstable,
+            additional_headers,
+        }
+    }
+
+    /// Set additional headers to be sent with each request
+    #[wasm_bindgen]
+    pub fn set_additional_headers(&self, headers: js_sys::Map) -> Result<(), JsValue> {
+        let headers = process_additional_headers(&headers)
+            .map_err(|e| JsValue::from_str(&format!("Error processing headers: {:?}", e)))?;
+
+        let mut lock = self
+            .additional_headers
+            .lock()
+            .map_err(|e| JsValue::from_str(&format!("Mutex lock failed: {e}")))?;
+
+        *lock = headers;
+        Ok(())
     }
 
     /// Call the client to get a snapshot from a digest
@@ -294,10 +320,43 @@ impl MithrilUnstableClient {
     }
 }
 
+fn process_additional_headers(headers_map: &js_sys::Map) -> Result<HeaderMap, JsValue> {
+    let mut headers = HeaderMap::new();
+    let iterator = js_sys::try_iter(headers_map)?
+        .ok_or_else(|| JsValue::from_str("Failed to create iterator from headers map"))?;
+
+    for entry in iterator {
+        let entry = entry?;
+        let tuple = js_sys::Array::from(&entry);
+        if tuple.length() != 2 {
+            return Err(JsValue::from_str("Invalid header entry"));
+        }
+
+        let key = tuple
+            .get(0)
+            .as_string()
+            .ok_or_else(|| JsValue::from_str("Header key must be a string"))?;
+        let value = tuple
+            .get(1)
+            .as_string()
+            .ok_or_else(|| JsValue::from_str("Header value must be a string"))?;
+
+        headers.insert(
+            HeaderName::from_bytes(key.as_bytes())
+                .map_err(|e| JsValue::from_str(&format!("Invalid header name: {:?}", e)))?,
+            HeaderValue::from_str(&value)
+                .map_err(|e| JsValue::from_str(&format!("Invalid header value: {:?}", e)))?,
+        );
+    }
+
+    Ok(headers)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_data;
+    use js_sys::Map;
     use wasm_bindgen_test::*;
 
     use mithril_client::{
@@ -555,5 +614,34 @@ mod tests {
             .verify_cardano_transaction_proof_then_compute_message(&tx_proof, certificate)
             .await
             .expect("Compute tx proof message for matching cert failed");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_process_additional_headers() {
+        let headers_map = Map::new();
+
+        headers_map.set(
+            &JsValue::from_str("Custom-Header-1"),
+            &JsValue::from_str("Value1"),
+        );
+        headers_map.set(
+            &JsValue::from_str("Custom-Header-2"),
+            &JsValue::from_str("Value2"),
+        );
+
+        let result = process_additional_headers(&headers_map);
+
+        assert!(result.is_ok());
+
+        let headers = result.unwrap();
+
+        assert_eq!(
+            headers.get("Custom-Header-1").unwrap(),
+            &HeaderValue::from_str("Value1").unwrap()
+        );
+        assert_eq!(
+            headers.get("Custom-Header-2").unwrap(),
+            &HeaderValue::from_str("Value2").unwrap()
+        );
     }
 }
