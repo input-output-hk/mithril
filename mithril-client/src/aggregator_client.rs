@@ -22,7 +22,6 @@ use tokio::sync::RwLock;
 use mithril_common::entities::{ClientError, ServerError};
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
-use crate::common::Epoch;
 use crate::{MithrilError, MithrilResult};
 
 /// Error tied with the Aggregator client
@@ -105,7 +104,7 @@ pub enum AggregatorRequest {
     #[cfg(feature = "unstable")]
     GetCardanoStakeDistributionByEpoch {
         /// Epoch at the end of which the Cardano stake distribution is computed by the Cardano node
-        epoch: Epoch,
+        epoch: crate::common::Epoch,
     },
 
     /// Lists the aggregator [Cardano stake distribution][crate::CardanoStakeDistribution]
@@ -584,7 +583,7 @@ mod tests {
 
             assert_eq!(
                 "artifact/cardano-stake-distribution/epoch/123".to_string(),
-                AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch: Epoch(123) }.route()
+                AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch: crate::common::Epoch(123) }.route()
             );
 
             assert_eq!(
