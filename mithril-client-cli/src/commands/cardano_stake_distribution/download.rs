@@ -7,7 +7,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
+use crate::utils::{ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{commands::client_builder, configuration::ConfigParameters};
 use mithril_client::common::Epoch;
 use mithril_client::MessageBuilder;
@@ -22,7 +22,9 @@ pub struct CardanoStakeDistributionDownloadCommand {
 
     /// Epoch of the Cardano stake distribution artifact.
     /// It represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
-    epoch: u64,
+    ///
+    /// If `latest` is specified as epoch, the command will return the latest Cardano stake distribution.
+    epoch: String,
 
     /// Directory where the Cardano stake distribution will be downloaded.
     #[clap(long)]
@@ -56,26 +58,46 @@ impl CardanoStakeDistributionDownloadCommand {
             )))
             .build()?;
 
+        let get_list_of_artifact_epochs = || async {
+            let cardano_stake_distributions = client.cardano_stake_distribution().list().await.with_context(|| {
+                "Can not get the list of artifacts while retrieving the latest Cardano stake distribution epoch"
+            })?;
+
+            Ok(cardano_stake_distributions
+                .iter()
+                .map(|csd| csd.epoch.to_string())
+                .collect::<Vec<String>>())
+        };
+
+        let epoch =
+            ExpanderUtils::expand_eventual_id_alias(&self.epoch, get_list_of_artifact_epochs())
+                .await?;
+        let epoch = Epoch(
+            epoch
+                .parse()
+                .with_context(|| format!("Can not convert: '{}' into a valid Epoch", epoch))?,
+        );
+
         progress_printer.report_step(
             1,
             &format!(
                 "Fetching Cardano stake distribution for epoch: '{}' …",
-                self.epoch
+                epoch
             ),
         )?;
         let cardano_stake_distribution = client
             .cardano_stake_distribution()
-            .get_by_epoch(Epoch(self.epoch))
+            .get_by_epoch(epoch)
             .await
             .with_context(|| {
                 format!(
                     "Can not download and verify the artifact for epoch: '{}'",
-                    self.epoch
+                    epoch
                 )
             })?
             .ok_or(anyhow!(
                 "Cardano stake distribution for epoch '{}' not found",
-                self.epoch
+                epoch
             ))?;
 
         progress_printer.report_step(
