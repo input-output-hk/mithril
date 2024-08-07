@@ -30,7 +30,9 @@ case $UNAME in
                 DATE="date";;
 esac
 
-CARDANO_CLI=./cardano-cli
+CARDANO_BIN_PATH=./bin
+CARDANO_CLI=${CARDANO_BIN_PATH}/cardano-cli
+CARDANO_NODE=${CARDANO_BIN_PATH}/cardano-node
 NUM_SPO_NODES=$NUM_POOL_NODES
 INIT_SUPPLY=12000000
 TOTAL_SUPPLY=2000000000000
@@ -194,7 +196,7 @@ cp -r ${ARTIFACTS_DIR_TEMP}/utxo-keys/* addresses
 
 for ADDR in ${UTXO_ADDRS}; do
     # Payment addresses
-    ./cardano-cli address build \
+    $CARDANO_CLI address build \
         --payment-verification-key-file addresses/${ADDR}.vkey \
         --testnet-magic ${NETWORK_MAGIC} \
         --out-file addresses/${ADDR}.addr
@@ -202,24 +204,24 @@ done
 
 for ADDR in ${USER_ADDRS}; do
   # Payment address keys
-  ./cardano-cli address key-gen \
+  $CARDANO_CLI address key-gen \
       --verification-key-file addresses/${ADDR}.vkey \
       --signing-key-file      addresses/${ADDR}.skey
 
   # Stake address keys
-  ./cardano-cli stake-address key-gen \
+  $CARDANO_CLI stake-address key-gen \
       --verification-key-file addresses/${ADDR}-stake.vkey \
       --signing-key-file      addresses/${ADDR}-stake.skey
 
   # Payment addresses
-  ./cardano-cli address build \
+  $CARDANO_CLI address build \
       --payment-verification-key-file addresses/${ADDR}.vkey \
       --stake-verification-key-file addresses/${ADDR}-stake.vkey \
       --testnet-magic ${NETWORK_MAGIC} \
       --out-file addresses/${ADDR}.addr
 
   # Stake addresses
-  ./cardano-cli stake-address build \
+  $CARDANO_CLI stake-address build \
       --stake-verification-key-file addresses/${ADDR}-stake.vkey \
       --testnet-magic ${NETWORK_MAGIC} \
       --out-file addresses/${ADDR}-stake.addr

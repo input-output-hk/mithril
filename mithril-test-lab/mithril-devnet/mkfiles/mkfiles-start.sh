@@ -7,8 +7,8 @@ killall cardano-node > /dev/null 2>&1
 # Stop when there's an error, activate it after the killall since it will report an error if it doesn't kill anything
 set -e
 
-./cardano-cli --version
-./cardano-node --version
+$CARDANO_CLI --version
+$CARDANO_NODE --version
 
 EOF
 
@@ -16,7 +16,7 @@ for NODE in ${FULL_NODES}; do
   cat >> ${NODE}/start-node.sh <<EOF
 #!/usr/bin/env bash
 
-./cardano-node run \\
+$CARDANO_NODE run \\
   --config                          ${NODE}/configuration.yaml \\
   --topology                        ${NODE}/topology.json \\
   --database-path                   ${NODE}/db \\
@@ -36,7 +36,7 @@ for NODE in ${POOL_NODES}; do
   cat >> ${NODE}/start-node.sh <<EOF
 #!/usr/bin/env bash
 
-./cardano-node run \\
+$CARDANO_NODE run \\
   --config                          ${NODE}/configuration.yaml \\
   --topology                        ${NODE}/topology.json \\
   --database-path                   ${NODE}/db \\
@@ -64,7 +64,7 @@ CARDANO_ACTIVATION_WAIT_ROUNDS=1
 CARDANO_ACTIVATION_WAIT_ROUND_DELAY=2
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
     if [ "\$EPOCH" != "" ] ; then
         echo ">>>> Cardano network is ready!"
         break
@@ -165,10 +165,10 @@ done
 cat >> start-mithril.sh <<EOF
 
 echo ">> Wait for Mithril signers to be registered"
-EPOCH_NOW=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+EPOCH_NOW=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
     EPOCH_DELTA=\$(( \$EPOCH - \$EPOCH_NOW ))
     if [ \$EPOCH_DELTA -ge 2 ] ; then
         echo ">>>> Ready!"
