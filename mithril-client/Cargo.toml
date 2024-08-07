@@ -50,13 +50,13 @@ uuid = { version = "1.7.0", features = ["v4"] }
 zstd = { version = "0.13.0", optional = true }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-mithril-common = { path = "../mithril-common", version = "=0.4", features = [
+mithril-common = { path = "../mithril-common", version = "=0.4", default-features = false, features = [
     "fs",
 ] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2.12", features = ["js"] }
-mithril-common = { path = "../mithril-common", version = "=0.4" }
+mithril-common = { path = "../mithril-common", version = "=0.4", default-features = false }
 reqwest = { version = "0.12.4", default-features = false, features = [
     "charset",
     "http2",
@@ -68,7 +68,7 @@ reqwest = { version = "0.12.4", default-features = false, features = [
 [dev-dependencies]
 httpmock = "0.7.0"
 indicatif = { version = "0.17.7", features = ["tokio"] }
-mithril-common = { path = "../mithril-common", version = "=0.4", features = [
+mithril-common = { path = "../mithril-common", version = "=0.4", default-features = false, features = [
     "random",
     "test_tools",
 ] }
@@ -81,7 +81,7 @@ warp = "0.3.6"
 
 [features]
 # Include native-tls in reqwest by default
-default = ["native-tls"]
+default = ["native-tls", "rug-backend"]
 
 # Full feature set
 full = ["fs"]
@@ -101,6 +101,12 @@ rustls-tls = ["reqwest/rustls-tls"]
 rustls-tls-manual-roots = ["reqwest/rustls-tls-manual-roots"]
 rustls-tls-webpki-roots = ["reqwest/rustls-tls-webpki-roots"]
 rustls-tls-native-roots = ["reqwest/rustls-tls-native-roots"]
+
+# Enables `rug-backend` features for `mithril-common` dependency
+rug-backend = ["mithril-common/rug-backend"]
+# Enables `num-integer-backend` features for `mithril-common` dependency
+# by default it's `rug-backend`
+num-integer-backend = ["mithril-common/num-integer-backend"]
 
 [package.metadata.docs.rs]
 all-features = true
