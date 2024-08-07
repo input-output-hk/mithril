@@ -10,8 +10,8 @@ use std::{
 use crate::utils::{ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{commands::client_builder, configuration::ConfigParameters};
 use mithril_client::common::Epoch;
-use mithril_client::MessageBuilder;
-use mithril_client::MithrilResult;
+use mithril_client::Client;
+use mithril_client::{CardanoStakeDistribution, MessageBuilder, MithrilResult};
 
 /// Download and verify a Cardano stake distribution information.
 #[derive(Parser, Debug, Clone)]
@@ -20,11 +20,12 @@ pub struct CardanoStakeDistributionDownloadCommand {
     #[clap(long)]
     json: bool,
 
-    /// Epoch of the Cardano stake distribution artifact.
-    /// It represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
+    /// Epoch or hash of the Cardano stake distribution artifact.
     ///
-    /// If `latest` is specified as epoch, the command will return the latest Cardano stake distribution.
-    epoch: String,
+    /// The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node.
+    ///
+    /// If `latest` is specified as unique_identifier, the command will return the latest Cardano stake distribution.
+    unique_identifier: String,
 
     /// Directory where the Cardano stake distribution will be downloaded.
     #[clap(long)]
@@ -58,47 +59,25 @@ impl CardanoStakeDistributionDownloadCommand {
             )))
             .build()?;
 
-        let get_list_of_artifact_epochs = || async {
-            let cardano_stake_distributions = client.cardano_stake_distribution().list().await.with_context(|| {
-                "Can not get the list of artifacts while retrieving the latest Cardano stake distribution epoch"
-            })?;
-
-            Ok(cardano_stake_distributions
-                .iter()
-                .map(|csd| csd.epoch.to_string())
-                .collect::<Vec<String>>())
-        };
-
-        let epoch =
-            ExpanderUtils::expand_eventual_id_alias(&self.epoch, get_list_of_artifact_epochs())
-                .await?;
-        let epoch = Epoch(
-            epoch
-                .parse()
-                .with_context(|| format!("Can not convert: '{}' into a valid Epoch", epoch))?,
-        );
-
         progress_printer.report_step(
             1,
             &format!(
-                "Fetching Cardano stake distribution for epoch: '{}' …",
-                epoch
+                "Fetching Cardano stake distribution for identifier: '{}' …",
+                self.unique_identifier
             ),
         )?;
-        let cardano_stake_distribution = client
-            .cardano_stake_distribution()
-            .get_by_epoch(epoch)
+        let cardano_stake_distribution =
+            Self::fetch_cardano_stake_distribution_from_unique_identifier(
+                &client,
+                &self.unique_identifier,
+            )
             .await
             .with_context(|| {
                 format!(
-                    "Can not download and verify the artifact for epoch: '{}'",
-                    epoch
+                    "Can not fetch Cardano stake distribution from unique identifier: '{}'",
+                    &self.unique_identifier
                 )
-            })?
-            .ok_or(anyhow!(
-                "Cardano stake distribution for epoch '{}' not found",
-                epoch
-            ))?;
+            })?;
 
         progress_printer.report_step(
             2,
@@ -167,6 +146,75 @@ impl CardanoStakeDistributionDownloadCommand {
 
         Ok(())
     }
+
+    fn is_sha256_hash(identifier: &str) -> bool {
+        identifier.len() == 64 && identifier.chars().all(|c| c.is_ascii_hexdigit())
+    }
+
+    // The unique identifier can be either a SHA256 hash, an epoch,  or 'latest'.
+    async fn fetch_cardano_stake_distribution_from_unique_identifier(
+        client: &Client,
+        unique_identifier: &str,
+    ) -> MithrilResult<CardanoStakeDistribution> {
+        let cardano_stake_distribution = if Self::is_sha256_hash(unique_identifier) {
+            client
+                .cardano_stake_distribution()
+                .get(unique_identifier)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Can not download and verify the artifact for hash: '{}'",
+                        unique_identifier
+                    )
+                })?
+                .ok_or(anyhow!(
+                    "No Cardano stake distribution could be found for hash: '{}'",
+                    unique_identifier
+                ))
+        } else {
+            let epoch = {
+                let get_list_of_artifact_epochs = || async {
+                    let cardano_stake_distributions = client.cardano_stake_distribution().list().await.with_context(|| {
+                        "Can not get the list of artifacts while retrieving the latest Cardano stake distribution epoch"
+                    })?;
+
+                    Ok(cardano_stake_distributions
+                        .iter()
+                        .map(|csd| csd.epoch.to_string())
+                        .collect::<Vec<String>>())
+                };
+
+                let epoch = ExpanderUtils::expand_eventual_id_alias(
+                    unique_identifier,
+                    get_list_of_artifact_epochs(),
+                )
+                .await?;
+
+                Epoch(
+                    epoch.parse().with_context(|| {
+                        format!("Can not convert: '{}' into a valid Epoch", epoch)
+                    })?,
+                )
+            };
+
+            client
+                .cardano_stake_distribution()
+                .get_by_epoch(epoch)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Can not download and verify the artifact for epoch: '{}'",
+                        epoch
+                    )
+                })?
+                .ok_or(anyhow!(
+                    "No Cardano stake distribution could be found for epoch: '{}'",
+                    epoch
+                ))
+        };
+
+        cardano_stake_distribution
+    }
 }
 
 impl Source for CardanoStakeDistributionDownloadCommand {
@@ -201,5 +249,41 @@ impl Source for CardanoStakeDistributionDownloadCommand {
         }
 
         Ok(map)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_sha_256_returns_false_with_epoch_as_input() {
+        let input = "501".to_string();
+
+        assert!(!CardanoStakeDistributionDownloadCommand::is_sha256_hash(
+            &input
+        ));
+    }
+
+    #[test]
+    fn is_sha_256_returns_false_with_latest_as_input() {
+        let input = "latest".to_string();
+
+        assert!(!CardanoStakeDistributionDownloadCommand::is_sha256_hash(
+            &input
+        ));
+    }
+
+    #[test]
+    fn is_sha_256_returns_true_with_cardano_stake_distribution_hash_as_input() {
+        let input = "aa69be34639b9360fc5d6f9f3402a021568715403dde30dcda6ae6a265b0aba6";
+        assert!(CardanoStakeDistributionDownloadCommand::is_sha256_hash(
+            input
+        ));
+
+        let input = "1234567890123456789012345678901234567890123456789012345678901234";
+        assert!(CardanoStakeDistributionDownloadCommand::is_sha256_hash(
+            input
+        ));
     }
 }
