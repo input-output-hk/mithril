@@ -1,3 +1,8 @@
+#[cfg(all(not(feature = "num-integer-backend"), not(feature = "rug-backend")))]
+compile_error!("Either 'num-integer-backend' or 'rug-backend' feature should be specified");
+#[cfg(all(feature = "num-integer-backend", feature = "rug-backend"))]
+compile_error!("Feature 'num-integer-backend' and 'rug-backend' are mutually exclusive");
+
 use crate::stm::Stake;
 #[cfg(feature = "num-integer-backend")]
 use {
