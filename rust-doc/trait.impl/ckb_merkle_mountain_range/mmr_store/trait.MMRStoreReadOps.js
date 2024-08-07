@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"mithril_common":[["impl&lt;T: <a class=\"trait\" href=\"https://doc.rust-lang.org/1.80.0/core/clone/trait.Clone.html\" title=\"trait core::clone::Clone\">Clone</a>&gt; MMRStoreReadOps&lt;T&gt; for <a class=\"struct\" href=\"mithril_common/crypto_helper/struct.MKTreeStore.html\" title=\"struct mithril_common::crypto_helper::MKTreeStore\">MKTreeStore</a>&lt;T&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

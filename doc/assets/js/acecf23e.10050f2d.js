@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[1903],{1912:e=>{e.exports=JSON.parse('{"blogBasePath":"/doc/dev-blog","blogTitle":"Dev Blog"}')}}]);

@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"mithril_persistence":[["impl <a class=\"trait\" href=\"mithril_common/signable_builder/cardano_transactions/trait.BlockRangeRootRetriever.html\" title=\"trait mithril_common::signable_builder::cardano_transactions::BlockRangeRootRetriever\">BlockRangeRootRetriever</a> for <a class=\"struct\" href=\"mithril_persistence/database/repository/struct.CardanoTransactionRepository.html\" title=\"struct mithril_persistence::database::repository::CardanoTransactionRepository\">CardanoTransactionRepository</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
