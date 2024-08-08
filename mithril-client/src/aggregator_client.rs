@@ -583,7 +583,10 @@ mod tests {
 
             assert_eq!(
                 "artifact/cardano-stake-distribution/epoch/123".to_string(),
-                AggregatorRequest::GetCardanoStakeDistributionByEpoch { epoch: crate::common::Epoch(123) }.route()
+                AggregatorRequest::GetCardanoStakeDistributionByEpoch {
+                    epoch: crate::common::Epoch(123)
+                }
+                .route()
             );
 
             assert_eq!(
