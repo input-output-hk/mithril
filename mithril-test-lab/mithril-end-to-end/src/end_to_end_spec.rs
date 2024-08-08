@@ -145,7 +145,7 @@ impl<'a> Spec<'a> {
         // Verify that Cardano stake distribution artifacts are produced and signed correctly
         if self.infrastructure.is_signing_cardano_stake_distribution() {
             {
-                let hash = assertions::assert_node_producing_cardano_stake_distribution(
+                let (hash, epoch) = assertions::assert_node_producing_cardano_stake_distribution(
                     &aggregator_endpoint,
                 )
                 .await?;
@@ -160,6 +160,14 @@ impl<'a> Spec<'a> {
                     &aggregator_endpoint,
                     &certificate_hash,
                     self.infrastructure.signers().len(),
+                )
+                .await?;
+
+                let mut client = self.infrastructure.build_client()?;
+                assertions::assert_client_can_verify_cardano_stake_distribution(
+                    &mut client,
+                    &hash,
+                    epoch,
                 )
                 .await?;
             }

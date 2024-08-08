@@ -77,7 +77,9 @@ jobs:
         shell: bash
         run: |
           CTX_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])')
+          CSD_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])')
           echo "ctx_enabled=$CTX_CAPABILITY" >> $GITHUB_OUTPUT
+          echo "csd_enabled=$CSD_CAPABILITY" >> $GITHUB_OUTPUT
 
       - name: Assessing aggregator capabilities (Windows)
         id: aggregator_capability_windows
@@ -86,7 +88,9 @@ jobs:
         run: |
           aria2c -o aggregator_capabilities.json $AGGREGATOR_ENDPOINT
           CTX_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])' aggregator_capabilities.json)
+          CSD_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])' aggregator_capabilities.json)
           echo "ctx_enabled=$CTX_CAPABILITY" >> $GITHUB_OUTPUT
+          echo "csd_enabled=$CSD_CAPABILITY" >> $GITHUB_OUTPUT
 
       - name: Checkout binary
         uses: dawidd6/action-download-artifact@v3
@@ -152,6 +156,28 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
 
+      - name: Cardano Stake Distribution / list and get last epoch and hash
+        if: steps.aggregator_capability_unix.outputs.csd_enabled == 'true' || steps.aggregator_capability_windows.outputs.csd_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: |
+          ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution list
+          CMD_OUTPUT=$(./mithril-client --unstable cardano-stake-distribution list --json)
+          echo "CARDANO_STAKE_DISTRIBUTION_EPOCH=$(echo "$CMD_OUTPUT" | jq -r '.[0].epoch')" >> $GITHUB_ENV
+          echo "CARDANO_STAKE_DISTRIBUTION_HASH=$(echo "$CMD_OUTPUT" | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano Stake Distribution / download & restore latest by epoch
+        if: steps.aggregator_capability_unix.outputs.csd_enabled == 'true' || steps.aggregator_capability_windows.outputs.csd_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH
+
+      - name: Cardano Stake Distribution / download & restore latest by hash
+        if: steps.aggregator_capability_unix.outputs.csd_enabled == 'true' || steps.aggregator_capability_windows.outputs.csd_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH
+
   test-docker:
     strategy:
       fail-fast: false
@@ -178,7 +204,9 @@ jobs:
         shell: bash
         run: |
           CTX_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])')
+          CSD_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])')
           echo "ctx_enabled=$CTX_CAPABILITY" >> $GITHUB_OUTPUT
+          echo "csd_enabled=$CSD_CAPABILITY" >> $GITHUB_OUTPUT
 
       - name: Prepare Mithril client command
         id: command
@@ -226,6 +254,25 @@ jobs:
         if: steps.aggregator_capability.outputs.ctx_enabled == 'true'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} --unstable ${{ steps.prepare.outputs.debug_level }} cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
+
+      - name: Cardano Stake Distribution / list and get last epoch and hash
+        if: steps.aggregator_capability.outputs.csd_enabled == 'true'
+        shell: bash
+        run: |
+          ${{ steps.command.outputs.mithril_client }} --unstable cardano-stake-distribution list
+          CMD_OUTPUT=$(${{ steps.command.outputs.mithril_client }} --unstable cardano-stake-distribution list --json)
+          echo "CARDANO_STAKE_DISTRIBUTION_EPOCH=$(echo "$CMD_OUTPUT" | jq -r '.[0].epoch')" >> $GITHUB_ENV
+          echo "CARDANO_STAKE_DISTRIBUTION_HASH=$(echo "$CMD_OUTPUT" | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano Stake Distribution / download & restore latest by epoch
+        if: steps.aggregator_capability.outputs.csd_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH --download-dir /app
+
+      - name: Cardano Stake Distribution / download & restore latest by hash
+        if: steps.aggregator_capability.outputs.csd_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app
 
   test-mithril-client-wasm:
     strategy:
