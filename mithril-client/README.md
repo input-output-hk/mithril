@@ -58,9 +58,9 @@ Under the hood mithril client could use different arithmetic libraries:
 - [rug](https://crates.io/crates/rug)
 - [num](https://crates.io/crates/num)
 
-If your target platform family is `unix` by default is used `rug`, it could be changed by using `num-integer-backend` feature.
-For `windows` and `wasm` target platforms `rug` is not supported,
-so `num-integer-backend` will be used all the time.
+You can switch beetwen them by using `rug-backend` and `num-integer-backend` respectively.
+For Windows and WASM target platforms only `num-integer-backend` is available,
+for others `rug-backend` is a default option.
 
 ## Getting Help
 
