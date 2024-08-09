@@ -46,6 +46,7 @@ strum = { version = "0.26.1", features = ["derive"] }
 tar = { version = "0.4.40", optional = true }
 thiserror = "1.0.56"
 tokio = { version = "1.37.0", features = ["sync"] }
+url = "2.5.2"
 uuid = { version = "1.7.0", features = ["v4"] }
 zstd = { version = "0.13.0", optional = true }
 

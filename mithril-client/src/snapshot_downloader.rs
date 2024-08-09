@@ -12,7 +12,11 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use reqwest::{Response, StatusCode};
 use slog::{debug, Logger};
+use std::fs;
 use std::path::Path;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
+use url::Url;
 
 #[cfg(test)]
 use mockall::automock;
@@ -78,6 +82,17 @@ impl HttpSnapshotDownloader {
             status_code => Err(anyhow!("Unhandled error {status_code}")),
         }
     }
+
+    fn file_scheme_to_local_path(file_url: &str) -> Option<String> {
+        if let Ok(url) = Url::parse(file_url) {
+            if url.scheme() == "file" {
+                if let Ok(path) = url.to_file_path() {
+                    return Some(path.to_string_lossy().into_owned());
+                }
+            }
+        }
+        None
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -98,7 +113,6 @@ impl SnapshotDownloader for HttpSnapshotDownloader {
             )?;
         }
         let mut downloaded_bytes: u64 = 0;
-        let mut remote_stream = self.get(location).await?.bytes_stream();
         let (sender, receiver) = flume::bounded(5);
 
         let dest_dir = target_dir.to_path_buf();
@@ -107,21 +121,52 @@ impl SnapshotDownloader for HttpSnapshotDownloader {
             unpacker.unpack_snapshot(receiver, compression_algorithm, &dest_dir)
         });
 
-        while let Some(item) = remote_stream.next().await {
-            let chunk = item.with_context(|| "Download: Could not read from byte stream")?;
+        if let Some(local_path) = Self::file_scheme_to_local_path(location) {
+            // Stream the `location` directly from the local filesystem
+            let mut file = File::open(local_path).await?;
 
-            sender.send_async(chunk.to_vec()).await.with_context(|| {
-                format!("Download: could not write {} bytes to stream.", chunk.len())
-            })?;
+            loop {
+                // We can either allocate here each time, or clone a shared buffer into sender.
+                // A larger read buffer is faster, less context switches:
+                let mut buffer = vec![0; 16 * 1024 * 1024];
+                let bytes_read = file.read(&mut buffer).await?;
+                if bytes_read == 0 {
+                    break;
+                }
+                buffer.truncate(bytes_read);
+                sender.send_async(buffer).await.with_context(|| {
+                    format!(
+                        "Local file read: could not write {} bytes to stream.",
+                        bytes_read
+                    )
+                })?;
+                downloaded_bytes += bytes_read as u64;
+                self.feedback_sender
+                    .send_event(MithrilEvent::SnapshotDownloadProgress {
+                        download_id: download_id.to_owned(),
+                        downloaded_bytes,
+                        size: snapshot_size,
+                    })
+                    .await
+            }
+        } else {
+            let mut remote_stream = self.get(location).await?.bytes_stream();
+            while let Some(item) = remote_stream.next().await {
+                let chunk = item.with_context(|| "Download: Could not read from byte stream")?;
 
-            downloaded_bytes += chunk.len() as u64;
-            self.feedback_sender
-                .send_event(MithrilEvent::SnapshotDownloadProgress {
-                    download_id: download_id.to_owned(),
-                    downloaded_bytes,
-                    size: snapshot_size,
-                })
-                .await
+                sender.send_async(chunk.to_vec()).await.with_context(|| {
+                    format!("Download: could not write {} bytes to stream.", chunk.len())
+                })?;
+
+                downloaded_bytes += chunk.len() as u64;
+                self.feedback_sender
+                    .send_event(MithrilEvent::SnapshotDownloadProgress {
+                        download_id: download_id.to_owned(),
+                        downloaded_bytes,
+                        size: snapshot_size,
+                    })
+                    .await
+            }
         }
 
         drop(sender); // Signal EOF
@@ -143,15 +188,23 @@ impl SnapshotDownloader for HttpSnapshotDownloader {
     async fn probe(&self, location: &str) -> MithrilResult<()> {
         debug!(self.logger, "HEAD Snapshot location='{location}'.");
 
-        let request_builder = self.http_client.head(location);
-        let response = request_builder.send().await.with_context(|| {
-            format!("Cannot perform a HEAD for snapshot at location='{location}'")
-        })?;
+        if let Some(local_path) = Self::file_scheme_to_local_path(location) {
+            if fs::metadata(local_path).is_ok() {
+                Ok(())
+            } else {
+                Err(anyhow!("Local snapshot location='{location}' not found"))
+            }
+        } else {
+            let request_builder = self.http_client.head(location);
+            let response = request_builder.send().await.with_context(|| {
+                format!("Cannot perform a HEAD for snapshot at location='{location}'")
+            })?;
 
-        match response.status() {
-            StatusCode::OK => Ok(()),
-            StatusCode::NOT_FOUND => Err(anyhow!("Snapshot location='{location} not found")),
-            status_code => Err(anyhow!("Unhandled error {status_code}")),
+            match response.status() {
+                StatusCode::OK => Ok(()),
+                StatusCode::NOT_FOUND => Err(anyhow!("Snapshot location='{location} not found")),
+                status_code => Err(anyhow!("Unhandled error {status_code}")),
+            }
         }
     }
 }
