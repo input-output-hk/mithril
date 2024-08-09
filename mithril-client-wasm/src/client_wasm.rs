@@ -221,6 +221,12 @@ impl MithrilUnstableClient {
         }
     }
 
+    /// Create an Epoch
+    #[wasm_bindgen]
+    pub fn create_epoch(&self, epoch_value: u64) -> Epoch {
+        Epoch(epoch_value)
+    }
+
     /// Call the client for the list of available Cardano transactions snapshots
     #[wasm_bindgen]
     pub async fn list_cardano_transactions_snapshots(&self) -> WasmResult {
