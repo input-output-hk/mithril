@@ -28,6 +28,9 @@ pub struct FakeAggregatorData {
     ctx_snapshots_list: FileContent,
     individual_ctx_snapshots: BTreeMap<ArtifactId, FileContent>,
     ctx_proofs: BTreeMap<ArtifactId, FileContent>,
+
+    csds_list: FileContent,
+    individual_csds: BTreeMap<ArtifactId, FileContent>,
 }
 
 impl FakeAggregatorData {
@@ -53,6 +56,9 @@ impl FakeAggregatorData {
                 "snapshots-list.json" => {
                     data.snapshots_list = file_content;
                 }
+                "cardano-stake-distributions-list.json" => {
+                    data.csds_list = file_content;
+                }
                 "certificates-list.json" => {
                     data.certificates_list = file_content;
                 }
@@ -64,6 +70,9 @@ impl FakeAggregatorData {
                 }
                 "snapshots.json" => {
                     data.individual_snapshots = Self::read_artifacts_json_file(&entry.path());
+                }
+                "cardano-stake-distributions.json" => {
+                    data.individual_csds = Self::read_artifacts_json_file(&entry.path());
                 }
                 "certificates.json" => {
                     data.individual_certificates = Self::read_artifacts_json_file(&entry.path());
@@ -92,6 +101,10 @@ impl FakeAggregatorData {
                 generate_ids_array(
                     "msd_hashes",
                     BTreeSet::from_iter(self.individual_msds.keys().cloned()),
+                ),
+                generate_ids_array(
+                    "csd_hashes",
+                    BTreeSet::from_iter(self.individual_csds.keys().cloned()),
                 ),
                 generate_ids_array(
                     "certificate_hashes",
@@ -126,6 +139,12 @@ impl FakeAggregatorData {
                 ),
                 generate_artifact_getter("msds", self.individual_msds),
                 generate_list_getter("msd_list", self.msds_list),
+                generate_ids_array(
+                    "csd_hashes",
+                    BTreeSet::from_iter(self.individual_csds.keys().cloned()),
+                ),
+                generate_artifact_getter("csds", self.individual_csds),
+                generate_list_getter("csd_list", self.csds_list),
                 generate_ids_array(
                     "certificate_hashes",
                     BTreeSet::from_iter(self.individual_certificates.keys().cloned()),
