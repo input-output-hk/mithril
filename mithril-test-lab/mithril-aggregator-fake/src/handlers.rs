@@ -30,6 +30,8 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .route("/artifact/snapshot/:digest", get(snapshot))
         .route("/artifact/cardano-transactions", get(ctx_snapshots))
         .route("/artifact/cardano-transaction/:hash", get(ctx_snapshot))
+        .route("/artifact/cardano-stake-distributions", get(csds))
+        .route("/artifact/cardano-stake-distribution/:hash", get(csd))
         .route("/proof/cardano-transaction", get(ctx_proof))
         .route("/certificates", get(certificates))
         .route("/certificate/:hash", get(certificate))
@@ -157,6 +159,31 @@ pub async fn ctx_snapshot(
         .map(|s| s.into_response())
         .ok_or_else(|| {
             debug!("ctx snapshot hash={key} NOT FOUND.");
+            AppError::NotFound
+        })
+}
+
+/// HTTP: return the list of cardano stake distributions.
+pub async fn csds(State(state): State<SharedState>) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let csds = app_state.get_csds().await?;
+
+    Ok(csds)
+}
+
+/// HTTP: return a cardano stake distribution identified by its hash.
+pub async fn csd(
+    Path(key): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_csd(&key)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            debug!("cardano stake distribution hash={key} NOT FOUND.");
             AppError::NotFound
         })
 }
@@ -357,5 +384,29 @@ mod tests {
         .expect("The handler was expected to succeed since the ctx proof's hash does exist.");
 
         assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn existing_csd_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path(default_values::csd_hashes()[0].to_string());
+
+        let response = csd(hash, state)
+            .await
+            .expect("The handler was expected to succeed since the csd's hash does exist.");
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn invalid_csd_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path("whatever".to_string());
+
+        let error = csd(hash, state)
+            .await
+            .expect_err("The handler was expected to fail since the csd's hash does not exist.");
+
+        assert!(matches!(error, AppError::NotFound));
     }
 }

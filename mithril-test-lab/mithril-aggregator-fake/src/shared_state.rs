@@ -21,6 +21,8 @@ pub struct AppState {
     ctx_snapshot_list: String,
     ctx_snapshots: BTreeMap<String, String>,
     ctx_proofs: BTreeMap<String, String>,
+    csd_list: String,
+    csds: BTreeMap<String, String>,
 }
 
 /// Wrapper to access the application state in shared execution.
@@ -46,6 +48,8 @@ impl Default for AppState {
             ctx_snapshot_list: default_values::ctx_snapshots_list().to_owned(),
             ctx_snapshots: default_values::ctx_snapshots(),
             ctx_proofs: default_values::ctx_proofs(),
+            csd_list: default_values::csd_list().to_owned(),
+            csds: default_values::csds(),
         }
     }
 }
@@ -61,6 +65,7 @@ impl AppState {
         let (msd_list, msds) = reader.read_files("mithril-stake-distribution")?;
         let (ctx_snapshot_list, ctx_snapshots) = reader.read_files("ctx-snapshot")?;
         let (_, ctx_proofs) = reader.read_files("ctx-proof")?;
+        let (csd_list, csds) = reader.read_files("cardano-stake-distribution")?;
 
         let instance = Self {
             epoch_settings,
@@ -73,6 +78,8 @@ impl AppState {
             ctx_snapshot_list,
             ctx_snapshots,
             ctx_proofs,
+            csd_list,
+            csds,
         };
 
         Ok(instance)
@@ -126,6 +133,16 @@ impl AppState {
     /// return the Cardano transactions proofs from Cardano transaction hashes.
     pub async fn get_ctx_proofs(&self, key: &str) -> StdResult<Option<String>> {
         Ok(self.ctx_proofs.get(key).cloned())
+    }
+
+    /// return the list of Cardano stake distributions in the same order as they were read
+    pub async fn get_csds(&self) -> StdResult<String> {
+        Ok(self.csd_list.clone())
+    }
+
+    /// return the Cardano stake distribution identified by the given key if any.
+    pub async fn get_csd(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.csds.get(key).cloned())
     }
 }
 
