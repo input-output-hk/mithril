@@ -4,6 +4,7 @@ use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 use mithril_client::{
+    common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
     CardanoTransactionsProofs, Client, ClientBuilder, MessageBuilder, MithrilCertificate,
 };
@@ -292,6 +293,70 @@ impl MithrilUnstableClient {
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
+
+    /// Call the client to get a cardano stake distribution from a hash
+    #[wasm_bindgen]
+    pub async fn get_cardano_stake_distribution(&self, hash: &str) -> WasmResult {
+        let result = self
+            .client
+            .cardano_stake_distribution()
+            .get(hash)
+            .await
+            .map_err(|err| format!("{err:?}"))?
+            .ok_or(JsValue::from_str(&format!(
+                "No cardano stake distribution found for hash: '{hash}'"
+            )))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client to get a cardano stake distribution from an epoch
+    /// The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
+    #[wasm_bindgen]
+    pub async fn get_cardano_stake_distribution_by_epoch(&self, epoch: Epoch) -> WasmResult {
+        let result = self
+            .client
+            .cardano_stake_distribution()
+            .get_by_epoch(epoch)
+            .await
+            .map_err(|err| format!("{err:?}"))?
+            .ok_or(JsValue::from_str(&format!(
+                "No cardano stake distribution found for epoch: '{epoch}'"
+            )))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client for the list of available cardano stake distributions
+    #[wasm_bindgen]
+    pub async fn list_cardano_stake_distributions(&self) -> WasmResult {
+        let result = self
+            .client
+            .cardano_stake_distribution()
+            .list()
+            .await
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client to compute a cardano stake distribution message
+    #[wasm_bindgen]
+    pub async fn compute_cardano_stake_distribution_message(
+        &self,
+        certificate: JsValue,
+        cardano_stake_distribution: JsValue,
+    ) -> WasmResult {
+        let certificate =
+            serde_wasm_bindgen::from_value(certificate).map_err(|err| format!("{err:?}"))?;
+        let cardano_stake_distribution = serde_wasm_bindgen::from_value(cardano_stake_distribution)
+            .map_err(|err| format!("{err:?}"))?;
+        let result = MessageBuilder::new()
+            .compute_cardano_stake_distribution_message(&certificate, &cardano_stake_distribution)
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
 }
 
 #[cfg(test)]
@@ -301,8 +366,9 @@ mod tests {
     use wasm_bindgen_test::*;
 
     use mithril_client::{
-        common::ProtocolMessage, CardanoTransactionSnapshot, MithrilCertificateListItem,
-        MithrilStakeDistribution, MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
+        common::ProtocolMessage, CardanoStakeDistribution, CardanoStakeDistributionListItem,
+        CardanoTransactionSnapshot, MithrilCertificateListItem, MithrilStakeDistribution,
+        MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
     };
 
     const GENESIS_VERIFICATION_KEY: &str = "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d";
@@ -555,5 +621,96 @@ mod tests {
             .verify_cardano_transaction_proof_then_compute_message(&tx_proof, certificate)
             .await
             .expect("Compute tx proof message for matching cert failed");
+    }
+
+    #[wasm_bindgen_test]
+    async fn list_cardano_stake_distributions_should_return_value_convertible_in_rust_type() {
+        let csd_list_js_value = get_mithril_client()
+            .unstable
+            .list_cardano_stake_distributions()
+            .await
+            .expect("cardano_mithril_stake_distributions should not fail");
+        let csd_list = serde_wasm_bindgen::from_value::<Vec<CardanoStakeDistributionListItem>>(
+            csd_list_js_value,
+        )
+        .expect("conversion should not fail");
+
+        assert_eq!(
+            csd_list.len(),
+            // Aggregator return up to 20 items for a list route
+            test_data::csd_hashes().len().min(20)
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_stake_distribution_should_return_value_convertible_in_rust_type() {
+        let csd_js_value = get_mithril_client()
+            .unstable
+            .get_cardano_stake_distribution(test_data::csd_hashes()[0])
+            .await
+            .expect("get_cardano_stake_distribution should not fail");
+        let csd = serde_wasm_bindgen::from_value::<CardanoStakeDistribution>(csd_js_value)
+            .expect("conversion should not fail");
+
+        assert_eq!(csd.hash, test_data::csd_hashes()[0]);
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_stake_distribution_should_fail_with_unknown_hash() {
+        get_mithril_client()
+            .unstable
+            .get_cardano_stake_distribution("whatever")
+            .await
+            .expect_err("get_cardano_stake_distribution should fail");
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_stake_distribution_by_epoch_should_return_value_convertible_in_rust_type()
+    {
+        let epoch = Epoch(test_data::csd_epochs()[0].parse().unwrap());
+        let csd_js_value = get_mithril_client()
+            .unstable
+            .get_cardano_stake_distribution_by_epoch(epoch)
+            .await
+            .expect("get_cardano_stake_distribution_by_epoch should not fail");
+
+        let csd = serde_wasm_bindgen::from_value::<CardanoStakeDistribution>(csd_js_value)
+            .expect("conversion should not fail");
+
+        assert_eq!(csd.epoch, epoch);
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_stake_distribution_by_epoch_should_fail_with_unknown_epoch() {
+        get_mithril_client()
+            .unstable
+            .get_cardano_stake_distribution_by_epoch(Epoch(u64::MAX))
+            .await
+            .expect_err("get_cardano_stake_distribution_by_epoch should fail");
+    }
+
+    #[wasm_bindgen_test]
+    async fn compute_cardano_stake_distribution_message_should_return_value_convertible_in_rust_type(
+    ) {
+        let client = get_mithril_client();
+        let csd_js_value = client
+            .unstable
+            .get_cardano_stake_distribution(test_data::csd_hashes()[0])
+            .await
+            .unwrap();
+        let csd = serde_wasm_bindgen::from_value::<CardanoStakeDistribution>(csd_js_value.clone())
+            .unwrap();
+        let certificate_js_value = client
+            .get_mithril_certificate(&csd.certificate_hash)
+            .await
+            .unwrap();
+
+        let message_js_value = client
+            .unstable
+            .compute_cardano_stake_distribution_message(certificate_js_value, csd_js_value)
+            .await
+            .expect("compute_cardano_stake_distribution_message should not fail");
+        serde_wasm_bindgen::from_value::<ProtocolMessage>(message_js_value)
+            .expect("conversion should not fail");
     }
 }
