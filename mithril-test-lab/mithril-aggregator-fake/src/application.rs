@@ -576,4 +576,56 @@ mod tests {
 
         test(task, PORT).await;
     }
+
+    #[tokio::test]
+    async fn get_cardano_stake_distribution_by_epoch() {
+        const PORT: u16 = 3018;
+        let task = tokio::spawn(async move {
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
+            yield_now().await;
+
+            let path = "/artifact/cardano-stake-distribution/epoch/{epoch}";
+            let epoch = default_values::csd_epochs()[0];
+            let response = http_request(PORT, &path.replace("{epoch}", epoch)).await;
+
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
+        });
+
+        test(task, PORT).await;
+    }
+
+    #[tokio::test]
+    async fn get_no_cardano_stake_distribution_by_epoch() {
+        const PORT: u16 = 3019;
+        let task = tokio::spawn(async move {
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
+            yield_now().await;
+
+            let path = "/artifact/cardano-stake-distribution/epoch/{epoch}";
+            let epoch = &u64::MAX.to_string();
+            let response = http_request(PORT, &path.replace("{epoch}", epoch)).await;
+
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::NOT_FOUND,
+            )
+            .map_err(|e| anyhow!(e))
+        });
+
+        test(task, PORT).await;
+    }
 }

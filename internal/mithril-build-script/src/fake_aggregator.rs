@@ -107,6 +107,10 @@ impl FakeAggregatorData {
                     BTreeSet::from_iter(self.individual_csds.keys().cloned()),
                 ),
                 generate_ids_array(
+                    "csd_epochs",
+                    BTreeSet::from_iter(extract_csd_epochs(&self.individual_csds)),
+                ),
+                generate_ids_array(
                     "certificate_hashes",
                     BTreeSet::from_iter(self.individual_certificates.keys().cloned()),
                 ),
@@ -142,6 +146,10 @@ impl FakeAggregatorData {
                 generate_ids_array(
                     "csd_hashes",
                     BTreeSet::from_iter(self.individual_csds.keys().cloned()),
+                ),
+                generate_ids_array(
+                    "csd_epochs",
+                    BTreeSet::from_iter(extract_csd_epochs(&self.individual_csds)),
                 ),
                 generate_artifact_getter("csds", self.individual_csds),
                 generate_list_getter("csd_list", self.csds_list),
@@ -198,6 +206,28 @@ impl FakeAggregatorData {
 
         BTreeMap::from_iter(res.unwrap())
     }
+}
+
+pub fn extract_csd_epochs(individual_csds: &BTreeMap<ArtifactId, FileContent>) -> Vec<String> {
+    individual_csds
+        .values()
+        .map(|content| {
+            let json_value: serde_json::Value =
+                serde_json::from_str(content).unwrap_or_else(|err| {
+                    panic!(
+                        "Failed to parse JSON in csd content: {}\nError: {}",
+                        content, err
+                    );
+                });
+
+            json_value
+                .get("epoch")
+                .and_then(|epoch| epoch.as_u64().map(|s| s.to_string()))
+                .unwrap_or_else(|| {
+                    panic!("Epoch not found or invalid in csd content: {}", content);
+                })
+        })
+        .collect()
 }
 
 fn extract_artifact_id_and_content(
@@ -376,5 +406,52 @@ fn b() {}
             ),
         ]);
         assert_eq!(expected, id_per_json);
+    }
+
+    #[test]
+    fn extract_csd_epochs_with_valid_data() {
+        let mut csds = BTreeMap::new();
+        csds.insert(
+            "csd-123".to_string(),
+            r#"{"hash": "csd-123", "epoch": 123}"#.to_string(),
+        );
+        csds.insert(
+            "csd-456".to_string(),
+            r#"{"hash": "csd-456", "epoch": 456}"#.to_string(),
+        );
+
+        let epochs = extract_csd_epochs(&csds);
+
+        assert_eq!(epochs, vec![123.to_string(), 456.to_string()]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Failed to parse JSON in csd content")]
+    fn extract_csd_epochs_with_invalid_json() {
+        let mut csds = BTreeMap::new();
+        csds.insert(
+            "csd-123".to_string(),
+            r#""hash": "csd-123", "epoch": "123"#.to_string(),
+        );
+
+        extract_csd_epochs(&csds);
+    }
+
+    #[test]
+    #[should_panic(expected = "Epoch not found or invalid in csd content")]
+    fn test_extract_csd_epochs_with_missing_epoch() {
+        let mut csds = BTreeMap::new();
+        csds.insert("csd-123".to_string(), r#"{"hash": "csd-123"}"#.to_string());
+
+        extract_csd_epochs(&csds);
+    }
+
+    #[test]
+    fn test_extract_csd_epochs_with_empty_map() {
+        let csds = BTreeMap::new();
+
+        let epochs = extract_csd_epochs(&csds);
+
+        assert!(epochs.is_empty());
     }
 }
