@@ -209,6 +209,9 @@ download_artifacts "$BASE_URL/artifact/snapshot" "snapshot" "digest" true
 download_data "$BASE_URL/artifact/mithril-stake-distributions" "mithril-stake-distributions-list"
 download_artifacts "$BASE_URL/artifact/mithril-stake-distribution" "mithril-stake-distribution" "hash" true
 
+download_data "$BASE_URL/artifact/cardano-stake-distributions" "cardano-stake-distributions-list"
+download_artifacts "$BASE_URL/artifact/cardano-stake-distribution" "cardano-stake-distribution" "hash" true
+
 download_data "$BASE_URL/artifact/cardano-transactions"  "ctx-snapshots-list"
 download_artifacts "$BASE_URL/artifact/cardano-transaction" "ctx-snapshot" "hash"
 
@@ -226,6 +229,6 @@ download_data "$BASE_URL/certificates" "certificates-list"
 download_artifacts "$BASE_URL/certificate" "certificate" "hash"
 download_certificate_chain
 
-for artifact_type in "snapshot" "mithril-stake-distribution" "ctx-snapshot" "certificate"; do
+for artifact_type in "snapshot" "mithril-stake-distribution" "ctx-snapshot" "cardano-stake-distribution" "certificate"; do
   join_artifacts_files "$artifact_type"
 done
