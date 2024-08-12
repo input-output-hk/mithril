@@ -257,33 +257,32 @@ mod tests {
     use super::*;
 
     #[test]
-    fn is_sha_256_returns_false_with_epoch_as_input() {
-        let input = "501".to_string();
-
+    fn is_sha_256_returns_false_with_len_different_than_64_and_hex_digit() {
+        let len_65_hex_digit = "65aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         assert!(!CardanoStakeDistributionDownloadCommand::is_sha256_hash(
-            &input
+            len_65_hex_digit
+        ));
+
+        let len_63_hex_digit = "63aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        assert!(!CardanoStakeDistributionDownloadCommand::is_sha256_hash(
+            len_63_hex_digit
         ));
     }
 
     #[test]
-    fn is_sha_256_returns_false_with_latest_as_input() {
-        let input = "latest".to_string();
-
+    fn is_sha_256_returns_false_with_len_equal_to_64_and_not_hex_digit() {
+        let len_64_not_hex_digit =
+            "64zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz";
         assert!(!CardanoStakeDistributionDownloadCommand::is_sha256_hash(
-            &input
+            len_64_not_hex_digit
         ));
     }
 
     #[test]
-    fn is_sha_256_returns_true_with_cardano_stake_distribution_hash_as_input() {
-        let input = "aa69be34639b9360fc5d6f9f3402a021568715403dde30dcda6ae6a265b0aba6";
+    fn is_sha_256_returns_true_with_len_equal_to_64_and_hex_digit() {
+        let len_64_hex_digit = "64aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         assert!(CardanoStakeDistributionDownloadCommand::is_sha256_hash(
-            input
-        ));
-
-        let input = "1234567890123456789012345678901234567890123456789012345678901234";
-        assert!(CardanoStakeDistributionDownloadCommand::is_sha256_hash(
-            input
+            len_64_hex_digit
         ));
     }
 }
