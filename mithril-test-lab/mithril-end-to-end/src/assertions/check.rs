@@ -1,6 +1,6 @@
 use crate::{
-    attempt, utils::AttemptResult, CardanoDbCommand, CardanoTransactionCommand, Client,
-    ClientCommand, MithrilStakeDistributionCommand,
+    attempt, utils::AttemptResult, CardanoDbCommand, CardanoStakeDistributionCommand,
+    CardanoTransactionCommand, Client, ClientCommand, MithrilStakeDistributionCommand,
 };
 use anyhow::{anyhow, Context};
 use mithril_common::{
@@ -240,7 +240,7 @@ pub async fn assert_signer_is_signing_cardano_transactions(
 
 pub async fn assert_node_producing_cardano_stake_distribution(
     aggregator_endpoint: &str,
-) -> StdResult<String> {
+) -> StdResult<(String, Epoch)> {
     let url = format!("{aggregator_endpoint}/artifact/cardano-stake-distributions");
     info!("Waiting for the aggregator to produce a Cardano stake distribution");
 
@@ -248,7 +248,7 @@ pub async fn assert_node_producing_cardano_stake_distribution(
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CardanoStakeDistributionListMessage>().await.as_deref() {
-                    Ok([stake_distribution, ..]) => Ok(Some(stake_distribution.hash.clone())),
+                    Ok([stake_distribution, ..]) => Ok(Some((stake_distribution.hash.clone(), stake_distribution.epoch))),
                     Ok(&[]) => Ok(None),
                     Err(err) => Err(anyhow!("Invalid Cardano stake distribution body : {err}",)),
                 },
@@ -257,9 +257,9 @@ pub async fn assert_node_producing_cardano_stake_distribution(
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
     }) {
-        AttemptResult::Ok(hash) => {
-            info!("Aggregator produced a Cardano stake distribution"; "hash" => &hash);
-            Ok(hash)
+        AttemptResult::Ok((hash, epoch)) => {
+            info!("Aggregator produced a Cardano stake distribution"; "hash" => &hash, "epoch" => #?epoch);
+            Ok((hash, epoch))
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
@@ -425,4 +425,30 @@ pub async fn assert_client_can_verify_transactions(
             result,
         ))
     }
+}
+
+pub async fn assert_client_can_verify_cardano_stake_distribution(
+    client: &mut Client,
+    hash: &str,
+    epoch: Epoch,
+) -> StdResult<()> {
+    client
+        .run(ClientCommand::CardanoStakeDistribution(
+            CardanoStakeDistributionCommand::Download {
+                unique_identifier: epoch.to_string(),
+            },
+        ))
+        .await?;
+    info!("Client downloaded the Cardano stake distribution by epoch"; "epoch" => epoch.to_string());
+
+    client
+        .run(ClientCommand::CardanoStakeDistribution(
+            CardanoStakeDistributionCommand::Download {
+                unique_identifier: hash.to_string(),
+            },
+        ))
+        .await?;
+    info!("Client downloaded the Cardano stake distribution by hash"; "hash" => hash.to_string());
+
+    Ok(())
 }

@@ -104,10 +104,39 @@ impl CardanoTransactionCommand {
 }
 
 #[derive(Debug)]
+pub enum CardanoStakeDistributionCommand {
+    List,
+    Download { unique_identifier: String },
+}
+
+impl CardanoStakeDistributionCommand {
+    fn name(&self) -> String {
+        match self {
+            CardanoStakeDistributionCommand::List => "list".to_string(),
+            CardanoStakeDistributionCommand::Download { unique_identifier } => {
+                format!("download-{unique_identifier}")
+            }
+        }
+    }
+
+    fn cli_arg(&self) -> Vec<String> {
+        match self {
+            CardanoStakeDistributionCommand::List => {
+                vec!["list".to_string()]
+            }
+            CardanoStakeDistributionCommand::Download { unique_identifier } => {
+                vec!["download".to_string(), unique_identifier.clone()]
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum ClientCommand {
     CardanoDb(CardanoDbCommand),
     MithrilStakeDistribution(MithrilStakeDistributionCommand),
     CardanoTransaction(CardanoTransactionCommand),
+    CardanoStakeDistribution(CardanoStakeDistributionCommand),
 }
 
 impl ClientCommand {
@@ -119,6 +148,9 @@ impl ClientCommand {
             }
             ClientCommand::CardanoTransaction(cmd) => {
                 format!("ctx-{}", cmd.name())
+            }
+            ClientCommand::CardanoStakeDistribution(cmd) => {
+                format!("csd-{}", cmd.name())
             }
         }
     }
@@ -135,6 +167,14 @@ impl ClientCommand {
             .concat(),
             ClientCommand::CardanoTransaction(cmd) => [
                 vec!["--unstable".to_string(), "cardano-transaction".to_string()],
+                cmd.cli_arg(),
+            ]
+            .concat(),
+            ClientCommand::CardanoStakeDistribution(cmd) => [
+                vec![
+                    "--unstable".to_string(),
+                    "cardano-stake-distribution".to_string(),
+                ],
                 cmd.cli_arg(),
             ]
             .concat(),
