@@ -10,14 +10,10 @@ use crate::entities::arithmetic_operation_wrapper::{
 };
 use crate::signable_builder::Beacon as SignableBeacon;
 
-#[cfg(target_family = "wasm")]
-use wasm_bindgen::prelude::*;
-
 /// Epoch represents a Cardano epoch
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd, Ord,
 )]
-#[cfg_attr(target_family = "wasm", wasm_bindgen(js_name = "Epoch"))]
 pub struct Epoch(pub u64);
 
 impl Epoch {

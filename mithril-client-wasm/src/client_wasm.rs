@@ -221,12 +221,6 @@ impl MithrilUnstableClient {
         }
     }
 
-    /// Creates an [Epoch] instance from a [u64] value.
-    #[wasm_bindgen]
-    pub fn create_epoch(&self, value: u64) -> Epoch {
-        Epoch(value)
-    }
-
     /// Call the client for the list of available Cardano transactions snapshots
     #[wasm_bindgen]
     pub async fn list_cardano_transactions_snapshots(&self) -> WasmResult {
@@ -319,11 +313,11 @@ impl MithrilUnstableClient {
     /// Call the client to get a cardano stake distribution from an epoch
     /// The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
     #[wasm_bindgen]
-    pub async fn get_cardano_stake_distribution_by_epoch(&self, epoch: Epoch) -> WasmResult {
+    pub async fn get_cardano_stake_distribution_by_epoch(&self, epoch: u64) -> WasmResult {
         let result = self
             .client
             .cardano_stake_distribution()
-            .get_by_epoch(epoch)
+            .get_by_epoch(Epoch(epoch))
             .await
             .map_err(|err| format!("{err:?}"))?
             .ok_or(JsValue::from_str(&format!(
@@ -673,7 +667,7 @@ mod tests {
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_by_epoch_should_return_value_convertible_in_rust_type()
     {
-        let epoch = Epoch(test_data::csd_epochs()[0].parse().unwrap());
+        let epoch: u64 = test_data::csd_epochs()[0].parse().unwrap();
         let csd_js_value = get_mithril_client()
             .unstable
             .get_cardano_stake_distribution_by_epoch(epoch)
@@ -690,7 +684,7 @@ mod tests {
     async fn get_cardano_stake_distribution_by_epoch_should_fail_with_unknown_epoch() {
         get_mithril_client()
             .unstable
-            .get_cardano_stake_distribution_by_epoch(Epoch(u64::MAX))
+            .get_cardano_stake_distribution_by_epoch(u64::MAX)
             .await
             .expect_err("get_cardano_stake_distribution_by_epoch should fail");
     }

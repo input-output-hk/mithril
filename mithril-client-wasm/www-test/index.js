@@ -196,7 +196,7 @@ if (aggregator_capabilities.includes("CardanoStakeDistribution")) {
 
   test_number++;
   await run_test("get_cardano_stake_distribution_by_epoch", test_number, async () => {
-    let epoch = client.unstable.create_epoch(BigInt(cardano_stake_distributions[0].epoch));
+    let epoch = BigInt(cardano_stake_distributions[0].epoch);
 
     cardano_stake_distribution =
       await client.unstable.get_cardano_stake_distribution_by_epoch(epoch);
