@@ -3584,7 +3584,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.3.6"
+version = "0.3.7"
 dependencies = [
  "anyhow",
  "axum",
@@ -3607,7 +3607,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-build-script"
-version = "0.2.8"
+version = "0.2.9"
 dependencies = [
  "semver",
  "serde_json",
@@ -3679,7 +3679,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.3.8"
+version = "0.3.9"
 dependencies = [
  "async-trait",
  "futures",
