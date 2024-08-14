@@ -18,6 +18,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Added support in the `mithril-client` library for retrieving `CardanoStakeDistribution` by epoch or by hash, and for listing all available `CardanoStakeDistribution`.
   - Implement `CardanoStakeDistribution` commands under the `--unstable` flag in the Mithril client CLI to list all available `CardanoStakeDistribution` and to download artifact by epoch or hash.
   - Implement `mithril-client` library functions related to `CardanoStakeDistribution` within the WASM library.
+  - Add new tab Cardano Stake Distribution in the explorer.
 
 - Crates versions:
 
