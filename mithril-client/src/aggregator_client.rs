@@ -22,6 +22,7 @@ use tokio::sync::RwLock;
 use mithril_common::entities::{ClientError, ServerError};
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
+#[cfg(feature = "unstable")]
 use crate::common::Epoch;
 use crate::{MithrilError, MithrilResult};
 
