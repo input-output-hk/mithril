@@ -177,4 +177,68 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
   }
 }
 
+if (aggregator_capabilities.includes("CardanoStakeDistribution")) {
+  let cardano_stake_distributions;
+  test_number++;
+  await run_test("list_cardano_stake_distributions", test_number, async () => {
+    cardano_stake_distributions = await client.unstable.list_cardano_stake_distributions();
+    console.log("cardano_stake_distributions", cardano_stake_distributions);
+  });
+
+  let cardano_stake_distribution;
+  test_number++;
+  await run_test("get_cardano_stake_distribution", test_number, async () => {
+    cardano_stake_distribution = await client.unstable.get_cardano_stake_distribution(
+      cardano_stake_distributions[0].hash,
+    );
+    console.log("cardano_stake_distribution", cardano_stake_distribution);
+  });
+
+  test_number++;
+  await run_test("get_cardano_stake_distribution_by_epoch", test_number, async () => {
+    let epoch = BigInt(cardano_stake_distributions[0].epoch);
+
+    cardano_stake_distribution =
+      await client.unstable.get_cardano_stake_distribution_by_epoch(epoch);
+    console.log("cardano_stake_distribution by epoch", cardano_stake_distribution);
+  });
+
+  let certificate;
+  test_number++;
+  await run_test("get_mithril_certificate", test_number, async () => {
+    certificate = await client.get_mithril_certificate(cardano_stake_distribution.certificate_hash);
+    console.log("certificate", certificate);
+  });
+
+  let last_certificate_from_chain;
+  test_number++;
+  await run_test("verify_certificate_chain", test_number, async () => {
+    last_certificate_from_chain = await client.verify_certificate_chain(certificate.hash);
+    console.log("last_certificate_from_chain", last_certificate_from_chain);
+  });
+
+  let cardano_stake_distribution_message;
+  test_number++;
+  await run_test("compute_cardano_stake_distribution_message", test_number, async () => {
+    cardano_stake_distribution_message =
+      await client.unstable.compute_cardano_stake_distribution_message(
+        certificate,
+        cardano_stake_distribution,
+      );
+    console.log("cardano_stake_distribution_message", cardano_stake_distribution_message);
+  });
+
+  test_number++;
+  await run_test("verify_message_match_certificate", test_number, async () => {
+    const valid_cardano_stake_distribution_message = await client.verify_message_match_certificate(
+      cardano_stake_distribution_message,
+      last_certificate_from_chain,
+    );
+    console.log(
+      "valid_cardano_stake_distribution_message",
+      valid_cardano_stake_distribution_message,
+    );
+  });
+}
+
 add_finished_div();

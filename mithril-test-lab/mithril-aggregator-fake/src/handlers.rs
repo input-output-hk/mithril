@@ -30,6 +30,12 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .route("/artifact/snapshot/:digest", get(snapshot))
         .route("/artifact/cardano-transactions", get(ctx_snapshots))
         .route("/artifact/cardano-transaction/:hash", get(ctx_snapshot))
+        .route("/artifact/cardano-stake-distributions", get(csds))
+        .route("/artifact/cardano-stake-distribution/:hash", get(csd))
+        .route(
+            "/artifact/cardano-stake-distribution/epoch/:epoch",
+            get(csd_by_epoch),
+        )
         .route("/proof/cardano-transaction", get(ctx_proof))
         .route("/certificates", get(certificates))
         .route("/certificate/:hash", get(certificate))
@@ -157,6 +163,67 @@ pub async fn ctx_snapshot(
         .map(|s| s.into_response())
         .ok_or_else(|| {
             debug!("ctx snapshot hash={key} NOT FOUND.");
+            AppError::NotFound
+        })
+}
+
+/// HTTP: return the list of cardano stake distributions.
+pub async fn csds(State(state): State<SharedState>) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let csds = app_state.get_csds().await?;
+
+    Ok(csds)
+}
+
+/// HTTP: return a cardano stake distribution identified by its hash.
+pub async fn csd(
+    Path(key): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_csd(&key)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            debug!("cardano stake distribution hash={key} NOT FOUND.");
+            AppError::NotFound
+        })
+}
+
+/// HTTP: return a cardano stake distribution identified by its epoch.
+pub async fn csd_by_epoch(
+    Path(epoch): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    #[derive(Debug, serde::Deserialize)]
+    struct TmpCardanoStakeDistributionData {
+        hash: String,
+        epoch: u64,
+    }
+
+    let app_state = state.read().await;
+
+    let csds = app_state.get_csds().await?;
+    let csds: Vec<TmpCardanoStakeDistributionData> = serde_json::from_str(&csds)?;
+
+    // Find the cardano stake distribution hash corresponding to the epoch
+    let hash = csds
+        .into_iter()
+        .find(|csd| csd.epoch.to_string() == epoch)
+        .map(|csd| csd.hash)
+        .ok_or_else(|| {
+            debug!("No cardano stake distribution found for epoch={epoch}.");
+            AppError::NotFound
+        })?;
+
+    app_state
+        .get_csd(&hash)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            debug!("cardano stake distribution hash={hash} NOT FOUND.");
             AppError::NotFound
         })
 }
@@ -357,5 +424,53 @@ mod tests {
         .expect("The handler was expected to succeed since the ctx proof's hash does exist.");
 
         assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn existing_csd_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path(default_values::csd_hashes()[0].to_string());
+
+        let response = csd(hash, state)
+            .await
+            .expect("The handler was expected to succeed since the csd's hash does exist.");
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn invalid_csd_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path("whatever".to_string());
+
+        let error = csd(hash, state)
+            .await
+            .expect_err("The handler was expected to fail since the csd's hash does not exist.");
+
+        assert!(matches!(error, AppError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn existing_csd_epoch() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let epoch = Path(default_values::csd_epochs()[0].to_string());
+
+        let response = csd_by_epoch(epoch, state)
+            .await
+            .expect("The handler was expected to succeed since the csd's epoch does exist.");
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn invalid_csd_epoch() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let epoch = Path(u64::MAX.to_string());
+
+        let error = csd_by_epoch(epoch, state)
+            .await
+            .expect_err("The handler was expected to fail since the csd's epoch does not exist.");
+
+        assert!(matches!(error, AppError::NotFound));
     }
 }
