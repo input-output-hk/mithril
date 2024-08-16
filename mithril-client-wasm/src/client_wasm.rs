@@ -1,12 +1,16 @@
 use async_trait::async_trait;
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
+use web_sys::js_sys;
+use web_sys::js_sys::Map;
 
 use mithril_client::{
     common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
-    CardanoTransactionsProofs, Client, ClientBuilder, MessageBuilder, MithrilCertificate,
+    CardanoTransactionsProofs, Client, ClientBuilder, ClientOptionValue,
+    ClientOptionValueDiscriminants, ClientOptions, MessageBuilder, MithrilCertificate,
 };
 
 use crate::WasmResult;
@@ -71,15 +75,68 @@ pub struct MithrilUnstableClient {
 impl MithrilClient {
     /// Constructor for wasm client
     #[wasm_bindgen(constructor)]
-    pub fn new(aggregator_endpoint: &str, genesis_verification_key: &str) -> MithrilClient {
+    pub fn new(
+        aggregator_endpoint: &str,
+        genesis_verification_key: &str,
+        options: Option<Map>,
+    ) -> MithrilClient {
         let feedback_receiver = Arc::new(JSBroadcastChannelFeedbackReceiver::new("mithril-client"));
+
+        let client_options = if let Some(options) = options {
+            Self::parse_client_options(options)
+                .map_err(|err| format!("{err:?}"))
+                .unwrap()
+        } else {
+            HashMap::new()
+        };
+
         let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
             .add_feedback_receiver(feedback_receiver)
+            .with_options(client_options)
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
         let unstable = MithrilUnstableClient::new(client.clone());
         MithrilClient { client, unstable }
+    }
+
+    fn parse_client_options(options: Map) -> Result<ClientOptions, JsValue> {
+        let mut client_options: ClientOptions = HashMap::new();
+
+        for entry in js_sys::try_iter(&options)?
+            .ok_or_else(|| JsValue::from_str("Failed to iterate over options"))?
+        {
+            let entry = entry?.dyn_into::<js_sys::Array>()?;
+            let option_key = entry.get(0);
+            let option_key = option_key.as_string().ok_or_else(|| {
+                JsValue::from_str(&format!(
+                    "Option key should be a string but received: '{option_key:?}'"
+                ))
+            })?;
+            let option_value = entry.get(1);
+
+            if option_key == ClientOptionValueDiscriminants::HTTPHeaders.to_string() {
+                let headers_map = option_value
+                    .dyn_into::<Map>()
+                    .or_else(|_| {
+                        Err(JsValue::from_str(
+                            "Failed to convert http_headers value to Map",
+                        ))
+                    })?
+                    .entries()
+                    .into_iter()
+                    .filter_map(|entry| {
+                        let entry = entry.ok()?.dyn_into::<js_sys::Array>().ok()?;
+                        let header_key = entry.get(0).as_string()?;
+                        let header_value = entry.get(1).as_string()?;
+                        Some((header_key, header_value))
+                    })
+                    .collect();
+                client_options.insert(option_key, ClientOptionValue::HTTPHeaders(headers_map));
+            };
+        }
+
+        Ok(client_options)
     }
 
     /// Call the client to get a snapshot from a digest
@@ -361,15 +418,18 @@ impl MithrilUnstableClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_data;
     use wasm_bindgen_test::*;
+    use web_sys::js_sys::Map;
 
     use mithril_client::{
         common::ProtocolMessage, CardanoStakeDistribution, CardanoStakeDistributionListItem,
         CardanoTransactionSnapshot, MithrilCertificateListItem, MithrilStakeDistribution,
         MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
     };
+
+    use crate::test_data;
+
+    use super::*;
 
     const GENESIS_VERIFICATION_KEY: &str = "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d";
     const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";
@@ -382,10 +442,88 @@ mod tests {
                 FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
             ),
             GENESIS_VERIFICATION_KEY,
+            None,
         )
     }
 
     wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn test_parse_client_with_valid_options() {
+        let headers = Map::new();
+        headers.set(
+            &JsValue::from_str("Content-Type"),
+            &JsValue::from_str("application/json"),
+        );
+        headers.set(
+            &JsValue::from_str("Authorization"),
+            &JsValue::from_str("Bearer <token>"),
+        );
+
+        let options = Map::new();
+        options.set(
+            &JsValue::from_str("http_headers"),
+            &JsValue::from(headers.clone()),
+        );
+
+        let client_options = MithrilClient::parse_client_options(options).unwrap();
+
+        if let Some(ClientOptionValue::HTTPHeaders(parsed_headers)) =
+            client_options.get("http_headers")
+        {
+            assert_eq!(
+                parsed_headers.get("Content-Type").unwrap(),
+                "application/json"
+            );
+            assert_eq!(
+                parsed_headers.get("Authorization").unwrap(),
+                "Bearer <token>"
+            );
+        } else {
+            panic!("Headers were not parsed correctly");
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_parse_client_options_with_unknown_option_key() {
+        let options = Map::new();
+        options.set(
+            &JsValue::from_str("unknown_key"),
+            &JsValue::from_str("whatever"),
+        );
+
+        let result = MithrilClient::parse_client_options(options).unwrap();
+
+        assert!(result.is_empty());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_parse_client_options_with_non_string_option_key() {
+        let options = Map::new();
+        options.set(&JsValue::from_f64(123.0), &JsValue::from_str("whatever"));
+
+        let result = MithrilClient::parse_client_options(options)
+            .expect_err("Should fail with non string option key");
+
+        let error_message = result.as_string().unwrap();
+        assert!(error_message.contains("Option key should be a string"),);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_parse_client_options_with_non_map_http_headers_value() {
+        let options = Map::new();
+        options.set(
+            &JsValue::from_str("http_headers"),
+            &JsValue::from_str("not_a_map"),
+        );
+
+        let result = MithrilClient::parse_client_options(options)
+            .expect_err("Should fail with non map http_headers value");
+
+        let error_message = result.as_string().unwrap();
+        assert!(error_message.contains("Failed to convert http_headers value to Map"),);
+    }
+
     #[wasm_bindgen_test]
     async fn list_snapshots_should_return_value_convertible_in_rust_type() {
         let snapshots_list_js_value = get_mithril_client()
