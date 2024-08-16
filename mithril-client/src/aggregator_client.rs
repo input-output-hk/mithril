@@ -7,15 +7,14 @@
 //!
 //! An implementation using HTTP is available: [AggregatorHTTPClient].
 
-use std::sync::Arc;
-
 use anyhow::{anyhow, Context};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
-use reqwest::header::HeaderMap;
+use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Response, StatusCode, Url};
 use semver::Version;
 use slog::{debug, Logger};
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
@@ -24,7 +23,9 @@ use mithril_common::MITHRIL_API_VERSION_HEADER;
 
 #[cfg(feature = "unstable")]
 use crate::common::Epoch;
-use crate::{MithrilError, MithrilResult};
+use crate::{
+    ClientOptionValue, ClientOptionValueDiscriminants, ClientOptions, MithrilError, MithrilResult,
+};
 
 /// Error tied with the Aggregator client
 #[derive(Error, Debug)]
@@ -199,6 +200,7 @@ pub struct AggregatorHTTPClient {
     aggregator_endpoint: Url,
     api_versions: Arc<RwLock<Vec<Version>>>,
     logger: Logger,
+    custom_headers: HeaderMap,
 }
 
 impl AggregatorHTTPClient {
@@ -207,6 +209,7 @@ impl AggregatorHTTPClient {
         aggregator_endpoint: Url,
         api_versions: Vec<Version>,
         logger: Logger,
+        options: ClientOptions,
     ) -> MithrilResult<Self> {
         let http_client = reqwest::ClientBuilder::new()
             .build()
@@ -223,11 +226,24 @@ impl AggregatorHTTPClient {
             url
         };
 
+        let mut custom_headers = HeaderMap::new();
+        if let Some(ClientOptionValue::HTTPHeaders(headers)) =
+            options.get(&ClientOptionValueDiscriminants::HTTPHeaders.to_string())
+        {
+            for (key, value) in headers.iter() {
+                custom_headers.insert(
+                    HeaderName::from_bytes(key.as_bytes()).unwrap(),
+                    HeaderValue::from_str(value).unwrap(),
+                );
+            }
+        }
+
         Ok(Self {
             http_client,
             aggregator_endpoint,
             api_versions: Arc::new(RwLock::new(api_versions)),
             logger,
+            custom_headers,
         })
     }
 
@@ -270,8 +286,11 @@ impl AggregatorHTTPClient {
             self.logger,
             "Prepare request with version: {current_api_version}"
         );
-        let request_builder =
+        let mut request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
+
+        request_builder = request_builder.headers(self.custom_headers.clone());
+
         let response = request_builder.send().await.map_err(|e| {
             AggregatorClientError::SubsystemError(anyhow!(e).context(format!(
                 "Cannot perform a GET against the Aggregator HTTP server (url='{url}')"
@@ -311,8 +330,10 @@ impl AggregatorHTTPClient {
             self.logger,
             "Prepare request with version: {current_api_version}"
         );
-        let request_builder =
+        let mut request_builder =
             request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version);
+
+        request_builder = request_builder.headers(self.custom_headers.clone());
 
         let response = request_builder.send().await.map_err(|e| {
             AggregatorClientError::SubsystemError(
@@ -436,6 +457,7 @@ impl AggregatorClient for AggregatorHTTPClient {
 mod tests {
     use httpmock::MockServer;
     use reqwest::header::{HeaderName, HeaderValue};
+    use std::collections::HashMap;
 
     use mithril_common::api_version::APIVersionProvider;
     use mithril_common::entities::{ClientError, ServerError};
@@ -448,11 +470,16 @@ mod tests {
         };
     }
 
-    fn setup_client(server_url: &str, api_versions: Vec<Version>) -> AggregatorHTTPClient {
+    fn setup_client(
+        server_url: &str,
+        api_versions: Vec<Version>,
+        options: ClientOptions,
+    ) -> AggregatorHTTPClient {
         AggregatorHTTPClient::new(
             Url::parse(server_url).unwrap(),
             api_versions,
             crate::test_utils::test_logger(),
+            options,
         )
         .expect("building aggregator http client should not fail")
     }
@@ -462,6 +489,19 @@ mod tests {
         let client = setup_client(
             &server.url(""),
             APIVersionProvider::compute_all_versions_sorted().unwrap(),
+            HashMap::new(),
+        );
+        (server, client)
+    }
+
+    fn setup_server_and_client_with_options(
+        options: ClientOptions,
+    ) -> (MockServer, AggregatorHTTPClient) {
+        let server = MockServer::start();
+        let client = setup_client(
+            &server.url(""),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+            options,
         );
         (server, client)
     }
@@ -488,8 +528,13 @@ mod tests {
             ),
         ] {
             let url = Url::parse(url).unwrap();
-            let client = AggregatorHTTPClient::new(url, vec![], crate::test_utils::test_logger())
-                .expect("building aggregator http client should not fail");
+            let client = AggregatorHTTPClient::new(
+                url,
+                vec![],
+                crate::test_utils::test_logger(),
+                HashMap::new(),
+            )
+            .expect("building aggregator http client should not fail");
 
             assert_eq!(expected, client.aggregator_endpoint.as_str());
         }
@@ -739,6 +784,7 @@ mod tests {
                 Version::parse(bad_version).unwrap(),
                 Version::parse(good_version).unwrap(),
             ],
+            HashMap::new(),
         );
         aggregator.mock(|when, then| {
             when.header(MITHRIL_API_VERSION_HEADER, bad_version);
@@ -765,5 +811,33 @@ mod tests {
             .post_content(AggregatorRequest::ListCertificates)
             .await
             .expect("should have run with a fallback version");
+    }
+
+    #[tokio::test]
+    async fn test_client_with_custom_headers() {
+        let mut custom_headers = HashMap::new();
+        custom_headers.insert("Custom-Header".to_string(), "CustomValue".to_string());
+        custom_headers.insert("Another-Header".to_string(), "AnotherValue".to_string());
+        let mut client_options: ClientOptions = HashMap::new();
+        client_options.insert(
+            "http_headers".to_string(),
+            ClientOptionValue::HTTPHeaders(custom_headers),
+        );
+        let (aggregator, client) = setup_server_and_client_with_options(client_options);
+        aggregator.mock(|when, then| {
+            when.header("Custom-Header", "CustomValue")
+                .header("Another-Header", "AnotherValue");
+            then.status(StatusCode::OK.as_u16()).body("ok");
+        });
+
+        client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect("GET request should succeed");
+
+        client
+            .post_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect("GET request should succeed");
     }
 }
