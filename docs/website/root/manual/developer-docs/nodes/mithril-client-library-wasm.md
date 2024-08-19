@@ -15,7 +15,8 @@ It is responsible for handling the different types of data certified by Mithril,
 
 - [**Snapshot**](../../../glossary.md#snapshot): list and get.
 - [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get.
-- [**Cardano transaction**](../../../glossary.md#cardano-transaction): list & get snapshots, get proofs
+- [**Cardano transaction**](../../../glossary.md#cardano-transaction): list & get snapshots, get proofs.
+- [**Cardano stake distribution**](../../../glossary.md#stake-distribution): list, get and get by epoch.
 - [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
 
 :::
