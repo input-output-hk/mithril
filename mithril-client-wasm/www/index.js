@@ -64,9 +64,26 @@ function format_tx_list(transactions_hashes) {
   return "<ul>" + transactions_hashes.map((tx) => "<li>" + tx + "</li>").join("") + "</ul>";
 }
 
+function client_options_with_custom_headers() {
+  // The following header is set as an example.
+  // It's used to demonstrate how to add headers.
+  let headers_map = new Map();
+  headers_map.set("Content-Type", "application/json");
+
+  // The headers below are examples of headers that might be used when interacting with a proxy.
+  // They are commented out because aggregators don't allow these headers.
+  // headers_map.set("Authorization", "Bearer YourBearerToken");
+  // headers_map.set("X-My-Custom-Header", "YourCustomHeaderValue");
+  let client_options = new Map();
+  client_options.set("http_headers", headers_map);
+
+  return client_options;
+}
+
 await initMithrilClient();
 
-let client = new MithrilClient(aggregator_endpoint, genesis_verification_key);
+let client_options = client_options_with_custom_headers();
+let client = new MithrilClient(aggregator_endpoint, genesis_verification_key, client_options);
 
 displayStepInDOM(1, "Getting stake distributions list...");
 let mithril_stake_distributions_list = await client.list_mithril_stake_distributions();
