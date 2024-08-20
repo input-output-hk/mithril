@@ -191,6 +191,72 @@ console.log(
 );
 ```
 
+With the same logic as above, if the aggregator signs **CardanoStakeDistribution**, you can add the code below to the previous example:
+
+:::tip
+
+You can verify that the aggregator signs **CardanoStakeDistribution** by running the command below:
+
+```bash
+wget -q -O - YOUR_AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])'
+```
+
+For example with the aggregator on `testing-preview` Mithril network:
+
+```bash
+wget -q -O - https://aggregator.testing-preview.api.mithril.network/aggregator | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])'
+```
+
+:::
+
+```js
+let cardano_stake_distributions_list =
+  await client.unstable.list_cardano_stake_distributions();
+console.log("cardano stake distributions:", cardano_stake_distributions_list);
+
+let last_cardano_stake_distribution =
+  await client.unstable.get_cardano_stake_distribution(
+    cardano_stake_distributions_list[0].hash,
+  );
+console.log(
+  "last_cardano_stake_distribution:",
+  last_cardano_stake_distribution,
+);
+
+let certificate = await client.get_mithril_certificate(
+  last_cardano_stake_distribution.certificate_hash,
+);
+console.log("certificate:", certificate);
+
+let last_certificate_from_chain = await client.verify_certificate_chain(
+  certificate.hash,
+);
+console.log(
+  "verify certificate chain OK, last_certificate_from_chain:",
+  last_certificate_from_chain,
+);
+
+let cardano_stake_distribution_message =
+  await client.unstable.compute_cardano_stake_distribution_message(
+    certificate,
+    last_cardano_stake_distribution,
+  );
+console.log(
+  "cardano_stake_distribution_message:",
+  cardano_stake_distribution_message,
+);
+
+let valid_cardano_stake_distribution_message =
+  await client.verify_message_match_certificate(
+    cardano_stake_distribution_message,
+    last_certificate_from_chain,
+  );
+console.log(
+  "valid_cardano_stake_distribution_message:",
+  valid_cardano_stake_distribution_message,
+);
+```
+
 :::tip
 
 You can read the complete [Rust developer documentation](https://mithril.network/rust-doc/mithril_client_wasm/index.html).
