@@ -146,6 +146,27 @@ console.log(
 );
 ```
 
+:::tip Adding Custom HTTP Headers
+
+You can customize the HTTP headers sent by the Mithril client. This is particularly useful if you need to include headers like **Authorization** or custom headers for specific use cases. Below is an example of how to set custom headers:
+
+```js
+let headers_map = new Map();
+headers_map.set("Authorization", "Bearer YourBearerToken");
+headers_map.set("X-Custom-Header", "YourCustomHeaderValue");
+
+let client_options = new Map();
+client_options.set("http_headers", headers_map);
+
+let client = new MithrilClient(
+  aggregator_endpoint,
+  genesis_verification_key,
+  client_options,
+);
+```
+
+:::
+
 If the aggregator signs **CardanoTransactions**, you can add the code below to the previous example:
 
 :::tip
