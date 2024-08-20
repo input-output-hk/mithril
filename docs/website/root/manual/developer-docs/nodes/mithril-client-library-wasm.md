@@ -156,10 +156,10 @@ You can verify that the aggregator signs **CardanoTransactions** by running the 
 wget -q -O - YOUR_AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])'
 ```
 
-For example with the aggregator on `testing-sanchonet` Mithril network:
+For example with the aggregator on `pre-release-preview` Mithril network:
 
 ```bash
-wget -q -O - https://aggregator.testing-sanchonet.api.mithril.network/aggregator | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])'
+wget -q -O - https://aggregator.pre-release-preview.api.mithril.network/aggregator | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])'
 ```
 
 :::
@@ -256,9 +256,3 @@ console.log(
   valid_cardano_stake_distribution_message,
 );
 ```
-
-:::tip
-
-You can read the complete [Rust developer documentation](https://mithril.network/rust-doc/mithril_client_wasm/index.html).
-
-:::
