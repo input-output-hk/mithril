@@ -21,7 +21,7 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 slog-scope = "4.4.0"
-tokio = { version = "1.39.2", features = ["macros", "net", "rt", "rt-multi-thread"] }
+tokio = { version = "1.39.2", features = ["macros", "net", "rt", "rt-multi-thread", "signal"] }
 tokio-stream = { version = "0.1.15", features = ["net"] }
 warp = "0.3.7"
 
