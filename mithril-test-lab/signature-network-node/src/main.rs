@@ -1,4 +1,5 @@
 mod directory_observer;
+mod entities;
 
 use clap::Parser;
 use mithril_common::StdResult;

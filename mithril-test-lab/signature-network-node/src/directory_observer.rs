@@ -1,12 +1,14 @@
 use anyhow::Context;
-use mithril_common::messages::RegisterSignatureMessage;
-use mithril_common::StdResult;
 use notify::event::{AccessKind, AccessMode};
 use notify::{EventKind, Watcher};
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
+
+use mithril_common::messages::RegisterSignatureMessage;
+use mithril_common::StdResult;
+
+use crate::entities::Message;
 
 /// Observes a directory for new messages and sends them to a channel
 pub struct DirectoryObserver {
@@ -63,11 +65,6 @@ impl DirectoryObserver {
 
         Ok(Self { watcher })
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum Message {
-    MithrilRegisterSignature(RegisterSignatureMessage),
 }
 
 #[cfg(test)]
