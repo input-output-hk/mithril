@@ -70,6 +70,7 @@ slog = "2.7.0"
 strum = { version = "0.26.3", features = ["derive"] }
 thiserror = "1.0.64"
 tokio = { version = "1.40.0", features = ["io-util", "rt", "sync"] }
+tokio-stream = { version = "0.1.15", features = ["net"], optional = true }
 typetag = "0.2.18"
 walkdir = "2.5.0"
 warp = { version = "0.3.7", optional = true }
@@ -119,7 +120,7 @@ allow_skip_signer_certification = []
 test_tools = ["apispec", "test_http_server", "random"]
 # Enable tools to helps validate conformity to an OpenAPI specification
 apispec = ["dep:glob", "dep:jsonschema", "dep:warp", "dep:reqwest"]
-test_http_server = ["dep:warp"]
+test_http_server = ["dep:warp", "dep:tokio-stream"]
 
 [package.metadata.docs.rs]
 all-features = true
