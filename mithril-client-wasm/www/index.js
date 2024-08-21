@@ -67,17 +67,12 @@ function format_tx_list(transactions_hashes) {
 function client_options_with_custom_headers() {
   // The following header is set as an example.
   // It's used to demonstrate how to add headers.
-  let headers_map = new Map();
-  headers_map.set("Content-Type", "application/json");
+  let http_headers_map = new Map();
+  http_headers_map.set("Content-Type", "application/json");
 
-  // The headers below are examples of headers that might be used when interacting with a proxy.
-  // They are commented out because aggregators don't allow these headers.
-  // headers_map.set("Authorization", "Bearer YourBearerToken");
-  // headers_map.set("X-My-Custom-Header", "YourCustomHeaderValue");
-  let client_options = new Map();
-  client_options.set("http_headers", headers_map);
-
-  return client_options;
+  return {
+    http_headers: http_headers_map,
+  };
 }
 
 await initMithrilClient();
