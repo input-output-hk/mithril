@@ -148,15 +148,16 @@ console.log(
 
 :::tip Adding Custom HTTP Headers
 
-You can customize the HTTP headers sent by the Mithril client. This is particularly useful if you need to include headers like **Authorization** or custom headers for specific use cases. Below is an example of how to set custom headers:
+You can customize the HTTP headers sent by the Mithril client. This is particularly useful in scenarios where the Mithril client is used with a proxy, as it allows you to include headers like **Authorization** or custom headers for specific use cases. Below is an example of how to set custom headers:
 
 ```js
-let headers_map = new Map();
-headers_map.set("Authorization", "Bearer YourBearerToken");
-headers_map.set("X-Custom-Header", "YourCustomHeaderValue");
+let http_headers_map = new Map();
+http_headers_map.set("Authorization", "Bearer YourBearerToken");
+http_headers_map.set("X-Custom-Header", "YourCustomHeaderValue");
 
-let client_options = new Map();
-client_options.set("http_headers", headers_map);
+let client_options = {
+  http_headers: http_headers_map,
+};
 
 let client = new MithrilClient(
   aggregator_endpoint,
