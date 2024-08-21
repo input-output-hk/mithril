@@ -37,6 +37,7 @@ blake2 = "0.10.6"
 chrono = { version = "0.4.38", features = ["serde"] }
 ciborium = "0.2.2"
 ckb-merkle-mountain-range = "0.6.0"
+curl = { version = "0.4.46", optional = true }
 digest = "0.10.7"
 ed25519-dalek = { version = "2.1.1", features = ["rand_core", "serde"] }
 fixed = "1.28.0"
@@ -100,6 +101,7 @@ random = ["rand_core/getrandom"]
 fs = [
     "tokio/fs",
     "tokio/process",
+    "dep:curl",
     "dep:pallas-addresses",
     "dep:pallas-codec",
     "dep:pallas-hardano",
