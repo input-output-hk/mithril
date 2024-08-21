@@ -19,6 +19,7 @@ import initMithrilClient from "@mithril-dev/mithril-client-wasm";
 import EpochSettings from "#/EpochSettings";
 import PendingCertificate from "#/PendingCertificate";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
+import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributionsList";
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
 import CertificatesList from "#/Artifacts/CertificatesList";
 import MithrilStakeDistributionsList from "#/Artifacts/MithrilStakeDistributionsList";
@@ -50,6 +51,7 @@ export default function Explorer() {
   // Used to avoid infinite loop between the update of the url query and the navigation handling.
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const [enableCardanoTransactionTab, setEnableCardanoTransactionTab] = useState(false);
+  const [enableCardanoStakeDistributionTab, setEnableCardanoStakeDistributionTab] = useState(false);
   const [currentTab, setCurrentTab] = useState(defaultTab);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
   const selectedAggregatorSignedEntities = useSelector((state) =>
@@ -59,6 +61,9 @@ export default function Explorer() {
   useEffect(() => {
     setEnableCardanoTransactionTab(
       selectedAggregatorSignedEntities.includes(signedEntityType.CardanoTransactions),
+    );
+    setEnableCardanoStakeDistributionTab(
+      selectedAggregatorSignedEntities.includes(signedEntityType.CardanoStakeDistribution),
     );
   }, [selectedAggregatorSignedEntities]);
 
@@ -126,6 +131,13 @@ export default function Explorer() {
         {enableCardanoTransactionTab && (
           <Tab title="Cardano Transactions" eventKey={signedEntityType.CardanoTransactions}>
             <CardanoTransactionsSnapshotsList />
+          </Tab>
+        )}
+        {enableCardanoStakeDistributionTab && (
+          <Tab
+            title="Cardano Stake Distribution"
+            eventKey={signedEntityType.CardanoStakeDistribution}>
+            <CardanoStakeDistributionsList />
           </Tab>
         )}
         <Tab

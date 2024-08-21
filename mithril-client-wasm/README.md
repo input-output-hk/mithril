@@ -7,7 +7,8 @@
 - The different types of available data certified by Mithril are:
   - Snapshot: list and get.
   - Mithril stake distribution: list and get.
-  - Cardano transactions: list & get snapshots, get proofs
+  - Cardano transactions: list & get snapshots, get proofs.
+  - Cardano stake distribution: list, get and get by epoch.
   - Certificate: list, get, and chain validation.
 
 ## Installation
