@@ -3,8 +3,13 @@
 // Base code from the httpserver in reqwest tests:
 // https://github.com/seanmonstar/reqwest/blob/master/tests/support/server.rs
 
+use std::future::Future;
+use std::path::{Path, PathBuf};
 use std::{net::SocketAddr, sync::mpsc as std_mpsc, thread, time::Duration};
+use tokio::net::UnixListener;
+use tokio::runtime::Runtime;
 use tokio::{runtime, sync::oneshot};
+use tokio_stream::wrappers::UnixListenerStream;
 use warp::{Filter, Reply};
 
 /// A HTTP server for test
@@ -12,6 +17,11 @@ pub struct TestHttpServer {
     address: SocketAddr,
     panic_rx: std_mpsc::Receiver<()>,
     shutdown_tx: Option<oneshot::Sender<()>>,
+}
+
+enum ServerConfig {
+    Tcp(SocketAddr),
+    UnixSocket(PathBuf),
 }
 
 impl TestHttpServer {
@@ -48,12 +58,29 @@ where
 {
     test_http_server_with_socket_address(filters, ([127, 0, 0, 1], 0).into())
 }
-
 /// Spawn a [TestHttpServer] using the given warp filters
 pub fn test_http_server_with_socket_address<F>(
     filters: F,
     socket_addr: SocketAddr,
 ) -> TestHttpServer
+where
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+{
+    test_http_server_with_config(filters, ServerConfig::Tcp(socket_addr))
+}
+
+/// Spawn a [TestHttpServer] with the given warp filters on a Unix socket
+pub fn test_http_server_with_unix_socket<F>(filters: F, socket_path: &Path) -> TestHttpServer
+where
+    F: Filter + Clone + Send + Sync + 'static,
+    F::Extract: Reply,
+{
+    test_http_server_with_config(filters, ServerConfig::UnixSocket(socket_path.to_path_buf()))
+}
+
+/// Spawn a [TestHttpServer] using the given warp filters
+fn test_http_server_with_config<F>(filters: F, server_type: ServerConfig) -> TestHttpServer
 where
     F: Filter + Clone + Send + Sync + 'static,
     F::Extract: Reply,
@@ -65,24 +92,34 @@ where
             .build()
             .expect("new rt");
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
-        let (address, server) = rt.block_on(async move {
-            warp::serve(filters).bind_with_graceful_shutdown(socket_addr, async {
-                shutdown_rx.await.ok();
-            })
-        });
-
         let (panic_tx, panic_rx) = std_mpsc::channel();
-        let thread_name = format!(
-            "test({})-support-server",
-            thread::current().name().unwrap_or("<unknown>")
-        );
-        thread::Builder::new()
-            .name(thread_name)
-            .spawn(move || {
-                rt.block_on(server);
-                let _ = panic_tx.send(());
-            })
-            .expect("thread spawn");
+
+        let address = match server_type {
+            ServerConfig::Tcp(socket_addr) => {
+                let (address, server) = rt.block_on(async move {
+                    warp::serve(filters).bind_with_graceful_shutdown(socket_addr, async {
+                        shutdown_rx.await.ok();
+                    })
+                });
+                spawn_server_thread(rt, panic_tx, server);
+
+                address
+            }
+            ServerConfig::UnixSocket(socket_path) => {
+                let server = rt.block_on(async move {
+                    let listener = UnixListener::bind(socket_path).unwrap();
+                    let incoming = UnixListenerStream::new(listener);
+
+                    warp::serve(filters).serve_incoming_with_graceful_shutdown(incoming, async {
+                        shutdown_rx.await.ok();
+                    })
+                });
+                spawn_server_thread(rt, panic_tx, server);
+
+                // Dummy address since this branch is a POC, not used for Unix sockets
+                ([0, 0, 0, 0], 0).into()
+            }
+        };
 
         TestHttpServer {
             address,
@@ -92,6 +129,24 @@ where
     })
     .join()
     .unwrap()
+}
+
+fn spawn_server_thread<F>(rt: Runtime, panic_tx: std::sync::mpsc::Sender<()>, server_future: F)
+where
+    F: Future + Send + 'static,
+{
+    let thread_name = format!(
+        "test({})-support-server",
+        thread::current().name().unwrap_or("<unknown>")
+    );
+
+    thread::Builder::new()
+        .name(thread_name)
+        .spawn(move || {
+            rt.block_on(server_future);
+            let _ = panic_tx.send(());
+        })
+        .expect("thread spawn");
 }
 
 #[cfg(test)]
