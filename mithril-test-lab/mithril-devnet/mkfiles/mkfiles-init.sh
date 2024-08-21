@@ -71,12 +71,9 @@ if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" != "true" ]]; then
   echo ">> Downloading cardano-cli & cardano-node..."
   curl -sL "${CARDANO_BINARY_URL}" --output cardano-bin.tar.gz
   echo ">> Extracting cardano-cli & cardano-node..."
-  tar xzf cardano-bin.tar.gz ./bin -C "${ARTIFACTS_DIR}/" || (mkdir -p "${ARTIFACTS_DIR}/bin" && tar --strip-components=1 -C "${ARTIFACTS_DIR}/bin" -xzf cardano-bin.tar.gz)
+  tar xzf cardano-bin.tar.gz -C "${ARTIFACTS_DIR}/" ./bin || (mkdir -p "${ARTIFACTS_DIR}/bin" && tar --strip-components=1 -C "${ARTIFACTS_DIR}/bin" -xzf cardano-bin.tar.gz)
   rm -f cardano-bin.tar.gz
 fi
-
-cp -r ./bin "${ARTIFACTS_DIR}/" 2>/dev/null || true
-rm -rf ./bin
 
 # Switch to artifacts directory
 pushd "${ARTIFACTS_DIR}" > /dev/null || exit
