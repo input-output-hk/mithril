@@ -57,8 +57,15 @@ impl HttpUnixSocketClient {
         curl.url(&format!("localhost/{url}"))?;
         curl.perform()?;
 
-        let payload = serde_json::from_slice::<T>(&curl.get_ref().0)?;
-        Ok(payload)
+        if curl.response_code()? == 200 {
+            let payload = serde_json::from_slice::<T>(&curl.get_ref().0)?;
+            Ok(payload)
+        } else {
+            Err(anyhow!(
+                "Unexpected response code: {}",
+                curl.response_code()?,
+            ))
+        }
     }
 }
 
@@ -85,7 +92,7 @@ mod tests {
 
     #[test]
     fn write_message_to_socket() {
-        let dir = TempDir::create("signature-network-node", "write_message_to_socket");
+        let dir = TempDir::create("socket_client", "write_message_to_socket");
         let socket_path = dir.join("test.sock");
         let url = "register-signatures";
         let (tx, mut rx) = mpsc::channel(1);
@@ -114,8 +121,8 @@ mod tests {
     }
 
     #[test]
-    fn read_message_from_socket() {
-        let dir = TempDir::create("signature-network-node", "read_message_from_socket");
+    fn read_successfully_message_from_socket() {
+        let dir = TempDir::create("socket_client", "read_successfully_message_from_socket");
         let socket_path = dir.join("test.sock");
         let url = "get-register-signatures";
         let _http_server = test_http_server_with_unix_socket(
@@ -133,5 +140,27 @@ mod tests {
         let message: RegisterSignatureMessage = client.read(&url).unwrap();
 
         assert_eq!(RegisterSignatureMessage::dummy(), message);
+    }
+
+    #[test]
+    fn read_with_error_message_from_socket() {
+        let dir = TempDir::create("socket_client", "read_with_error_message_from_socket");
+        let socket_path = dir.join("test.sock");
+        let url = "get-register-signatures";
+        let _http_server = test_http_server_with_unix_socket(
+            warp::path(url).and(warp::get()).map(move || {
+                warp::reply::with_status(warp::reply::reply(), warp::http::StatusCode::BAD_REQUEST)
+            }),
+            &socket_path,
+        );
+
+        let client = HttpUnixSocketClient::new(&socket_path);
+
+        let error = client.read::<RegisterSignatureMessage>(&url).unwrap_err();
+
+        assert!(
+            error.to_string().contains("Unexpected response code: 400"),
+            "Expected 'Unexpected response code: 400' got: {error}",
+        );
     }
 }
