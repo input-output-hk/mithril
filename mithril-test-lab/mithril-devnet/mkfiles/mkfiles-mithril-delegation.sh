@@ -5,7 +5,7 @@ cat >> delegate.sh <<EOF
 set -e
 
 # Get current Cardano era
-CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
     --testnet-magic ${NETWORK_MAGIC} \\
     | jq  -r '.era |= ascii_downcase | .era')
 echo ">>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
@@ -16,7 +16,7 @@ if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
 fi
 
 # Get the current epoch
-CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
                     --cardano-mode \\
                     --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
@@ -48,13 +48,13 @@ for ADDR in ${USER_ADDRS}; do
   if [ \$(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") == "false" ] && [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
     KEY_REGISTRATION_DEPOSIT_ANOUNT=0
     # Conway specific creation of registration certificate
-    ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
+    $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
     --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
     --out-file addresses/\${ADDR}-stake.reg.cert \
     --key-reg-deposit-amt \$KEY_REGISTRATION_DEPOSIT_ANOUNT
   else
     # Legacy creation of registration certificate
-    ./cardano-cli stake-address registration-certificate \
+    $CARDANO_CLI stake-address registration-certificate \
       --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
       --out-file addresses/\${ADDR}-stake.reg.cert
   fi
@@ -67,13 +67,13 @@ for N in ${POOL_NODES_N}; do
   cat >> delegate.sh <<EOF
     if [ \$(version_lte "${CARDANO_NODE_VERSION_RELEASE}" "8.1.2") == "false" ]; then
       # Stake address delegation certs
-      ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address stake-delegation-certificate \
+      $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address stake-delegation-certificate \
           --stake-verification-key-file addresses/user${N}-stake.vkey \
           --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
           --out-file addresses/user${N}-stake.deleg.cert
     else
       # Legacy stake address delegation certs
-      ./cardano-cli \${CURRENT_CARDANO_ERA} stake-address delegation-certificate \
+      $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address delegation-certificate \
           --stake-verification-key-file addresses/user${N}-stake.vkey \
           --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
           --out-file addresses/user${N}-stake.deleg.cert
@@ -88,14 +88,14 @@ for N in ${POOL_NODES_N}; do
     AMOUNT_STAKED=\$(( $N*1000000 +  \$DELEGATION_ROUND*1 ))
 
     # Get the UTxO
-    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
+    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query utxo \\
       --testnet-magic ${NETWORK_MAGIC}  --address \$(cat addresses/utxo${N}.addr) --out-file /dev/stdout \\
       | jq  -r 'to_entries | [last] | .[0].key')
 
     # Build the transaction
     if [ "\$DELEGATION_ROUND" -eq 1 ]; then
       # First delegation round, we need to include registration certificate and delegation certificate
-      CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction build \\
+      CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction build \\
           --tx-in \${TX_IN} \\
           --tx-out \$(cat addresses/user${N}.addr)+\${AMOUNT_STAKED} \\
           --change-address \$(cat addresses/utxo${N}.addr) \\
@@ -107,7 +107,7 @@ for N in ${POOL_NODES_N}; do
           --witness-override 2
     else
       # All other delegation rounds, we need to include only delegation certificate
-      CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction build \\
+      CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction build \\
           --tx-in \${TX_IN} \\
           --tx-out \$(cat addresses/user${N}.addr)+\${AMOUNT_STAKED} \\
           --change-address \$(cat addresses/utxo${N}.addr) \\
@@ -119,7 +119,7 @@ for N in ${POOL_NODES_N}; do
     fi
 
     # Sign the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction sign \\
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction sign \\
         --signing-key-file addresses/utxo${N}.skey \\
         --signing-key-file addresses/user${N}-stake.skey \\
         --testnet-magic ${NETWORK_MAGIC} \\
@@ -127,7 +127,7 @@ for N in ${POOL_NODES_N}; do
         --out-file      node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.tx
 
     # Submit the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli \${CURRENT_CARDANO_ERA} transaction submit \\
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction submit \\
         --tx-file node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
