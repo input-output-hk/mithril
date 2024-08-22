@@ -1,13 +1,18 @@
-use anyhow::anyhow;
 use slog::{crit, debug, info};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+
+use anyhow::anyhow;
+use tokio::net::UnixListener;
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::Mutex;
+use tokio::sync::{oneshot, Mutex};
 use tokio::task::JoinSet;
+use tokio_stream::wrappers::UnixListenerStream;
 
 use mithril_common::messages::RegisterSignatureMessage;
 use mithril_common::StdResult;
+
+use crate::server::router;
 
 pub struct Application {
     id: String,
@@ -38,6 +43,9 @@ impl Application {
         let mut join_set = JoinSet::new();
         self.listen_to_termination_signals(&mut join_set);
 
+        let (server_shutdown_tx, server_shutdown_rx) = oneshot::channel();
+        self.spawn_http_server_on_socket(server_shutdown_rx, &mut join_set);
+
         let shutdown_reason = match join_set.join_next().await {
             Some(Err(e)) => {
                 crit!(self.logger, "A critical error occurred: {e:?}");
@@ -48,10 +56,32 @@ impl Application {
         };
 
         join_set.shutdown().await;
+        let _ = server_shutdown_tx.send(());
 
         debug!(self.logger, "Stopping"; "shutdown_reason" => shutdown_reason);
 
         Ok(())
+    }
+
+    fn spawn_http_server_on_socket(
+        &self,
+        shutdown_rx: oneshot::Receiver<()>,
+        join_set: &mut JoinSet<StdResult<Option<String>>>,
+    ) {
+        let routes = router::routes();
+        let socket_path = self.socket_path.clone();
+        join_set.spawn(async move {
+            let listener = UnixListener::bind(socket_path)?;
+            let incoming = UnixListenerStream::new(listener);
+
+            let server =
+                warp::serve(routes).serve_incoming_with_graceful_shutdown(incoming, async {
+                    shutdown_rx.await.ok();
+                });
+            server.await;
+
+            Ok(None)
+        });
     }
 
     fn listen_to_termination_signals(&self, join_set: &mut JoinSet<StdResult<Option<String>>>) {
