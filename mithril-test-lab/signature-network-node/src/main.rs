@@ -1,7 +1,3 @@
-mod application;
-mod directory_observer;
-mod entities;
-
 use clap::Parser;
 use slog::{o, Drain, Level, Logger};
 use std::fs;
@@ -10,7 +6,7 @@ use std::sync::Arc;
 
 use mithril_common::StdResult;
 
-use crate::application::Application;
+use signature_network_node::Application;
 
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
