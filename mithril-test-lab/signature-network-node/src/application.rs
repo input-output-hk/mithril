@@ -12,6 +12,7 @@ use tokio_stream::wrappers::UnixListenerStream;
 use mithril_common::messages::RegisterSignatureMessage;
 use mithril_common::StdResult;
 
+use crate::entities::RouterDependencies;
 use crate::server::router;
 
 pub struct Application {
@@ -31,7 +32,7 @@ impl Application {
             id: id.to_string(),
             socket_path: socket_path.to_path_buf(),
             database: Database {
-                available_signatures_registrations: Arc::new(Mutex::new(Vec::new())),
+                available_signatures_registrations: Arc::new(Mutex::new(vec![])),
             },
             logger: slog_scope::logger().new(slog::o!("name" => "app")),
         }
@@ -68,7 +69,12 @@ impl Application {
         shutdown_rx: oneshot::Receiver<()>,
         join_set: &mut JoinSet<StdResult<Option<String>>>,
     ) {
-        let routes = router::routes();
+        let routes = router::routes(RouterDependencies {
+            available_signatures_registrations: self
+                .database
+                .available_signatures_registrations
+                .clone(),
+        });
         let socket_path = self.socket_path.clone();
         join_set.spawn(async move {
             let listener = UnixListener::bind(socket_path)?;

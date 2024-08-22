@@ -46,7 +46,7 @@ impl Args {
         match &self.socket_path {
             Some(path) => {
                 if path.exists() {
-                    fs::remove_file(&path).expect("Previous socket file removal failed");
+                    fs::remove_file(path).expect("Previous socket file removal failed");
                 }
                 path.to_path_buf()
             }
