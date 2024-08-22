@@ -64,9 +64,21 @@ function format_tx_list(transactions_hashes) {
   return "<ul>" + transactions_hashes.map((tx) => "<li>" + tx + "</li>").join("") + "</ul>";
 }
 
+function client_options_with_custom_headers() {
+  // The following header is set as an example.
+  // It's used to demonstrate how to add headers.
+  let http_headers_map = new Map();
+  http_headers_map.set("Content-Type", "application/json");
+
+  return {
+    http_headers: http_headers_map,
+  };
+}
+
 await initMithrilClient();
 
-let client = new MithrilClient(aggregator_endpoint, genesis_verification_key);
+let client_options = client_options_with_custom_headers();
+let client = new MithrilClient(aggregator_endpoint, genesis_verification_key, client_options);
 
 displayStepInDOM(1, "Getting stake distributions list...");
 let mithril_stake_distributions_list = await client.list_mithril_stake_distributions();

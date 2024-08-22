@@ -1,8 +1,11 @@
 use anyhow::{anyhow, Context};
-use mithril_common::api_version::APIVersionProvider;
 use reqwest::Url;
+use serde::{Deserialize, Serialize};
 use slog::{o, Logger};
+use std::collections::HashMap;
 use std::sync::Arc;
+
+use mithril_common::api_version::APIVersionProvider;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
@@ -18,6 +21,20 @@ use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
 use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
+
+/// Options that can be used to configure the client.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct ClientOptions {
+    /// HTTP headers to include in the client requests.
+    pub http_headers: Option<HashMap<String, String>>,
+}
+
+impl ClientOptions {
+    /// Instantiate a new [ClientOptions].
+    pub fn new(http_headers: Option<HashMap<String, String>>) -> Self {
+        Self { http_headers }
+    }
+}
 
 /// Structure that aggregates the available clients for each of the Mithril types of certified data.
 ///
@@ -72,6 +89,7 @@ pub struct ClientBuilder {
     snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
     logger: Option<Logger>,
     feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
+    options: ClientOptions,
 }
 
 impl ClientBuilder {
@@ -87,6 +105,7 @@ impl ClientBuilder {
             snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
+            options: ClientOptions::default(),
         }
     }
 
@@ -104,6 +123,7 @@ impl ClientBuilder {
             snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
+            options: ClientOptions::default(),
         }
     }
 
@@ -133,6 +153,7 @@ impl ClientBuilder {
                         APIVersionProvider::compute_all_versions_sorted()
                             .with_context(|| "Could not compute aggregator api versions")?,
                         logger.clone(),
+                        self.options.http_headers,
                     )
                     .with_context(|| "Building aggregator client failed")?,
                 )
@@ -239,6 +260,12 @@ impl ClientBuilder {
     /// validation).
     pub fn add_feedback_receiver(mut self, receiver: Arc<dyn FeedbackReceiver>) -> Self {
         self.feedback_receivers.push(receiver);
+        self
+    }
+
+    /// Sets the options to be used by the client.
+    pub fn with_options(mut self, options: ClientOptions) -> Self {
+        self.options = options;
         self
     }
 }

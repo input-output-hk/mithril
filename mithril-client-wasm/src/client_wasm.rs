@@ -6,7 +6,8 @@ use wasm_bindgen::prelude::*;
 use mithril_client::{
     common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
-    CardanoTransactionsProofs, Client, ClientBuilder, MessageBuilder, MithrilCertificate,
+    CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions, MessageBuilder,
+    MithrilCertificate,
 };
 
 use crate::WasmResult;
@@ -71,10 +72,24 @@ pub struct MithrilUnstableClient {
 impl MithrilClient {
     /// Constructor for wasm client
     #[wasm_bindgen(constructor)]
-    pub fn new(aggregator_endpoint: &str, genesis_verification_key: &str) -> MithrilClient {
+    pub fn new(
+        aggregator_endpoint: &str,
+        genesis_verification_key: &str,
+        options: JsValue,
+    ) -> MithrilClient {
         let feedback_receiver = Arc::new(JSBroadcastChannelFeedbackReceiver::new("mithril-client"));
+
+        let client_options = if options.is_undefined() {
+            ClientOptions::default()
+        } else {
+            serde_wasm_bindgen::from_value(options)
+                .map_err(|err| format!("Failed to parse options: {err:?}"))
+                .unwrap()
+        };
+
         let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
             .add_feedback_receiver(feedback_receiver)
+            .with_options(client_options)
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
@@ -361,8 +376,7 @@ impl MithrilUnstableClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::test_data;
+    use std::collections::HashMap;
     use wasm_bindgen_test::*;
 
     use mithril_client::{
@@ -370,6 +384,10 @@ mod tests {
         CardanoTransactionSnapshot, MithrilCertificateListItem, MithrilStakeDistribution,
         MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
     };
+
+    use crate::test_data;
+
+    use super::*;
 
     const GENESIS_VERIFICATION_KEY: &str = "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d";
     const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";
@@ -382,10 +400,55 @@ mod tests {
                 FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
             ),
             GENESIS_VERIFICATION_KEY,
+            JsValue::undefined(),
         )
     }
 
     wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn build_mithril_client_with_custom_http_header() {
+        let mut http_headers = HashMap::new();
+        http_headers.insert("Authorization".to_string(), "Bearer token".to_string());
+        let options = ClientOptions::new(Some(http_headers));
+        let options_js_value = serde_wasm_bindgen::to_value(&options).unwrap();
+
+        MithrilClient::new(
+            &format!(
+                "http://{}:{}/aggregator",
+                FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
+            ),
+            GENESIS_VERIFICATION_KEY,
+            options_js_value,
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn build_mithril_client_with_undefined_options() {
+        MithrilClient::new(
+            &format!(
+                "http://{}:{}/aggregator",
+                FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
+            ),
+            GENESIS_VERIFICATION_KEY,
+            JsValue::undefined(),
+        );
+    }
+
+    #[wasm_bindgen_test]
+    #[should_panic(expected = "Failed to parse options")]
+    fn build_mithril_client_with_unparsable_options() {
+        let invalid_js_value = JsValue::from_str("invalid");
+        MithrilClient::new(
+            &format!(
+                "http://{}:{}/aggregator",
+                FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
+            ),
+            GENESIS_VERIFICATION_KEY,
+            invalid_js_value,
+        );
+    }
+
     #[wasm_bindgen_test]
     async fn list_snapshots_should_return_value_convertible_in_rust_type() {
         let snapshots_list_js_value = get_mithril_client()

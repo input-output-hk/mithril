@@ -10,6 +10,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 ## Mithril Distribution [XXXX] - UNRELEASED
 
 - Support for Mithril nodes footprint support in Prometheus monitoring in infrastructure
+- Add support for custom HTTP headers in Mithril client WASM library
 
 - **UNSTABLE** Cardano stake distribution certification:
 
