@@ -6,20 +6,29 @@ This runbook provides step-by-step instructions to upgrade the dependencies in t
 
 ## Steps
 
-### Update Rust dependencies
+### Upgrade Rust outdated dependencies
 
-From the root of the repository, run:
+We recommand using [Dependi](https://dependi.io/) VS Code extension to identify and update outdated dependencies.
 
-```bash
-cargo update
-```
+To do this, verify the dependencies in the `Cargo.toml` file for each Rust crate in the repository.
+
+- Bring up the Command Palette with `Ctrl+Shift+P` (or `Cmd+Shift+P` on macOS).
+- Type `dependi` and select `Update All Dependencies to Latest Version`.
+
+![Run dependi](./img/run-dependi.png)
 
 Create a dedicated commit, e.g.:
 
 ```bash
 chore: update Rust dependencies
+```
 
-By running 'cargo update' command.
+Next, ensure that upgrading the dependencies has not introduced any breaking changes in the codebase.
+
+If breaking changes are introduced, resolve them, and then create a dedicated commit, e.g.:
+
+```bash
+fix: resolve breaking changes introduced by upgrading 'crate_name' from 'x.0.99' to 'x.1.0'
 ```
 
 ### Bump Rust crates versions
