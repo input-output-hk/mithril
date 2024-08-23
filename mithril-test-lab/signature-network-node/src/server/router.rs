@@ -6,8 +6,9 @@ use warp::{Filter, Reply};
 /// Routes
 pub fn routes(
     dependencies: RouterDependencies,
+    parent_logger: &slog::Logger,
 ) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
-    let logger = slog_scope::logger().new(slog::o!("src" => "⇄ http server"));
+    let logger = parent_logger.new(slog::o!("src" => "⇄ http server"));
     warp::any()
         .and(pull_signatures(&dependencies, &logger))
         .or(register_signatures(&dependencies, &logger))

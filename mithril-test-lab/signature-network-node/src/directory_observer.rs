@@ -4,7 +4,7 @@ use std::path::Path;
 use anyhow::Context;
 use notify::event::{AccessKind, AccessMode};
 use notify::{EventKind, Watcher};
-use slog::{error, info, trace};
+use slog::{error, info, trace, Logger};
 use tokio::sync::mpsc;
 
 use mithril_common::StdResult;
@@ -18,8 +18,12 @@ pub struct DirectoryObserver {
 }
 
 impl DirectoryObserver {
-    pub fn watch(message_folder: &Path, sender: mpsc::Sender<Message>) -> StdResult<Self> {
-        let logger = slog_scope::logger().new(slog::o!("src" => "directory_observer"));
+    pub fn watch(
+        message_folder: &Path,
+        sender: mpsc::Sender<Message>,
+        parent_logger: &Logger,
+    ) -> StdResult<Self> {
+        let logger = parent_logger.new(slog::o!("src" => "directory_observer"));
         let mut watcher =
             notify::recommended_watcher(move |res: notify::Result<notify::Event>| match res {
                 Ok(event)
@@ -95,6 +99,8 @@ mod tests {
     use mithril_common::messages::RegisterSignatureMessage;
     use mithril_common::test_utils::TempDir;
 
+    use crate::tests::TestLogger;
+
     use super::*;
 
     #[tokio::test]
@@ -106,7 +112,7 @@ mod tests {
 
         let (tx, mut rx) = mpsc::channel(1);
         // As long as the notifier is in scope, messages notifications can be sent to the channel
-        let _notifier = DirectoryObserver::watch(&dir, tx).unwrap();
+        let _notifier = DirectoryObserver::watch(&dir, tx, &TestLogger::stdout()).unwrap();
 
         // No messages should have been notified yet
         assert_eq!(Err(TryRecvError::Empty), rx.try_recv());
@@ -138,7 +144,7 @@ mod tests {
 
         let (tx, _rx) = mpsc::channel(1);
         // As long as the notifier is in scope, messages notifications can be sent to the channel
-        let _notifier = DirectoryObserver::watch(&dir, tx).unwrap();
+        let _notifier = DirectoryObserver::watch(&dir, tx, &TestLogger::stdout()).unwrap();
 
         // Create a serialized RegisterSignatureMessage in the folder
         let file_path = dir.join("register_signature.json");
