@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use slog::info;
 use tokio::sync::{mpsc, Mutex};
 
 use mithril_common::messages::RegisterSignatureMessage;
@@ -11,6 +12,7 @@ use crate::entities::Message;
 pub struct MessageListener {
     listening_channel: mpsc::Receiver<Message>,
     available_signatures_registrations: Arc<Mutex<Vec<RegisterSignatureMessage>>>,
+    logger: slog::Logger,
 }
 
 impl MessageListener {
@@ -21,6 +23,7 @@ impl MessageListener {
         Self {
             listening_channel,
             available_signatures_registrations,
+            logger: slog_scope::logger().new(slog::o!("src" => "message_listener")),
         }
     }
 
@@ -32,7 +35,13 @@ impl MessageListener {
                         self.available_signatures_registrations.lock().await;
                     available_signatures_registrations.push(message);
                 }
-                _ => {}
+                // Some(msg) => {
+                //     info!(self.logger, "Unsupported message: {msg:?}");
+                // }
+                None => {
+                    info!(self.logger, "Channel closed");
+                    break;
+                }
             }
         }
     }
@@ -40,18 +49,12 @@ impl MessageListener {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::TempDir;
-
     use crate::entities::Message;
 
     use super::*;
 
     #[tokio::test]
     async fn input_folder_listener_push_signatures_messages_to_available_sig_queue() {
-        let dir = TempDir::create(
-            "signature-network-node-message-listener",
-            "input_folder_listener_push_signatures_messages_to_available_sig_queue",
-        );
         let (tx, rx) = mpsc::channel(1);
         let available_signatures_registrations = Arc::new(Mutex::new(Vec::new()));
         let mut listener = MessageListener::new(rx, available_signatures_registrations.clone());

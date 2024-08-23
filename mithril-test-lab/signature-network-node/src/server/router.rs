@@ -8,18 +8,21 @@ use crate::entities::RouterDependencies;
 pub fn routes(
     dependencies: RouterDependencies,
 ) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
-    warp::any().and(pull_signatures(dependencies))
+    let logger = slog_scope::logger().new(slog::o!("src" => "⇄ http server"));
+    warp::any().and(pull_signatures(dependencies, logger))
 }
 
 /// GET /pull-signatures
 fn pull_signatures(
     dependencies: RouterDependencies,
+    logger: slog::Logger,
 ) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
     warp::path!("pull-signatures")
         .and(warp::get())
         .and(with_dependency(&dependencies, |d| {
             d.available_signatures_registrations
         }))
+        .and(warp::any().map(move || logger.clone()))
         .and_then(handlers::pull_signatures)
 }
 
@@ -39,6 +42,7 @@ mod handlers {
     use std::convert::Infallible;
     use std::sync::Arc;
 
+    use slog::debug;
     use tokio::sync::Mutex;
     use warp::hyper::StatusCode;
 
@@ -48,7 +52,9 @@ mod handlers {
 
     pub async fn pull_signatures(
         available_signatures_registrations: Arc<Mutex<Vec<RegisterSignatureMessage>>>,
+        logger: slog::Logger,
     ) -> Result<impl warp::Reply, Infallible> {
+        debug!(logger, "/pull-signatures");
         let mut signatures = available_signatures_registrations.lock().await;
         let sig = std::mem::take(&mut *signatures);
 
@@ -60,12 +66,13 @@ mod handlers {
 mod tests {
     use std::sync::Arc;
 
+    use slog::Logger;
+    use tokio::sync::Mutex;
+
     use mithril_common::messages::RegisterSignatureMessage;
     use mithril_common::socket_client::HttpUnixSocketClient;
     use mithril_common::test_utils::test_http_server::test_http_server_with_unix_socket;
     use mithril_common::test_utils::TempDir;
-
-    use tokio::sync::Mutex;
 
     use super::*;
 
@@ -79,8 +86,13 @@ mod tests {
         let dependencies = RouterDependencies {
             available_signatures_registrations: Arc::new(Mutex::new(Vec::new())),
         };
-        let server =
-            test_http_server_with_unix_socket(pull_signatures(dependencies.clone()), &socket_path);
+        let _server = test_http_server_with_unix_socket(
+            pull_signatures(
+                dependencies.clone(),
+                Logger::root(slog::Discard, slog::o!()),
+            ),
+            &socket_path,
+        );
 
         let client = HttpUnixSocketClient::new(&socket_path);
         let signatures: Vec<RegisterSignatureMessage> = client.read("pull-signatures").unwrap();
@@ -97,8 +109,13 @@ mod tests {
                 RegisterSignatureMessage::dummy(),
             ])),
         };
-        let server =
-            test_http_server_with_unix_socket(pull_signatures(dependencies.clone()), &socket_path);
+        let _server = test_http_server_with_unix_socket(
+            pull_signatures(
+                dependencies.clone(),
+                Logger::root(slog::Discard, slog::o!()),
+            ),
+            &socket_path,
+        );
 
         let client = HttpUnixSocketClient::new(&socket_path);
         let signatures: Vec<RegisterSignatureMessage> = client.read("pull-signatures").unwrap();

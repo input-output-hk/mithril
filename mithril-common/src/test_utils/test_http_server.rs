@@ -106,6 +106,7 @@ where
                 address
             }
             ServerConfig::UnixSocket(socket_path) => {
+                #[allow(clippy::async_yields_async)]
                 let server = rt.block_on(async move {
                     let listener = UnixListener::bind(socket_path).unwrap();
                     let incoming = UnixListenerStream::new(listener);
