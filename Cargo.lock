@@ -5952,6 +5952,7 @@ dependencies = [
  "slog-term",
  "tokio",
  "tokio-stream",
+ "walkdir",
  "warp",
 ]
 
