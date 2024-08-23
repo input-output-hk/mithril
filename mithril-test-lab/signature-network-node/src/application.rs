@@ -5,19 +5,23 @@ use anyhow::anyhow;
 use slog::{crit, debug, info};
 use tokio::net::UnixListener;
 use tokio::signal::unix::{signal, SignalKind};
-use tokio::sync::{oneshot, Mutex};
+use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::task::JoinSet;
 use tokio_stream::wrappers::UnixListenerStream;
 
+use crate::entities::{Message, RouterDependencies};
+use crate::message_listener::MessageListener;
+use crate::server::router;
+use crate::DirectoryObserver;
 use mithril_common::messages::RegisterSignatureMessage;
 use mithril_common::StdResult;
 
-use crate::entities::RouterDependencies;
-use crate::server::router;
+type AppJoinSet = JoinSet<StdResult<Option<String>>>;
 
 pub struct Application {
     id: String,
     socket_path: PathBuf,
+    input_directory: PathBuf,
     database: Database,
     logger: slog::Logger,
 }
@@ -27,10 +31,11 @@ struct Database {
 }
 
 impl Application {
-    pub fn new(id: &str, socket_path: &Path) -> Self {
+    pub fn new(id: &str, socket_path: &Path, input_directory: &Path) -> Self {
         Self {
             id: id.to_string(),
             socket_path: socket_path.to_path_buf(),
+            input_directory: input_directory.to_path_buf(),
             database: Database {
                 available_signatures_registrations: Arc::new(Mutex::new(vec![])),
             },
@@ -41,8 +46,13 @@ impl Application {
     pub async fn run(&self) -> StdResult<()> {
         info!(self.logger, "Running application with id: {}", self.id);
 
-        let mut join_set = JoinSet::new();
+        let mut join_set = AppJoinSet::new();
         self.listen_to_termination_signals(&mut join_set);
+
+        let (msg_tx, msg_rx) = mpsc::channel(10);
+        // The observer will stop when dropped
+        let _directory_observer = DirectoryObserver::watch(&self.input_directory, msg_tx)?;
+        self.listen_input_folder_for_messages(msg_rx, &mut join_set);
 
         let (server_shutdown_tx, server_shutdown_rx) = oneshot::channel();
         self.spawn_http_server_on_socket(server_shutdown_rx, &mut join_set);
@@ -64,10 +74,25 @@ impl Application {
         Ok(())
     }
 
+    fn listen_input_folder_for_messages(
+        &self,
+        msg_rx: mpsc::Receiver<Message>,
+        join_set: &mut AppJoinSet,
+    ) {
+        let mut message_listener = MessageListener::new(
+            msg_rx,
+            self.database.available_signatures_registrations.clone(),
+        );
+        join_set.spawn(async move {
+            message_listener.listen().await;
+            Ok(None)
+        });
+    }
+
     fn spawn_http_server_on_socket(
         &self,
         shutdown_rx: oneshot::Receiver<()>,
-        join_set: &mut JoinSet<StdResult<Option<String>>>,
+        join_set: &mut AppJoinSet,
     ) {
         let routes = router::routes(RouterDependencies {
             available_signatures_registrations: self
@@ -90,7 +115,7 @@ impl Application {
         });
     }
 
-    fn listen_to_termination_signals(&self, join_set: &mut JoinSet<StdResult<Option<String>>>) {
+    fn listen_to_termination_signals(&self, join_set: &mut AppJoinSet) {
         join_set.spawn(async {
             tokio::signal::ctrl_c()
                 .await
