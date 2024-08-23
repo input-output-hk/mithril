@@ -23,3 +23,4 @@ This page gathers the available guides to operate a Mithril network.
 | **Publish packages to npm manually**         | [manual-publish-npm](./manual-publish-npm/README.md)                                     | Manually publish packages to npm registry.                                |
 | **Client multi-platform test**               | [test-client-multiplatform](./test-client-multiplatform/README.md)                       | Run multi-platform client CLI binaries, docker and WASM package tests.    |
 | **Maintain the networks configuration file** | [maintain-networks-configuration-file](./maintain-networks-configuration-file/README.md) | Maintain the `networks.json` file                                         |
+| **Upgrade the repository dependencies**      | [upgrade-repository-dependencies](./upgrade-repository-dependencies/README.md)           | Upgrade the project's dependencies in the repository                      |
