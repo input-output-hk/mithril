@@ -1,8 +1,10 @@
-use clap::Parser;
-use slog::{o, Drain, Level, Logger};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use anyhow::Context;
+use clap::Parser;
+use slog::{o, Drain, Level, Logger};
 
 use mithril_common::StdResult;
 
@@ -72,7 +74,7 @@ async fn main() -> StdResult<()> {
 }
 
 fn build_logger(min_level: Level) -> Logger {
-    let drain = slog_bunyan::new(std::io::stdout())
+    let drain = slog_bunyan::with_name("signature-network-node", std::io::stdout())
         .set_pretty(false)
         .build()
         .fuse();

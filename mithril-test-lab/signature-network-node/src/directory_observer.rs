@@ -1,8 +1,10 @@
+use std::fs;
+use std::path::Path;
+
 use anyhow::Context;
 use notify::event::{AccessKind, AccessMode};
 use notify::{EventKind, Watcher};
-use std::fs;
-use std::path::PathBuf;
+use slog::{error, info, warn};
 use tokio::sync::mpsc;
 
 use mithril_common::messages::RegisterSignatureMessage;
@@ -12,11 +14,13 @@ use crate::entities::Message;
 
 /// Observes a directory for new messages and sends them to a channel
 pub struct DirectoryObserver {
-    watcher: notify::RecommendedWatcher,
+    /// The directory watcher, it will stop when dropped
+    _watcher: notify::RecommendedWatcher,
 }
 
 impl DirectoryObserver {
-    pub fn watch(message_folder: PathBuf, sender: mpsc::Sender<Message>) -> StdResult<Self> {
+    pub fn watch(message_folder: &Path, sender: mpsc::Sender<Message>) -> StdResult<Self> {
+        let logger = slog_scope::logger().new(slog::o!("src" => "directory_observer"));
         let mut watcher =
             notify::recommended_watcher(move |res: notify::Result<notify::Event>| match res {
                 Ok(event)
@@ -33,7 +37,10 @@ impl DirectoryObserver {
                         EventKind::Access(AccessKind::Close(AccessMode::Write))
                     ) =>
                 {
-                    println!("File modification finished: {:?}", event.paths);
+                    info!(
+                        logger,
+                        "Detected new message(s) in input folder: {:?}", event.paths
+                    );
 
                     for file in event.paths {
                         let file_content = fs::read_to_string(&file).unwrap();
@@ -47,12 +54,12 @@ impl DirectoryObserver {
 
                                 fs::remove_file(&file).unwrap();
                             }
-                            Err(err) => eprintln!("Error parsing file content: {err:?}"),
+                            Err(err) => error!(logger, "Error parsing file content: {err:?}"),
                         }
                     }
                 }
-                Ok(event) => println!("Unsupported event: {:?}", event),
-                Err(err) => eprintln!("Error watching directory: {err:?}"),
+                Ok(event) => warn!(logger, "Unsupported event: {:?}", event),
+                Err(err) => error!(logger, "Error watching directory: {err:?}"),
             })
             .with_context(|| {
                 format!(
@@ -61,9 +68,9 @@ impl DirectoryObserver {
                 )
             })?;
 
-        watcher.watch(&message_folder, notify::RecursiveMode::NonRecursive)?;
+        watcher.watch(message_folder, notify::RecursiveMode::NonRecursive)?;
 
-        Ok(Self { watcher })
+        Ok(Self { _watcher: watcher })
     }
 }
 
@@ -86,7 +93,7 @@ mod tests {
 
         let (tx, mut rx) = mpsc::channel(1);
         // As long as the notifier is in scope, messages notifications can be sent to the channel
-        let _notifier = DirectoryObserver::watch(dir.clone(), tx).unwrap();
+        let _notifier = DirectoryObserver::watch(&dir, tx).unwrap();
 
         // No messages should have been notified yet
         assert_eq!(Err(TryRecvError::Empty), rx.try_recv());
@@ -115,7 +122,7 @@ mod tests {
 
         let (tx, _rx) = mpsc::channel(1);
         // As long as the notifier is in scope, messages notifications can be sent to the channel
-        let _notifier = DirectoryObserver::watch(dir.clone(), tx).unwrap();
+        let _notifier = DirectoryObserver::watch(&dir, tx).unwrap();
 
         // Create a serialized RegisterSignatureMessage in the folder
         let file_path = dir.join("register_signature.json");
@@ -124,7 +131,7 @@ mod tests {
             .unwrap();
 
         // Wait for the message to be notified
-        tokio::time::sleep(Duration::from_millis(10000)).await;
+        tokio::time::sleep(Duration::from_millis(10)).await;
 
         assert!(!file_path.exists());
     }
