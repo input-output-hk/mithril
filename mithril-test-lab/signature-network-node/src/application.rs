@@ -26,7 +26,7 @@ pub struct Application {
     input_directory: PathBuf,
     peers_input_directories: Vec<PathBuf>,
     database: Database,
-    logger: slog::Logger,
+    main_logger: slog::Logger,
 }
 
 struct Database {
@@ -39,6 +39,7 @@ impl Application {
         socket_path: &Path,
         input_directory: &Path,
         peers_input_directories: Vec<PathBuf>,
+        main_logger: &slog::Logger,
     ) -> Self {
         Self {
             id: id.to_string(),
@@ -48,12 +49,12 @@ impl Application {
             database: Database {
                 available_signatures_registrations: Arc::new(Mutex::new(vec![])),
             },
-            logger: slog_scope::logger().new(slog::o!("src" => "app")),
+            main_logger: main_logger.clone(),
         }
     }
 
     pub async fn run(&self) -> StdResult<()> {
-        info!(self.logger, "Running application with id: {}", self.id);
+        info!(self.main_logger, "Running application with id: {}", self.id);
 
         let mut join_set = AppJoinSet::new();
         self.listen_to_termination_signals(&mut join_set);
@@ -62,8 +63,11 @@ impl Application {
         let (from_socket_msg_tx, from_socket_msg_rx) = mpsc::channel(10);
 
         // The observer will stop when dropped
-        let _directory_observer =
-            DirectoryObserver::watch(&self.input_directory, from_input_dir_msg_tx)?;
+        let _directory_observer = DirectoryObserver::watch(
+            &self.input_directory,
+            from_input_dir_msg_tx,
+            &self.main_logger,
+        )?;
         self.listen_input_folder_for_messages(from_input_dir_msg_rx, &mut join_set);
 
         let (server_shutdown_tx, server_shutdown_rx) = oneshot::channel();
@@ -73,7 +77,7 @@ impl Application {
 
         let shutdown_reason = match join_set.join_next().await {
             Some(Err(e)) => {
-                crit!(self.logger, "A critical error occurred: {e:?}");
+                crit!(self.main_logger, "A critical error occurred: {e:?}");
                 None
             }
             Some(Ok(res)) => res?,
@@ -83,7 +87,7 @@ impl Application {
         join_set.shutdown().await;
         let _ = server_shutdown_tx.send(());
 
-        debug!(self.logger, "Stopping"; "shutdown_reason" => shutdown_reason);
+        debug!(self.main_logger, "Stopping"; "shutdown_reason" => shutdown_reason);
 
         Ok(())
     }
@@ -96,7 +100,7 @@ impl Application {
         let mut message_sender = MessageSender::new(
             msg_rx,
             self.peers_input_directories.clone(),
-            self.logger.clone(),
+            &self.main_logger,
         );
         join_set.spawn(async move {
             message_sender.listen().await;
@@ -112,6 +116,7 @@ impl Application {
         let mut message_listener = MessageListener::new(
             msg_rx,
             self.database.available_signatures_registrations.clone(),
+            &self.main_logger,
         );
         join_set.spawn(async move {
             message_listener.listen().await;
@@ -125,13 +130,16 @@ impl Application {
         incoming_messages_sender: mpsc::Sender<Message>,
         join_set: &mut AppJoinSet,
     ) {
-        let routes = router::routes(RouterDependencies {
-            available_signatures_registrations: self
-                .database
-                .available_signatures_registrations
-                .clone(),
-            incoming_messages_sender,
-        });
+        let routes = router::routes(
+            RouterDependencies {
+                available_signatures_registrations: self
+                    .database
+                    .available_signatures_registrations
+                    .clone(),
+                incoming_messages_sender,
+            },
+            &self.main_logger,
+        );
         let socket_path = self.socket_path.clone();
         join_set.spawn(async move {
             let listener = UnixListener::bind(socket_path)?;
