@@ -9,12 +9,13 @@ use tokio::sync::{mpsc, oneshot, Mutex};
 use tokio::task::JoinSet;
 use tokio_stream::wrappers::UnixListenerStream;
 
+use mithril_common::messages::RegisterSignatureMessage;
+use mithril_common::StdResult;
+
 use crate::entities::{Message, RouterDependencies};
 use crate::message_listener::MessageListener;
 use crate::server::router;
 use crate::DirectoryObserver;
-use mithril_common::messages::RegisterSignatureMessage;
-use mithril_common::StdResult;
 
 type AppJoinSet = JoinSet<StdResult<Option<String>>>;
 
@@ -22,6 +23,7 @@ pub struct Application {
     id: String,
     socket_path: PathBuf,
     input_directory: PathBuf,
+    peers_input_directories: Vec<PathBuf>,
     database: Database,
     logger: slog::Logger,
 }
@@ -31,11 +33,17 @@ struct Database {
 }
 
 impl Application {
-    pub fn new(id: &str, socket_path: &Path, input_directory: &Path) -> Self {
+    pub fn new(
+        id: &str,
+        socket_path: &Path,
+        input_directory: &Path,
+        peers_input_directories: Vec<PathBuf>,
+    ) -> Self {
         Self {
             id: id.to_string(),
             socket_path: socket_path.to_path_buf(),
             input_directory: input_directory.to_path_buf(),
+            peers_input_directories,
             database: Database {
                 available_signatures_registrations: Arc::new(Mutex::new(vec![])),
             },
