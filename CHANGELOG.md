@@ -11,6 +11,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for Mithril nodes footprint support in Prometheus monitoring in infrastructure
 - Add support for custom HTTP headers in Mithril client WASM library
+- Support `file://` URLs for snapshot locations
 
 - **UNSTABLE** Cardano stake distribution certification:
 
