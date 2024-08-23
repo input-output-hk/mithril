@@ -1,4 +1,4 @@
-//!
+//! Tools to read & write messages to a Unix socket using Http protocol.
 
 use std::path::{Path, PathBuf};
 
@@ -113,7 +113,7 @@ mod tests {
         assert_eq!(Err(TryRecvError::Empty), rx.try_recv());
 
         client
-            .write(&url, &RegisterSignatureMessage::dummy())
+            .write(url, &RegisterSignatureMessage::dummy())
             .unwrap();
 
         // Wait for the message to be notified
@@ -137,7 +137,7 @@ mod tests {
 
         let client = HttpUnixSocketClient::new(&socket_path);
 
-        let message: RegisterSignatureMessage = client.read(&url).unwrap();
+        let message: RegisterSignatureMessage = client.read(url).unwrap();
 
         assert_eq!(RegisterSignatureMessage::dummy(), message);
     }
@@ -156,7 +156,7 @@ mod tests {
 
         let client = HttpUnixSocketClient::new(&socket_path);
 
-        let error = client.read::<RegisterSignatureMessage>(&url).unwrap_err();
+        let error = client.read::<RegisterSignatureMessage>(url).unwrap_err();
 
         assert!(
             error.to_string().contains("Unexpected response code: 400"),

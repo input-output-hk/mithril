@@ -1,8 +1,8 @@
-use slog::{crit, debug, info};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use slog::{crit, debug, info};
 use tokio::net::UnixListener;
 use tokio::signal::unix::{signal, SignalKind};
 use tokio::sync::{oneshot, Mutex};
@@ -34,7 +34,7 @@ impl Application {
             database: Database {
                 available_signatures_registrations: Arc::new(Mutex::new(vec![])),
             },
-            logger: slog_scope::logger().new(slog::o!("name" => "app")),
+            logger: slog_scope::logger().new(slog::o!("src" => "app")),
         }
     }
 
