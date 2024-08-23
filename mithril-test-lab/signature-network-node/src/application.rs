@@ -14,6 +14,7 @@ use mithril_common::StdResult;
 
 use crate::entities::{Message, RouterDependencies};
 use crate::message_listener::MessageListener;
+use crate::message_sender::MessageSender;
 use crate::server::router;
 use crate::DirectoryObserver;
 
@@ -58,7 +59,7 @@ impl Application {
         self.listen_to_termination_signals(&mut join_set);
 
         let (from_input_dir_msg_tx, from_input_dir_msg_rx) = mpsc::channel(10);
-        let (from_socket_msg_tx, _from_socket_msg_rx) = mpsc::channel(10);
+        let (from_socket_msg_tx, from_socket_msg_rx) = mpsc::channel(10);
 
         // The observer will stop when dropped
         let _directory_observer =
@@ -67,6 +68,8 @@ impl Application {
 
         let (server_shutdown_tx, server_shutdown_rx) = oneshot::channel();
         self.spawn_http_server_on_socket(server_shutdown_rx, from_socket_msg_tx, &mut join_set);
+
+        self.forward_message_from_http_server_to_peers(from_socket_msg_rx, &mut join_set);
 
         let shutdown_reason = match join_set.join_next().await {
             Some(Err(e)) => {
@@ -83,6 +86,22 @@ impl Application {
         debug!(self.logger, "Stopping"; "shutdown_reason" => shutdown_reason);
 
         Ok(())
+    }
+
+    fn forward_message_from_http_server_to_peers(
+        &self,
+        msg_rx: mpsc::Receiver<Message>,
+        join_set: &mut AppJoinSet,
+    ) {
+        let mut message_sender = MessageSender::new(
+            msg_rx,
+            self.peers_input_directories.clone(),
+            self.logger.clone(),
+        );
+        join_set.spawn(async move {
+            message_sender.listen().await;
+            Ok(None)
+        });
     }
 
     fn listen_input_folder_for_messages(
