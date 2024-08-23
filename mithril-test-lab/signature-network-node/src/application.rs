@@ -49,13 +49,16 @@ impl Application {
         let mut join_set = AppJoinSet::new();
         self.listen_to_termination_signals(&mut join_set);
 
-        let (msg_tx, msg_rx) = mpsc::channel(10);
+        let (from_input_dir_msg_tx, from_input_dir_msg_rx) = mpsc::channel(10);
+        let (from_socket_msg_tx, _from_socket_msg_rx) = mpsc::channel(10);
+
         // The observer will stop when dropped
-        let _directory_observer = DirectoryObserver::watch(&self.input_directory, msg_tx)?;
-        self.listen_input_folder_for_messages(msg_rx, &mut join_set);
+        let _directory_observer =
+            DirectoryObserver::watch(&self.input_directory, from_input_dir_msg_tx)?;
+        self.listen_input_folder_for_messages(from_input_dir_msg_rx, &mut join_set);
 
         let (server_shutdown_tx, server_shutdown_rx) = oneshot::channel();
-        self.spawn_http_server_on_socket(server_shutdown_rx, &mut join_set);
+        self.spawn_http_server_on_socket(server_shutdown_rx, from_socket_msg_tx, &mut join_set);
 
         let shutdown_reason = match join_set.join_next().await {
             Some(Err(e)) => {
@@ -92,6 +95,7 @@ impl Application {
     fn spawn_http_server_on_socket(
         &self,
         shutdown_rx: oneshot::Receiver<()>,
+        incoming_messages_sender: mpsc::Sender<Message>,
         join_set: &mut AppJoinSet,
     ) {
         let routes = router::routes(RouterDependencies {
@@ -99,6 +103,7 @@ impl Application {
                 .database
                 .available_signatures_registrations
                 .clone(),
+            incoming_messages_sender,
         });
         let socket_path = self.socket_path.clone();
         join_set.spawn(async move {
