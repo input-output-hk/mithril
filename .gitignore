@@ -16,3 +16,5 @@ mithril-infra/terraform.tfstate*
 mithril-infra/*.tfvars
 justfile
 
+# Outputs of nix-build:
+result
