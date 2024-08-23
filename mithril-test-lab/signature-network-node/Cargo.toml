@@ -27,3 +27,4 @@ tokio-stream = { version = "0.1.15", features = ["net"] }
 warp = "0.3.7"
 
 [dev-dependencies]
+walkdir = "2.5.0"
