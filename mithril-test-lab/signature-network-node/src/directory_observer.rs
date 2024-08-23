@@ -4,10 +4,9 @@ use std::path::Path;
 use anyhow::Context;
 use notify::event::{AccessKind, AccessMode};
 use notify::{EventKind, Watcher};
-use slog::{error, info, warn};
+use slog::{error, info, trace};
 use tokio::sync::mpsc;
 
-use mithril_common::messages::RegisterSignatureMessage;
 use mithril_common::StdResult;
 
 use crate::entities::Message;
@@ -43,22 +42,12 @@ impl DirectoryObserver {
                     );
 
                     for file in event.paths {
-                        let file_content = fs::read_to_string(&file).unwrap();
-                        match serde_json::from_str::<RegisterSignatureMessage>(&file_content) {
-                            Ok(register_signature_message) => {
-                                sender
-                                    .try_send(Message::MithrilRegisterSignature(
-                                        register_signature_message,
-                                    ))
-                                    .unwrap();
-
-                                fs::remove_file(&file).unwrap();
-                            }
-                            Err(err) => error!(logger, "Error parsing file content: {err:?}"),
+                        if let Err(err) = read_message_then_send_to_channel(&file, &sender) {
+                            error!(logger, "Failed to read message file"; "err" => ?err);
                         }
                     }
                 }
-                Ok(event) => warn!(logger, "Unsupported event: {:?}", event),
+                Ok(event) => trace!(logger, "Unsupported event: {:?}", event),
                 Err(err) => error!(logger, "Error watching directory: {err:?}"),
             })
             .with_context(|| {
@@ -74,13 +63,37 @@ impl DirectoryObserver {
     }
 }
 
+fn read_message_then_send_to_channel(
+    file_path: &Path,
+    sender: &mpsc::Sender<Message>,
+) -> StdResult<()> {
+    let file_content = fs::read_to_string(file_path)
+        .with_context(|| format!("Failed to read message file, path: {}", file_path.display()))?;
+    let message = serde_json::from_str::<Message>(&file_content)
+        .with_context(|| "Failed to parse message file")?;
+    sender
+        .try_send(message)
+        .with_context(|| "Failed to send message to channel")?;
+    fs::remove_file(file_path).with_context(|| {
+        format!(
+            "Failed to remove message file, path: {}",
+            file_path.display()
+        )
+    })?;
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::TempDir;
     use std::fs::File;
     use std::io::BufWriter;
     use std::time::Duration;
+
     use tokio::sync::mpsc::error::TryRecvError;
+
+    use mithril_common::messages::RegisterSignatureMessage;
+    use mithril_common::test_utils::TempDir;
 
     use super::*;
 
@@ -100,8 +113,11 @@ mod tests {
 
         // Create a serialized RegisterSignatureMessage in the folder
         let file = File::create_new(dir.join("register_signature.json")).unwrap();
-        serde_json::to_writer_pretty(BufWriter::new(file), &RegisterSignatureMessage::dummy())
-            .unwrap();
+        serde_json::to_writer_pretty(
+            BufWriter::new(file),
+            &Message::MithrilRegisterSignature(RegisterSignatureMessage::dummy()),
+        )
+        .unwrap();
 
         // Wait for the message to be notified
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -114,10 +130,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn after_successfull_read_message_file_is_deleted() {
+    async fn after_successful_read_message_file_is_deleted() {
         let dir = TempDir::create(
             "signature-network-node",
-            "after_successfull_read_message_file_is_deleted",
+            "after_successful_read_message_file_is_deleted",
         );
 
         let (tx, _rx) = mpsc::channel(1);
@@ -127,8 +143,11 @@ mod tests {
         // Create a serialized RegisterSignatureMessage in the folder
         let file_path = dir.join("register_signature.json");
         let file = File::create_new(&file_path).unwrap();
-        serde_json::to_writer_pretty(BufWriter::new(file), &RegisterSignatureMessage::dummy())
-            .unwrap();
+        serde_json::to_writer_pretty(
+            BufWriter::new(file),
+            &Message::MithrilRegisterSignature(RegisterSignatureMessage::dummy()),
+        )
+        .unwrap();
 
         // Wait for the message to be notified
         tokio::time::sleep(Duration::from_millis(10)).await;
