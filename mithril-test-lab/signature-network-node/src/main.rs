@@ -5,6 +5,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use clap::Parser;
 use slog::{o, Drain, Level, Logger};
+use slog_scope::debug;
 
 use mithril_common::StdResult;
 
@@ -32,6 +33,16 @@ pub struct Args {
     #[clap(long)]
     input_directory: Option<PathBuf>,
 
+    /// Paths to the peer's input directories.
+    ///
+    /// Messages received from this node socket will be forwarded to these directories.
+    #[clap(short, long, value_delimiter = ' ')]
+    peers_input_directories: Vec<PathBuf>,
+
+    /// Log messages in JSON format
+    #[clap(long)]
+    json_log: bool,
+
     /// Verbosity level
     #[clap(
         short,
@@ -42,23 +53,39 @@ pub struct Args {
     verbose: u8,
 }
 
+#[derive(Debug)]
 struct SanitizedArgs {
     id: String,
     socket_path: PathBuf,
     input_directory: PathBuf,
-    verbose: u8,
+    peers_input_directories: Vec<PathBuf>,
+    log_level: Level,
+    enable_json_log: bool,
 }
 
 impl Args {
     fn sanitize(mut self) -> StdResult<SanitizedArgs> {
         self.sanitize_paths()?;
+        let log_level = self.log_level();
 
         Ok(SanitizedArgs {
-            id: self.id.clone(),
+            id: self.id,
             socket_path: self.socket_path.unwrap(),
             input_directory: self.input_directory.unwrap(),
-            verbose: self.verbose,
+            peers_input_directories: self.peers_input_directories,
+            log_level,
+            enable_json_log: self.json_log,
         })
+    }
+
+    fn log_level(&self) -> Level {
+        match self.verbose {
+            0 => Level::Error,
+            1 => Level::Warning,
+            2 => Level::Info,
+            3 => Level::Debug,
+            _ => Level::Trace,
+        }
     }
 
     fn sanitize_paths(&mut self) -> StdResult<()> {
@@ -91,13 +118,23 @@ impl Args {
 }
 
 impl SanitizedArgs {
-    fn log_level(&self) -> Level {
-        match self.verbose {
-            0 => Level::Error,
-            1 => Level::Warning,
-            2 => Level::Info,
-            3 => Level::Debug,
-            _ => Level::Trace,
+    fn build_logger(&self) -> Logger {
+        if self.enable_json_log {
+            let drain = slog_bunyan::with_name("signature-network-node", std::io::stdout())
+                .set_pretty(false)
+                .build()
+                .fuse();
+            let drain = slog::LevelFilter::new(drain, self.log_level).fuse();
+            let drain = slog_async::Async::new(drain).build().fuse();
+
+            Logger::root(Arc::new(drain), o!())
+        } else {
+            let decorator = slog_term::TermDecorator::new().build();
+            let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+            let drain = slog::LevelFilter::new(drain, self.log_level).fuse();
+            let drain = slog_async::Async::new(drain).build().fuse();
+
+            Logger::root(Arc::new(drain), o!())
         }
     }
 }
@@ -105,20 +142,15 @@ impl SanitizedArgs {
 #[tokio::main]
 async fn main() -> StdResult<()> {
     let args = Args::parse().sanitize()?;
-    let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
+    let _guard = slog_scope::set_global_logger(args.build_logger());
+    debug!("Starting"; "args" => #?args);
 
-    Application::new(&args.id, &args.socket_path, &args.input_directory)
-        .run()
-        .await
-}
-
-fn build_logger(min_level: Level) -> Logger {
-    let drain = slog_bunyan::with_name("signature-network-node", std::io::stdout())
-        .set_pretty(false)
-        .build()
-        .fuse();
-    let drain = slog::LevelFilter::new(drain, min_level).fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-
-    Logger::root(Arc::new(drain), o!())
+    Application::new(
+        &args.id,
+        &args.socket_path,
+        &args.input_directory,
+        args.peers_input_directories,
+    )
+    .run()
+    .await
 }
