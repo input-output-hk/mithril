@@ -20,12 +20,12 @@ impl MessageSender {
     pub fn new(
         listening_channel: mpsc::Receiver<Message>,
         peer_input_directories: Vec<PathBuf>,
-        logger: slog::Logger,
+        parent_logger: &slog::Logger,
     ) -> Self {
         Self {
             listening_channel,
             target_directories: peer_input_directories,
-            logger: logger.new(slog::o!("src" => "message_sender")),
+            logger: parent_logger.new(slog::o!("src" => "message_sender")),
         }
     }
 
@@ -110,7 +110,7 @@ mod tests {
         let target_dir = dir.join("peer-1");
         std::fs::create_dir(&target_dir).unwrap();
         let (tx, rx) = mpsc::channel(1);
-        let mut sender = MessageSender::new(rx, vec![target_dir.clone()], TestLogger::stdout());
+        let mut sender = MessageSender::new(rx, vec![target_dir.clone()], &TestLogger::stdout());
 
         tokio::spawn(async move {
             sender.listen().await;
@@ -146,7 +146,7 @@ mod tests {
             std::fs::create_dir(dir).unwrap();
         }
         let (tx, rx) = mpsc::channel(1);
-        let mut sender = MessageSender::new(rx, target_dirs.clone(), TestLogger::stdout());
+        let mut sender = MessageSender::new(rx, target_dirs.clone(), &TestLogger::stdout());
 
         tokio::spawn(async move {
             sender.listen().await;

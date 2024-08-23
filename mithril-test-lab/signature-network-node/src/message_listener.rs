@@ -19,11 +19,12 @@ impl MessageListener {
     pub fn new(
         listening_channel: mpsc::Receiver<Message>,
         available_signatures_registrations: Arc<Mutex<Vec<RegisterSignatureMessage>>>,
+        parent_logger: &slog::Logger,
     ) -> Self {
         Self {
             listening_channel,
             available_signatures_registrations,
-            logger: slog_scope::logger().new(slog::o!("src" => "message_listener")),
+            logger: parent_logger.new(slog::o!("src" => "message_listener")),
         }
     }
 
@@ -49,15 +50,19 @@ impl MessageListener {
 
 #[cfg(test)]
 mod tests {
-    use crate::entities::Message;
-
     use super::*;
+    use crate::entities::Message;
+    use crate::tests::TestLogger;
 
     #[tokio::test]
     async fn input_folder_listener_push_signatures_messages_to_available_sig_queue() {
         let (tx, rx) = mpsc::channel(1);
         let available_signatures_registrations = Arc::new(Mutex::new(Vec::new()));
-        let mut listener = MessageListener::new(rx, available_signatures_registrations.clone());
+        let mut listener = MessageListener::new(
+            rx,
+            available_signatures_registrations.clone(),
+            &TestLogger::stdout(),
+        );
 
         tokio::spawn(async move {
             listener.listen().await;

@@ -4,8 +4,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use clap::Parser;
-use slog::{o, Drain, Level, Logger};
-use slog_scope::debug;
+use slog::{debug, o, Drain, Level, Logger};
 
 use mithril_common::StdResult;
 
@@ -142,14 +141,15 @@ impl SanitizedArgs {
 #[tokio::main]
 async fn main() -> StdResult<()> {
     let args = Args::parse().sanitize()?;
-    let _guard = slog_scope::set_global_logger(args.build_logger());
-    debug!("Starting"; "args" => #?args);
+    let logger = args.build_logger();
+    debug!(logger, "Starting"; "args" => #?args);
 
     Application::new(
         &args.id,
         &args.socket_path,
         &args.input_directory,
         args.peers_input_directories,
+        &logger,
     )
     .run()
     .await

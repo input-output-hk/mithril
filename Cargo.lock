@@ -5948,7 +5948,6 @@ dependencies = [
  "slog",
  "slog-async",
  "slog-bunyan",
- "slog-scope",
  "slog-term",
  "tokio",
  "tokio-stream",
