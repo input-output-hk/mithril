@@ -3923,6 +3923,7 @@ dependencies = [
  "thiserror",
  "tikv-jemallocator",
  "tokio",
+ "warp",
 ]
 
 [[package]]

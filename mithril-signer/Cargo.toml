@@ -53,6 +53,7 @@ mithril-common = { path = "../mithril-common" }
 mockall = "0.13.0"
 prometheus-parse = "0.2.5"
 slog-term = "2.9.1"
+warp = "0.3.7"
 
 [features]
 default = ["jemallocator"]
