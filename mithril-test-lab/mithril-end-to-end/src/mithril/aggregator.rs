@@ -18,6 +18,7 @@ pub struct AggregatorConfig<'a> {
     pub server_port: u64,
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
+    pub signature_network_node_socket: Option<&'a Path>,
     pub work_dir: &'a Path,
     pub artifacts_dir: &'a Path,
     pub bin_dir: &'a Path,

@@ -12,7 +12,7 @@ use signature_network_node::Application;
 
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
-    #[clap(long)]
+    #[clap(long, env)]
     id: String,
 
     /// Path to the socket file to communicate with this node.
@@ -20,7 +20,7 @@ pub struct Args {
     /// If given the host directory must exist and existing socket file will be removed.
     ///
     /// Optional: if not set it will default to `{system_temp_folder}/signatures-network-node-{id}/node.sock`
-    #[clap(long)]
+    #[clap(long, env)]
     socket_path: Option<PathBuf>,
 
     /// Path to the directory where the node will listen for new messages.
@@ -29,17 +29,17 @@ pub struct Args {
     /// won't be removed.
     ///
     /// Optional: if not set it will default to `{system_temp_folder}/signatures-network-node-{id}/input/`
-    #[clap(long)]
+    #[clap(long, env)]
     input_directory: Option<PathBuf>,
 
     /// Paths to the peer's input directories.
     ///
     /// Messages received from this node socket will be forwarded to these directories.
-    #[clap(short, long, value_delimiter = ' ')]
+    #[clap(short, long, value_delimiter = ' ', env)]
     peers_input_directories: Vec<PathBuf>,
 
     /// Log messages in JSON format
-    #[clap(long)]
+    #[clap(long, env)]
     json_log: bool,
 
     /// Verbosity level

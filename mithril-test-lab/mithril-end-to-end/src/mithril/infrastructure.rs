@@ -10,7 +10,8 @@ use std::sync::Arc;
 
 use crate::{
     assertions, Aggregator, AggregatorConfig, Client, Devnet, PoolNode, RelayAggregator,
-    RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
+    RelayPassive, RelaySigner, SignatureNetworkNode, SignatureNetworkNodeConfig, Signer,
+    DEVNET_MAGIC_ID,
 };
 
 use super::signer::SignerConfig;
@@ -41,6 +42,7 @@ pub struct MithrilInfrastructure {
     relay_aggregators: Vec<RelayAggregator>,
     relay_signers: Vec<RelaySigner>,
     relay_passives: Vec<RelayPassive>,
+    signatures_network_nodes: Vec<SignatureNetworkNode>,
     cardano_chain_observer: Arc<dyn ChainObserver>,
     run_only_mode: bool,
     current_era: String,
@@ -61,8 +63,16 @@ impl MithrilInfrastructure {
             .map(|s| s.party_id())
             .collect::<StdResult<Vec<PartyId>>>()?;
 
-        let aggregator =
-            Self::start_aggregator(config, aggregator_cardano_node, chain_observer_type).await?;
+        let signatures_network_nodes =
+            Self::start_signatures_network_nodes(config, devnet_topology.pool_nodes.len())?;
+
+        let aggregator = Self::start_aggregator(
+            config,
+            aggregator_cardano_node,
+            &signatures_network_nodes[0],
+            chain_observer_type,
+        )
+        .await?;
 
         let (relay_aggregators, relay_signers, relay_passives) =
             Self::start_relays(config, aggregator.endpoint(), &signer_party_ids)?;
@@ -71,6 +81,7 @@ impl MithrilInfrastructure {
             config,
             aggregator.endpoint(),
             signer_cardano_nodes,
+            &signatures_network_nodes[1..],
             &relay_signers,
         )?;
 
@@ -88,6 +99,7 @@ impl MithrilInfrastructure {
             relay_aggregators,
             relay_signers,
             relay_passives,
+            signatures_network_nodes,
             cardano_chain_observer,
             run_only_mode: config.run_only_mode,
             current_era: config.mithril_era.clone(),
@@ -135,9 +147,52 @@ impl MithrilInfrastructure {
         Ok(())
     }
 
+    fn start_signatures_network_nodes(
+        config: &MithrilInfrastructureConfig,
+        number_of_nodes: usize,
+    ) -> StdResult<Vec<SignatureNetworkNode>> {
+        let nodes_parent_work_dir = config.work_dir.join("signature-network-nodes");
+        std::fs::create_dir_all(&nodes_parent_work_dir).with_context(|| {
+            format!(
+                "Failed to create signature network nodes parent work directory: {}",
+                nodes_parent_work_dir.display()
+            )
+        })?;
+
+        let mut nodes = vec![];
+
+        for index in 1..(number_of_nodes + 1) {
+            // Path to the input directories of the other nodes
+            let peers_input_directories = (1..(number_of_nodes + 1))
+                .filter(|i| i != &index)
+                .map(|index| {
+                    SignatureNetworkNode::compute_work_dir_path(
+                        &nodes_parent_work_dir,
+                        &index.to_string(),
+                    )
+                    .join(SignatureNetworkNode::INPUT_DIR_NAME)
+                })
+                .collect::<Vec<PathBuf>>();
+
+            let node_config = SignatureNetworkNodeConfig {
+                id: &index.to_string(),
+                parent_work_dir: &nodes_parent_work_dir,
+                bin_dir: &config.bin_dir,
+                peers_input_directories,
+            };
+            let mut node = SignatureNetworkNode::new(&node_config)?;
+
+            node.start()?;
+            nodes.push(node);
+        }
+
+        Ok(nodes)
+    }
+
     async fn start_aggregator(
         config: &MithrilInfrastructureConfig,
         pool_node: &PoolNode,
+        signature_network_node: &SignatureNetworkNode,
         chain_observer_type: &str,
     ) -> StdResult<Aggregator> {
         let aggregator_artifacts_directory = config.artifacts_dir.join("mithril-aggregator");
@@ -154,6 +209,7 @@ impl MithrilInfrastructure {
             server_port: config.server_port,
             pool_node,
             cardano_cli_path: &config.devnet.cardano_cli_path(),
+            signature_network_node_socket: Some(signature_network_node.socket_path()),
             work_dir: &config.work_dir,
             artifacts_dir: &aggregator_artifacts_directory,
             bin_dir: &config.bin_dir,
@@ -252,6 +308,7 @@ impl MithrilInfrastructure {
         config: &MithrilInfrastructureConfig,
         aggregator_endpoint: String,
         pool_nodes: &[PoolNode],
+        signature_network_nodes: &[SignatureNetworkNode],
         relay_signers: &[RelaySigner],
     ) -> StdResult<Vec<Signer>> {
         let mut signers: Vec<Signer> = vec![];
@@ -267,12 +324,19 @@ impl MithrilInfrastructure {
             } else {
                 aggregator_endpoint.clone()
             };
+            // First signer will use "old" aggregator http endpoint to send single signatures.
+            let signature_network_node_socket = if index > 0 {
+                signature_network_nodes.get(index).map(|s| s.socket_path())
+            } else {
+                None
+            };
 
             let mut signer = Signer::new(&SignerConfig {
                 signer_number: index + 1,
                 aggregator_endpoint,
                 pool_node,
                 cardano_cli_path: &config.devnet.cardano_cli_path(),
+                signature_network_node_socket,
                 work_dir: &config.work_dir,
                 bin_dir: &config.bin_dir,
                 mithril_run_interval: config.mithril_run_interval,
@@ -333,6 +397,10 @@ impl MithrilInfrastructure {
         &self.relay_passives
     }
 
+    pub fn signatures_network_nodes(&self) -> &[SignatureNetworkNode] {
+        &self.signatures_network_nodes
+    }
+
     pub fn chain_observer(&self) -> Arc<dyn ChainObserver> {
         self.cardano_chain_observer.clone()
     }
@@ -370,6 +438,9 @@ impl MithrilInfrastructure {
         }
         for relay_passive in self.relay_passives() {
             relay_passive.tail_logs(number_of_line).await?;
+        }
+        for signatures_network_node in self.signatures_network_nodes() {
+            signatures_network_node.tail_logs(number_of_line).await?;
         }
 
         Ok(())
