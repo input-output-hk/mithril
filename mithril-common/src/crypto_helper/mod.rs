@@ -21,6 +21,7 @@ pub use cardano::{
     KESPeriod, OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
     SerDeShelleyFileFormat, Sum6KesBytes,
 };
+pub use ckb_merkle_mountain_range;
 pub use codec::*;
 pub use era::{
     EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierError, EraMarkersVerifierSecretKey,
@@ -29,7 +30,8 @@ pub use era::{
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
 pub use merkle_map::{MKMap, MKMapKey, MKMapNode, MKMapProof, MKMapValue};
 pub use merkle_tree::{
-    MKProof, MKTree, MKTreeLeafIndexer, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer,
+    Bytes, MKProof, MKTree, MKTreeLeafIndexer, MKTreeLeafPosition, MKTreeNode, MKTreeStoreInMemory,
+    MKTreeStorer,
 };
 pub use types::*;
 

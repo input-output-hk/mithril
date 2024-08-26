@@ -14,10 +14,10 @@ use std::{
 use crate::{StdError, StdResult};
 
 /// Alias for a byte
-type Bytes = Vec<u8>;
+pub type Bytes = Vec<u8>;
 
 /// Alias for a Merkle tree leaf position
-type MKTreeLeafPosition = u64;
+pub type MKTreeLeafPosition = u64;
 
 /// A node of a Merkle tree
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Serialize, Deserialize)]

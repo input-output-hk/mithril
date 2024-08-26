@@ -13,6 +13,7 @@ mod configuration;
 pub mod database;
 mod message_adapters;
 pub mod metrics;
+mod mktree_store_sqlite;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
@@ -31,6 +32,7 @@ pub use message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
 };
 pub use metrics::*;
+pub use mktree_store_sqlite::*;
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
 pub use single_signer::*;
