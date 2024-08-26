@@ -50,7 +50,8 @@ use mithril_signer::{
         SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer},
-    Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
+    AggregatorHttpSignaturePublisher, Configuration, MetricsService, RuntimeError, SignerRunner,
+    SignerState, StateMachine,
 };
 
 use super::FakeAggregator;
@@ -263,6 +264,9 @@ impl StateMachineTester {
 
         let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
+            signature_publisher: Arc::new(AggregatorHttpSignaturePublisher::new(
+                certificate_handler.clone(),
+            )),
             ticker_service: ticker_service.clone(),
             chain_observer: chain_observer.clone(),
             digester: digester.clone(),
