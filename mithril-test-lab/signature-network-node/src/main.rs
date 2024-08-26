@@ -67,14 +67,27 @@ impl Args {
         self.sanitize_paths()?;
         let log_level = self.log_level();
 
-        Ok(SanitizedArgs {
+        let sanitized_args = SanitizedArgs {
             id: self.id,
             socket_path: self.socket_path.unwrap(),
             input_directory: self.input_directory.unwrap(),
             peers_input_directories: self.peers_input_directories,
             log_level,
             enable_json_log: self.json_log,
-        })
+        };
+
+        // Previous socket file must be removed in order for the warp http server to bind to it
+        if sanitized_args.socket_path.exists() {
+            fs::remove_file(&sanitized_args.socket_path)
+                .with_context(|| "Previous socket file removal failed")?;
+        }
+
+        if !sanitized_args.input_directory.exists() {
+            fs::create_dir(&sanitized_args.input_directory)
+                .with_context(|| "Input dir creation failure")?;
+        }
+
+        Ok(sanitized_args)
     }
 
     fn log_level(&self) -> Level {
@@ -98,18 +111,11 @@ impl Args {
         }
 
         if self.socket_path.is_none() {
-            let socket_path = app_dir.join("node.sock");
-            if socket_path.exists() {
-                fs::remove_file(&socket_path)
-                    .with_context(|| "Previous socket file removal failed")?;
-            }
-            self.socket_path = Some(socket_path);
+            self.socket_path = Some(app_dir.join("node.sock"));
         }
 
         if self.input_directory.is_none() {
-            let input_dir = app_dir.join("input");
-            fs::create_dir(&input_dir).with_context(|| "Input dir creation failure")?;
-            self.input_directory = Some(input_dir);
+            self.input_directory = Some(app_dir.join("input"));
         }
 
         Ok(())
