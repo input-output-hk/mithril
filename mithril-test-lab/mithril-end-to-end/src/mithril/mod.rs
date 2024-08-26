@@ -4,6 +4,7 @@ mod infrastructure;
 mod relay_aggregator;
 mod relay_passive;
 mod relay_signer;
+mod signature_network_node;
 mod signer;
 
 pub use aggregator::{Aggregator, AggregatorConfig};
@@ -15,6 +16,7 @@ pub use infrastructure::{MithrilInfrastructure, MithrilInfrastructureConfig};
 pub use relay_aggregator::RelayAggregator;
 pub use relay_passive::RelayPassive;
 pub use relay_signer::RelaySigner;
+pub use signature_network_node::{SignatureNetworkNode, SignatureNetworkNodeConfig};
 pub use signer::Signer;
 
 pub const DEVNET_MAGIC_ID: mithril_common::MagicId = 42;

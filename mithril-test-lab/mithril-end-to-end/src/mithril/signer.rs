@@ -12,6 +12,7 @@ pub struct SignerConfig<'a> {
     pub aggregator_endpoint: String,
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
+    pub signature_network_node_socket: Option<&'a Path>,
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub mithril_run_interval: u32,
