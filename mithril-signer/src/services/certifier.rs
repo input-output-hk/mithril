@@ -3,15 +3,14 @@ use chrono::Utc;
 use slog::{debug, Logger};
 use std::sync::Arc;
 
-use mithril_common::entities::{
-    ProtocolMessage, SignedEntityConfig, SignedEntityType, SingleSignatures, TimePoint,
-};
+use mithril_common::entities::{ProtocolMessage, SignedEntityConfig, SignedEntityType, TimePoint};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::StdResult;
 
 use crate::entities::BeaconToSign;
 use crate::services::SingleSigner;
+use crate::SignaturePublisher;
 
 /// Certifier Service
 ///
@@ -52,19 +51,6 @@ pub trait SignedBeaconStore: Sync + Send {
 
     /// Mark a beacon as signed.
     async fn mark_beacon_as_signed(&self, entity: &BeaconToSign) -> StdResult<()>;
-}
-
-/// Publishes computed single signatures to a third party.
-#[cfg_attr(test, mockall::automock)]
-#[async_trait]
-pub trait SignaturePublisher: Send + Sync {
-    /// Publish computed single signatures.
-    async fn publish(
-        &self,
-        signed_entity_type: &SignedEntityType,
-        signatures: &SingleSignatures,
-        protocol_message: &ProtocolMessage,
-    ) -> StdResult<()>;
 }
 
 /// Implementation of the [Certifier Service][CertifierService] for the Mithril Signer.
@@ -178,6 +164,7 @@ mod tests {
     use mithril_common::test_utils::fake_data;
 
     use crate::services::MockSingleSigner;
+    use crate::MockSignaturePublisher;
 
     use super::{tests::tests_tooling::*, *};
 
