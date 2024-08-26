@@ -73,10 +73,6 @@ async fn cardano_stake_distribution_verify_stakes() {
             )
         })
         .collect::<Vec<_>>();
-    let updated_stake_distribution: StakeDistribution = signers_with_updated_stake_distribution
-        .iter()
-        .map(|s| (s.party_id.clone(), s.stake))
-        .collect();
     tester
         .chain_observer
         .set_signers(signers_with_updated_stake_distribution)
@@ -121,6 +117,10 @@ async fn cardano_stake_distribution_verify_stakes() {
             )
         })
         .collect::<Vec<_>>();
+    let updated_stake_distribution: StakeDistribution = signers_with_updated_stake_distribution
+        .iter()
+        .map(|s| (s.party_id.clone(), s.stake))
+        .collect();
     tester
         .chain_observer
         .set_signers(signers_with_updated_stake_distribution)

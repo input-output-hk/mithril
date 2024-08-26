@@ -34,6 +34,10 @@ impl Epoch {
     /// at which the signer can send single signatures.
     pub const SIGNER_SIGNING_OFFSET: u64 = 2;
 
+    /// The epoch offset used to retrieve the epoch at the end of which the snapshot of the stake distribution
+    /// was taken by the Cardano node and labeled as 'Mark' snapshot during the following epoch.
+    pub const CARDANO_STAKE_DISTRIBUTION_SNAPSHOT_OFFSET: u64 = 2;
+
     /// Computes a new Epoch by applying an epoch offset.
     ///
     /// Will fail if the computed epoch is negative.
@@ -68,6 +72,11 @@ impl Epoch {
     /// Apply the [signer signing offset][Self::SIGNER_SIGNING_OFFSET] to this epoch
     pub fn offset_to_signer_signing_offset(&self) -> Self {
         *self + Self::SIGNER_SIGNING_OFFSET
+    }
+
+    /// Apply the [cardano stake distribution snapshot epoch offset][Self::CARDANO_STAKE_DISTRIBUTION_SNAPSHOT_OFFSET] to this epoch
+    pub fn offset_to_cardano_stake_distribution_snapshot_epoch(&self) -> Self {
+        *self + Self::CARDANO_STAKE_DISTRIBUTION_SNAPSHOT_OFFSET
     }
 
     /// Computes the next Epoch
