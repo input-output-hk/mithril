@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
-use crate::entities::SignedEntityTypeDiscriminants;
+use crate::entities::{CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants};
 
 /// Message advertised by an Aggregator to inform about its features
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -28,6 +28,7 @@ impl AggregatorFeaturesMessage {
                     SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 ]),
                 cardano_transactions_prover: None,
+                cardano_transactions_signing_config: None,
             },
         }
     }
@@ -42,6 +43,10 @@ pub struct AggregatorCapabilities {
     /// Cardano transactions prover capabilities
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cardano_transactions_prover: Option<CardanoTransactionsProverCapabilities>,
+
+    /// Cardano transactions signing configuration
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 /// Cardano transactions prover capabilities
@@ -53,9 +58,40 @@ pub struct CardanoTransactionsProverCapabilities {
 
 #[cfg(test)]
 mod tests {
+    use crate::entities::BlockNumber;
+
     use super::*;
 
-    fn golden_message() -> AggregatorFeaturesMessage {
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct AggregatorFeaturesMessagePrevious {
+        pub open_api_version: String,
+        pub documentation_url: String,
+        pub capabilities: AggregatorCapabilitiesPrevious,
+    }
+
+    #[derive(Debug, Serialize, Deserialize, PartialEq)]
+    struct AggregatorCapabilitiesPrevious {
+        pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub cardano_transactions_prover: Option<CardanoTransactionsProverCapabilities>,
+    }
+
+    fn golden_message_v1() -> AggregatorFeaturesMessagePrevious {
+        AggregatorFeaturesMessagePrevious {
+            open_api_version: "0.0.1".to_string(),
+            documentation_url: "https://example.com".to_string(),
+            capabilities: AggregatorCapabilitiesPrevious {
+                signed_entity_types: BTreeSet::from([
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                ]),
+                cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {
+                    max_hashes_allowed_by_request: 100,
+                }),
+            },
+        }
+    }
+
+    fn golden_message_v2() -> AggregatorFeaturesMessage {
         AggregatorFeaturesMessage {
             open_api_version: "0.0.1".to_string(),
             documentation_url: "https://example.com".to_string(),
@@ -65,6 +101,10 @@ mod tests {
                 ]),
                 cardano_transactions_prover: Some(CardanoTransactionsProverCapabilities {
                     max_hashes_allowed_by_request: 100,
+                }),
+                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(70),
+                    step: BlockNumber(20),
                 }),
             },
         }
@@ -84,8 +124,30 @@ mod tests {
             }
         }"#;
 
+        let message: AggregatorFeaturesMessagePrevious = serde_json::from_str(json).unwrap();
+
+        assert_eq!(golden_message_v1(), message);
+    }
+
+    #[test]
+    fn test_v2() {
+        let json = r#"{
+            "open_api_version": "0.0.1",
+            "documentation_url": "https://example.com",
+            "capabilities": {
+                "signed_entity_types": ["CardanoTransactions"],
+                "cardano_transactions_prover": {
+                    "max_hashes_allowed_by_request": 100
+                },
+                "cardano_transactions_signing_config": {
+                    "security_parameter": 70,
+                    "step": 20
+                }
+            }
+        }"#;
+
         let message: AggregatorFeaturesMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message(), message);
+        assert_eq!(golden_message_v2(), message);
     }
 }

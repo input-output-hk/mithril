@@ -70,6 +70,7 @@ mod handlers {
                 capabilities: AggregatorCapabilities {
                     signed_entity_types,
                     cardano_transactions_prover: cardano_transactions_prover_capabilities,
+                    cardano_transactions_signing_config: None,
                 },
             },
             StatusCode::OK,
@@ -150,7 +151,8 @@ mod tests {
                         SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                         SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                     ]),
-                    cardano_transactions_prover: None
+                    cardano_transactions_prover: None,
+                    cardano_transactions_signing_config: None,
                 },
             }
         );
