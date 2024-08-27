@@ -229,12 +229,6 @@ impl MMRStoreWriteOps<Arc<MKTreeNode>> for MKTreeStoreInMemory {
     }
 }
 
-impl Default for MKTreeStoreInMemory {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl MKTreeLeafIndexer for MKTreeStoreInMemory {
     fn set_leaf_position(&self, pos: MKTreeLeafPosition, node: Arc<MKTreeNode>) -> StdResult<()> {
         let mut inner_leaves = self.inner_leaves.write().unwrap();
@@ -265,18 +259,23 @@ impl MKTreeLeafIndexer for MKTreeStoreInMemory {
     }
 }
 
-impl MKTreeStorer for MKTreeStoreInMemory {}
+impl MKTreeStorer for MKTreeStoreInMemory {
+    fn build() -> StdResult<Self> {
+        Ok(Self::new())
+    }
+}
 
 /// The Merkle tree storer trait
 pub trait MKTreeStorer:
     Clone
-    + Default
     + Send
     + Sync
     + MKTreeLeafIndexer
     + MMRStoreReadOps<Arc<MKTreeNode>>
     + MMRStoreWriteOps<Arc<MKTreeNode>>
 {
+    /// Try to create a new instance of the storer
+    fn build() -> StdResult<Self>;
 }
 
 /// The Merkle tree leaves indexer trait
@@ -307,7 +306,7 @@ pub struct MKTree<S: MKTreeStorer> {
 impl<S: MKTreeStorer> MKTree<S> {
     /// MKTree factory
     pub fn new<T: Into<MKTreeNode> + Clone>(leaves: &[T]) -> StdResult<Self> {
-        let mut inner_tree = MMR::<_, _, _>::new(0, S::default());
+        let mut inner_tree = MMR::<_, _, _>::new(0, S::build()?);
         for leaf in leaves {
             let leaf = Arc::new(leaf.to_owned().into());
             let inner_tree_position = inner_tree.push(leaf.clone())?;

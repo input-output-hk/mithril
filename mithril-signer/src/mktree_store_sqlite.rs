@@ -23,7 +23,7 @@ pub struct MKTreeStoreSqlite {
 }
 
 impl MKTreeStoreSqlite {
-    fn try_new() -> StdResult<Self> {
+    fn build() -> StdResult<Self> {
         Ok(Self {
             inner_store: RwLock::new(Self::create_connection()?),
         })
@@ -116,12 +116,6 @@ impl MMRStoreWriteOps<Arc<MKTreeNode>> for MKTreeStoreSqlite {
     }
 }
 
-impl Default for MKTreeStoreSqlite {
-    fn default() -> Self {
-        Self::try_new().unwrap()
-    }
-}
-
 impl Clone for MKTreeStoreSqlite {
     fn clone(&self) -> Self {
         unimplemented!("Clone is not implemented for MKTreeStoreSqlite")
@@ -146,7 +140,11 @@ impl MKTreeLeafIndexer for MKTreeStoreSqlite {
     }
 }
 
-impl MKTreeStorer for MKTreeStoreSqlite {}
+impl MKTreeStorer for MKTreeStoreSqlite {
+    fn build() -> StdResult<Self> {
+        Self::build()
+    }
+}
 
 #[cfg(test)]
 mod tests {
