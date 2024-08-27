@@ -13,7 +13,6 @@ use mithril_common::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
     },
     chain_observer::{ChainObserver, FakeObserver},
-    crypto_helper::MKTreeStoreInMemory,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
@@ -35,8 +34,8 @@ use mithril_persistence::{
     store::{StakeStore, StakeStorer},
 };
 use mithril_signer::{
-    metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MetricsService,
-    MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
+    metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MKTreeStoreSqlite,
+    MetricsService, MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
     SignerUpkeepService, StateMachine,
 };
@@ -193,7 +192,7 @@ impl StateMachineTester {
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
-            MKTreeStoreInMemory,
+            MKTreeStoreSqlite,
         >::new(
             transactions_importer.clone(),
             block_range_root_retriever,

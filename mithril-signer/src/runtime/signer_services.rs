@@ -9,7 +9,7 @@ use mithril_common::{
     cardano_transactions_preloader::CardanoTransactionsPreloader,
     chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
     chain_reader::PallasChainReader,
-    crypto_helper::{MKTreeStoreInMemory, OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
+    crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         CardanoImmutableDigester, ImmutableDigester, ImmutableFileObserver,
@@ -33,8 +33,8 @@ use mithril_persistence::{
 use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
     AggregatorHTTPClient, CardanoTransactionsImporter,
-    CardanoTransactionsPreloaderActivationSigner, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
+    CardanoTransactionsPreloaderActivationSigner, Configuration, MKTreeStoreSqlite,
+    MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
     TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
     UpkeepService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
@@ -316,7 +316,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
-            MKTreeStoreInMemory,
+            MKTreeStoreSqlite,
         >::new(
             state_machine_transactions_importer,
             block_range_root_retriever,
