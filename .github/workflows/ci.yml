@@ -38,7 +38,13 @@ jobs:
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features bundle_openssl,full
+          binaries-build-args: |
+            --bin mithril-aggregator \
+            --bin mithril-signer \
+            --bin mithril-client \
+            --bin mithril-relay  \
+            --bin signature-network-node \
+            --features bundle_openssl,full
           libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
 
       - name: Build Debian packages
@@ -323,6 +329,7 @@ jobs:
           chmod +x ./bin/mithril-client
           chmod +x ./bin/mithril-signer
           chmod +x ./bin/mithril-relay
+          chmod +x ./bin/signature-network-node
           chmod +x ./mithril-end-to-end
           mkdir artifacts
 
