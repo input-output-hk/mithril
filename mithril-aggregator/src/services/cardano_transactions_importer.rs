@@ -152,8 +152,7 @@ impl CardanoTransactionsImporter {
                 continue;
             }
 
-            let merkle_root =
-                MKTree::<MKTreeStoreInMemory>::new(&transactions)?.compute_root()?;
+            let merkle_root = MKTree::<MKTreeStoreInMemory>::new(&transactions)?.compute_root()?;
             block_ranges_with_merkle_root.push((block_range, merkle_root));
 
             if block_ranges_with_merkle_root.len() >= 100 {

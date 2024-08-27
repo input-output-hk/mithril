@@ -473,8 +473,7 @@ mod tests {
         },
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::{
-            MKMap, MKMapNode, MKTreeNode, MKTreeStorer, MKTreeStoreInMemory,
-            ProtocolInitializer,
+            MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, StakeDistribution},

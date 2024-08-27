@@ -264,7 +264,9 @@ impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> Clone for MKMap<K, V, S> {
     }
 }
 
-impl<'a, K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> From<&'a MKMap<K, V, S>> for &'a MKTree<S> {
+impl<'a, K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> From<&'a MKMap<K, V, S>>
+    for &'a MKTree<S>
+{
     fn from(other: &'a MKMap<K, V, S>) -> Self {
         &other.inner_merkle_tree
     }

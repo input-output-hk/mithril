@@ -212,7 +212,7 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
 mod tests {
     use anyhow::anyhow;
     use mithril_common::crypto_helper::{
-        MKMap, MKMapNode, MKTreeNode, MKTreeStorer, MKTreeStoreInMemory,
+        MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer,
     };
     use mithril_common::entities::CardanoTransaction;
     use mithril_common::test_utils::CardanoTransactionsBuilder;
@@ -291,11 +291,8 @@ mod tests {
 
         pub fn compute_mk_map_from_block_ranges_map(
             block_ranges_map: BTreeMap<BlockRange, Vec<CardanoTransaction>>,
-        ) -> MKMap<
-            BlockRange,
-            MKMapNode<BlockRange, MKTreeStoreInMemory>,
-            MKTreeStoreInMemory,
-        > {
+        ) -> MKMap<BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>, MKTreeStoreInMemory>
+        {
             MKMap::new_from_iter(
                 block_ranges_map
                     .into_iter()
