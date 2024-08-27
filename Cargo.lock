@@ -3860,6 +3860,7 @@ dependencies = [
  "axum",
  "clap",
  "config",
+ "criterion",
  "hex",
  "httpmock",
  "mithril-common",
