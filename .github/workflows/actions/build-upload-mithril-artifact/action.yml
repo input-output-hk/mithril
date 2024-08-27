@@ -53,4 +53,5 @@ runs:
           target/release/mithril-signer.exe
           target/release/mithril-relay
           target/release/mithril-relay.exe
+          target/release/signature-network-node
         if-no-files-found: error
