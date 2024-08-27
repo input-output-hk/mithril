@@ -41,6 +41,9 @@ fn register_signatures(
         .and(with_dependency(dependencies, |d| {
             d.incoming_messages_sender
         }))
+        .and(with_dependency(dependencies, |d| {
+            d.available_signatures_registrations
+        }))
         .and(warp::any().map(move || logger.clone()))
         .and_then(handlers::register_signatures)
 }
@@ -84,9 +87,14 @@ mod handlers {
     pub async fn register_signatures(
         signature: RegisterSignatureMessage,
         incoming_messages_sender: mpsc::Sender<Message>,
+        available_signatures_registrations: Arc<Mutex<Vec<RegisterSignatureMessage>>>,
         logger: slog::Logger,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(logger, "/register-signatures/{:?}", signature);
+
+        let mut available_signatures_registrations =
+            available_signatures_registrations.lock().await;
+        available_signatures_registrations.push(signature.clone());
 
         match incoming_messages_sender
             .send(Message::MithrilRegisterSignature(signature))
@@ -206,5 +214,41 @@ mod tests {
             )),
             rx.try_recv(),
         );
+    }
+
+    #[tokio::test]
+    async fn register_signatures_push_them_to_db() {
+        let dir = TempDir::create(
+            "signature-network-node-router",
+            "register_signatures_push_them_to_db",
+        );
+        let socket_path = dir.join("test.sock");
+        let available_sigs = Arc::new(Mutex::new(vec![]));
+        let (tx, _rx) = mpsc::channel(1);
+        let dependencies = RouterDependencies {
+            available_signatures_registrations: available_sigs.clone(),
+            incoming_messages_sender: tx,
+        };
+        let _server = test_http_server_with_unix_socket(
+            register_signatures(&dependencies, &discard_logs()),
+            &socket_path,
+        );
+
+        let client = HttpUnixSocketClient::new(&socket_path);
+
+        // No signatures should have been received yet
+        {
+            let sigs = available_sigs.lock().await;
+            assert_eq!(Vec::<RegisterSignatureMessage>::new(), *sigs);
+        }
+
+        client
+            .write("register-signatures", &RegisterSignatureMessage::dummy())
+            .unwrap();
+
+        {
+            let sigs = available_sigs.lock().await;
+            assert_eq!(vec![RegisterSignatureMessage::dummy()], *sigs);
+        }
     }
 }
