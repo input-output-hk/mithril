@@ -714,6 +714,8 @@ components:
         - epoch
         - protocol
         - next_protocol
+        - current_signers
+        - next_signers
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
@@ -721,11 +723,53 @@ components:
           $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:
           $ref: "#/components/schemas/ProtocolParameters"
+        current_signers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signer"
+        next_signers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signer"
       example:
         {
           "epoch": 329,
           "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
-          "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 }
+          "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 },
+          "current_signers":
+            [
+              {
+                "party_id": "1234567890",
+                "verification_key": "7b12766b223a5c342b39302c32392c39392c39382c3131313138342c32252c32352c31353",
+                "verification_key_signature": "7b5473693727369676d61223a7b227369676d6d61223a7b261223a9b227369676d61213a",
+                "operational_certificate": "5b73136372c38302c37342c3136362c313535b5b3232352c3230332c3235352c313030262c38322c39382c32c39332c3138342c3135362c3136362c32312c3131312c3232312c36332c3137372c3232332c3232332c31392c3537",
+                "kes_period": 123
+              },
+              {
+                "party_id": "2345678900",
+                "verification_key": "7b392c39392c13131312766b223a5c39382c313342b39302c252c32352c31353328342c32",
+                "verification_key_signature": "2c33302c3133312c3138322c34362c3133352c372c3139302c3235322c35352c32322c39",
+                "operational_certificate": "3231342c3137372c37312c3232352c3233332c3135335d2c322c3139322c5b3133352c34312c3230332c3131332c3c33352c3234302c3230392c312c32392c3233332c33342c3138382c3134312c3130342c3234382c3231392c3",
+                "kes_period": 456
+              }
+            ],
+          "next_signers":
+            [
+              {
+                "party_id": "3456789000",
+                "verification_key": "7b22766b223a5b3133382c32392c3137332c3134342c36332c3233352c39372c3138302c3",
+                "verification_key_signature": "7b227369676d61223a7b227369676d61223a7b227369676d61223a7b227369676d612239",
+                "operational_certificate": "5b5b5b3232352c3230332c3235352c3130302c3136372c38302c37342c3136362c3135362c38322c39382c3232312c36332c3137372c3232332c3232332c31392c35372c39332c312c35302c3133392c3233342c3137332c32352",
+                "kes_period": 789
+              },
+              {
+                "party_id": "4567890000",
+                "verification_key": "34302c3132332c3139302c3134352c3132342c35342c3133302c37302c3136332c3139332",
+                "verification_key_signature": "302c3230312c38362c3139312c36302c3234352c3138332c3134342c3139392c3130335f",
+                "operational_certificate": "2c38382c3138372c3233332c34302c37322c31362c36365d2c312c3132332c5b31362c3136392c3134312c3138332c32322c3137342c3131312c33322c36342c35322c2c3232382c37392c3137352c32395312c3838282c323030",
+                "kes_period": 876
+              }
+            ]
         }
 
     ProtocolParameters:

@@ -61,11 +61,18 @@ pub fn epoch_settings() -> entities::EpochSettings {
     let protocol_parameters = protocol_parameters();
     let next_protocol_parameters = protocol_parameters.clone();
 
+    // Signers
+    let signers = signers(5);
+    let current_signers = signers[1..3].to_vec();
+    let next_signers = signers[2..5].to_vec();
+
     // Epoch settings
     entities::EpochSettings {
         epoch: beacon.epoch,
         protocol_parameters,
         next_protocol_parameters,
+        current_signers,
+        next_signers,
     }
 }
 
