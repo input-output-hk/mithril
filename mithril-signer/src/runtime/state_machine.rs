@@ -526,6 +526,9 @@ mod tests {
             epoch: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             next_protocol_parameters: fake_data::protocol_parameters(),
+            // TODO : put some data ?
+            current_signers: vec![],
+            next_signers: vec![],
         };
         let known_epoch = Epoch(4);
         runner

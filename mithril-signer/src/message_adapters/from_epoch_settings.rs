@@ -1,6 +1,6 @@
 use mithril_common::{
     entities::EpochSettings,
-    messages::{EpochSettingsMessage, FromMessageAdapter},
+    messages::{EpochSettingsMessage, FromMessageAdapter, SignerMessagePart},
 };
 
 /// Adapter to convert [EpochSettingsMessage] to [EpochSettings].
@@ -13,6 +13,8 @@ impl FromMessageAdapter<EpochSettingsMessage, EpochSettings> for FromEpochSettin
             epoch: message.epoch,
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
+            current_signers: SignerMessagePart::try_into_signers(message.current_signers).unwrap(),
+            next_signers: SignerMessagePart::try_into_signers(message.next_signers).unwrap(),
         }
     }
 }

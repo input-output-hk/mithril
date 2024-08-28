@@ -4,7 +4,7 @@ use crate::{
     crypto_helper::{KESPeriod, ProtocolOpCert, ProtocolSignerVerificationKeySignature},
     entities::{
         HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
-        SignerWithStake, Stake,
+        Signer, SignerWithStake, Stake,
     },
     StdResult,
 };
@@ -178,6 +178,38 @@ pub struct SignerMessagePart {
 }
 
 impl SignerMessagePart {
+    /// Convert a set of signer message parts into a set of signers
+    pub fn try_into_signers(messages: Vec<Self>) -> StdResult<Vec<Signer>> {
+        let mut signers: Vec<Signer> = Vec::new();
+
+        for message in messages {
+            let verification_key_signature: Option<ProtocolSignerVerificationKeySignature> = message.verification_key_signature
+                .map(|f| f.try_into())
+                .transpose()
+                .with_context(|| format!("Error while parsing verification key signature message, party_id = '{}'", message.party_id))?;
+            let operational_certificate: Option<ProtocolOpCert> = message
+                .operational_certificate
+                .map(|f| f.try_into())
+                .transpose()
+                .with_context(|| {
+                    format!(
+                        "Error while parsing operational certificate message, party_id = '{}'.",
+                        message.party_id
+                    )
+                })?;
+            let value = Signer {
+                party_id: message.party_id,
+                verification_key: message.verification_key.try_into()?,
+                verification_key_signature,
+                kes_period: message.kes_period,
+                operational_certificate,
+            };
+            signers.push(value);
+        }
+
+        Ok(signers)
+    }
+
     cfg_test_tools! {
         /// Return a dummy test entity (test-only).
         pub fn dummy() -> Self {
