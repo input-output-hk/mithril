@@ -1,7 +1,4 @@
-use std::{
-    iter::repeat,
-    sync::{Arc, RwLock},
-};
+use std::{iter::repeat, sync::Arc};
 
 use anyhow::Context;
 use mithril_common::{
@@ -10,17 +7,17 @@ use mithril_common::{
 };
 
 /// A Merkle tree store with Sqlite backend
-/// This store is used to store the Merkle tree nodes in a Sqlite database with in memory mode.
-/// This store is not suited for proving, it is only used to store the compute the root of a Merkle tree.
-/// This store is slower than the in memory store but uses less memory which is important to minimize the signer footprint on the SPO infrastructure.
+/// * This store is used to store the Merkle tree nodes in a Sqlite database with in memory mode.
+/// * This store is not suited for proving, it is only used to store the compute the root of a Merkle tree.
+/// * This store is slower than the in memory store but uses less memory which is important to minimize the signer footprint on the SPO infrastructure.
 pub struct MKTreeStoreSqlite {
-    inner_store: RwLock<sqlite::ConnectionThreadSafe>,
+    inner_store: sqlite::ConnectionThreadSafe,
 }
 
 impl MKTreeStoreSqlite {
     fn build() -> StdResult<Self> {
         Ok(Self {
-            inner_store: RwLock::new(Self::create_connection()?),
+            inner_store: Self::create_connection()?,
         })
     }
 
@@ -39,9 +36,8 @@ impl MKTreeStoreSqlite {
     }
 
     fn get_element_at_position(&self, position: u64) -> StdResult<Option<Arc<MKTreeNode>>> {
-        let inner_store = self.inner_store.read().unwrap();
         let query = "SELECT element FROM merkle_tree WHERE position = ?";
-        let mut statement = (*inner_store).prepare(query)?;
+        let mut statement = self.inner_store.prepare(query)?;
         statement.bind((1, position as i64)).unwrap();
         let result = if let Ok(sqlite::State::Row) = statement.next() {
             Some(Arc::new(MKTreeNode::new(
@@ -59,24 +55,22 @@ impl MKTreeStoreSqlite {
         position: u64,
         elements: Vec<Arc<MKTreeNode>>,
     ) -> StdResult<()> {
-        let inner_store = self.inner_store.read().unwrap();
         let values_columns: Vec<&str> = repeat("(?, ?)").take(elements.len()).collect();
-        let values: Vec<sqlite::Value> =
-            elements
-                .into_iter()
-                .enumerate()
-                .fold(vec![], |mut vec, (i, elem)| {
-                    vec.append(&mut vec![
-                        sqlite::Value::Integer((position + i as u64) as i64),
-                        sqlite::Value::Binary((**elem).to_vec()),
-                    ]);
-                    vec
-                });
+        let values: Vec<sqlite::Value> = elements
+            .into_iter()
+            .enumerate()
+            .flat_map(|(i, elem)| {
+                vec![
+                    sqlite::Value::Integer((position + i as u64) as i64),
+                    sqlite::Value::Binary((**elem).to_vec()),
+                ]
+            })
+            .collect();
         let query = format!(
             "INSERT INTO merkle_tree(position, element) VALUES {}",
             values_columns.join(", ")
         );
-        let mut statement = (*inner_store).prepare(query)?;
+        let mut statement = self.inner_store.prepare(query)?;
         statement.bind::<&[(_, sqlite::Value)]>(
             values
                 .into_iter()
