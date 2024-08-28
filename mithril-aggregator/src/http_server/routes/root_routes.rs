@@ -53,25 +53,32 @@ mod handlers {
             "root::error"
         );
 
-        let signed_entity_types =
-            signed_entity_config.list_allowed_signed_entity_types_discriminants();
+        let mut capabilities = AggregatorCapabilities {
+            signed_entity_types: signed_entity_config
+                .list_allowed_signed_entity_types_discriminants(),
+            cardano_transactions_prover: None,
+            cardano_transactions_signing_config: None,
+        };
 
-        let cardano_transactions_prover_capabilities = signed_entity_types
+        if capabilities
+            .signed_entity_types
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
-            .then_some(CardanoTransactionsProverCapabilities {
-                max_hashes_allowed_by_request: configuration
-                    .cardano_transactions_prover_max_hashes_allowed_by_request,
-            });
+        {
+            capabilities.cardano_transactions_prover =
+                Some(CardanoTransactionsProverCapabilities {
+                    max_hashes_allowed_by_request: configuration
+                        .cardano_transactions_prover_max_hashes_allowed_by_request,
+                });
+
+            capabilities.cardano_transactions_signing_config =
+                Some(configuration.cardano_transactions_signing_config.clone());
+        }
 
         Ok(json(
             &AggregatorFeaturesMessage {
                 open_api_version: open_api_version.to_string(),
                 documentation_url: env!("CARGO_PKG_HOMEPAGE").to_string(),
-                capabilities: AggregatorCapabilities {
-                    signed_entity_types,
-                    cardano_transactions_prover: cardano_transactions_prover_capabilities,
-                    cardano_transactions_signing_config: None,
-                },
+                capabilities,
             },
             StatusCode::OK,
         ))
@@ -82,7 +89,9 @@ mod handlers {
 mod tests {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::{initialize_dependencies, DependencyContainer};
-    use mithril_common::entities::SignedEntityTypeDiscriminants;
+    use mithril_common::entities::{
+        BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
+    };
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
@@ -170,7 +179,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_root_route_ok_with_cardano_transactions_prover_capabilities() {
+    async fn test_root_route_ok_with_cardano_transactions_enabled() {
         let method = Method::GET.as_str();
         let path = "/";
         let mut dependency_manager = initialize_dependencies().await;
@@ -181,6 +190,13 @@ mod tests {
         dependency_manager
             .config
             .cardano_transactions_prover_max_hashes_allowed_by_request = 99;
+        let signing_config = CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(70),
+            step: BlockNumber(15),
+        };
+        dependency_manager
+            .config
+            .cardano_transactions_signing_config = signing_config.clone();
 
         let response = request()
             .method(method)
@@ -198,6 +214,12 @@ mod tests {
             Some(CardanoTransactionsProverCapabilities {
                 max_hashes_allowed_by_request: 99
             })
+        );
+        assert_eq!(
+            response_body
+                .capabilities
+                .cardano_transactions_signing_config,
+            Some(signing_config)
         );
 
         APISpec::verify_conformity(
