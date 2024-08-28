@@ -5,12 +5,7 @@ use std::{
 
 use anyhow::Context;
 use mithril_common::{
-    crypto_helper::{
-        ckb_merkle_mountain_range::{
-            Error as MMRError, MMRStoreReadOps, MMRStoreWriteOps, Result as MMRResult,
-        },
-        Bytes, MKTreeLeafIndexer, MKTreeLeafPosition, MKTreeNode, MKTreeStorer,
-    },
+    crypto_helper::{Bytes, MKTreeLeafIndexer, MKTreeLeafPosition, MKTreeNode, MKTreeStorer},
     StdResult,
 };
 
@@ -96,26 +91,6 @@ impl MKTreeStoreSqlite {
     }
 }
 
-impl MMRStoreReadOps<Arc<MKTreeNode>> for MKTreeStoreSqlite {
-    fn get_elem(&self, pos: u64) -> MMRResult<Option<Arc<MKTreeNode>>> {
-        self.get_element_at_position(pos)
-            .with_context(|| {
-                format!("MKTreeStoreSqlite failed to retrieve element at position {pos}")
-            })
-            .map_err(|e| MMRError::StoreError(e.to_string()))
-    }
-}
-
-impl MMRStoreWriteOps<Arc<MKTreeNode>> for MKTreeStoreSqlite {
-    fn append(&mut self, pos: u64, elems: Vec<Arc<MKTreeNode>>) -> MMRResult<()> {
-        self.insert_elements_from_position(pos, elems)
-            .with_context(|| {
-                format!("MKTreeStoreSqlite failed to insert elements from position {pos}")
-            })
-            .map_err(|e| MMRError::StoreError(e.to_string()))
-    }
-}
-
 impl Clone for MKTreeStoreSqlite {
     fn clone(&self) -> Self {
         unimplemented!("Clone is not implemented for MKTreeStoreSqlite")
@@ -143,6 +118,19 @@ impl MKTreeLeafIndexer for MKTreeStoreSqlite {
 impl MKTreeStorer for MKTreeStoreSqlite {
     fn build() -> StdResult<Self> {
         Self::build()
+    }
+
+    fn get_elem(&self, pos: u64) -> StdResult<Option<Arc<MKTreeNode>>> {
+        self.get_element_at_position(pos).with_context(|| {
+            format!("MKTreeStoreSqlite failed to retrieve element at position {pos}")
+        })
+    }
+
+    fn append(&self, pos: u64, elems: Vec<Arc<MKTreeNode>>) -> StdResult<()> {
+        self.insert_elements_from_position(pos, elems)
+            .with_context(|| {
+                format!("MKTreeStoreSqlite failed to insert elements from position {pos}")
+            })
     }
 }
 

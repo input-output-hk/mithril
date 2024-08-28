@@ -21,7 +21,6 @@ pub use cardano::{
     KESPeriod, OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
     SerDeShelleyFileFormat, Sum6KesBytes,
 };
-pub use ckb_merkle_mountain_range;
 pub use codec::*;
 pub use era::{
     EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierError, EraMarkersVerifierSecretKey,
