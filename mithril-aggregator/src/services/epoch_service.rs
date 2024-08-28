@@ -5,7 +5,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
-use mithril_common::entities::{Epoch, ProtocolParameters, SignerWithStake};
+use mithril_common::entities::{Epoch, ProtocolParameters, Signer, SignerWithStake};
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::StdResult;
 
@@ -70,6 +70,12 @@ pub trait EpochService: Sync + Send {
     /// Get signers with stake for the next epoch
     fn next_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>>;
 
+    /// Get signers for the current epoch
+    fn current_signers(&self) -> StdResult<&Vec<Signer>>;
+
+    /// Get signers for the next epoch
+    fn next_signers(&self) -> StdResult<&Vec<Signer>>;
+
     /// Get the [protocol multi signer][ProtocolMultiSigner] for the current epoch
     fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner>;
 }
@@ -79,8 +85,10 @@ struct EpochData {
     protocol_parameters: ProtocolParameters,
     next_protocol_parameters: ProtocolParameters,
     upcoming_protocol_parameters: ProtocolParameters,
-    signers: Vec<SignerWithStake>,
-    next_signers: Vec<SignerWithStake>,
+    current_signers_with_stake: Vec<SignerWithStake>,
+    next_signers_with_stake: Vec<SignerWithStake>,
+    current_signers: Vec<Signer>,
+    next_signers: Vec<Signer>,
 }
 
 struct ComputedEpochData {
@@ -201,19 +209,25 @@ impl EpochService for MithrilEpochService {
             )
             .await?;
 
-        let current_signers = self
+        let current_signers_with_stake = self
             .get_signers_with_stake_at_epoch(signer_retrieval_epoch)
             .await?;
-        let next_signers = self
+        let next_signers_with_stake = self
             .get_signers_with_stake_at_epoch(next_signer_retrieval_epoch)
             .await?;
+
+        // TODO could it be better to create a EpochData::new and to this in the impl ? So, it'll not done twice in FakeEpochService
+        let current_signers = Signer::vec_from(current_signers_with_stake.clone());
+        let next_signers = Signer::vec_from(next_signers_with_stake.clone());
 
         self.epoch_data = Some(EpochData {
             epoch,
             protocol_parameters: current_protocol_parameters,
             next_protocol_parameters,
             upcoming_protocol_parameters,
-            signers: current_signers,
+            current_signers_with_stake,
+            next_signers_with_stake,
+            current_signers,
             next_signers,
         });
         self.computed_epoch_data = None;
@@ -238,14 +252,17 @@ impl EpochService for MithrilEpochService {
             "can't precompute epoch data if inform_epoch has not been called first"
         })?;
 
-        let protocol_multi_signer = SignerBuilder::new(&data.signers, &data.protocol_parameters)
-            .with_context(|| "Epoch service failed to build protocol multi signer")?
-            .build_multi_signer();
-
-        let next_protocol_multi_signer =
-            SignerBuilder::new(&data.next_signers, &data.next_protocol_parameters)
-                .with_context(|| "Epoch service failed to build next protocol multi signer")?
+        let protocol_multi_signer =
+            SignerBuilder::new(&data.current_signers_with_stake, &data.protocol_parameters)
+                .with_context(|| "Epoch service failed to build protocol multi signer")?
                 .build_multi_signer();
+
+        let next_protocol_multi_signer = SignerBuilder::new(
+            &data.next_signers_with_stake,
+            &data.next_protocol_parameters,
+        )
+        .with_context(|| "Epoch service failed to build next protocol multi signer")?
+        .build_multi_signer();
 
         self.computed_epoch_data = Some(ComputedEpochData {
             aggregate_verification_key: protocol_multi_signer.compute_aggregate_verification_key(),
@@ -282,10 +299,18 @@ impl EpochService for MithrilEpochService {
     }
 
     fn current_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
-        Ok(&self.unwrap_data()?.signers)
+        Ok(&self.unwrap_data()?.current_signers_with_stake)
     }
 
     fn next_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
+        Ok(&self.unwrap_data()?.next_signers_with_stake)
+    }
+
+    fn current_signers(&self) -> StdResult<&Vec<Signer>> {
+        Ok(&self.unwrap_data()?.current_signers)
+    }
+
+    fn next_signers(&self) -> StdResult<&Vec<Signer>> {
         Ok(&self.unwrap_data()?.next_signers)
     }
 
@@ -312,17 +337,26 @@ impl FakeEpochService {
         protocol_parameters: &ProtocolParameters,
         next_protocol_parameters: &ProtocolParameters,
         upcoming_protocol_parameters: &ProtocolParameters,
-        signers: &[SignerWithStake],
-        next_signers: &[SignerWithStake],
+        current_signers_with_stake: &[SignerWithStake],
+        next_signers_with_stake: &[SignerWithStake],
     ) -> Self {
-        let protocol_multi_signer = SignerBuilder::new(signers, protocol_parameters)
-            .with_context(|| "Could not build protocol_multi_signer for epoch service")
-            .unwrap()
-            .build_multi_signer();
-        let next_protocol_multi_signer = SignerBuilder::new(signers, protocol_parameters)
-            .with_context(|| "Could not build protocol_multi_signer for epoch service")
-            .unwrap()
-            .build_multi_signer();
+        let protocol_multi_signer =
+            SignerBuilder::new(current_signers_with_stake, protocol_parameters)
+                .with_context(|| "Could not build protocol_multi_signer for epoch service")
+                .unwrap()
+                .build_multi_signer();
+        let next_protocol_multi_signer =
+            SignerBuilder::new(current_signers_with_stake, protocol_parameters)
+            // TODO Is it correct to use current_signers_with_stake here and not next_signers_with_stake ?
+            SignerBuilder::new(current_signers_with_stake, protocol_parameters)
+                .with_context(|| "Could not build protocol_multi_signer for epoch service")
+                .unwrap()
+                .build_multi_signer();
+
+        let current_signers_with_stake = current_signers_with_stake.to_vec();
+        let next_signers_with_stake = next_signers_with_stake.to_vec();
+        let current_signers = Signer::vec_from(current_signers_with_stake.clone());
+        let next_signers = Signer::vec_from(next_signers_with_stake.clone());
 
         Self {
             epoch_data: Some(EpochData {
@@ -330,8 +364,10 @@ impl FakeEpochService {
                 protocol_parameters: protocol_parameters.clone(),
                 next_protocol_parameters: next_protocol_parameters.clone(),
                 upcoming_protocol_parameters: upcoming_protocol_parameters.clone(),
-                signers: signers.to_vec(),
-                next_signers: next_signers.to_vec(),
+                current_signers_with_stake,
+                next_signers_with_stake,
+                current_signers,
+                next_signers,
             }),
             computed_epoch_data: Some(ComputedEpochData {
                 aggregate_verification_key: protocol_multi_signer
@@ -447,10 +483,18 @@ impl EpochService for FakeEpochService {
     }
 
     fn current_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
-        Ok(&self.unwrap_data()?.signers)
+        Ok(&self.unwrap_data()?.current_signers_with_stake)
     }
 
     fn next_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
+        Ok(&self.unwrap_data()?.next_signers_with_stake)
+    }
+
+    fn current_signers(&self) -> StdResult<&Vec<Signer>> {
+        Ok(&self.unwrap_data()?.current_signers)
+    }
+
+    fn next_signers(&self) -> StdResult<&Vec<Signer>> {
         Ok(&self.unwrap_data()?.next_signers)
     }
 
@@ -478,8 +522,10 @@ mod tests {
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
         upcoming_protocol_parameters: ProtocolParameters,
-        signers: BTreeSet<SignerWithStake>,
-        next_signers: BTreeSet<SignerWithStake>,
+        current_signers_with_stake: BTreeSet<SignerWithStake>,
+        next_signers_with_stake: BTreeSet<SignerWithStake>,
+        current_signers: BTreeSet<Signer>,
+        next_signers: BTreeSet<Signer>,
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -495,16 +541,18 @@ mod tests {
                 protocol_parameters: service.current_protocol_parameters()?.clone(),
                 next_protocol_parameters: service.next_protocol_parameters()?.clone(),
                 upcoming_protocol_parameters: service.upcoming_protocol_parameters()?.clone(),
-                signers: service
+                current_signers_with_stake: service
                     .current_signers_with_stake()?
                     .clone()
                     .into_iter()
                     .collect(),
-                next_signers: service
+                next_signers_with_stake: service
                     .next_signers_with_stake()?
                     .clone()
                     .into_iter()
                     .collect(),
+                current_signers: service.current_signers()?.clone().into_iter().collect(),
+                next_signers: service.next_signers()?.clone().into_iter().collect(),
             })
         }
     }
@@ -634,14 +682,16 @@ mod tests {
                 protocol_parameters: current_epoch_fixture.protocol_parameters(),
                 next_protocol_parameters: next_epoch_fixture.protocol_parameters(),
                 upcoming_protocol_parameters,
-                signers: current_epoch_fixture
+                current_signers_with_stake: current_epoch_fixture
                     .signers_with_stake()
                     .into_iter()
                     .collect(),
-                next_signers: next_epoch_fixture
+                next_signers_with_stake: next_epoch_fixture
                     .signers_with_stake()
                     .into_iter()
                     .collect(),
+                current_signers: current_epoch_fixture.signers().into_iter().collect(),
+                next_signers: next_epoch_fixture.signers().into_iter().collect(),
             }
         );
     }
@@ -781,6 +831,8 @@ mod tests {
                 "next_signers_with_stake",
                 service.next_signers_with_stake().err(),
             ),
+            ("current_signers", service.current_signers().err()),
+            ("next_signers", service.next_signers().err()),
             (
                 "current_aggregate_verification_key",
                 service.current_aggregate_verification_key().err(),
@@ -817,6 +869,8 @@ mod tests {
         assert!(service.upcoming_protocol_parameters().is_ok());
         assert!(service.current_signers_with_stake().is_ok());
         assert!(service.next_signers_with_stake().is_ok());
+        assert!(service.current_signers().is_ok());
+        assert!(service.next_signers().is_ok());
 
         for (name, res) in [
             (

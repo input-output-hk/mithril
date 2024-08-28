@@ -23,7 +23,7 @@ mod handlers {
     use crate::dependency_injection::EpochServiceWrapper;
     use crate::http_server::routes::reply;
     use crate::ToEpochSettingsMessageAdapter;
-    use mithril_common::entities::EpochSettings;
+    use mithril_common::entities::{EpochSettings, Signer};
     use mithril_common::messages::ToMessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -46,6 +46,21 @@ mod handlers {
                     epoch,
                     protocol_parameters: protocol_parameters.clone(),
                     next_protocol_parameters: next_protocol_parameters.clone(),
+                    // TODO : create a test to check the affectation ?
+                    // TODO : create current_signers() and next_signers() in EpochService (with "cache")
+                    // TODO : How to handle unwrap  ?
+                    current_signers: epoch_service
+                        .current_signers_with_stake()
+                        .unwrap()
+                        .iter()
+                        .map(|s| Signer::from(s.clone()))
+                        .collect(),
+                    next_signers: epoch_service
+                        .next_signers_with_stake()
+                        .unwrap()
+                        .iter()
+                        .map(|s| Signer::from(s.clone()))
+                        .collect(),
                 };
                 let epoch_settings_message = ToEpochSettingsMessageAdapter::adapt(epoch_settings);
                 Ok(reply::json(&epoch_settings_message, StatusCode::OK))
