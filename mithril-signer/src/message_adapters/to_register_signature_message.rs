@@ -18,6 +18,7 @@ impl TryToMessageAdapter<(SignedEntityType, SingleSignatures), RegisterSignature
                 "'ToRegisterSignatureMessageAdapter' can not convert the single signature"
             })?,
             won_indexes: single_signature.won_indexes,
+            signed_message: None,
         };
 
         Ok(message)
