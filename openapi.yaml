@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.27
+  version: 0.1.28
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -663,6 +663,25 @@ components:
                   description: Maximum number of hashes allowed for a single request
                   type: integer
                   format: int64
+            cardano_transactions_signing_config:
+              description: |
+                Cardano transactions signing configuration
+
+                Mandatory if `signed_entity_types` contains `CardanoTransactions`.
+              type: object
+              additionalProperties: false
+              required:
+                - security_parameter
+                - step
+              properties:
+                security_parameter:
+                  description: Number of blocks to discard from the tip of the chain when importing Cardano transactions
+                  type: integer
+                  format: int64
+                step:
+                  description: Number of blocks between signature of Cardano transactions
+                  type: integer
+                  format: int64
       example:
         {
           "open_api_version": "0.1.17",
@@ -676,7 +695,9 @@ components:
                   "CardanoTransactions"
                 ],
               "cardano_transactions_prover":
-                { "max_hashes_allowed_by_request": 100 }
+                { "max_hashes_allowed_by_request": 100 },
+              "cardano_transactions_signing_config":
+                { "security_parameter": 100, "step": 10 }
             }
         }
 

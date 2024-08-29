@@ -1,5 +1,6 @@
 demo/protocol-demo/artifacts/
 docs/website/.docusaurus/
+docs/website/build/
 mithril-client-wasm/pkg/
 mithril-explorer/font.css.hbs
 mithril-explorer/out/
