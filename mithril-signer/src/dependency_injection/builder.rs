@@ -40,14 +40,14 @@ use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-    SignerUpkeepService, TransactionsImporterByChunk, TransactionsImporterWithPruner,
-    TransactionsImporterWithVacuum,
+    SignaturePublisher, SignerCertifierService, SignerSignableSeedBuilder,
+    SignerSignedEntityConfigProvider, SignerUpkeepService, TransactionsImporterByChunk,
+    TransactionsImporterWithPruner, TransactionsImporterWithVacuum, UnixSocketSignaturePublisher,
 };
 use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore};
 use crate::{
-    Configuration, MetricsService, SignaturePublisher, UnixSocketSignaturePublisher,
-    HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
+    SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 /// The `DependenciesBuilder` is intended to manage Services instance creation.
