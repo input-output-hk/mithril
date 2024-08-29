@@ -6,40 +6,21 @@
 //! See the [Mithril documentation](https://mithril.network/doc/manual/developer-docs/nodes/mithril-signer)
 //! for more information on how it works.
 
-mod aggregator_client;
-mod cardano_transactions_importer;
-mod cardano_transactions_preloader_checker;
 mod configuration;
 pub mod database;
+pub mod dependency_injection;
 mod message_adapters;
 pub mod metrics;
-mod mktree_store_sqlite;
-mod protocol_initializer_store;
 mod runtime;
-mod single_signer;
-mod transactions_importer_by_chunk;
-mod transactions_importer_with_pruner;
-mod transactions_importer_with_vacuum;
-mod upkeep_service;
+pub mod services;
+pub mod store;
 
-#[cfg(test)]
-pub use aggregator_client::dumb::DumbAggregatorClient;
-pub use aggregator_client::*;
-pub use cardano_transactions_importer::*;
-pub use cardano_transactions_preloader_checker::*;
 pub use configuration::{Configuration, DefaultConfiguration};
 pub use message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
 };
 pub use metrics::*;
-pub use mktree_store_sqlite::*;
-pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
-pub use single_signer::*;
-pub use transactions_importer_by_chunk::*;
-pub use transactions_importer_with_pruner::*;
-pub use transactions_importer_with_vacuum::*;
-pub use upkeep_service::*;
 
 /// HTTP request timeout duration in milliseconds
 const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;

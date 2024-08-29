@@ -1,78 +1,71 @@
+use std::fs;
+use std::sync::Arc;
+use std::time::Duration;
+
 use anyhow::{anyhow, Context};
-use async_trait::async_trait;
-use std::{fs, sync::Arc, time::Duration};
 use tokio::sync::Mutex;
 
-use mithril_common::{
-    api_version::APIVersionProvider,
-    cardano_block_scanner::CardanoBlockScanner,
-    cardano_transactions_preloader::CardanoTransactionsPreloader,
-    chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType},
-    chain_reader::PallasChainReader,
-    crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
-    digesters::{
-        cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
-        CardanoImmutableDigester, ImmutableDigester, ImmutableFileObserver,
-        ImmutableFileSystemObserver,
-    },
-    era::{EraChecker, EraReader},
-    signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
-        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder, SignableBuilderService,
-    },
-    signed_entity_type_lock::SignedEntityTypeLock,
-    MithrilTickerService, StdResult, TickerService,
+use mithril_common::api_version::APIVersionProvider;
+use mithril_common::cardano_block_scanner::CardanoBlockScanner;
+use mithril_common::cardano_transactions_preloader::CardanoTransactionsPreloader;
+use mithril_common::chain_observer::{
+    CardanoCliRunner, ChainObserver, ChainObserverBuilder, ChainObserverType,
 };
-use mithril_persistence::{
-    database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
-    sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool},
-    store::{adapter::SQLiteAdapter, StakeStore},
+use mithril_common::chain_reader::PallasChainReader;
+use mithril_common::crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat};
+use mithril_common::digesters::cache::{
+    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
 };
+use mithril_common::digesters::{
+    CardanoImmutableDigester, ImmutableFileObserver, ImmutableFileSystemObserver,
+};
+use mithril_common::era::{EraChecker, EraReader};
+use mithril_common::signable_builder::{
+    CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
+    CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
+    MithrilStakeDistributionSignableBuilder,
+};
+use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
+use mithril_common::{MithrilTickerService, StdResult, TickerService};
 
-use crate::{
-    aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
+use mithril_persistence::database::repository::CardanoTransactionRepository;
+use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
+use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
+use mithril_persistence::store::adapter::SQLiteAdapter;
+use mithril_persistence::store::StakeStore;
+
+use crate::dependency_injection::SignerDependencyContainer;
+use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
-    CardanoTransactionsPreloaderActivationSigner, Configuration, MKTreeStoreSqlite,
-    MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
+    CardanoTransactionsPreloaderActivationSigner, MithrilSingleSigner, SignerUpkeepService,
     TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
-    UpkeepService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+};
+use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore};
+use crate::{
+    Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
+    SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
-type StakeStoreService = Arc<StakeStore>;
-type CertificateHandlerService = Arc<dyn AggregatorClient>;
-type ChainObserverService = Arc<dyn ChainObserver>;
-type DigesterService = Arc<dyn ImmutableDigester>;
-type SingleSignerService = Arc<dyn SingleSigner>;
-type TimePointProviderService = Arc<dyn TickerService>;
-type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
-
-/// The ServiceBuilder is intended to manage Services instance creation.
+/// The `DependenciesBuilder` is intended to manage Services instance creation.
+///
 /// The goal of this is to put all this code out of the way of business code.
-#[async_trait]
-pub trait ServiceBuilder {
-    /// Create a SignerService instance.
-    async fn build(&self) -> StdResult<SignerServices>;
-}
-
-/// Create a SignerService instance for Production environment.
-pub struct ProductionServiceBuilder<'a> {
+pub struct DependenciesBuilder<'a> {
     config: &'a Configuration,
-    chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService>,
+    chain_observer_builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>>,
     immutable_file_observer_builder:
         fn(&Configuration) -> StdResult<Arc<dyn ImmutableFileObserver>>,
 }
 
-impl<'a> ProductionServiceBuilder<'a> {
-    /// Create a new production service builder.
+impl<'a> DependenciesBuilder<'a> {
+    /// Create a new `DependenciesBuilder`.
     pub fn new(config: &'a Configuration) -> Self {
-        let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
+        let chain_observer_builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>> =
             |config: &Configuration| {
                 let chain_observer_type = ChainObserverType::Pallas;
                 let cardano_cli_path = &config.cardano_cli_path;
                 let cardano_node_socket_path = &config.cardano_node_socket_path;
                 let cardano_network = &config.get_network().with_context(|| {
-                    "Production Service Builder can not get Cardano network while building the chain observer"
+                    "Dependencies Builder can not get Cardano network while building the chain observer"
                 })?;
                 let cardano_cli_runner = &CardanoCliRunner::new(
                     cardano_cli_path.to_owned(),
@@ -121,7 +114,7 @@ impl<'a> ProductionServiceBuilder<'a> {
     /// Override default chain observer builder.
     pub fn override_chain_observer_builder(
         &mut self,
-        builder: fn(&Configuration) -> StdResult<ChainObserverService>,
+        builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>>,
     ) -> &mut Self {
         self.chain_observer_builder = builder;
 
@@ -182,12 +175,9 @@ impl<'a> ProductionServiceBuilder<'a> {
 
         Ok(connection)
     }
-}
 
-#[async_trait]
-impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
-    /// Build a Services for the Production environment.
-    async fn build(&self) -> StdResult<SignerServices> {
+    /// Build dependencies for the Production environment.
+    pub async fn build(&self) -> StdResult<SignerDependencyContainer> {
         if !self.config.data_stores_directory.exists() {
             fs::create_dir_all(self.config.data_stores_directory.clone()).with_context(|| {
                 format!(
@@ -331,7 +321,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             cardano_transactions_builder,
             cardano_stake_distribution_signable_builder,
         ));
-        let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let metrics_service = Arc::new(MetricsService::new()?);
         let preloader_activation =
             CardanoTransactionsPreloaderActivationSigner::new(aggregator_client.clone());
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
@@ -349,7 +339,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
         ));
 
-        let services = SignerServices {
+        let services = SignerDependencyContainer {
             ticker_service,
             certificate_handler: aggregator_client,
             chain_observer,
@@ -369,54 +359,6 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
 
         Ok(services)
     }
-}
-
-/// This structure groups all the services required by the state machine.
-pub struct SignerServices {
-    /// Time point provider service
-    pub ticker_service: TimePointProviderService,
-
-    /// Stake store service
-    pub stake_store: StakeStoreService,
-
-    /// Certificate handler service
-    pub certificate_handler: CertificateHandlerService,
-
-    /// Chain Observer service
-    pub chain_observer: ChainObserverService,
-
-    /// Digester service
-    pub digester: DigesterService,
-
-    /// SingleSigner service
-    pub single_signer: SingleSignerService,
-
-    /// ProtocolInitializer store
-    pub protocol_initializer_store: ProtocolInitializerStoreService,
-
-    /// Era checker service
-    pub era_checker: Arc<EraChecker>,
-
-    /// Era reader service
-    pub era_reader: Arc<EraReader>,
-
-    /// API version provider
-    pub api_version_provider: Arc<APIVersionProvider>,
-
-    /// Signable Builder Service
-    pub signable_builder_service: Arc<dyn SignableBuilderService>,
-
-    /// Metrics service
-    pub metrics_service: Arc<MetricsService>,
-
-    /// Signed entity type lock
-    pub signed_entity_type_lock: Arc<SignedEntityTypeLock>,
-
-    /// Cardano transactions preloader
-    pub cardano_transactions_preloader: Arc<CardanoTransactionsPreloader>,
-
-    /// Upkeep service
-    pub upkeep_service: Arc<dyn UpkeepService>,
 }
 
 #[cfg(test)]
@@ -443,7 +385,7 @@ mod tests {
         };
 
         assert!(!stores_dir.exists());
-        let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
+        let chain_observer_builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>> =
             |_config| Ok(Arc::new(FakeObserver::new(Some(TimePoint::dummy()))));
         let immutable_file_observer_builder: fn(
             &Configuration,
@@ -451,8 +393,8 @@ mod tests {
             -> StdResult<Arc<dyn ImmutableFileObserver>> =
             |_config: &Configuration| Ok(Arc::new(DumbImmutableFileObserver::default()));
 
-        let mut service_builder = ProductionServiceBuilder::new(&config);
-        service_builder
+        let mut dependencies_builder = DependenciesBuilder::new(&config);
+        dependencies_builder
             .override_chain_observer_builder(chain_observer_builder)
             .override_immutable_file_observer_builder(immutable_file_observer_builder)
             .build()

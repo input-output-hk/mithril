@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_common::crypto_helper::{MKTree, MKTreeNode};
-use mithril_signer::MKTreeStoreSqlite;
+use mithril_signer::store::MKTreeStoreSqlite;
 
 // Shortcuts for magnitudes: K for thousand, M for million
 const K: usize = 1_000;

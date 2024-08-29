@@ -9,7 +9,7 @@ use mithril_common::entities::{
 use mithril_common::StdResult;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
-use crate::{HighestTransactionBlockNumberGetter, TransactionPruner, TransactionStore};
+use crate::services::{HighestTransactionBlockNumberGetter, TransactionPruner, TransactionStore};
 
 #[async_trait]
 impl TransactionStore for CardanoTransactionRepository {

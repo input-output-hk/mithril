@@ -8,7 +8,7 @@ use mithril_common::{
     entities::SignedEntityTypeDiscriminants, StdResult,
 };
 
-use crate::AggregatorClient;
+use crate::services::AggregatorClient;
 
 /// CardanoTransactionsPreloaderActivationSigner
 pub struct CardanoTransactionsPreloaderActivationSigner {
@@ -47,7 +47,7 @@ mod tests {
         entities::SignedEntityTypeDiscriminants, messages::AggregatorFeaturesMessage,
     };
 
-    use crate::{AggregatorClientError, MockAggregatorClient};
+    use crate::services::{AggregatorClientError, MockAggregatorClient};
 
     use super::*;
 
