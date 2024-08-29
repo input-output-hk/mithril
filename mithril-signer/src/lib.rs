@@ -14,7 +14,7 @@ pub mod metrics;
 mod mktree_store_sqlite;
 mod protocol_initializer_store;
 mod runtime;
-mod services;
+pub mod services;
 
 pub use configuration::{Configuration, DefaultConfiguration};
 pub use message_adapters::{
@@ -24,7 +24,6 @@ pub use metrics::*;
 pub use mktree_store_sqlite::*;
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
-pub use services::*;
 
 /// HTTP request timeout duration in milliseconds
 const HTTP_REQUEST_TIMEOUT_DURATION: u64 = 30000;

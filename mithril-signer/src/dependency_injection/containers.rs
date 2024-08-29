@@ -10,9 +10,8 @@ use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::TickerService;
 use mithril_persistence::store::StakeStore;
 
-use crate::{
-    AggregatorClient, MetricsService, ProtocolInitializerStorer, SingleSigner, UpkeepService,
-};
+use crate::services::{AggregatorClient, SingleSigner, UpkeepService};
+use crate::{MetricsService, ProtocolInitializerStorer};
 
 type StakeStoreService = Arc<StakeStore>;
 type CertificateHandlerService = Arc<dyn AggregatorClient>;

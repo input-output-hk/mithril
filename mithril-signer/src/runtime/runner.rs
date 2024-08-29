@@ -15,7 +15,8 @@ use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::dependency_injection::SignerDependencyContainer;
-use crate::{Configuration, MithrilProtocolInitializerBuilder};
+use crate::services::MithrilProtocolInitializerBuilder;
+use crate::Configuration;
 
 /// This trait is mainly intended for mocking.
 #[async_trait]
@@ -491,11 +492,11 @@ mod tests {
     use mockall::mock;
     use std::{path::Path, sync::Arc};
 
-    use crate::{
-        metrics::MetricsService, AggregatorClient, CardanoTransactionsImporter,
-        DumbAggregatorClient, MithrilSingleSigner, MockAggregatorClient, MockTransactionStore,
-        MockUpkeepService, ProtocolInitializerStore, SingleSigner,
+    use crate::services::{
+        AggregatorClient, CardanoTransactionsImporter, DumbAggregatorClient, MithrilSingleSigner,
+        MockAggregatorClient, MockTransactionStore, MockUpkeepService, SingleSigner,
     };
+    use crate::{metrics::MetricsService, ProtocolInitializerStore};
 
     use super::*;
 

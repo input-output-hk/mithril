@@ -11,7 +11,7 @@ use mithril_common::{
     test_utils::fake_data,
     MithrilTickerService, TickerService,
 };
-use mithril_signer::{AggregatorClient, AggregatorClientError};
+use mithril_signer::services::{AggregatorClient, AggregatorClientError};
 use tokio::sync::RwLock;
 
 pub struct FakeAggregator {

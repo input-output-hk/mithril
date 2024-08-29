@@ -36,9 +36,11 @@ use mithril_persistence::{
 use mithril_signer::{
     dependency_injection::{ProductionDependenciesBuilder, SignerDependencyContainer},
     metrics::*,
-    AggregatorClient, CardanoTransactionsImporter, Configuration, MKTreeStoreSqlite,
-    MetricsService, MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
-    RuntimeError, SignerRunner, SignerState, SignerUpkeepService, StateMachine,
+    services::{
+        AggregatorClient, CardanoTransactionsImporter, MithrilSingleSigner, SignerUpkeepService,
+    },
+    Configuration, MKTreeStoreSqlite, MetricsService, ProtocolInitializerStore,
+    ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerState, StateMachine,
 };
 
 use super::FakeAggregator;
