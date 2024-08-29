@@ -11,6 +11,7 @@ mod cardano_transactions_importer;
 mod cardano_transactions_preloader_checker;
 mod configuration;
 pub mod database;
+pub mod dependency_injection;
 mod message_adapters;
 pub mod metrics;
 mod mktree_store_sqlite;
