@@ -1068,12 +1068,21 @@ components:
           items:
             type: integer
             format: int64
+        signed_message:
+          description: |
+            Hash of the protocol message that is signed by the signer
+
+            Optional, allow the aggregator to store this signature for later if it has yet to start to work
+            on the message.
+          type: string
+          format: bytes
       example:
         {
           "entity_type": { "MithrilStakeDistribution": 246 },
           "party_id": "1234567890",
           "signature": "7b2c36322c3130352c3232322c31302c3131302c33312c37312c39372c22766b223a5b3136342c2c31393137352c313834",
-          "indexes": [25, 35]
+          "indexes": [25, 35],
+          "signed_message": "07ed7c9e128744c1a4797b7eb34c54823cc7a21fc95c19876122ab4bb0fe796d6bba2bc"
         }
 
     ProtocolMessageParts:
