@@ -666,7 +666,7 @@ components:
             cardano_transactions_signing_config:
               description: |
                 Cardano transactions signing configuration
-                
+
                 Mandatory if `signed_entity_types` contains `CardanoTransactions`.
               type: object
               additionalProperties: false
@@ -697,10 +697,7 @@ components:
               "cardano_transactions_prover":
                 { "max_hashes_allowed_by_request": 100 },
               "cardano_transactions_signing_config":
-                {
-                  "security_parameter": 100,
-                  "step": 10
-                }
+                { "security_parameter": 100, "step": 10 }
             }
         }
 
