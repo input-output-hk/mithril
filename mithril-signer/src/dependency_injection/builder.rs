@@ -41,9 +41,10 @@ use crate::services::{
     CardanoTransactionsPreloaderActivationSigner, MithrilSingleSigner, SignerUpkeepService,
     TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
 };
+use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore};
 use crate::{
-    Configuration, MKTreeStoreSqlite, MetricsService, ProtocolInitializerStore,
-    HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
+    Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
+    SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
 /// The `DependenciesBuilder` is intended to manage Services instance creation.

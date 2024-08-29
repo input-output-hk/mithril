@@ -492,11 +492,12 @@ mod tests {
     use mockall::mock;
     use std::{path::Path, sync::Arc};
 
+    use crate::metrics::MetricsService;
     use crate::services::{
         AggregatorClient, CardanoTransactionsImporter, DumbAggregatorClient, MithrilSingleSigner,
         MockAggregatorClient, MockTransactionStore, MockUpkeepService, SingleSigner,
     };
-    use crate::{metrics::MetricsService, ProtocolInitializerStore};
+    use crate::store::ProtocolInitializerStore;
 
     use super::*;
 

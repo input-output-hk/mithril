@@ -11,7 +11,8 @@ use mithril_common::TickerService;
 use mithril_persistence::store::StakeStore;
 
 use crate::services::{AggregatorClient, SingleSigner, UpkeepService};
-use crate::{MetricsService, ProtocolInitializerStorer};
+use crate::store::ProtocolInitializerStorer;
+use crate::MetricsService;
 
 type StakeStoreService = Arc<StakeStore>;
 type CertificateHandlerService = Arc<dyn AggregatorClient>;
