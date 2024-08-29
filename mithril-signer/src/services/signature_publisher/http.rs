@@ -2,8 +2,7 @@ use async_trait::async_trait;
 use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignatures};
 use mithril_common::StdResult;
 
-use crate::services::AggregatorClient;
-use crate::SignaturePublisher;
+use crate::services::{AggregatorClient, SignaturePublisher};
 
 #[async_trait]
 impl<T: AggregatorClient> SignaturePublisher for T {

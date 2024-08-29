@@ -9,8 +9,7 @@ use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::{StdResult, TickerService};
 
 use crate::entities::BeaconToSign;
-use crate::services::SingleSigner;
-use crate::SignaturePublisher;
+use crate::services::{SignaturePublisher, SingleSigner};
 
 /// Certifier Service
 ///
@@ -168,8 +167,7 @@ mod tests {
     };
     use mithril_common::test_utils::fake_data;
 
-    use crate::services::MockSingleSigner;
-    use crate::MockSignaturePublisher;
+    use crate::services::{MockSignaturePublisher, MockSingleSigner};
 
     use super::{tests::tests_tooling::*, *};
 
