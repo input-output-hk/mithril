@@ -3,7 +3,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use async_trait::async_trait;
 use tokio::sync::Mutex;
 
 use mithril_common::api_version::APIVersionProvider;
@@ -50,22 +49,15 @@ use crate::{
 /// The `DependenciesBuilder` is intended to manage Services instance creation.
 ///
 /// The goal of this is to put all this code out of the way of business code.
-#[async_trait]
-pub trait DependenciesBuilder {
-    /// Create a SignerService instance.
-    async fn build(&self) -> StdResult<SignerDependencyContainer>;
-}
-
-/// A `DependenciesBuilder` for Production environment.
-pub struct ProductionDependenciesBuilder<'a> {
+pub struct DependenciesBuilder<'a> {
     config: &'a Configuration,
     chain_observer_builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>>,
     immutable_file_observer_builder:
         fn(&Configuration) -> StdResult<Arc<dyn ImmutableFileObserver>>,
 }
 
-impl<'a> ProductionDependenciesBuilder<'a> {
-    /// Create a new `ProductionDependenciesBuilder`.
+impl<'a> DependenciesBuilder<'a> {
+    /// Create a new `DependenciesBuilder`.
     pub fn new(config: &'a Configuration) -> Self {
         let chain_observer_builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>> =
             |config: &Configuration| {
@@ -73,7 +65,7 @@ impl<'a> ProductionDependenciesBuilder<'a> {
                 let cardano_cli_path = &config.cardano_cli_path;
                 let cardano_node_socket_path = &config.cardano_node_socket_path;
                 let cardano_network = &config.get_network().with_context(|| {
-                    "Production Dependencies Builder can not get Cardano network while building the chain observer"
+                    "Dependencies Builder can not get Cardano network while building the chain observer"
                 })?;
                 let cardano_cli_runner = &CardanoCliRunner::new(
                     cardano_cli_path.to_owned(),
@@ -183,12 +175,9 @@ impl<'a> ProductionDependenciesBuilder<'a> {
 
         Ok(connection)
     }
-}
 
-#[async_trait]
-impl<'a> DependenciesBuilder for ProductionDependenciesBuilder<'a> {
     /// Build dependencies for the Production environment.
-    async fn build(&self) -> StdResult<SignerDependencyContainer> {
+    pub async fn build(&self) -> StdResult<SignerDependencyContainer> {
         if !self.config.data_stores_directory.exists() {
             fs::create_dir_all(self.config.data_stores_directory.clone()).with_context(|| {
                 format!(
@@ -404,7 +393,7 @@ mod tests {
             -> StdResult<Arc<dyn ImmutableFileObserver>> =
             |_config: &Configuration| Ok(Arc::new(DumbImmutableFileObserver::default()));
 
-        let mut dependencies_builder = ProductionDependenciesBuilder::new(&config);
+        let mut dependencies_builder = DependenciesBuilder::new(&config);
         dependencies_builder
             .override_chain_observer_builder(chain_observer_builder)
             .override_immutable_file_observer_builder(immutable_file_observer_builder)
