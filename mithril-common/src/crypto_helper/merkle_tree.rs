@@ -1,7 +1,8 @@
 use anyhow::{anyhow, Context};
 use blake2::{Blake2s256, Digest};
 use ckb_merkle_mountain_range::{
-    MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult, MMR,
+    Error as MMRError, MMRStoreReadOps, MMRStoreWriteOps, Merge, MerkleProof, Result as MMRResult,
+    MMR,
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -14,10 +15,10 @@ use std::{
 use crate::{StdError, StdResult};
 
 /// Alias for a byte
-type Bytes = Vec<u8>;
+pub type Bytes = Vec<u8>;
 
 /// Alias for a Merkle tree leaf position
-type MKTreeLeafPosition = u64;
+pub type MKTreeLeafPosition = u64;
 
 /// A node of a Merkle tree
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash, Serialize, Deserialize)]
@@ -67,16 +68,16 @@ impl From<&str> for MKTreeNode {
     }
 }
 
-impl TryFrom<MKTree> for MKTreeNode {
+impl<S: MKTreeStorer> TryFrom<MKTree<S>> for MKTreeNode {
     type Error = StdError;
-    fn try_from(other: MKTree) -> Result<Self, Self::Error> {
+    fn try_from(other: MKTree<S>) -> Result<Self, Self::Error> {
         other.compute_root()
     }
 }
 
-impl TryFrom<&MKTree> for MKTreeNode {
+impl<S: MKTreeStorer> TryFrom<&MKTree<S>> for MKTreeNode {
     type Error = StdError;
-    fn try_from(other: &MKTree) -> Result<Self, Self::Error> {
+    fn try_from(other: &MKTree<S>) -> Result<Self, Self::Error> {
         other.compute_root()
     }
 }
@@ -178,7 +179,7 @@ impl MKProof {
                 Self::list_to_mknode(leaves_to_verify);
 
             let mktree =
-                MKTree::new(&leaves).with_context(|| "MKTree creation should not fail")?;
+                MKTree::<MKTreeStoreInMemory>::new(&leaves).with_context(|| "MKTree creation should not fail")?;
             mktree.compute_proof(&leaves_to_verify)
         }
 
@@ -194,29 +195,64 @@ impl From<MKProof> for MKTreeNode {
     }
 }
 
-/// A Merkle tree store
-pub struct MKTreeStore<T> {
-    inner_store: RwLock<HashMap<u64, T>>,
+/// A Merkle tree store in memory
+#[derive(Clone)]
+pub struct MKTreeStoreInMemory {
+    inner_leaves: Arc<RwLock<HashMap<Arc<MKTreeNode>, MKTreeLeafPosition>>>,
+    inner_store: Arc<RwLock<HashMap<u64, Arc<MKTreeNode>>>>,
 }
 
-impl<T> MKTreeStore<T> {
+impl MKTreeStoreInMemory {
     fn new() -> Self {
         Self {
-            inner_store: RwLock::new(HashMap::new()),
+            inner_leaves: Arc::new(RwLock::new(HashMap::new())),
+            inner_store: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 }
 
-impl<T: Clone> MMRStoreReadOps<T> for MKTreeStore<T> {
-    fn get_elem(&self, pos: u64) -> MMRResult<Option<T>> {
+impl MKTreeLeafIndexer for MKTreeStoreInMemory {
+    fn set_leaf_position(&self, pos: MKTreeLeafPosition, node: Arc<MKTreeNode>) -> StdResult<()> {
+        let mut inner_leaves = self.inner_leaves.write().unwrap();
+        (*inner_leaves).insert(node, pos);
+
+        Ok(())
+    }
+
+    fn get_leaf_position(&self, node: &MKTreeNode) -> Option<MKTreeLeafPosition> {
+        let inner_leaves = self.inner_leaves.read().unwrap();
+        (*inner_leaves).get(node).cloned()
+    }
+
+    fn total_leaves(&self) -> usize {
+        let inner_leaves = self.inner_leaves.read().unwrap();
+        (*inner_leaves).len()
+    }
+
+    fn leaves(&self) -> Vec<MKTreeNode> {
+        let inner_leaves = self.inner_leaves.read().unwrap();
+        (*inner_leaves)
+            .iter()
+            .map(|(leaf, position)| (position, leaf))
+            .collect::<BTreeMap<_, _>>()
+            .into_values()
+            .map(|leaf| (**leaf).clone())
+            .collect()
+    }
+}
+
+impl MKTreeStorer for MKTreeStoreInMemory {
+    fn build() -> StdResult<Self> {
+        Ok(Self::new())
+    }
+
+    fn get_elem(&self, pos: u64) -> StdResult<Option<Arc<MKTreeNode>>> {
         let inner_store = self.inner_store.read().unwrap();
 
         Ok((*inner_store).get(&pos).cloned())
     }
-}
 
-impl<T> MMRStoreWriteOps<T> for MKTreeStore<T> {
-    fn append(&mut self, pos: u64, elems: Vec<T>) -> MMRResult<()> {
+    fn append(&self, pos: u64, elems: Vec<Arc<MKTreeNode>>) -> StdResult<()> {
         let mut inner_store = self.inner_store.write().unwrap();
         for (i, elem) in elems.into_iter().enumerate() {
             (*inner_store).insert(pos + i as u64, elem);
@@ -226,34 +262,112 @@ impl<T> MMRStoreWriteOps<T> for MKTreeStore<T> {
     }
 }
 
-impl<T> Default for MKTreeStore<T> {
-    fn default() -> Self {
-        Self::new()
+/// The Merkle tree storer trait
+pub trait MKTreeStorer: Clone + Send + Sync + MKTreeLeafIndexer {
+    /// Try to create a new instance of the storer
+    fn build() -> StdResult<Self>;
+
+    /// Get the element at the given position
+    fn get_elem(&self, pos: u64) -> StdResult<Option<Arc<MKTreeNode>>>;
+
+    /// Append elements at the given position
+    fn append(&self, pos: u64, elems: Vec<Arc<MKTreeNode>>) -> StdResult<()>;
+}
+
+/// This struct exists only to implement for a [MkTreeStore] the [MMRStoreReadOps] and
+/// [MMRStoreWriteOps] from merkle_mountain_range crate without the need to reexport types
+/// from that crate.
+///
+/// Rust don't allow the following:
+/// ```ignore
+/// impl<S: MKTreeStorer> MMRStoreReadOps<Arc<MKTreeNode>> for S {}
+/// ```
+/// Since it disallows implementations of traits for arbitrary types which are not defined in
+/// the same crate as the trait itself (see [E0117](https://doc.rust-lang.org/error_codes/E0117.html)).
+struct MKTreeStore<S: MKTreeStorer> {
+    storer: Box<S>,
+}
+
+impl<S: MKTreeStorer> MKTreeStore<S> {
+    fn build() -> StdResult<Self> {
+        let storer = Box::new(S::build()?);
+        Ok(Self { storer })
+    }
+}
+
+impl<S: MKTreeStorer> MMRStoreReadOps<Arc<MKTreeNode>> for MKTreeStore<S> {
+    fn get_elem(&self, pos: u64) -> MMRResult<Option<Arc<MKTreeNode>>> {
+        self.storer
+            .get_elem(pos)
+            .map_err(|e| MMRError::StoreError(e.to_string()))
+    }
+}
+
+impl<S: MKTreeStorer> MMRStoreWriteOps<Arc<MKTreeNode>> for MKTreeStore<S> {
+    fn append(&mut self, pos: u64, elems: Vec<Arc<MKTreeNode>>) -> MMRResult<()> {
+        self.storer
+            .append(pos, elems)
+            .map_err(|e| MMRError::StoreError(e.to_string()))
+    }
+}
+
+impl<S: MKTreeStorer> MKTreeLeafIndexer for MKTreeStore<S> {
+    fn set_leaf_position(&self, pos: MKTreeLeafPosition, leaf: Arc<MKTreeNode>) -> StdResult<()> {
+        self.storer.set_leaf_position(pos, leaf)
+    }
+
+    fn get_leaf_position(&self, leaf: &MKTreeNode) -> Option<MKTreeLeafPosition> {
+        self.storer.get_leaf_position(leaf)
+    }
+
+    fn total_leaves(&self) -> usize {
+        self.storer.total_leaves()
+    }
+
+    fn leaves(&self) -> Vec<MKTreeNode> {
+        self.storer.leaves()
+    }
+}
+
+/// The Merkle tree leaves indexer trait
+pub trait MKTreeLeafIndexer {
+    /// Get the position of the leaf in the Merkle tree
+    fn set_leaf_position(&self, pos: MKTreeLeafPosition, leaf: Arc<MKTreeNode>) -> StdResult<()>;
+
+    /// Get the position of the leaf in the Merkle tree
+    fn get_leaf_position(&self, leaf: &MKTreeNode) -> Option<MKTreeLeafPosition>;
+
+    /// Number of leaves in the Merkle tree
+    fn total_leaves(&self) -> usize;
+
+    /// List of leaves with their positions in the Merkle tree
+    fn leaves(&self) -> Vec<MKTreeNode>;
+
+    /// Check if the Merkle tree contains the given leaf
+    fn contains_leaf(&self, leaf: &MKTreeNode) -> bool {
+        self.get_leaf_position(leaf).is_some()
     }
 }
 
 /// A Merkle tree
-pub struct MKTree {
-    inner_leaves: HashMap<Arc<MKTreeNode>, MKTreeLeafPosition>,
-    inner_tree: MMR<Arc<MKTreeNode>, MergeMKTreeNode, MKTreeStore<Arc<MKTreeNode>>>,
+pub struct MKTree<S: MKTreeStorer> {
+    inner_tree: MMR<Arc<MKTreeNode>, MergeMKTreeNode, MKTreeStore<S>>,
 }
 
-impl MKTree {
+impl<S: MKTreeStorer> MKTree<S> {
     /// MKTree factory
     pub fn new<T: Into<MKTreeNode> + Clone>(leaves: &[T]) -> StdResult<Self> {
-        let mut inner_tree = MMR::<_, _, _>::new(0, MKTreeStore::default());
-        let mut inner_leaves = HashMap::new();
+        let mut inner_tree = MMR::<_, _, _>::new(0, MKTreeStore::<S>::build()?);
         for leaf in leaves {
             let leaf = Arc::new(leaf.to_owned().into());
             let inner_tree_position = inner_tree.push(leaf.clone())?;
-            inner_leaves.insert(leaf.clone(), inner_tree_position);
+            inner_tree
+                .store()
+                .set_leaf_position(inner_tree_position, leaf.clone())?;
         }
         inner_tree.commit()?;
 
-        Ok(Self {
-            inner_leaves,
-            inner_tree,
-        })
+        Ok(Self { inner_tree })
     }
 
     /// Append leaves to the Merkle tree
@@ -261,7 +375,9 @@ impl MKTree {
         for leaf in leaves {
             let leaf = Arc::new(leaf.to_owned().into());
             let inner_tree_position = self.inner_tree.push(leaf.clone())?;
-            self.inner_leaves.insert(leaf.clone(), inner_tree_position);
+            self.inner_tree
+                .store()
+                .set_leaf_position(inner_tree_position, leaf.clone())?;
         }
         self.inner_tree.commit()?;
 
@@ -270,23 +386,17 @@ impl MKTree {
 
     /// Number of leaves in the Merkle tree
     pub fn total_leaves(&self) -> usize {
-        self.inner_leaves.len()
+        self.inner_tree.store().total_leaves()
     }
 
     /// List of leaves with their positions in the Merkle tree
     pub fn leaves(&self) -> Vec<MKTreeNode> {
-        self.inner_leaves
-            .iter()
-            .map(|(leaf, position)| (position, leaf))
-            .collect::<BTreeMap<_, _>>()
-            .into_values()
-            .map(|leaf| (**leaf).clone())
-            .collect()
+        self.inner_tree.store().leaves()
     }
 
     /// Check if the Merkle tree contains the given leaf
     pub fn contains(&self, leaf: &MKTreeNode) -> bool {
-        self.inner_leaves.contains_key(leaf)
+        self.inner_tree.store().contains_leaf(leaf)
     }
 
     /// Generate root of the Merkle tree
@@ -303,8 +413,8 @@ impl MKTree {
         let inner_leaves = leaves
             .iter()
             .map(|leaf| {
-                if let Some(leaf_position) = self.inner_leaves.get(leaf) {
-                    Ok((*leaf_position, Arc::new(leaf.to_owned())))
+                if let Some(leaf_position) = self.inner_tree.store().get_leaf_position(leaf) {
+                    Ok((leaf_position, Arc::new(leaf.to_owned())))
                 } else {
                     Err(anyhow!("Leaf not found in the Merkle tree"))
                 }
@@ -325,7 +435,7 @@ impl MKTree {
     }
 }
 
-impl Clone for MKTree {
+impl<S: MKTreeStorer> Clone for MKTree<S> {
     fn clone(&self) -> Self {
         // Cloning should never fail so unwrap is safe
         Self::new(&self.leaves()).unwrap()
@@ -345,7 +455,8 @@ mod tests {
     #[test]
     fn test_golden_merkle_root() {
         let leaves = vec!["golden-1", "golden-2", "golden-3", "golden-4", "golden-5"];
-        let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
+        let mktree =
+            MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
         let mkroot = mktree
             .compute_root()
             .expect("MKRoot generation should not fail");
@@ -378,7 +489,8 @@ mod tests {
     #[test]
     fn test_should_list_leaves() {
         let leaves: Vec<MKTreeNode> = vec!["test-0".into(), "test-1".into(), "test-2".into()];
-        let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
+        let mktree =
+            MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
         let leaves_retrieved = mktree.leaves();
 
         assert_eq!(
@@ -390,7 +502,8 @@ mod tests {
     #[test]
     fn test_should_clone_and_compute_same_root() {
         let leaves = generate_leaves(10);
-        let mktree = MKTree::new(&leaves).expect("MKTree creation should not fail");
+        let mktree =
+            MKTree::<MKTreeStoreInMemory>::new(&leaves).expect("MKTree creation should not fail");
         let mktree_clone = mktree.clone();
 
         assert_eq!(
@@ -404,7 +517,8 @@ mod tests {
         let leaves = generate_leaves(10);
         let leaves_creation = &leaves[..9];
         let leaves_to_append = &leaves[9..];
-        let mut mktree = MKTree::new(leaves_creation).expect("MKTree creation should not fail");
+        let mut mktree = MKTree::<MKTreeStoreInMemory>::new(leaves_creation)
+            .expect("MKTree creation should not fail");
         mktree
             .append(leaves_to_append)
             .expect("MKTree append leaves should not fail");

@@ -472,7 +472,9 @@ mod tests {
             CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
         },
         chain_observer::{ChainObserver, FakeObserver},
-        crypto_helper::{MKMap, MKMapNode, MKTreeNode, ProtocolInitializer},
+        crypto_helper::{
+            MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
+        },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, StakeDistribution},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
@@ -510,10 +512,10 @@ mod tests {
     }
 
     mock! {
-        pub BlockRangeRootRetrieverImpl { }
+        pub BlockRangeRootRetrieverImpl<S: MKTreeStorer> { }
 
         #[async_trait]
-        impl BlockRangeRootRetriever for BlockRangeRootRetrieverImpl {
+        impl<S: MKTreeStorer> BlockRangeRootRetriever<S> for BlockRangeRootRetrieverImpl<S> {
             async fn retrieve_block_range_roots<'a>(
                 &'a self,
                 up_to_beacon: BlockNumber,
@@ -522,7 +524,7 @@ mod tests {
             async fn compute_merkle_map_from_block_range_roots(
                 &self,
                 up_to_beacon: BlockNumber,
-            ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange>>>;
+            ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange,S>, S>>;
         }
     }
 
@@ -564,7 +566,8 @@ mod tests {
             transaction_store.clone(),
             slog_scope::logger(),
         ));
-        let block_range_root_retriever = Arc::new(MockBlockRangeRootRetrieverImpl::new());
+        let block_range_root_retriever =
+            Arc::new(MockBlockRangeRootRetrieverImpl::<MKTreeStoreInMemory>::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transactions_importer.clone(),
             block_range_root_retriever,

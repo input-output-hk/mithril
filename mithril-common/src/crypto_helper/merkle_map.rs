@@ -10,7 +10,7 @@ use std::{
 
 use crate::{resource_pool::Reset, StdError, StdResult};
 
-use super::{MKProof, MKTree, MKTreeNode};
+use super::{MKProof, MKTree, MKTreeNode, MKTreeStorer};
 
 /// The trait implemented by the keys of a MKMap
 pub trait MKMapKey: PartialEq + Eq + PartialOrd + Ord + Clone + Hash + Into<MKTreeNode> {}
@@ -34,13 +34,13 @@ pub trait MKMapValue<K: MKMapKey>: Clone + TryInto<MKTreeNode> + TryFrom<MKTreeN
 }
 
 /// A map, where the keys and values are merkelized and provable
-pub struct MKMap<K: MKMapKey, V: MKMapValue<K>> {
+pub struct MKMap<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> {
     inner_map_values: BTreeMap<K, V>,
-    inner_merkle_tree: MKTree,
+    inner_merkle_tree: MKTree<S>,
     provable_keys: BTreeSet<K>,
 }
 
-impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> MKMap<K, V, S> {
     /// MKMap factory
     pub fn new(entries: &[(K, V)]) -> StdResult<Self> {
         Self::new_from_iter(entries.to_vec())
@@ -49,7 +49,7 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
     /// MKMap factory
     pub fn new_from_iter<T: IntoIterator<Item = (K, V)>>(entries: T) -> StdResult<Self> {
         let inner_map_values = BTreeMap::default();
-        let inner_merkle_tree = MKTree::new::<MKTreeNode>(&[])?;
+        let inner_merkle_tree = MKTree::<S>::new::<MKTreeNode>(&[])?;
         let can_compute_proof_keys = BTreeSet::default();
         let mut mk_map = Self {
             inner_map_values,
@@ -246,13 +246,13 @@ impl<K: MKMapKey, V: MKMapValue<K>> MKMap<K, V> {
     }
 }
 
-impl<K: MKMapKey, V: MKMapValue<K>> Reset for MKMap<K, V> {
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> Reset for MKMap<K, V, S> {
     fn reset(&mut self) -> StdResult<()> {
         self.compress()
     }
 }
 
-impl<K: MKMapKey, V: MKMapValue<K>> Clone for MKMap<K, V> {
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> Clone for MKMap<K, V, S> {
     fn clone(&self) -> Self {
         // Cloning should never fail so unwrap is safe
         let mut clone = Self::new(&[]).unwrap();
@@ -264,15 +264,17 @@ impl<K: MKMapKey, V: MKMapValue<K>> Clone for MKMap<K, V> {
     }
 }
 
-impl<'a, K: MKMapKey, V: MKMapValue<K>> From<&'a MKMap<K, V>> for &'a MKTree {
-    fn from(other: &'a MKMap<K, V>) -> Self {
+impl<'a, K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> From<&'a MKMap<K, V, S>>
+    for &'a MKTree<S>
+{
+    fn from(other: &'a MKMap<K, V, S>) -> Self {
         &other.inner_merkle_tree
     }
 }
 
-impl<K: MKMapKey, V: MKMapValue<K>> TryFrom<MKMap<K, V>> for MKTreeNode {
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> TryFrom<MKMap<K, V, S>> for MKTreeNode {
     type Error = StdError;
-    fn try_from(other: MKMap<K, V>) -> Result<Self, Self::Error> {
+    fn try_from(other: MKMap<K, V, S>) -> Result<Self, Self::Error> {
         other.compute_root()
     }
 }
@@ -365,18 +367,18 @@ impl<K: MKMapKey> From<MKProof> for MKMapProof<K> {
 /// The MKMapNode can be either a MKMap (Merkle map), a MKTree (full Merkle tree) or a MKTreeNode (Merkle tree node, e.g the root of a Merkle tree)
 /// Both MKMap and MKTree can generate proofs of membership for elements that they contain, which allows for recursive proof generation for the multiple layers
 #[derive(Clone)]
-pub enum MKMapNode<K: MKMapKey> {
+pub enum MKMapNode<K: MKMapKey, S: MKTreeStorer> {
     /// A Merkle map
-    Map(Arc<MKMap<K, Self>>),
+    Map(Arc<MKMap<K, Self, S>>),
 
     /// A full Merkle tree
-    Tree(Arc<MKTree>),
+    Tree(Arc<MKTree<S>>),
 
     /// A Merkle tree node
     TreeNode(MKTreeNode),
 }
 
-impl<K: MKMapKey> MKMapValue<K> for MKMapNode<K> {
+impl<K: MKMapKey, S: MKTreeStorer> MKMapValue<K> for MKMapNode<K, S> {
     fn compute_root(&self) -> StdResult<MKTreeNode> {
         match self {
             MKMapNode::Map(mk_map) => mk_map.compute_root(),
@@ -434,27 +436,27 @@ impl<K: MKMapKey> MKMapValue<K> for MKMapNode<K> {
     }
 }
 
-impl<K: MKMapKey> From<MKMap<K, MKMapNode<K>>> for MKMapNode<K> {
-    fn from(other: MKMap<K, MKMapNode<K>>) -> Self {
+impl<K: MKMapKey, S: MKTreeStorer> From<MKMap<K, MKMapNode<K, S>, S>> for MKMapNode<K, S> {
+    fn from(other: MKMap<K, MKMapNode<K, S>, S>) -> Self {
         MKMapNode::Map(Arc::new(other))
     }
 }
 
-impl<K: MKMapKey> From<MKTree> for MKMapNode<K> {
-    fn from(other: MKTree) -> Self {
+impl<K: MKMapKey, S: MKTreeStorer> From<MKTree<S>> for MKMapNode<K, S> {
+    fn from(other: MKTree<S>) -> Self {
         MKMapNode::Tree(Arc::new(other))
     }
 }
 
-impl<K: MKMapKey> From<MKTreeNode> for MKMapNode<K> {
+impl<K: MKMapKey, S: MKTreeStorer> From<MKTreeNode> for MKMapNode<K, S> {
     fn from(other: MKTreeNode) -> Self {
         MKMapNode::TreeNode(other)
     }
 }
 
-impl<K: MKMapKey> TryFrom<MKMapNode<K>> for MKTreeNode {
+impl<K: MKMapKey, S: MKTreeStorer> TryFrom<MKMapNode<K, S>> for MKTreeNode {
     type Error = StdError;
-    fn try_from(other: MKMapNode<K>) -> Result<Self, Self::Error> {
+    fn try_from(other: MKMapNode<K, S>) -> Result<Self, Self::Error> {
         other.compute_root()
     }
 }
@@ -463,14 +465,17 @@ impl<K: MKMapKey> TryFrom<MKMapNode<K>> for MKTreeNode {
 mod tests {
     use std::collections::BTreeSet;
 
-    use crate::entities::{BlockNumber, BlockRange};
+    use crate::{
+        crypto_helper::MKTreeStoreInMemory,
+        entities::{BlockNumber, BlockRange},
+    };
 
     use super::*;
 
     fn generate_merkle_trees(
         total_leaves: u64,
         block_range_length: u64,
-    ) -> Vec<(BlockRange, MKTree)> {
+    ) -> Vec<(BlockRange, MKTree<MKTreeStoreInMemory>)> {
         (0..total_leaves / block_range_length)
             .map(|block_range_index| {
                 let block_range = BlockRange::from_block_number_and_length(
@@ -484,14 +489,16 @@ mod tests {
             .collect::<Vec<_>>()
     }
 
-    fn generate_merkle_tree(block_range: &BlockRange) -> MKTree {
+    fn generate_merkle_tree(block_range: &BlockRange) -> MKTree<MKTreeStoreInMemory> {
         let leaves = (*block_range.start..*block_range.end)
             .map(|leaf_index| leaf_index.to_string())
             .collect::<Vec<_>>();
         MKTree::new(&leaves).unwrap()
     }
 
-    fn generate_merkle_trees_for_ranges(block_ranges: &[BlockRange]) -> Vec<(BlockRange, MKTree)> {
+    fn generate_merkle_trees_for_ranges(
+        block_ranges: &[BlockRange],
+    ) -> Vec<(BlockRange, MKTree<MKTreeStoreInMemory>)> {
         block_ranges
             .iter()
             .map(|block_range| (block_range.to_owned(), generate_merkle_tree(block_range)))
@@ -499,8 +506,8 @@ mod tests {
     }
 
     fn into_mkmap_tree_entries(
-        entries: Vec<(BlockRange, MKTree)>,
-    ) -> Vec<(BlockRange, MKMapNode<BlockRange>)> {
+        entries: Vec<(BlockRange, MKTree<MKTreeStoreInMemory>)>,
+    ) -> Vec<(BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>)> {
         entries
             .into_iter()
             .map(|(range, mktree)| (range, MKMapNode::Tree(Arc::new(mktree))))
@@ -508,8 +515,8 @@ mod tests {
     }
 
     fn into_mkmap_tree_node_entries(
-        entries: Vec<(BlockRange, MKTree)>,
-    ) -> Vec<(BlockRange, MKMapNode<BlockRange>)> {
+        entries: Vec<(BlockRange, MKTree<MKTreeStoreInMemory>)>,
+    ) -> Vec<(BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>)> {
         entries
             .into_iter()
             .map(|(range, mktree)| (range, MKMapNode::TreeNode(mktree.try_into().unwrap())))
@@ -519,8 +526,11 @@ mod tests {
     #[test]
     fn test_mk_map_should_compute_same_root_when_replacing_entry_with_equivalent() {
         let entries = generate_merkle_trees(10, 3);
-        let mk_map_nodes = MKMap::new(&into_mkmap_tree_node_entries(entries.clone())).unwrap();
-        let mk_map_full = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mk_map_nodes =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_node_entries(entries.clone()))
+                .unwrap();
+        let mk_map_full =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
 
         let mk_map_nodes_root = mk_map_nodes.compute_root().unwrap();
         let mk_map_full_root = mk_map_full.compute_root().unwrap();
@@ -535,7 +545,8 @@ mod tests {
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
         ]);
-        let mut mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mut mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
         let mk_map_root_expected = mk_map.compute_root().unwrap();
         let block_range_replacement = BlockRange::new(0, 3);
         let same_root_value = MKMapNode::TreeNode(
@@ -560,7 +571,8 @@ mod tests {
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
         ]);
-        let mut mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mut mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
         let block_range_replacement = BlockRange::new(0, 3);
         let value_replacement: MKTreeNode = "test-123".to_string().into();
         let different_root_value = MKMapNode::TreeNode(value_replacement);
@@ -577,7 +589,8 @@ mod tests {
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
         ]);
-        let mut mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mut mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
         let block_range_replacement = BlockRange::new(0, 3);
         let same_root_value = MKMapNode::TreeNode(
             mk_map
@@ -611,7 +624,8 @@ mod tests {
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
         ]);
-        let mut mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mut mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
 
         let error = mk_map
             .replace(
@@ -635,7 +649,8 @@ mod tests {
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
         ]);
-        let mut mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mut mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
 
         let error = mk_map
             .replace(
@@ -659,7 +674,8 @@ mod tests {
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
         ]);
-        let mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
         let mk_map_root_expected = mk_map.compute_root().unwrap();
         let mk_map_provable_keys = mk_map.get_provable_keys();
         assert!(!mk_map_provable_keys.is_empty());
@@ -680,7 +696,9 @@ mod tests {
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
         ]);
-        let mut mk_map = MKMap::new(&into_mkmap_tree_node_entries(entries)).unwrap();
+        let mut mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_node_entries(entries))
+                .unwrap();
         let out_of_order_entry = (
             BlockRange::new(0, 25),
             MKMapNode::TreeNode("test-123".into()),
@@ -699,7 +717,8 @@ mod tests {
             BlockRange::new(7, 9),
         ]);
         let merkle_tree_entries = &into_mkmap_tree_node_entries(entries);
-        let mk_map = MKMap::new(merkle_tree_entries.as_slice()).unwrap();
+        let mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(merkle_tree_entries.as_slice()).unwrap();
 
         let keys = mk_map
             .iter()
@@ -722,7 +741,8 @@ mod tests {
             BlockRange::new(7, 9),
         ]);
         let merkle_tree_entries = &into_mkmap_tree_node_entries(entries);
-        let mk_map = MKMap::new(merkle_tree_entries.as_slice()).unwrap();
+        let mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(merkle_tree_entries.as_slice()).unwrap();
 
         let values = mk_map
             .iter()
@@ -748,7 +768,8 @@ mod tests {
             BlockRange::new(7, 9),
         ]);
         let mktree_node_to_certify = entries[2].1.leaves()[1].clone();
-        let mk_map_full = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mk_map_full =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
 
         mk_map_full.contains(&mktree_node_to_certify).unwrap();
     }
@@ -760,7 +781,8 @@ mod tests {
             BlockRange::new(4, 6),
             BlockRange::new(7, 9),
         ]);
-        let mk_map = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mk_map =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
 
         let mk_map_clone = mk_map.clone();
 
@@ -774,7 +796,8 @@ mod tests {
     fn test_mk_map_should_not_compute_proof_for_no_leaves() {
         let entries = generate_merkle_trees(10, 3);
         let mktree_nodes_to_certify: &[MKTreeNode] = &[];
-        let mk_map_full = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mk_map_full =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
 
         mk_map_full
             .compute_proof(mktree_nodes_to_certify)
@@ -790,7 +813,8 @@ mod tests {
             entries[1].1.leaves()[1].clone(),
             entries[2].1.leaves()[1].clone(),
         ];
-        let mk_map_full = MKMap::new(&into_mkmap_tree_entries(entries)).unwrap();
+        let mk_map_full =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(&into_mkmap_tree_entries(entries)).unwrap();
         let mk_map_proof = mk_map_full.compute_proof(&mktree_nodes_to_certify).unwrap();
 
         mk_map_proof.verify().unwrap();
@@ -827,7 +851,8 @@ mod tests {
             })
             .collect::<Vec<_>>();
 
-        let mk_map_full = MKMap::new(merkle_tree_node_entries.as_slice()).unwrap();
+        let mk_map_full =
+            MKMap::<_, _, MKTreeStoreInMemory>::new(merkle_tree_node_entries.as_slice()).unwrap();
 
         let mk_map_proof = mk_map_full.compute_proof(&mktree_nodes_to_certify).unwrap();
 

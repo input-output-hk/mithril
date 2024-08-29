@@ -34,8 +34,8 @@ use mithril_persistence::{
     store::{StakeStore, StakeStorer},
 };
 use mithril_signer::{
-    metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MetricsService,
-    MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
+    metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MKTreeStoreSqlite,
+    MetricsService, MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
     ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
     SignerUpkeepService, StateMachine,
 };
@@ -191,7 +191,9 @@ impl StateMachineTester {
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
+            MKTreeStoreSqlite,
+        >::new(
             transactions_importer.clone(),
             block_range_root_retriever,
             slog_scope::logger(),

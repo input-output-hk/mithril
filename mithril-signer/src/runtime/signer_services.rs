@@ -33,8 +33,8 @@ use mithril_persistence::{
 use crate::{
     aggregator_client::AggregatorClient, metrics::MetricsService, single_signer::SingleSigner,
     AggregatorHTTPClient, CardanoTransactionsImporter,
-    CardanoTransactionsPreloaderActivationSigner, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
+    CardanoTransactionsPreloaderActivationSigner, Configuration, MKTreeStoreSqlite,
+    MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer, SignerUpkeepService,
     TransactionsImporterByChunk, TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
     UpkeepService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE, SQLITE_FILE_CARDANO_TRANSACTION,
 };
@@ -315,7 +315,9 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
-        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
+            MKTreeStoreSqlite,
+        >::new(
             state_machine_transactions_importer,
             block_range_root_retriever,
             slog_scope::logger(),

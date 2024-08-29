@@ -9,9 +9,13 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-- Support for Mithril nodes footprint support in Prometheus monitoring in infrastructure
-- Add support for custom HTTP headers in Mithril client WASM library
-- Support `file://` URLs for snapshot locations
+- Support for Mithril nodes footprint support in Prometheus monitoring in infrastructure.
+
+- Add support for custom HTTP headers in Mithril client WASM library.
+
+- Support `file://` URLs for snapshot locations in Mithril client.
+
+- Support for Mithril signer memory optimization when signing Cardano transactions with multiple Merkle tree storage backends.
 
 - **UNSTABLE** Cardano stake distribution certification:
 
@@ -102,13 +106,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE** Cardano transactions certification:
 
   - Support computation of the Cardano Transactions signature and proving with the pre-computed Block Range Merkle Roots retrieved from the database.
-
   - Prune Cardano Transactions from the signer database after the Block Range Merkle Roots have been computed.
-
   - Implement a Chain Reader which retrieves blocks from the Cardano chain with Pallas through the `chainsync` mini-protocol.
-
   - Implement a Resource Pool and use it for caching Block Range Merkle maps used by the Cardano transactions prover and improving the throughput.
-
   - Change the beacon of the Cardano Transactions to a block number instead of an immutable file number.
 
 - Crates versions:

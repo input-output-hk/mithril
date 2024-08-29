@@ -1,6 +1,6 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril_common::{
-    crypto_helper::{MKMap, MKMapNode, MKMapValue, MKTree, MKTreeNode},
+    crypto_helper::{MKMap, MKMapNode, MKMapValue, MKTree, MKTreeNode, MKTreeStoreInMemory},
     entities::BlockRange,
 };
 
@@ -29,7 +29,7 @@ fn generate_block_ranges_nodes_iterator(
     total_transactions_per_block: u64,
     block_range_length: u64,
     max_uncompressed_block_ranges: u64,
-) -> impl Iterator<Item = (BlockRange, MKMapNode<BlockRange>)> {
+) -> impl Iterator<Item = (BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>)> {
     let total_transactions_per_block_range = total_transactions_per_block * block_range_length;
     let total_block_ranges = total_transactions / total_transactions_per_block_range;
     assert!(
@@ -56,8 +56,10 @@ fn generate_block_ranges_nodes_iterator(
 }
 
 fn generate_merkle_map_compressed(
-    block_ranges_nodes_iterator: impl Iterator<Item = (BlockRange, MKMapNode<BlockRange>)>,
-) -> MKMap<BlockRange, MKMapNode<BlockRange>> {
+    block_ranges_nodes_iterator: impl Iterator<
+        Item = (BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>),
+    >,
+) -> MKMap<BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>, MKTreeStoreInMemory> {
     let mut mk_map = MKMap::new(&[]).unwrap();
     for (block_range, mk_map_node) in block_ranges_nodes_iterator {
         mk_map
@@ -68,10 +70,19 @@ fn generate_merkle_map_compressed(
 }
 
 fn generate_merkle_map(
-    block_ranges_nodes_iterator: impl Iterator<Item = (BlockRange, MKMapNode<BlockRange>)>,
-    mk_map_compressed: &MKMap<BlockRange, MKMapNode<BlockRange>>,
+    block_ranges_nodes_iterator: impl Iterator<
+        Item = (BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>),
+    >,
+    mk_map_compressed: &MKMap<
+        BlockRange,
+        MKMapNode<BlockRange, MKTreeStoreInMemory>,
+        MKTreeStoreInMemory,
+    >,
     total_proofs: u64,
-) -> (MKMap<BlockRange, MKMapNode<BlockRange>>, Vec<MKTreeNode>) {
+) -> (
+    MKMap<BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>, MKTreeStoreInMemory>,
+    Vec<MKTreeNode>,
+) {
     let mut leaves_to_prove_all: Vec<MKTreeNode> = vec![];
     let mut mk_map = mk_map_compressed.clone();
     for (mk_map_key_to_prove, mk_map_node_to_prove) in &block_ranges_nodes_iterator
