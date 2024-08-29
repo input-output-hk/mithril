@@ -6,7 +6,7 @@ use mithril_common::StdResult;
 use std::path::{Path, PathBuf};
 
 use crate::message_adapters::ToRegisterSignatureMessageAdapter;
-use crate::SignaturePublisher;
+use crate::services::SignaturePublisher;
 
 /// Publishes computed single signatures to a third party using unix socket.
 pub struct UnixSocketSignaturePublisher {

@@ -3,8 +3,7 @@ use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignatur
 use mithril_common::StdResult;
 use std::sync::Arc;
 
-use crate::services::AggregatorClient;
-use crate::SignaturePublisher;
+use crate::services::{AggregatorClient, SignaturePublisher};
 
 /// Publishes computed single signatures to an Aggregator http api.
 pub struct AggregatorHttpSignaturePublisher {

@@ -38,16 +38,15 @@ use mithril_persistence::store::StakeStore;
 use crate::database::repository::SignedBeaconRepository;
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
-    AggregatorHTTPClient, CardanoTransactionsImporter,
+    AggregatorHTTPClient, AggregatorHttpSignaturePublisher, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-    SignerUpkeepService, TransactionsImporterByChunk, TransactionsImporterWithPruner,
-    TransactionsImporterWithVacuum,
+    SignaturePublisher, SignerCertifierService, SignerSignableSeedBuilder,
+    SignerSignedEntityConfigProvider, SignerUpkeepService, TransactionsImporterByChunk,
+    TransactionsImporterWithPruner, TransactionsImporterWithVacuum, UnixSocketSignaturePublisher,
 };
 use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore};
 use crate::{
-    AggregatorHttpSignaturePublisher, Configuration, MetricsService, SignaturePublisher,
-    UnixSocketSignaturePublisher, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
+    Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
     SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
