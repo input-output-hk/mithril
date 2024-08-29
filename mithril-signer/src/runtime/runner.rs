@@ -16,7 +16,7 @@ use mithril_persistence::store::StakeStorer;
 
 use crate::{Configuration, MithrilProtocolInitializerBuilder};
 
-use super::signer_services::SignerServices;
+use super::signer_services::SignerDependencyContainer;
 
 /// This trait is mainly intended for mocking.
 #[async_trait]
@@ -100,12 +100,12 @@ pub enum RunnerError {
 /// Controller methods for the Signer's state machine.
 pub struct SignerRunner {
     config: Configuration,
-    services: SignerServices,
+    services: SignerDependencyContainer,
 }
 
 impl SignerRunner {
     /// Create a new Runner instance.
-    pub fn new(config: Configuration, services: SignerServices) -> Self {
+    pub fn new(config: Configuration, services: SignerDependencyContainer) -> Self {
         Self { services, config }
     }
 }
@@ -528,7 +528,7 @@ mod tests {
         }
     }
 
-    async fn init_services() -> SignerServices {
+    async fn init_services() -> SignerDependencyContainer {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
@@ -596,7 +596,7 @@ mod tests {
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
 
-        SignerServices {
+        SignerDependencyContainer {
             stake_store,
             certificate_handler: Arc::new(DumbAggregatorClient::default()),
             chain_observer,
@@ -619,7 +619,7 @@ mod tests {
     }
 
     async fn init_runner(
-        maybe_services: Option<SignerServices>,
+        maybe_services: Option<SignerDependencyContainer>,
         maybe_config: Option<Configuration>,
     ) -> SignerRunner {
         SignerRunner::new(

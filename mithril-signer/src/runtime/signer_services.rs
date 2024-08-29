@@ -47,24 +47,25 @@ type SingleSignerService = Arc<dyn SingleSigner>;
 type TimePointProviderService = Arc<dyn TickerService>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
 
-/// The ServiceBuilder is intended to manage Services instance creation.
+/// The `DependenciesBuilder` is intended to manage Services instance creation.
+///
 /// The goal of this is to put all this code out of the way of business code.
 #[async_trait]
-pub trait ServiceBuilder {
+pub trait DependenciesBuilder {
     /// Create a SignerService instance.
-    async fn build(&self) -> StdResult<SignerServices>;
+    async fn build(&self) -> StdResult<SignerDependencyContainer>;
 }
 
-/// Create a SignerService instance for Production environment.
-pub struct ProductionServiceBuilder<'a> {
+/// A `DependenciesBuilder` for Production environment.
+pub struct ProductionDependenciesBuilder<'a> {
     config: &'a Configuration,
     chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService>,
     immutable_file_observer_builder:
         fn(&Configuration) -> StdResult<Arc<dyn ImmutableFileObserver>>,
 }
 
-impl<'a> ProductionServiceBuilder<'a> {
-    /// Create a new production service builder.
+impl<'a> ProductionDependenciesBuilder<'a> {
+    /// Create a new `ProductionDependenciesBuilder`.
     pub fn new(config: &'a Configuration) -> Self {
         let chain_observer_builder: fn(&Configuration) -> StdResult<ChainObserverService> =
             |config: &Configuration| {
@@ -72,7 +73,7 @@ impl<'a> ProductionServiceBuilder<'a> {
                 let cardano_cli_path = &config.cardano_cli_path;
                 let cardano_node_socket_path = &config.cardano_node_socket_path;
                 let cardano_network = &config.get_network().with_context(|| {
-                    "Production Service Builder can not get Cardano network while building the chain observer"
+                    "Production Dependencies Builder can not get Cardano network while building the chain observer"
                 })?;
                 let cardano_cli_runner = &CardanoCliRunner::new(
                     cardano_cli_path.to_owned(),
@@ -185,9 +186,9 @@ impl<'a> ProductionServiceBuilder<'a> {
 }
 
 #[async_trait]
-impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
-    /// Build a Services for the Production environment.
-    async fn build(&self) -> StdResult<SignerServices> {
+impl<'a> DependenciesBuilder for ProductionDependenciesBuilder<'a> {
+    /// Build dependencies for the Production environment.
+    async fn build(&self) -> StdResult<SignerDependencyContainer> {
         if !self.config.data_stores_directory.exists() {
             fs::create_dir_all(self.config.data_stores_directory.clone()).with_context(|| {
                 format!(
@@ -349,7 +350,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
         ));
 
-        let services = SignerServices {
+        let services = SignerDependencyContainer {
             ticker_service,
             certificate_handler: aggregator_client,
             chain_observer,
@@ -371,8 +372,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
     }
 }
 
-/// This structure groups all the services required by the state machine.
-pub struct SignerServices {
+/// This structure groups all the dependencies required by the state machine.
+pub struct SignerDependencyContainer {
     /// Time point provider service
     pub ticker_service: TimePointProviderService,
 
@@ -451,8 +452,8 @@ mod tests {
             -> StdResult<Arc<dyn ImmutableFileObserver>> =
             |_config: &Configuration| Ok(Arc::new(DumbImmutableFileObserver::default()));
 
-        let mut service_builder = ProductionServiceBuilder::new(&config);
-        service_builder
+        let mut dependencies_builder = ProductionDependenciesBuilder::new(&config);
+        dependencies_builder
             .override_chain_observer_builder(chain_observer_builder)
             .override_immutable_file_observer_builder(immutable_file_observer_builder)
             .build()

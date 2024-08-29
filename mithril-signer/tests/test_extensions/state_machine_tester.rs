@@ -35,8 +35,8 @@ use mithril_persistence::{
 };
 use mithril_signer::{
     metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MKTreeStoreSqlite,
-    MetricsService, MithrilSingleSigner, ProductionServiceBuilder, ProtocolInitializerStore,
-    ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
+    MetricsService, MithrilSingleSigner, ProductionDependenciesBuilder, ProtocolInitializerStore,
+    ProtocolInitializerStorer, RuntimeError, SignerDependencyContainer, SignerRunner, SignerState,
     SignerUpkeepService, StateMachine,
 };
 
@@ -94,9 +94,9 @@ impl StateMachineTester {
         let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
         let config = Configuration::new_sample(&selected_signer_party_id);
 
-        let production_service_builder = ProductionServiceBuilder::new(&config);
+        let production_dependencies_builder = ProductionDependenciesBuilder::new(&config);
         let sqlite_connection = Arc::new(
-            production_service_builder
+            production_dependencies_builder
                 .build_sqlite_connection(
                     ":memory:",
                     mithril_signer::database::migration::get_migrations(),
@@ -104,7 +104,7 @@ impl StateMachineTester {
                 .await
                 .unwrap(),
         );
-        let transaction_sqlite_connection = production_service_builder
+        let transaction_sqlite_connection = production_dependencies_builder
             .build_sqlite_connection(
                 ":memory:",
                 mithril_persistence::database::cardano_transaction_migration::get_migrations(),
@@ -226,7 +226,7 @@ impl StateMachineTester {
             slog_scope::logger(),
         ));
 
-        let services = SignerServices {
+        let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
             ticker_service: ticker_service.clone(),
             chain_observer: chain_observer.clone(),

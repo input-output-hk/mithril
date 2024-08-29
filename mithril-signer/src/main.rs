@@ -16,8 +16,8 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, GenerateDocCommands, StructDoc};
 use mithril_signer::{
-    Configuration, DefaultConfiguration, MetricsServer, ProductionServiceBuilder, ServiceBuilder,
-    SignerRunner, SignerState, StateMachine,
+    Configuration, DefaultConfiguration, DependenciesBuilder, MetricsServer,
+    ProductionDependenciesBuilder, SignerRunner, SignerState, StateMachine,
 };
 
 /// CLI args
@@ -158,7 +158,7 @@ async fn main() -> StdResult<()> {
         .try_deserialize()
         .with_context(|| "configuration deserialize error")?;
 
-    let services = ProductionServiceBuilder::new(&config)
+    let services = ProductionDependenciesBuilder::new(&config)
         .build()
         .await
         .with_context(|| "services initialization error")?;
