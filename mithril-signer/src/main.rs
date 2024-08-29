@@ -15,9 +15,9 @@ use tokio::{
 
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, GenerateDocCommands, StructDoc};
+use mithril_signer::dependency_injection::{DependenciesBuilder, ProductionDependenciesBuilder};
 use mithril_signer::{
-    Configuration, DefaultConfiguration, DependenciesBuilder, MetricsServer,
-    ProductionDependenciesBuilder, SignerRunner, SignerState, StateMachine,
+    Configuration, DefaultConfiguration, MetricsServer, SignerRunner, SignerState, StateMachine,
 };
 
 /// CLI args

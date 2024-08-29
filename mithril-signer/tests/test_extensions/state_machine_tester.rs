@@ -34,10 +34,11 @@ use mithril_persistence::{
     store::{StakeStore, StakeStorer},
 };
 use mithril_signer::{
-    metrics::*, AggregatorClient, CardanoTransactionsImporter, Configuration, MKTreeStoreSqlite,
-    MetricsService, MithrilSingleSigner, ProductionDependenciesBuilder, ProtocolInitializerStore,
-    ProtocolInitializerStorer, RuntimeError, SignerDependencyContainer, SignerRunner, SignerState,
-    SignerUpkeepService, StateMachine,
+    dependency_injection::{ProductionDependenciesBuilder, SignerDependencyContainer},
+    metrics::*,
+    AggregatorClient, CardanoTransactionsImporter, Configuration, MKTreeStoreSqlite,
+    MetricsService, MithrilSingleSigner, ProtocolInitializerStore, ProtocolInitializerStorer,
+    RuntimeError, SignerRunner, SignerState, SignerUpkeepService, StateMachine,
 };
 
 use super::FakeAggregator;

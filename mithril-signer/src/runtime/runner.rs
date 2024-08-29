@@ -14,9 +14,8 @@ use mithril_common::entities::{
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
+use crate::dependency_injection::SignerDependencyContainer;
 use crate::{Configuration, MithrilProtocolInitializerBuilder};
-
-use super::signer_services::SignerDependencyContainer;
 
 /// This trait is mainly intended for mocking.
 #[async_trait]
