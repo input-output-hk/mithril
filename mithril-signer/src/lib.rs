@@ -10,14 +10,11 @@ mod configuration;
 pub mod database;
 
 pub mod dependency_injection;
-pub mod epoch_service;
 mod message_adapters;
 pub mod metrics;
 mod runtime;
 pub mod services;
 pub mod store;
-
-pub use epoch_service::*;
 
 pub use configuration::{Configuration, DefaultConfiguration};
 pub use message_adapters::{

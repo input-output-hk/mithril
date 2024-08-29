@@ -4,13 +4,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::Signer;
-use mithril_common::entities::Stake;
-use mithril_persistence::store::StakeStore;
 use mithril_persistence::store::StakeStorer;
-use slog::trace;
 use slog_scope::debug;
 //use std::sync::Arc;
-//use thiserror::Error;
+use thiserror::Error;
 
 //use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 //use mithril_common::entities::{Epoch, ProtocolParameters, Signer, SignerWithStake};
@@ -23,29 +20,27 @@ use crate::RunnerError;
 
 //use crate::{ProtocolParametersStorer, VerificationKeyStorer};
 
-// /// Errors dedicated to the CertifierService.
-// #[derive(Debug, Error)]
-// pub enum EpochServiceError {
-//     /// One of the data that is held for an epoch duration by the service was not available.
-//     #[error("Epoch service could not obtain {1} for epoch {0}")]
-//     UnavailableData(Epoch, String),
-
-//     /// Raised when service has not collected data at least once.
-//     #[error("Epoch service was not initialized, the function `inform_epoch` must be called first")]
-//     NotYetInitialized,
-
-//     /// Raised when service has not computed data for its current epoch.
-//     #[error(
-//         "No data computed for epoch {0}, the function `precompute_epoch_data` must be called first"
-//     )]
-//     NotYetComputed(Epoch),
-// }
+/// Errors dedicated to the CertifierService.
+#[derive(Debug, Error)]
+pub enum EpochServiceError {
+    // /// One of the data that is held for an epoch duration by the service was not available.
+    // #[error("Epoch service could not obtain {1} for epoch {0}")]
+    // UnavailableData(Epoch, String),
+    /// Raised when service has not collected data at least once.
+    #[error("Epoch service was not initialized, the function `inform_epoch` must be called first")]
+    NotYetInitialized,
+    // /// Raised when service has not computed data for its current epoch.
+    // #[error(
+    //     "No data computed for epoch {0}, the function `precompute_epoch_data` must be called first"
+    // )]
+    // NotYetComputed(Epoch),
+}
 
 /// Service that aggregates all data that don't change in a given epoch.
 #[async_trait]
 pub trait EpochService: Sync + Send {
     // TODO should we pass ean EpochSettings or the individual fields ?
-    async fn register_epoch_settings(&mut self, epoch_settings: &EpochSettings) -> StdResult<()>;
+    async fn inform_epoch_settings(&mut self, epoch_settings: &EpochSettings) -> StdResult<()>;
 
     // /// Inform the service a new epoch has been detected, telling it to update its
     // /// internal state for the new epoch.
@@ -95,16 +90,18 @@ pub trait EpochService: Sync + Send {
     // fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner>;
 }
 
-// struct EpochData {
-//     epoch: Epoch,
-//     protocol_parameters: ProtocolParameters,
-//     next_protocol_parameters: ProtocolParameters,
-//     upcoming_protocol_parameters: ProtocolParameters,
-//     current_signers_with_stake: Vec<SignerWithStake>,
-//     next_signers_with_stake: Vec<SignerWithStake>,
-//     current_signers: Vec<Signer>,
-//     next_signers: Vec<Signer>,
-// }
+struct EpochData {
+    // epoch: Epoch,
+    // protocol_parameters: ProtocolParameters,
+    // next_protocol_parameters: ProtocolParameters,
+    // upcoming_protocol_parameters: ProtocolParameters,
+    // current_signers_with_stake: Vec<SignerWithStake>,
+    // next_signers_with_stake: Vec<SignerWithStake>,
+    // current_signers: Vec<Signer>,
+    // next_signers: Vec<Signer>,
+    current_signers_with_stake: Vec<SignerWithStake>,
+    next_signers_with_stake: Vec<SignerWithStake>,
+}
 
 // struct ComputedEpochData {
 //     aggregate_verification_key: ProtocolAggregateVerificationKey,
@@ -121,8 +118,10 @@ pub struct MithrilEpochService {
     //     protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
     //     verification_key_store: Arc<dyn VerificationKeyStorer>,
     stake_storer: Arc<dyn StakeStorer>,
-    current_signers_with_stake: Vec<SignerWithStake>,
-    next_signers_with_stake: Vec<SignerWithStake>,
+    // TODO encapsutate in a struct EpochData
+    // current_signers_with_stake: Vec<SignerWithStake>,
+    // next_signers_with_stake: Vec<SignerWithStake>,
+    epoch_data: Option<EpochData>,
 }
 
 impl MithrilEpochService {
@@ -130,8 +129,8 @@ impl MithrilEpochService {
     pub fn new(stake_storer: Arc<dyn StakeStorer>) -> Self {
         Self {
             stake_storer,
-            current_signers_with_stake: vec![],
-            next_signers_with_stake: vec![],
+            // TODO init EpochData with empty None
+            epoch_data: None,
         }
     }
 
@@ -278,11 +277,11 @@ impl MithrilEpochService {
     //         .map(|_| ())
     // }
 
-    // fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
-    //     self.epoch_data
-    //         .as_ref()
-    //         .ok_or(EpochServiceError::NotYetInitialized)
-    // }
+    fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
+        self.epoch_data
+            .as_ref()
+            .ok_or(EpochServiceError::NotYetInitialized)
+    }
 
     // fn unwrap_computed_data(&self) -> Result<&ComputedEpochData, EpochServiceError> {
     //     let epoch = self.unwrap_data()?.epoch;
@@ -295,17 +294,23 @@ impl MithrilEpochService {
 
 #[async_trait]
 impl EpochService for MithrilEpochService {
-    async fn register_epoch_settings(&mut self, epoch_settings: &EpochSettings) -> StdResult<()> {
+    async fn inform_epoch_settings(&mut self, epoch_settings: &EpochSettings) -> StdResult<()> {
         debug!(
             "EpochService: register_epoch_settings: {:?}",
             epoch_settings
         );
-        self.current_signers_with_stake = self
+
+        let current_signers_with_stake = self
             .associate_signers_with_stake(epoch_settings.epoch, &epoch_settings.current_signers)
             .await?;
-        self.next_signers_with_stake = self
+        let next_signers_with_stake = self
             .associate_signers_with_stake(epoch_settings.epoch, &epoch_settings.next_signers)
             .await?;
+
+        self.epoch_data = Some(EpochData {
+            current_signers_with_stake,
+            next_signers_with_stake,
+        });
 
         Ok(())
     }
@@ -422,12 +427,11 @@ impl EpochService for MithrilEpochService {
     // }
 
     fn current_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
-        Ok(&self.current_signers_with_stake)
+        Ok(&self.unwrap_data()?.current_signers_with_stake)
     }
 
     fn next_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
-        Ok(&self.next_signers_with_stake)
-        //Ok(&self.unwrap_data()?.next_signers_with_stake)
+        Ok(&self.unwrap_data()?.next_signers_with_stake)
     }
 
     // fn current_signers(&self) -> StdResult<&Vec<Signer>> {
@@ -543,11 +547,11 @@ impl EpochService for MithrilEpochService {
 //         self.precompute_epoch_data_error = precompute_epoch;
 //     }
 
-//     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
-//         self.epoch_data
-//             .as_ref()
-//             .ok_or(EpochServiceError::NotYetInitialized)
-//     }
+// fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
+//     self.epoch_data
+//         .as_ref()
+//         .ok_or(EpochServiceError::NotYetInitialized)
+// }
 
 //     fn unwrap_computed_data(&self) -> Result<&ComputedEpochData, EpochServiceError> {
 //         let epoch = self.unwrap_data()?.epoch;
@@ -638,7 +642,7 @@ mod tests {
     // use crate::store::FakeProtocolParametersStorer;
     // use crate::VerificationKeyStore;
 
-    use std::{collections::BTreeMap, sync::Arc};
+    use std::sync::Arc;
 
     use super::*;
 
@@ -1023,8 +1027,7 @@ mod tests {
     // }
 
     use mithril_common::{
-        entities::{Epoch, EpochSettings, PartyId, StakeDistribution},
-        signable_builder,
+        entities::{Epoch, EpochSettings, StakeDistribution},
         test_utils::fake_data,
     };
     use mithril_persistence::store::{adapter::DumbStoreAdapter, StakeStore, StakeStorer};
@@ -1061,7 +1064,7 @@ mod tests {
         let mut service = MithrilEpochService::new(stake_store);
 
         service
-            .register_epoch_settings(&epoch_settings.clone())
+            .inform_epoch_settings(&epoch_settings.clone())
             .await
             .unwrap();
 

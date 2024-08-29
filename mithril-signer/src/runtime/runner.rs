@@ -31,6 +31,7 @@ pub trait Runner: Send + Sync {
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 
     /// Get the current signers with their stake.
+    /// // TODO return a &Vec
     async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
 
     /// Get the next signers with their stake.
@@ -52,7 +53,7 @@ pub trait Runner: Send + Sync {
     /// Register epoch information
     /// TODO do we pass a ref or not ?
     /// TODO is it async ?
-    async fn register_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()>;
+    async fn inform_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()>;
 
     /// From a list of signers, associate them with the stake read on the
     /// Cardano node.
@@ -332,13 +333,13 @@ impl Runner for SignerRunner {
     }
 
     // Register epoch settings information
-    async fn register_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()> {
+    async fn inform_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()> {
         debug!("RUNNER: register_epoch");
         self.services
             .epoch_service
             .write()
             .await
-            .register_epoch_settings(epoch_settings)
+            .inform_epoch_settings(epoch_settings)
             .await
     }
 
@@ -542,14 +543,15 @@ mod tests {
     use mockall::mock;
     use std::{path::Path, sync::Arc};
 
+    use crate::metrics::MetricsService;
     use crate::services::{
-        AggregatorClient, CardanoTransactionsImporter, DumbAggregatorClient, MithrilSingleSigner,
-        MockAggregatorClient, MockTransactionStore, MockUpkeepService, SingleSigner,
+        AggregatorClient, CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
+        MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
+        SingleSigner,
     };
     use crate::store::ProtocolInitializerStore;
-    use crate::{metrics::MetricsService, MithrilEpochService};
 
-    use tokio::sync::{Mutex, RwLock};
+    use tokio::sync::RwLock;
 
     use super::*;
 

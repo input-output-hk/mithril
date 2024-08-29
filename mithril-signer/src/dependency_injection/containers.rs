@@ -11,9 +11,9 @@ use mithril_common::TickerService;
 use mithril_persistence::store::StakeStore;
 use tokio::sync::RwLock;
 
-use crate::services::{AggregatorClient, SingleSigner, UpkeepService};
+use crate::services::{AggregatorClient, EpochService, SingleSigner, UpkeepService};
 use crate::store::ProtocolInitializerStorer;
-use crate::{EpochService, MetricsService};
+use crate::MetricsService;
 
 type StakeStoreService = Arc<StakeStore>;
 type CertificateHandlerService = Arc<dyn AggregatorClient>;
