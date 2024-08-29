@@ -76,7 +76,7 @@ mod tests {
         pub cardano_transactions_prover: Option<CardanoTransactionsProverCapabilities>,
     }
 
-    fn golden_message_v1() -> AggregatorFeaturesMessagePrevious {
+    fn golden_message_previous() -> AggregatorFeaturesMessagePrevious {
         AggregatorFeaturesMessagePrevious {
             open_api_version: "0.0.1".to_string(),
             documentation_url: "https://example.com".to_string(),
@@ -91,7 +91,7 @@ mod tests {
         }
     }
 
-    fn golden_message_v2() -> AggregatorFeaturesMessage {
+    fn golden_message_actual() -> AggregatorFeaturesMessage {
         AggregatorFeaturesMessage {
             open_api_version: "0.0.1".to_string(),
             documentation_url: "https://example.com".to_string(),
@@ -110,44 +110,35 @@ mod tests {
         }
     }
 
+    const ACTUAL_JSON: &str = r#"{
+        "open_api_version": "0.0.1",
+        "documentation_url": "https://example.com",
+        "capabilities": {
+            "signed_entity_types": ["CardanoTransactions"],
+            "cardano_transactions_prover": {
+                "max_hashes_allowed_by_request": 100
+            },
+            "cardano_transactions_signing_config": {
+                "security_parameter": 70,
+                "step": 20
+            }
+        }
+    }"#;
+
     // Test the retro compatibility with possible future upgrades.
     #[test]
-    fn test_v1() {
-        let json = r#"{
-            "open_api_version": "0.0.1",
-            "documentation_url": "https://example.com",
-            "capabilities": {
-                "signed_entity_types": ["CardanoTransactions"],
-                "cardano_transactions_prover": {
-                    "max_hashes_allowed_by_request": 100
-                }
-            }
-        }"#;
-
+    fn test_actual_json_deserialized_into_previous_message() {
+        let json = ACTUAL_JSON;
         let message: AggregatorFeaturesMessagePrevious = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_v1(), message);
+        assert_eq!(golden_message_previous(), message);
     }
 
     #[test]
-    fn test_v2() {
-        let json = r#"{
-            "open_api_version": "0.0.1",
-            "documentation_url": "https://example.com",
-            "capabilities": {
-                "signed_entity_types": ["CardanoTransactions"],
-                "cardano_transactions_prover": {
-                    "max_hashes_allowed_by_request": 100
-                },
-                "cardano_transactions_signing_config": {
-                    "security_parameter": 70,
-                    "step": 20
-                }
-            }
-        }"#;
-
+    fn test_actual_json_deserialized_into_actual_message() {
+        let json = ACTUAL_JSON;
         let message: AggregatorFeaturesMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_v2(), message);
+        assert_eq!(golden_message_actual(), message);
     }
 }
