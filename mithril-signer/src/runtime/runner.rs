@@ -30,6 +30,12 @@ pub trait Runner: Send + Sync {
     /// Fetch the current time point from the Cardano node.
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 
+    /// Get the current signers with their stake.
+    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+
+    /// Get the next signers with their stake.
+    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+
     /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(
         &self,
@@ -42,6 +48,11 @@ pub trait Runner: Send + Sync {
 
     /// Check if all prerequisites for signing are met.
     async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool>;
+
+    /// Register epoch information
+    /// TODO rename to ???
+    /// TODO do we pass a ref or not ?
+    async fn register_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()>;
 
     /// From a list of signers, associate them with the stake read on the
     /// Cardano node.
@@ -141,6 +152,16 @@ impl Runner for SignerRunner {
             .get_current_time_point()
             .await
             .with_context(|| "Runner can not get current time point")
+    }
+
+    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+        debug!("RUNNER: get_current_signers_with_stake");
+        unimplemented!();
+    }
+
+    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+        debug!("RUNNER: get_next_signers_with_stake");
+        unimplemented!();
     }
 
     async fn register_signer_to_aggregator(
@@ -294,6 +315,14 @@ impl Runner for SignerRunner {
         Ok(false)
     }
 
+    // Register epoch settings information
+    async fn register_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()> {
+        debug!("RUNNER: register_epoch");
+        unimplemented!();
+    }
+
+    // TODO do it in EpochService and store SignerWithStack
+    // Inject stake_store in EpochService (epoch + current protocol parameters)
     async fn associate_signers_with_stake(
         &self,
         epoch: Epoch,

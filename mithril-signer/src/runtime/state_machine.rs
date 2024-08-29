@@ -9,7 +9,7 @@ use mithril_common::{
     },
 };
 
-use crate::MetricsService;
+use crate::{runtime::runner, MetricsService};
 
 use super::{Runner, RuntimeError};
 
@@ -297,6 +297,7 @@ impl StateMachine {
         })
     }
 
+    // TODO do we remove epoch_settings information when unregistered ???
     async fn transition_from_signed_to_unregistered(
         &self,
         epoch: Epoch,
@@ -340,6 +341,17 @@ impl StateMachine {
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not update stake distribution in 'unregistered → registered' phase for epoch {:?}.", epoch),
+                nested_error: Some(e),
+            })?;
+
+        self.runner
+            .register_epoch_settings(&epoch_settings)
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!(
+                    "Could not register epoch information in 'unregistered → registered' phase for epoch {:?}.",
+                    epoch
+                ),
                 nested_error: Some(e),
             })?;
 
@@ -392,20 +404,14 @@ impl StateMachine {
         self.metrics_service
             .signature_registration_total_since_startup_counter_increment();
 
-        let signers: Vec<SignerWithStake> = self
-            .runner
-            .associate_signers_with_stake(retrieval_epoch, &pending_certificate.signers)
-            .await
+        let signers = self.runner.get_current_signers_with_stake().await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not associate current signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?}, retrieval epoch {retrieval_epoch:?})"),
+                message: format!("Could not retrieve current signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
-        let next_signers: Vec<SignerWithStake> = self
-            .runner
-            .associate_signers_with_stake(next_retrieval_epoch, &pending_certificate.next_signers)
-            .await
+        let next_signers = self.runner.get_next_signers_with_stake().await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not associate next signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?}, next retrieval epoch {next_retrieval_epoch:?})"),
+                message: format!("Could not retrieve next signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
@@ -474,6 +480,7 @@ impl StateMachine {
 mod tests {
     use mithril_common::entities::{CardanoDbBeacon, ChainPoint, Epoch, ProtocolMessage};
     use mithril_common::test_utils::fake_data;
+    use mockall::predicate;
 
     use crate::runtime::runner::MockSignerRunner;
 
@@ -562,6 +569,14 @@ mod tests {
             .expect_get_epoch_settings()
             .once()
             .returning(|| Ok(Some(fake_data::epoch_settings())));
+
+        // TODO do we check the epoch_setting is the one returning by get_epoch_settings
+        runner
+            .expect_register_epoch_settings()
+            .with(predicate::eq(fake_data::epoch_settings()))
+            .once()
+            .returning(|_| Ok(()));
+
         runner
             .expect_get_current_time_point()
             .times(2)
@@ -688,10 +703,20 @@ mod tests {
             .once()
             .returning(move || Ok(Some(certificate_pending.clone())));
         runner.expect_can_i_sign().once().returning(|_| Ok(true));
+
+        // TODO what we want to test ? We just test function was called. Is it usefull ?
+        // Do we check they were called without validate return values are used ?
+        // Should be only a stub (to make code pass) ?
         runner
-            .expect_associate_signers_with_stake()
-            .times(2)
-            .returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
+            .expect_get_current_signers_with_stake()
+            .once() // TODO do we check the call ?
+            //.returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
+            .returning(|| Ok(vec![])); // Stub
+        runner
+            .expect_get_next_signers_with_stake()
+            .once() // TODO do we check the call ?
+            .returning(|| Ok(vec![])); // Stub
+                                       //.returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
         runner
             .expect_compute_single_signature()
             .once()
