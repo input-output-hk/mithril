@@ -1,11 +1,5 @@
 #![allow(dead_code)]
 use anyhow::anyhow;
-use prometheus_parse::Value;
-use slog::Drain;
-use slog_scope::debug;
-use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Duration};
-use thiserror::Error;
-
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
@@ -40,8 +34,15 @@ use mithril_signer::{
         AggregatorClient, CardanoTransactionsImporter, MithrilSingleSigner, SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer},
-    Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
+    Configuration, MetricsService, MithrilEpochService, RuntimeError, SignerRunner, SignerState,
+    StateMachine,
 };
+use prometheus_parse::Value;
+use slog::Drain;
+use slog_scope::debug;
+use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Duration};
+use thiserror::Error;
+use tokio::sync::RwLock;
 
 use super::FakeAggregator;
 
@@ -228,6 +229,7 @@ impl StateMachineTester {
             signed_entity_type_lock.clone(),
             slog_scope::logger(),
         ));
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
 
         let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
@@ -245,6 +247,7 @@ impl StateMachineTester {
             signed_entity_type_lock: Arc::new(SignedEntityTypeLock::default()),
             cardano_transactions_preloader,
             upkeep_service,
+            epoch_service,
         };
         // set up stake distribution
         chain_observer

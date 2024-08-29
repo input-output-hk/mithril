@@ -3,7 +3,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-use tokio::sync::Mutex;
+
+use tokio::sync::{Mutex, RwLock};
 
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::cardano_block_scanner::CardanoBlockScanner;
@@ -42,7 +43,7 @@ use crate::services::{
 };
 use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore};
 use crate::{
-    Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
+    Configuration, MetricsService, MithrilEpochService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
     SQLITE_FILE_CARDANO_TRANSACTION,
 };
 
@@ -339,6 +340,7 @@ impl<'a> DependenciesBuilder<'a> {
             slog_scope::logger(),
         ));
 
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
         let services = SignerDependencyContainer {
             ticker_service,
             certificate_handler: aggregator_client,
@@ -355,6 +357,7 @@ impl<'a> DependenciesBuilder<'a> {
             signed_entity_type_lock,
             cardano_transactions_preloader,
             upkeep_service,
+            epoch_service,
         };
 
         Ok(services)

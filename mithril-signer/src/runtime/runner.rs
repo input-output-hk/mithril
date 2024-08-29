@@ -50,8 +50,8 @@ pub trait Runner: Send + Sync {
     async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool>;
 
     /// Register epoch information
-    /// TODO rename to ???
     /// TODO do we pass a ref or not ?
+    /// TODO is it async ?
     async fn register_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()>;
 
     /// From a list of signers, associate them with the stake read on the
@@ -156,12 +156,28 @@ impl Runner for SignerRunner {
 
     async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
         debug!("RUNNER: get_current_signers_with_stake");
-        unimplemented!();
+
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .current_signers_with_stake()
+            .map_err(|e| e.into())
+            .cloned()
     }
 
+    // TODO do we need to be async ?
+    // TODO do we return a vec or a &vec ?
     async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
         debug!("RUNNER: get_next_signers_with_stake");
-        unimplemented!();
+
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .next_signers_with_stake()
+            .map_err(|e| e.into())
+            .cloned()
     }
 
     async fn register_signer_to_aggregator(
@@ -318,7 +334,12 @@ impl Runner for SignerRunner {
     // Register epoch settings information
     async fn register_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()> {
         debug!("RUNNER: register_epoch");
-        unimplemented!();
+        self.services
+            .epoch_service
+            .write()
+            .await
+            .register_epoch_settings(epoch_settings)
+            .await
     }
 
     // TODO do it in EpochService and store SignerWithStack
@@ -521,12 +542,14 @@ mod tests {
     use mockall::mock;
     use std::{path::Path, sync::Arc};
 
-    use crate::metrics::MetricsService;
     use crate::services::{
         AggregatorClient, CardanoTransactionsImporter, DumbAggregatorClient, MithrilSingleSigner,
         MockAggregatorClient, MockTransactionStore, MockUpkeepService, SingleSigner,
     };
     use crate::store::ProtocolInitializerStore;
+    use crate::{metrics::MetricsService, MithrilEpochService};
+
+    use tokio::sync::{Mutex, RwLock};
 
     use super::*;
 
@@ -625,6 +648,7 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
 
         SignerDependencyContainer {
             stake_store,
@@ -645,6 +669,7 @@ mod tests {
             signed_entity_type_lock,
             cardano_transactions_preloader,
             upkeep_service,
+            epoch_service,
         }
     }
 
