@@ -30,12 +30,18 @@ pub trait Runner: Send + Sync {
     /// Fetch the current time point from the Cardano node.
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 
-    /// Get the current signers with their stake.
+    /// Get the current signers.
     /// // TODO return a &Vec
     async fn get_current_signers(&self) -> StdResult<Vec<Signer>>;
 
-    /// Get the next signers with their stake.
+    /// Get the next signers.
     async fn get_next_signers(&self) -> StdResult<Vec<Signer>>;
+
+    /// Get the next signers with their stake.
+    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+
+    /// Get the next signers with their stake.
+    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
 
     /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(
@@ -179,6 +185,28 @@ impl Runner for SignerRunner {
             .next_signers()
             .map_err(|e| e.into())
             .cloned()
+    }
+
+    /// Get the current signers with their stake.
+    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .current_signers_with_stake()
+            .await
+            .map_err(|e| e.into())
+    }
+
+    /// Get the next signers with their stake.
+    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .next_signers_with_stake()
+            .await
+            .map_err(|e| e.into())
     }
 
     async fn register_signer_to_aggregator(

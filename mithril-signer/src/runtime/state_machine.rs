@@ -405,32 +405,15 @@ impl StateMachine {
         self.metrics_service
             .signature_registration_total_since_startup_counter_increment();
 
-        let current_signers = self.runner.get_current_signers().await
+        let current_signers_with_stake = self.runner.get_current_signers_with_stake().await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not retrieve current signers during 'registered → signed' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
-        let current_signers_with_stake: Vec<SignerWithStake> = self
-            .runner
-            .associate_signers_with_stake(retrieval_epoch, &current_signers)
-            .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not associate current signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?}, retrieval epoch {retrieval_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-
-        let next_signers = self.runner.get_next_signers().await
+        let next_signers_with_stake = self.runner.get_next_signers_with_stake().await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not retrieve next signers during 'registered → signed' phase (current epoch {current_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-        let next_signers_with_stake: Vec<SignerWithStake> = self
-            .runner
-            .associate_signers_with_stake(next_retrieval_epoch, &next_signers)
-            .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not associate next signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?}, next retrieval epoch {next_retrieval_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
@@ -729,19 +712,15 @@ mod tests {
         // Do we check they were called without validate return values are used ?
         // Should be only a stub (to make code pass) ?
         runner
-            .expect_get_current_signers()
+            .expect_get_current_signers_with_stake()
             .once() // TODO do we check the call ?
             //.returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
             .returning(|| Ok(vec![])); // Stub
         runner
-            .expect_get_next_signers()
+            .expect_get_next_signers_with_stake()
             .once() // TODO do we check the call ?
-            .returning(|| Ok(vec![])); // Stub
-                                       //.returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
-        runner
-            .expect_associate_signers_with_stake()
-            .times(2)
-            .returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
+            //.returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
+            .returning(|| Ok(vec![]));
 
         runner
             .expect_compute_single_signature()
