@@ -30,7 +30,7 @@ pub struct SingleSignatures {
 }
 
 impl SingleSignatures {
-    /// SingleSignature factory
+    /// `SingleSignatures` factory
     pub fn new(
         party_id: PartyId,
         signature: ProtocolSingleSignature,
@@ -41,6 +41,21 @@ impl SingleSignatures {
             signature,
             won_indexes,
             signed_message: None,
+        }
+    }
+
+    /// `SingleSignatures` factory including the signed message
+    pub fn new_with_signed_message(
+        party_id: PartyId,
+        signature: ProtocolSingleSignature,
+        won_indexes: Vec<LotteryIndex>,
+        signed_message: String,
+    ) -> SingleSignatures {
+        SingleSignatures {
+            party_id,
+            signature,
+            won_indexes,
+            signed_message: Some(signed_message),
         }
     }
 
