@@ -32,10 +32,10 @@ pub trait Runner: Send + Sync {
 
     /// Get the current signers with their stake.
     /// // TODO return a &Vec
-    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+    async fn get_current_signers(&self) -> StdResult<Vec<Signer>>;
 
     /// Get the next signers with their stake.
-    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+    async fn get_next_signers(&self) -> StdResult<Vec<Signer>>;
 
     /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(
@@ -155,28 +155,28 @@ impl Runner for SignerRunner {
             .with_context(|| "Runner can not get current time point")
     }
 
-    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        debug!("RUNNER: get_current_signers_with_stake");
+    async fn get_current_signers(&self) -> StdResult<Vec<Signer>> {
+        debug!("RUNNER: get_current_signers");
 
         self.services
             .epoch_service
             .read()
             .await
-            .current_signers_with_stake()
+            .current_signers()
             .map_err(|e| e.into())
             .cloned()
     }
 
     // TODO do we need to be async ?
     // TODO do we return a vec or a &vec ?
-    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        debug!("RUNNER: get_next_signers_with_stake");
+    async fn get_next_signers(&self) -> StdResult<Vec<Signer>> {
+        debug!("RUNNER: get_next_signers");
 
         self.services
             .epoch_service
             .read()
             .await
-            .next_signers_with_stake()
+            .next_signers()
             .map_err(|e| e.into())
             .cloned()
     }

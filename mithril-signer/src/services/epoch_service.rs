@@ -35,17 +35,17 @@ pub trait EpochService: Sync + Send {
     // TODO should we pass ean EpochSettings or the individual fields ?
     async fn inform_epoch_settings(&mut self, epoch_settings: &EpochSettings) -> StdResult<()>;
 
-    /// Get signers with stake for the current epoch
-    fn current_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>>;
+    /// Get signers for the current epoch
+    fn current_signers(&self) -> StdResult<&Vec<Signer>>;
 
-    /// Get signers with stake for the next epoch
-    fn next_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>>;
+    /// Get signers for the next epoch
+    fn next_signers(&self) -> StdResult<&Vec<Signer>>;
 }
 
 struct EpochData {
     // epoch: Epoch,
-    current_signers_with_stake: Vec<SignerWithStake>,
-    next_signers_with_stake: Vec<SignerWithStake>,
+    current_signers: Vec<Signer>,
+    next_signers: Vec<Signer>,
 }
 
 /// Implementation of the [epoch service][EpochService].
@@ -119,27 +119,20 @@ impl EpochService for MithrilEpochService {
             epoch_settings
         );
 
-        let current_signers_with_stake = self
-            .associate_signers_with_stake(epoch_settings.epoch, &epoch_settings.current_signers)
-            .await?;
-        let next_signers_with_stake = self
-            .associate_signers_with_stake(epoch_settings.epoch, &epoch_settings.next_signers)
-            .await?;
-
         self.epoch_data = Some(EpochData {
-            current_signers_with_stake,
-            next_signers_with_stake,
+            current_signers: epoch_settings.current_signers.clone(),
+            next_signers: epoch_settings.next_signers.clone(),
         });
 
         Ok(())
     }
 
-    fn current_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
-        Ok(&self.unwrap_data()?.current_signers_with_stake)
+    fn current_signers(&self) -> StdResult<&Vec<Signer>> {
+        Ok(&self.unwrap_data()?.current_signers)
     }
 
-    fn next_signers_with_stake(&self) -> StdResult<&Vec<SignerWithStake>> {
-        Ok(&self.unwrap_data()?.next_signers_with_stake)
+    fn next_signers(&self) -> StdResult<&Vec<Signer>> {
+        Ok(&self.unwrap_data()?.next_signers)
     }
 }
 
@@ -156,7 +149,7 @@ mod tests {
     use mithril_persistence::store::{adapter::DumbStoreAdapter, StakeStore, StakeStorer};
 
     #[tokio::test]
-    async fn test_signers_with_stake_are_not_available_before_register_epoch_settings_was_call() {
+    async fn test_signers_are_not_available_before_register_epoch_settings_was_call() {
         let epoch = Epoch(12);
         // Signers and stake distribution
         let signers = fake_data::signers(10);
@@ -175,50 +168,12 @@ mod tests {
 
         // Build service and register epoch settings
         let mut service = MithrilEpochService::new(stake_store);
-        assert!(service.current_signers_with_stake().is_err());
-        assert!(service.next_signers_with_stake().is_err());
+        assert!(service.current_signers().is_err());
+        assert!(service.next_signers().is_err());
     }
 
     #[tokio::test]
-    async fn test_signers_with_stake_can_be_empty_in_epoch_settings() {
-        let epoch = Epoch(12);
-
-        let stake_distribution: StakeDistribution = BTreeMap::new();
-
-        // Init stake_store
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        stake_store
-            .save_stakes(epoch, stake_distribution)
-            .await
-            .expect("save_stakes should not fail");
-
-        // Epoch settings
-        let epoch_settings = fake_data::epoch_settings();
-        let epoch_settings = EpochSettings {
-            epoch,
-            current_signers: vec![],
-            next_signers: vec![],
-            ..epoch_settings.clone()
-        };
-
-        // Build service and register epoch settings
-        let mut service = MithrilEpochService::new(stake_store);
-
-        service
-            .inform_epoch_settings(&epoch_settings.clone())
-            .await
-            .unwrap();
-
-        // Check current_signers
-        let current_signers = service.current_signers_with_stake().unwrap();
-        assert_eq!(0, current_signers.len());
-
-        let next_signers = service.next_signers_with_stake().unwrap();
-        assert_eq!(0, next_signers.len());
-    }
-
-    #[tokio::test]
-    async fn test_signers_with_stake_are_available_after_register_epoch_settings_call() {
+    async fn test_signers_are_available_after_register_epoch_settings_call() {
         let epoch = Epoch(12);
         // Signers and stake distribution
         let signers = fake_data::signers(10);
@@ -253,26 +208,14 @@ mod tests {
             .unwrap();
 
         // Check current_signers
-        let current_signers = service.current_signers_with_stake().unwrap();
+        let current_signers = service.current_signers().unwrap();
         let expected_current_signers = epoch_settings.current_signers.clone();
-        assert_eq!(expected_current_signers.len(), current_signers.len());
-        for signer in current_signers {
-            assert_eq!(
-                stake_distribution.get(&signer.party_id).unwrap(),
-                &signer.stake
-            );
-        }
+        assert_eq!(expected_current_signers, *current_signers);
 
         // Check next_signers
-        let next_signers = service.next_signers_with_stake().unwrap();
+        let next_signers = service.next_signers().unwrap();
         let expected_next_signers = epoch_settings.next_signers.clone();
-        assert_eq!(expected_next_signers.len(), next_signers.len());
-        for signer in next_signers {
-            assert_eq!(
-                stake_distribution.get(&signer.party_id).unwrap(),
-                &signer.stake
-            );
-        }
+        assert_eq!(expected_next_signers, *next_signers);
 
         // TODO check: epoch + current protocol parameters
     }
