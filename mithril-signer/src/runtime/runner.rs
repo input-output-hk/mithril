@@ -9,7 +9,7 @@ use mockall::automock;
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
     CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage, ProtocolMessagePartKey,
-    ProtocolParameters, SignedEntityType, Signer, SignerWithStake, SingleSignatures, TimePoint,
+    SignedEntityType, Signer, SignerWithStake, SingleSignatures, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -44,11 +44,7 @@ pub trait Runner: Send + Sync {
     async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
 
     /// Register the signer verification key to the aggregator.
-    async fn register_signer_to_aggregator(
-        &self,
-        epoch: Epoch,
-        protocol_parameters: &ProtocolParameters,
-    ) -> StdResult<()>;
+    async fn register_signer_to_aggregator(&self) -> StdResult<()>;
 
     /// Read the stake distribution and store it.
     async fn update_stake_distribution(&self, epoch: Epoch) -> StdResult<()>;
@@ -205,12 +201,12 @@ impl Runner for SignerRunner {
             .map_err(|e| e.into())
     }
 
-    async fn register_signer_to_aggregator(
-        &self,
-        epoch: Epoch,
-        protocol_parameters: &ProtocolParameters,
-    ) -> StdResult<()> {
+    async fn register_signer_to_aggregator(&self) -> StdResult<()> {
         debug!("RUNNER: register_signer_to_aggregator");
+
+        let epoch_service = self.services.epoch_service.read().await;
+        let epoch = epoch_service.epoch_of_current_data()?;
+        let protocol_parameters = epoch_service.next_protocol_parameters()?;
 
         let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch();
         let stake_distribution = self
@@ -554,7 +550,7 @@ mod tests {
         cardano_transactions_preloader::{
             CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
         },
-        chain_observer::{ChainObserver, FakeObserver},
+        chain_observer::FakeObserver,
         crypto_helper::{
             MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
         },
@@ -577,7 +573,7 @@ mod tests {
 
     use crate::metrics::MetricsService;
     use crate::services::{
-        AggregatorClient, CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
+        CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
         MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
         SingleSigner,
     };
@@ -772,43 +768,36 @@ mod tests {
     #[tokio::test]
     async fn test_register_signer_to_aggregator() {
         let mut services = init_services().await;
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let certificate_handler = Arc::new(DumbAggregatorClient::default());
         services.certificate_handler = certificate_handler.clone();
         let protocol_initializer_store = services.protocol_initializer_store.clone();
-        let chain_observer = Arc::new(FakeObserver::default());
-        services.chain_observer = chain_observer.clone();
-        let epoch = services
-            .ticker_service
-            .get_current_epoch()
-            .await
-            .unwrap()
-            .offset_to_recording_epoch();
-        let stakes = chain_observer
+        let current_epoch = services.ticker_service.get_current_epoch().await.unwrap();
+
+        let stakes = services
+            .chain_observer
             .get_current_stake_distribution()
             .await
             .unwrap()
             .unwrap();
         services
             .stake_store
-            .save_stakes(epoch, stakes)
+            .save_stakes(current_epoch.offset_to_recording_epoch(), stakes)
             .await
             .unwrap();
-        let runner = init_runner(Some(services), None).await;
-        let epoch = chain_observer
-            .current_time_point
-            .read()
-            .await
-            .clone()
-            .expect("chain_observer should have a current_time_point")
-            .epoch;
 
-        let pending_certificate = certificate_handler
-            .retrieve_pending_certificate()
-            .await
-            .expect("getting pending certificate should not fail")
-            .expect("there should be a pending certificate, None returned");
+        let runner = init_runner(Some(services), None).await;
+        // inform epoch settings
+        let epoch_settings = EpochSettings {
+            epoch: current_epoch,
+            current_signers: fixture.signers(),
+            next_signers: fixture.signers(),
+            ..fake_data::epoch_settings().clone()
+        };
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
         runner
-            .register_signer_to_aggregator(epoch, &pending_certificate.protocol_parameters)
+            .register_signer_to_aggregator()
             .await
             .expect("registering a signer to the aggregator should not fail");
 
@@ -817,7 +806,7 @@ mod tests {
             .await
             .is_some());
         let maybe_protocol_initializer = protocol_initializer_store
-            .get_protocol_initializer(epoch.offset_to_recording_epoch())
+            .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
             .await
             .expect("get_protocol_initializer should not fail");
         assert!(

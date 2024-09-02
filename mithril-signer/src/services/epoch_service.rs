@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use mithril_common::entities::Epoch;
+use mithril_common::entities::ProtocolParameters;
 use mithril_common::entities::Signer;
 use mithril_persistence::store::StakeStorer;
 use slog_scope::{debug, trace};
@@ -37,6 +38,12 @@ pub trait EpochService: Sync + Send {
     /// internal state for the new epoch.
     async fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
 
+    /// Get the current epoch for which the data stored in this service are computed.
+    fn epoch_of_current_data(&self) -> StdResult<Epoch>;
+
+    /// Get next protocol parameters used in next epoch (associated with the actual epoch)
+    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
+
     /// Get signers for the current epoch
     fn current_signers(&self) -> StdResult<&Vec<Signer>>;
 
@@ -52,6 +59,7 @@ pub trait EpochService: Sync + Send {
 
 struct EpochData {
     epoch: Epoch,
+    next_protocol_parameters: ProtocolParameters,
     current_signers: Vec<Signer>,
     next_signers: Vec<Signer>,
 }
@@ -128,11 +136,20 @@ impl EpochService for MithrilEpochService {
 
         self.epoch_data = Some(EpochData {
             epoch: epoch_settings.epoch,
-            current_signers: epoch_settings.current_signers.clone(),
-            next_signers: epoch_settings.next_signers.clone(),
+            next_protocol_parameters: epoch_settings.next_protocol_parameters,
+            current_signers: epoch_settings.current_signers,
+            next_signers: epoch_settings.next_signers,
         });
 
         Ok(())
+    }
+
+    fn epoch_of_current_data(&self) -> StdResult<Epoch> {
+        Ok(self.unwrap_data()?.epoch)
+    }
+
+    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self.unwrap_data()?.next_protocol_parameters)
     }
 
     fn current_signers(&self) -> StdResult<&Vec<Signer>> {
@@ -144,7 +161,7 @@ impl EpochService for MithrilEpochService {
     }
 
     async fn current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        let current_epoch = self.unwrap_data()?.epoch;
+        let current_epoch = self.epoch_of_current_data()?;
         let (retrieval_epoch, _next_retrieval_epoch) = (
             current_epoch.offset_to_signer_retrieval_epoch()?,
             current_epoch.offset_to_next_signer_retrieval_epoch(),
@@ -155,7 +172,7 @@ impl EpochService for MithrilEpochService {
     }
 
     async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        let current_epoch = self.unwrap_data()?.epoch;
+        let current_epoch = self.epoch_of_current_data()?;
         let (_retrieval_epoch, _next_retrieval_epoch) = (
             current_epoch.offset_to_signer_retrieval_epoch()?,
             current_epoch.offset_to_next_signer_retrieval_epoch(),
@@ -212,12 +229,11 @@ mod tests {
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
 
         // Epoch settings
-        let epoch_settings = fake_data::epoch_settings();
         let epoch_settings = EpochSettings {
             epoch,
             current_signers: signers[2..5].to_vec(),
             next_signers: signers[3..7].to_vec(),
-            ..epoch_settings.clone()
+            ..fake_data::epoch_settings().clone()
         };
 
         // Build service and register epoch settings
@@ -238,7 +254,14 @@ mod tests {
         let expected_next_signers = epoch_settings.next_signers.clone();
         assert_eq!(expected_next_signers, *next_signers);
 
-        // TODO check: epoch + current protocol parameters
+        assert_eq!(
+            epoch_settings.epoch,
+            service.epoch_of_current_data().unwrap()
+        );
+        assert_eq!(
+            epoch_settings.next_protocol_parameters,
+            *service.next_protocol_parameters().unwrap()
+        );
     }
 
     // TODO try to simplify this test

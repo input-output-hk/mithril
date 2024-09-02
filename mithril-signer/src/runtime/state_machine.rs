@@ -342,7 +342,6 @@ impl StateMachine {
                 nested_error: Some(e),
             })?;
 
-        let epoch_settings_cloned = epoch_settings.clone();
         self.runner
             .inform_epoch_settings(epoch_settings)
             .await
@@ -354,11 +353,7 @@ impl StateMachine {
                 nested_error: Some(e),
             })?;
 
-        // TODO Use epoch_service and remove parameters
-        self.runner.register_signer_to_aggregator(
-            epoch_settings_cloned.epoch,
-            &epoch_settings_cloned.next_protocol_parameters,
-        )
+        self.runner.register_signer_to_aggregator()
             .await.map_err(|e| {
             if e.downcast_ref::<ProtocolInitializerError>().is_some() {
                 RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) }
@@ -578,7 +573,7 @@ mod tests {
         runner
             .expect_register_signer_to_aggregator()
             .once()
-            .returning(|_, _| Ok(()));
+            .returning(|| Ok(()));
 
         let state_machine = init_state_machine(
             SignerState::Unregistered {
