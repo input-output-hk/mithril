@@ -346,12 +346,12 @@ impl FakeEpochService {
                 .unwrap()
                 .build_multi_signer();
         let next_protocol_multi_signer =
-            SignerBuilder::new(current_signers_with_stake, protocol_parameters)
-            // TODO Is it correct to use current_signers_with_stake here and not next_signers_with_stake ?
-            SignerBuilder::new(current_signers_with_stake, protocol_parameters)
-                .with_context(|| "Could not build protocol_multi_signer for epoch service")
-                .unwrap()
-                .build_multi_signer();
+        //    SignerBuilder::new(current_signers_with_stake, protocol_parameters)
+        // TODO Is it correct to use current_signers_with_stake here and not next_signers_with_stake ?
+        SignerBuilder::new(current_signers_with_stake, protocol_parameters)
+            .with_context(|| "Could not build protocol_multi_signer for epoch service")
+            .unwrap()
+            .build_multi_signer();
 
         let current_signers_with_stake = current_signers_with_stake.to_vec();
         let next_signers_with_stake = next_signers_with_stake.to_vec();

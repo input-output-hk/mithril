@@ -210,6 +210,11 @@ impl SignerMessagePart {
         Ok(signers)
     }
 
+    /// Convert a set of signers into message parts
+    pub fn from_signers(signers: Vec<Signer>) -> Vec<Self> {
+        signers.into_iter().map(|signer| signer.into()).collect()
+    }
+
     cfg_test_tools! {
         /// Return a dummy test entity (test-only).
         pub fn dummy() -> Self {
@@ -222,6 +227,22 @@ impl SignerMessagePart {
                 operational_certificate: Some(fake_keys::operational_certificate()[0].to_string()),
                 kes_period: Some(6),
             }
+        }
+    }
+}
+
+impl From<Signer> for SignerMessagePart {
+    fn from(value: Signer) -> Self {
+        Self {
+            party_id: value.party_id,
+            verification_key: value.verification_key.try_into().unwrap(),
+            verification_key_signature: value
+                .verification_key_signature
+                .map(|k| k.try_into().unwrap()),
+            operational_certificate: value
+                .operational_certificate
+                .map(|op_cert| (op_cert.try_into().unwrap())),
+            kes_period: value.kes_period,
         }
     }
 }

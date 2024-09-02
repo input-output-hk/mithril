@@ -22,9 +22,7 @@ fn epoch_settings(
 mod handlers {
     use crate::dependency_injection::EpochServiceWrapper;
     use crate::http_server::routes::reply;
-    use crate::ToEpochSettingsMessageAdapter;
-    use mithril_common::entities::{EpochSettings, Signer};
-    use mithril_common::messages::ToMessageAdapter;
+    use mithril_common::messages::{EpochSettingsMessage, SignerMessagePart};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use warp::http::StatusCode;
@@ -40,32 +38,30 @@ mod handlers {
             epoch_service.epoch_of_current_data(),
             epoch_service.next_protocol_parameters(),
             epoch_service.upcoming_protocol_parameters(),
+            epoch_service.current_signers(),
+            epoch_service.next_signers(),
         ) {
-            (Ok(epoch), Ok(protocol_parameters), Ok(next_protocol_parameters)) => {
-                let epoch_settings = EpochSettings {
+            (
+                Ok(epoch),
+                Ok(protocol_parameters),
+                Ok(next_protocol_parameters),
+                Ok(current_signers),
+                Ok(next_signers),
+            ) => {
+                let epoch_settings_message = EpochSettingsMessage {
                     epoch,
                     protocol_parameters: protocol_parameters.clone(),
                     next_protocol_parameters: next_protocol_parameters.clone(),
-                    // TODO : create a test to check the affectation ?
-                    // TODO : create current_signers() and next_signers() in EpochService (with "cache")
-                    // TODO : How to handle unwrap  ?
-                    current_signers: epoch_service
-                        .current_signers_with_stake()
-                        .unwrap()
-                        .iter()
-                        .map(|s| Signer::from(s.clone()))
-                        .collect(),
-                    next_signers: epoch_service
-                        .next_signers_with_stake()
-                        .unwrap()
-                        .iter()
-                        .map(|s| Signer::from(s.clone()))
-                        .collect(),
+                    current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
+                    next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
                 };
-                let epoch_settings_message = ToEpochSettingsMessageAdapter::adapt(epoch_settings);
                 Ok(reply::json(&epoch_settings_message, StatusCode::OK))
             }
-            (Err(err), _, _) | (_, Err(err), _) | (_, _, Err(err)) => {
+            (Err(err), _, _, _, _)
+            | (_, Err(err), _, _, _)
+            | (_, _, Err(err), _, _)
+            | (_, _, _, Err(err), _)
+            | (_, _, _, _, Err(err)) => {
                 warn!("epoch_settings::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
