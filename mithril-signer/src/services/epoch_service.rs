@@ -35,7 +35,7 @@ pub trait EpochService: Sync + Send {
     // TODO should we pass ean EpochSettings or the individual fields ?
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
-    async fn inform_epoch_settings(&mut self, epoch_settings: &EpochSettings) -> StdResult<()>;
+    async fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
 
     /// Get signers for the current epoch
     fn current_signers(&self) -> StdResult<&Vec<Signer>>;
@@ -120,7 +120,7 @@ impl MithrilEpochService {
 
 #[async_trait]
 impl EpochService for MithrilEpochService {
-    async fn inform_epoch_settings(&mut self, epoch_settings: &EpochSettings) -> StdResult<()> {
+    async fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()> {
         debug!(
             "EpochService: register_epoch_settings: {:?}",
             epoch_settings
@@ -224,7 +224,7 @@ mod tests {
         let mut service = MithrilEpochService::new(stake_store);
 
         service
-            .inform_epoch_settings(&epoch_settings.clone())
+            .inform_epoch_settings(epoch_settings.clone())
             .await
             .unwrap();
 
@@ -262,7 +262,7 @@ mod tests {
         // Build service and register epoch settings
         let mut service = MithrilEpochService::new(stake_store.clone());
         service
-            .inform_epoch_settings(&epoch_settings.clone())
+            .inform_epoch_settings(epoch_settings.clone())
             .await
             .unwrap();
 

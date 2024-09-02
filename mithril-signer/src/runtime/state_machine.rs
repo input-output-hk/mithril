@@ -168,7 +168,7 @@ impl StateMachine {
                         info!("new Epoch found");
                         info!(" ⋅ transiting to REGISTERED");
                         *state = self
-                            .transition_from_unregistered_to_registered(&epoch_settings)
+                            .transition_from_unregistered_to_registered(epoch_settings)
                             .await?;
                     } else {
                         info!(
@@ -326,7 +326,7 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to the `Registered` state.
     async fn transition_from_unregistered_to_registered(
         &self,
-        epoch_settings: &EpochSettings,
+        epoch_settings: EpochSettings,
     ) -> Result<SignerState, RuntimeError> {
         self.metrics_service
             .signer_registration_total_since_startup_counter_increment();
@@ -342,8 +342,9 @@ impl StateMachine {
                 nested_error: Some(e),
             })?;
 
+        let epoch_settings_cloned = epoch_settings.clone();
         self.runner
-            .inform_epoch_settings(&epoch_settings)
+            .inform_epoch_settings(epoch_settings)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!(
@@ -355,8 +356,8 @@ impl StateMachine {
 
         // TODO Use epoch_service and remove parameters
         self.runner.register_signer_to_aggregator(
-            epoch_settings.epoch,
-            &epoch_settings.next_protocol_parameters,
+            epoch_settings_cloned.epoch,
+            &epoch_settings_cloned.next_protocol_parameters,
         )
             .await.map_err(|e| {
             if e.downcast_ref::<ProtocolInitializerError>().is_some() {

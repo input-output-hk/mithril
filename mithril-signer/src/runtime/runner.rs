@@ -57,9 +57,7 @@ pub trait Runner: Send + Sync {
     async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool>;
 
     /// Register epoch information
-    /// TODO do we pass a ref or not ?
-    /// TODO is it async ?
-    async fn inform_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()>;
+    async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()>;
 
     /// From a list of signers, associate them with the stake read on the
     /// Cardano node.
@@ -359,7 +357,7 @@ impl Runner for SignerRunner {
     }
 
     // Register epoch settings information
-    async fn inform_epoch_settings(&self, epoch_settings: &EpochSettings) -> StdResult<()> {
+    async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()> {
         debug!("RUNNER: register_epoch");
         self.services
             .epoch_service
@@ -970,7 +968,7 @@ mod tests {
             next_signers: next_signers.to_vec(),
             ..fake_data::epoch_settings().clone()
         };
-        runner.inform_epoch_settings(&epoch_settings).await.unwrap();
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
         let message = runner
             .compute_message(&signed_entity_type)
@@ -1045,7 +1043,7 @@ mod tests {
             next_signers: fixture.signers(),
             ..fake_data::epoch_settings().clone()
         };
-        runner.inform_epoch_settings(&epoch_settings).await.unwrap();
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
         let single_signature = runner
             .compute_single_signature(current_time_point.epoch, &message)
