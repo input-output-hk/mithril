@@ -5,8 +5,10 @@
 //! single signatures and deal with the multi_signer for aggregate signature
 //! creation.
 
+mod buffered_certifier;
 mod certifier_service;
 mod interface;
 
+pub use buffered_certifier::*;
 pub use certifier_service::*;
 pub use interface::*;

@@ -51,6 +51,7 @@ use mithril_persistence::{
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
 };
 
+use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 use crate::{
     artifact_builder::{
         CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
@@ -65,10 +66,11 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        AggregatorUpkeepService, CardanoTransactionsImporter, CertifierService, MessageService,
-        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
-        MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, StakeDistributionService, UpkeepService,
+        AggregatorUpkeepService, BufferedCertifierService, CardanoTransactionsImporter,
+        CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
+        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
+        MithrilStakeDistributionService, ProverService, SignedEntityService,
+        StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -77,8 +79,6 @@ use crate::{
     ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
     Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
-
-use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
@@ -1440,7 +1440,7 @@ impl DependenciesBuilder {
         let epoch_service = self.get_epoch_service().await?;
         let logger = self.get_logger()?;
 
-        Ok(Arc::new(MithrilCertifierService::new(
+        let certifier = Arc::new(MithrilCertifierService::new(
             cardano_network,
             open_message_repository,
             single_signature_repository,
@@ -1451,7 +1451,9 @@ impl DependenciesBuilder {
             ticker_service,
             epoch_service,
             logger,
-        )))
+        ));
+
+        Ok(Arc::new(BufferedCertifierService::new(certifier)))
     }
 
     /// [CertifierService] service
