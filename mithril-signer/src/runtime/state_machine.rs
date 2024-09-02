@@ -4,9 +4,7 @@ use tokio::{sync::Mutex, time::sleep};
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
-    entities::{
-        CertificatePending, Epoch, EpochSettings, SignedEntityType, SignerWithStake, TimePoint,
-    },
+    entities::{CertificatePending, Epoch, EpochSettings, SignedEntityType, TimePoint},
 };
 
 use crate::MetricsService;
@@ -405,31 +403,18 @@ impl StateMachine {
         self.metrics_service
             .signature_registration_total_since_startup_counter_increment();
 
-        let current_signers_with_stake = self.runner.get_current_signers_with_stake().await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not retrieve current signers during 'registered → signed' phase (current epoch {current_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-
-        let next_signers_with_stake = self.runner.get_next_signers_with_stake().await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not retrieve next signers during 'registered → signed' phase (current epoch {current_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-
-        // TODO: remove signers parameters
         let message = self
             .runner
-            .compute_message(&pending_certificate.signed_entity_type, &next_signers_with_stake)
+            .compute_message(&pending_certificate.signed_entity_type)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute message during 'registered → signed' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
-        // TODO: remove signers parameters
+
         let single_signatures = self
             .runner
-            .compute_single_signature(current_epoch, &message, &current_signers_with_stake)
+            .compute_single_signature(current_epoch, &message)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute single signature during 'registered → signed' phase (current epoch {current_epoch:?})"),
@@ -707,29 +692,14 @@ mod tests {
             .once()
             .returning(move || Ok(Some(certificate_pending.clone())));
         runner.expect_can_i_sign().once().returning(|_| Ok(true));
-
-        // TODO what we want to test ? We just test function was called. Is it usefull ?
-        // Do we check they were called without validate return values are used ?
-        // Should be only a stub (to make code pass) ?
-        runner
-            .expect_get_current_signers_with_stake()
-            .once() // TODO do we check the call ?
-            //.returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
-            .returning(|| Ok(vec![])); // Stub
-        runner
-            .expect_get_next_signers_with_stake()
-            .once() // TODO do we check the call ?
-            //.returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
-            .returning(|| Ok(vec![]));
-
         runner
             .expect_compute_single_signature()
             .once()
-            .returning(|_, _, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
+            .returning(|_, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
         runner
             .expect_compute_message()
             .once()
-            .returning(|_, _| Ok(ProtocolMessage::new()));
+            .returning(|_| Ok(ProtocolMessage::new()));
         runner
             .expect_send_single_signature()
             .once()

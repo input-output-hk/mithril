@@ -73,7 +73,6 @@ pub trait Runner: Send + Sync {
     async fn compute_message(
         &self,
         signed_entity_type: &SignedEntityType,
-        next_signers: &[SignerWithStake],
     ) -> StdResult<ProtocolMessage>;
 
     /// Create the single signature.
@@ -81,7 +80,6 @@ pub trait Runner: Send + Sync {
         &self,
         epoch: Epoch,
         message: &ProtocolMessage,
-        signers: &[SignerWithStake],
     ) -> StdResult<Option<SingleSignatures>>;
 
     /// Send the single signature to the aggregator in order to be aggregated.
@@ -413,9 +411,13 @@ impl Runner for SignerRunner {
     async fn compute_message(
         &self,
         signed_entity_type: &SignedEntityType,
-        next_signers: &[SignerWithStake],
     ) -> StdResult<ProtocolMessage> {
         debug!("RUNNER: compute_message");
+
+        let next_signers = self
+            .get_next_signers_with_stake()
+            .await
+            .with_context(|| "Runner can not not retrieve next signers")?;
 
         // 1 compute the signed entity type part of the message
         let mut message = self
@@ -442,7 +444,7 @@ impl Runner for SignerRunner {
         let avk = self
             .services
             .single_signer
-            .compute_aggregate_verification_key(next_signers, &next_protocol_initializer)?
+            .compute_aggregate_verification_key(&next_signers, &next_protocol_initializer)?
             .ok_or_else(|| RunnerError::NoValueError("next_signers avk".to_string()))?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
@@ -453,9 +455,13 @@ impl Runner for SignerRunner {
         &self,
         epoch: Epoch,
         message: &ProtocolMessage,
-        signers: &[SignerWithStake],
     ) -> StdResult<Option<SingleSignatures>> {
         debug!("RUNNER: compute_single_signature");
+
+        let signers = self
+            .get_current_signers_with_stake()
+            .await
+            .with_context(|| "Runner can not not retrieve signers")?;
 
         let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch()?;
         let protocol_initializer = self
@@ -470,7 +476,7 @@ impl Runner for SignerRunner {
             })?;
         let signature = self.services.single_signer.compute_single_signatures(
             message,
-            signers,
+            &signers,
             &protocol_initializer,
         )?;
         info!(
@@ -929,7 +935,20 @@ mod tests {
             .await
             .expect("save_protocol_initializer should not fail");
 
-        let next_signers = fixture.signers_with_stake();
+        services
+            .stake_store
+            .save_stakes(
+                current_time_point
+                    .epoch
+                    .offset_to_next_signer_retrieval_epoch(),
+                fixture.stake_distribution(),
+            )
+            .await
+            .expect("save_stakes should not fail");
+
+        let next_signers_with_stake = &fixture.signers_with_stake()[3..5];
+        let next_signers = &fixture.signers()[3..5];
+
         let mut expected = ProtocolMessage::new();
         expected.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -937,14 +956,24 @@ mod tests {
         );
         let avk = services
             .single_signer
-            .compute_aggregate_verification_key(&next_signers, &protocol_initializer)
+            .compute_aggregate_verification_key(next_signers_with_stake, &protocol_initializer)
             .expect("compute_aggregate_verification_key should not fail")
             .expect("an avk should have been computed");
         expected.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         let runner = init_runner(Some(services), None).await;
+
+        // inform epoch settings
+        let epoch_settings = EpochSettings {
+            epoch: current_time_point.epoch,
+            current_signers: fixture.signers(),
+            next_signers: next_signers.to_vec(),
+            ..fake_data::epoch_settings().clone()
+        };
+        runner.inform_epoch_settings(&epoch_settings).await.unwrap();
+
         let message = runner
-            .compute_message(&signed_entity_type, &next_signers)
+            .compute_message(&signed_entity_type)
             .await
             .expect("compute_message should not fail");
 
@@ -977,7 +1006,21 @@ mod tests {
             )
             .await
             .expect("save_protocol_initializer should not fail");
-        let signers = fixture.signers_with_stake();
+
+        services
+            .stake_store
+            .save_stakes(
+                current_time_point
+                    .epoch
+                    .offset_to_signer_retrieval_epoch()
+                    .expect("offset_to_signer_retrieval_epoch should not fail"),
+                fixture.stake_distribution(),
+            )
+            .await
+            .expect("save_stakes should not fail");
+
+        let signers_with_stake = &fixture.signers_with_stake()[0..3];
+        let signers = &fixture.signers()[0..3];
 
         let mut message = ProtocolMessage::new();
         message.set_message_part(
@@ -990,12 +1033,22 @@ mod tests {
         );
 
         let expected = single_signer
-            .compute_single_signatures(&message, &signers, &protocol_initializer)
+            .compute_single_signatures(&message, &signers_with_stake, &protocol_initializer)
             .expect("compute_single_signatures should not fail");
 
         let runner = init_runner(Some(services), None).await;
+
+        // inform epoch settings
+        let epoch_settings = EpochSettings {
+            epoch: current_time_point.epoch,
+            current_signers: signers.to_vec(),
+            next_signers: fixture.signers(),
+            ..fake_data::epoch_settings().clone()
+        };
+        runner.inform_epoch_settings(&epoch_settings).await.unwrap();
+
         let single_signature = runner
-            .compute_single_signature(current_time_point.epoch, &message, &signers)
+            .compute_single_signature(current_time_point.epoch, &message)
             .await
             .expect("compute_message should not fail");
         assert_eq!(expected, single_signature);

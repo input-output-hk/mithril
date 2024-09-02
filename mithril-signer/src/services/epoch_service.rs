@@ -33,6 +33,8 @@ pub enum EpochServiceError {
 #[async_trait]
 pub trait EpochService: Sync + Send {
     // TODO should we pass ean EpochSettings or the individual fields ?
+    /// Inform the service a new epoch has been detected, telling it to update its
+    /// internal state for the new epoch.
     async fn inform_epoch_settings(&mut self, epoch_settings: &EpochSettings) -> StdResult<()>;
 
     /// Get signers for the current epoch
@@ -62,11 +64,10 @@ pub struct MithrilEpochService {
 }
 
 impl MithrilEpochService {
-    // Create a new service instance
+    /// Create a new service instance
     pub fn new(stake_storer: Arc<dyn StakeStorer>) -> Self {
         Self {
             stake_storer,
-            // TODO init EpochData with empty None
             epoch_data: None,
         }
     }
@@ -167,7 +168,7 @@ impl EpochService for MithrilEpochService {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, sync::Arc};
+    use std::sync::Arc;
 
     use super::*;
 
@@ -196,7 +197,7 @@ mod tests {
             .expect("save_stakes should not fail");
 
         // Build service and register epoch settings
-        let mut service = MithrilEpochService::new(stake_store);
+        let service = MithrilEpochService::new(stake_store);
         assert!(service.current_signers().is_err());
         assert!(service.next_signers().is_err());
     }
@@ -206,11 +207,6 @@ mod tests {
         let epoch = Epoch(12);
         // Signers and stake distribution
         let signers = fake_data::signers(10);
-        let stake_distribution: StakeDistribution = signers
-            .iter()
-            .enumerate()
-            .map(|(i, signer)| (signer.party_id.clone(), (i + 1) as u64 * 100))
-            .collect();
 
         // Init stake_store
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
