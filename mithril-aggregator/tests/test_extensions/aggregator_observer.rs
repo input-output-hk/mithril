@@ -43,7 +43,7 @@ impl AggregatorObserver {
         self.ticker_service.get_current_time_point().await.unwrap()
     }
 
-    /// Get the current [open message][OpenMessageWithSingleSignatures] for the given message type
+    /// Get the current [open message][OpenMessage] for the given message type
     pub async fn get_current_open_message(
         &self,
         discriminant: SignedEntityTypeDiscriminants,
@@ -53,20 +53,31 @@ impl AggregatorObserver {
         self.certifier_service
             .get_open_message(&signed_entity_type)
             .await
-            .with_context(|| "Requesting current open message of type CardanoImmutableFilesFull should be not fail")
+            .with_context(|| {
+                format!(
+                    "Requesting current open message of type '{discriminant}' should be not fail"
+                )
+            })
     }
 
-    /// Get the [entity type][SignedEntityType::CardanoImmutableFilesFull] of the current current open message
-    pub async fn get_current_signed_entity_type(
+    /// Compute the full [SignedEntityType] for the given discriminant based on the current
+    /// [TimePoint].
+    ///
+    /// Note: It computes what would be the signed entity type if the aggregator was working on this
+    /// discriminant now.
+    /// Consequently, it doesn't mean that an open message is available for this type.
+    pub async fn build_current_signed_entity_type(
         &self,
         discriminant: SignedEntityTypeDiscriminants,
     ) -> StdResult<SignedEntityType> {
-        match self.get_current_open_message(discriminant).await? {
-            None => Err(anyhow!(
-                "An open message should be available for cardano immutables"
-            )),
-            Some(message) => Ok(message.signed_entity_type),
-        }
+        let time_point = self
+            .ticker_service
+            .get_current_time_point()
+            .await
+            .with_context(|| "Querying the current beacon should not fail")?;
+
+        self.signed_entity_config
+            .time_point_to_signed_entity(discriminant, &time_point)
     }
 
     /// Get the last certificate produced by the aggregator
@@ -96,22 +107,6 @@ impl AggregatorObserver {
                 "No cardano transactions snapshot have been produced by the aggregator"
             ))?;
         Ok(last_tx_snapshot)
-    }
-
-    async fn build_current_signed_entity_type(
-        &self,
-        discriminant: SignedEntityTypeDiscriminants,
-    ) -> StdResult<SignedEntityType> {
-        let time_point = self
-            .ticker_service
-            .get_current_time_point()
-            .await
-            .with_context(|| "Querying the current beacon should not fail")?;
-
-        Ok(self
-            .signed_entity_config
-            .time_point_to_signed_entity(discriminant, &time_point)
-            .unwrap())
     }
 
     pub async fn is_last_signed_entity(

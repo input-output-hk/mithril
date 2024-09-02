@@ -9,6 +9,7 @@ use mithril_aggregator::{
     AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
+use mithril_common::entities::ProtocolMessagePartKey;
 use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
@@ -388,16 +389,26 @@ impl RuntimeTester {
         let certifier_service = self.dependencies.certifier_service.clone();
         let signed_entity_type = self
             .observer
-            .get_current_signed_entity_type(discriminant)
+            .build_current_signed_entity_type(discriminant)
             .await?;
-        let message = certifier_service
-            .get_open_message(&signed_entity_type)
-            .await
-            .with_context(|| {
-                format!("An open message should exist for signed_entity_type: {signed_entity_type}")
-            })?
-            .ok_or(anyhow!("There should be a message to be signed."))?
-            .protocol_message;
+
+        // Code copied from `AggregatorRunner::compute_protocol_message`
+        // Todo: Refactor this code to avoid code duplication by making the signable_builder_service
+        // able to retrieve the next avk by itself.
+        let mut message = self
+            .dependencies
+            .signable_builder_service
+            .compute_protocol_message(signed_entity_type.clone())
+            .await?;
+
+        let epoch_service = self.dependencies.epoch_service.read().await;
+        message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            epoch_service
+                .next_aggregate_verification_key()?
+                .to_json_hex()
+                .with_context(|| "convert next avk to json hex failure")?,
+        );
 
         for signer_fixture in signers {
             if let Some(single_signatures) = signer_fixture.sign(&message) {
@@ -493,7 +504,7 @@ impl RuntimeTester {
     ) -> StdResult<()> {
         let signed_entity_type = self
             .observer
-            .get_current_signed_entity_type(discriminant)
+            .build_current_signed_entity_type(discriminant)
             .await?;
         let mut open_message = self
             .open_message_repository
