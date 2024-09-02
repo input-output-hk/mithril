@@ -18,6 +18,7 @@ impl TryToMessageAdapter<(SignedEntityType, SingleSignatures), RegisterSignature
                 "'ToRegisterSignatureMessageAdapter' can not convert the single signature"
             })?,
             won_indexes: single_signature.won_indexes,
+            signed_message: single_signature.signed_message,
         };
 
         Ok(message)
@@ -32,13 +33,16 @@ mod tests {
 
     #[test]
     fn adapt_ok() {
-        let single_signature = fake_data::single_signatures([1, 3].to_vec());
         let message: RegisterSignatureMessage = ToRegisterSignatureMessageAdapter::try_adapt((
             SignedEntityType::dummy(),
-            single_signature,
+            SingleSignatures {
+                signed_message: Some("signed_message".to_string()),
+                ..fake_data::single_signatures([1, 3].to_vec())
+            },
         ))
         .unwrap();
 
         assert_eq!("party_id".to_string(), message.party_id);
+        assert_eq!(Some("signed_message".to_string()), message.signed_message);
     }
 }

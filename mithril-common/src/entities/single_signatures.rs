@@ -20,10 +20,17 @@ pub struct SingleSignatures {
     /// The indexes of the won lotteries that lead to the single signatures
     #[serde(rename = "indexes")]
     pub won_indexes: Vec<LotteryIndex>,
+
+    /// Message that is signed by the signer
+    ///
+    /// Used to buffer the signature for later if the aggregator has yet to create an open message
+    /// for the signed entity type.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signed_message: Option<String>,
 }
 
 impl SingleSignatures {
-    /// SingleSignature factory
+    /// `SingleSignatures` factory
     pub fn new(
         party_id: PartyId,
         signature: ProtocolSingleSignature,
@@ -33,6 +40,22 @@ impl SingleSignatures {
             party_id,
             signature,
             won_indexes,
+            signed_message: None,
+        }
+    }
+
+    /// `SingleSignatures` factory including the signed message
+    pub fn new_with_signed_message(
+        party_id: PartyId,
+        signature: ProtocolSingleSignature,
+        won_indexes: Vec<LotteryIndex>,
+        signed_message: String,
+    ) -> SingleSignatures {
+        SingleSignatures {
+            party_id,
+            signature,
+            won_indexes,
+            signed_message: Some(signed_message),
         }
     }
 

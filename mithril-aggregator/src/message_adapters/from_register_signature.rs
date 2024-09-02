@@ -22,6 +22,7 @@ impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignatures>
                     "'FromRegisterSingleSignatureAdapter' can not convert the single signature"
                 })?,
             won_indexes: register_single_signature_message.won_indexes,
+            signed_message: register_single_signature_message.signed_message,
         };
 
         Ok(signatures)
@@ -34,9 +35,16 @@ mod tests {
 
     #[test]
     fn test_simple_message() {
-        let message = RegisterSignatureMessage::dummy();
-        let signatures = FromRegisterSingleSignatureAdapter::try_adapt(message).unwrap();
+        let signatures = FromRegisterSingleSignatureAdapter::try_adapt(RegisterSignatureMessage {
+            signed_message: Some("signed_message".to_string()),
+            ..RegisterSignatureMessage::dummy()
+        })
+        .unwrap();
 
         assert_eq!("party_id".to_string(), signatures.party_id);
+        assert_eq!(
+            Some("signed_message".to_string()),
+            signatures.signed_message
+        );
     }
 }

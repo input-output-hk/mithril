@@ -23,14 +23,16 @@ impl SingleSigner {
     ///
     /// If no lottery are won None will be returned.
     pub fn sign(&self, message: &ProtocolMessage) -> StdResult<Option<SingleSignatures>> {
-        match self.protocol_signer.sign(message.compute_hash().as_bytes()) {
+        let signed_message = message.compute_hash();
+        match self.protocol_signer.sign(signed_message.as_bytes()) {
             Some(signature) => {
                 let won_indexes = signature.indexes.clone();
 
-                Ok(Some(SingleSignatures::new(
+                Ok(Some(SingleSignatures::new_with_signed_message(
                     self.party_id.to_owned(),
                     signature.into(),
                     won_indexes,
+                    signed_message,
                 )))
             }
             None => Ok(None),
@@ -71,5 +73,33 @@ mod test {
             .expect("Single signer should be able to issue single signature");
 
         assert!(signature.is_some());
+    }
+
+    #[test]
+    fn embed_signed_message_in_issued_signature() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+        let signers = fixture.signers_fixture();
+        let signer = signers.first().unwrap();
+
+        let (single_signer, _) = SignerBuilder::new(
+            &fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
+        )
+        .unwrap()
+        .build_test_single_signer(
+            signer.signer_with_stake.clone(),
+            signer.kes_secret_key_path(),
+        )
+        .unwrap();
+
+        let message = ProtocolMessage::default();
+        let signature = single_signer
+            .sign(&message)
+            .expect("Single signer should be able to issue single signature");
+
+        assert_eq!(
+            Some(message.compute_hash()),
+            signature.and_then(|s| s.signed_message)
+        );
     }
 }

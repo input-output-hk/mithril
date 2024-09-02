@@ -58,6 +58,7 @@ pub fn generate_register_signature_message(
             party_id: s.party_id.clone(),
             signature: s.signature.clone().to_json_hex().unwrap(),
             won_indexes: s.won_indexes.clone(),
+            signed_message: None,
         })
         .collect::<Vec<_>>()
 }
