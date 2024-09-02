@@ -24,7 +24,7 @@ pub struct RegisterSignatureMessage {
 
     /// Message that is signed by the signer
     ///
-    /// Used to buffer the signature for later if the Aggregator has yet to create an open message
+    /// Used to buffer the signature for later if the aggregator has yet to create an open message
     /// for the signed entity type.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signed_message: Option<String>,

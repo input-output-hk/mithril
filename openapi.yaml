@@ -1072,8 +1072,8 @@ components:
           description: |
             Hash of the protocol message that is signed by the signer
 
-            Optional, allow the aggregator to store this signature for later if it has yet to start to work
-            on the message.
+            Optional, allows the aggregator to store this signature for later if it has yet to start aggregating
+            signatures for the message.
           type: string
           format: bytes
       example:
