@@ -17,9 +17,12 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for Mithril signer memory optimization when signing Cardano transactions with multiple Merkle tree storage backends.
 
+- Add feature options `num-integer-backend` and `rug-backend` for `mithril-common` and `mithril-client` crates. Allows to disable `rug-backend` and avoid `LGPL` license usage.
+
+- Post `Chang` hard fork cleanup of the CI and the devnet.
+
 - **UNSTABLE** Cardano stake distribution certification:
 
-  - Add feature options `num-integer-backend` and `rug-backend` for `mithril-common` and `mithril-client` crates. Allows to disable `rug-backend` and avoid `LGPL` licence usage.
   - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`.
   - Implement the HTTP routes related to the signed entity type `CardanoStakeDistribution` on the aggregator REST API.
   - Added support in the `mithril-client` library for retrieving `CardanoStakeDistribution` by epoch or by hash, and for listing all available `CardanoStakeDistribution`.
