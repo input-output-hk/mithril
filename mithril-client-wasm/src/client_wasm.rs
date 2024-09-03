@@ -58,14 +58,8 @@ impl From<MithrilEvent> for MithrilEventWasm {
 pub struct MithrilClient {
     client: Client,
 
-    /// Unstable functions
-    pub unstable: MithrilUnstableClient,
-}
-
-#[wasm_bindgen]
-#[derive(Clone)]
-pub struct MithrilUnstableClient {
-    client: Client,
+    /// Allow usage of unstable functions
+    unstable: bool,
 }
 
 #[wasm_bindgen]
@@ -86,14 +80,14 @@ impl MithrilClient {
                 .map_err(|err| format!("Failed to parse options: {err:?}"))
                 .unwrap()
         };
-
+        let unstable = client_options.unstable;
         let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
             .add_feedback_receiver(feedback_receiver)
             .with_options(client_options)
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
-        let unstable = MithrilUnstableClient::new(client.clone());
+
         MithrilClient { client, unstable }
     }
 
@@ -227,18 +221,24 @@ impl MithrilClient {
     }
 }
 
+// Unstable functions are only available when the unstable flag is set
 #[wasm_bindgen]
-impl MithrilUnstableClient {
-    /// Constructor for unstable wasm client
-    fn new(inner_client: Client) -> MithrilUnstableClient {
-        Self {
-            client: inner_client,
+impl MithrilClient {
+    fn guard_unstable(&self) -> Result<(), wasm_bindgen::JsValue> {
+        if !self.unstable {
+            return Err(JsValue::from_str("Unstable functions are not enabled. Set the 'unstable' client option field to 'true' to enable them."));
         }
+
+        Ok(())
     }
 
     /// Call the client for the list of available Cardano transactions snapshots
+    ///
+    /// Warning: this function is unstable and may be modified in the future
     #[wasm_bindgen]
     pub async fn list_cardano_transactions_snapshots(&self) -> WasmResult {
+        self.guard_unstable()?;
+
         let result = self
             .client
             .cardano_transaction()
@@ -250,8 +250,12 @@ impl MithrilUnstableClient {
     }
 
     /// Call the client to get a Cardano transactions snapshot from a hash
+    ///
+    /// Warning: this function is unstable and may be modified in the future
     #[wasm_bindgen]
     pub async fn get_cardano_transactions_snapshot(&self, hash: &str) -> WasmResult {
+        self.guard_unstable()?;
+
         let result = self
             .client
             .cardano_transaction()
@@ -266,11 +270,15 @@ impl MithrilUnstableClient {
     }
 
     /// Call the client to get a Cardano transactions proofs
+    ///
+    /// Warning: this function is unstable and may be modified in the future
     #[wasm_bindgen]
     pub async fn get_cardano_transaction_proofs(
         &self,
         ctx_hashes: Box<[JsValue]>,
     ) -> Result<CardanoTransactionsProofs, JsValue> {
+        self.guard_unstable()?;
+
         let hashes = ctx_hashes
             .iter()
             .map(|h| {
@@ -292,12 +300,16 @@ impl MithrilUnstableClient {
     }
 
     /// Call the client to verify a cardano transaction proof and compute a message
+    ///
+    /// Warning: this function is unstable and may be modified in the future
     #[wasm_bindgen]
     pub async fn verify_cardano_transaction_proof_then_compute_message(
         &self,
         cardano_transaction_proof: &CardanoTransactionsProofs,
         certificate: JsValue,
     ) -> WasmResult {
+        self.guard_unstable()?;
+
         let certificate: MithrilCertificate =
             serde_wasm_bindgen::from_value(certificate).map_err(|err| format!("{err:?}"))?;
         let verified_proof = cardano_transaction_proof
@@ -310,8 +322,12 @@ impl MithrilUnstableClient {
     }
 
     /// Call the client to get a cardano stake distribution from a hash
+    ///
+    /// Warning: this function is unstable and may be modified in the future
     #[wasm_bindgen]
     pub async fn get_cardano_stake_distribution(&self, hash: &str) -> WasmResult {
+        self.guard_unstable()?;
+
         let result = self
             .client
             .cardano_stake_distribution()
@@ -327,8 +343,12 @@ impl MithrilUnstableClient {
 
     /// Call the client to get a cardano stake distribution from an epoch
     /// The epoch represents the epoch at the end of which the Cardano stake distribution is computed by the Cardano node
+    ///
+    /// Warning: this function is unstable and may be modified in the future
     #[wasm_bindgen]
     pub async fn get_cardano_stake_distribution_by_epoch(&self, epoch: u64) -> WasmResult {
+        self.guard_unstable()?;
+
         let result = self
             .client
             .cardano_stake_distribution()
@@ -343,8 +363,12 @@ impl MithrilUnstableClient {
     }
 
     /// Call the client for the list of available cardano stake distributions
+    ///
+    /// Warning: this function is unstable and may be modified in the future
     #[wasm_bindgen]
     pub async fn list_cardano_stake_distributions(&self) -> WasmResult {
+        self.guard_unstable()?;
+
         let result = self
             .client
             .cardano_stake_distribution()
@@ -356,12 +380,16 @@ impl MithrilUnstableClient {
     }
 
     /// Call the client to compute a cardano stake distribution message
+    ///
+    /// Warning: this function is unstable and may be modified in the future
     #[wasm_bindgen]
     pub async fn compute_cardano_stake_distribution_message(
         &self,
         certificate: JsValue,
         cardano_stake_distribution: JsValue,
     ) -> WasmResult {
+        self.guard_unstable()?;
+
         let certificate =
             serde_wasm_bindgen::from_value(certificate).map_err(|err| format!("{err:?}"))?;
         let cardano_stake_distribution = serde_wasm_bindgen::from_value(cardano_stake_distribution)
@@ -393,15 +421,25 @@ mod tests {
     const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";
     const FAKE_AGGREGATOR_PORT: &str = "8000";
 
-    fn get_mithril_client() -> MithrilClient {
+    fn get_mithril_client(unstable: bool) -> MithrilClient {
+        let options = ClientOptions::new(None).with_unstable_features(unstable);
+        let options_js_value = serde_wasm_bindgen::to_value(&options).unwrap();
         MithrilClient::new(
             &format!(
                 "http://{}:{}/aggregator",
                 FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
             ),
             GENESIS_VERIFICATION_KEY,
-            JsValue::undefined(),
+            options_js_value,
         )
+    }
+
+    fn get_mithril_client_stable() -> MithrilClient {
+        get_mithril_client(false)
+    }
+
+    fn get_mithril_client_unstable() -> MithrilClient {
+        get_mithril_client(true)
     }
 
     wasm_bindgen_test_configure!(run_in_browser);
@@ -451,7 +489,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_snapshots_should_return_value_convertible_in_rust_type() {
-        let snapshots_list_js_value = get_mithril_client()
+        let snapshots_list_js_value = get_mithril_client_stable()
             .list_snapshots()
             .await
             .expect("list_snapshots should not fail");
@@ -468,7 +506,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_snapshot_should_return_value_convertible_in_rust_type() {
-        let snapshot_js_value = get_mithril_client()
+        let snapshot_js_value = get_mithril_client_stable()
             .get_snapshot(test_data::snapshot_digests()[0])
             .await
             .expect("get_snapshot should not fail");
@@ -480,7 +518,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_snapshot_should_fail_with_unknown_digest() {
-        get_mithril_client()
+        get_mithril_client_stable()
             .get_snapshot("whatever")
             .await
             .expect_err("get_snapshot should fail");
@@ -488,7 +526,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_mithril_stake_distributions_should_return_value_convertible_in_rust_type() {
-        let msd_list_js_value = get_mithril_client()
+        let msd_list_js_value = get_mithril_client_stable()
             .list_mithril_stake_distributions()
             .await
             .expect("list_mithril_stake_distributions should not fail");
@@ -506,7 +544,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_mithril_stake_distribution_should_return_value_convertible_in_rust_type() {
-        let msd_js_value = get_mithril_client()
+        let msd_js_value = get_mithril_client_stable()
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
             .expect("get_mithril_stake_distribution should not fail");
@@ -518,7 +556,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_mithril_stake_distribution_should_fail_with_unknown_hash() {
-        get_mithril_client()
+        get_mithril_client_stable()
             .get_mithril_stake_distribution("whatever")
             .await
             .expect_err("get_mithril_stake_distribution should fail");
@@ -526,7 +564,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_mithril_certificates_should_return_value_convertible_in_rust_type() {
-        let certificates_list_js_value = get_mithril_client()
+        let certificates_list_js_value = get_mithril_client_stable()
             .list_mithril_certificates()
             .await
             .expect("list_mithril_certificates should not fail");
@@ -544,7 +582,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_mithril_certificate_should_return_value_convertible_in_rust_type() {
-        let certificate_js_value = get_mithril_client()
+        let certificate_js_value = get_mithril_client_stable()
             .get_mithril_certificate(test_data::certificate_hashes()[0])
             .await
             .expect("get_mithril_certificate should not fail");
@@ -557,7 +595,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_mithril_certificate_should_fail_with_unknown_hash() {
-        get_mithril_client()
+        get_mithril_client_stable()
             .get_mithril_certificate("whatever")
             .await
             .expect_err("get_mithril_certificate should fail");
@@ -566,7 +604,7 @@ mod tests {
     #[wasm_bindgen_test]
     async fn compute_mithril_stake_distribution_message_should_return_value_convertible_in_rust_type(
     ) {
-        let client = get_mithril_client();
+        let client = get_mithril_client_stable();
         let msd_js_value = client
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
@@ -582,7 +620,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn verify_certificate_chain_should_return_value_convertible_in_rust_type() {
-        let client = get_mithril_client();
+        let client = get_mithril_client_stable();
         let msd_js_value = client
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
@@ -599,7 +637,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn verify_message_match_certificate_should_return_true() {
-        let client = get_mithril_client();
+        let client = get_mithril_client_stable();
         let msd_js_value = client
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
@@ -623,8 +661,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_cardano_transactions_snapshots_should_return_value_convertible_in_rust_type() {
-        let cardano_tx_sets_js_value = get_mithril_client()
-            .unstable
+        let cardano_tx_sets_js_value = get_mithril_client_unstable()
             .list_cardano_transactions_snapshots()
             .await
             .expect("list_cardano_transactions_snapshots should not fail");
@@ -642,8 +679,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_transactions_snapshot_should_return_value_convertible_in_rust_type() {
-        let cardano_tx_set_js_value = get_mithril_client()
-            .unstable
+        let cardano_tx_set_js_value = get_mithril_client_unstable()
             .get_cardano_transactions_snapshot(test_data::ctx_snapshot_hashes()[0])
             .await
             .expect("get_cardano_transactions_snapshot should not fail");
@@ -656,8 +692,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_transactions_snapshot_should_fail_with_unknown_digest() {
-        get_mithril_client()
-            .unstable
+        get_mithril_client_unstable()
             .get_cardano_transactions_snapshot("whatever")
             .await
             .expect_err("get_cardano_transactions_snapshot should fail");
@@ -667,10 +702,9 @@ mod tests {
     async fn get_cardano_transaction_proofs_should_return_value_convertible_in_rust_type() {
         let tx_hash = test_data::proof_transaction_hashes()[0];
         let ctx_hashes = Box::new([JsValue::from(tx_hash)]);
-        let client = get_mithril_client();
+        let client = get_mithril_client_unstable();
 
         let tx_proof = client
-            .unstable
             .get_cardano_transaction_proofs(ctx_hashes)
             .await
             .expect("get_verified_cardano_transaction_proofs should not fail");
@@ -680,7 +714,6 @@ mod tests {
             .unwrap();
 
         client
-            .unstable
             .verify_cardano_transaction_proof_then_compute_message(&tx_proof, certificate)
             .await
             .expect("Compute tx proof message for matching cert failed");
@@ -688,8 +721,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_cardano_stake_distributions_should_return_value_convertible_in_rust_type() {
-        let csd_list_js_value = get_mithril_client()
-            .unstable
+        let csd_list_js_value = get_mithril_client_unstable()
             .list_cardano_stake_distributions()
             .await
             .expect("cardano_mithril_stake_distributions should not fail");
@@ -707,8 +739,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_should_return_value_convertible_in_rust_type() {
-        let csd_js_value = get_mithril_client()
-            .unstable
+        let csd_js_value = get_mithril_client_unstable()
             .get_cardano_stake_distribution(test_data::csd_hashes()[0])
             .await
             .expect("get_cardano_stake_distribution should not fail");
@@ -720,8 +751,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_should_fail_with_unknown_hash() {
-        get_mithril_client()
-            .unstable
+        get_mithril_client_unstable()
             .get_cardano_stake_distribution("whatever")
             .await
             .expect_err("get_cardano_stake_distribution should fail");
@@ -731,8 +761,7 @@ mod tests {
     async fn get_cardano_stake_distribution_by_epoch_should_return_value_convertible_in_rust_type()
     {
         let epoch: u64 = test_data::csd_epochs()[0].parse().unwrap();
-        let csd_js_value = get_mithril_client()
-            .unstable
+        let csd_js_value = get_mithril_client_unstable()
             .get_cardano_stake_distribution_by_epoch(epoch)
             .await
             .expect("get_cardano_stake_distribution_by_epoch should not fail");
@@ -745,8 +774,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_by_epoch_should_fail_with_unknown_epoch() {
-        get_mithril_client()
-            .unstable
+        get_mithril_client_unstable()
             .get_cardano_stake_distribution_by_epoch(u64::MAX)
             .await
             .expect_err("get_cardano_stake_distribution_by_epoch should fail");
@@ -755,9 +783,8 @@ mod tests {
     #[wasm_bindgen_test]
     async fn compute_cardano_stake_distribution_message_should_return_value_convertible_in_rust_type(
     ) {
-        let client = get_mithril_client();
+        let client = get_mithril_client_unstable();
         let csd_js_value = client
-            .unstable
             .get_cardano_stake_distribution(test_data::csd_hashes()[0])
             .await
             .unwrap();
@@ -769,7 +796,6 @@ mod tests {
             .unwrap();
 
         let message_js_value = client
-            .unstable
             .compute_cardano_stake_distribution_message(certificate_js_value, csd_js_value)
             .await
             .expect("compute_cardano_stake_distribution_message should not fail");
