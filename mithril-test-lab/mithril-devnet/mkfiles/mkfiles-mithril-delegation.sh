@@ -40,7 +40,7 @@ version_lte() {
 
 # Stake addresses registration certs
 for ADDR in ${USER_ADDRS}; do
-  if [ \$(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") == "false" ] && [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
+  if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
     KEY_REGISTRATION_DEPOSIT_ANOUNT=0
     # Conway specific creation of registration certificate
     $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
