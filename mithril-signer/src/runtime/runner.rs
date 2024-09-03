@@ -980,7 +980,7 @@ mod tests {
         );
 
         let expected = single_signer
-            .compute_single_signatures(&message, &signers_with_stake, &protocol_initializer)
+            .compute_single_signatures(&message, signers_with_stake, &protocol_initializer)
             .expect("compute_single_signatures should not fail");
 
         let runner = init_runner(Some(services), None).await;

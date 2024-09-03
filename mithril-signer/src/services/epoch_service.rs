@@ -17,23 +17,14 @@ use crate::RunnerError;
 /// Errors dedicated to the CertifierService.
 #[derive(Debug, Error)]
 pub enum EpochServiceError {
-    // /// One of the data that is held for an epoch duration by the service was not available.
-    // #[error("Epoch service could not obtain {1} for epoch {0}")]
-    // UnavailableData(Epoch, String),
     /// Raised when service has not collected data at least once.
     #[error("Epoch service was not initialized, the function `inform_epoch` must be called first")]
     NotYetInitialized,
-    // /// Raised when service has not computed data for its current epoch.
-    // #[error(
-    //     "No data computed for epoch {0}, the function `precompute_epoch_data` must be called first"
-    // )]
-    // NotYetComputed(Epoch),
 }
 
 /// Service that aggregates all data that don't change in a given epoch.
 #[async_trait]
 pub trait EpochService: Sync + Send {
-    // TODO should we pass ean EpochSettings or the individual fields ?
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
     async fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
@@ -272,7 +263,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_signers_with_stake_are_available_after_register_epoch_settings_call() {
-        fn build_stake_distribution(signers: &Vec<Signer>, first_stake: u64) -> StakeDistribution {
+        fn build_stake_distribution(signers: &[Signer], first_stake: u64) -> StakeDistribution {
             signers
                 .iter()
                 .enumerate()
