@@ -1,6 +1,6 @@
 use mithril_common::entities::CardanoDbBeacon;
 use mithril_common::{
-    entities::{CertificatePending, SignedEntityType, Signer},
+    entities::{CertificatePending, SignedEntityType},
     messages::{CertificatePendingMessage, SignerMessagePart},
 };
 

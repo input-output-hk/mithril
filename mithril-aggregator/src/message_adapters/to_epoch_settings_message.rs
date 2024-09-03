@@ -1,4 +1,4 @@
-use mithril_common::entities::{EpochSettings, Signer};
+use mithril_common::entities::EpochSettings;
 use mithril_common::messages::{EpochSettingsMessage, SignerMessagePart, ToMessageAdapter};
 
 /// Adapter to spawn [EpochSettingsMessage] from [EpochSettings] instances.

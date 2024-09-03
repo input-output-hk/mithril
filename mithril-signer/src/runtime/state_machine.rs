@@ -295,7 +295,6 @@ impl StateMachine {
         })
     }
 
-    // TODO do we remove epoch_settings information when unregistered ???
     async fn transition_from_signed_to_unregistered(
         &self,
         epoch: Epoch,
@@ -518,7 +517,6 @@ mod tests {
             epoch: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             next_protocol_parameters: fake_data::protocol_parameters(),
-            // TODO : put some data ?
             current_signers: vec![],
             next_signers: vec![],
         };
@@ -555,7 +553,6 @@ mod tests {
             .once()
             .returning(|| Ok(Some(fake_data::epoch_settings())));
 
-        // TODO do we check the epoch_setting is the one returning by get_epoch_settings
         runner
             .expect_inform_epoch_settings()
             .with(predicate::eq(fake_data::epoch_settings()))

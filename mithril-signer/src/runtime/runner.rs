@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog_scope::{debug, info, trace, warn};
+use slog_scope::{debug, info, warn};
 use thiserror::Error;
 
 #[cfg(test)]
@@ -54,14 +54,6 @@ pub trait Runner: Send + Sync {
 
     /// Register epoch information
     async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()>;
-
-    /// From a list of signers, associate them with the stake read on the
-    /// Cardano node.
-    async fn associate_signers_with_stake(
-        &self,
-        epoch: Epoch,
-        signers: &[Signer],
-    ) -> StdResult<Vec<SignerWithStake>>;
 
     /// Create the message to be signed with the single signature.
     async fn compute_message(
@@ -164,8 +156,6 @@ impl Runner for SignerRunner {
             .cloned()
     }
 
-    // TODO do we need to be async ?
-    // TODO do we return a vec or a &vec ?
     async fn get_next_signers(&self) -> StdResult<Vec<Signer>> {
         debug!("RUNNER: get_next_signers");
 
@@ -359,45 +349,6 @@ impl Runner for SignerRunner {
             .await
     }
 
-    // TODO do it in EpochService and store SignerWithStack
-    // Inject stake_store in EpochService (epoch + current protocol parameters)
-    async fn associate_signers_with_stake(
-        &self,
-        epoch: Epoch,
-        signers: &[Signer],
-    ) -> StdResult<Vec<SignerWithStake>> {
-        debug!("RUNNER: associate_signers_with_stake");
-
-        let stakes = self
-            .services
-            .stake_store
-            .get_stakes(epoch)
-            .await?
-            .ok_or_else(|| RunnerError::NoValueError(format!("stakes at epoch {epoch}")))?;
-        let mut signers_with_stake = vec![];
-
-        for signer in signers {
-            let stake = stakes
-                .get(&*signer.party_id)
-                .ok_or_else(|| RunnerError::NoStakeForSigner(signer.party_id.to_string()))?;
-
-            signers_with_stake.push(SignerWithStake::new(
-                signer.party_id.to_owned(),
-                signer.verification_key.to_owned(),
-                signer.verification_key_signature.to_owned(),
-                signer.operational_certificate.to_owned(),
-                signer.kes_period.to_owned(),
-                *stake,
-            ));
-            trace!(
-                " > associating signer_id {} with stake {}",
-                signer.party_id,
-                *stake
-            );
-        }
-        Ok(signers_with_stake)
-    }
-
     async fn compute_message(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -551,7 +502,7 @@ mod tests {
             MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, StakeDistribution},
+        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -855,36 +806,6 @@ mod tests {
             !can_i_sign_result,
             "The signer should not be able to sign when the signed entity type is locked."
         );
-    }
-
-    #[tokio::test]
-    async fn test_associate_signers_with_stake() {
-        let services = init_services().await;
-        let stake_store = services.stake_store.clone();
-        let runner = init_runner(Some(services), None).await;
-        let epoch = Epoch(12);
-        let expected = fake_data::signers_with_stakes(5);
-        let signers = expected
-            .clone()
-            .into_iter()
-            .map(|s| s.into())
-            .collect::<Vec<_>>();
-        let stake_distribution = expected
-            .clone()
-            .iter()
-            .map(|s| s.into())
-            .collect::<StakeDistribution>();
-
-        stake_store
-            .save_stakes(epoch, stake_distribution)
-            .await
-            .expect("save_stakes should not fail");
-
-        let result = runner
-            .associate_signers_with_stake(epoch, &signers)
-            .await
-            .expect("associate_signers_with_stake should not fail");
-        assert_eq!(expected, result);
     }
 
     #[tokio::test]
