@@ -77,11 +77,6 @@ cat >> payment-mithril.sh <<EOF
         | jq  -r '.era |= ascii_downcase | .era')
     echo ">>>>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
 
-    # Fix: era related command is not (well) supported in Cardano node version '8.1.2'
-    if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
-        CURRENT_CARDANO_ERA=""
-    fi
-
     # Set the amount to be transferred
     AMOUNT_TRANSFERRED=\$(( 2000000 + 10 * ${i} + j))
     echo ">>>>>> Send funds: \${AMOUNT_TRANSFERRED} Lovelace from 'utxo${i}.addr' to '${ADDR_RX}.addr'"

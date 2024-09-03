@@ -10,11 +10,6 @@ CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CAR
     | jq  -r '.era |= ascii_downcase | .era')
 echo ">>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
 
-# Fix: era related command is not (well) supported in Cardano node version '8.1.2'
-if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
-    CURRENT_CARDANO_ERA=""
-fi
-
 # Get the current epoch
 CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
                     --cardano-mode \\
@@ -65,19 +60,11 @@ EOF
 # User N will delegate to pool N
 for N in ${POOL_NODES_N}; do
   cat >> delegate.sh <<EOF
-    if [ \$(version_lte "${CARDANO_NODE_VERSION_RELEASE}" "8.1.2") == "false" ]; then
-      # Stake address delegation certs
-      $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address stake-delegation-certificate \
-          --stake-verification-key-file addresses/user${N}-stake.vkey \
-          --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
-          --out-file addresses/user${N}-stake.deleg.cert
-    else
-      # Legacy stake address delegation certs
-      $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address delegation-certificate \
-          --stake-verification-key-file addresses/user${N}-stake.vkey \
-          --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
-          --out-file addresses/user${N}-stake.deleg.cert
-    fi
+    # Stake address delegation certs
+    $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address stake-delegation-certificate \
+        --stake-verification-key-file addresses/user${N}-stake.vkey \
+        --cold-verification-key-file  node-pool${N}/shelley/cold.vkey \
+        --out-file addresses/user${N}-stake.deleg.cert
 
 EOF
 done
