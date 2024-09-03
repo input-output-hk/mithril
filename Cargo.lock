@@ -3629,7 +3629,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.8.15"
+version = "0.8.16"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3889,7 +3889,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.27"
+version = "0.3.28"
 dependencies = [
  "bincode",
  "blake2 0.10.6",

@@ -1,5 +1,5 @@
 use crate::stm::Stake;
-#[cfg(feature = "num-integer-backend")]
+#[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
 use {
     num_bigint::{BigInt, Sign},
     num_rational::Ratio,
@@ -7,7 +7,7 @@ use {
     std::ops::Neg,
 };
 
-#[cfg(feature = "num-integer-backend")]
+#[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
 /// Checks that ev is successful in the lottery. In particular, it compares the output of `phi`
 /// (a real) to the output of `ev` (a hash).  It uses the same technique used in the
 /// [Cardano ledger](https://github.com/input-output-hk/cardano-ledger/). In particular,
@@ -49,7 +49,7 @@ pub(crate) fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Sta
     taylor_comparison(1000, q, x)
 }
 
-#[cfg(feature = "num-integer-backend")]
+#[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
 /// Checks if cmp < exp(x). Uses error approximation for an early stop. Whenever the value being
 /// compared, `cmp`, is smaller (or greater) than the current approximation minus an `error_term`
 /// (plus an `error_term` respectively), then we stop approximating. The choice of the `error_term`
@@ -82,7 +82,7 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
     false
 }
 
-#[cfg(not(feature = "num-integer-backend"))]
+#[cfg(not(any(feature = "num-integer-backend", target_family = "wasm", windows)))]
 /// The crate `rug` has sufficient optimizations to not require a taylor approximation with early
 /// stop. The difference between the current implementation and the one using the optimization
 /// above is around 10% faster. We perform the computations with 117 significant bits of
@@ -146,7 +146,7 @@ mod tests {
             assert_eq!(quick_result, result);
         }
 
-        #[cfg(feature = "num-integer-backend")]
+        #[cfg(any(feature = "num-integer-backend", target_family = "wasm", windows))]
         #[test]
         /// Checking the early break of Taylor computation
         fn early_break_taylor(

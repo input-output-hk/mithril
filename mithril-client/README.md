@@ -51,6 +51,17 @@ async fn main() -> mithril_client::MithrilResult<()> {
 }
 ```
 
+## Different arithmetic libraries
+
+Under the hood mithril client could use different arithmetic libraries:
+
+- [rug](https://crates.io/crates/rug)
+- [num](https://crates.io/crates/num)
+
+You can switch beetwen them by using `rug-backend` and `num-integer-backend` respectively.
+For Windows and WASM target platforms only `num-integer-backend` is available,
+for others `rug-backend` is a default option.
+
 ## Getting Help
 
 First, check our [Developer documentation](https://mithril.network/doc/manual/developer-docs/nodes/mithril-client-library).
