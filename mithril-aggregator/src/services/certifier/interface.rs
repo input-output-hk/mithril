@@ -2,7 +2,8 @@ use async_trait::async_trait;
 use thiserror::Error;
 
 use mithril_common::entities::{
-    Certificate, Epoch, ProtocolMessage, SignedEntityType, SingleSignatures,
+    Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
+    SingleSignatures,
 };
 use mithril_common::StdResult;
 
@@ -113,4 +114,24 @@ pub trait CertifierService: Sync + Send {
     /// there is at least an epoch between the given epoch and the most recent
     /// certificate.
     async fn verify_certificate_chain(&self, epoch: Epoch) -> StdResult<()>;
+}
+
+/// ## BufferedSignatureStore
+///
+/// Allow to buffer single signatures for later use when an open message isn't available yet.
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait BufferedSingleSignatureStore: Sync + Send {
+    /// Buffer a single signature for later use.
+    async fn buffer_signature(
+        &self,
+        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signature: &SingleSignatures,
+    ) -> StdResult<()>;
+
+    /// Get the buffered single signatures for the given signed entity discriminant.
+    async fn get_buffered_signatures(
+        &self,
+        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+    ) -> StdResult<Vec<SingleSignatures>>;
 }
