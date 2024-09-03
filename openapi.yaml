@@ -844,10 +844,12 @@ components:
           $ref: "#/components/schemas/SignedEntityType"
         protocol:
           deprecated: true
-          $ref: "#/components/schemas/ProtocolParameters"
+          allOf:
+            - $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:
           deprecated: true
-          $ref: "#/components/schemas/ProtocolParameters"
+          allOf:
+            - $ref: "#/components/schemas/ProtocolParameters"
         signers:
           deprecated: true
           type: array
