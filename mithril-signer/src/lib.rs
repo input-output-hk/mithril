@@ -8,7 +8,6 @@
 
 mod configuration;
 pub mod database;
-
 pub mod dependency_injection;
 mod message_adapters;
 pub mod metrics;
