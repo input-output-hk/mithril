@@ -80,9 +80,31 @@ impl CertifierService for BufferedCertifierService {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage> {
-        self.certifier_service
+        let creation_result = self
+            .certifier_service
             .create_open_message(signed_entity_type, protocol_message)
-            .await
+            .await;
+
+        // TODO: does the error in this block should make this method fails or should they just
+        // be logged?
+        if let Ok(_open_message) = &creation_result {
+            let buffered_signatures = self
+                .buffered_single_signature_store
+                .get_buffered_signatures(signed_entity_type.into())
+                .await?;
+
+            for signature in &buffered_signatures {
+                self.certifier_service
+                    .register_single_signature(signed_entity_type, signature)
+                    .await?;
+            }
+
+            self.buffered_single_signature_store
+                .remove_buffered_signatures(signed_entity_type.into(), buffered_signatures)
+                .await?;
+        }
+
+        creation_result
     }
 
     async fn get_open_message(
@@ -130,6 +152,17 @@ pub struct InMemoryBufferedSingleSignatureStore {
     store: RwLock<BTreeMap<SignedEntityTypeDiscriminants, Vec<SingleSignatures>>>,
 }
 
+#[cfg(test)]
+impl InMemoryBufferedSingleSignatureStore {
+    pub(crate) fn with_data(
+        initial_data: BTreeMap<SignedEntityTypeDiscriminants, Vec<SingleSignatures>>,
+    ) -> Self {
+        Self {
+            store: RwLock::new(initial_data),
+        }
+    }
+}
+
 impl Default for InMemoryBufferedSingleSignatureStore {
     fn default() -> Self {
         Self {
@@ -163,74 +196,148 @@ impl BufferedSingleSignatureStore for InMemoryBufferedSingleSignatureStore {
             .cloned()
             .unwrap_or_default())
     }
+
+    async fn remove_buffered_signatures(
+        &self,
+        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        single_signatures: Vec<SingleSignatures>,
+    ) -> StdResult<()> {
+        let mut store = self.store.write().await;
+
+        for signature in single_signatures {
+            if let Some(signatures) = store.get_mut(&signed_entity_type_discriminants) {
+                signatures.retain(|s| s != &signature);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use mithril_common::test_utils::fake_data;
+    use mockall::predicate::eq;
 
     use crate::services::{CertifierServiceError, MockCertifierService};
     use crate::test_tools::TestLogger;
 
     use super::*;
 
-    #[tokio::test]
-    async fn store_and_retrieve_signatures_in_buffered_store() {
-        let store = InMemoryBufferedSingleSignatureStore::default();
+    fn mock_certifier<F>(certifier_mock_config: F) -> Arc<MockCertifierService>
+    where
+        F: FnOnce(&mut MockCertifierService),
+    {
+        let mut certifier = MockCertifierService::new();
+        certifier_mock_config(&mut certifier);
+        Arc::new(certifier)
+    }
 
-        let ctx = SignedEntityTypeDiscriminants::CardanoTransactions;
-        store
-            .buffer_signature(ctx, &fake_data::single_signatures(vec![1]))
-            .await
-            .unwrap();
-        store
-            .buffer_signature(ctx, &fake_data::single_signatures(vec![2]))
-            .await
-            .unwrap();
+    mod in_memory_buffered_single_signature_store_tests {
+        use super::*;
 
-        // Different signed entity type to test that the store is able to differentiate between them
-        let msd = SignedEntityTypeDiscriminants::MithrilStakeDistribution;
-        store
-            .buffer_signature(msd, &fake_data::single_signatures(vec![3]))
-            .await
-            .unwrap();
+        #[tokio::test]
+        async fn store_and_retrieve_signatures() {
+            let store = InMemoryBufferedSingleSignatureStore::default();
 
-        let buffered_signatures_ctx = store.get_buffered_signatures(ctx).await.unwrap();
-        assert_eq!(
-            vec![
-                fake_data::single_signatures(vec![1]),
-                fake_data::single_signatures(vec![2])
-            ],
-            buffered_signatures_ctx
-        );
+            let ctx = SignedEntityTypeDiscriminants::CardanoTransactions;
+            store
+                .buffer_signature(ctx, &fake_data::single_signatures(vec![1]))
+                .await
+                .unwrap();
+            store
+                .buffer_signature(ctx, &fake_data::single_signatures(vec![2]))
+                .await
+                .unwrap();
 
-        let buffered_signatures_msd = store.get_buffered_signatures(msd).await.unwrap();
-        assert_eq!(
-            vec![fake_data::single_signatures(vec![3])],
-            buffered_signatures_msd
-        );
+            // Different signed entity type to test that the store is able to differentiate between them
+            let msd = SignedEntityTypeDiscriminants::MithrilStakeDistribution;
+            store
+                .buffer_signature(msd, &fake_data::single_signatures(vec![3]))
+                .await
+                .unwrap();
+
+            let buffered_signatures_ctx = store.get_buffered_signatures(ctx).await.unwrap();
+            assert_eq!(
+                vec![
+                    fake_data::single_signatures(vec![1]),
+                    fake_data::single_signatures(vec![2])
+                ],
+                buffered_signatures_ctx
+            );
+
+            let buffered_signatures_msd = store.get_buffered_signatures(msd).await.unwrap();
+            assert_eq!(
+                vec![fake_data::single_signatures(vec![3])],
+                buffered_signatures_msd
+            );
+        }
+
+        #[tokio::test]
+        async fn remove_buffered_signatures() {
+            let store = InMemoryBufferedSingleSignatureStore::with_data(BTreeMap::from([
+                (
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    vec![
+                        fake_data::single_signatures(vec![1]),
+                        fake_data::single_signatures(vec![2]),
+                        fake_data::single_signatures(vec![3]),
+                    ],
+                ),
+                (
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    vec![fake_data::single_signatures(vec![10])],
+                ),
+            ]));
+
+            store
+                .remove_buffered_signatures(
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    vec![
+                        fake_data::single_signatures(vec![1]),
+                        fake_data::single_signatures(vec![3]),
+                    ],
+                )
+                .await
+                .unwrap();
+
+            let remaining_msd_sigs = store
+                .get_buffered_signatures(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+                .await
+                .unwrap();
+            assert_eq!(
+                vec![fake_data::single_signatures(vec![2])],
+                remaining_msd_sigs
+            );
+
+            let remaining_ctx_sigs = store
+                .get_buffered_signatures(SignedEntityTypeDiscriminants::CardanoTransactions)
+                .await
+                .unwrap();
+            assert_eq!(
+                vec![fake_data::single_signatures(vec![10])],
+                remaining_ctx_sigs,
+                "CardanoTransactions signatures should have been left untouched"
+            );
+        }
     }
 
     #[tokio::test]
     async fn buffer_signature_if_decorated_certifier_as_no_opened_message() {
-        let mut inner_certifier = MockCertifierService::new();
-        inner_certifier
-            .expect_register_single_signature()
-            .returning(|_, _| {
-                Err(
-                    CertifierServiceError::NotFound(SignedEntityType::MithrilStakeDistribution(
-                        Epoch(5),
-                    ))
-                    .into(),
-                )
-            });
-
         let store = Arc::new(InMemoryBufferedSingleSignatureStore::default());
         let certifier = BufferedCertifierService::new(
-            Arc::new(inner_certifier),
+            mock_certifier(|mock| {
+                mock.expect_register_single_signature().returning(|_, _| {
+                    Err(CertifierServiceError::NotFound(
+                        SignedEntityType::MithrilStakeDistribution(Epoch(5)),
+                    )
+                    .into())
+                });
+            }),
             store.clone(),
             TestLogger::stdout(),
         );
+
         certifier
             .register_single_signature(
                 &SignedEntityType::MithrilStakeDistribution(Epoch(5)),
@@ -247,5 +354,62 @@ mod tests {
             buffered_signatures,
             vec![fake_data::single_signatures(vec![1])]
         );
+    }
+
+    #[tokio::test]
+    async fn buffered_signatures_are_moved_to_newly_opened_message() {
+        let store = Arc::new(InMemoryBufferedSingleSignatureStore::with_data(
+            BTreeMap::from([
+                (
+                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                    vec![
+                        fake_data::single_signatures(vec![1]),
+                        fake_data::single_signatures(vec![2]),
+                    ],
+                ),
+                (
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                    vec![fake_data::single_signatures(vec![10])],
+                ),
+            ]),
+        ));
+        let certifier = BufferedCertifierService::new(
+            mock_certifier(|mock| {
+                mock.expect_create_open_message()
+                    .returning(|_, _| Ok(OpenMessage::dummy()));
+
+                // Those configuration Asserts that the buffered signatures are registered
+                mock.expect_register_single_signature()
+                    .with(
+                        eq(SignedEntityType::MithrilStakeDistribution(Epoch(5))),
+                        eq(fake_data::single_signatures(vec![1])),
+                    )
+                    .once()
+                    .returning(|_, _| Ok(()));
+                mock.expect_register_single_signature()
+                    .with(
+                        eq(SignedEntityType::MithrilStakeDistribution(Epoch(5))),
+                        eq(fake_data::single_signatures(vec![2])),
+                    )
+                    .once()
+                    .returning(|_, _| Ok(()));
+            }),
+            store.clone(),
+            TestLogger::stdout(),
+        );
+
+        certifier
+            .create_open_message(
+                &SignedEntityType::MithrilStakeDistribution(Epoch(5)),
+                &ProtocolMessage::new(),
+            )
+            .await
+            .unwrap();
+
+        let remaining_sigs = store
+            .get_buffered_signatures(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+            .await
+            .unwrap();
+        assert!(remaining_sigs.is_empty());
     }
 }

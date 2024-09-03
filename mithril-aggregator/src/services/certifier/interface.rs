@@ -134,4 +134,11 @@ pub trait BufferedSingleSignatureStore: Sync + Send {
         &self,
         signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
     ) -> StdResult<Vec<SingleSignatures>>;
+
+    /// Remove the given single signatures from the buffer.
+    async fn remove_buffered_signatures(
+        &self,
+        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        single_signatures: Vec<SingleSignatures>,
+    ) -> StdResult<()>;
 }
