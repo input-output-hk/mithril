@@ -289,40 +289,19 @@ jobs:
       matrix:
         mode: ["std"]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        cardano_node_version: ["8.9.4", "8.12.2", "9.0.0", "9.1.0"]
+        cardano_node_version: ["9.0.0", "9.1.0", "9.1.1"]
         hard_fork_latest_era_at_epoch: [0]
-        run_id: ["#1"]
+        run_id: ["#1", "#2"]
         extra_args: [""]
 
         include:
-          # Include a test for `8.1.2` which is not concerned by the hard fork
-          - mode: "std"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            cardano_node_version: "8.1.2"
-            hard_fork_latest_era_at_epoch: 100
-            run_id: "#1"
-            extra_args: ""
           # Include a test for the P2P mode
           - mode: "p2p"
             era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            cardano_node_version: "8.9.4"
-            hard_fork_latest_era_at_epoch: 100
+            cardano_node_version: "9.1.1"
+            hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
             extra_args: "--use-p2p-network"
-          # Include tests for hard fork transitions
-          - mode: "std"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            cardano_node_version: "8.9.4"
-            hard_fork_latest_era_at_epoch: 10
-            run_id: "#1"
-            extra_args: ""
-          # Include tests for hard fork transitions
-          - mode: "std"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            cardano_node_version: "8.9.4"
-            hard_fork_latest_era_at_epoch: 100
-            run_id: "#1"
-            extra_args: ""
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
