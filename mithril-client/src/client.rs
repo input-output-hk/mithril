@@ -27,12 +27,27 @@ use crate::MithrilResult;
 pub struct ClientOptions {
     /// HTTP headers to include in the client requests.
     pub http_headers: Option<HashMap<String, String>>,
+
+    /// Whether to enable unstable features in the WASM client.
+    #[cfg(target_family = "wasm")]
+    #[cfg_attr(target_family = "wasm", serde(default))]
+    pub unstable: bool,
 }
 
 impl ClientOptions {
     /// Instantiate a new [ClientOptions].
     pub fn new(http_headers: Option<HashMap<String, String>>) -> Self {
-        Self { http_headers }
+        Self {
+            http_headers,
+            #[cfg(target_family = "wasm")]
+            unstable: false,
+        }
+    }
+
+    /// Enable unstable features in the WASM client.
+    #[cfg(target_family = "wasm")]
+    pub fn with_unstable_features(self, unstable: bool) -> Self {
+        Self { unstable, ..self }
     }
 }
 
