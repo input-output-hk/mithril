@@ -65,6 +65,29 @@ impl FakeAggregator {
 
         Ok(time_point)
     }
+
+    async fn get_current_signers(
+        &self,
+        store: &HashMap<Epoch, Vec<Signer>>,
+    ) -> Result<Vec<Signer>, AggregatorClientError> {
+        let time_point = self.get_time_point().await?;
+        let epoch = time_point
+            .epoch
+            .offset_to_signer_retrieval_epoch()
+            .map_err(|e| AggregatorClientError::RemoteServerTechnical(anyhow!(e)))?;
+
+        Ok(store.get(&epoch).cloned().unwrap_or_default())
+    }
+
+    async fn get_next_signers(
+        &self,
+        store: &HashMap<Epoch, Vec<Signer>>,
+    ) -> Result<Vec<Signer>, AggregatorClientError> {
+        let time_point = self.get_time_point().await?;
+        let epoch = time_point.epoch.offset_to_next_signer_retrieval_epoch();
+
+        Ok(store.get(&epoch).cloned().unwrap_or_default())
+    }
 }
 
 #[async_trait]
@@ -75,20 +98,11 @@ impl AggregatorClient for FakeAggregator {
         if *self.withhold_epoch_settings.read().await {
             Ok(None)
         } else {
-            let time_point = self.get_time_point().await?;
-
-            // TODO create method and also use it in retrieve_pending_certificate
             let store = self.registered_signers.read().await;
-            let current_signers = store
-                .get(&time_point.epoch.offset_to_signer_retrieval_epoch().unwrap())
-                .cloned()
-                .unwrap_or_default();
-            let next_signers = store
-                .get(&time_point.epoch.offset_to_next_signer_retrieval_epoch())
-                .cloned()
-                .unwrap_or_default();
+            let time_point = self.get_time_point().await?;
+            let current_signers = self.get_current_signers(&store).await?;
+            let next_signers = self.get_next_signers(&store).await?;
 
-            // TODO sans signers into epoch_settings
             Ok(Some(EpochSettings {
                 epoch: time_point.epoch,
                 current_signers,
@@ -118,15 +132,8 @@ impl AggregatorClient for FakeAggregator {
             ..fake_data::certificate_pending()
         };
 
-        let store = self.registered_signers.read().await;
-        certificate_pending.signers = store
-            .get(&time_point.epoch.offset_to_signer_retrieval_epoch().unwrap())
-            .cloned()
-            .unwrap_or_default();
-        certificate_pending.next_signers = store
-            .get(&time_point.epoch.offset_to_next_signer_retrieval_epoch())
-            .cloned()
-            .unwrap_or_default();
+        certificate_pending.signers = self.get_current_signers(&store).await?;
+        certificate_pending.next_signers = self.get_next_signers(&store).await?;
 
         Ok(Some(certificate_pending))
     }
@@ -228,7 +235,7 @@ mod tests {
 
     #[tokio::test]
     async fn retrieve_epoch_settings() {
-        // TODO check signers and next signers
+        // TODO XXX check signers and next signers
         let (chain_observer, fake_aggregator) = init().await;
         let fake_signers = fake_data::signers(2);
         let epoch = chain_observer.get_current_epoch().await.unwrap().unwrap();
