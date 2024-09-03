@@ -161,7 +161,6 @@ impl Runner for SignerRunner {
             .read()
             .await
             .current_signers()
-            .map_err(|e| e.into())
             .cloned()
     }
 
@@ -175,7 +174,6 @@ impl Runner for SignerRunner {
             .read()
             .await
             .next_signers()
-            .map_err(|e| e.into())
             .cloned()
     }
 
@@ -187,7 +185,6 @@ impl Runner for SignerRunner {
             .await
             .current_signers_with_stake()
             .await
-            .map_err(|e| e.into())
     }
 
     /// Get the next signers with their stake.
@@ -198,7 +195,6 @@ impl Runner for SignerRunner {
             .await
             .next_signers_with_stake()
             .await
-            .map_err(|e| e.into())
     }
 
     async fn register_signer_to_aggregator(&self) -> StdResult<()> {

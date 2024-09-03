@@ -167,7 +167,7 @@ impl EpochService for MithrilEpochService {
             current_epoch.offset_to_next_signer_retrieval_epoch(),
         );
         let current_signers = self.current_signers()?;
-        self.associate_signers_with_stake(retrieval_epoch, &current_signers)
+        self.associate_signers_with_stake(retrieval_epoch, current_signers)
             .await
     }
 
@@ -178,7 +178,7 @@ impl EpochService for MithrilEpochService {
             current_epoch.offset_to_next_signer_retrieval_epoch(),
         );
         let next_signers = self.next_signers()?;
-        self.associate_signers_with_stake(_next_retrieval_epoch, &next_signers)
+        self.associate_signers_with_stake(_next_retrieval_epoch, next_signers)
             .await
     }
 }
