@@ -11,29 +11,9 @@ impl ToMessageAdapter<EpochSettings, EpochSettingsMessage> for ToEpochSettingsMe
             epoch: epoch_settings.epoch,
             protocol_parameters: epoch_settings.protocol_parameters,
             next_protocol_parameters: epoch_settings.next_protocol_parameters,
-            current_signers: Self::adapt_signers(epoch_settings.current_signers),
-            next_signers: Self::adapt_signers(epoch_settings.next_signers),
+            current_signers: SignerMessagePart::from_signers(epoch_settings.current_signers),
+            next_signers: SignerMessagePart::from_signers(epoch_settings.next_signers),
         }
-    }
-}
-
-impl ToEpochSettingsMessageAdapter {
-    // TODO: duplicated from to_certificate_pending_message.rs. Refactor this duplication
-    fn adapt_signers(signers: Vec<Signer>) -> Vec<SignerMessagePart> {
-        signers
-            .into_iter()
-            .map(|signer| SignerMessagePart {
-                party_id: signer.party_id,
-                verification_key: signer.verification_key.try_into().unwrap(),
-                verification_key_signature: signer
-                    .verification_key_signature
-                    .map(|k| k.try_into().unwrap()),
-                kes_period: signer.kes_period,
-                operational_certificate: signer
-                    .operational_certificate
-                    .map(|o| o.try_into().unwrap()),
-            })
-            .collect()
     }
 }
 
