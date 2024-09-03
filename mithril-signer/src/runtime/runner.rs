@@ -299,9 +299,23 @@ impl Runner for SignerRunner {
             return Ok(false);
         }
 
-        if let Some(signer) =
-            pending_certificate.get_signer(self.services.single_signer.get_party_id())
-        {
+        // TODO XXX How handle errors ? It occurs in test_create_immutable_files_full_single_signature integration test (no signers in epoch 1)
+        // TODO XXX Do we warn and return "can not sign" or return an error ?
+        let current_signer_with_stake: Option<SignerWithStake> = {
+            let epoch_service = self.services.epoch_service.read().await;
+            let current_signers = epoch_service.current_signers_with_stake().await;
+            if let Ok(signers) = current_signers {
+                signers
+                    .iter()
+                    .find(|s| s.party_id == self.services.single_signer.get_party_id())
+                    .cloned()
+            } else {
+                warn!(" > could not get current signers with stake, can NOT sign");
+                return Ok(false);
+            }
+        };
+
+        if let Some(signer) = current_signer_with_stake {
             debug!(" > got a Signer from pending certificate");
 
             if let Some(protocol_initializer) = self
@@ -502,7 +516,7 @@ mod tests {
             MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch},
+        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, StakeDistribution},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -764,16 +778,35 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_i_sign() {
+        let signers_with_stake = fake_data::signers_with_stakes(5);
+        let signers = Signer::vec_from(signers_with_stake.to_vec());
+        let stake_distribution = signers_with_stake
+            .iter()
+            .map(|signer| (signer.party_id.clone(), signer.stake))
+            .collect();
+
+        let mut current_signers = signers[1..3].to_vec();
+        let next_signers = signers[2..5].to_vec();
+
         let mut pending_certificate = fake_data::certificate_pending();
+        pending_certificate.signers = vec![];
+        pending_certificate.next_signers = vec![];
         let epoch = pending_certificate.epoch;
-        let signer = &mut pending_certificate.signers[0];
-        // All signed entities are available for signing.
+        let signer = &mut current_signers[0];
+
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
         let mut services = init_services().await;
         let protocol_initializer_store = services.protocol_initializer_store.clone();
         services.single_signer = Arc::new(MithrilSingleSigner::new(signer.party_id.to_owned()));
         services.signed_entity_type_lock = signed_entity_type_lock.clone();
-        let runner = init_runner(Some(services), None).await;
+        services
+            .stake_store
+            .save_stakes(
+                epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                stake_distribution,
+            )
+            .await
+            .expect("save_stakes should not fail");
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             &100,
@@ -792,6 +825,16 @@ mod tests {
             )
             .await
             .expect("save_protocol_initializer should not fail");
+
+        let runner = init_runner(Some(services), None).await;
+        // inform epoch settings
+        let epoch_settings = EpochSettings {
+            epoch,
+            current_signers,
+            next_signers,
+            ..fake_data::epoch_settings().clone()
+        };
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
         let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
         assert!(can_i_sign_result);

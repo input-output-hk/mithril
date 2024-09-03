@@ -843,14 +843,18 @@ components:
         entity_type:
           $ref: "#/components/schemas/SignedEntityType"
         protocol:
+          deprecated: true
           $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:
+          deprecated: true
           $ref: "#/components/schemas/ProtocolParameters"
         signers:
+          deprecated: true
           type: array
           items:
             $ref: "#/components/schemas/Signer"
         next_signers:
+          deprecated: true
           type: array
           items:
             $ref: "#/components/schemas/Signer"

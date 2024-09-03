@@ -19,17 +19,33 @@ pub struct CertificatePendingMessage {
     pub signed_entity_type: SignedEntityType,
 
     /// Current Protocol parameters
+    #[deprecated(
+        since = "0.4.47",
+        note = "Exist only for backward-compatibility, will be removed in the future"
+    )]
     #[serde(rename = "protocol")]
     pub protocol_parameters: ProtocolParameters,
 
     /// Next Protocol parameters
+    #[deprecated(
+        since = "0.4.47",
+        note = "Exist only for backward-compatibility, will be removed in the future"
+    )]
     #[serde(rename = "next_protocol")]
     pub next_protocol_parameters: ProtocolParameters,
 
-    /// Current Signers
+    /// Current Signers    
+    #[deprecated(
+        since = "0.4.47",
+        note = "Exist only for backward-compatibility, will be removed in the future"
+    )]
     pub signers: Vec<SignerMessagePart>,
 
     /// Signers that will be able to sign on the next epoch
+    #[deprecated(
+        since = "0.4.47",
+        note = "Exist only for backward-compatibility, will be removed in the future"
+    )]
     pub next_signers: Vec<SignerMessagePart>,
 }
 
