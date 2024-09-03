@@ -67,10 +67,10 @@ use crate::{
     http_server::routes::router,
     services::{
         AggregatorUpkeepService, BufferedCertifierService, CardanoTransactionsImporter,
-        CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
-        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
-        MithrilStakeDistributionService, ProverService, SignedEntityService,
-        StakeDistributionService, UpkeepService,
+        CertifierService, InMemoryBufferedSingleSignatureStore, MessageService,
+        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
+        MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
+        SignedEntityService, StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -1453,7 +1453,11 @@ impl DependenciesBuilder {
             logger,
         ));
 
-        Ok(Arc::new(BufferedCertifierService::new(certifier)))
+        Ok(Arc::new(BufferedCertifierService::new(
+            certifier,
+            Arc::new(InMemoryBufferedSingleSignatureStore::default()),
+            self.get_logger()?,
+        )))
     }
 
     /// [CertifierService] service
