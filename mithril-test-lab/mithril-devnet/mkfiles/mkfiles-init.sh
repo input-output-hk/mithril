@@ -71,6 +71,7 @@ if [[ "$SKIP_CARDANO_BIN_DOWNLOAD" != "true" ]]; then
   echo ">> Downloading cardano-cli & cardano-node..."
   curl -sL "${CARDANO_BINARY_URL}" --output cardano-bin.tar.gz
   echo ">> Extracting cardano-cli & cardano-node..."
+  # First tar when archive has a 'bin' directory, and second tar is to handle legacy archive without 'bin' directory
   tar xzf cardano-bin.tar.gz -C "${ARTIFACTS_DIR}/" ./bin || (mkdir -p "${ARTIFACTS_DIR}/bin" && tar --strip-components=1 -C "${ARTIFACTS_DIR}/bin" -xzf cardano-bin.tar.gz)
   rm -f cardano-bin.tar.gz
 fi
