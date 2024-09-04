@@ -132,7 +132,10 @@ impl CertifierService for MithrilCertifierService {
         let multi_signer = self.multi_signer.read().await;
         multi_signer
             .verify_single_signature(&open_message.protocol_message, signature)
-            .await?;
+            .await
+            .map_err(|err| {
+                CertifierServiceError::InvalidSingleSignature(signed_entity_type.clone(), err)
+            })?;
 
         let single_signature = self
             .single_signature_repository
@@ -622,10 +625,18 @@ mod tests {
                 signatures.push(signature);
             }
         }
-        certifier_service
+        let err = certifier_service
             .register_single_signature(&signed_entity_type, &signatures[0])
             .await
             .expect_err("register_single_signature should fail");
+
+        assert!(
+            matches!(
+                err.downcast_ref::<CertifierServiceError>(),
+                Some(CertifierServiceError::InvalidSingleSignature(..))
+            ),
+            "Expected CertifierServiceError, got: '{err:?}'"
+        );
     }
 
     #[tokio::test]

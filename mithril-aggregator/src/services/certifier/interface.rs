@@ -5,7 +5,7 @@ use mithril_common::entities::{
     Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
     SingleSignatures,
 };
-use mithril_common::StdResult;
+use mithril_common::{StdError, StdResult};
 
 use crate::entities::OpenMessage;
 
@@ -25,6 +25,10 @@ pub enum CertifierServiceError {
     /// attached to it nor be certified again.
     #[error("Open message for beacon {0:?} is expired.")]
     Expired(SignedEntityType),
+
+    /// An invalid signature was provided.
+    #[error("Invalid single signature for {0:?}.")]
+    InvalidSingleSignature(SignedEntityType, #[source] StdError),
 
     /// No parent certificate could be found, this certifier cannot create genesis certificates.
     #[error(
