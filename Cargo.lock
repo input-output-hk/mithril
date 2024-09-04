@@ -3629,7 +3629,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.8.16"
+version = "0.8.17"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3692,7 +3692,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.3.10"
+version = "0.4.0"
 dependencies = [
  "async-trait",
  "futures",
