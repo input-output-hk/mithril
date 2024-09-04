@@ -62,11 +62,6 @@ function send_funds_to_era_address {
         | jq  -r '.era |= ascii_downcase | .era')
     echo ">>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
 
-    # Fix: era related command is not (well) supported in Cardano node version '8.1.2'
-    if [ "${CARDANO_NODE_VERSION}" = "8.1.2" ]; then
-        CURRENT_CARDANO_ERA=""
-    fi
-
     # Get current Cardano block
     CURRENT_CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
         --testnet-magic ${NETWORK_MAGIC} \\

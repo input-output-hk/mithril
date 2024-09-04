@@ -85,35 +85,6 @@ $CARDANO_CLI byron genesis genesis \
 cp $SCRIPT_DIRECTORY/configuration/babbage/alonzo-babbage-test-genesis.json "${ARTIFACTS_DIR_TEMP}/genesis.alonzo.spec.json"
 cp $SCRIPT_DIRECTORY/configuration/babbage/conway-babbage-test-genesis.json "${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json"
 
-if [ "${CARDANO_NODE_VERSION_RELEASE}" = "8.1.2" ]; then
-  # Fix 8.1.2, to avoid the following error: 'Command failed: genesis create-staked  Error: Error while decoding Shelley genesis at: example/genesis.conway.spec.json Error: Error in $: key "genDelegs" not found'
-  mv ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp && cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"genDelegs":{}}' > ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json && rm ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp
-fi
-
-if [ $(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.8.0") = "false" ]; then
-  # Fix >=8.8.0, to avoid the following errors: 'Command failed: genesis create-staked  Error: Error: Error while decoding Shelley genesis at: ./temp/genesis.conway.spec.json Error: Error in $.poolVotingThresholds: key "motionNoConfidence" not found'
-  mv ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp && cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"poolVotingThresholds": {"motionNoConfidence": 0.51, "committeeNormal": 0.51, "committeeNoConfidence": 0.51, "hardForkInitiation": 0.51, "ppSecurityGroup": 0.51}, "dRepVotingThresholds": {"motionNoConfidence": 0.51, "committeeNormal": 0.51, "committeeNoConfidence": 0.51, "updateToConstitution": 0.51, "hardForkInitiation": 0.51, "ppNetworkGroup": 0.51, "ppEconomicGroup": 0.51, "ppTechnicalGroup": 0.51, "ppGovGroup": 0.51, "treasuryWithdrawal": 0.51}}' > ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json && rm ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp
-  cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json
-fi
-
-if [ $(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.9.1") = "false" ]; then
-  # Fix >=8.9.1, to avoid the following errors: 'Command failed: genesis create-staked  Error: Error while decoding Shelley genesis at: ./temp/genesis.conway.spec.json Error: Error in $.committee: key "quorum" not found'
-  mv ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp && cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"committee": {"quorum": 0.51, "members": {}}}' > ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json && rm ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp
-  cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json
-fi
-
-if [ $(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.10.0") = "false" ]; then
-  # Fix >=8.10.0, to avoid the following errors: 'Command failed: genesis create-staked  Error: Error while decoding Shelley genesis at: ./temp/genesis.conway.spec.json Error: Error in $: key "minFeeRefScriptCostPerByte" not found'
-  mv ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp && cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"minFeeRefScriptCostPerByte": 0, "committee": {"members": {}, "threshold": 0.67}}' > ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json && rm ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp
-  cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json
-fi
-
-if [ $(version_lt "${CARDANO_NODE_VERSION_RELEASE}" "8.11.0") = "false" ]; then
-  # Fix >=8.11.0, to avoid the following errors: 'Command failed: genesis create-staked  Error: Error while decoding Shelley genesis at: ./temp/genesis.conway.spec.json Error: Error in $: key "plutusV3CostModel" not found'
-  mv ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp && cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp | jq '. += {"plutusV3CostModel": []}' > ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json && rm ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json.tmp
-  cat ${ARTIFACTS_DIR_TEMP}/genesis.conway.spec.json
-fi
-
 cp $SCRIPT_DIRECTORY/configuration/byron/configuration.yaml "${ARTIFACTS_DIR_TEMP}/"
 $SED -i "${ARTIFACTS_DIR_TEMP}/configuration.yaml" \
      -e 's/Protocol: RealPBFT/Protocol: Cardano/' \
