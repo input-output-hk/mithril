@@ -10,12 +10,12 @@ repository = { workspace = true }
 include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
 [dependencies]
-clap = { version = "4.4.6", features = ["derive", "env"] }
+clap = { version = "4.5.16", features = ["derive", "env"] }
 config = "0.14.0"
 mithril-doc-derive = { path = "../mithril-doc-derive" }
 
 [dev-dependencies]
-regex = "1.10.3"
+regex = "1.10.6"
 
 [features]
 default = []
