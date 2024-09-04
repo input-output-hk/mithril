@@ -46,7 +46,11 @@ console.log("aggregator_endpoint: ", aggregator_endpoint);
 console.log("aggregator_capabilities: ", aggregator_capabilities);
 
 await run_test("constructor", test_number, async () => {
-  client = new MithrilClient(aggregator_endpoint, genesis_verification_key);
+  client = new MithrilClient(aggregator_endpoint, genesis_verification_key, {
+    // The following option activates the unstable features of the client.
+    // Unstable features will trigger an error if this option is not set.
+    unstable: true,
+  });
 });
 
 let snapshots;
@@ -117,13 +121,13 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
   let ctx_sets;
   test_number++;
   await run_test("list_cardano_transactions_snapshots", test_number, async () => {
-    ctx_sets = await client.unstable.list_cardano_transactions_snapshots();
+    ctx_sets = await client.list_cardano_transactions_snapshots();
     console.log("cardano_transactions_sets", ctx_sets);
   });
 
   test_number++;
   await run_test("get_cardano_transactions_snapshot", test_number, async () => {
-    const ctx_set = await client.unstable.get_cardano_transactions_snapshot(ctx_sets[0].hash);
+    const ctx_set = await client.get_cardano_transactions_snapshot(ctx_sets[0].hash);
     console.log("cardano_transaction_set", ctx_set);
   });
 
@@ -133,9 +137,7 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
     let ctx_proof;
     test_number++;
     await run_test("get_cardano_transaction_proof", test_number, async () => {
-      ctx_proof = await client.unstable.get_cardano_transaction_proofs(
-        transactions_hashes_to_certify,
-      );
+      ctx_proof = await client.get_cardano_transaction_proofs(transactions_hashes_to_certify);
       console.log(
         "got proof for transactions: ",
         ctx_proof.transactions_hashes,
@@ -157,11 +159,10 @@ if (aggregator_capabilities.includes("CardanoTransactions")) {
       "verify_cardano_transaction_proof_then_compute_message",
       test_number,
       async () => {
-        ctx_proof_message =
-          await client.unstable.verify_cardano_transaction_proof_then_compute_message(
-            ctx_proof,
-            proof_certificate,
-          );
+        ctx_proof_message = await client.verify_cardano_transaction_proof_then_compute_message(
+          ctx_proof,
+          proof_certificate,
+        );
         console.log("verify_cardano_transaction_proof_then_compute_message", ctx_proof_message);
       },
     );
@@ -181,14 +182,14 @@ if (aggregator_capabilities.includes("CardanoStakeDistribution")) {
   let cardano_stake_distributions;
   test_number++;
   await run_test("list_cardano_stake_distributions", test_number, async () => {
-    cardano_stake_distributions = await client.unstable.list_cardano_stake_distributions();
+    cardano_stake_distributions = await client.list_cardano_stake_distributions();
     console.log("cardano_stake_distributions", cardano_stake_distributions);
   });
 
   let cardano_stake_distribution;
   test_number++;
   await run_test("get_cardano_stake_distribution", test_number, async () => {
-    cardano_stake_distribution = await client.unstable.get_cardano_stake_distribution(
+    cardano_stake_distribution = await client.get_cardano_stake_distribution(
       cardano_stake_distributions[0].hash,
     );
     console.log("cardano_stake_distribution", cardano_stake_distribution);
@@ -198,8 +199,7 @@ if (aggregator_capabilities.includes("CardanoStakeDistribution")) {
   await run_test("get_cardano_stake_distribution_by_epoch", test_number, async () => {
     let epoch = BigInt(cardano_stake_distributions[0].epoch);
 
-    cardano_stake_distribution =
-      await client.unstable.get_cardano_stake_distribution_by_epoch(epoch);
+    cardano_stake_distribution = await client.get_cardano_stake_distribution_by_epoch(epoch);
     console.log("cardano_stake_distribution by epoch", cardano_stake_distribution);
   });
 
@@ -220,11 +220,10 @@ if (aggregator_capabilities.includes("CardanoStakeDistribution")) {
   let cardano_stake_distribution_message;
   test_number++;
   await run_test("compute_cardano_stake_distribution_message", test_number, async () => {
-    cardano_stake_distribution_message =
-      await client.unstable.compute_cardano_stake_distribution_message(
-        certificate,
-        cardano_stake_distribution,
-      );
+    cardano_stake_distribution_message = await client.compute_cardano_stake_distribution_message(
+      certificate,
+      cardano_stake_distribution,
+    );
     console.log("cardano_stake_distribution_message", cardano_stake_distribution_message);
   });
 
