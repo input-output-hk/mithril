@@ -19,4 +19,7 @@ module.exports = {
   devServer: {
     allowedHosts: [".mithril.network"],
   },
+  watchOptions: {
+    ignored: /node_modules/,
+  },
 };
