@@ -125,7 +125,6 @@ impl EpochService for MithrilEpochService {
 
         self.epoch_data = Some(EpochData {
             epoch: epoch_settings.epoch,
-            // TODO XXX Do we need protocol parameters ?
             next_protocol_parameters: epoch_settings.next_protocol_parameters,
             current_signers: epoch_settings.current_signers,
             next_signers: epoch_settings.next_signers,

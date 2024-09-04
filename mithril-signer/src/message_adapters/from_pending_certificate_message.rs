@@ -55,11 +55,11 @@ impl TryFromMessageAdapter<CertificatePendingMessage, CertificatePending>
     for FromPendingCertificateMessageAdapter
 {
     /// Adapter method
+    #[allow(deprecated)]
     fn try_adapt(message: CertificatePendingMessage) -> StdResult<CertificatePending> {
         let certificate = CertificatePending {
             epoch: message.epoch,
             signed_entity_type: message.signed_entity_type,
-            // TODO XXX do not use `message` to fill those fields which must not be used anymore.
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
             signers: to_signers(&message.signers).with_context(|| {
