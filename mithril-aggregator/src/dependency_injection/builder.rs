@@ -67,17 +67,18 @@ use crate::{
     http_server::routes::router,
     services::{
         AggregatorUpkeepService, BufferedCertifierService, CardanoTransactionsImporter,
-        CertifierService, InMemoryBufferedSingleSignatureStore, MessageService,
-        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
-        MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, StakeDistributionService, UpkeepService,
+        CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
+        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
+        MithrilStakeDistributionService, ProverService, SignedEntityService,
+        StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
-    DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
-    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
+    DumbSnapshotter, InMemoryBufferedSingleSignatureStore, LocalSnapshotUploader,
+    MithrilSignerRegisterer, MultiSigner, MultiSignerImpl, ProtocolParametersStorer,
+    RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType, Snapshotter,
+    SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
