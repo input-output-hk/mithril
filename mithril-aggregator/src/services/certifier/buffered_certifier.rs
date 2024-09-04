@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{debug, warn, Logger};
 use std::sync::Arc;
 
 use mithril_common::entities::{
@@ -35,6 +35,29 @@ impl BufferedCertifierService {
             logger,
         }
     }
+
+    async fn try_register_buffered_signatures_to_current_open_message(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<()> {
+        let discriminant: SignedEntityTypeDiscriminants = signed_entity_type.into();
+        let buffered_signatures = self
+            .buffered_single_signature_store
+            .get_buffered_signatures(discriminant)
+            .await?;
+
+        for signature in &buffered_signatures {
+            self.certifier_service
+                .register_single_signature(signed_entity_type, signature)
+                .await?;
+        }
+
+        self.buffered_single_signature_store
+            .remove_buffered_signatures(discriminant, buffered_signatures)
+            .await?;
+
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -63,6 +86,8 @@ impl CertifierService for BufferedCertifierService {
                         "party_id" => &signature.party_id
                     );
 
+                    // validate signature
+
                     self.buffered_single_signature_store
                         .buffer_signature(signed_entity_type.into(), signature)
                         .await?;
@@ -78,28 +103,30 @@ impl CertifierService for BufferedCertifierService {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage> {
+        // IMPORTANT: this method should not fail if the open message creation succeeds.
+        // else:
+        // 1 - state machine won't create a pending certificate for the signed entity type
+        // 2 - Without a pending certificate, the signers won't send their signatures
+        // 3 - state machine will retry the transition to signing and, since an open message was
+        // opened for the signed entity type, it will try the next on the list.
+        // 4 - since the state machine never was in signing it will never try to aggregate
+        // signatures for the signed entity type
+
         let creation_result = self
             .certifier_service
             .create_open_message(signed_entity_type, protocol_message)
             .await;
 
-        // TODO: does the error in this block should make this method fails or should they just
-        // be logged?
-        if let Ok(_open_message) = &creation_result {
-            let buffered_signatures = self
-                .buffered_single_signature_store
-                .get_buffered_signatures(signed_entity_type.into())
-                .await?;
-
-            for signature in &buffered_signatures {
-                self.certifier_service
-                    .register_single_signature(signed_entity_type, signature)
-                    .await?;
+        if creation_result.is_ok() {
+            if let Err(error) = self
+                .try_register_buffered_signatures_to_current_open_message(signed_entity_type)
+                .await
+            {
+                warn!(self.logger, "Failed to register buffered signatures to the new open message";
+                    "signed_entity_type" => ?signed_entity_type,
+                    "error" => ?error
+                );
             }
-
-            self.buffered_single_signature_store
-                .remove_buffered_signatures(signed_entity_type.into(), buffered_signatures)
-                .await?;
         }
 
         creation_result
@@ -147,12 +174,15 @@ impl CertifierService for BufferedCertifierService {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::anyhow;
     use mockall::predicate::eq;
     use std::collections::BTreeMap;
 
     use mithril_common::test_utils::fake_data;
 
-    use crate::services::{CertifierServiceError, MockCertifierService};
+    use crate::services::{
+        CertifierServiceError, MockBufferedSingleSignatureStore, MockCertifierService,
+    };
     use crate::test_tools::TestLogger;
     use crate::InMemoryBufferedSingleSignatureStore;
 
@@ -165,6 +195,15 @@ mod tests {
         let mut certifier = MockCertifierService::new();
         certifier_mock_config(&mut certifier);
         Arc::new(certifier)
+    }
+
+    fn mock_store<F>(store_mock_config: F) -> Arc<MockBufferedSingleSignatureStore>
+    where
+        F: FnOnce(&mut MockBufferedSingleSignatureStore),
+    {
+        let mut store = MockBufferedSingleSignatureStore::new();
+        store_mock_config(&mut store);
+        Arc::new(store)
     }
 
     #[tokio::test]
@@ -256,5 +295,82 @@ mod tests {
             .await
             .unwrap();
         assert!(remaining_sigs.is_empty());
+    }
+
+    mod when_failing_to_transfer_buffered_signature_to_new_open_message {
+        use super::*;
+
+        async fn run_scenario(
+            certifier_mock_config: impl FnOnce(&mut MockCertifierService),
+            store_mock_config: impl FnOnce(&mut MockBufferedSingleSignatureStore),
+        ) {
+            let store = mock_store(store_mock_config);
+            let certifier = BufferedCertifierService::new(
+                mock_certifier(certifier_mock_config),
+                store,
+                TestLogger::stdout(),
+            );
+
+            certifier
+                .create_open_message(
+                    &SignedEntityType::MithrilStakeDistribution(Epoch(5)),
+                    &ProtocolMessage::new(),
+                )
+                .await
+                .expect("Transferring buffered signatures to new open message should not fail");
+        }
+
+        #[tokio::test]
+        async fn do_not_return_an_error_if_getting_buffer_signatures_fail() {
+            run_scenario(
+                |mock| {
+                    mock.expect_create_open_message()
+                        .returning(|_, _| Ok(OpenMessage::dummy()));
+                    mock.expect_register_single_signature()
+                        .returning(|_, _| Ok(()));
+                },
+                |mock| {
+                    mock.expect_get_buffered_signatures()
+                        .returning(|_| Err(anyhow!("get_buffered_signatures error")));
+                },
+            )
+            .await;
+        }
+
+        #[tokio::test]
+        async fn do_not_return_an_error_if_getting_registering_signature_fail() {
+            run_scenario(
+                |mock| {
+                    mock.expect_create_open_message()
+                        .returning(|_, _| Ok(OpenMessage::dummy()));
+                    mock.expect_register_single_signature()
+                        .returning(|_, _| Err(anyhow!("register_single_signature error")));
+                },
+                |mock| {
+                    mock.expect_get_buffered_signatures()
+                        .returning(|_| Ok(vec![fake_data::single_signatures(vec![1])]));
+                },
+            )
+            .await;
+        }
+
+        #[tokio::test]
+        async fn do_not_return_an_error_if_removing_buffered_signatures_fail() {
+            run_scenario(
+                |mock| {
+                    mock.expect_create_open_message()
+                        .returning(|_, _| Ok(OpenMessage::dummy()));
+                    mock.expect_register_single_signature()
+                        .returning(|_, _| Ok(()));
+                },
+                |mock| {
+                    mock.expect_get_buffered_signatures()
+                        .returning(|_| Ok(vec![fake_data::single_signatures(vec![1])]));
+                    mock.expect_remove_buffered_signatures()
+                        .returning(|_, _| Err(anyhow!("remove_buffered_signatures error")));
+                },
+            )
+            .await;
+        }
     }
 }
