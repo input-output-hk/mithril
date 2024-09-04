@@ -94,10 +94,11 @@ broadcast_channel.onmessage = (e) => {
 
 await initMithrilClient();
 
-let client = await new MithrilClient(
-  aggregator_endpoint,
-  genesis_verification_key,
-);
+let client = new MithrilClient(aggregator_endpoint, genesis_verification_key, {
+  // The following option activates the unstable features of the client.
+  // Unstable features will trigger an error if this option is not set.
+  unstable: true,
+});
 let mithril_stake_distributions_list =
   await client.list_mithril_stake_distributions();
 console.log("stake distributions:", mithril_stake_distributions_list);
@@ -187,7 +188,7 @@ wget -q -O - https://aggregator.pre-release-preview.api.mithril.network/aggregat
 :::
 
 ```js
-const proof = await client.unstable.get_cardano_transaction_proofs([
+const proof = await client.get_cardano_transaction_proofs([
   "CARDANO_TRANSACTION_HASH_1",
   "CARDANO_TRANSACTION_HASH_2",
 ]);
@@ -203,7 +204,7 @@ console.log(
 );
 
 let valid_cardano_transaction_proof =
-  await client.unstable.verify_cardano_transaction_proof_then_compute_message(
+  await client.verify_cardano_transaction_proof_then_compute_message(
     proof,
     proof_certificate,
   );
@@ -233,11 +234,11 @@ wget -q -O - https://aggregator.testing-preview.api.mithril.network/aggregator |
 
 ```js
 let cardano_stake_distributions_list =
-  await client.unstable.list_cardano_stake_distributions();
+  await client.list_cardano_stake_distributions();
 console.log("cardano stake distributions:", cardano_stake_distributions_list);
 
 let last_cardano_stake_distribution =
-  await client.unstable.get_cardano_stake_distribution(
+  await client.get_cardano_stake_distribution(
     cardano_stake_distributions_list[0].hash,
   );
 console.log(
@@ -259,7 +260,7 @@ console.log(
 );
 
 let cardano_stake_distribution_message =
-  await client.unstable.compute_cardano_stake_distribution_message(
+  await client.compute_cardano_stake_distribution_message(
     certificate,
     last_cardano_stake_distribution,
   );

@@ -9,6 +9,12 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- **BREAKING** changes in Mithril client WASM:
+
+  - Implementation of seamless transition from **unstable** to **stable** features.
+  - A new `unstable` option in the client allows the usage of unstable features.
+  - The previous `client.unstable` implementation is not supported anymore and must be replaced with `client`.
+
 - Support for Mithril nodes footprint support in Prometheus monitoring in infrastructure.
 
 - Add support for custom HTTP headers in Mithril client WASM library.
@@ -19,7 +25,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Add feature options `num-integer-backend` and `rug-backend` for `mithril-common` and `mithril-client` crates. Allows to disable `rug-backend` and avoid `LGPL` license usage.
 
-- Post `Chang` hard fork cleanup of the CI and the devnet.
+- Post `Chang` hard fork cleanup of the CI, devnet and infrastructure.
 
 - **UNSTABLE** Cardano stake distribution certification:
 

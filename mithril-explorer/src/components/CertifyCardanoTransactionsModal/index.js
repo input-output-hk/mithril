@@ -97,13 +97,17 @@ export default function CertifyCardanoTransactionsModal({
   }, [client, currentStep, transactionsProofs, certificate]);
 
   async function buildClient(aggregator, genesisKey) {
-    const client = new MithrilClient(aggregator, genesisKey);
+    const client = new MithrilClient(aggregator, genesisKey, {
+      // The following option activates the unstable features of the client.
+      // Unstable features will trigger an error if this option is not set.
+      unstable: true,
+    });
     setClient(client);
     return client;
   }
 
   async function getTransactionsProofsAndCertificate(client, transactionHashes) {
-    const proofs = await client.unstable.get_cardano_transaction_proofs(transactionHashes);
+    const proofs = await client.get_cardano_transaction_proofs(transactionHashes);
     const certificate = await client.get_mithril_certificate(proofs.certificate_hash);
 
     setTransactionsProofs(proofs);
@@ -112,11 +116,10 @@ export default function CertifyCardanoTransactionsModal({
 
   async function verifyTransactionProofAgainstCertificate(client, transactionsProofs, certificate) {
     // Verify proof validity if so get its protocol message
-    const protocolMessage =
-      await client.unstable.verify_cardano_transaction_proof_then_compute_message(
-        transactionsProofs,
-        certificate,
-      );
+    const protocolMessage = await client.verify_cardano_transaction_proof_then_compute_message(
+      transactionsProofs,
+      certificate,
+    );
     const isProofValid =
       (await client.verify_message_match_certificate(protocolMessage, certificate)) === true;
 

@@ -64,21 +64,16 @@ function format_tx_list(transactions_hashes) {
   return "<ul>" + transactions_hashes.map((tx) => "<li>" + tx + "</li>").join("") + "</ul>";
 }
 
-function client_options_with_custom_headers() {
-  // The following header is set as an example.
-  // It's used to demonstrate how to add headers.
-  let http_headers_map = new Map();
-  http_headers_map.set("Content-Type", "application/json");
-
-  return {
-    http_headers: http_headers_map,
-  };
-}
-
 await initMithrilClient();
 
-let client_options = client_options_with_custom_headers();
-let client = new MithrilClient(aggregator_endpoint, genesis_verification_key, client_options);
+let client = new MithrilClient(aggregator_endpoint, genesis_verification_key, {
+  // The following header is set as an example.
+  // It's used to demonstrate how to add headers.
+  http_headers: new Map([["Content-Type", "application/json"]]),
+  // The following option activates the unstable features of the client.
+  // Unstable features will trigger an error if this option is not set.
+  unstable: true,
+});
 
 displayStepInDOM(1, "Getting stake distributions list...");
 let mithril_stake_distributions_list = await client.list_mithril_stake_distributions();
@@ -135,7 +130,7 @@ displayMessageInDOM("Result", "Mithril stake distribution message validated &#x2
 console.log("valid_stake_distribution_message:", valid_stake_distribution_message);
 
 displayStepInDOM(7, "Getting transaction proof...");
-const proof = await client.unstable.get_cardano_transaction_proofs([
+const proof = await client.get_cardano_transaction_proofs([
   "eac09f970f47ef3ab378db9232914e146773853397e79b904f1a45123a23c21f",
   "81fe7a5dab42867ef309b6d7210158bf99331884ac3c3b6c7188a8c9c18d5974",
   "320c13f4a3e51f6f4f66fcd9007e02bf658aa4ee9a88a509028d867d3b8a8e9a",
@@ -157,7 +152,7 @@ displayMessageInDOM("Result", "certificate chain verified &#x2713;");
 console.log("verify_certificate_chain OK, last_certificate_from_chain:", proof_certificate);
 
 displayStepInDOM(10, "Validating Cardano transaction proof message...");
-let protocol_message = await client.unstable.verify_cardano_transaction_proof_then_compute_message(
+let protocol_message = await client.verify_cardano_transaction_proof_then_compute_message(
   proof,
   proof_certificate,
 );
