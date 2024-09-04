@@ -97,7 +97,7 @@ Note that this guide works on a Linux machine only.
   - Read rights on the `Database` folder (specified by the `--database-path` setting of the **Cardano node**)
   - Read and write rights on the `Inter Process Communication` file (typically defined by the `CARDANO_NODE_SOCKET_PATH` environment variable used to launch the **Cardano node**)
 
-- Install a recent version of [`cardano-cli`](https://github.com/IntersectMBO/cardano-node/releases/tag/8.9.1) (version 8.9.1+).
+- Install a recent version of [`cardano-cli`](https://github.com/IntersectMBO/cardano-node/releases/tag/9.1.1) (version 9.1.1+).
 
 - Install a correctly configured Rust toolchain (latest stable version). You can follow the instructions provided [here](https://www.rust-lang.org/learn/get-started).
 
