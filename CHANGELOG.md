@@ -9,6 +9,14 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2437.0] - UNRELEASED
+
 - **BREAKING** changes in Mithril client WASM:
 
   - Implementation of seamless transition from **unstable** to **stable** features.
@@ -21,17 +29,17 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support `file://` URLs for snapshot locations in Mithril client.
 
-- Support for Mithril signer memory optimization when signing Cardano transactions with multiple Merkle tree storage backends.
-
 - Add feature options `num-integer-backend` and `rug-backend` for `mithril-common` and `mithril-client` crates. Allows to disable `rug-backend` and avoid `LGPL` license usage.
 
 - Post `Chang` hard fork cleanup of the CI, devnet and infrastructure.
 
-- Support infinite preloading of Cardano transactions in signer.
+- Cardano transactions certification (stable for signer and aggregator):
 
-- Fix Cardano transactions rollbacks creating panics in signer and aggregator.
+  - Support for Mithril signer memory optimization when signing Cardano transactions with multiple Merkle tree storage backends.
+  - Support infinite preloading of Cardano transactions in signer.
+  - Fix Cardano transactions rollbacks creating panics in signer and aggregator.
 
-- **UNSTABLE** Cardano stake distribution certification:
+- Cardano stake distribution certification (stable for signer and aggregator):
 
   - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`.
   - Implement the HTTP routes related to the signed entity type `CardanoStakeDistribution` on the aggregator REST API.
