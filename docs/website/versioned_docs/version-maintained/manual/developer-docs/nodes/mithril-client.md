@@ -131,6 +131,7 @@ Commands:
   cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
   cardano-transaction         [unstable] Cardano transactions management (alias: ctx)
+  cardano-stake-distribution  [unstable] Cardano stake distribution management (alias: csd)
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -259,6 +260,12 @@ mithril_client --unstable cardano-transaction snapshot show $CARDANO_TRANSACTION
 
 # 9- Certify that given list of transactions hashes are included in the Cardano transactions set
 mithril_client --unstable cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
+
+# 10- List Cardano stake distributions
+mithril_client --unstable cardano-stake-distribution list
+
+# 11 - Download and verify the given Cardano stake distribution from its hash or epoch
+mithril_client --unstable cardano-stake-distribution download $UNIQUE_IDENTIFIER
 ```
 
 ### Local image
@@ -304,6 +311,14 @@ Here are the subcommands available:
 | **snapshot list** | Lists available Cardano transactions snapshots                                                |
 | **snapshot show** | Shows information about a Cardano transactions snapshot                                       |
 | **help**          | Prints this message or the help for the given subcommand(s)                                   |
+
+### Cardano stake distribution
+
+| Subcommand   | Performed action                                            |
+| ------------ | ----------------------------------------------------------- |
+| **download** | Downloads and verifies Cardano stake distribution           |
+| **help**     | Prints this message or the help for the given subcommand(s) |
+| **list**     | Lists available Cardano stake distributions                 |
 
 ## Configuration parameters
 
@@ -379,3 +394,16 @@ Here is a list of the available parameters:
 | --------------------- | ----------------------- | :------------------: | --------------------- | ----------------------------------------------- | ------------- | ------- | :----------------: |
 | `transactions_hashes` | `--transactions_hashes` |          -           | `TRANSACTIONS_HASHES` | Cardano transactions hashes separated by commas | -             | -       | :heavy_check_mark: |
 | `json`                | `--json`                |          -           | -                     | Enable JSON output for progress logs            | -             | -       |         -          |
+
+`cardano-stake-distribution list` command:
+
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
+| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
+
+`cardano-stake-distribution download` command:
+
+| Parameter           | Command line (long)   | Command line (short) | Environment variable | Description                                                                                  | Default value | Example |     Mandatory      |
+| ------------------- | --------------------- | :------------------: | -------------------- | -------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `unique_identifier` | `--unique-identifier` |          -           | -                    | Epoch or hash of the Cardano stake distribution artifact or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
+| `download_dir`      | `--download-dir`      |          -           | -                    | Directory where the Cardano stake distribution will be downloaded                            | .             | -       |         -          |
