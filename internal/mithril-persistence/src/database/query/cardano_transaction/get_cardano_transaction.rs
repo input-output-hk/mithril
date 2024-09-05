@@ -72,10 +72,10 @@ impl GetCardanoTransactionQuery {
         Self { condition }
     }
 
-    pub fn by_slot_number(slot_number: SlotNumber) -> Self {
+    pub fn with_highest_block_number_below_slot_number(slot_number: SlotNumber) -> Self {
         Self {
             condition: WhereCondition::new(
-                "slot_number = ?*",
+                "block_number = (select max(block_number) from cardano_tx where slot_number <= ?*)",
                 vec![Value::Integer(*slot_number as i64)],
             ),
         }
@@ -120,6 +120,18 @@ mod tests {
             .unwrap();
     }
 
+    fn transaction_record(
+        block_number: BlockNumber,
+        slot_number: SlotNumber,
+    ) -> CardanoTransactionRecord {
+        CardanoTransactionRecord::new(
+            format!("tx-hash-{}", slot_number),
+            block_number,
+            slot_number,
+            format!("block-hash-{}", block_number),
+        )
+    }
+
     #[test]
     fn with_highest_block_number() {
         let connection = cardano_tx_db_connection().unwrap();
@@ -132,30 +144,10 @@ mod tests {
         insert_transactions(
             &connection,
             vec![
-                CardanoTransactionRecord::new(
-                    "tx-hash-0",
-                    BlockNumber(10),
-                    SlotNumber(50),
-                    "block-hash-10",
-                ),
-                CardanoTransactionRecord::new(
-                    "tx-hash-1",
-                    BlockNumber(10),
-                    SlotNumber(51),
-                    "block-hash-10",
-                ),
-                CardanoTransactionRecord::new(
-                    "tx-hash-2",
-                    BlockNumber(11),
-                    SlotNumber(54),
-                    "block-hash-11",
-                ),
-                CardanoTransactionRecord::new(
-                    "tx-hash-3",
-                    BlockNumber(11),
-                    SlotNumber(55),
-                    "block-hash-11",
-                ),
+                transaction_record(BlockNumber(10), SlotNumber(50)),
+                transaction_record(BlockNumber(10), SlotNumber(51)),
+                transaction_record(BlockNumber(11), SlotNumber(54)),
+                transaction_record(BlockNumber(11), SlotNumber(55)),
             ],
         );
 
@@ -164,19 +156,74 @@ mod tests {
             .unwrap();
         assert_eq!(
             vec![
-                CardanoTransactionRecord::new(
-                    "tx-hash-2",
-                    BlockNumber(11),
-                    SlotNumber(54),
-                    "block-hash-11"
-                ),
-                CardanoTransactionRecord::new(
-                    "tx-hash-3",
-                    BlockNumber(11),
-                    SlotNumber(55),
-                    "block-hash-11"
-                ),
+                transaction_record(BlockNumber(11), SlotNumber(54)),
+                transaction_record(BlockNumber(11), SlotNumber(55)),
             ],
+            records
+        );
+    }
+
+    #[test]
+    fn with_highest_block_number_below_slot_number() {
+        let connection = cardano_tx_db_connection().unwrap();
+
+        let cursor = connection
+            .fetch(
+                GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(
+                    SlotNumber(51),
+                ),
+            )
+            .unwrap();
+        assert_eq!(0, cursor.count());
+
+        insert_transactions(
+            &connection,
+            vec![transaction_record(BlockNumber(2), SlotNumber(5))],
+        );
+
+        let records: Vec<CardanoTransactionRecord> = connection
+            .fetch_collect(
+                GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(
+                    SlotNumber(5),
+                ),
+            )
+            .unwrap();
+        assert_eq!(
+            vec![transaction_record(BlockNumber(2), SlotNumber(5)),],
+            records
+        );
+
+        insert_transactions(
+            &connection,
+            vec![
+                transaction_record(BlockNumber(10), SlotNumber(50)),
+                transaction_record(BlockNumber(11), SlotNumber(51)),
+                transaction_record(BlockNumber(14), SlotNumber(54)),
+                transaction_record(BlockNumber(15), SlotNumber(55)),
+            ],
+        );
+
+        let records: Vec<CardanoTransactionRecord> = connection
+            .fetch_collect(
+                GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(
+                    SlotNumber(53),
+                ),
+            )
+            .unwrap();
+        assert_eq!(
+            vec![transaction_record(BlockNumber(11), SlotNumber(51)),],
+            records
+        );
+
+        let records: Vec<CardanoTransactionRecord> = connection
+            .fetch_collect(
+                GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(
+                    SlotNumber(54),
+                ),
+            )
+            .unwrap();
+        assert_eq!(
+            vec![transaction_record(BlockNumber(14), SlotNumber(54)),],
             records
         );
     }
