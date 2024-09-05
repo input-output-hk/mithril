@@ -19,11 +19,12 @@
         pkgs,
         config,
         system,
+        inputs',
         self',
         ...
       }: let
-        inherit (inputs.nixpkgs) lib;
-        craneLib = inputs.crane.lib.${system};
+        inherit (pkgs) lib;
+        craneLib = inputs'.crane.mkLib pkgs;
 
         clean = root:
           lib.cleanSourceWith {
