@@ -6,7 +6,7 @@ use crate::{
         HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
         Signer, SignerWithStake, Stake,
     },
-    StdResult,
+    StdError, StdResult,
 };
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
@@ -180,34 +180,10 @@ pub struct SignerMessagePart {
 impl SignerMessagePart {
     /// Convert a set of signer message parts into a set of signers
     pub fn try_into_signers(messages: Vec<Self>) -> StdResult<Vec<Signer>> {
-        let mut signers: Vec<Signer> = Vec::new();
-
-        for message in messages {
-            let verification_key_signature: Option<ProtocolSignerVerificationKeySignature> = message.verification_key_signature
-                .map(|f| f.try_into())
-                .transpose()
-                .with_context(|| format!("Error while parsing verification key signature message, party_id = '{}'", message.party_id))?;
-            let operational_certificate: Option<ProtocolOpCert> = message
-                .operational_certificate
-                .map(|f| f.try_into())
-                .transpose()
-                .with_context(|| {
-                    format!(
-                        "Error while parsing operational certificate message, party_id = '{}'.",
-                        message.party_id
-                    )
-                })?;
-            let value = Signer {
-                party_id: message.party_id,
-                verification_key: message.verification_key.try_into()?,
-                verification_key_signature,
-                kes_period: message.kes_period,
-                operational_certificate,
-            };
-            signers.push(value);
-        }
-
-        Ok(signers)
+        messages
+            .into_iter()
+            .map(|m| SignerMessagePart::try_into(m))
+            .collect()
     }
 
     /// Convert a set of signers into message parts
@@ -228,6 +204,41 @@ impl SignerMessagePart {
                 kes_period: Some(6),
             }
         }
+    }
+}
+
+impl TryInto<Signer> for SignerMessagePart {
+    type Error = StdError;
+
+    fn try_into(self) -> Result<Signer, Self::Error> {
+        let verification_key_signature: Option<ProtocolSignerVerificationKeySignature> = self
+            .verification_key_signature
+            .map(|f| f.try_into())
+            .transpose()
+            .with_context(|| {
+                format!(
+                    "Error while parsing verification key signature message, party_id = '{}'",
+                    self.party_id
+                )
+            })?;
+        let operational_certificate: Option<ProtocolOpCert> = self
+            .operational_certificate
+            .map(|f| f.try_into())
+            .transpose()
+            .with_context(|| {
+                format!(
+                    "Error while parsing operational certificate message, party_id = '{}'.",
+                    self.party_id
+                )
+            })?;
+        let value = Signer {
+            party_id: self.party_id,
+            verification_key: self.verification_key.try_into()?,
+            verification_key_signature,
+            kes_period: self.kes_period,
+            operational_certificate,
+        };
+        Ok(value)
     }
 }
 
