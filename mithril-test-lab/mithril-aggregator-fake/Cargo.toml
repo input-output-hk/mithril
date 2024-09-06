@@ -10,17 +10,17 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.79"
-axum = { version = "0.7.4", features = ["tokio", "http1"] }
-clap = { version = "4.4.18", features = ["derive"] }
-clap_derive = "4.4.7"
+anyhow = "1.0.86"
+axum = { version = "0.7.5", features = ["tokio", "http1"] }
+clap = { version = "4.5.17", features = ["derive"] }
+clap_derive = "4.5.13"
 futures = "0.3.30"
-serde = { version = "1.0.196", features = ["derive"] }
-serde_json = "1.0.113"
+serde = { version = "1.0.209", features = ["derive"] }
+serde_json = "1.0.128"
 signal-hook = "0.3.17"
 signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
-tokio = { version = "1.37.0", features = ["full"] }
-tower-http = { version = "0.5.1", features = ["trace", "cors"] }
+tokio = { version = "1.40.0", features = ["full"] }
+tower-http = { version = "0.5.2", features = ["trace", "cors"] }
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 
@@ -29,8 +29,8 @@ mithril-common = { "path" = "../../mithril-common", features = [
     "test_tools",
     "random",
 ] }
-reqwest = "0.12.0"
-warp = "0.3.6"
+reqwest = "0.12.7"
+warp = "0.3.7"
 
 [build-dependencies]
 mithril-build-script = { path = "../../internal/mithril-build-script" }
