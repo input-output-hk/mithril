@@ -94,7 +94,7 @@ pub enum SnapshotError {
 impl Snapshotter for CompressedArchiveSnapshotter {
     fn snapshot(&self, archive_name: &str) -> StdResult<OngoingSnapshot> {
         let archive_path = self.ongoing_snapshot_directory.join(archive_name);
-        let filesize = self.create_and_verify_archive(&archive_path).map_err(|err| {
+        let filesize = self.create_and_verify_archive(&archive_path).inspect_err(|_err| {
             if archive_path.exists() {
                 if let Err(remove_error) = std::fs::remove_file(&archive_path) {
                     warn!(
@@ -104,8 +104,6 @@ impl Snapshotter for CompressedArchiveSnapshotter {
                     );
                 }
             }
-
-            err
         }).with_context(|| format!("CompressedArchiveSnapshotter can not create and verify archive: '{}'", archive_path.display()))?;
 
         Ok(OngoingSnapshot {
