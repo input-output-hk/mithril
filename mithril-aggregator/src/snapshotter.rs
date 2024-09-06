@@ -94,9 +94,9 @@ pub enum SnapshotError {
 impl Snapshotter for CompressedArchiveSnapshotter {
     fn snapshot(&self, archive_name: &str) -> StdResult<OngoingSnapshot> {
         let archive_path = self.ongoing_snapshot_directory.join(archive_name);
-        let filesize = self.create_and_verify_archive(&archive_path).map_err(|err| {
+        let filesize = self.create_and_verify_archive(&archive_path).inspect_err(|_err| {
             if archive_path.exists() {
-                if let Err(remove_error) = std::fs::remove_file(&archive_path) {
+                if let Err(remove_error) = fs::remove_file(&archive_path) {
                     warn!(
                         " > Post snapshotter.snapshot failure, could not remove temporary archive at path: path:{}, err: {}",
                         archive_path.display(),
@@ -104,8 +104,6 @@ impl Snapshotter for CompressedArchiveSnapshotter {
                     );
                 }
             }
-
-            err
         }).with_context(|| format!("CompressedArchiveSnapshotter can not create and verify archive: '{}'", archive_path.display()))?;
 
         Ok(OngoingSnapshot {
@@ -123,7 +121,7 @@ impl CompressedArchiveSnapshotter {
         compression_algorithm: SnapshotterCompressionAlgorithm,
     ) -> StdResult<CompressedArchiveSnapshotter> {
         if ongoing_snapshot_directory.exists() {
-            std::fs::remove_dir_all(&ongoing_snapshot_directory).with_context(|| {
+            fs::remove_dir_all(&ongoing_snapshot_directory).with_context(|| {
                 format!(
                     "Can not remove snapshotter directory: '{}'.",
                     ongoing_snapshot_directory.display()
@@ -131,7 +129,7 @@ impl CompressedArchiveSnapshotter {
             })?;
         }
 
-        std::fs::create_dir(&ongoing_snapshot_directory).map_err(|e| {
+        fs::create_dir(&ongoing_snapshot_directory).map_err(|e| {
             DependenciesBuilderError::Initialization {
                 message: format!(
                     "Can not create snapshotter directory: '{}'.",
@@ -149,7 +147,7 @@ impl CompressedArchiveSnapshotter {
     }
 
     fn get_file_size(filepath: &Path) -> StdResult<u64> {
-        let res = std::fs::metadata(filepath)
+        let res = fs::metadata(filepath)
             .map_err(|e| SnapshotError::GeneralError(e.to_string()))?
             .len();
         Ok(res)
@@ -456,12 +454,7 @@ mod tests {
             .unwrap(),
         );
 
-        assert_eq!(
-            0,
-            std::fs::read_dir(pending_snapshot_directory)
-                .unwrap()
-                .count()
-        );
+        assert_eq!(0, fs::read_dir(pending_snapshot_directory).unwrap().count());
     }
 
     #[test]
@@ -487,7 +480,7 @@ mod tests {
         let _ = snapshotter
             .snapshot("whatever.tar.gz")
             .expect_err("Snapshotter::snapshot should fail if the db is empty.");
-        let remaining_files: Vec<String> = std::fs::read_dir(&pending_snapshot_directory)
+        let remaining_files: Vec<String> = fs::read_dir(&pending_snapshot_directory)
             .unwrap()
             .map(|f| f.unwrap().file_name().to_str().unwrap().to_owned())
             .collect();
