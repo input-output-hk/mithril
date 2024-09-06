@@ -30,19 +30,6 @@ pub trait Runner: Send + Sync {
     /// Fetch the current time point from the Cardano node.
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 
-    /// Get the current signers.
-    /// // TODO return a &Vec
-    async fn get_current_signers(&self) -> StdResult<Vec<Signer>>;
-
-    /// Get the next signers.
-    async fn get_next_signers(&self) -> StdResult<Vec<Signer>>;
-
-    /// Get the next signers with their stake.
-    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
-
-    /// Get the next signers with their stake.
-    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
-
     /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(&self) -> StdResult<()>;
 
@@ -110,6 +97,26 @@ impl SignerRunner {
     pub fn new(config: Configuration, services: SignerDependencyContainer) -> Self {
         Self { services, config }
     }
+
+    /// Get the current signers with their stake.
+    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .current_signers_with_stake()
+            .await
+    }
+
+    /// Get the next signers with their stake.
+    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .next_signers_with_stake()
+            .await
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -143,48 +150,6 @@ impl Runner for SignerRunner {
             .get_current_time_point()
             .await
             .with_context(|| "Runner can not get current time point")
-    }
-
-    async fn get_current_signers(&self) -> StdResult<Vec<Signer>> {
-        debug!("RUNNER: get_current_signers");
-
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .current_signers()
-            .cloned()
-    }
-
-    async fn get_next_signers(&self) -> StdResult<Vec<Signer>> {
-        debug!("RUNNER: get_next_signers");
-
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .next_signers()
-            .cloned()
-    }
-
-    /// Get the current signers with their stake.
-    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .current_signers_with_stake()
-            .await
-    }
-
-    /// Get the next signers with their stake.
-    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .next_signers_with_stake()
-            .await
     }
 
     async fn register_signer_to_aggregator(&self) -> StdResult<()> {

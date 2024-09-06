@@ -76,6 +76,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn adapt_signers() {
         let fake_signers = fake_data::signers(5);
         let signers = fake_signers[1..3].to_vec();

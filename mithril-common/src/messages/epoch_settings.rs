@@ -15,6 +15,7 @@ pub struct EpochSettingsMessage {
     /// Next Protocol parameters
     #[serde(rename = "next_protocol")]
     pub next_protocol_parameters: ProtocolParameters,
+
     /// Current Signers
     pub current_signers: Vec<SignerMessagePart>,
 

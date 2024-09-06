@@ -18,7 +18,7 @@ use crate::RunnerError;
 #[derive(Debug, Error)]
 pub enum EpochServiceError {
     /// Raised when service has not collected data at least once.
-    #[error("Epoch service was not initialized, the function `inform_epoch` must be called first")]
+    #[error("Epoch service was not initialized, the function `inform_epoch_settings` must be called first")]
     NotYetInitialized,
 }
 
@@ -108,6 +108,7 @@ impl MithrilEpochService {
 
         Ok(signers_with_stake)
     }
+
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
         self.epoch_data
             .as_ref()

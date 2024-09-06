@@ -182,7 +182,7 @@ impl SignerMessagePart {
     pub fn try_into_signers(messages: Vec<Self>) -> StdResult<Vec<Signer>> {
         messages
             .into_iter()
-            .map(|m| SignerMessagePart::try_into(m))
+            .map(SignerMessagePart::try_into)
             .collect()
     }
 
