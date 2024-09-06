@@ -4,6 +4,26 @@
 
 This runbook provides step-by-step instructions to upgrade the dependencies in the repository, including Rust crates, documentation, and JavaScript packages.
 
+## Update dependencies tool
+
+The `update_dependencies.sh` script allows you to to update dependencies performing all the steps described in the next chapter.
+
+It requires having `cargo-edit` installed, which can be done with the following command:
+
+```
+cargo install cargo-edit
+```
+
+To start the update, execute the command:
+
+```
+. ../docs/runbook/upgrade-repository-dependencies/upgrade-dependencies.sh
+```
+
+By default, Rust dependencies are updated to the latest version. If you want to only update to the latest compatible versions, add the `--incompatible` option to the command.
+
+**Warning**: Before re-running the script, you need to revert the modified code to its original state to avoid incrementing the versions of crates and JSON packages twice.
+
 ## Steps
 
 ### Upgrade Rust outdated dependencies
