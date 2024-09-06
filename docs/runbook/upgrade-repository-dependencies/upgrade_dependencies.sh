@@ -2,7 +2,7 @@
 
 # get command line arguments to pass them to `cargo upgrade` command
 # By default, we allow upgrading all dependencies to the latest one. 
-# If you want to upgrade only to the compatbile version, launch script with option `--compatbile`
+# If you want to upgrade only to the compatible version, launch script with option `--compatbile`
 CARGO_UPGRADE_OPTIONS=${*:-"--incompatible"}
 
 # Need to install `cargo-edit` to execute `cargo upgrade` and `cargo set-version` commands
