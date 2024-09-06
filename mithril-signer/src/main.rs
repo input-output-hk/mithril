@@ -3,7 +3,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use config::{Map, Value};
 
 use slog::{o, Drain, Level, Logger};
-use slog_scope::{crit, debug};
+use slog_scope::{crit, debug, info};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -80,6 +80,11 @@ pub struct Args {
     /// Will be ignored on (pre)production networks.
     #[clap(long)]
     allow_unparsable_block: bool,
+
+    /// Preloading refresh interval in seconds
+    // TODO: Replace the default value to 43200 (12 hours) once the Cardano transactions is activated on mainnet
+    #[clap(long, env = "PRELOADING_REFRESH_INTERVAL", default_value_t = 7200)]
+    preloading_refresh_interval: u64,
 }
 
 impl Args {
@@ -184,7 +189,17 @@ async fn main() -> StdResult<()> {
             .map(|_| None)
     });
 
-    let preload_task = tokio::spawn(async move { cardano_transaction_preloader.preload().await });
+    join_set.spawn(async move {
+        let refresh_interval = config.preloading_refresh_interval;
+        let mut interval = tokio::time::interval(Duration::from_secs(refresh_interval));
+        loop {
+            interval.tick().await;
+            if let Err(err) = cardano_transaction_preloader.preload().await {
+                crit!("🔥 Cardano transactions preloader failed: {err:?}");
+            }
+            info!("⟳ Next Preload Cardano Transactions will start in {refresh_interval} s",);
+        }
+    });
 
     let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
     if config.enable_metrics_server {
@@ -238,10 +253,6 @@ async fn main() -> StdResult<()> {
     metrics_server_shutdown_tx
         .send(())
         .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
-
-    if !preload_task.is_finished() {
-        preload_task.abort();
-    }
 
     join_set.shutdown().await;
 
