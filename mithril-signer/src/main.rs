@@ -83,8 +83,12 @@ pub struct Args {
 
     /// Preloading refresh interval in seconds
     // TODO: Replace the default value to 43200 (12 hours) once the Cardano transactions is activated on mainnet
-    #[clap(long, env = "PRELOADING_REFRESH_INTERVAL", default_value_t = 7200)]
-    preloading_refresh_interval: u64,
+    #[clap(
+        long,
+        env = "PRELOADING_REFRESH_INTERVAL_IN_SECONDS",
+        default_value_t = 7200
+    )]
+    preloading_refresh_interval_in_seconds: u64,
 }
 
 impl Args {
@@ -190,7 +194,7 @@ async fn main() -> StdResult<()> {
     });
 
     join_set.spawn(async move {
-        let refresh_interval = config.preloading_refresh_interval;
+        let refresh_interval = config.preloading_refresh_interval_in_seconds;
         let mut interval = tokio::time::interval(Duration::from_secs(refresh_interval));
         loop {
             interval.tick().await;

@@ -118,7 +118,7 @@ pub struct Configuration {
     pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: usize,
 
     /// Preloading refresh interval in seconds
-    pub preloading_refresh_interval: u64,
+    pub preloading_refresh_interval_in_seconds: u64,
 }
 
 impl Configuration {
@@ -156,7 +156,7 @@ impl Configuration {
             enable_transaction_pruning: false,
             transactions_import_block_chunk_size: BlockNumber(1000),
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
-            preloading_refresh_interval: 60,
+            preloading_refresh_interval_in_seconds: 60,
         }
     }
 
