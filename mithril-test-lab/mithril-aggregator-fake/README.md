@@ -36,6 +36,29 @@ This project comes with a shell script that reads data from a given Mithril Aggr
 ./scripts/import.sh some/data/directory http://valid.mithril.url/aggregator
 ```
 
+## Process to locally update data
+
+Note: WORKING_DIR_END_TO_END should be short to be used as a socket path (less than 108 charaters).
+
+```
+WORKING_DIR_END_TO_END=[SELECT A PATH]
+mkdir -p $WORKING_DIR_END_TO_END
+./mithril-end-to-end -vvv --work-directory $WORKING_DIR_END_TO_END --bin-directory ../../target/release --devnet-scripts-directory=../mithril-devnet --run-only
+```
+
+Waiting some but not too much following lines
+`Mithril end to end is running and will remain active until manually stopped...`
+
+In another terminal:
+
+```
+WORKING_DIR_END_TO_END=[SELECT A PATH]
+JSON_OUTPUT=./default_data
+TRANSACTION_HASH_SAMPLE=$(sqlite3 $WORKING_DIR_END_TO_END/stores/aggregator/cardano-transaction.sqlite3 "select transaction_hash from cardano_tx")
+
+./scripts/import.sh $JSON_OUTPUT http://localhost:8080/aggregator "$TRANSACTION_HASH_SAMPLE"
+```
+
 ## Command line synopsis
 
 Usage: `mithril-aggregator-fake [OPTIONS]`
