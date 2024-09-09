@@ -82,11 +82,10 @@ mkdir -p "$TMP_SCRIPT_DIR"
 echo "git config --global --add safe.directory '*'
 nix --extra-experimental-features 'nix-command flakes' flake update" > "$TMP_SCRIPT_DIR/$FLAKE_UPDATE_SCRIPT"
 
-# The nix update is deactivated while waiting to be compatible with the latest version
-# # Upgrade Nix Flake dependencies
-# docker run -v "$(pwd)":/mithril -v "$TMP_SCRIPT_DIR":/scripts/mithril -w /mithril nixos/nix /bin/sh -c ". /scripts/mithril/$FLAKE_UPDATE_SCRIPT"
-# rm "$TMP_SCRIPT_DIR/$FLAKE_UPDATE_SCRIPT"
-# 
-# git commit -am "chore: update nix flake dependencies
-# 
-# By running 'nix flake update' command."
+ # Upgrade Nix Flake dependencies
+ docker run -v "$(pwd)":/mithril -v "$TMP_SCRIPT_DIR":/scripts/mithril -w /mithril nixos/nix /bin/sh -c ". /scripts/mithril/$FLAKE_UPDATE_SCRIPT"
+ rm "$TMP_SCRIPT_DIR/$FLAKE_UPDATE_SCRIPT"
+
+ git commit -am "chore: update nix flake dependencies
+
+ By running 'nix flake update' command."
