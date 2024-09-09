@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.5.59"
+version = "0.5.60"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -18,13 +18,13 @@ name = "cardano_transactions_get"
 harness = false
 
 [dependencies]
-anyhow = "1.0.79"
-async-trait = "0.1.77"
-chrono = { version = "0.4.33", features = ["serde"] }
-clap = { version = "4.4.18", features = ["derive", "env", "cargo"] }
+anyhow = "1.0.86"
+async-trait = "0.1.82"
+chrono = { version = "0.4.38", features = ["serde"] }
+clap = { version = "4.5.17", features = ["derive", "env", "cargo"] }
 cloud-storage = "0.11.1"
 config = "0.14.0"
-flate2 = "1.0.28"
+flate2 = "1.0.33"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
@@ -32,11 +32,11 @@ mithril-persistence = { path = "../internal/mithril-persistence" }
 openssl = { version = "0.10.66", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
 rayon = "1.10.0"
-reqwest = { version = "0.12.0", features = ["json"] }
-semver = "1.0.21"
-serde = { version = "1.0.196", features = ["derive"] }
-serde_json = "1.0.113"
-serde_yaml = "0.9.31"
+reqwest = { version = "0.12.7", features = ["json"] }
+semver = "1.0.23"
+serde = { version = "1.0.209", features = ["derive"] }
+serde_json = "1.0.128"
+serde_yaml = "0.9.34"
 sha2 = "0.10.8"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
@@ -45,15 +45,15 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 slog-scope = "4.4.0"
-sqlite = { version = "0.36.0", features = ["bundled"] }
-tar = "0.4.40"
-thiserror = "1.0.56"
-tokio = { version = "1.37.0", features = ["full"] }
-tokio-util = { version = "0.7.10", features = ["codec"] }
-typetag = "0.2.15"
-uuid = { version = "1.7.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
-warp = "0.3.6"
-zstd = { version = "0.13.0", features = ["zstdmt"] }
+sqlite = { version = "0.36.1", features = ["bundled"] }
+tar = "0.4.41"
+thiserror = "1.0.63"
+tokio = { version = "1.40.0", features = ["full"] }
+tokio-util = { version = "0.7.12", features = ["codec"] }
+typetag = "0.2.18"
+uuid = { version = "1.10.0", features = ["v4", "fast-rng", "macro-diagnostics"] }
+warp = "0.3.7"
+zstd = { version = "0.13.2", features = ["zstdmt"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = { version = "0.6.0", optional = true }
@@ -66,8 +66,8 @@ mithril-common = { path = "../mithril-common", features = [
     "test_tools",
 ] }
 mockall = "0.13.0"
-slog-term = "2.9.0"
-tempfile = "3.9.0"
+slog-term = "2.9.1"
+tempfile = "3.12.0"
 
 [features]
 default = ["jemallocator"]

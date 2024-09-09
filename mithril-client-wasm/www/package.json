@@ -1,6 +1,6 @@
 {
   "name": "www",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "scripts": {
     "build": "webpack --config webpack.config.js",
@@ -14,8 +14,8 @@
   "devDependencies": {
     "copy-webpack-plugin": "^12.0.2",
     "prettier": "^3.3.2",
-    "webpack": "^5.92.0",
+    "webpack": "^5.94.0",
     "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.0.4"
+    "webpack-dev-server": "^5.1.0"
   }
 }
