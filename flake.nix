@@ -4,7 +4,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
-    crane.url = "github:ipetkov/crane";
+    crane.url = "github:ipetkov/crane?ref=v0.18.0";
   };
 
   outputs = inputs:
@@ -24,7 +24,7 @@
         ...
       }: let
         inherit (pkgs) lib;
-        craneLib = inputs'.crane.mkLib pkgs;
+        craneLib = inputs.crane.mkLib pkgs;
 
         clean = root:
           lib.cleanSourceWith {

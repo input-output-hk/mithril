@@ -1,16 +1,20 @@
 {
   "nodes": {
     "crane": {
+      "inputs": {
+        "nixpkgs": "nixpkgs"
+      },
       "locked": {
-        "lastModified": 1725409566,
-        "narHash": "sha256-PrtLmqhM6UtJP7v7IGyzjBFhbG4eOAHT6LPYOFmYfbk=",
+        "lastModified": 1720226507,
+        "narHash": "sha256-yHVvNsgrpyNTXZBEokL8uyB2J6gB1wEx0KOJzoeZi1A=",
         "owner": "ipetkov",
         "repo": "crane",
-        "rev": "7e4586bad4e3f8f97a9271def747cf58c4b68f3c",
+        "rev": "0aed560c5c0a61c9385bddff471a13036203e11c",
         "type": "github"
       },
       "original": {
         "owner": "ipetkov",
+        "ref": "v0.18.0",
         "repo": "crane",
         "type": "github"
       }
@@ -35,15 +39,15 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1725194671,
-        "narHash": "sha256-tLGCFEFTB5TaOKkpfw3iYT9dnk4awTP/q4w+ROpMfuw=",
-        "owner": "nixos",
+        "lastModified": 1725816686,
+        "narHash": "sha256-0Kq2MkQ/sQX1rhWJ/ySBBQlBJBUK8mPMDcuDhhdBkSU=",
+        "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b833ff01a0d694b910daca6e2ff4a3f26dee478c",
+        "rev": "add0443ee587a0c44f22793b8c8649a0dbc3bb00",
         "type": "github"
       },
       "original": {
-        "owner": "nixos",
+        "owner": "NixOS",
         "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
@@ -61,11 +65,27 @@
         "url": "https://github.com/NixOS/nixpkgs/archive/356624c12086a18f2ea2825fed34523d60ccc4e3.tar.gz"
       }
     },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1725194671,
+        "narHash": "sha256-tLGCFEFTB5TaOKkpfw3iYT9dnk4awTP/q4w+ROpMfuw=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "b833ff01a0d694b910daca6e2ff4a3f26dee478c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "crane": "crane",
         "flake-parts": "flake-parts",
-        "nixpkgs": "nixpkgs",
+        "nixpkgs": "nixpkgs_2",
         "treefmt-nix": "treefmt-nix"
       }
     },
