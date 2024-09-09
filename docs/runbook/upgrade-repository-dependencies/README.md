@@ -28,7 +28,7 @@ By default, Rust dependencies are updated to the latest version. If you want to 
 
 ### Upgrade Rust outdated dependencies
 
-We recommand using [Dependi](https://dependi.io/) VS Code extension to identify and update outdated dependencies.
+We recommend using [Dependi](https://dependi.io/) VS Code extension to identify and update outdated dependencies.
 
 To do this, verify the dependencies in the `Cargo.toml` file for each Rust crate in the repository.
 
@@ -36,6 +36,12 @@ To do this, verify the dependencies in the `Cargo.toml` file for each Rust crate
 - Type `dependi` and select `Update All Dependencies to Latest Version`.
 
 ![Run dependi](./img/run-dependi.png)
+
+After the version upgrade, upgrade the dependencies in the `Cargo.lock` file that are not directly listed in any `Cargo.toml` (ie dependencies of dependencies) by running:
+
+```bash
+cargo update
+```
 
 Create a dedicated commit, e.g.:
 

@@ -8,8 +8,8 @@ CARGO_UPGRADE_OPTIONS=${*:-"--incompatible"}
 # Need to install `cargo-edit` to execute `cargo upgrade` and `cargo set-version` commands
 
 # Upgrade Rust outdated dependencies
-cargo upgrade "${CARGO_UPGRADE_OPTIONS}" --verbose 
-# cargo upgrade -i allow --verbose 
+cargo upgrade "${CARGO_UPGRADE_OPTIONS}" --verbose
+cargo update
 # Let the CI run the tests at the end of the script
 # cargo test --all-features
 git commit -am "chore: update Rust dependencies"
