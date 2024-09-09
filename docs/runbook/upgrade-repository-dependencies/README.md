@@ -6,7 +6,7 @@ This runbook provides step-by-step instructions to upgrade the dependencies in t
 
 ## Update dependencies tool
 
-The `update_dependencies.sh` script allows you to to update dependencies performing all the steps described in the next chapter.
+The `update_dependencies.sh` script allows you to update dependencies performing all the steps described in the next chapter.
 
 It requires having `cargo-edit` installed, which can be done with the following command:
 
@@ -14,10 +14,10 @@ It requires having `cargo-edit` installed, which can be done with the following 
 cargo install cargo-edit
 ```
 
-To start the update, execute the command:
+To start the update, execute the command below from the root of the repository:
 
 ```
-. ../docs/runbook/upgrade-repository-dependencies/upgrade-dependencies.sh
+. ./docs/runbook/upgrade-repository-dependencies/upgrade_dependencies.sh
 ```
 
 By default, Rust dependencies are updated to the latest version. If you want to only update to the latest compatible versions, add the `--incompatible` option to the command.
@@ -28,7 +28,7 @@ By default, Rust dependencies are updated to the latest version. If you want to 
 
 ### Upgrade Rust outdated dependencies
 
-We recommand using [Dependi](https://dependi.io/) VS Code extension to identify and update outdated dependencies.
+We recommend using [Dependi](https://dependi.io/) VS Code extension to identify and update outdated dependencies.
 
 To do this, verify the dependencies in the `Cargo.toml` file for each Rust crate in the repository.
 
@@ -36,6 +36,12 @@ To do this, verify the dependencies in the `Cargo.toml` file for each Rust crate
 - Type `dependi` and select `Update All Dependencies to Latest Version`.
 
 ![Run dependi](./img/run-dependi.png)
+
+After the version upgrade, upgrade the dependencies in the `Cargo.lock` file that are not directly listed in any `Cargo.toml` (ie dependencies of dependencies) by running:
+
+```bash
+cargo update
+```
 
 Create a dedicated commit, e.g.:
 
