@@ -132,7 +132,7 @@ mod tests {
         }
     }
 
-    // Test the retro compatibility with previous structure.
+    // Test the backward compatibility with previous structure.
     #[test]
     fn test_actual_json_deserialized_into_previous_message() {
         let json = ACTUAL_JSON;

@@ -117,6 +117,16 @@ impl SignerRunner {
             .next_signers_with_stake()
             .await
     }
+
+    /// Get the current signers.
+    async fn get_current_signers(&self) -> StdResult<Vec<Signer>> {
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .current_signers()
+            .cloned()
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -264,11 +274,8 @@ impl Runner for SignerRunner {
             return Ok(false);
         }
 
-        // TODO XXX How handle errors ? It occurs in test_create_immutable_files_full_single_signature integration test (no signers in epoch 1)
-        // TODO XXX Do we warn and return "can not sign" or return an error ?
-        let current_signer_with_stake: Option<SignerWithStake> = {
-            let epoch_service = self.services.epoch_service.read().await;
-            let current_signers = epoch_service.current_signers_with_stake().await;
+        let current_signer: Option<Signer> = {
+            let current_signers = self.get_current_signers().await;
             if let Ok(signers) = current_signers {
                 signers
                     .iter()
@@ -280,7 +287,7 @@ impl Runner for SignerRunner {
             }
         };
 
-        if let Some(signer) = current_signer_with_stake {
+        if let Some(signer) = current_signer {
             debug!(" > got a Signer from pending certificate");
 
             if let Some(protocol_initializer) = self

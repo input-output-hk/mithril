@@ -14,7 +14,7 @@ use mithril_common::StdResult;
 
 use crate::RunnerError;
 
-/// Errors dedicated to the CertifierService.
+/// Errors dedicated to the EpochService.
 #[derive(Debug, Error)]
 pub enum EpochServiceError {
     /// Raised when service has not collected data at least once.

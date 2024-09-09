@@ -70,35 +70,46 @@ impl SignerWithStakeMessagePart {
 
     /// Convert a set of signer message parts into a set of signers with stake
     pub fn try_into_signers(messages: Vec<Self>) -> StdResult<Vec<SignerWithStake>> {
-        let mut signers: Vec<SignerWithStake> = Vec::new();
+        messages
+            .into_iter()
+            .map(SignerWithStakeMessagePart::try_into)
+            .collect()
+    }
+}
 
-        for message in messages {
-            let verification_key_signature: Option<ProtocolSignerVerificationKeySignature> = message.verification_key_signature
-                .map(|f| f.try_into())
-                .transpose()
-                .with_context(|| format!("Error while parsing verification key signature message, party_id = '{}'", message.party_id))?;
-            let operational_certificate: Option<ProtocolOpCert> = message
-                .operational_certificate
-                .map(|f| f.try_into())
-                .transpose()
-                .with_context(|| {
-                    format!(
-                        "Error while parsing operational certificate message, party_id = '{}'.",
-                        message.party_id
-                    )
-                })?;
-            let value = SignerWithStake {
-                party_id: message.party_id,
-                verification_key: message.verification_key.try_into()?,
-                verification_key_signature,
-                kes_period: message.kes_period,
-                operational_certificate,
-                stake: message.stake,
-            };
-            signers.push(value);
-        }
+impl TryInto<SignerWithStake> for SignerWithStakeMessagePart {
+    type Error = StdError;
 
-        Ok(signers)
+    fn try_into(self) -> Result<SignerWithStake, Self::Error> {
+        let verification_key_signature: Option<ProtocolSignerVerificationKeySignature> = self
+            .verification_key_signature
+            .map(|f| f.try_into())
+            .transpose()
+            .with_context(|| {
+                format!(
+                    "Error while parsing verification key signature message, party_id = '{}'",
+                    self.party_id
+                )
+            })?;
+        let operational_certificate: Option<ProtocolOpCert> = self
+            .operational_certificate
+            .map(|f| f.try_into())
+            .transpose()
+            .with_context(|| {
+                format!(
+                    "Error while parsing operational certificate message, party_id = '{}'.",
+                    self.party_id
+                )
+            })?;
+        let value = SignerWithStake {
+            party_id: self.party_id,
+            verification_key: self.verification_key.try_into()?,
+            verification_key_signature,
+            kes_period: self.kes_period,
+            operational_certificate,
+            stake: self.stake,
+        };
+        Ok(value)
     }
 }
 

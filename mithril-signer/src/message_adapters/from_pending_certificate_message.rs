@@ -19,9 +19,9 @@ impl TryFromMessageAdapter<CertificatePendingMessage, CertificatePending>
             signed_entity_type: message.signed_entity_type,
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
-            // This field is deprecated and should not be used in Signer.
+            // This field is deprecated and should not be used by the Mithril signer.
             signers: vec![],
-            // This field is deprecated and should not be used in Signer.
+            // This field is deprecated and should not be used by the Mithril signer.
             next_signers: vec![],
         };
 
