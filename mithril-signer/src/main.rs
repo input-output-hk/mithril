@@ -152,6 +152,13 @@ async fn main() -> StdResult<()> {
         .with_context(|| "configuration error: could not set `enable_metrics_server`")?
         .set_default("allow_unparsable_block", args.allow_unparsable_block)
         .with_context(|| "configuration error: could not set `allow_unparsable_block`")?
+        .set_default(
+            "preloading_refresh_interval_in_seconds",
+            args.preloading_refresh_interval_in_seconds,
+        )
+        .with_context(|| {
+            "configuration error: could not set `preloading_refresh_interval_in_seconds`"
+        })?
         .add_source(DefaultConfiguration::default())
         .add_source(
             config::File::with_name(&format!(
