@@ -6,7 +6,7 @@ This runbook provides step-by-step instructions to upgrade the dependencies in t
 
 ## Update dependencies tool
 
-The `update_dependencies.sh` script allows you to to update dependencies performing all the steps described in the next chapter.
+The `update_dependencies.sh` script allows you to update dependencies performing all the steps described in the next chapter.
 
 It requires having `cargo-edit` installed, which can be done with the following command:
 
@@ -14,10 +14,10 @@ It requires having `cargo-edit` installed, which can be done with the following 
 cargo install cargo-edit
 ```
 
-To start the update, execute the command:
+To start the update, execute the command below from the root of the repository:
 
 ```
-. ../docs/runbook/upgrade-repository-dependencies/upgrade-dependencies.sh
+. ./docs/runbook/upgrade-repository-dependencies/upgrade_dependencies.sh
 ```
 
 By default, Rust dependencies are updated to the latest version. If you want to only update to the latest compatible versions, add the `--incompatible` option to the command.
