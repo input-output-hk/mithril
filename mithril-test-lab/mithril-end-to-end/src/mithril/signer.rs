@@ -70,6 +70,7 @@ impl Signer {
             ),
             ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapter_params),
             ("TRANSACTIONS_IMPORT_BLOCK_CHUNK_SIZE", "150"),
+            ("PRELOADING_REFRESH_INTERVAL_IN_SECONDS", "10"),
         ]);
         if signer_config.enable_certification {
             env.insert(

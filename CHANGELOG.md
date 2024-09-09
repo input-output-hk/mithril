@@ -27,6 +27,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Post `Chang` hard fork cleanup of the CI, devnet and infrastructure.
 
+- Support infinite preloading of Cardano transactions in signer.
+
 - **UNSTABLE** Cardano stake distribution certification:
 
   - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`.
