@@ -47,12 +47,12 @@ async fn era_fail_at_startup() {
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(2)).await.unwrap()
         .aggregator_send_epoch_settings().await
-        .cycle_registered().await.unwrap()
+        .cycle_registered_not_able_to_sign().await.unwrap()
         .increase_epoch(3).await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(3)).await.unwrap()
         .aggregator_send_epoch_settings().await
-        .cycle_registered().await.unwrap()
+        .cycle_registered_not_able_to_sign().await.unwrap()
         .increase_epoch(4).await.unwrap()
         .comment("Reaching unsupported Era Epoch")
         .cycle_unregistered().await

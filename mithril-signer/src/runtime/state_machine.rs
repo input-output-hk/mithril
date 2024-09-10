@@ -72,6 +72,22 @@ impl SignerState {
         matches!(*self, SignerState::Registered { epoch: _ })
     }
 
+    /// Returns `true` if the state in `ReadyToSign`
+    pub fn is_ready_to_sign(&self) -> bool {
+        matches!(
+            *self,
+            SignerState::ReadyToSign {
+                time_point: _,
+                last_signed_entity_type: _
+            }
+        )
+    }
+
+    /// Returns `true` if the state in `RegisteredNotAbleToSign`
+    pub fn is_registered_not_able_to_sign(&self) -> bool {
+        matches!(*self, SignerState::RegisteredNotAbleToSign { epoch: _ })
+    }
+
     /// Returns `true` if the state in `Signed`
     pub fn is_signed(&self) -> bool {
         matches!(

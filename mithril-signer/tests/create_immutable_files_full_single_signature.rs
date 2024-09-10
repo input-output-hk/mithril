@@ -44,68 +44,76 @@ async fn test_create_immutable_files_full_single_signature() {
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(2)).await.unwrap()
 
-        .comment("getting an epoch settings changes the state → Registered")
+        .comment("getting an epoch settings changes the state → RegisteredNotAbleToSign")
         .aggregator_send_epoch_settings().await
-        .cycle_registered().await.unwrap()
+        .cycle_registered_not_able_to_sign().await.unwrap()
         .register_signers(&signers_with_stake[..2]).await.unwrap()
         .check_protocol_initializer(Epoch(3)).await.unwrap()
         .check_stake_store(Epoch(3)).await.unwrap()
 
-        .comment("more cycles does not change the state = Registered")
-        .cycle_registered().await.unwrap()
+        .comment("more cycles does not change the state = RegisteredNotAbleToSign")
+        .cycle_registered_not_able_to_sign().await.unwrap()
 
-        .comment("changing immutable does not change the state = Registered")
+        .comment("changing immutable does not change the state = RegisteredNotAbleToSign")
         .increase_immutable(1, 3).await.unwrap()
-        .cycle_registered().await.unwrap()
+        .cycle_registered_not_able_to_sign().await.unwrap()
 
         .comment("changing Epoch changes the state → Unregistered")
         .increase_epoch(3).await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(3)).await.unwrap()
 
-        .comment("creating a new certificate pending with new signers and new beacon → Registered")
-        .cycle_registered().await.unwrap()
+        .comment("creating a new certificate pending with new signers and new beacon → RegisteredNotAbleToSign")
+        .cycle_registered_not_able_to_sign().await.unwrap()
         .check_protocol_initializer(Epoch(4)).await.unwrap()
         .check_stake_store(Epoch(4)).await.unwrap()
 
-        .comment("more cycles do not change the state → Registered")
-        .cycle_registered().await.unwrap()
-        .cycle_registered().await.unwrap()
+        .comment("more cycles do not change the state → RegisteredNotAbleToSign")
+        .cycle_registered_not_able_to_sign().await.unwrap()
+        .cycle_registered_not_able_to_sign().await.unwrap()
 
-        .comment("increment immutable, the state does not change = Registered")
+        .comment("increment immutable, the state does not change = RegisteredNotAbleToSign")
         .increase_immutable(5, 8).await.unwrap()
-        .cycle_registered().await.unwrap()
+        .cycle_registered_not_able_to_sign().await.unwrap()
 
         .comment("changing epoch changes the state → Unregistered")
         .increase_epoch(4).await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(4)).await.unwrap()
 
-        .comment("creating a new certificate pending with new signers and new beacon → Registered")
-        .cycle_registered().await.unwrap()
+        .comment("creating a new certificate pending with new signers and new beacon → ReadyToSign")
+        .cycle_ready_to_sign().await.unwrap()
         .check_protocol_initializer(Epoch(4)).await.unwrap()
 
-        .comment("signer can now create a single signature → Signed")
-        .cycle_signed().await.unwrap()
+        .comment("signer can now create a single signature → ReadyToSign")
+        .cycle_ready_to_sign().await.unwrap()
+        .comment("signer signs a single signature = ReadyToSign")
+        .cycle_ready_to_sign().await.unwrap()
+        // TODO?
+        // .expect_new_signature()
 
-        .comment("more cycles do not change the state = Signed")
-        .cycle_signed().await.unwrap()
-        .cycle_signed().await.unwrap()
+        // Should we remove this case?
+        //.comment("more cycles do not change the state = ReadyToSign")
+        //.cycle_ready_to_sign().await.unwrap()
+        // .cycle_ready_to_sign().await.unwrap()
 
-        .comment("new immutable means a new signature with the same stake distribution → Signed")
+        .comment("new immutable means a new signature with the same stake distribution → ReadyToSign")
         .increase_immutable(1, 9).await.unwrap()
-        .cycle_registered().await.unwrap()
-        .cycle_signed().await.unwrap()
+        .cycle_ready_to_sign().await.unwrap()
+        // TODO?
+        // .expect_new_signature()
 
         .comment("changing epoch changes the state → Unregistered")
         .increase_epoch(5).await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(5)).await.unwrap()
-        .cycle_registered().await.unwrap()
+        .comment("signer should be able to create a single signature → ReadyToSign")
+        .cycle_ready_to_sign().await.unwrap()
+        .cycle_ready_to_sign().await.unwrap()
+        // TODO?
+        // .expect_new_signature()
+        //.check_total_signature_registrations_metrics(3).await.unwrap()
         .check_protocol_initializer(Epoch(5)).await.unwrap()
-
-        .comment("signer should be able to create a single signature → Signed")
-        .cycle_signed().await.unwrap()
 
         .comment("metrics should be correctly computed")
         .check_metrics(total_signer_registrations_expected,total_signature_registrations_expected).await.unwrap()
