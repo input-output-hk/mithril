@@ -36,9 +36,6 @@ pub trait Runner: Send + Sync {
     /// Read the stake distribution and store it.
     async fn update_stake_distribution(&self, epoch: Epoch) -> StdResult<()>;
 
-    /// Check if all prerequisites for signing are met.
-    async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool>;
-
     /// Check if the signer can sign the current epoch.
     async fn can_sign_current_epoch(&self) -> StdResult<bool>;
 
@@ -256,19 +253,6 @@ impl Runner for SignerRunner {
             .await?;
 
         Ok(())
-    }
-
-    async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool> {
-        debug!("RUNNER: can_i_sign");
-        if !self
-            .can_sign_signed_entity_type(&pending_certificate.signed_entity_type)
-            .await
-        {
-            debug!(" > signed entity type is locked, can NOT sign");
-            return Ok(false);
-        }
-
-        self.can_sign_current_epoch().await
     }
 
     async fn can_sign_current_epoch(&self) -> StdResult<bool> {
@@ -730,81 +714,6 @@ mod tests {
         assert!(
             maybe_protocol_initializer.is_some(),
             "A protocol initializer should have been registered at the 'Recording' epoch"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_can_i_sign() {
-        let signers_with_stake = fake_data::signers_with_stakes(5);
-        let signers = Signer::vec_from(signers_with_stake.to_vec());
-        let stake_distribution = signers_with_stake
-            .iter()
-            .map(|signer| (signer.party_id.clone(), signer.stake))
-            .collect();
-
-        let mut current_signers = signers[1..3].to_vec();
-        let next_signers = signers[2..5].to_vec();
-
-        let mut pending_certificate = fake_data::certificate_pending();
-        pending_certificate.signers = vec![];
-        pending_certificate.next_signers = vec![];
-        let epoch = pending_certificate.epoch;
-        let signer = &mut current_signers[0];
-
-        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
-        let mut services = init_services().await;
-        let protocol_initializer_store = services.protocol_initializer_store.clone();
-        services.single_signer = Arc::new(MithrilSingleSigner::new(signer.party_id.to_owned()));
-        services.signed_entity_type_lock = signed_entity_type_lock.clone();
-        services
-            .stake_store
-            .save_stakes(
-                epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                stake_distribution,
-            )
-            .await
-            .expect("save_stakes should not fail");
-
-        let protocol_initializer = MithrilProtocolInitializerBuilder::build(
-            &100,
-            &fake_data::protocol_parameters(),
-            None,
-            None,
-        )
-        .expect("build protocol initializer should not fail");
-        signer.verification_key = protocol_initializer.verification_key().into();
-        protocol_initializer_store
-            .save_protocol_initializer(
-                epoch
-                    .offset_to_signer_retrieval_epoch()
-                    .expect("offset_to_signer_retrieval_epoch should not fail"),
-                protocol_initializer,
-            )
-            .await
-            .expect("save_protocol_initializer should not fail");
-
-        let runner = init_runner(Some(services), None).await;
-        // inform epoch settings
-        let epoch_settings = EpochSettings {
-            epoch,
-            current_signers,
-            next_signers,
-            ..fake_data::epoch_settings().clone()
-        };
-        runner.inform_epoch_settings(epoch_settings).await.unwrap();
-
-        let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
-        assert!(can_i_sign_result);
-
-        // Lock the pending certificate signed entity type, the signer should not be able to sign.
-        signed_entity_type_lock
-            .lock(&pending_certificate.signed_entity_type)
-            .await;
-
-        let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
-        assert!(
-            !can_i_sign_result,
-            "The signer should not be able to sign when the signed entity type is locked."
         );
     }
 
