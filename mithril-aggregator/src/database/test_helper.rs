@@ -3,7 +3,9 @@ use sqlite::{ConnectionThreadSafe, Value};
 use std::path::Path;
 use uuid::Uuid;
 
-use mithril_common::entities::{ProtocolParameters, SignerWithStake};
+use mithril_common::entities::{
+    ProtocolParameters, SignedEntityTypeDiscriminants, SignerWithStake,
+};
 use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
@@ -11,12 +13,13 @@ use mithril_persistence::sqlite::{
 
 use crate::database::query::{
     ImportSignerRecordQuery, InsertCertificateRecordQuery,
+    InsertOrReplaceBufferedSingleSignatureRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery, InsertOrReplaceStakePoolQuery,
     InsertSignedEntityRecordQuery, UpdateEpochSettingQuery, UpdateSingleSignatureRecordQuery,
 };
 use crate::database::record::{
-    CertificateRecord, SignedEntityRecord, SignerRecord, SignerRegistrationRecord,
-    SingleSignatureRecord,
+    BufferedSingleSignatureRecord, CertificateRecord, SignedEntityRecord, SignerRecord,
+    SignerRegistrationRecord, SingleSignatureRecord,
 };
 
 /// In-memory sqlite database without foreign key support with migrations applied
@@ -92,6 +95,27 @@ pub fn setup_single_signature_records(
     single_signature_records
 }
 
+pub fn setup_buffered_single_signature_records(
+    total_epoch: u64,
+    total_signer: u64,
+) -> Vec<BufferedSingleSignatureRecord> {
+    let mut single_signature_records = Vec::new();
+    for epoch in 1..=total_epoch {
+        for signer_idx in 1..=total_signer {
+            let single_signature_id = epoch * signer_idx;
+            single_signature_records.push(BufferedSingleSignatureRecord {
+                signed_entity_type_id: SignedEntityTypeDiscriminants::CardanoTransactions,
+                party_id: format!("signer-{signer_idx}"),
+                epoch: Epoch(epoch),
+                lottery_indexes: (1..=single_signature_id).collect(),
+                signature: fake_keys::single_signature()[3].to_string(),
+                created_at: Utc::now(),
+            });
+        }
+    }
+    single_signature_records
+}
+
 pub fn insert_single_signatures_in_db(
     connection: &SqliteConnection,
     single_signature_records: Vec<SingleSignatureRecord>,
@@ -136,6 +160,45 @@ pub fn insert_single_signatures_in_db(
             ])
             .unwrap();
         statement.next().unwrap();
+    }
+
+    Ok(())
+}
+
+pub fn insert_buffered_single_signatures(
+    connection: &SqliteConnection,
+    buffered_signature_records: Vec<BufferedSingleSignatureRecord>,
+) -> StdResult<()> {
+    if buffered_signature_records.is_empty() {
+        return Ok(());
+    }
+
+    let query = {
+        // leverage the expanded parameter from this query which is unit
+        // tested on its own above.
+        let (sql_values, _) = InsertOrReplaceBufferedSingleSignatureRecordQuery::one(
+            buffered_signature_records.first().unwrap().clone(),
+        )
+        .filters()
+        .expand();
+        format!("insert into buffered_single_signature {sql_values}")
+    };
+
+    for record in buffered_signature_records {
+        let mut statement = connection.prepare(&query)?;
+
+        statement.bind::<&[(_, Value)]>(&[
+            (1, record.party_id.into()),
+            (2, Value::Integer(*record.epoch as i64)),
+            (
+                3,
+                Value::Integer(record.signed_entity_type_id.index() as i64),
+            ),
+            (4, serde_json::to_string(&record.lottery_indexes)?.into()),
+            (5, record.signature.into()),
+            (6, record.created_at.to_rfc3339().into()),
+        ])?;
+        statement.next()?;
     }
 
     Ok(())
