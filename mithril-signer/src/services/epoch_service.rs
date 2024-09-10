@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::Epoch;
+use mithril_common::entities::PartyId;
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::entities::Signer;
 use mithril_persistence::store::StakeStorer;
@@ -114,6 +116,23 @@ impl MithrilEpochService {
             .as_ref()
             .ok_or(EpochServiceError::NotYetInitialized)
     }
+
+    fn can_signer_sign_current_epoch(
+        &self,
+        party_id: PartyId,
+        protocol_initializer: ProtocolInitializer,
+    ) -> StdResult<bool> {
+        let current_signer = self
+            .current_signers()?
+            .iter()
+            .find(|s| s.party_id == party_id)
+            .cloned();
+        let can_sign = current_signer.map_or(false, |s| {
+            s.verification_key == protocol_initializer.verification_key().into()
+        });
+
+        Ok(can_sign)
+    }
 }
 
 #[async_trait]
@@ -173,16 +192,78 @@ impl EpochService for MithrilEpochService {
 mod tests {
     use std::sync::Arc;
 
+    use crate::services::MithrilProtocolInitializerBuilder;
+
     use super::*;
 
     use mithril_common::{
         entities::{Epoch, EpochSettings, StakeDistribution},
-        test_utils::fake_data::{self},
+        test_utils::{
+            fake_data::{self},
+            MithrilFixtureBuilder,
+        },
     };
     use mithril_persistence::store::{
         adapter::{DumbStoreAdapter, MemoryAdapter},
         StakeStore, StakeStorer,
     };
+
+    #[test]
+    fn test_can_signer_sign_returns_error_when_epoch_settings_is_not_set() {
+        let party_id = "party_id".to_string();
+        let protocol_initializer = MithrilProtocolInitializerBuilder::build(
+            &100,
+            &fake_data::protocol_parameters(),
+            None,
+            None,
+        )
+        .unwrap();
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let service = MithrilEpochService::new(stake_store);
+
+        service
+            .can_signer_sign_current_epoch(party_id, protocol_initializer)
+            .expect_err("can_signer_sign should return error when epoch settings is not set");
+    }
+
+    #[tokio::test]
+    async fn test_can_signer_sign_returns_true_when_signer_verification_key_and_pool_id_found() {
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
+        let protocol_initializer = fixtures.signers_fixture()[0]
+            .protocol_initializer
+            .to_owned();
+        let epoch = Epoch(12);
+        let signers = fixtures.signers();
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let epoch_settings = EpochSettings {
+            epoch,
+            current_signers: signers[..5].to_vec(),
+            ..fake_data::epoch_settings().clone()
+        };
+
+        let mut service = MithrilEpochService::new(stake_store);
+        service
+            .inform_epoch_settings(epoch_settings.clone())
+            .await
+            .unwrap();
+
+        let party_id = fixtures.signers_fixture()[0].party_id();
+        assert!(service
+            .can_signer_sign_current_epoch(party_id.clone(), protocol_initializer.clone())
+            .unwrap());
+
+        let party_id_not_included = fixtures.signers_fixture()[6].party_id();
+        assert!(!service
+            .can_signer_sign_current_epoch(party_id_not_included, protocol_initializer)
+            .unwrap());
+
+        let protocol_initializer_not_included = fixtures.signers_fixture()[6]
+            .protocol_initializer
+            .to_owned();
+        assert!(!service
+            .can_signer_sign_current_epoch(party_id, protocol_initializer_not_included)
+            .unwrap());
+    }
 
     #[tokio::test]
     async fn test_retrieve_data_return_error_before_register_epoch_settings_was_call() {
