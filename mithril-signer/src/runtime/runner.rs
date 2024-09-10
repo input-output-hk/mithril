@@ -39,6 +39,12 @@ pub trait Runner: Send + Sync {
     /// Check if all prerequisites for signing are met.
     async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool>;
 
+    /// Check if the signer can sign the current epoch.
+    async fn can_sign_current_epoch(&self) -> StdResult<bool>;
+
+    /// Check if the signer can sign the given signed entity type.
+    async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool;
+
     /// Register epoch information
     async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()>;
 
@@ -116,16 +122,6 @@ impl SignerRunner {
             .await
             .next_signers_with_stake()
             .await
-    }
-
-    /// Get the current signers.
-    async fn get_current_signers(&self) -> StdResult<Vec<Signer>> {
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .current_signers()
-            .cloned()
     }
 }
 
@@ -264,67 +260,57 @@ impl Runner for SignerRunner {
 
     async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool> {
         debug!("RUNNER: can_i_sign");
-        if self
-            .services
-            .signed_entity_type_lock
-            .is_locked(&pending_certificate.signed_entity_type)
+        if !self
+            .can_sign_signed_entity_type(&pending_certificate.signed_entity_type)
             .await
         {
             debug!(" > signed entity type is locked, can NOT sign");
             return Ok(false);
         }
 
-        let current_signer: Option<Signer> = {
-            let current_signers = self.get_current_signers().await;
-            if let Ok(signers) = current_signers {
-                signers
-                    .iter()
-                    .find(|s| s.party_id == self.services.single_signer.get_party_id())
-                    .cloned()
-            } else {
-                warn!(" > could not get current signers with stake, can NOT sign");
-                return Ok(false);
-            }
-        };
+        self.can_sign_current_epoch().await
+    }
 
-        if let Some(signer) = current_signer {
-            debug!(" > got a Signer from pending certificate");
+    async fn can_sign_current_epoch(&self) -> StdResult<bool> {
+        let epoch = self
+            .services
+            .epoch_service
+            .read()
+            .await
+            .epoch_of_current_data()?;
 
-            if let Some(protocol_initializer) = self
+        if let Some(protocol_initializer) = self
+            .services
+            .protocol_initializer_store
+            .get_protocol_initializer(epoch.offset_to_signer_retrieval_epoch()?)
+            .await?
+        {
+            debug!(" > got protocol initializer for this epoch ({epoch})");
+
+            return self
                 .services
-                .protocol_initializer_store
-                .get_protocol_initializer(
-                    pending_certificate
-                        .epoch
-                        .offset_to_signer_retrieval_epoch()?,
-                )
-                .await?
-            {
-                debug!(
-                    " > got protocol initializer for this epoch ({})",
-                    pending_certificate.epoch
+                .epoch_service
+                .read()
+                .await
+                .can_signer_sign_current_epoch(
+                    self.services.single_signer.get_party_id(),
+                    protocol_initializer,
                 );
-
-                if signer.verification_key == protocol_initializer.verification_key().into() {
-                    debug!("verification keys match, we can sign");
-
-                    return Ok(true);
-                }
-                debug!(" > verification key do not match, can NOT sign");
-            } else {
-                warn!(
-                    " > NO protocol initializer found for this epoch ({})",
-                    pending_certificate.epoch
-                );
-            }
         } else {
-            debug!(" > Signer not found in the certificate pending");
+            warn!(" > NO protocol initializer found for this epoch ({epoch})",);
         }
 
         Ok(false)
     }
 
-    // Register epoch settings information
+    async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool {
+        !self
+            .services
+            .signed_entity_type_lock
+            .is_locked(signed_entity_type)
+            .await
+    }
+
     async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()> {
         debug!("RUNNER: register_epoch");
         self.services

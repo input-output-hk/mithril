@@ -48,6 +48,13 @@ pub trait EpochService: Sync + Send {
 
     /// Get signers with stake for the next epoch
     async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+
+    /// Check if a signer can sign the current epoch
+    fn can_signer_sign_current_epoch(
+        &self,
+        party_id: PartyId,
+        protocol_initializer: ProtocolInitializer,
+    ) -> StdResult<bool>;
 }
 
 struct EpochData {
@@ -116,23 +123,6 @@ impl MithrilEpochService {
             .as_ref()
             .ok_or(EpochServiceError::NotYetInitialized)
     }
-
-    fn can_signer_sign_current_epoch(
-        &self,
-        party_id: PartyId,
-        protocol_initializer: ProtocolInitializer,
-    ) -> StdResult<bool> {
-        let current_signer = self
-            .current_signers()?
-            .iter()
-            .find(|s| s.party_id == party_id)
-            .cloned();
-        let can_sign = current_signer.map_or(false, |s| {
-            s.verification_key == protocol_initializer.verification_key().into()
-        });
-
-        Ok(can_sign)
-    }
 }
 
 #[async_trait]
@@ -185,6 +175,23 @@ impl EpochService for MithrilEpochService {
             self.next_signers()?,
         )
         .await
+    }
+
+    fn can_signer_sign_current_epoch(
+        &self,
+        party_id: PartyId,
+        protocol_initializer: ProtocolInitializer,
+    ) -> StdResult<bool> {
+        let current_signer = self
+            .current_signers()?
+            .iter()
+            .find(|s| s.party_id == party_id)
+            .cloned();
+        let can_sign = current_signer.map_or(false, |s| {
+            s.verification_key == protocol_initializer.verification_key().into()
+        });
+
+        Ok(can_sign)
     }
 }
 
