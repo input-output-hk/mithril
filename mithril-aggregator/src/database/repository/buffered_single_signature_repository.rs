@@ -7,7 +7,8 @@ use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
 use crate::database::query::{
-    GetBufferedSingleSignatureQuery, InsertOrReplaceBufferedSingleSignatureRecordQuery,
+    DeleteBufferedSingleSignatureQuery, GetBufferedSingleSignatureQuery,
+    InsertOrReplaceBufferedSingleSignatureRecordQuery,
 };
 use crate::database::record::BufferedSingleSignatureRecord;
 use crate::services::BufferedSingleSignatureStore;
@@ -84,10 +85,18 @@ impl BufferedSingleSignatureStore for BufferedSingleSignatureRepository {
 
     async fn remove_buffered_signatures(
         &self,
-        _signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
-        _single_signatures: Vec<SingleSignatures>,
+        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        single_signatures: Vec<SingleSignatures>,
     ) -> StdResult<()> {
-        todo!()
+        let signatures_party_ids = single_signatures.into_iter().map(|s| s.party_id).collect();
+        self.connection.fetch_first(
+            DeleteBufferedSingleSignatureQuery::by_discriminant_and_party_ids(
+                signed_entity_type_discriminants,
+                signatures_party_ids,
+            ),
+        )?;
+
+        Ok(())
     }
 }
 
@@ -251,5 +260,46 @@ mod tests {
                 buffered_signatures
             );
         }
+    }
+
+    #[tokio::test]
+    async fn remove_buffered_signatures() {
+        let connection = main_db_connection().unwrap();
+        insert_buffered_single_signatures(
+            &connection,
+            BufferedSingleSignatureRecord::fakes(&[
+                ("party1", MithrilStakeDistribution),
+                ("party2", MithrilStakeDistribution),
+                ("party3", MithrilStakeDistribution),
+                ("party4", CardanoTransactions),
+            ]),
+        )
+        .unwrap();
+
+        let store = BufferedSingleSignatureRepository::new(Arc::new(connection));
+
+        store
+            .remove_buffered_signatures(
+                MithrilStakeDistribution,
+                vec![
+                    BufferedSingleSignatureRecord::fake("party1", MithrilStakeDistribution)
+                        .try_into()
+                        .unwrap(),
+                    BufferedSingleSignatureRecord::fake("party3", MithrilStakeDistribution)
+                        .try_into()
+                        .unwrap(),
+                ],
+            )
+            .await
+            .unwrap();
+
+        let remaining_msd_sigs = store.get_all().unwrap();
+        assert_eq!(
+            strip_date(&BufferedSingleSignatureRecord::fakes(&[
+                ("party4", CardanoTransactions),
+                ("party2", MithrilStakeDistribution),
+            ])),
+            strip_date(&remaining_msd_sigs)
+        );
     }
 }
