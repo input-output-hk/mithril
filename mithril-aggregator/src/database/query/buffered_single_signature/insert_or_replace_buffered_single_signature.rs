@@ -13,12 +13,9 @@ impl InsertOrReplaceBufferedSingleSignatureRecordQuery {
     pub fn one(record: BufferedSingleSignatureRecord) -> Self {
         let condition =
         WhereCondition::new(
-            "(party_id, epoch, signed_entity_type_id, lottery_indexes, signature, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
+            "(party_id, signed_entity_type_id, lottery_indexes, signature, created_at) values (?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(record.party_id),
-                Value::Integer(
-                    record.epoch.try_into().unwrap(),
-                ),
                 Value::Integer(record.signed_entity_type_id.index() as i64),
                 Value::String(serde_json::to_string(&record.lottery_indexes).unwrap()),
                 Value::String(record.signature),

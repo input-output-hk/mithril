@@ -766,12 +766,11 @@ create unique index signed_entity_unique_index on signed_entity(signed_entity_ty
             r#"
 create table buffered_single_signature (
     signed_entity_type_id           integer     not null,
-    epoch                           integer     not null,
     party_id                        text        not null,
     lottery_indexes                 json        not null,
     signature                       text        not null,
     created_at                      text        not null,
-    primary key (signed_entity_type_id, epoch, party_id)
+    primary key (signed_entity_type_id, party_id)
 );
 
 create index buffered_single_signature_signed_entity_type_id on buffered_single_signature(signed_entity_type_id);

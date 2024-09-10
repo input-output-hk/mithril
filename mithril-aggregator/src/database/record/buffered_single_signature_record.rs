@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 
 use mithril_common::entities::{
-    Epoch, HexEncodedSingleSignature, LotteryIndex, SignedEntityTypeDiscriminants, SingleSignatures,
+    HexEncodedSingleSignature, LotteryIndex, SignedEntityTypeDiscriminants, SingleSignatures,
 };
 use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
@@ -13,9 +13,6 @@ pub struct BufferedSingleSignatureRecord {
     /// Party id.
     pub party_id: String,
 
-    /// Epoch at which the buffered single signature was created
-    pub epoch: Epoch,
-
     /// Signed entity type discriminant.
     pub signed_entity_type_id: SignedEntityTypeDiscriminants,
 
@@ -25,7 +22,7 @@ pub struct BufferedSingleSignatureRecord {
     /// The STM single signature of the message
     pub signature: HexEncodedSingleSignature,
 
-    /// Date and time when the single_signature was created
+    /// Date and time when the buffered single signature was created
     pub created_at: DateTime<Utc>,
 }
 
@@ -33,12 +30,10 @@ impl BufferedSingleSignatureRecord {
     pub(crate) fn try_from_single_signatures(
         other: &SingleSignatures,
         signed_entity_id: SignedEntityTypeDiscriminants,
-        epoch: Epoch,
     ) -> StdResult<Self> {
         let record = BufferedSingleSignatureRecord {
             signed_entity_type_id: signed_entity_id,
             party_id: other.party_id.to_owned(),
-            epoch,
             lottery_indexes: other.won_indexes.to_owned(),
             signature: other.signature.to_json_hex()?,
             created_at: Utc::now(),
@@ -65,7 +60,6 @@ impl BufferedSingleSignatureRecord {
                 signed_message: None,
             },
             discriminants,
-            Epoch(12),
         )
         .unwrap()
     }
@@ -109,23 +103,15 @@ impl SqLiteEntity for BufferedSingleSignatureRecord {
         Self: Sized,
     {
         let party_id = row.read::<&str, _>(0).to_string();
-        let epoch = row.read::<i64, _>(1);
-        let signed_entity_type_id = usize::try_from(row.read::<i64, _>(2)).map_err(|e| {
+        let signed_entity_type_id = usize::try_from(row.read::<i64, _>(1)).map_err(|e| {
             panic!("Integer field signed_entity_type_id cannot be turned into usize: {e}")
         })?;
-        let lottery_indexes_str = row.read::<&str, _>(3);
-        let signature = row.read::<&str, _>(4).to_string();
-        let created_at = row.read::<&str, _>(5);
+        let lottery_indexes_str = row.read::<&str, _>(2);
+        let signature = row.read::<&str, _>(3).to_string();
+        let created_at = row.read::<&str, _>(4);
 
         let record = Self {
             party_id,
-            epoch: Epoch(
-                epoch.try_into().map_err(|e| {
-                    HydrationError::InvalidData(format!(
-                        "Could not cast i64 ({epoch}) to u64. Error: '{e}'"
-                    ))
-                })?,
-            ),
             signed_entity_type_id: SignedEntityTypeDiscriminants::from_id(signed_entity_type_id).map_err(
                 |e| {
                     HydrationError::InvalidData(format!(
@@ -154,7 +140,6 @@ impl SqLiteEntity for BufferedSingleSignatureRecord {
     fn get_projection() -> Projection {
         let mut projection = Projection::default();
         projection.add_field("party_id", "{:buffered_single_signature:}.party_id", "text");
-        projection.add_field("epoch", "{:buffered_single_signature:}.epoch", "integer");
         projection.add_field(
             "signed_entity_type_id",
             "{:buffered_single_signature:}.signed_entity_type_id",
@@ -192,7 +177,6 @@ mod tests {
         let single_signature_record = BufferedSingleSignatureRecord::try_from_single_signatures(
             &single_signature,
             SignedEntityTypeDiscriminants::CardanoTransactions,
-            Epoch(1),
         )
         .unwrap();
         let single_signature_returned = single_signature_record.try_into().unwrap();

@@ -106,7 +106,6 @@ pub fn setup_buffered_single_signature_records(
             single_signature_records.push(BufferedSingleSignatureRecord {
                 signed_entity_type_id: SignedEntityTypeDiscriminants::CardanoTransactions,
                 party_id: format!("signer-{signer_idx}"),
-                epoch: Epoch(epoch),
                 lottery_indexes: (1..=single_signature_id).collect(),
                 signature: fake_keys::single_signature()[3].to_string(),
                 created_at: Utc::now(),
@@ -189,14 +188,13 @@ pub fn insert_buffered_single_signatures(
 
         statement.bind::<&[(_, Value)]>(&[
             (1, record.party_id.into()),
-            (2, Value::Integer(*record.epoch as i64)),
             (
-                3,
+                2,
                 Value::Integer(record.signed_entity_type_id.index() as i64),
             ),
-            (4, serde_json::to_string(&record.lottery_indexes)?.into()),
-            (5, record.signature.into()),
-            (6, record.created_at.to_rfc3339().into()),
+            (3, serde_json::to_string(&record.lottery_indexes)?.into()),
+            (4, record.signature.into()),
+            (5, record.created_at.to_rfc3339().into()),
         ])?;
         statement.next()?;
     }

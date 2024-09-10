@@ -79,11 +79,9 @@ impl BufferedSingleSignatureStore for BufferedSingleSignatureRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{
-        Epoch, LotteryIndex,
-        SignedEntityTypeDiscriminants::{CardanoTransactions, MithrilStakeDistribution},
+    use mithril_common::entities::SignedEntityTypeDiscriminants::{
+        CardanoTransactions, MithrilStakeDistribution,
     };
-    use mithril_common::test_utils::fake_data;
 
     use crate::database::record::BufferedSingleSignatureRecord;
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
@@ -95,18 +93,6 @@ mod tests {
             .iter()
             .map(BufferedSingleSignatureRecord::with_stripped_date)
             .collect::<Vec<_>>()
-    }
-
-    fn fake_record(
-        discriminants: SignedEntityTypeDiscriminants,
-        signature_won_indexes: Vec<LotteryIndex>,
-    ) -> BufferedSingleSignatureRecord {
-        BufferedSingleSignatureRecord::try_from_single_signatures(
-            &fake_data::single_signatures(signature_won_indexes),
-            discriminants,
-            Epoch(12),
-        )
-        .unwrap()
     }
 
     #[test]

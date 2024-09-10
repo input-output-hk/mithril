@@ -1,7 +1,5 @@
 use sqlite::Value;
 
-#[cfg(test)]
-use mithril_common::entities::Epoch;
 use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
