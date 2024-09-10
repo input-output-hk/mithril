@@ -332,7 +332,6 @@ impl Runner for SignerRunner {
             .write()
             .await
             .inform_epoch_settings(epoch_settings)
-            .await
     }
 
     async fn compute_message(

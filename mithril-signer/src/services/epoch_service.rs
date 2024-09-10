@@ -29,7 +29,7 @@ pub enum EpochServiceError {
 pub trait EpochService: Sync + Send {
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
-    async fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
+    fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
 
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
@@ -137,7 +137,7 @@ impl MithrilEpochService {
 
 #[async_trait]
 impl EpochService for MithrilEpochService {
-    async fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()> {
+    fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()> {
         debug!(
             "EpochService: register_epoch_settings: {:?}",
             epoch_settings
@@ -226,8 +226,8 @@ mod tests {
             .expect_err("can_signer_sign should return error when epoch settings is not set");
     }
 
-    #[tokio::test]
-    async fn test_can_signer_sign_returns_true_when_signer_verification_key_and_pool_id_found() {
+    #[test]
+    fn test_can_signer_sign_returns_true_when_signer_verification_key_and_pool_id_found() {
         let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
         let protocol_initializer = fixtures.signers_fixture()[0]
             .protocol_initializer
@@ -244,7 +244,6 @@ mod tests {
         let mut service = MithrilEpochService::new(stake_store);
         service
             .inform_epoch_settings(epoch_settings.clone())
-            .await
             .unwrap();
 
         let party_id = fixtures.signers_fixture()[0].party_id();
@@ -293,8 +292,8 @@ mod tests {
         assert!(service.next_signers_with_stake().await.is_err());
     }
 
-    #[tokio::test]
-    async fn test_data_are_available_after_register_epoch_settings_call() {
+    #[test]
+    fn test_data_are_available_after_register_epoch_settings_call() {
         let epoch = Epoch(12);
         // Signers and stake distribution
         let signers = fake_data::signers(10);
@@ -315,7 +314,6 @@ mod tests {
 
         service
             .inform_epoch_settings(epoch_settings.clone())
-            .await
             .unwrap();
 
         // Check current_signers
@@ -388,7 +386,6 @@ mod tests {
         let mut service = MithrilEpochService::new(stake_store);
         service
             .inform_epoch_settings(epoch_settings.clone())
-            .await
             .unwrap();
 
         // Check current signers with stake
