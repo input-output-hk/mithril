@@ -1,3 +1,4 @@
+use anyhow::Context;
 use async_trait::async_trait;
 use std::sync::Arc;
 
@@ -5,7 +6,9 @@ use mithril_common::entities::{SignedEntityTypeDiscriminants, SingleSignatures};
 use mithril_common::{StdError, StdResult};
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::query::GetBufferedSingleSignatureQuery;
+use crate::database::query::{
+    GetBufferedSingleSignatureQuery, InsertOrReplaceBufferedSingleSignatureRecordQuery,
+};
 use crate::database::record::BufferedSingleSignatureRecord;
 use crate::services::BufferedSingleSignatureStore;
 
@@ -55,10 +58,21 @@ impl BufferedSingleSignatureRepository {
 impl BufferedSingleSignatureStore for BufferedSingleSignatureRepository {
     async fn buffer_signature(
         &self,
-        _signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
-        _signature: &SingleSignatures,
+        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signature: &SingleSignatures,
     ) -> StdResult<()> {
-        todo!()
+        let record = BufferedSingleSignatureRecord::try_from_single_signatures(
+            signature,
+            signed_entity_type_discriminants,
+        )
+        .with_context(|| "Failed to convert SingleSignatures to BufferedSingleSignatureRecord")?;
+
+        self.connection
+            .fetch_first(InsertOrReplaceBufferedSingleSignatureRecordQuery::one(
+                record,
+            ))?;
+
+        Ok(())
     }
 
     async fn get_buffered_signatures(
@@ -82,6 +96,7 @@ mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants::{
         CardanoTransactions, MithrilStakeDistribution,
     };
+    use mithril_common::test_utils::fake_keys;
 
     use crate::database::record::BufferedSingleSignatureRecord;
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
@@ -157,5 +172,84 @@ mod tests {
             ),])),
             strip_date(&buffered_signatures_msd)
         );
+    }
+
+    #[tokio::test]
+    async fn store_signatures() {
+        let connection = main_db_connection().unwrap();
+        let store = BufferedSingleSignatureRepository::new(Arc::new(connection));
+
+        // Multiple signatures of the same signed entity type
+        {
+            store
+                .buffer_signature(
+                    CardanoTransactions,
+                    &SingleSignatures::new(
+                        "party1",
+                        fake_keys::single_signature()[0].try_into().unwrap(),
+                        vec![1],
+                    ),
+                )
+                .await
+                .unwrap();
+            store
+                .buffer_signature(
+                    CardanoTransactions,
+                    &SingleSignatures::new(
+                        "party2",
+                        fake_keys::single_signature()[1].try_into().unwrap(),
+                        vec![2],
+                    ),
+                )
+                .await
+                .unwrap();
+
+            let buffered_signatures = store
+                .get_buffered_signatures(CardanoTransactions)
+                .await
+                .unwrap();
+            assert_eq!(
+                vec![
+                    SingleSignatures::new(
+                        "party2",
+                        fake_keys::single_signature()[1].try_into().unwrap(),
+                        vec![2],
+                    ),
+                    SingleSignatures::new(
+                        "party1",
+                        fake_keys::single_signature()[0].try_into().unwrap(),
+                        vec![1],
+                    ),
+                ],
+                buffered_signatures
+            );
+        }
+        // Another signed entity type to test that the store is able to differentiate between them
+        {
+            store
+                .buffer_signature(
+                    MithrilStakeDistribution,
+                    &SingleSignatures::new(
+                        "party3",
+                        fake_keys::single_signature()[2].try_into().unwrap(),
+                        vec![3],
+                    ),
+                )
+                .await
+                .unwrap();
+
+            let buffered_signatures = store
+                .get_buffered_signatures(MithrilStakeDistribution)
+                .await
+                .unwrap();
+            assert_eq!(
+                vec![SingleSignatures::new(
+                    "party3",
+                    fake_keys::single_signature()[2].try_into().unwrap(),
+                    vec![3],
+                )],
+                buffered_signatures
+            );
+        }
     }
 }
