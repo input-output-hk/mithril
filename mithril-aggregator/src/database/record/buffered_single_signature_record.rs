@@ -59,12 +59,8 @@ impl BufferedSingleSignatureRecord {
 
         let party_id = party_id.into();
         let fixture = MithrilFixtureBuilder::default()
-            .with_signers(1)
             .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
-                std::collections::BTreeMap::from([(
-                    format!("{:<032}", format!("{party_id}{discriminant}")),
-                    100,
-                )]),
+                std::collections::BTreeMap::from([(format!("{party_id}{discriminant}"), 100)]),
             ))
             .with_protocol_parameters(ProtocolParameters::new(1, 1, 1.0))
             .build();
