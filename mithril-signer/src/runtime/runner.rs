@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog_scope::{debug, info, trace, warn};
+use slog_scope::{debug, info, warn};
 use thiserror::Error;
 
 #[cfg(test)]
@@ -9,7 +9,7 @@ use mockall::automock;
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
     CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage, ProtocolMessagePartKey,
-    ProtocolParameters, SignedEntityType, Signer, SignerWithStake, SingleSignatures, TimePoint,
+    SignedEntityType, Signer, SignerWithStake, SingleSignatures, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -31,11 +31,7 @@ pub trait Runner: Send + Sync {
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
 
     /// Register the signer verification key to the aggregator.
-    async fn register_signer_to_aggregator(
-        &self,
-        epoch: Epoch,
-        protocol_parameters: &ProtocolParameters,
-    ) -> StdResult<()>;
+    async fn register_signer_to_aggregator(&self) -> StdResult<()>;
 
     /// Read the stake distribution and store it.
     async fn update_stake_distribution(&self, epoch: Epoch) -> StdResult<()>;
@@ -43,19 +39,13 @@ pub trait Runner: Send + Sync {
     /// Check if all prerequisites for signing are met.
     async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool>;
 
-    /// From a list of signers, associate them with the stake read on the
-    /// Cardano node.
-    async fn associate_signers_with_stake(
-        &self,
-        epoch: Epoch,
-        signers: &[Signer],
-    ) -> StdResult<Vec<SignerWithStake>>;
+    /// Register epoch information
+    async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()>;
 
     /// Create the message to be signed with the single signature.
     async fn compute_message(
         &self,
         signed_entity_type: &SignedEntityType,
-        next_signers: &[SignerWithStake],
     ) -> StdResult<ProtocolMessage>;
 
     /// Create the single signature.
@@ -63,7 +53,6 @@ pub trait Runner: Send + Sync {
         &self,
         epoch: Epoch,
         message: &ProtocolMessage,
-        signers: &[SignerWithStake],
     ) -> StdResult<Option<SingleSignatures>>;
 
     /// Send the single signature to the aggregator in order to be aggregated.
@@ -108,6 +97,36 @@ impl SignerRunner {
     pub fn new(config: Configuration, services: SignerDependencyContainer) -> Self {
         Self { services, config }
     }
+
+    /// Get the current signers with their stake.
+    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .current_signers_with_stake()
+            .await
+    }
+
+    /// Get the next signers with their stake.
+    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .next_signers_with_stake()
+            .await
+    }
+
+    /// Get the current signers.
+    async fn get_current_signers(&self) -> StdResult<Vec<Signer>> {
+        self.services
+            .epoch_service
+            .read()
+            .await
+            .current_signers()
+            .cloned()
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -143,12 +162,12 @@ impl Runner for SignerRunner {
             .with_context(|| "Runner can not get current time point")
     }
 
-    async fn register_signer_to_aggregator(
-        &self,
-        epoch: Epoch,
-        protocol_parameters: &ProtocolParameters,
-    ) -> StdResult<()> {
+    async fn register_signer_to_aggregator(&self) -> StdResult<()> {
         debug!("RUNNER: register_signer_to_aggregator");
+
+        let epoch_service = self.services.epoch_service.read().await;
+        let epoch = epoch_service.epoch_of_current_data()?;
+        let protocol_parameters = epoch_service.next_protocol_parameters()?;
 
         let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch();
         let stake_distribution = self
@@ -255,9 +274,20 @@ impl Runner for SignerRunner {
             return Ok(false);
         }
 
-        if let Some(signer) =
-            pending_certificate.get_signer(self.services.single_signer.get_party_id())
-        {
+        let current_signer: Option<Signer> = {
+            let current_signers = self.get_current_signers().await;
+            if let Ok(signers) = current_signers {
+                signers
+                    .iter()
+                    .find(|s| s.party_id == self.services.single_signer.get_party_id())
+                    .cloned()
+            } else {
+                warn!(" > could not get current signers with stake, can NOT sign");
+                return Ok(false);
+            }
+        };
+
+        if let Some(signer) = current_signer {
             debug!(" > got a Signer from pending certificate");
 
             if let Some(protocol_initializer) = self
@@ -294,49 +324,27 @@ impl Runner for SignerRunner {
         Ok(false)
     }
 
-    async fn associate_signers_with_stake(
-        &self,
-        epoch: Epoch,
-        signers: &[Signer],
-    ) -> StdResult<Vec<SignerWithStake>> {
-        debug!("RUNNER: associate_signers_with_stake");
-
-        let stakes = self
-            .services
-            .stake_store
-            .get_stakes(epoch)
-            .await?
-            .ok_or_else(|| RunnerError::NoValueError(format!("stakes at epoch {epoch}")))?;
-        let mut signers_with_stake = vec![];
-
-        for signer in signers {
-            let stake = stakes
-                .get(&*signer.party_id)
-                .ok_or_else(|| RunnerError::NoStakeForSigner(signer.party_id.to_string()))?;
-
-            signers_with_stake.push(SignerWithStake::new(
-                signer.party_id.to_owned(),
-                signer.verification_key.to_owned(),
-                signer.verification_key_signature.to_owned(),
-                signer.operational_certificate.to_owned(),
-                signer.kes_period.to_owned(),
-                *stake,
-            ));
-            trace!(
-                " > associating signer_id {} with stake {}",
-                signer.party_id,
-                *stake
-            );
-        }
-        Ok(signers_with_stake)
+    // Register epoch settings information
+    async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()> {
+        debug!("RUNNER: register_epoch");
+        self.services
+            .epoch_service
+            .write()
+            .await
+            .inform_epoch_settings(epoch_settings)
+            .await
     }
 
     async fn compute_message(
         &self,
         signed_entity_type: &SignedEntityType,
-        next_signers: &[SignerWithStake],
     ) -> StdResult<ProtocolMessage> {
         debug!("RUNNER: compute_message");
+
+        let next_signers = self
+            .get_next_signers_with_stake()
+            .await
+            .with_context(|| "Runner can not not retrieve next signers")?;
 
         // 1 compute the signed entity type part of the message
         let mut message = self
@@ -363,7 +371,7 @@ impl Runner for SignerRunner {
         let avk = self
             .services
             .single_signer
-            .compute_aggregate_verification_key(next_signers, &next_protocol_initializer)?
+            .compute_aggregate_verification_key(&next_signers, &next_protocol_initializer)?
             .ok_or_else(|| RunnerError::NoValueError("next_signers avk".to_string()))?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
@@ -374,9 +382,13 @@ impl Runner for SignerRunner {
         &self,
         epoch: Epoch,
         message: &ProtocolMessage,
-        signers: &[SignerWithStake],
     ) -> StdResult<Option<SingleSignatures>> {
         debug!("RUNNER: compute_single_signature");
+
+        let signers = self
+            .get_current_signers_with_stake()
+            .await
+            .with_context(|| "Runner can not not retrieve signers")?;
 
         let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch()?;
         let protocol_initializer = self
@@ -391,7 +403,7 @@ impl Runner for SignerRunner {
             })?;
         let signature = self.services.single_signer.compute_single_signatures(
             message,
-            signers,
+            &signers,
             &protocol_initializer,
         )?;
         info!(
@@ -471,12 +483,12 @@ mod tests {
         cardano_transactions_preloader::{
             CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
         },
-        chain_observer::{ChainObserver, FakeObserver},
+        chain_observer::FakeObserver,
         crypto_helper::{
             MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, StakeDistribution},
+        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -494,10 +506,13 @@ mod tests {
 
     use crate::metrics::MetricsService;
     use crate::services::{
-        AggregatorClient, CardanoTransactionsImporter, DumbAggregatorClient, MithrilSingleSigner,
-        MockAggregatorClient, MockTransactionStore, MockUpkeepService, SingleSigner,
+        CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
+        MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
+        SingleSigner,
     };
     use crate::store::ProtocolInitializerStore;
+
+    use tokio::sync::RwLock;
 
     use super::*;
 
@@ -596,6 +611,7 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
 
         SignerDependencyContainer {
             stake_store,
@@ -616,6 +632,7 @@ mod tests {
             signed_entity_type_lock,
             cardano_transactions_preloader,
             upkeep_service,
+            epoch_service,
         }
     }
 
@@ -684,43 +701,36 @@ mod tests {
     #[tokio::test]
     async fn test_register_signer_to_aggregator() {
         let mut services = init_services().await;
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let certificate_handler = Arc::new(DumbAggregatorClient::default());
         services.certificate_handler = certificate_handler.clone();
         let protocol_initializer_store = services.protocol_initializer_store.clone();
-        let chain_observer = Arc::new(FakeObserver::default());
-        services.chain_observer = chain_observer.clone();
-        let epoch = services
-            .ticker_service
-            .get_current_epoch()
-            .await
-            .unwrap()
-            .offset_to_recording_epoch();
-        let stakes = chain_observer
+        let current_epoch = services.ticker_service.get_current_epoch().await.unwrap();
+
+        let stakes = services
+            .chain_observer
             .get_current_stake_distribution()
             .await
             .unwrap()
             .unwrap();
         services
             .stake_store
-            .save_stakes(epoch, stakes)
+            .save_stakes(current_epoch.offset_to_recording_epoch(), stakes)
             .await
             .unwrap();
-        let runner = init_runner(Some(services), None).await;
-        let epoch = chain_observer
-            .current_time_point
-            .read()
-            .await
-            .clone()
-            .expect("chain_observer should have a current_time_point")
-            .epoch;
 
-        let pending_certificate = certificate_handler
-            .retrieve_pending_certificate()
-            .await
-            .expect("getting pending certificate should not fail")
-            .expect("there should be a pending certificate, None returned");
+        let runner = init_runner(Some(services), None).await;
+        // inform epoch settings
+        let epoch_settings = EpochSettings {
+            epoch: current_epoch,
+            current_signers: fixture.signers(),
+            next_signers: fixture.signers(),
+            ..fake_data::epoch_settings().clone()
+        };
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
         runner
-            .register_signer_to_aggregator(epoch, &pending_certificate.protocol_parameters)
+            .register_signer_to_aggregator()
             .await
             .expect("registering a signer to the aggregator should not fail");
 
@@ -729,7 +739,7 @@ mod tests {
             .await
             .is_some());
         let maybe_protocol_initializer = protocol_initializer_store
-            .get_protocol_initializer(epoch.offset_to_recording_epoch())
+            .get_protocol_initializer(current_epoch.offset_to_recording_epoch())
             .await
             .expect("get_protocol_initializer should not fail");
         assert!(
@@ -740,16 +750,35 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_i_sign() {
+        let signers_with_stake = fake_data::signers_with_stakes(5);
+        let signers = Signer::vec_from(signers_with_stake.to_vec());
+        let stake_distribution = signers_with_stake
+            .iter()
+            .map(|signer| (signer.party_id.clone(), signer.stake))
+            .collect();
+
+        let mut current_signers = signers[1..3].to_vec();
+        let next_signers = signers[2..5].to_vec();
+
         let mut pending_certificate = fake_data::certificate_pending();
+        pending_certificate.signers = vec![];
+        pending_certificate.next_signers = vec![];
         let epoch = pending_certificate.epoch;
-        let signer = &mut pending_certificate.signers[0];
-        // All signed entities are available for signing.
+        let signer = &mut current_signers[0];
+
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
         let mut services = init_services().await;
         let protocol_initializer_store = services.protocol_initializer_store.clone();
         services.single_signer = Arc::new(MithrilSingleSigner::new(signer.party_id.to_owned()));
         services.signed_entity_type_lock = signed_entity_type_lock.clone();
-        let runner = init_runner(Some(services), None).await;
+        services
+            .stake_store
+            .save_stakes(
+                epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                stake_distribution,
+            )
+            .await
+            .expect("save_stakes should not fail");
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             &100,
@@ -769,6 +798,16 @@ mod tests {
             .await
             .expect("save_protocol_initializer should not fail");
 
+        let runner = init_runner(Some(services), None).await;
+        // inform epoch settings
+        let epoch_settings = EpochSettings {
+            epoch,
+            current_signers,
+            next_signers,
+            ..fake_data::epoch_settings().clone()
+        };
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
         let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
         assert!(can_i_sign_result);
 
@@ -782,36 +821,6 @@ mod tests {
             !can_i_sign_result,
             "The signer should not be able to sign when the signed entity type is locked."
         );
-    }
-
-    #[tokio::test]
-    async fn test_associate_signers_with_stake() {
-        let services = init_services().await;
-        let stake_store = services.stake_store.clone();
-        let runner = init_runner(Some(services), None).await;
-        let epoch = Epoch(12);
-        let expected = fake_data::signers_with_stakes(5);
-        let signers = expected
-            .clone()
-            .into_iter()
-            .map(|s| s.into())
-            .collect::<Vec<_>>();
-        let stake_distribution = expected
-            .clone()
-            .iter()
-            .map(|s| s.into())
-            .collect::<StakeDistribution>();
-
-        stake_store
-            .save_stakes(epoch, stake_distribution)
-            .await
-            .expect("save_stakes should not fail");
-
-        let result = runner
-            .associate_signers_with_stake(epoch, &signers)
-            .await
-            .expect("associate_signers_with_stake should not fail");
-        assert_eq!(expected, result);
     }
 
     #[tokio::test]
@@ -845,7 +854,20 @@ mod tests {
             .await
             .expect("save_protocol_initializer should not fail");
 
-        let next_signers = fixture.signers_with_stake();
+        services
+            .stake_store
+            .save_stakes(
+                current_time_point
+                    .epoch
+                    .offset_to_next_signer_retrieval_epoch(),
+                fixture.stake_distribution(),
+            )
+            .await
+            .expect("save_stakes should not fail");
+
+        let next_signers_with_stake = &fixture.signers_with_stake()[3..5];
+        let next_signers = &fixture.signers()[3..5];
+
         let mut expected = ProtocolMessage::new();
         expected.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -853,14 +875,24 @@ mod tests {
         );
         let avk = services
             .single_signer
-            .compute_aggregate_verification_key(&next_signers, &protocol_initializer)
+            .compute_aggregate_verification_key(next_signers_with_stake, &protocol_initializer)
             .expect("compute_aggregate_verification_key should not fail")
             .expect("an avk should have been computed");
         expected.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         let runner = init_runner(Some(services), None).await;
+
+        // inform epoch settings
+        let epoch_settings = EpochSettings {
+            epoch: current_time_point.epoch,
+            current_signers: fixture.signers(),
+            next_signers: next_signers.to_vec(),
+            ..fake_data::epoch_settings().clone()
+        };
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
         let message = runner
-            .compute_message(&signed_entity_type, &next_signers)
+            .compute_message(&signed_entity_type)
             .await
             .expect("compute_message should not fail");
 
@@ -893,7 +925,21 @@ mod tests {
             )
             .await
             .expect("save_protocol_initializer should not fail");
-        let signers = fixture.signers_with_stake();
+
+        services
+            .stake_store
+            .save_stakes(
+                current_time_point
+                    .epoch
+                    .offset_to_signer_retrieval_epoch()
+                    .expect("offset_to_signer_retrieval_epoch should not fail"),
+                fixture.stake_distribution(),
+            )
+            .await
+            .expect("save_stakes should not fail");
+
+        let signers_with_stake = &fixture.signers_with_stake()[0..3];
+        let signers = &fixture.signers()[0..3];
 
         let mut message = ProtocolMessage::new();
         message.set_message_part(
@@ -906,12 +952,22 @@ mod tests {
         );
 
         let expected = single_signer
-            .compute_single_signatures(&message, &signers, &protocol_initializer)
+            .compute_single_signatures(&message, signers_with_stake, &protocol_initializer)
             .expect("compute_single_signatures should not fail");
 
         let runner = init_runner(Some(services), None).await;
+
+        // inform epoch settings
+        let epoch_settings = EpochSettings {
+            epoch: current_time_point.epoch,
+            current_signers: signers.to_vec(),
+            next_signers: fixture.signers(),
+            ..fake_data::epoch_settings().clone()
+        };
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
         let single_signature = runner
-            .compute_single_signature(current_time_point.epoch, &message, &signers)
+            .compute_single_signature(current_time_point.epoch, &message)
             .await
             .expect("compute_message should not fail");
         assert_eq!(expected, single_signature);

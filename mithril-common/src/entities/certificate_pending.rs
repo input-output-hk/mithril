@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{Epoch, PartyId, ProtocolParameters, SignedEntityType, Signer};
+use crate::entities::{Epoch, ProtocolParameters, SignedEntityType, Signer};
 
 /// CertificatePending represents a pending certificate in the process of production
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -45,32 +45,5 @@ impl CertificatePending {
             signers,
             next_signers,
         }
-    }
-
-    /// get a signer from the certificate pending if it has registered
-    pub fn get_signer(&self, party_id: PartyId) -> Option<&Signer> {
-        self.signers.iter().find(|s| s.party_id == party_id)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::test_utils::fake_data;
-
-    use super::*;
-
-    #[test]
-    fn certificate_pending_get_signers() {
-        let certificate_pending = {
-            let mut signers = fake_data::signers(3);
-            signers[0].party_id = "1".to_string();
-            CertificatePending {
-                signers,
-                ..fake_data::certificate_pending()
-            }
-        };
-
-        assert!(certificate_pending.get_signer("1".to_string()).is_some());
-        assert!(certificate_pending.get_signer("5".to_string()).is_none());
     }
 }

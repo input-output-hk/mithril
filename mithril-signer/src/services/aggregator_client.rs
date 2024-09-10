@@ -12,7 +12,7 @@ use mithril_common::{
     },
     messages::{
         AggregatorFeaturesMessage, CertificatePendingMessage, EpochSettingsMessage,
-        FromMessageAdapter, TryFromMessageAdapter, TryToMessageAdapter,
+        TryFromMessageAdapter, TryToMessageAdapter,
     },
     StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
@@ -197,7 +197,11 @@ impl AggregatorClient for AggregatorHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<EpochSettingsMessage>().await {
-                    Ok(message) => Ok(Some(FromEpochSettingsAdapter::adapt(message))),
+                    Ok(message) => {
+                        let epoch_settings = FromEpochSettingsAdapter::try_adapt(message)
+                            .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
+                        Ok(Some(epoch_settings))
+                    }
                     Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
@@ -587,7 +591,7 @@ mod tests {
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
         assert_eq!(
-            FromEpochSettingsAdapter::adapt(epoch_settings_expected),
+            FromEpochSettingsAdapter::try_adapt(epoch_settings_expected).unwrap(),
             epoch_settings.unwrap().unwrap()
         );
     }

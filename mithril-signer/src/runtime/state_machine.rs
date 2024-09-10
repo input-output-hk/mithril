@@ -4,9 +4,7 @@ use tokio::{sync::Mutex, time::sleep};
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
-    entities::{
-        CertificatePending, Epoch, EpochSettings, SignedEntityType, SignerWithStake, TimePoint,
-    },
+    entities::{CertificatePending, Epoch, EpochSettings, SignedEntityType, TimePoint},
 };
 
 use crate::MetricsService;
@@ -170,7 +168,7 @@ impl StateMachine {
                         info!("new Epoch found");
                         info!(" ⋅ transiting to REGISTERED");
                         *state = self
-                            .transition_from_unregistered_to_registered(&epoch_settings)
+                            .transition_from_unregistered_to_registered(epoch_settings)
                             .await?;
                     } else {
                         info!(
@@ -327,7 +325,7 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to the `Registered` state.
     async fn transition_from_unregistered_to_registered(
         &self,
-        epoch_settings: &EpochSettings,
+        epoch_settings: EpochSettings,
     ) -> Result<SignerState, RuntimeError> {
         self.metrics_service
             .signer_registration_total_since_startup_counter_increment();
@@ -343,10 +341,18 @@ impl StateMachine {
                 nested_error: Some(e),
             })?;
 
-        self.runner.register_signer_to_aggregator(
-            epoch_settings.epoch,
-            &epoch_settings.next_protocol_parameters,
-        )
+        self.runner
+            .inform_epoch_settings(epoch_settings)
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!(
+                    "Could not register epoch information in 'unregistered → registered' phase for epoch {:?}.",
+                    epoch
+                ),
+                nested_error: Some(e),
+            })?;
+
+        self.runner.register_signer_to_aggregator()
             .await.map_err(|e| {
             if e.downcast_ref::<ProtocolInitializerError>().is_some() {
                 RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", epoch), nested_error: Some(e) }
@@ -392,34 +398,18 @@ impl StateMachine {
         self.metrics_service
             .signature_registration_total_since_startup_counter_increment();
 
-        let signers: Vec<SignerWithStake> = self
-            .runner
-            .associate_signers_with_stake(retrieval_epoch, &pending_certificate.signers)
-            .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not associate current signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?}, retrieval epoch {retrieval_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-        let next_signers: Vec<SignerWithStake> = self
-            .runner
-            .associate_signers_with_stake(next_retrieval_epoch, &pending_certificate.next_signers)
-            .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not associate next signers with stakes during 'registered → signed' phase (current epoch {current_epoch:?}, next retrieval epoch {next_retrieval_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-
         let message = self
             .runner
-            .compute_message(&pending_certificate.signed_entity_type, &next_signers)
+            .compute_message(&pending_certificate.signed_entity_type)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute message during 'registered → signed' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
+
         let single_signatures = self
             .runner
-            .compute_single_signature(current_epoch, &message, &signers)
+            .compute_single_signature(current_epoch, &message)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute single signature during 'registered → signed' phase (current epoch {current_epoch:?})"),
@@ -474,6 +464,7 @@ impl StateMachine {
 mod tests {
     use mithril_common::entities::{CardanoDbBeacon, ChainPoint, Epoch, ProtocolMessage};
     use mithril_common::test_utils::fake_data;
+    use mockall::predicate;
 
     use crate::runtime::runner::MockSignerRunner;
 
@@ -526,6 +517,8 @@ mod tests {
             epoch: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             next_protocol_parameters: fake_data::protocol_parameters(),
+            current_signers: vec![],
+            next_signers: vec![],
         };
         let known_epoch = Epoch(4);
         runner
@@ -559,6 +552,13 @@ mod tests {
             .expect_get_epoch_settings()
             .once()
             .returning(|| Ok(Some(fake_data::epoch_settings())));
+
+        runner
+            .expect_inform_epoch_settings()
+            .with(predicate::eq(fake_data::epoch_settings()))
+            .once()
+            .returning(|_| Ok(()));
+
         runner
             .expect_get_current_time_point()
             .times(2)
@@ -570,7 +570,7 @@ mod tests {
         runner
             .expect_register_signer_to_aggregator()
             .once()
-            .returning(|_, _| Ok(()));
+            .returning(|| Ok(()));
 
         let state_machine = init_state_machine(
             SignerState::Unregistered {
@@ -686,17 +686,13 @@ mod tests {
             .returning(move || Ok(Some(certificate_pending.clone())));
         runner.expect_can_i_sign().once().returning(|_| Ok(true));
         runner
-            .expect_associate_signers_with_stake()
-            .times(2)
-            .returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
-        runner
             .expect_compute_single_signature()
             .once()
-            .returning(|_, _, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
+            .returning(|_, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
         runner
             .expect_compute_message()
             .once()
-            .returning(|_, _| Ok(ProtocolMessage::new()));
+            .returning(|_| Ok(ProtocolMessage::new()));
         runner
             .expect_send_single_signature()
             .once()

@@ -9,8 +9,9 @@ use mithril_common::signable_builder::SignableBuilderService;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::TickerService;
 use mithril_persistence::store::StakeStore;
+use tokio::sync::RwLock;
 
-use crate::services::{AggregatorClient, SingleSigner, UpkeepService};
+use crate::services::{AggregatorClient, EpochService, SingleSigner, UpkeepService};
 use crate::store::ProtocolInitializerStorer;
 use crate::MetricsService;
 
@@ -21,6 +22,9 @@ type DigesterService = Arc<dyn ImmutableDigester>;
 type SingleSignerService = Arc<dyn SingleSigner>;
 type TimePointProviderService = Arc<dyn TickerService>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
+
+/// EpochServiceWrapper wraps a [EpochService]
+pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 
 /// This structure groups all the dependencies required by the state machine.
 pub struct SignerDependencyContainer {
@@ -68,4 +72,7 @@ pub struct SignerDependencyContainer {
 
     /// Upkeep service
     pub upkeep_service: Arc<dyn UpkeepService>,
+
+    /// Epoch service
+    pub epoch_service: EpochServiceWrapper,
 }

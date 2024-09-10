@@ -11,6 +11,7 @@
 
 mod aggregator_client;
 mod cardano_transactions;
+mod epoch_service;
 mod single_signer;
 mod upkeep_service;
 
@@ -18,5 +19,6 @@ mod upkeep_service;
 pub use aggregator_client::dumb::DumbAggregatorClient;
 pub use aggregator_client::*;
 pub use cardano_transactions::*;
+pub use epoch_service::*;
 pub use single_signer::*;
 pub use upkeep_service::*;

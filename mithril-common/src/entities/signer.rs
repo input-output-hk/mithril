@@ -42,6 +42,18 @@ impl PartialEq for Signer {
     }
 }
 
+impl PartialOrd for Signer {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Signer {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.party_id.cmp(&other.party_id)
+    }
+}
+
 impl Signer {
     /// Signer factory
     pub fn new(

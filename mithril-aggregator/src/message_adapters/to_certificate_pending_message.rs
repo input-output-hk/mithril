@@ -1,6 +1,6 @@
 use mithril_common::entities::CardanoDbBeacon;
 use mithril_common::{
-    entities::{CertificatePending, SignedEntityType, Signer},
+    entities::{CertificatePending, SignedEntityType},
     messages::{CertificatePendingMessage, SignerMessagePart},
 };
 
@@ -23,28 +23,9 @@ impl ToCertificatePendingMessageAdapter {
             signed_entity_type: certificate_pending.signed_entity_type,
             protocol_parameters: certificate_pending.protocol_parameters,
             next_protocol_parameters: certificate_pending.next_protocol_parameters,
-            signers: Self::adapt_signers(certificate_pending.signers),
-            next_signers: Self::adapt_signers(certificate_pending.next_signers),
+            signers: SignerMessagePart::from_signers(certificate_pending.signers),
+            next_signers: SignerMessagePart::from_signers(certificate_pending.next_signers),
         }
-    }
-}
-
-impl ToCertificatePendingMessageAdapter {
-    fn adapt_signers(signers: Vec<Signer>) -> Vec<SignerMessagePart> {
-        signers
-            .into_iter()
-            .map(|signer| SignerMessagePart {
-                party_id: signer.party_id,
-                verification_key: signer.verification_key.try_into().unwrap(),
-                verification_key_signature: signer
-                    .verification_key_signature
-                    .map(|k| k.try_into().unwrap()),
-                kes_period: signer.kes_period,
-                operational_certificate: signer
-                    .operational_certificate
-                    .map(|o| o.try_into().unwrap()),
-            })
-            .collect()
     }
 }
 
@@ -95,6 +76,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn adapt_signers() {
         let fake_signers = fake_data::signers(5);
         let signers = fake_signers[1..3].to_vec();

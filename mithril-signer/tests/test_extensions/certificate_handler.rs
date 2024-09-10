@@ -40,7 +40,6 @@ impl FakeAggregator {
 
     pub async fn get_registered_signers(&self, epoch: &Epoch) -> Option<Vec<Signer>> {
         let store = self.registered_signers.read().await;
-
         store.get(epoch).cloned()
     }
 
@@ -66,6 +65,29 @@ impl FakeAggregator {
 
         Ok(time_point)
     }
+
+    async fn get_current_signers(
+        &self,
+        store: &HashMap<Epoch, Vec<Signer>>,
+    ) -> Result<Vec<Signer>, AggregatorClientError> {
+        let time_point = self.get_time_point().await?;
+        let epoch = time_point
+            .epoch
+            .offset_to_signer_retrieval_epoch()
+            .map_err(|e| AggregatorClientError::RemoteServerTechnical(anyhow!(e)))?;
+
+        Ok(store.get(&epoch).cloned().unwrap_or_default())
+    }
+
+    async fn get_next_signers(
+        &self,
+        store: &HashMap<Epoch, Vec<Signer>>,
+    ) -> Result<Vec<Signer>, AggregatorClientError> {
+        let time_point = self.get_time_point().await?;
+        let epoch = time_point.epoch.offset_to_next_signer_retrieval_epoch();
+
+        Ok(store.get(&epoch).cloned().unwrap_or_default())
+    }
 }
 
 #[async_trait]
@@ -76,9 +98,15 @@ impl AggregatorClient for FakeAggregator {
         if *self.withhold_epoch_settings.read().await {
             Ok(None)
         } else {
-            let beacon = self.get_time_point().await?;
+            let store = self.registered_signers.read().await;
+            let time_point = self.get_time_point().await?;
+            let current_signers = self.get_current_signers(&store).await?;
+            let next_signers = self.get_next_signers(&store).await?;
+
             Ok(Some(EpochSettings {
-                epoch: beacon.epoch,
+                epoch: time_point.epoch,
+                current_signers,
+                next_signers,
                 ..Default::default()
             }))
         }
@@ -104,15 +132,8 @@ impl AggregatorClient for FakeAggregator {
             ..fake_data::certificate_pending()
         };
 
-        let store = self.registered_signers.read().await;
-        certificate_pending.signers = store
-            .get(&time_point.epoch.offset_to_signer_retrieval_epoch().unwrap())
-            .cloned()
-            .unwrap_or_default();
-        certificate_pending.next_signers = store
-            .get(&time_point.epoch.offset_to_next_signer_retrieval_epoch())
-            .cloned()
-            .unwrap_or_default();
+        certificate_pending.signers = self.get_current_signers(&store).await?;
+        certificate_pending.next_signers = self.get_next_signers(&store).await?;
 
         Ok(Some(certificate_pending))
     }
@@ -210,6 +231,55 @@ mod tests {
             .expect("we should have a result, None found!");
 
         assert_eq!(2, signers.len());
+    }
+
+    #[tokio::test]
+    async fn retrieve_epoch_settings() {
+        let (chain_observer, fake_aggregator) = init().await;
+        let fake_signers = fake_data::signers(3);
+        let epoch = chain_observer.get_current_epoch().await.unwrap().unwrap();
+
+        fake_aggregator.release_epoch_settings().await;
+
+        fake_aggregator
+            .register_signer(epoch, &fake_signers.as_slice()[0])
+            .await
+            .expect("aggregator client should not fail while registering a user");
+        let epoch_settings = fake_aggregator
+            .retrieve_epoch_settings()
+            .await
+            .expect("we should have a result, None found!")
+            .expect("we should have an EpochSettings, None found!");
+
+        assert_eq!(0, epoch_settings.current_signers.len());
+        assert_eq!(1, epoch_settings.next_signers.len());
+
+        fake_aggregator
+            .register_signer(epoch, &fake_signers.as_slice()[1])
+            .await
+            .expect("aggregator client should not fail while registering a user");
+        let epoch_settings = fake_aggregator
+            .retrieve_epoch_settings()
+            .await
+            .expect("we should have a result, None found!")
+            .expect("we should have an EpochSettings, None found!");
+
+        assert_eq!(0, epoch_settings.current_signers.len());
+        assert_eq!(2, epoch_settings.next_signers.len());
+
+        let epoch = chain_observer.next_epoch().await.unwrap();
+        fake_aggregator
+            .register_signer(epoch, &fake_signers.as_slice()[2])
+            .await
+            .expect("aggregator client should not fail while registering a user");
+        let epoch_settings = fake_aggregator
+            .retrieve_epoch_settings()
+            .await
+            .expect("we should have a result, None found!")
+            .expect("we should have an EpochSettings, None found!");
+
+        assert_eq!(2, epoch_settings.current_signers.len());
+        assert_eq!(1, epoch_settings.next_signers.len());
     }
 
     #[tokio::test]
