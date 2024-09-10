@@ -31,13 +31,13 @@ pub struct SingleSignatures {
 
 impl SingleSignatures {
     /// `SingleSignatures` factory
-    pub fn new(
-        party_id: PartyId,
+    pub fn new<T: Into<PartyId>>(
+        party_id: T,
         signature: ProtocolSingleSignature,
         won_indexes: Vec<LotteryIndex>,
     ) -> SingleSignatures {
         SingleSignatures {
-            party_id,
+            party_id: party_id.into(),
             signature,
             won_indexes,
             signed_message: None,
@@ -45,14 +45,14 @@ impl SingleSignatures {
     }
 
     /// `SingleSignatures` factory including the signed message
-    pub fn new_with_signed_message(
-        party_id: PartyId,
+    pub fn new_with_signed_message<T: Into<PartyId>>(
+        party_id: T,
         signature: ProtocolSingleSignature,
         won_indexes: Vec<LotteryIndex>,
         signed_message: String,
     ) -> SingleSignatures {
         SingleSignatures {
-            party_id,
+            party_id: party_id.into(),
             signature,
             won_indexes,
             signed_message: Some(signed_message),

@@ -770,8 +770,8 @@ create table buffered_single_signature (
     lottery_indexes                 json        not null,
     signature                       text        not null,
     created_at                      text        not null,
-    primary key (signed_entity_type_id, party_id),
-    unique(signature)
+    primary key (signed_entity_type_id, party_id) on conflict replace,
+    unique(signature) on conflict abort
 );
 
 create index buffered_single_signature_signed_entity_type_id on buffered_single_signature(signed_entity_type_id);

@@ -3,9 +3,7 @@ use sqlite::{ConnectionThreadSafe, Value};
 use std::path::Path;
 use uuid::Uuid;
 
-use mithril_common::entities::{
-    ProtocolParameters, SignedEntityTypeDiscriminants, SignerWithStake,
-};
+use mithril_common::entities::{ProtocolParameters, SignerWithStake};
 use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
@@ -95,26 +93,6 @@ pub fn setup_single_signature_records(
     single_signature_records
 }
 
-pub fn setup_buffered_single_signature_records(
-    total_epoch: u64,
-    total_signer: u64,
-) -> Vec<BufferedSingleSignatureRecord> {
-    let mut single_signature_records = Vec::new();
-    for epoch in 1..=total_epoch {
-        for signer_idx in 1..=total_signer {
-            let single_signature_id = epoch * signer_idx;
-            single_signature_records.push(BufferedSingleSignatureRecord {
-                signed_entity_type_id: SignedEntityTypeDiscriminants::CardanoTransactions,
-                party_id: format!("signer-{signer_idx}"),
-                lottery_indexes: (1..=single_signature_id).collect(),
-                signature: fake_keys::single_signature()[3].to_string(),
-                created_at: Utc::now(),
-            });
-        }
-    }
-    single_signature_records
-}
-
 pub fn insert_single_signatures_in_db(
     connection: &SqliteConnection,
     single_signature_records: Vec<SingleSignatureRecord>,
@@ -187,11 +165,11 @@ pub fn insert_buffered_single_signatures(
         let mut statement = connection.prepare(&query)?;
 
         statement.bind::<&[(_, Value)]>(&[
-            (1, record.party_id.into()),
             (
-                2,
+                1,
                 Value::Integer(record.signed_entity_type_id.index() as i64),
             ),
+            (2, record.party_id.into()),
             (3, serde_json::to_string(&record.lottery_indexes)?.into()),
             (4, record.signature.into()),
             (5, record.created_at.to_rfc3339().into()),

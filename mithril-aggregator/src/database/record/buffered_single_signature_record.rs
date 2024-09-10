@@ -118,10 +118,10 @@ impl SqLiteEntity for BufferedSingleSignatureRecord {
     where
         Self: Sized,
     {
-        let party_id = row.read::<&str, _>(0).to_string();
-        let signed_entity_type_id = usize::try_from(row.read::<i64, _>(1)).map_err(|e| {
+        let signed_entity_type_id = usize::try_from(row.read::<i64, _>(0)).map_err(|e| {
             panic!("Integer field signed_entity_type_id cannot be turned into usize: {e}")
         })?;
+        let party_id = row.read::<&str, _>(1).to_string();
         let lottery_indexes_str = row.read::<&str, _>(2);
         let signature = row.read::<&str, _>(3).to_string();
         let created_at = row.read::<&str, _>(4);
@@ -155,12 +155,12 @@ impl SqLiteEntity for BufferedSingleSignatureRecord {
 
     fn get_projection() -> Projection {
         let mut projection = Projection::default();
-        projection.add_field("party_id", "{:buffered_single_signature:}.party_id", "text");
         projection.add_field(
             "signed_entity_type_id",
             "{:buffered_single_signature:}.signed_entity_type_id",
             "integer",
         );
+        projection.add_field("party_id", "{:buffered_single_signature:}.party_id", "text");
         projection.add_field(
             "lottery_indexes",
             "{:buffered_single_signature:}.lottery_indexes",
