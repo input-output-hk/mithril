@@ -47,19 +47,39 @@ impl BufferedSingleSignatureRecord {
 impl BufferedSingleSignatureRecord {
     pub(crate) fn fake<T: Into<String>>(
         party_id: T,
-        discriminants: SignedEntityTypeDiscriminants,
+        discriminant: SignedEntityTypeDiscriminants,
     ) -> Self {
-        use mithril_common::test_utils::fake_keys;
+        // Note: due to the unique constraint on the signature column, we want to make sure that
+        // the signatures are different for party_id/discriminant pairs.
+        // We can't just reuse fake_data::single_signatures as they are static.
+        use mithril_common::entities::{ProtocolMessage, ProtocolParameters};
+        use mithril_common::test_utils::{
+            MithrilFixtureBuilder, StakeDistributionGenerationMethod,
+        };
 
-        let signature = fake_keys::single_signature()[0].try_into().unwrap();
+        let party_id = party_id.into();
+        let fixture = MithrilFixtureBuilder::default()
+            .with_signers(1)
+            .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
+                std::collections::BTreeMap::from([(
+                    format!("{:<032}", format!("{party_id}{discriminant}")),
+                    100,
+                )]),
+            ))
+            .with_protocol_parameters(ProtocolParameters::new(1, 1, 1.0))
+            .build();
+        let signature = fixture.signers_fixture()[0]
+            .sign(&ProtocolMessage::default())
+            .unwrap();
+
         Self::try_from_single_signatures(
             &SingleSignatures {
-                party_id: party_id.into(),
-                signature,
+                party_id,
+                signature: signature.signature,
                 won_indexes: vec![10, 15],
                 signed_message: None,
             },
-            discriminants,
+            discriminant,
         )
         .unwrap()
     }
@@ -167,6 +187,9 @@ impl SqLiteEntity for BufferedSingleSignatureRecord {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::SignedEntityTypeDiscriminants::{
+        CardanoTransactions, MithrilStakeDistribution,
+    };
     use mithril_common::test_utils::fake_data;
 
     use super::*;
@@ -176,11 +199,28 @@ mod tests {
         let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
         let single_signature_record = BufferedSingleSignatureRecord::try_from_single_signatures(
             &single_signature,
-            SignedEntityTypeDiscriminants::CardanoTransactions,
+            CardanoTransactions,
         )
         .unwrap();
         let single_signature_returned = single_signature_record.try_into().unwrap();
 
         assert_eq!(single_signature, single_signature_returned);
+    }
+
+    #[test]
+    fn building_fake_generate_different_protocol_single_signature() {
+        assert_eq!(
+            BufferedSingleSignatureRecord::fake("party_1", CardanoTransactions).signature,
+            BufferedSingleSignatureRecord::fake("party_1", CardanoTransactions).signature
+        );
+
+        assert_ne!(
+            BufferedSingleSignatureRecord::fake("party_1", CardanoTransactions).signature,
+            BufferedSingleSignatureRecord::fake("party_2", CardanoTransactions).signature
+        );
+        assert_ne!(
+            BufferedSingleSignatureRecord::fake("party_1", CardanoTransactions).signature,
+            BufferedSingleSignatureRecord::fake("party_1", MithrilStakeDistribution).signature
+        );
     }
 }
