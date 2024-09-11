@@ -309,19 +309,6 @@ impl StateMachineTester {
     }
 
     /// cycle the state machine and test the resulting state
-    pub async fn cycle_registered(&mut self) -> Result<&mut Self> {
-        self.cycle().await?;
-
-        self.assert(
-            self.state_machine.get_state().await.is_registered(),
-            format!(
-                "state machine is in {} state (Registered was expected)",
-                self.state_machine.get_state().await
-            ),
-        )
-    }
-
-    /// cycle the state machine and test the resulting state
     pub async fn cycle_ready_to_sign(&mut self) -> Result<&mut Self> {
         self.cycle().await?;
 
@@ -367,19 +354,6 @@ impl StateMachineTester {
                 .is_registered_not_able_to_sign(),
             format!(
                 "state machine is in {} state (RegisteredNotAbleToSign was expected)",
-                self.state_machine.get_state().await
-            ),
-        )
-    }
-
-    /// cycle the state machine and test the resulting state
-    pub async fn cycle_signed(&mut self) -> Result<&mut Self> {
-        self.cycle().await?;
-
-        self.assert(
-            self.state_machine.get_state().await.is_signed(),
-            format!(
-                "state machine is in {} state (Signed was expected)",
                 self.state_machine.get_state().await
             ),
         )

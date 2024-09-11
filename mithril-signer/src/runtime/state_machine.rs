@@ -23,23 +23,6 @@ pub enum SignerState {
         epoch: Epoch,
     },
 
-    /// `Registered` state. The signer has successfully registered against the
-    /// aggregator for this Epoch, it is now able to sign.
-    Registered {
-        /// Epoch when Signer may sign.
-        epoch: Epoch,
-    },
-
-    /// `Signed` state. The signer has signed the message for the
-    /// current pending certificate.
-    Signed {
-        /// Epoch when signer signed.
-        epoch: Epoch,
-
-        /// Entity type that is signed
-        signed_entity_type: SignedEntityType,
-    },
-
     /// `ReadyToSign` state. The signer is registered and ready to sign new messages.
     ReadyToSign {
         /// Time point when signer transited to the state.
@@ -67,11 +50,6 @@ impl SignerState {
         matches!(*self, SignerState::Unregistered { epoch: _ })
     }
 
-    /// Returns `true` if the state in `Registered`
-    pub fn is_registered(&self) -> bool {
-        matches!(*self, SignerState::Registered { epoch: _ })
-    }
-
     /// Returns `true` if the state in `ReadyToSign`
     pub fn is_ready_to_sign(&self) -> bool {
         matches!(
@@ -87,17 +65,6 @@ impl SignerState {
     pub fn is_registered_not_able_to_sign(&self) -> bool {
         matches!(*self, SignerState::RegisteredNotAbleToSign { epoch: _ })
     }
-
-    /// Returns `true` if the state in `Signed`
-    pub fn is_signed(&self) -> bool {
-        matches!(
-            *self,
-            SignerState::Signed {
-                epoch: _,
-                signed_entity_type: _
-            }
-        )
-    }
 }
 
 impl Display for SignerState {
@@ -105,11 +72,6 @@ impl Display for SignerState {
         match self {
             Self::Init => write!(f, "Init"),
             Self::Unregistered { epoch } => write!(f, "Unregistered - {epoch:?}"),
-            Self::Registered { epoch } => write!(f, "Registered - {epoch}"),
-            Self::Signed {
-                epoch,
-                signed_entity_type,
-            } => write!(f, "Signed - {epoch} - {signed_entity_type:?}"),
             Self::RegisteredNotAbleToSign { epoch } => {
                 write!(f, "RegisteredNotAbleToSign - {epoch}")
             }
@@ -223,15 +185,6 @@ impl StateMachine {
                 } else {
                     info!("→ No epoch settings found yet, waiting…");
                 }
-            }
-            SignerState::Registered { epoch: _epoch } => {
-                todo!("Will be removed")
-            }
-            SignerState::Signed {
-                epoch: _epoch,
-                signed_entity_type: _signed_entity_type,
-            } => {
-                todo!("Will be removed")
             }
             SignerState::RegisteredNotAbleToSign { epoch } => {
                 if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
