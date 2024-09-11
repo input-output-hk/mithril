@@ -196,50 +196,69 @@ impl StateMachine {
                     info!(" ⋅ Epoch has NOT changed, waiting…");
                 }
             }
+
             SignerState::ReadyToSign {
                 time_point,
                 last_signed_entity_type,
             } => {
+                fn is_same_signed_entity_type(
+                    last_signed_entity_type: &Option<SignedEntityType>,
+                    pending_certificate: &CertificatePending,
+                ) -> bool {
+                    Some(&pending_certificate.signed_entity_type)
+                        == last_signed_entity_type.as_ref()
+                }
+
                 if let Some(new_epoch) = self.has_epoch_changed(time_point.epoch).await? {
                     info!("→ Epoch has changed, transiting to UNREGISTERED");
                     *state = self
                         .transition_from_ready_to_sign_to_unregistered(new_epoch)
                         .await?;
-                } else if let Some(pending_certificate) =
-                    self.runner.get_pending_certificate().await.map_err(|e| {
+                } else {
+                    match self.runner.get_pending_certificate().await.map_err(|e| {
                         RuntimeError::KeepState {
                             message: "could not fetch the pending certificate".to_string(),
                             nested_error: Some(e),
                         }
-                    })?
-                {
-                    let is_same_signed_entity_type = last_signed_entity_type
-                        .as_ref()
-                        .map_or(false, |s| s == &pending_certificate.signed_entity_type);
-
-                    if !is_same_signed_entity_type {
-                        info!(
-                            " ⋅ Epoch has NOT changed but there is a pending certificate";
-                            "pending_certificate" => ?pending_certificate
-                        );
-
-                        if self
-                            .runner
-                            .can_sign_signed_entity_type(&pending_certificate.signed_entity_type)
-                            .await
+                    })? {
+                        Some(pending_certificate)
+                            if is_same_signed_entity_type(
+                                last_signed_entity_type,
+                                &pending_certificate,
+                            ) =>
                         {
+                            info!(" ⋅ same entity type, cannot sign pending certificate, waiting…");
+                        }
+                        Some(pending_certificate)
+                            if self
+                                .runner
+                                .can_sign_signed_entity_type(
+                                    &pending_certificate.signed_entity_type,
+                                )
+                                .await =>
+                        {
+                            info!(
+                                " ⋅ Epoch has NOT changed but there is a pending certificate";
+                                "pending_certificate" => ?pending_certificate
+                            );
                             info!(" → we can sign this certificate, transiting to READY_TO_SIGN");
                             *state = self
                                 .transition_from_ready_to_sign_to_ready_to_sign(
                                     &pending_certificate,
                                 )
                                 .await?;
-                        } else {
+                        }
+                        Some(pending_certificate) => {
+                            info!(
+                                " ⋅ Epoch has NOT changed but there is a pending certificate";
+                                "pending_certificate" => ?pending_certificate
+                            );
                             info!(" ⋅ cannot sign this pending certificate, waiting…");
                         }
+                        None => {
+                            info!(" ⋅ no pending certificate, waiting…");
+                        }
                     }
-                } else {
-                    info!(" ⋅ no pending certificate, waiting…");
                 }
             }
         };
