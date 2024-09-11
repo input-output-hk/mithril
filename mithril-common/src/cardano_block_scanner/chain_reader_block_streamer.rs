@@ -59,9 +59,17 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                         .position(|block| block.slot_number == rollback_slot_number);
                     match index_rollback {
                         Some(index_rollback) => {
+                            debug!(
+                                self.logger,
+                                "ChainScannedBlocks handled a buffer RollBackward({rollback_slot_number:?})"
+                            );
                             roll_forwards.truncate(index_rollback + 1);
                         }
                         None => {
+                            debug!(
+                                self.logger,
+                                "ChainScannedBlocks triggered a full RollBackward({rollback_slot_number:?})"
+                            );
                             chain_scanned_blocks =
                                 ChainScannedBlocks::RollBackward(rollback_slot_number);
                             return Ok(Some(chain_scanned_blocks));
@@ -132,7 +140,7 @@ impl ChainReaderBlockStreamer {
             Some(ChainBlockNextAction::RollBackward {
                 slot_number: rollback_slot_number,
             }) => {
-                debug!(
+                trace!(
                     self.logger,
                     "ChainReaderBlockStreamer received a RollBackward({rollback_slot_number:?})"
                 );

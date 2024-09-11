@@ -215,12 +215,13 @@ impl CardanoTransactionRepository {
         Ok(())
     }
 
-    /// Get the block number for a given slot number
-    pub async fn get_block_number_by_slot_number(
+    /// Get the closest block number above a given slot number
+    pub async fn get_closest_block_number_above_slot_number(
         &self,
         slot_number: SlotNumber,
     ) -> StdResult<Option<BlockNumber>> {
-        let query = GetCardanoTransactionQuery::by_slot_number(slot_number);
+        let query =
+            GetCardanoTransactionQuery::with_highest_block_number_below_slot_number(slot_number);
         let record = self.connection_pool.connection()?.fetch_first(query)?;
 
         Ok(record.map(|r| r.block_number))
@@ -277,7 +278,7 @@ impl CardanoTransactionRepository {
     ///
     /// * Remove transactions with block number strictly greater than the given block number
     /// * Remove block range roots that have lower bound range strictly above the given block number
-    pub async fn remove_rolled_back_transactions_and_block_range(
+    pub async fn remove_rolled_back_transactions_and_block_range_by_block_number(
         &self,
         block_number: BlockNumber,
     ) -> StdResult<()> {
@@ -290,6 +291,25 @@ impl CardanoTransactionRepository {
             DeleteBlockRangeRootQuery::contains_or_above_block_number_threshold(block_number)?;
         connection.fetch_first(query)?;
         transaction.commit()?;
+
+        Ok(())
+    }
+
+    /// Remove transactions and block range roots that are in a rolled-back fork
+    ///
+    /// * Remove transactions with closest block number strictly greater than the given slot number if exists
+    /// * Remove block range roots that have lower bound range strictly above the aforementioned block number
+    pub async fn remove_rolled_back_transactions_and_block_range_by_slot_number(
+        &self,
+        slot_number: SlotNumber,
+    ) -> StdResult<()> {
+        if let Some(block_number) = self
+            .get_closest_block_number_above_slot_number(slot_number)
+            .await?
+        {
+            self.remove_rolled_back_transactions_and_block_range_by_block_number(block_number)
+                .await?;
+        }
 
         Ok(())
     }
@@ -910,7 +930,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn repository_get_block_number_by_slot_number() {
+    async fn repository_get_closest_block_number_by_slot_number() {
         let connection = cardano_tx_db_connection().unwrap();
         let repository = CardanoTransactionRepository::new(Arc::new(
             SqliteConnectionPool::build_from_connection(connection),
@@ -927,7 +947,7 @@ mod tests {
             .unwrap();
 
         let transaction_block_number_retrieved = repository
-            .get_block_number_by_slot_number(SlotNumber(500))
+            .get_closest_block_number_above_slot_number(SlotNumber(500))
             .await
             .unwrap();
 
@@ -1215,10 +1235,113 @@ mod tests {
             .unwrap();
 
         repository
-            .remove_rolled_back_transactions_and_block_range(BlockRange::LENGTH * 3)
+            .remove_rolled_back_transactions_and_block_range_by_block_number(BlockRange::LENGTH * 3)
             .await
             .unwrap();
         assert_eq!(2, repository.get_all_transactions().await.unwrap().len());
         assert_eq!(2, repository.get_all_block_range_root().unwrap().len());
+    }
+
+    #[tokio::test]
+    async fn remove_rolled_back_transactions_and_block_range_by_slot_number() {
+        fn transaction_record(
+            block_number: BlockNumber,
+            slot_number: SlotNumber,
+            tx_hash: &str,
+        ) -> CardanoTransactionRecord {
+            CardanoTransactionRecord::new(
+                tx_hash,
+                block_number,
+                slot_number,
+                format!("block-hash-{}", block_number),
+            )
+        }
+
+        let repository = CardanoTransactionRepository::new(Arc::new(
+            SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap(),
+        ));
+
+        repository
+            .create_transactions(vec![
+                transaction_record(BlockNumber(10), SlotNumber(50), "tx-hash-1"),
+                transaction_record(BlockNumber(11), SlotNumber(51), "tx-hash-2"),
+                transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-3"),
+                transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-4"),
+                transaction_record(BlockNumber(101), SlotNumber(100), "tx-hash-5"),
+                transaction_record(BlockNumber(202), SlotNumber(200), "tx-hash-56"),
+            ])
+            .await
+            .unwrap();
+
+        {
+            repository
+                .remove_rolled_back_transactions_and_block_range_by_slot_number(SlotNumber(110))
+                .await
+                .expect("Failed to remove rolled back transactions");
+
+            let transactions = repository
+                .get_all()
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|v| v.into())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                vec![
+                    transaction_record(BlockNumber(10), SlotNumber(50), "tx-hash-1"),
+                    transaction_record(BlockNumber(11), SlotNumber(51), "tx-hash-2"),
+                    transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-3"),
+                    transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-4"),
+                    transaction_record(BlockNumber(101), SlotNumber(100), "tx-hash-5"),
+                ],
+                transactions
+            );
+        }
+
+        {
+            repository
+                .remove_rolled_back_transactions_and_block_range_by_slot_number(SlotNumber(53))
+                .await
+                .expect("Failed to remove rolled back transactions");
+
+            let transactions = repository
+                .get_all()
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|v| v.into())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                vec![
+                    transaction_record(BlockNumber(10), SlotNumber(50), "tx-hash-1"),
+                    transaction_record(BlockNumber(11), SlotNumber(51), "tx-hash-2"),
+                    transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-3"),
+                    transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-4"),
+                ],
+                transactions
+            );
+        }
+
+        {
+            repository
+                .remove_rolled_back_transactions_and_block_range_by_slot_number(SlotNumber(51))
+                .await
+                .expect("Failed to remove rolled back transactions");
+
+            let transactions = repository
+                .get_all()
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|v| v.into())
+                .collect::<Vec<_>>();
+            assert_eq!(
+                vec![
+                    transaction_record(BlockNumber(10), SlotNumber(50), "tx-hash-1"),
+                    transaction_record(BlockNumber(11), SlotNumber(51), "tx-hash-2"),
+                ],
+                transactions
+            );
+        }
     }
 }

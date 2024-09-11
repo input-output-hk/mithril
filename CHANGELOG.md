@@ -29,6 +29,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support infinite preloading of Cardano transactions in signer.
 
+- Fix Cardano transactions rollbacks creating panics in signer and aggregator.
+
 - **UNSTABLE** Cardano stake distribution certification:
 
   - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`.
