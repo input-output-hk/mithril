@@ -334,6 +334,28 @@ impl StateMachineTester {
         )
     }
 
+    pub async fn cycle_ready_to_sign_no_registration(&mut self) -> Result<&mut Self> {
+        let metric_before = self
+            .metrics_service
+            .signature_registration_success_since_startup_counter_get();
+
+        self.cycle_ready_to_sign().await?;
+
+        let expected_metric = metric_before;
+        self.check_total_signature_registrations_metrics(expected_metric)
+    }
+
+    pub async fn cycle_ready_to_sign_with_signature_registration(&mut self) -> Result<&mut Self> {
+        let metric_before = self
+            .metrics_service
+            .signature_registration_success_since_startup_counter_get();
+
+        self.cycle_ready_to_sign().await?;
+
+        let expected_metric = metric_before + 1;
+        self.check_total_signature_registrations_metrics(expected_metric)
+    }
+
     /// cycle the state machine and test the resulting state
     pub async fn cycle_registered_not_able_to_sign(&mut self) -> Result<&mut Self> {
         self.cycle().await?;
@@ -621,6 +643,20 @@ impl StateMachineTester {
         .into_iter()
         .map(|s| (s.metric, s.value))
         .collect::<BTreeMap<_, _>>())
+    }
+
+    pub fn check_total_signature_registrations_metrics(
+        &mut self,
+        expected_metric: u32,
+    ) -> Result<&mut Self> {
+        let metric = self
+            .metrics_service
+            .signature_registration_success_since_startup_counter_get();
+
+        self.assert(
+            expected_metric == metric,
+            format!("Total signature registrations metric: given {metric:?}, expected {expected_metric:?}"),
+        )
     }
 
     // Check that the metrics service exports the expected metrics

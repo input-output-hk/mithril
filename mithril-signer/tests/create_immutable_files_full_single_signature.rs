@@ -81,38 +81,29 @@ async fn test_create_immutable_files_full_single_signature() {
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(4)).await.unwrap()
 
-        .comment("creating a new certificate pending with new signers and new beacon → ReadyToSign")
-        .cycle_ready_to_sign().await.unwrap()
+        .comment("signer can now create a single signature → ReadyToSign")
+        .cycle_ready_to_sign_no_registration().await.unwrap()
         .check_protocol_initializer(Epoch(4)).await.unwrap()
 
-        .comment("signer can now create a single signature → ReadyToSign")
-        .cycle_ready_to_sign().await.unwrap()
         .comment("signer signs a single signature = ReadyToSign")
-        .cycle_ready_to_sign().await.unwrap()
-        // TODO?
-        // .expect_new_signature()
+        .cycle_ready_to_sign_with_signature_registration().await.unwrap()
 
-        // Should we remove this case?
-        //.comment("more cycles do not change the state = ReadyToSign")
-        //.cycle_ready_to_sign().await.unwrap()
-        // .cycle_ready_to_sign().await.unwrap()
+        .comment("more cycles do not change the state = ReadyToSign")
+        .cycle_ready_to_sign_no_registration().await.unwrap()
 
         .comment("new immutable means a new signature with the same stake distribution → ReadyToSign")
         .increase_immutable(1, 9).await.unwrap()
-        .cycle_ready_to_sign().await.unwrap()
-        // TODO?
-        // .expect_new_signature()
+        .cycle_ready_to_sign_with_signature_registration().await.unwrap()
 
         .comment("changing epoch changes the state → Unregistered")
         .increase_epoch(5).await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(5)).await.unwrap()
         .comment("signer should be able to create a single signature → ReadyToSign")
-        .cycle_ready_to_sign().await.unwrap()
-        .cycle_ready_to_sign().await.unwrap()
-        // TODO?
-        // .expect_new_signature()
-        //.check_total_signature_registrations_metrics(3).await.unwrap()
+
+        .check_total_signature_registrations_metrics(2).unwrap()
+        .cycle_ready_to_sign_no_registration().await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration().await.unwrap()
         .check_protocol_initializer(Epoch(5)).await.unwrap()
 
         .comment("metrics should be correctly computed")

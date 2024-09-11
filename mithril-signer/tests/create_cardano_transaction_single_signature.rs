@@ -58,20 +58,20 @@ async fn test_create_cardano_transaction_single_signature() {
         .cycle_unregistered().await.unwrap()
 
         .comment("signer can now create a single signature → ReadyToSign")
-        .cycle_ready_to_sign().await.unwrap()
+        .cycle_ready_to_sign_no_registration().await.unwrap()
 
         .comment("creating a new certificate pending with a cardano transaction signed entity → ReadyToSign")
         .increase_block_number_and_slot_number(70, SlotNumber(80), BlockNumber(170)).await.unwrap()
-        .cycle_ready_to_sign().await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration().await.unwrap()
 
         .comment("more cycles do not change the state = ReadyToSign")
-        .cycle_ready_to_sign().await.unwrap()
-        .cycle_ready_to_sign().await.unwrap()
+        .cycle_ready_to_sign_no_registration().await.unwrap()
+        .cycle_ready_to_sign_no_registration().await.unwrap()
 
         .comment("new blocks means a new signature with the same stake distribution → ReadyToSign")
         .increase_block_number_and_slot_number(125, SlotNumber(205), BlockNumber(295)).await.unwrap()
         .cardano_chain_send_rollback(SlotNumber(205), BlockNumber(230)).await.unwrap()
-        .cycle_ready_to_sign().await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration().await.unwrap()
 
         .comment("metrics should be correctly computed")
         .check_metrics(total_signer_registrations_expected,total_signature_registrations_expected).await.unwrap()
