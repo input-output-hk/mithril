@@ -42,7 +42,9 @@ impl Query for InsertOrReplaceBufferedSingleSignatureRecordQuery {
             "buffered_single_signature",
         )]));
 
-        format!("insert into buffered_single_signature {condition} returning {projection}")
+        format!(
+            "insert or replace into buffered_single_signature {condition} returning {projection}"
+        )
     }
 }
 
@@ -74,8 +76,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn cant_insert_two_record_sharing_the_same_signature() {
+    fn allow_to_insert_record_with_different_party_id_and_discriminant_but_different_signature() {
         let connection = main_db_connection().unwrap();
 
         let record = BufferedSingleSignatureRecord::fake("party_8", CardanoImmutableFilesFull);
@@ -94,13 +95,17 @@ mod tests {
             .fetch_first(InsertOrReplaceBufferedSingleSignatureRecordQuery::one(
                 other_record,
             ))
-            .expect_err(
-                "Unique constraint on signature should prevent inserting the same signature twice",
-            );
+            .unwrap();
+
+        let count = connection
+            .fetch(GetBufferedSingleSignatureQuery::all())
+            .unwrap()
+            .count();
+        assert_eq!(2, count);
     }
 
     #[test]
-    fn cant_inserted_same_record_twice_should_replace_first_insert() {
+    fn inserting_same_record_twice_should_replace_first_insert() {
         let connection = main_db_connection().unwrap();
 
         let record = BufferedSingleSignatureRecord::fake("party_8", CardanoImmutableFilesFull);
