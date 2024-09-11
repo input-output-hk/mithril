@@ -56,7 +56,7 @@ In its initial version, the **Mithril signer** consists of a primary component:
 
 - A runtime powered by a state machine:
   - The runtime operates synchronously and is programmed to run at consistent intervals
-  - Three potential states exist: **UNREGISTERED**, **REGISTERED**, and **SIGNED**
+  - Four potential states exist: **INIT**, **UNREGISTERED**, **REGISTERED NOT ABLE TO SIGN** and **READY TO SIGN**.
   - The runtime effectively manages state transitions
   - The runtime's framework is depicted in the diagram below:
 
