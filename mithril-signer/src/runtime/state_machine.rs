@@ -770,7 +770,6 @@ mod tests {
             epoch: Epoch(9),
             chain_point: ChainPoint::dummy(),
         };
-        let time_point_clone = time_point.clone();
         let state = SignerState::ReadyToSign {
             time_point: time_point.clone(),
             last_signed_entity_type: None,
@@ -780,11 +779,12 @@ mod tests {
             epoch: time_point.epoch,
             ..fake_data::certificate_pending()
         };
+        let time_point_clone = time_point.clone();
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_time_point()
             .once()
-            .returning(move || Ok(time_point.to_owned()));
+            .returning(move || Ok(time_point_clone.to_owned()));
         runner
             .expect_get_pending_certificate()
             .once()
@@ -802,7 +802,7 @@ mod tests {
 
         assert_eq!(
             SignerState::ReadyToSign {
-                time_point: time_point_clone,
+                time_point,
                 last_signed_entity_type: None
             },
             state_machine.get_state().await,
@@ -812,76 +812,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ready_to_sign_to_ready_to_sign_when_can_sign_signed_entity_type() {
-        let time_point = TimePoint {
-            immutable_file_number: 99,
-            epoch: Epoch(9),
-            chain_point: ChainPoint::dummy(),
-        };
-        let time_point_clone = time_point.clone();
-        let state = SignerState::ReadyToSign {
-            time_point: time_point.clone(),
-            last_signed_entity_type: None,
-        };
-
-        let certificate_pending = CertificatePending {
-            epoch: time_point.epoch,
-            ..fake_data::certificate_pending()
-        };
-        let certificate_pending_clone = certificate_pending.clone();
-        let mut runner = MockSignerRunner::new();
-        runner
-            .expect_get_current_time_point()
-            .returning(move || Ok(time_point.to_owned()));
-        runner
-            .expect_get_pending_certificate()
-            .once()
-            .returning(move || Ok(Some(certificate_pending.clone())));
-        runner
-            .expect_compute_single_signature()
-            .once()
-            .returning(|_, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
-        runner
-            .expect_compute_message()
-            .once()
-            .returning(|_| Ok(ProtocolMessage::new()));
-        runner
-            .expect_send_single_signature()
-            .once()
-            .returning(|_, _| Ok(()));
-        runner
-            .expect_can_sign_signed_entity_type()
-            .once()
-            .returning(move |_| true);
-
-        let state_machine = init_state_machine(state, runner);
-        state_machine
-            .cycle()
-            .await
-            .expect("Cycling the state machine should not fail");
-
-        assert_eq!(
-            SignerState::ReadyToSign {
-                time_point: time_point_clone,
-                last_signed_entity_type: Some(certificate_pending_clone.signed_entity_type)
-            },
-            state_machine.get_state().await,
-            "state machine did not return a ReadyToSign state but {:?}",
-            state_machine.get_state().await
-        );
-    }
-
-    #[tokio::test]
     async fn ready_to_sign_to_ready_to_sign_when_same_state_than_previous_one() {
-        let time_point = TimePoint {
-            immutable_file_number: 99,
-            epoch: Epoch(9),
-            chain_point: ChainPoint::dummy(),
-        };
-        let time_point_clone = time_point.clone();
-
+        let time_point = TimePoint::dummy();
         let certificate_pending = CertificatePending {
-            epoch: time_point.epoch,
+            epoch: time_point.clone().epoch,
             ..fake_data::certificate_pending()
         };
         let certificate_pending_clone = certificate_pending.clone();
@@ -889,10 +823,11 @@ mod tests {
             time_point: time_point.clone(),
             last_signed_entity_type: Some(certificate_pending.signed_entity_type.clone()),
         };
+        let time_point_clone = time_point.clone();
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_time_point()
-            .returning(move || Ok(time_point.to_owned()));
+            .returning(move || Ok(time_point_clone.to_owned()));
         runner
             .expect_get_pending_certificate()
             .times(1)
@@ -909,7 +844,7 @@ mod tests {
 
         assert_eq!(
             SignerState::ReadyToSign {
-                time_point: time_point_clone,
+                time_point,
                 last_signed_entity_type: Some(certificate_pending_clone.signed_entity_type)
             },
             state_machine.get_state().await,
@@ -919,30 +854,64 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one() {
-        let time_point = TimePoint {
-            immutable_file_number: 99,
-            epoch: Epoch(9),
-            chain_point: ChainPoint::dummy(),
+    async fn ready_to_sign_to_ready_to_sign_when_can_sign_the_first_signed_entity_type() {
+        let time_point = TimePoint::dummy();
+        let state = SignerState::ReadyToSign {
+            time_point: time_point.clone(),
+            last_signed_entity_type: None,
         };
-        let time_point_clone = time_point.clone();
+        let certificate_pending = CertificatePending {
+            epoch: time_point.epoch,
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
+            ..fake_data::certificate_pending()
+        };
+        assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
+            state,
+            certificate_pending,
+        )
+        .await
+    }
+
+    #[tokio::test]
+    async fn ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one() {
+        let time_point = TimePoint::dummy();
         let state = SignerState::ReadyToSign {
             time_point: time_point.clone(),
             last_signed_entity_type: Some(SignedEntityType::CardanoStakeDistribution(
                 time_point.epoch,
             )),
         };
-
         let certificate_pending = CertificatePending {
             epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
             ..fake_data::certificate_pending()
         };
+
+        assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
+            state,
+            certificate_pending,
+        )
+        .await
+    }
+
+    async fn assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
+        state: SignerState,
+        certificate_pending: CertificatePending,
+    ) {
+        let time_point = match state.clone() {
+            SignerState::ReadyToSign {
+                time_point,
+                last_signed_entity_type: _,
+            } => time_point,
+            _ => panic!("Invalid state, use only ReadyToSign"),
+        };
+
         let certificate_pending_clone = certificate_pending.clone();
+        let time_point_clone = time_point.clone();
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_time_point()
-            .returning(move || Ok(time_point.to_owned()));
+            .returning(move || Ok(time_point_clone.to_owned()));
         runner
             .expect_get_pending_certificate()
             .once()
@@ -972,7 +941,7 @@ mod tests {
 
         assert_eq!(
             SignerState::ReadyToSign {
-                time_point: time_point_clone,
+                time_point,
                 last_signed_entity_type: Some(certificate_pending_clone.signed_entity_type)
             },
             state_machine.get_state().await,
