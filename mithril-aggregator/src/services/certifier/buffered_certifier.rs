@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use slog::{debug, warn, Logger};
+use slog::{debug, trace, warn, Logger};
 use std::sync::Arc;
 
 use mithril_common::entities::{
@@ -45,15 +45,33 @@ impl BufferedCertifierService {
             .buffered_single_signature_store
             .get_buffered_signatures(discriminant)
             .await?;
+        let mut signatures_to_remove = vec![];
 
-        for signature in &buffered_signatures {
-            self.certifier_service
-                .register_single_signature(signed_entity_type, signature)
-                .await?;
+        for signature in buffered_signatures {
+            match self
+                .certifier_service
+                .register_single_signature(signed_entity_type, &signature)
+                .await
+            {
+                Ok(..) => {
+                    signatures_to_remove.push(signature);
+                }
+                Err(error) => match error.downcast_ref::<CertifierServiceError>() {
+                    Some(CertifierServiceError::InvalidSingleSignature(..)) => {
+                        trace!(self.logger, "Skipping invalid signature for signed entity '{signed_entity_type:?}'";
+                            "party_id" => &signature.party_id,
+                            "error" => ?error,
+                        );
+                    }
+                    _ => {
+                        anyhow::bail!(error);
+                    }
+                },
+            }
         }
 
         self.buffered_single_signature_store
-            .remove_buffered_signatures(discriminant, buffered_signatures)
+            .remove_buffered_signatures(discriminant, signatures_to_remove)
             .await?;
 
         Ok(())
@@ -298,6 +316,8 @@ mod tests {
     }
 
     mod when_failing_to_transfer_buffered_signature_to_new_open_message {
+        use mockall::predicate::always;
+
         use super::*;
 
         async fn run_scenario(
@@ -318,6 +338,49 @@ mod tests {
                 )
                 .await
                 .expect("Transferring buffered signatures to new open message should not fail");
+        }
+
+        #[tokio::test]
+        async fn skip_invalid_signatures() {
+            run_scenario(
+                |mock| {
+                    mock.expect_create_open_message()
+                        .returning(|_, _| Ok(OpenMessage::dummy()));
+
+                    mock.expect_register_single_signature()
+                        .with(always(), eq(fake_data::single_signatures(vec![1])))
+                        .returning(|_, _| Ok(()))
+                        .once();
+                    mock.expect_register_single_signature()
+                        .with(always(), eq(fake_data::single_signatures(vec![2])))
+                        .returning(|_, _| {
+                            Err(CertifierServiceError::InvalidSingleSignature(
+                                OpenMessage::dummy().signed_entity_type,
+                                anyhow!("Invalid signature"),
+                            )
+                            .into())
+                        })
+                        .once();
+                    mock.expect_register_single_signature()
+                        .with(always(), eq(fake_data::single_signatures(vec![3])))
+                        .returning(|_, _| Ok(()))
+                        .once();
+                },
+                |mock| {
+                    mock.expect_get_buffered_signatures().returning(|_| {
+                        Ok(vec![
+                            fake_data::single_signatures(vec![1]),
+                            fake_data::single_signatures(vec![2]),
+                            fake_data::single_signatures(vec![3]),
+                        ])
+                    });
+                    mock.expect_remove_buffered_signatures()
+                        // Only non-skipped signatures should be removed
+                        .withf(|_, sig_to_remove| sig_to_remove.len() == 2)
+                        .returning(|_, _| Ok(()));
+                },
+            )
+            .await;
         }
 
         #[tokio::test]
