@@ -4,7 +4,6 @@ use chrono::Utc;
 use slog::Logger;
 use slog_scope::{debug, info, trace, warn};
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use mithril_common::certificate_chain::CertificateVerifier;
 use mithril_common::crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION};
@@ -31,7 +30,7 @@ pub struct MithrilCertifierService {
     certificate_repository: Arc<CertificateRepository>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
-    multi_signer: Arc<RwLock<dyn MultiSigner>>,
+    multi_signer: Arc<dyn MultiSigner>,
     // todo: should be removed after removing immutable file number from the certificate metadata
     ticker_service: Arc<dyn TickerService>,
     epoch_service: EpochServiceWrapper,
@@ -48,7 +47,7 @@ impl MithrilCertifierService {
         certificate_repository: Arc<CertificateRepository>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
-        multi_signer: Arc<RwLock<dyn MultiSigner>>,
+        multi_signer: Arc<dyn MultiSigner>,
         ticker_service: Arc<dyn TickerService>,
         epoch_service: EpochServiceWrapper,
         logger: Logger,
@@ -129,8 +128,7 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
 
-        let multi_signer = self.multi_signer.read().await;
-        multi_signer
+        self.multi_signer
             .verify_single_signature(&open_message.protocol_message, signature)
             .await
             .map_err(|err| {
@@ -241,8 +239,11 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
 
-        let multi_signer = self.multi_signer.read().await;
-        let multi_signature = match multi_signer.create_multi_signature(&open_message).await? {
+        let multi_signature = match self
+            .multi_signer
+            .create_multi_signature(&open_message)
+            .await?
+        {
             None => {
                 debug!("CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
                 return Ok(None);
@@ -383,6 +384,7 @@ mod tests {
         entities::{CardanoDbBeacon, ProtocolMessagePartKey},
         test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder},
     };
+    use tokio::sync::RwLock;
 
     use super::*;
 
@@ -825,7 +827,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let mut certifier_service =
             setup_certifier_service(&fixture, &epochs_with_signers, None).await;
-        certifier_service.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        certifier_service.multi_signer = Arc::new(mock_multi_signer);
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
             .await

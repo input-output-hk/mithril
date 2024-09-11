@@ -36,9 +36,6 @@ use crate::{
     SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
 };
 
-/// MultiSignerWrapper wraps a [MultiSigner]
-pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
-
 /// EpochServiceWrapper wraps a [EpochService]
 pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 
@@ -67,7 +64,7 @@ pub struct DependencyContainer {
     pub snapshot_uploader: Arc<dyn SnapshotUploader>,
 
     /// Multisigner service.
-    pub multi_signer: MultiSignerWrapper,
+    pub multi_signer: Arc<dyn MultiSigner>,
 
     /// Certificate pending store.
     pub certificate_pending_store: Arc<CertificatePendingStore>,

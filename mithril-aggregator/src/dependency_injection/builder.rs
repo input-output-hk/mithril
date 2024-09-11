@@ -116,7 +116,7 @@ pub struct DependenciesBuilder {
     pub snapshot_uploader: Option<Arc<dyn SnapshotUploader>>,
 
     /// Multisigner service.
-    pub multi_signer: Option<Arc<RwLock<dyn MultiSigner>>>,
+    pub multi_signer: Option<Arc<dyn MultiSigner>>,
 
     /// Certificate pending store.
     pub certificate_pending_store: Option<Arc<CertificatePendingStore>>,
@@ -450,14 +450,14 @@ impl DependenciesBuilder {
         Ok(self.snapshot_uploader.as_ref().cloned().unwrap())
     }
 
-    async fn build_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
+    async fn build_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
         let multi_signer = MultiSignerImpl::new(self.get_epoch_service().await?);
 
-        Ok(Arc::new(RwLock::new(multi_signer)))
+        Ok(Arc::new(multi_signer))
     }
 
     /// Get a configured multi signer
-    pub async fn get_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
+    pub async fn get_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
         if self.multi_signer.is_none() {
             self.multi_signer = Some(self.build_multi_signer().await?);
         }
