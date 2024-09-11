@@ -6,7 +6,8 @@ use crate::{
         ProtocolAggregateVerificationKey, ProtocolAggregationError, ProtocolClerk,
         ProtocolMultiSignature,
     },
-    entities::{ProtocolMessage, SingleSignatures},
+    entities::SingleSignatures,
+    protocol::AsMessage,
     StdResult,
 };
 
@@ -25,10 +26,10 @@ impl MultiSigner {
     }
 
     /// Aggregate the given single signatures into a multi-signature
-    pub fn aggregate_single_signatures(
+    pub fn aggregate_single_signatures<T: AsMessage>(
         &self,
         single_signatures: &[SingleSignatures],
-        protocol_message: &ProtocolMessage,
+        message: &T,
     ) -> Result<ProtocolMultiSignature, ProtocolAggregationError> {
         let protocol_signatures: Vec<_> = single_signatures
             .iter()
@@ -36,10 +37,7 @@ impl MultiSigner {
             .collect();
 
         self.protocol_clerk
-            .aggregate(
-                &protocol_signatures,
-                protocol_message.compute_hash().as_bytes(),
-            )
+            .aggregate(&protocol_signatures, message.message_string().as_bytes())
             .map(|multi_sig| multi_sig.into())
     }
 
@@ -49,9 +47,9 @@ impl MultiSigner {
     }
 
     /// Verify a single signature
-    pub fn verify_single_signature(
+    pub fn verify_single_signature<T: AsMessage>(
         &self,
-        message: &ProtocolMessage,
+        message: &T,
         single_signature: &SingleSignatures,
     ) -> StdResult<()> {
         let protocol_signature = single_signature.to_protocol_signature();
@@ -76,7 +74,7 @@ impl MultiSigner {
                 &vk,
                 &stake,
                 &avk,
-                message.compute_hash().as_bytes(),
+                message.message_string().as_bytes(),
             )
             .with_context(|| {
                 format!(
@@ -94,7 +92,7 @@ mod test {
     use mithril_stm::StmSignatureError;
 
     use crate::{
-        entities::{ProtocolMessagePartKey, ProtocolParameters},
+        entities::{ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters},
         protocol::SignerBuilder,
         test_utils::fake_keys,
         test_utils::{MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod},
