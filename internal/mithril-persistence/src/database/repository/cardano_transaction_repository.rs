@@ -1247,9 +1247,10 @@ mod tests {
         fn transaction_record(
             block_number: BlockNumber,
             slot_number: SlotNumber,
+            tx_hash: &str,
         ) -> CardanoTransactionRecord {
             CardanoTransactionRecord::new(
-                format!("tx-hash-{}", slot_number),
+                tx_hash,
                 block_number,
                 slot_number,
                 format!("block-hash-{}", block_number),
@@ -1262,11 +1263,12 @@ mod tests {
 
         repository
             .create_transactions(vec![
-                transaction_record(BlockNumber(10), SlotNumber(50)),
-                transaction_record(BlockNumber(11), SlotNumber(51)),
-                transaction_record(BlockNumber(13), SlotNumber(52)),
-                transaction_record(BlockNumber(101), SlotNumber(100)),
-                transaction_record(BlockNumber(202), SlotNumber(200)),
+                transaction_record(BlockNumber(10), SlotNumber(50), "tx-hash-1"),
+                transaction_record(BlockNumber(11), SlotNumber(51), "tx-hash-2"),
+                transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-3"),
+                transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-4"),
+                transaction_record(BlockNumber(101), SlotNumber(100), "tx-hash-5"),
+                transaction_record(BlockNumber(202), SlotNumber(200), "tx-hash-56"),
             ])
             .await
             .unwrap();
@@ -1286,10 +1288,11 @@ mod tests {
                 .collect::<Vec<_>>();
             assert_eq!(
                 vec![
-                    transaction_record(BlockNumber(10), SlotNumber(50)),
-                    transaction_record(BlockNumber(11), SlotNumber(51)),
-                    transaction_record(BlockNumber(13), SlotNumber(52)),
-                    transaction_record(BlockNumber(101), SlotNumber(100)),
+                    transaction_record(BlockNumber(10), SlotNumber(50), "tx-hash-1"),
+                    transaction_record(BlockNumber(11), SlotNumber(51), "tx-hash-2"),
+                    transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-3"),
+                    transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-4"),
+                    transaction_record(BlockNumber(101), SlotNumber(100), "tx-hash-5"),
                 ],
                 transactions
             );
@@ -1310,9 +1313,10 @@ mod tests {
                 .collect::<Vec<_>>();
             assert_eq!(
                 vec![
-                    transaction_record(BlockNumber(10), SlotNumber(50)),
-                    transaction_record(BlockNumber(11), SlotNumber(51)),
-                    transaction_record(BlockNumber(13), SlotNumber(52)),
+                    transaction_record(BlockNumber(10), SlotNumber(50), "tx-hash-1"),
+                    transaction_record(BlockNumber(11), SlotNumber(51), "tx-hash-2"),
+                    transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-3"),
+                    transaction_record(BlockNumber(13), SlotNumber(52), "tx-hash-4"),
                 ],
                 transactions
             );
@@ -1333,8 +1337,8 @@ mod tests {
                 .collect::<Vec<_>>();
             assert_eq!(
                 vec![
-                    transaction_record(BlockNumber(10), SlotNumber(50)),
-                    transaction_record(BlockNumber(11), SlotNumber(51)),
+                    transaction_record(BlockNumber(10), SlotNumber(50), "tx-hash-1"),
+                    transaction_record(BlockNumber(11), SlotNumber(51), "tx-hash-2"),
                 ],
                 transactions
             );
