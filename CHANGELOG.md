@@ -9,6 +9,14 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2437.0] - UNRELEASED
+
 - **BREAKING** changes in Mithril client WASM:
 
   - Implementation of seamless transition from **unstable** to **stable** features.
@@ -21,17 +29,17 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support `file://` URLs for snapshot locations in Mithril client.
 
-- Support for Mithril signer memory optimization when signing Cardano transactions with multiple Merkle tree storage backends.
-
 - Add feature options `num-integer-backend` and `rug-backend` for `mithril-common` and `mithril-client` crates. Allows to disable `rug-backend` and avoid `LGPL` license usage.
 
 - Post `Chang` hard fork cleanup of the CI, devnet and infrastructure.
 
-- Support infinite preloading of Cardano transactions in signer.
+- Cardano transactions certification (stable for signer and aggregator):
 
-- Fix Cardano transactions rollbacks creating panics in signer and aggregator.
+  - Support for Mithril signer memory optimization when signing Cardano transactions with multiple Merkle tree storage backends.
+  - Support infinite preloading of Cardano transactions in signer.
+  - Fix Cardano transactions rollbacks creating panics in signer and aggregator.
 
-- **UNSTABLE** Cardano stake distribution certification:
+- Cardano stake distribution certification (stable for signer and aggregator):
 
   - Implement the signable and artifact builders for the signed entity type `CardanoStakeDistribution`.
   - Implement the HTTP routes related to the signed entity type `CardanoStakeDistribution` on the aggregator REST API.
@@ -62,9 +70,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.5.50`  |
+| mithril-client      | `0.8.10`  |
+| mithril-client-cli  | `0.9.9`   |
+| mithril-client-wasm | `0.3.8`   |
+| mithril-common      | `0.4.38`  |
+| mithril-signer      | `0.2.170` |
+| mithril-stm         | `0.3.26`  |
 
 ## Mithril Distribution [2428.0] - 2024-07-15
 
