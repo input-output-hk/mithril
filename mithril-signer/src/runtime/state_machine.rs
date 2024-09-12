@@ -28,7 +28,7 @@ pub enum SignerState {
         /// Time point when signer transited to the state.
         time_point: TimePoint,
 
-        /// Last signed entity type that the signer signed.
+        /// Last signed entity type that the signer signed since beginning of this state.
         last_signed_entity_type: Option<SignedEntityType>,
     },
 

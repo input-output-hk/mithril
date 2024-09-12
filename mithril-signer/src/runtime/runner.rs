@@ -13,9 +13,10 @@ use mithril_common::entities::{
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
+use tokio::sync::RwLockReadGuard;
 
 use crate::dependency_injection::SignerDependencyContainer;
-use crate::services::MithrilProtocolInitializerBuilder;
+use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 use crate::Configuration;
 
 /// This trait is mainly intended for mocking.
@@ -103,22 +104,20 @@ impl SignerRunner {
 
     /// Get the current signers with their stake.
     async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .current_signers_with_stake()
-            .await
+        let epoch_service = self.epoch_service_read().await;
+
+        epoch_service.current_signers_with_stake().await
     }
 
     /// Get the next signers with their stake.
     async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .next_signers_with_stake()
-            .await
+        let epoch_service = self.epoch_service_read().await;
+
+        epoch_service.next_signers_with_stake().await
+    }
+
+    async fn epoch_service_read(&self) -> RwLockReadGuard<'_, dyn EpochService> {
+        self.services.epoch_service.read().await
     }
 }
 
@@ -158,9 +157,14 @@ impl Runner for SignerRunner {
     async fn register_signer_to_aggregator(&self) -> StdResult<()> {
         debug!("RUNNER: register_signer_to_aggregator");
 
-        let epoch_service = self.services.epoch_service.read().await;
-        let epoch = epoch_service.epoch_of_current_data()?;
-        let protocol_parameters = epoch_service.next_protocol_parameters()?;
+        let (epoch, protocol_parameters) = {
+            // Release the lock quickly at the end of this scope.
+            let epoch_service = self.services.epoch_service.read().await;
+            let epoch = epoch_service.epoch_of_current_data()?;
+            let protocol_parameters = epoch_service.next_protocol_parameters()?;
+
+            (epoch, protocol_parameters.clone())
+        };
 
         let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch();
         let stake_distribution = self
@@ -204,7 +208,7 @@ impl Runner for SignerRunner {
         };
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             stake,
-            protocol_parameters,
+            &protocol_parameters,
             self.config.kes_secret_key_path.clone(),
             kes_period,
         )?;
@@ -256,12 +260,7 @@ impl Runner for SignerRunner {
     }
 
     async fn can_sign_current_epoch(&self) -> StdResult<bool> {
-        let epoch = self
-            .services
-            .epoch_service
-            .read()
-            .await
-            .epoch_of_current_data()?;
+        let epoch = self.epoch_service_read().await.epoch_of_current_data()?;
 
         if let Some(protocol_initializer) = self
             .services
@@ -271,15 +270,12 @@ impl Runner for SignerRunner {
         {
             debug!(" > got protocol initializer for this epoch ({epoch})");
 
-            return self
-                .services
-                .epoch_service
-                .read()
-                .await
-                .can_signer_sign_current_epoch(
-                    self.services.single_signer.get_party_id(),
-                    protocol_initializer,
-                );
+            let epoch_service = self.epoch_service_read().await;
+
+            return epoch_service.can_signer_sign_current_epoch(
+                self.services.single_signer.get_party_id(),
+                protocol_initializer,
+            );
         } else {
             warn!(" > NO protocol initializer found for this epoch ({epoch})",);
         }

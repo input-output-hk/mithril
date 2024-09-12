@@ -182,16 +182,10 @@ impl EpochService for MithrilEpochService {
         party_id: PartyId,
         protocol_initializer: ProtocolInitializer,
     ) -> StdResult<bool> {
-        let current_signer = self
-            .current_signers()?
-            .iter()
-            .find(|s| s.party_id == party_id)
-            .cloned();
-        let can_sign = current_signer.map_or(false, |s| {
-            s.verification_key == protocol_initializer.verification_key().into()
-        });
-
-        Ok(can_sign)
+        Ok(self.current_signers()?.iter().any(|s| {
+            s.party_id == party_id
+                && s.verification_key == protocol_initializer.verification_key().into()
+        }))
     }
 }
 
