@@ -20,7 +20,7 @@ use crate::database::repository::{
 };
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::entities::OpenMessage;
-use crate::services::{CertifierService, CertifierServiceError};
+use crate::services::{CertifierService, CertifierServiceError, RegistrationStatus};
 use crate::MultiSigner;
 
 /// Mithril CertifierService implementation
@@ -105,7 +105,7 @@ impl CertifierService for MithrilCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignatures,
-    ) -> StdResult<()> {
+    ) -> StdResult<RegistrationStatus> {
         debug!("CertifierService::register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
         trace!("CertifierService::register_single_signature"; "complete_single_signatures" => #?signature);
 
@@ -143,7 +143,7 @@ impl CertifierService for MithrilCertifierService {
         info!("CertifierService::register_single_signature: created pool '{}' single signature for {signed_entity_type:?}.", single_signature.signer_id);
         debug!("CertifierService::register_single_signature: created single signature for open message ID='{}'.", single_signature.open_message_id);
 
-        Ok(())
+        Ok(RegistrationStatus::Registered)
     }
 
     async fn create_open_message(

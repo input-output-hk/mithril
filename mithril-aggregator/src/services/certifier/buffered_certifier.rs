@@ -9,7 +9,9 @@ use mithril_common::entities::{
 use mithril_common::StdResult;
 
 use crate::entities::OpenMessage;
-use crate::services::{BufferedSingleSignatureStore, CertifierService, CertifierServiceError};
+use crate::services::{
+    BufferedSingleSignatureStore, CertifierService, CertifierServiceError, RegistrationStatus,
+};
 use crate::MultiSigner;
 
 /// A decorator of [CertifierService] that buffers that can buffer registration of single signatures
@@ -92,7 +94,7 @@ impl CertifierService for BufferedCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignatures,
-    ) -> StdResult<()> {
+    ) -> StdResult<RegistrationStatus> {
         match self
             .certifier_service
             .register_single_signature(signed_entity_type, signature)
@@ -140,7 +142,9 @@ impl CertifierService for BufferedCertifierService {
 
                             self.buffered_single_signature_store
                                 .buffer_signature(signed_entity_type.into(), signature)
-                                .await
+                                .await?;
+
+                            Ok(RegistrationStatus::Buffered)
                         }
                         None => Err(error),
                     }
@@ -273,7 +277,7 @@ mod tests {
         decorated_certifier_mock_config: impl FnOnce(&mut MockCertifierService),
         multi_signer_mock_config: impl FnOnce(&mut MockMultiSigner),
         signature_to_register: &SingleSignatures,
-    ) -> (StdResult<()>, Vec<SingleSignatures>) {
+    ) -> (StdResult<RegistrationStatus>, Vec<SingleSignatures>) {
         let store = Arc::new(InMemoryBufferedSingleSignatureStore::default());
         let certifier = BufferedCertifierService::new(
             mock_certifier(decorated_certifier_mock_config),
@@ -306,14 +310,15 @@ mod tests {
                 |mock_certifier| {
                     mock_certifier
                         .expect_register_single_signature()
-                        .returning(|_, _| Ok(()));
+                        .returning(|_, _| Ok(RegistrationStatus::Registered));
                 },
                 |_mock_multi_signer| {},
                 &signature,
             )
             .await;
 
-        registration_result.expect("Registration should have succeed");
+        let status = registration_result.expect("Registration should have succeed");
+        assert_eq!(status, RegistrationStatus::Registered);
         assert_eq!(
             buffered_signatures_after_registration,
             Vec::<SingleSignatures>::new()
@@ -347,7 +352,8 @@ mod tests {
                 )
                 .await;
 
-            registration_result.expect("Registration should have succeed");
+            let status = registration_result.expect("Registration should have succeed");
+            assert_eq!(status, RegistrationStatus::Buffered);
             assert_eq!(buffered_signatures_after_registration, vec![signature]);
         }
 
@@ -378,7 +384,8 @@ mod tests {
                 )
                 .await;
 
-            registration_result.expect("Registration should have succeed");
+            let status = registration_result.expect("Registration should have succeed");
+            assert_eq!(status, RegistrationStatus::Buffered);
             assert_eq!(buffered_signatures_after_registration, vec![signature]);
         }
 
@@ -476,14 +483,14 @@ mod tests {
                         eq(fake_data::single_signatures(vec![1])),
                     )
                     .once()
-                    .returning(|_, _| Ok(()));
+                    .returning(|_, _| Ok(RegistrationStatus::Registered));
                 mock.expect_register_single_signature()
                     .with(
                         eq(SignedEntityType::MithrilStakeDistribution(Epoch(5))),
                         eq(fake_data::single_signatures(vec![2])),
                     )
                     .once()
-                    .returning(|_, _| Ok(()));
+                    .returning(|_, _| Ok(RegistrationStatus::Registered));
             }),
             mock_multi_signer(|_| {}),
             store.clone(),
@@ -540,7 +547,7 @@ mod tests {
 
                     mock.expect_register_single_signature()
                         .with(always(), eq(fake_data::single_signatures(vec![1])))
-                        .returning(|_, _| Ok(()))
+                        .returning(|_, _| Ok(RegistrationStatus::Registered))
                         .once();
                     mock.expect_register_single_signature()
                         .with(always(), eq(fake_data::single_signatures(vec![2])))
@@ -554,7 +561,7 @@ mod tests {
                         .once();
                     mock.expect_register_single_signature()
                         .with(always(), eq(fake_data::single_signatures(vec![3])))
-                        .returning(|_, _| Ok(()))
+                        .returning(|_, _| Ok(RegistrationStatus::Registered))
                         .once();
                 },
                 |mock| {
@@ -581,7 +588,7 @@ mod tests {
                     mock.expect_create_open_message()
                         .returning(|_, _| Ok(OpenMessage::dummy()));
                     mock.expect_register_single_signature()
-                        .returning(|_, _| Ok(()));
+                        .returning(|_, _| Ok(RegistrationStatus::Registered));
                 },
                 |mock| {
                     mock.expect_get_buffered_signatures()
@@ -615,7 +622,7 @@ mod tests {
                     mock.expect_create_open_message()
                         .returning(|_, _| Ok(OpenMessage::dummy()));
                     mock.expect_register_single_signature()
-                        .returning(|_, _| Ok(()));
+                        .returning(|_, _| Ok(RegistrationStatus::Registered));
                 },
                 |mock| {
                     mock.expect_get_buffered_signatures()

@@ -51,6 +51,16 @@ pub enum CertifierServiceError {
     CouldNotFindLastCertificate,
 }
 
+/// Status of a successful registration of a single signature.
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum RegistrationStatus {
+    /// The signature was registered and will be used for the next certificate.
+    Registered,
+
+    /// The signature was buffered, it will be used later.
+    Buffered,
+}
+
 /// ## CertifierService
 ///
 /// This service manages the open message and their beacon transitions. It can
@@ -70,7 +80,7 @@ pub trait CertifierService: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignatures,
-    ) -> StdResult<()>;
+    ) -> StdResult<RegistrationStatus>;
 
     /// Create an open message at the given beacon. If the open message does not
     /// exist or exists at an older beacon, the older open messages are cleared

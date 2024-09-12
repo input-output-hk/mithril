@@ -33,7 +33,7 @@ mod handlers {
     use crate::{
         http_server::routes::reply,
         message_adapters::FromRegisterSingleSignatureAdapter,
-        services::{CertifierService, CertifierServiceError},
+        services::{CertifierService, CertifierServiceError, RegistrationStatus},
     };
 
     /// Register Signatures
@@ -76,7 +76,8 @@ mod handlers {
                     Ok(reply::server_error(err))
                 }
             },
-            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+            Ok(RegistrationStatus::Registered) => Ok(reply::empty(StatusCode::CREATED)),
+            Ok(RegistrationStatus::Buffered) => Ok(reply::empty(StatusCode::ACCEPTED)),
         }
     }
 }
@@ -95,7 +96,7 @@ mod tests {
     use crate::{
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
-        services::{CertifierServiceError, MockCertifierService},
+        services::{CertifierServiceError, MockCertifierService, RegistrationStatus},
     };
 
     use super::*;
@@ -114,11 +115,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ok() {
+    async fn test_register_signatures_post_ok_201() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Ok(()));
+            .return_once(move |_, _| Ok(RegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
@@ -147,11 +148,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_register_signatures_post_ok_202() {
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_register_single_signature()
+            .return_once(move |_, _| Ok(RegistrationStatus::Buffered));
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+
+        let message = RegisterSignatureMessage::dummy();
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&message)
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &message,
+            &response,
+            &StatusCode::ACCEPTED,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
     async fn test_register_signatures_post_ko_400() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Ok(()));
+            .return_once(move |_, _| Ok(RegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
