@@ -10,6 +10,7 @@ use mithril_common::StdResult;
 
 use crate::entities::OpenMessage;
 use crate::services::{BufferedSingleSignatureStore, CertifierService, CertifierServiceError};
+use crate::MultiSigner;
 
 /// A decorator of [CertifierService] that buffers that can buffer registration of single signatures
 /// when the open message is not yet created.
@@ -18,6 +19,7 @@ use crate::services::{BufferedSingleSignatureStore, CertifierService, CertifierS
 /// registered.
 pub struct BufferedCertifierService {
     certifier_service: Arc<dyn CertifierService>,
+    multi_signer: Arc<dyn MultiSigner>,
     buffered_single_signature_store: Arc<dyn BufferedSingleSignatureStore>,
     logger: Logger,
 }
@@ -26,11 +28,13 @@ impl BufferedCertifierService {
     /// Create a new instance of `BufferedCertifierService`.
     pub fn new(
         certifier_service: Arc<dyn CertifierService>,
+        multi_signer: Arc<dyn MultiSigner>,
         buffered_single_signature_store: Arc<dyn BufferedSingleSignatureStore>,
         logger: Logger,
     ) -> Self {
         Self {
             certifier_service,
+            multi_signer,
             buffered_single_signature_store,
             logger,
         }
@@ -97,19 +101,28 @@ impl CertifierService for BufferedCertifierService {
             Ok(res) => Ok(res),
             Err(error) => match error.downcast_ref::<CertifierServiceError>() {
                 Some(CertifierServiceError::NotFound(..)) => {
-                    debug!(
-                        self.logger,
-                        "No OpenMessage available for signed entity - Buffering single signature";
-                        "signed_entity_type" => ?signed_entity_type,
-                        "party_id" => &signature.party_id
-                    );
+                    match &signature.signed_message {
+                        // Only buffer signatures that have a signed message so we can validate them
+                        Some(signed_message) => {
+                            debug!(
+                                self.logger,
+                                "No OpenMessage available for signed entity - Buffering single signature";
+                                "signed_entity_type" => ?signed_entity_type,
+                                "party_id" => &signature.party_id
+                            );
 
-                    // validate signature
+                            self.multi_signer
+                                .verify_single_signature(signed_message, signature)
+                                .await?;
 
-                    self.buffered_single_signature_store
-                        .buffer_signature(signed_entity_type.into(), signature)
-                        .await?;
-                    Ok(())
+                            self.buffered_single_signature_store
+                                .buffer_signature(signed_entity_type.into(), signature)
+                                .await?;
+
+                            Ok(())
+                        }
+                        None => Err(error),
+                    }
                 }
                 _ => Err(error),
             },
@@ -198,6 +211,7 @@ mod tests {
 
     use mithril_common::test_utils::fake_data;
 
+    use crate::multi_signer::MockMultiSigner;
     use crate::services::{
         CertifierServiceError, MockBufferedSingleSignatureStore, MockCertifierService,
     };
@@ -206,13 +220,20 @@ mod tests {
 
     use super::*;
 
-    fn mock_certifier<F>(certifier_mock_config: F) -> Arc<MockCertifierService>
-    where
-        F: FnOnce(&mut MockCertifierService),
-    {
+    fn mock_certifier(
+        certifier_mock_config: impl FnOnce(&mut MockCertifierService),
+    ) -> Arc<MockCertifierService> {
         let mut certifier = MockCertifierService::new();
         certifier_mock_config(&mut certifier);
         Arc::new(certifier)
+    }
+
+    fn mock_multi_signer(
+        multi_signer_mock_config: impl FnOnce(&mut MockMultiSigner),
+    ) -> Arc<MockMultiSigner> {
+        let mut multi_signer = MockMultiSigner::new();
+        multi_signer_mock_config(&mut multi_signer);
+        Arc::new(multi_signer)
     }
 
     fn mock_store<F>(store_mock_config: F) -> Arc<MockBufferedSingleSignatureStore>
@@ -224,37 +245,94 @@ mod tests {
         Arc::new(store)
     }
 
-    #[tokio::test]
-    async fn buffer_signature_if_decorated_certifier_as_no_opened_message() {
+    /// Run a scenario where we try to register a signature (using a fixed signed entity type).
+    ///
+    /// Return the registration result and the list of buffered signatures after the registration.
+    async fn run_register_signature_scenario(
+        decorated_certifier_mock_config: impl FnOnce(&mut MockCertifierService),
+        multi_signer_mock_config: impl FnOnce(&mut MockMultiSigner),
+        signature_to_register: &SingleSignatures,
+    ) -> (StdResult<()>, Vec<SingleSignatures>) {
         let store = Arc::new(InMemoryBufferedSingleSignatureStore::default());
         let certifier = BufferedCertifierService::new(
-            mock_certifier(|mock| {
-                mock.expect_register_single_signature().returning(|_, _| {
-                    Err(CertifierServiceError::NotFound(
-                        SignedEntityType::MithrilStakeDistribution(Epoch(5)),
-                    )
-                    .into())
-                });
-            }),
+            mock_certifier(decorated_certifier_mock_config),
+            mock_multi_signer(multi_signer_mock_config),
             store.clone(),
             TestLogger::stdout(),
         );
 
-        certifier
+        let registration_result = certifier
             .register_single_signature(
                 &SignedEntityType::MithrilStakeDistribution(Epoch(5)),
-                &fake_data::single_signatures(vec![1]),
+                signature_to_register,
             )
-            .await
-            .unwrap();
+            .await;
 
         let buffered_signatures = store
             .get_buffered_signatures(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
             .await
             .unwrap();
+
+        (registration_result, buffered_signatures)
+    }
+
+    #[tokio::test]
+    async fn buffer_signature_with_valid_signed_message_if_decorated_certifier_as_no_opened_message(
+    ) {
+        let signature = SingleSignatures::fake_with_signed_message("party_1", "a message");
+        let (registration_result, buffered_signatures_after_registration) =
+            run_register_signature_scenario(
+                |mock_certifier| {
+                    mock_certifier
+                        .expect_register_single_signature()
+                        .returning(|_, _| {
+                            Err(CertifierServiceError::NotFound(
+                                SignedEntityType::MithrilStakeDistribution(Epoch(5)),
+                            )
+                            .into())
+                        });
+                },
+                |mock_multi_signer| {
+                    mock_multi_signer
+                        .expect_verify_single_signature()
+                        .returning(|_, _| Ok(()));
+                },
+                &signature,
+            )
+            .await;
+
+        registration_result.expect("Registration should have succeed");
+        assert_eq!(buffered_signatures_after_registration, vec![signature]);
+    }
+
+    #[tokio::test]
+    async fn dont_buffer_signature_without_signed_message_if_decorated_certifier_as_no_opened_message(
+    ) {
+        let signature = SingleSignatures {
+            signed_message: None,
+            ..SingleSignatures::fake_with_signed_message("party_1", "a message")
+        };
+        let (registration_result, buffered_signatures_after_registration) =
+            run_register_signature_scenario(
+                |mock_certifier| {
+                    mock_certifier
+                        .expect_register_single_signature()
+                        .returning(|_, _| {
+                            Err(CertifierServiceError::NotFound(
+                                SignedEntityType::MithrilStakeDistribution(Epoch(5)),
+                            )
+                            .into())
+                        });
+                },
+                |_mock_multi_signer| {},
+                &signature,
+            )
+            .await;
+
+        registration_result.expect_err("Registration should have failed");
         assert_eq!(
-            buffered_signatures,
-            vec![fake_data::single_signatures(vec![1])]
+            buffered_signatures_after_registration,
+            Vec::<SingleSignatures>::new()
         );
     }
 
@@ -296,6 +374,7 @@ mod tests {
                     .once()
                     .returning(|_, _| Ok(()));
             }),
+            mock_multi_signer(|_| {}),
             store.clone(),
             TestLogger::stdout(),
         );
@@ -327,6 +406,7 @@ mod tests {
             let store = mock_store(store_mock_config);
             let certifier = BufferedCertifierService::new(
                 mock_certifier(certifier_mock_config),
+                mock_multi_signer(|_| {}),
                 store,
                 TestLogger::stdout(),
             );

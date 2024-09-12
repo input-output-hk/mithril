@@ -52,29 +52,8 @@ impl BufferedSingleSignatureRecord {
         // Note: due to the unique constraint on the signature column, we want to make sure that
         // the signatures are different for party_id/discriminant pairs.
         // We can't just reuse fake_data::single_signatures as they are static.
-        use mithril_common::entities::{ProtocolMessage, ProtocolParameters};
-        use mithril_common::test_utils::{
-            MithrilFixtureBuilder, StakeDistributionGenerationMethod,
-        };
-
-        let party_id = party_id.into();
-        let fixture = MithrilFixtureBuilder::default()
-            .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
-                std::collections::BTreeMap::from([(format!("{party_id}{discriminant}"), 100)]),
-            ))
-            .with_protocol_parameters(ProtocolParameters::new(1, 1, 1.0))
-            .build();
-        let signature = fixture.signers_fixture()[0]
-            .sign(&ProtocolMessage::default())
-            .unwrap();
-
         Self::try_from_single_signatures(
-            &SingleSignatures {
-                party_id,
-                signature: signature.signature,
-                won_indexes: vec![10, 15],
-                signed_message: None,
-            },
+            &SingleSignatures::fake_with_signed_message(party_id.into(), discriminant.to_string()),
             discriminant,
         )
         .unwrap()

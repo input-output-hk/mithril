@@ -228,15 +228,17 @@ impl From<MithrilFixture> for Vec<SignerFixture> {
 impl SignerFixture {
     /// Sign the given protocol message.
     pub fn sign<T: AsMessage>(&self, message: &T) -> Option<SingleSignatures> {
+        let message = message.message_string();
         self.protocol_signer
-            .sign(message.message_string().as_bytes())
+            .sign(message.as_bytes())
             .map(|signature| {
                 let won_indexes = signature.indexes.clone();
 
-                SingleSignatures::new(
+                SingleSignatures::new_with_signed_message(
                     self.signer_with_stake.party_id.to_owned(),
                     signature.into(),
                     won_indexes,
+                    message,
                 )
             })
     }

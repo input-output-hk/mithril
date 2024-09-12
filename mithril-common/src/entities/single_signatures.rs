@@ -65,6 +65,39 @@ impl SingleSignatures {
     }
 }
 
+cfg_test_tools! {
+impl SingleSignatures {
+    /// Create a fake [SingleSignatures] with valid cryptographic data for testing purposes.
+    ///
+    /// The embedded signature will be computed based on the given `message`.
+    ///
+    /// TODO: this method is slow due to the fixture creation, we should either make
+    /// the fixture faster or find a faster alternative.
+    pub fn fake_with_signed_message<T1: Into<String>, T2: Into<String>>(party_id: T1, message: T2) -> Self {
+        use crate::entities::{ProtocolParameters};
+        use crate::test_utils::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
+
+        let party_id = party_id.into();
+        let message = message.into();
+
+        let fixture = MithrilFixtureBuilder::default()
+            .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
+                std::collections::BTreeMap::from([(party_id.to_string(), 100)]),
+            ))
+            .with_protocol_parameters(ProtocolParameters::new(1, 1, 1.0))
+            .build();
+        let signature = fixture.signers_fixture()[0].sign(&message).unwrap();
+
+        Self {
+            party_id,
+            signature: signature.signature,
+            won_indexes: vec![10, 15],
+            signed_message: Some(message),
+        }
+    }
+}
+}
+
 impl Debug for SingleSignatures {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let is_pretty_printing = f.alternate();

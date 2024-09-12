@@ -1448,7 +1448,7 @@ impl DependenciesBuilder {
             certificate_repository,
             certificate_verifier,
             genesis_verifier,
-            multi_signer,
+            multi_signer.clone(),
             ticker_service,
             epoch_service,
             logger,
@@ -1456,6 +1456,7 @@ impl DependenciesBuilder {
 
         Ok(Arc::new(BufferedCertifierService::new(
             certifier,
+            multi_signer,
             Arc::new(InMemoryBufferedSingleSignatureStore::default()),
             self.get_logger()?,
         )))
