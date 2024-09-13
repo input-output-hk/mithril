@@ -198,74 +198,92 @@ impl StateMachine {
             SignerState::ReadyToSign {
                 epoch,
                 last_signed_entity_type,
-            } => {
-                fn is_same_signed_entity_type(
-                    last_signed_entity_type: &Option<SignedEntityType>,
-                    pending_certificate: &CertificatePending,
-                ) -> bool {
-                    Some(&pending_certificate.signed_entity_type)
-                        == last_signed_entity_type.as_ref()
-                }
-
-                if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
+            } => match self.has_epoch_changed(*epoch).await? {
+                Some(new_epoch) => {
                     info!("→ Epoch has changed, transiting to UNREGISTERED");
                     *state = self
                         .transition_from_ready_to_sign_to_unregistered(new_epoch)
                         .await?;
-                } else {
-                    match self.runner.get_pending_certificate().await.map_err(|e| {
-                        RuntimeError::KeepState {
-                            message: "could not fetch the pending certificate".to_string(),
-                            nested_error: Some(e),
-                        }
-                    })? {
-                        Some(pending_certificate)
-                            if is_same_signed_entity_type(
-                                last_signed_entity_type,
-                                &pending_certificate,
-                            ) =>
-                        {
-                            info!(" ⋅ same entity type, cannot sign pending certificate, waiting…");
-                        }
-                        Some(pending_certificate)
-                            if self
-                                .runner
-                                .can_sign_signed_entity_type(
-                                    &pending_certificate.signed_entity_type,
-                                )
-                                .await =>
-                        {
-                            info!(
-                                " ⋅ Epoch has NOT changed but there is a pending certificate";
-                                "pending_certificate" => ?pending_certificate
-                            );
-                            info!(" → we can sign this certificate, transiting to READY_TO_SIGN");
-                            *state = self
-                                .transition_from_ready_to_sign_to_ready_to_sign(
-                                    *epoch,
-                                    &pending_certificate,
-                                )
-                                .await?;
-                        }
-                        Some(pending_certificate) => {
-                            info!(
-                                " ⋅ Epoch has NOT changed but there is a pending certificate";
-                                "pending_certificate" => ?pending_certificate
-                            );
-                            info!(" ⋅ cannot sign this pending certificate, waiting…");
-                        }
-                        None => {
-                            info!(" ⋅ no pending certificate, waiting…");
-                        }
+                }
+                None => {
+                    let pending_certificate =
+                        self.runner.get_pending_certificate().await.map_err(|e| {
+                            RuntimeError::KeepState {
+                                message: "could not fetch the pending certificate".to_string(),
+                                nested_error: Some(e),
+                            }
+                        })?;
+                    if let Some(new_state) = self
+                        .ready_to_sign_certificate_next_state(
+                            pending_certificate,
+                            last_signed_entity_type,
+                            epoch,
+                        )
+                        .await?
+                    {
+                        *state = new_state
                     }
                 }
-            }
+            },
         };
 
         self.metrics_service
             .runtime_cycle_success_since_startup_counter_increment();
 
         Ok(())
+    }
+
+    async fn ready_to_sign_certificate_next_state(
+        &self,
+        certificate_pending: Option<CertificatePending>,
+        last_signed_entity: &Option<SignedEntityType>,
+        epoch: &Epoch,
+    ) -> Result<Option<SignerState>, RuntimeError> {
+        fn is_same_signed_entity_type(
+            signed_entity_type: &Option<SignedEntityType>,
+            certificate: &CertificatePending,
+        ) -> bool {
+            Some(&certificate.signed_entity_type) == signed_entity_type.as_ref()
+        }
+
+        async fn can_sign_signed_entity_type(
+            s: &StateMachine,
+            certificate: &CertificatePending,
+        ) -> bool {
+            s.runner
+                .can_sign_signed_entity_type(&certificate.signed_entity_type)
+                .await
+        }
+
+        match certificate_pending {
+            Some(certificate) if is_same_signed_entity_type(last_signed_entity, &certificate) => {
+                info!(" ⋅ same entity type, cannot sign pending certificate, waiting…");
+                Ok(None)
+            }
+            Some(certificate) if can_sign_signed_entity_type(self, &certificate).await => {
+                info!(
+                    " ⋅ Epoch has NOT changed but there is a pending certificate";
+                    "pending_certificate" => ?certificate,
+                );
+                info!(" → we can sign this certificate, transiting to READY_TO_SIGN");
+                Ok(Some(
+                    self.transition_from_ready_to_sign_to_ready_to_sign(*epoch, &certificate)
+                        .await?,
+                ))
+            }
+            Some(certificate) => {
+                info!(
+                    " ⋅ Epoch has NOT changed but there is a pending certificate";
+                    "pending_certificate" => ?certificate
+                );
+                info!(" ⋅ cannot sign this pending certificate, waiting…");
+                Ok(None)
+            }
+            None => {
+                info!(" ⋅ no pending certificate, waiting…");
+                Ok(None)
+            }
+        }
     }
 
     /// Return the new epoch if the epoch is different than the given one.
