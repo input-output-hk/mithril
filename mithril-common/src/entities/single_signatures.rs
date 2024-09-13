@@ -68,11 +68,16 @@ impl SingleSignatures {
 cfg_test_tools! {
 impl SingleSignatures {
     /// Create a fake [SingleSignatures] with valid cryptographic data for testing purposes.
-    ///
-    /// The embedded signature will be computed based on the given `message`.
-    ///
-    /// TODO: this method is slow due to the fixture creation, we should either make
-    /// the fixture faster or find a faster alternative.
+    pub fn fake<T1: Into<String>, T2: Into<String>>(party_id: T1, message: T2) -> Self {
+        Self {
+            signed_message: None,
+            ..Self::fake_with_signed_message(party_id, message)
+        }
+    }
+
+    /// Create a fake [SingleSignatures] with valid cryptographic data for testing purposes.
+    // TODO: this method is slow due to the fixture creation, we should either make
+    // the fixture faster or find a faster alternative.
     pub fn fake_with_signed_message<T1: Into<String>, T2: Into<String>>(party_id: T1, message: T2) -> Self {
         use crate::entities::{ProtocolParameters};
         use crate::test_utils::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
@@ -104,7 +109,8 @@ impl Debug for SingleSignatures {
         let mut debug = f.debug_struct("SingleSignatures");
         debug
             .field("party_id", &self.party_id)
-            .field("won_indexes", &format_args!("{:?}", self.won_indexes));
+            .field("won_indexes", &format_args!("{:?}", self.won_indexes))
+            .field("signed_message", &self.signed_message);
 
         match is_pretty_printing {
             true => debug

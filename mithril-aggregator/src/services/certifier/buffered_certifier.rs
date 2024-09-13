@@ -232,16 +232,19 @@ impl CertifierService for BufferedCertifierService {
 mod tests {
     use anyhow::anyhow;
     use mockall::predicate::eq;
-    use std::collections::BTreeMap;
 
+    use mithril_common::entities::SignedEntityTypeDiscriminants::{
+        CardanoTransactions, MithrilStakeDistribution,
+    };
     use mithril_common::test_utils::fake_data;
 
+    use crate::database::repository::BufferedSingleSignatureRepository;
+    use crate::database::test_helper::main_db_connection;
     use crate::multi_signer::MockMultiSigner;
     use crate::services::{
         CertifierServiceError, MockBufferedSingleSignatureStore, MockCertifierService,
     };
     use crate::test_tools::TestLogger;
-    use crate::InMemoryBufferedSingleSignatureStore;
 
     use super::*;
 
@@ -278,7 +281,9 @@ mod tests {
         multi_signer_mock_config: impl FnOnce(&mut MockMultiSigner),
         signature_to_register: &SingleSignatures,
     ) -> (StdResult<RegistrationStatus>, Vec<SingleSignatures>) {
-        let store = Arc::new(InMemoryBufferedSingleSignatureStore::default());
+        let store = Arc::new(BufferedSingleSignatureRepository::new(Arc::new(
+            main_db_connection().unwrap(),
+        )));
         let certifier = BufferedCertifierService::new(
             mock_certifier(decorated_certifier_mock_config),
             mock_multi_signer(multi_signer_mock_config),
@@ -294,7 +299,7 @@ mod tests {
             .await;
 
         let buffered_signatures = store
-            .get_buffered_signatures(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+            .get_buffered_signatures(MithrilStakeDistribution)
             .await
             .unwrap();
 
@@ -330,7 +335,6 @@ mod tests {
 
         #[tokio::test]
         async fn buffer_signature_with_valid_signed_message_for_current_epoch() {
-            let signature = SingleSignatures::fake_with_signed_message("party_1", "a message");
             let (registration_result, buffered_signatures_after_registration) =
                 run_register_signature_scenario(
                     |mock_certifier| {
@@ -348,18 +352,20 @@ mod tests {
                             .expect_verify_single_signature()
                             .returning(|_, _| Ok(()));
                     },
-                    &signature,
+                    &SingleSignatures::fake_with_signed_message("party_1", "a message"),
                 )
                 .await;
 
             let status = registration_result.expect("Registration should have succeed");
             assert_eq!(status, RegistrationStatus::Buffered);
-            assert_eq!(buffered_signatures_after_registration, vec![signature]);
+            assert_eq!(
+                buffered_signatures_after_registration,
+                vec![SingleSignatures::fake("party_1", "a message")]
+            );
         }
 
         #[tokio::test]
         async fn buffer_signature_with_valid_signed_message_for_next_epoch() {
-            let signature = SingleSignatures::fake_with_signed_message("party_1", "a message");
             let (registration_result, buffered_signatures_after_registration) =
                 run_register_signature_scenario(
                     |mock_certifier| {
@@ -380,13 +386,16 @@ mod tests {
                             .expect_verify_single_signature_for_next_epoch()
                             .returning(|_, _| Ok(()));
                     },
-                    &signature,
+                    &SingleSignatures::fake_with_signed_message("party_1", "a message"),
                 )
                 .await;
 
             let status = registration_result.expect("Registration should have succeed");
             assert_eq!(status, RegistrationStatus::Buffered);
-            assert_eq!(buffered_signatures_after_registration, vec![signature]);
+            assert_eq!(
+                buffered_signatures_after_registration,
+                vec![SingleSignatures::fake("party_1", "a message")]
+            );
         }
 
         #[tokio::test]
@@ -456,21 +465,29 @@ mod tests {
 
     #[tokio::test]
     async fn buffered_signatures_are_moved_to_newly_opened_message() {
-        let store = Arc::new(InMemoryBufferedSingleSignatureStore::with_data(
-            BTreeMap::from([
-                (
-                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                    vec![
-                        fake_data::single_signatures(vec![1]),
-                        fake_data::single_signatures(vec![2]),
-                    ],
-                ),
-                (
-                    SignedEntityTypeDiscriminants::CardanoTransactions,
-                    vec![fake_data::single_signatures(vec![10])],
-                ),
-            ]),
-        ));
+        let store = Arc::new(BufferedSingleSignatureRepository::new(Arc::new(
+            main_db_connection().unwrap(),
+        )));
+        for (signed_type, signature) in [
+            (
+                MithrilStakeDistribution,
+                SingleSignatures::fake("party_1", "message 1"),
+            ),
+            (
+                MithrilStakeDistribution,
+                SingleSignatures::fake("party_2", "message 2"),
+            ),
+            (
+                CardanoTransactions,
+                SingleSignatures::fake("party_3", "message 3"),
+            ),
+        ] {
+            store
+                .buffer_signature(signed_type, &signature)
+                .await
+                .unwrap();
+        }
+
         let certifier = BufferedCertifierService::new(
             mock_certifier(|mock| {
                 mock.expect_create_open_message()
@@ -480,14 +497,14 @@ mod tests {
                 mock.expect_register_single_signature()
                     .with(
                         eq(SignedEntityType::MithrilStakeDistribution(Epoch(5))),
-                        eq(fake_data::single_signatures(vec![1])),
+                        eq(SingleSignatures::fake("party_1", "message 1")),
                     )
                     .once()
                     .returning(|_, _| Ok(RegistrationStatus::Registered));
                 mock.expect_register_single_signature()
                     .with(
                         eq(SignedEntityType::MithrilStakeDistribution(Epoch(5))),
-                        eq(fake_data::single_signatures(vec![2])),
+                        eq(SingleSignatures::fake("party_2", "message 2")),
                     )
                     .once()
                     .returning(|_, _| Ok(RegistrationStatus::Registered));
@@ -506,7 +523,7 @@ mod tests {
             .unwrap();
 
         let remaining_sigs = store
-            .get_buffered_signatures(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+            .get_buffered_signatures(MithrilStakeDistribution)
             .await
             .unwrap();
         assert!(remaining_sigs.is_empty());
