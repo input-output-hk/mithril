@@ -59,9 +59,9 @@ use crate::{
     },
     configuration::ExecutionEnvironment,
     database::repository::{
-        CertificateRepository, EpochSettingStore, OpenMessageRepository, SignedEntityStore,
-        SignedEntityStorer, SignerRegistrationStore, SignerStore, SingleSignatureRepository,
-        StakePoolStore,
+        BufferedSingleSignatureRepository, CertificateRepository, EpochSettingStore,
+        OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
+        SignerStore, SingleSignatureRepository, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -75,10 +75,9 @@ use crate::{
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
-    DumbSnapshotter, InMemoryBufferedSingleSignatureStore, LocalSnapshotUploader,
-    MithrilSignerRegisterer, MultiSigner, MultiSignerImpl, ProtocolParametersStorer,
-    RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType, Snapshotter,
-    SnapshotterCompressionAlgorithm, VerificationKeyStorer,
+    DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
+    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -1429,10 +1428,10 @@ impl DependenciesBuilder {
         let cardano_network = self.configuration.get_network().with_context(|| {
             "Dependencies Builder can not get Cardano network while building the chain observer"
         })?;
+        let sqlite_connection = self.get_sqlite_connection().await?;
         let open_message_repository = self.get_open_message_repository().await?;
-        let single_signature_repository = Arc::new(SingleSignatureRepository::new(
-            self.get_sqlite_connection().await?,
-        ));
+        let single_signature_repository =
+            Arc::new(SingleSignatureRepository::new(sqlite_connection.clone()));
         let certificate_repository = self.get_certificate_repository().await?;
         let certificate_verifier = self.get_certificate_verifier().await?;
         let genesis_verifier = self.get_genesis_verifier().await?;
@@ -1457,7 +1456,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(BufferedCertifierService::new(
             certifier,
             multi_signer,
-            Arc::new(InMemoryBufferedSingleSignatureStore::default()),
+            Arc::new(BufferedSingleSignatureRepository::new(sqlite_connection)),
             self.get_logger()?,
         )))
     }
