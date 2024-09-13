@@ -2,7 +2,32 @@
 
 This tool will run a set of benchmarks (based on [Apache Benchmark](https://httpd.apache.org/docs/2.4/programs/ab.html)) on the aggregator route of an aggregator given a list of transactions. It will produce a CSV file with results of the benchmarks.
 
-First set enviroment variables:
+First set environment variables to benchmark:
+
+- the `pre-release-preview` network
+
+```bash
+# Aggregator endpoint
+export AGGREGATOR_ENDPOINT=https://aggregator.pre-release-preview.api.mithril.network/aggregator
+
+# Transactions file to prove
+export TRANSACTIONS_FILE=transactions-preview.txt
+
+# Transactions proved per request range definition
+export TRANSACTIONS_PER_REQUEST_MIN=0
+export TRANSACTIONS_PER_REQUEST_MAX=50
+export TRANSACTIONS_PER_REQUEST_STEP=10
+
+# Apache benchmark total request sent per benchmark
+export AB_TOTAL_REQUESTS=500
+
+# Apache benchmark concurrency level range definition
+export AB_CONCURRENCY_MIN=50
+export AB_CONCURRENCY_MAX=50
+export AB_CONCURRENCY_STEP=50
+```
+
+- or the `testing-mainnet` network
 
 ```bash
 # Aggregator endpoint
@@ -12,9 +37,9 @@ export AGGREGATOR_ENDPOINT=https://aggregator.testing-mainnet.api.mithril.networ
 export TRANSACTIONS_FILE=transactions-mainnet.txt
 
 # Transactions proved per request range definition
-export TRANSACTIONS_PER_REQUEST_MIN=1
-export TRANSACTIONS_PER_REQUEST_MAX=3
-export TRANSACTIONS_PER_REQUEST_STEP=1
+export TRANSACTIONS_PER_REQUEST_MIN=0
+export TRANSACTIONS_PER_REQUEST_MAX=100
+export TRANSACTIONS_PER_REQUEST_STEP=10
 
 # Apache benchmark total request sent per benchmark
 export AB_TOTAL_REQUESTS=1000
