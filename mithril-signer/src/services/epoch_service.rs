@@ -49,8 +49,8 @@ pub trait EpochService: Sync + Send {
     /// Get signers with stake for the next epoch
     async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
 
-    /// Check if a signer can sign the current epoch
-    fn can_signer_sign_current_epoch(
+    /// Check if a signer is included in the current stake distribution
+    fn is_signer_included_in_current_stake_distribution(
         &self,
         party_id: PartyId,
         protocol_initializer: ProtocolInitializer,
@@ -177,7 +177,7 @@ impl EpochService for MithrilEpochService {
         .await
     }
 
-    fn can_signer_sign_current_epoch(
+    fn is_signer_included_in_current_stake_distribution(
         &self,
         party_id: PartyId,
         protocol_initializer: ProtocolInitializer,
@@ -210,7 +210,8 @@ mod tests {
     };
 
     #[test]
-    fn test_can_signer_sign_returns_error_when_epoch_settings_is_not_set() {
+    fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set(
+    ) {
         let party_id = "party_id".to_string();
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             &100,
@@ -223,12 +224,13 @@ mod tests {
         let service = MithrilEpochService::new(stake_store);
 
         service
-            .can_signer_sign_current_epoch(party_id, protocol_initializer)
+            .is_signer_included_in_current_stake_distribution(party_id, protocol_initializer)
             .expect_err("can_signer_sign should return error when epoch settings is not set");
     }
 
     #[test]
-    fn test_can_signer_sign_returns_true_when_signer_verification_key_and_pool_id_found() {
+    fn test_is_signer_included_in_current_stake_distribution_returns_true_when_signer_verification_key_and_pool_id_found(
+    ) {
         let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
         let protocol_initializer = fixtures.signers_fixture()[0]
             .protocol_initializer
@@ -249,19 +251,28 @@ mod tests {
 
         let party_id = fixtures.signers_fixture()[0].party_id();
         assert!(service
-            .can_signer_sign_current_epoch(party_id.clone(), protocol_initializer.clone())
+            .is_signer_included_in_current_stake_distribution(
+                party_id.clone(),
+                protocol_initializer.clone()
+            )
             .unwrap());
 
         let party_id_not_included = fixtures.signers_fixture()[6].party_id();
         assert!(!service
-            .can_signer_sign_current_epoch(party_id_not_included, protocol_initializer)
+            .is_signer_included_in_current_stake_distribution(
+                party_id_not_included,
+                protocol_initializer
+            )
             .unwrap());
 
         let protocol_initializer_not_included = fixtures.signers_fixture()[6]
             .protocol_initializer
             .to_owned();
         assert!(!service
-            .can_signer_sign_current_epoch(party_id, protocol_initializer_not_included)
+            .is_signer_included_in_current_stake_distribution(
+                party_id,
+                protocol_initializer_not_included
+            )
             .unwrap());
     }
 

@@ -27,7 +27,7 @@ pub enum SignerState {
     ReadyToSign {
         /// Epoch when signer transited to the state.
         epoch: Epoch,
-        /// Last signed entity type that the signer signed since beginning of this state.
+        /// Last signed entity type that the signer signed on this epoch.
         last_signed_entity_type: Option<SignedEntityType>,
     },
 
@@ -90,6 +90,13 @@ pub struct StateMachine {
     runner: Box<dyn Runner>,
     state_sleep: Duration,
     metrics_service: Arc<MetricsService>,
+}
+
+enum ReadyToSignTransition {
+    ToReadyToSign(CertificatePending),
+    NoTransitionAlreadySigned,
+    NoTransitionCannotSignPendingCertificate,
+    NoTransitionNoPendingCertificate,
 }
 
 impl StateMachine {
@@ -213,15 +220,16 @@ impl StateMachine {
                                 nested_error: Some(e),
                             }
                         })?;
-                    if let Some(new_state) = self
-                        .ready_to_sign_certificate_next_state(
+                    if let ReadyToSignTransition::ToReadyToSign(certificate) = self
+                        .ready_to_sign_certificate_next_transition(
                             pending_certificate,
                             last_signed_entity_type,
-                            epoch,
                         )
-                        .await?
+                        .await
                     {
-                        *state = new_state
+                        *state = self
+                            .transition_from_ready_to_sign_to_ready_to_sign(*epoch, &certificate)
+                            .await?;
                     }
                 }
             },
@@ -233,12 +241,11 @@ impl StateMachine {
         Ok(())
     }
 
-    async fn ready_to_sign_certificate_next_state(
+    async fn ready_to_sign_certificate_next_transition(
         &self,
         certificate_pending: Option<CertificatePending>,
         last_signed_entity: &Option<SignedEntityType>,
-        epoch: &Epoch,
-    ) -> Result<Option<SignerState>, RuntimeError> {
+    ) -> ReadyToSignTransition {
         fn is_same_signed_entity_type(
             signed_entity_type: &Option<SignedEntityType>,
             certificate: &CertificatePending,
@@ -257,31 +264,26 @@ impl StateMachine {
 
         match certificate_pending {
             Some(certificate) if is_same_signed_entity_type(last_signed_entity, &certificate) => {
-                info!(" ⋅ same entity type, cannot sign pending certificate, waiting…");
-                Ok(None)
+                info!(" ⋅ same entity type, already signed the pending certificate, waiting…");
+                ReadyToSignTransition::NoTransitionAlreadySigned
             }
             Some(certificate) if can_sign_signed_entity_type(self, &certificate).await => {
                 info!(
-                    " ⋅ Epoch has NOT changed but there is a pending certificate";
+                    " ⋅ Epoch has NOT changed we can sign this certificate, transiting to READY_TO_SIGN";
                     "pending_certificate" => ?certificate,
                 );
-                info!(" → we can sign this certificate, transiting to READY_TO_SIGN");
-                Ok(Some(
-                    self.transition_from_ready_to_sign_to_ready_to_sign(*epoch, &certificate)
-                        .await?,
-                ))
+                ReadyToSignTransition::ToReadyToSign(certificate)
             }
             Some(certificate) => {
                 info!(
-                    " ⋅ Epoch has NOT changed but there is a pending certificate";
+                    " ⋅ Epoch has NOT changed but cannot sign this pending certificate, waiting…";
                     "pending_certificate" => ?certificate
                 );
-                info!(" ⋅ cannot sign this pending certificate, waiting…");
-                Ok(None)
+                ReadyToSignTransition::NoTransitionCannotSignPendingCertificate
             }
             None => {
                 info!(" ⋅ no pending certificate, waiting…");
-                Ok(None)
+                ReadyToSignTransition::NoTransitionNoPendingCertificate
             }
         }
     }

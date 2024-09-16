@@ -268,10 +268,14 @@ impl Runner for SignerRunner {
             .await?
         {
             debug!(" > got protocol initializer for this epoch ({epoch})");
-            return epoch_service.can_signer_sign_current_epoch(
+            if epoch_service.is_signer_included_in_current_stake_distribution(
                 self.services.single_signer.get_party_id(),
                 protocol_initializer,
-            );
+            )? {
+                return Ok(true);
+            } else {
+                debug!(" > Signer not in current stake distribution. Can NOT sign");
+            }
         } else {
             warn!(" > NO protocol initializer found for this epoch ({epoch})",);
         }
@@ -280,11 +284,17 @@ impl Runner for SignerRunner {
     }
 
     async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool {
-        !self
+        if self
             .services
             .signed_entity_type_lock
             .is_locked(signed_entity_type)
             .await
+        {
+            debug!(" > signed entity type is locked, can NOT sign");
+            false
+        } else {
+            true
+        }
     }
 
     async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()> {
@@ -537,7 +547,7 @@ mod tests {
             Ok(vec![])
         }
 
-        fn can_signer_sign_current_epoch(
+        fn is_signer_included_in_current_stake_distribution(
             &self,
             _party_id: PartyId,
             _protocol_initializer: ProtocolInitializer,
