@@ -25,7 +25,7 @@ pub enum SignerState {
 
     /// `ReadyToSign` state. The signer is registered and ready to sign new messages.
     ReadyToSign {
-        /// Epoch when signer transited to the state.
+        /// Epoch when signer transitioned to the state.
         epoch: Epoch,
         /// Last signed entity type that the signer signed on this epoch.
         last_signed_entity_type: Option<SignedEntityType>,
@@ -33,7 +33,7 @@ pub enum SignerState {
 
     /// `RegisteredNotAbleToSign` state. The signer is registered but not able to sign for the duration of the epoch.
     RegisteredNotAbleToSign {
-        /// Epoch when signer transited to the state.
+        /// Epoch when signer transitioned to the state.
         epoch: Epoch,
     },
 }
@@ -46,23 +46,17 @@ impl SignerState {
 
     /// Returns `true` if the state in `Unregistered`
     pub fn is_unregistered(&self) -> bool {
-        matches!(*self, SignerState::Unregistered { epoch: _ })
+        matches!(*self, SignerState::Unregistered { .. })
     }
 
     /// Returns `true` if the state in `ReadyToSign`
     pub fn is_ready_to_sign(&self) -> bool {
-        matches!(
-            *self,
-            SignerState::ReadyToSign {
-                epoch: _,
-                last_signed_entity_type: _
-            }
-        )
+        matches!(*self, SignerState::ReadyToSign { .. })
     }
 
     /// Returns `true` if the state in `RegisteredNotAbleToSign`
     pub fn is_registered_not_able_to_sign(&self) -> bool {
-        matches!(*self, SignerState::RegisteredNotAbleToSign { epoch: _ })
+        matches!(*self, SignerState::RegisteredNotAbleToSign { .. })
     }
 }
 
@@ -678,12 +672,13 @@ mod tests {
             .await
             .expect("Cycling the state machine should not fail");
 
-        if !state_machine.get_state().await.is_ready_to_sign() {
-            panic!(
-                "state machine did not return a ReadyToSign state but {:?}",
-                state_machine.get_state().await
-            );
-        }
+        assert_eq!(
+            SignerState::ReadyToSign {
+                epoch: TimePoint::dummy().epoch,
+                last_signed_entity_type: None
+            },
+            state_machine.get_state().await
+        );
     }
 
     #[tokio::test]
@@ -815,7 +810,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ready_to_sign_to_ready_to_sign_when_same_state_than_previous_one() {
+    async fn ready_to_sign_to_ready_to_sign_when_same_signed_entity_type() {
         let time_point = TimePoint::dummy();
         let certificate_pending = CertificatePending {
             epoch: time_point.clone().epoch,

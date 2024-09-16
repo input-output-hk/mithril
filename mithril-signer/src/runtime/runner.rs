@@ -2,9 +2,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use slog_scope::{debug, info, warn};
 use thiserror::Error;
-
-#[cfg(test)]
-use mockall::automock;
+use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
@@ -13,7 +11,6 @@ use mithril_common::entities::{
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
-use tokio::sync::RwLockReadGuard;
 
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
@@ -121,7 +118,7 @@ impl SignerRunner {
     }
 }
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl Runner for SignerRunner {
     async fn get_epoch_settings(&self) -> StdResult<Option<EpochSettings>> {

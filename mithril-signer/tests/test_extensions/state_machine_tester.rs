@@ -321,7 +321,9 @@ impl StateMachineTester {
         )
     }
 
-    pub async fn cycle_ready_to_sign_no_registration(&mut self) -> Result<&mut Self> {
+    pub async fn cycle_ready_to_sign_without_signature_registration(
+        &mut self,
+    ) -> Result<&mut Self> {
         let metric_before = self
             .metrics_service
             .signature_registration_success_since_startup_counter_get();
