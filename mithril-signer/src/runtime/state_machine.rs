@@ -228,7 +228,10 @@ impl StateMachine {
                         .await
                     {
                         *state = self
-                            .transition_from_ready_to_sign_to_ready_to_sign(*epoch, &certificate)
+                            .transition_from_ready_to_sign_to_ready_to_sign(
+                                *epoch,
+                                &certificate.signed_entity_type,
+                            )
                             .await?;
                     }
                 }
@@ -412,10 +415,9 @@ impl StateMachine {
     /// Launch the transition process from the `ReadyToSign` to the `ReadyToSign` state.
     async fn transition_from_ready_to_sign_to_ready_to_sign(
         &self,
-        state_epoch: Epoch,
-        pending_certificate: &CertificatePending,
+        current_epoch: Epoch,
+        signed_entity_type: &SignedEntityType,
     ) -> Result<SignerState, RuntimeError> {
-        let current_epoch = pending_certificate.epoch;
         let (retrieval_epoch, next_retrieval_epoch) = (
             current_epoch.offset_to_signer_retrieval_epoch()?,
             current_epoch.offset_to_next_signer_retrieval_epoch(),
@@ -433,7 +435,7 @@ impl StateMachine {
 
         let message = self
             .runner
-            .compute_message(&pending_certificate.signed_entity_type)
+            .compute_message(signed_entity_type)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute message during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
@@ -448,7 +450,7 @@ impl StateMachine {
                 message: format!("Could not compute single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
-        self.runner.send_single_signature(&pending_certificate.signed_entity_type, single_signatures).await
+        self.runner.send_single_signature(signed_entity_type, single_signatures).await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not send single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
@@ -460,8 +462,8 @@ impl StateMachine {
             .signature_registration_success_last_epoch_gauge_set(current_epoch);
 
         Ok(SignerState::ReadyToSign {
-            epoch: state_epoch,
-            last_signed_entity_type: Some(pending_certificate.to_owned().signed_entity_type),
+            epoch: current_epoch,
+            last_signed_entity_type: Some(signed_entity_type.to_owned()),
         })
     }
 
