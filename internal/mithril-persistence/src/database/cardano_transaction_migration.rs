@@ -108,5 +108,16 @@ drop index cardano_tx_immutable_file_number_index;
 alter table cardano_tx drop column immutable_file_number;
  "#,
         ),
+        // Migration 9
+        // Truncate Cardano transaction related tables to avoid data inconsistency
+        // with previous versions of the nodes.
+        SqlMigration::new(
+            9,
+            r#"
+delete from cardano_tx;
+delete from block_range_root;
+vacuum;
+ "#,
+        ),
     ]
 }
