@@ -158,7 +158,7 @@ impl StateMachine {
             }
             SignerState::Unregistered { epoch } => {
                 if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
-                    info!("→ Epoch has changed, transiting to UNREGISTERED");
+                    info!("→ Epoch has changed, transiting to Unregistered");
                     *state = self
                         .transition_from_unregistered_to_unregistered(new_epoch)
                         .await?;
@@ -174,7 +174,7 @@ impl StateMachine {
                     info!("→ Epoch settings found");
                     if epoch_settings.epoch >= *epoch {
                         info!("new Epoch found");
-                        info!(" ⋅ transiting to REGISTERED");
+                        info!(" ⋅ transiting to Registered");
                         *state = self
                             .transition_from_unregistered_to_one_of_registered_states(
                                 epoch_settings,
@@ -193,7 +193,7 @@ impl StateMachine {
             }
             SignerState::RegisteredNotAbleToSign { epoch } => {
                 if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
-                    info!(" → new Epoch detected, transiting to UNREGISTERED");
+                    info!(" → new Epoch detected, transiting to Unregistered");
                     *state = self
                         .transition_from_registered_not_able_to_sign_to_unregistered(new_epoch)
                         .await?;
@@ -207,7 +207,7 @@ impl StateMachine {
                 last_signed_entity_type,
             } => match self.has_epoch_changed(*epoch).await? {
                 Some(new_epoch) => {
-                    info!("→ Epoch has changed, transiting to UNREGISTERED");
+                    info!("→ Epoch has changed, transiting to Unregistered");
                     *state = self
                         .transition_from_ready_to_sign_to_unregistered(new_epoch)
                         .await?;
@@ -269,7 +269,7 @@ impl StateMachine {
             }
             Some(certificate) if can_sign_signed_entity_type(self, &certificate).await => {
                 info!(
-                    " ⋅ Epoch has NOT changed we can sign this certificate, transiting to READY_TO_SIGN";
+                    " ⋅ Epoch has NOT changed we can sign this certificate, transiting to ReadyToSign";
                     "pending_certificate" => ?certificate,
                 );
                 ReadyToSignTransition::ToReadyToSign(certificate)
