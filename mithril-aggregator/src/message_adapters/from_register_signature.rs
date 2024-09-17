@@ -1,6 +1,6 @@
 use anyhow::Context;
 use mithril_common::{
-    entities::SingleSignatures,
+    entities::{SingleSignatureAuthenticationStatus, SingleSignatures},
     messages::{RegisterSignatureMessage, TryFromMessageAdapter},
     StdResult,
 };
@@ -23,6 +23,7 @@ impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignatures>
                 })?,
             won_indexes: register_single_signature_message.won_indexes,
             signed_message: register_single_signature_message.signed_message,
+            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         };
 
         Ok(signatures)

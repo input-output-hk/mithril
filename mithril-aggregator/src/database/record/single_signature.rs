@@ -55,6 +55,7 @@ impl TryFrom<SingleSignatureRecord> for SingleSignatures {
             won_indexes: value.lottery_indexes,
             signature: value.signature.try_into()?,
             signed_message: None,
+            authentication_status: Default::default(),
         };
 
         Ok(signatures)

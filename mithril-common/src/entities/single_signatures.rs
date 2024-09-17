@@ -27,6 +27,19 @@ pub struct SingleSignatures {
     /// for the signed entity type.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub signed_message: Option<String>,
+
+    /// Status of the authentication of the signer that emitted the signature
+    pub authentication_status: SingleSignatureAuthenticationStatus,
+}
+
+/// Status of the authentication of the signer that emitted the signature
+#[derive(Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum SingleSignatureAuthenticationStatus {
+    /// We could authenticate the signer that emitted the signature
+    Authenticated,
+    /// We could not authenticate the signer that emitted the signature
+    #[default]
+    Unauthenticated,
 }
 
 impl SingleSignatures {
@@ -41,6 +54,7 @@ impl SingleSignatures {
             signature,
             won_indexes,
             signed_message: None,
+            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         }
     }
 
@@ -56,6 +70,7 @@ impl SingleSignatures {
             signature,
             won_indexes,
             signed_message: Some(signed_message),
+            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         }
     }
 
@@ -98,6 +113,7 @@ impl SingleSignatures {
             signature: signature.signature,
             won_indexes: vec![10, 15],
             signed_message: Some(message),
+            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         }
     }
 }
