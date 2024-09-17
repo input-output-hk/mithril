@@ -1,4 +1,4 @@
-use crate::entities::{Epoch, ProtocolParameters};
+use crate::entities::{CardanoTransactionsSigningConfig, Epoch, ProtocolParameters};
 use crate::messages::SignerMessagePart;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,10 @@ pub struct EpochSettingsMessage {
 
     /// Signers that will be able to sign on the next epoch
     pub next_signers: Vec<SignerMessagePart>,
+
+    /// Cardano transactions signing configuration for the current epoch
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub current_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 impl EpochSettingsMessage {
@@ -41,6 +45,7 @@ impl EpochSettingsMessage {
                 },
                 current_signers: [SignerMessagePart::dummy()].to_vec(),
                 next_signers: [SignerMessagePart::dummy()].to_vec(),
+                current_cardano_transactions_signing_config: None,
             }
         }
     }
@@ -48,6 +53,8 @@ impl EpochSettingsMessage {
 
 #[cfg(test)]
 mod tests {
+
+    use crate::entities::BlockNumber;
 
     use super::*;
 
@@ -68,9 +75,27 @@ mod tests {
             "verification_key_signature":"signature_456",
             "operational_certificate":"certificate_456",
             "kes_period":45
-        }]
+        }],
+        "current_cardano_transactions_signing_config": {
+            "security_parameter": 70,
+            "step": 20
+        }
         
         }"#;
+
+    #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+    pub struct EpochSettingsMessageLegacyVersion {
+        /// Current Epoch
+        pub epoch: Epoch,
+
+        /// Current Protocol parameters
+        #[serde(rename = "protocol")]
+        pub protocol_parameters: ProtocolParameters,
+
+        /// Next Protocol parameters
+        #[serde(rename = "next_protocol")]
+        pub next_protocol_parameters: ProtocolParameters,
+    }
 
     #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
     pub struct EpochSettingsMessagePreviousVersion {
@@ -84,6 +109,28 @@ mod tests {
         /// Next Protocol parameters
         #[serde(rename = "next_protocol")]
         pub next_protocol_parameters: ProtocolParameters,
+
+        /// Current Signers
+        pub current_signers: Vec<SignerMessagePart>,
+
+        /// Signers that will be able to sign on the next epoch
+        pub next_signers: Vec<SignerMessagePart>,
+    }
+
+    fn golden_legacy_message() -> EpochSettingsMessageLegacyVersion {
+        EpochSettingsMessageLegacyVersion {
+            epoch: Epoch(10),
+            protocol_parameters: ProtocolParameters {
+                k: 5,
+                m: 100,
+                phi_f: 0.65,
+            },
+            next_protocol_parameters: ProtocolParameters {
+                k: 50,
+                m: 1000,
+                phi_f: 0.65,
+            },
+        }
     }
 
     fn golden_previous_message() -> EpochSettingsMessagePreviousVersion {
@@ -99,6 +146,20 @@ mod tests {
                 m: 1000,
                 phi_f: 0.65,
             },
+            current_signers: vec![SignerMessagePart {
+                party_id: "123".to_string(),
+                verification_key: "key_123".to_string(),
+                verification_key_signature: Some("signature_123".to_string()),
+                operational_certificate: Some("certificate_123".to_string()),
+                kes_period: Some(12),
+            }],
+            next_signers: vec![SignerMessagePart {
+                party_id: "456".to_string(),
+                verification_key: "key_456".to_string(),
+                verification_key_signature: Some("signature_456".to_string()),
+                operational_certificate: Some("certificate_456".to_string()),
+                kes_period: Some(45),
+            }],
         }
     }
 
@@ -129,7 +190,22 @@ mod tests {
                 operational_certificate: Some("certificate_456".to_string()),
                 kes_period: Some(45),
             }],
+            current_cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(70),
+                step: BlockNumber(20),
+            }),
         }
+    }
+
+    // Test the backward compatibility with legacy structure.
+    #[test]
+    fn test_actual_json_deserialized_into_legacy_message() {
+        let json = ACTUAL_JSON;
+        let message: EpochSettingsMessageLegacyVersion = serde_json::from_str(json).expect(
+            "This JSON is expected to be successfully parsed into a EpochSettingsMessageLegacyVersion instance.",
+        );
+
+        assert_eq!(golden_legacy_message(), message);
     }
 
     // Test the backward compatibility with previous structure.
