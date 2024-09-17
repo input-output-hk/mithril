@@ -21,13 +21,6 @@ pub struct SingleSignatures {
     #[serde(rename = "indexes")]
     pub won_indexes: Vec<LotteryIndex>,
 
-    /// Message that is signed by the signer
-    ///
-    /// Used to buffer the signature for later if the aggregator has yet to create an open message
-    /// for the signed entity type.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signed_message: Option<String>,
-
     /// Status of the authentication of the signer that emitted the signature
     #[serde(skip)]
     pub authentication_status: SingleSignatureAuthenticationStatus,
@@ -54,23 +47,6 @@ impl SingleSignatures {
             party_id: party_id.into(),
             signature,
             won_indexes,
-            signed_message: None,
-            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
-        }
-    }
-
-    /// `SingleSignatures` factory including the signed message
-    pub fn new_with_signed_message<T: Into<PartyId>>(
-        party_id: T,
-        signature: ProtocolSingleSignature,
-        won_indexes: Vec<LotteryIndex>,
-        signed_message: String,
-    ) -> SingleSignatures {
-        SingleSignatures {
-            party_id: party_id.into(),
-            signature,
-            won_indexes,
-            signed_message: Some(signed_message),
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         }
     }
@@ -89,17 +65,9 @@ impl SingleSignatures {
 cfg_test_tools! {
 impl SingleSignatures {
     /// Create a fake [SingleSignatures] with valid cryptographic data for testing purposes.
-    pub fn fake<T1: Into<String>, T2: Into<String>>(party_id: T1, message: T2) -> Self {
-        Self {
-            signed_message: None,
-            ..Self::fake_with_signed_message(party_id, message)
-        }
-    }
-
-    /// Create a fake [SingleSignatures] with valid cryptographic data for testing purposes.
     // TODO: this method is slow due to the fixture creation, we should either make
     // the fixture faster or find a faster alternative.
-    pub fn fake_with_signed_message<T1: Into<String>, T2: Into<String>>(party_id: T1, message: T2) -> Self {
+    pub fn fake<T1: Into<String>, T2: Into<String>>(party_id: T1, message: T2) -> Self {
         use crate::entities::{ProtocolParameters};
         use crate::test_utils::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 
@@ -118,7 +86,6 @@ impl SingleSignatures {
             party_id,
             signature: signature.signature,
             won_indexes: vec![10, 15],
-            signed_message: Some(message),
             authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         }
     }
@@ -131,8 +98,7 @@ impl Debug for SingleSignatures {
         let mut debug = f.debug_struct("SingleSignatures");
         debug
             .field("party_id", &self.party_id)
-            .field("won_indexes", &format_args!("{:?}", self.won_indexes))
-            .field("signed_message", &self.signed_message);
+            .field("won_indexes", &format_args!("{:?}", self.won_indexes));
 
         match is_pretty_printing {
             true => debug

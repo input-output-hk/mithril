@@ -234,11 +234,10 @@ impl SignerFixture {
             .map(|signature| {
                 let won_indexes = signature.indexes.clone();
 
-                SingleSignatures::new_with_signed_message(
+                SingleSignatures::new(
                     self.signer_with_stake.party_id.to_owned(),
                     signature.into(),
                     won_indexes,
-                    message,
                 )
             })
     }

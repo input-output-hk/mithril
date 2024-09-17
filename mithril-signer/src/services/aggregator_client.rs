@@ -8,7 +8,8 @@ use thiserror::Error;
 use mithril_common::{
     api_version::APIVersionProvider,
     entities::{
-        CertificatePending, Epoch, EpochSettings, SignedEntityType, Signer, SingleSignatures,
+        CertificatePending, Epoch, EpochSettings, ProtocolMessage, SignedEntityType, Signer,
+        SingleSignatures,
     },
     messages::{
         AggregatorFeaturesMessage, CertificatePendingMessage, EpochSettingsMessage,
@@ -16,9 +17,6 @@ use mithril_common::{
     },
     StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
-
-#[cfg(test)]
-use mockall::automock;
 
 use crate::message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter,
@@ -74,7 +72,7 @@ impl AggregatorClientError {
 }
 
 /// Trait for mocking and testing a `AggregatorClient`
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait AggregatorClient: Sync + Send {
     /// Retrieves epoch settings from the aggregator
@@ -98,6 +96,7 @@ pub trait AggregatorClient: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
         signatures: &SingleSignatures,
+        protocol_message: &ProtocolMessage,
     ) -> Result<(), AggregatorClientError>;
 
     /// Retrieves aggregator features message from the aggregator
@@ -280,12 +279,14 @@ impl AggregatorClient for AggregatorHTTPClient {
         &self,
         signed_entity_type: &SignedEntityType,
         signatures: &SingleSignatures,
+        protocol_message: &ProtocolMessage,
     ) -> Result<(), AggregatorClientError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
         let register_single_signature_message = ToRegisterSignatureMessageAdapter::try_adapt((
             signed_entity_type.to_owned(),
             signatures.to_owned(),
+            protocol_message,
         ))
         .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
         let response = self
@@ -435,6 +436,7 @@ pub(crate) mod dumb {
             &self,
             _signed_entity_type: &SignedEntityType,
             _signatures: &SingleSignatures,
+            _protocol_message: &ProtocolMessage,
         ) -> Result<(), AggregatorClientError> {
             Ok(())
         }
@@ -933,7 +935,11 @@ mod tests {
             None,
         );
         let register_signatures = certificate_handler
-            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
             .await;
         register_signatures.expect("unexpected error");
     }
@@ -954,7 +960,11 @@ mod tests {
             None,
         );
         let error = certificate_handler
-            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
             .await
             .unwrap_err();
 
@@ -982,7 +992,11 @@ mod tests {
             None,
         );
         match certificate_handler
-            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
             .await
             .unwrap_err()
         {
@@ -1006,7 +1020,11 @@ mod tests {
             None,
         );
         match certificate_handler
-            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
             .await
             .unwrap_err()
         {
@@ -1030,7 +1048,11 @@ mod tests {
             None,
         );
         match certificate_handler
-            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
             .await
             .unwrap_err()
         {
@@ -1055,7 +1077,11 @@ mod tests {
         );
 
         let error = certificate_handler
-            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
             .await
             .expect_err("register_signatures should fail");
 

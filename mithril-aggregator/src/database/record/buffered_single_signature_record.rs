@@ -53,7 +53,7 @@ impl BufferedSingleSignatureRecord {
         // the signatures are different for party_id/discriminant pairs.
         // We can't just reuse fake_data::single_signatures as they are static.
         Self::try_from_single_signatures(
-            &SingleSignatures::fake_with_signed_message(party_id.into(), discriminant.to_string()),
+            &SingleSignatures::fake(party_id.into(), discriminant.to_string()),
             discriminant,
         )
         .unwrap()
@@ -85,7 +85,6 @@ impl TryFrom<BufferedSingleSignatureRecord> for SingleSignatures {
             party_id: value.party_id,
             won_indexes: value.lottery_indexes,
             signature: value.signature.try_into()?,
-            signed_message: None,
             authentication_status: Default::default(),
         };
 

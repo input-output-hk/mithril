@@ -54,7 +54,6 @@ impl TryFrom<SingleSignatureRecord> for SingleSignatures {
             party_id: value.signer_id,
             won_indexes: value.lottery_indexes,
             signature: value.signature.try_into()?,
-            signed_message: None,
             authentication_status: Default::default(),
         };
 
