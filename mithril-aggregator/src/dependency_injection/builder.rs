@@ -76,8 +76,9 @@ use crate::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
     DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
-    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
+    ProtocolParametersStorer, RemoteSnapshotUploader, SingleSignatureAuthenticator,
+    SnapshotUploader, SnapshotUploaderType, Snapshotter, SnapshotterCompressionAlgorithm,
+    VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -230,6 +231,9 @@ pub struct DependenciesBuilder {
 
     /// Upkeep service
     pub upkeep_service: Option<Arc<dyn UpkeepService>>,
+
+    /// Single signer authenticator
+    pub single_signer_authenticator: Option<Arc<SingleSignatureAuthenticator>>,
 }
 
 impl DependenciesBuilder {
@@ -280,6 +284,7 @@ impl DependenciesBuilder {
             signed_entity_type_lock: None,
             transactions_importer: None,
             upkeep_service: None,
+            single_signer_authenticator: None,
         }
     }
 
@@ -1263,6 +1268,27 @@ impl DependenciesBuilder {
         Ok(self.upkeep_service.as_ref().cloned().unwrap())
     }
 
+    async fn build_single_signature_authenticator(
+        &mut self,
+    ) -> Result<Arc<SingleSignatureAuthenticator>> {
+        let authenticator =
+            SingleSignatureAuthenticator::new(self.get_multi_signer().await?, self.get_logger()?);
+
+        Ok(Arc::new(authenticator))
+    }
+
+    /// [MithrilSignerRegisterer] service
+    pub async fn get_single_signature_authenticator(
+        &mut self,
+    ) -> Result<Arc<SingleSignatureAuthenticator>> {
+        if self.single_signer_authenticator.is_none() {
+            self.single_signer_authenticator =
+                Some(self.build_single_signature_authenticator().await?);
+        }
+
+        Ok(self.single_signer_authenticator.as_ref().cloned().unwrap())
+    }
+
     /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
@@ -1307,6 +1333,7 @@ impl DependenciesBuilder {
             prover_service: self.get_prover_service().await?,
             signed_entity_type_lock: self.get_signed_entity_lock().await?,
             upkeep_service: self.get_upkeep_service().await?,
+            single_signer_authenticator: self.get_single_signature_authenticator().await?,
         };
 
         Ok(dependency_manager)

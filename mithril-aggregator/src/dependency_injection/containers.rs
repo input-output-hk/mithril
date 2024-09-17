@@ -33,7 +33,8 @@ use crate::{
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
     CertificatePendingStore, ProtocolParametersStorer, SignerRegisterer,
-    SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStorer,
+    SignerRegistrationRoundOpener, SingleSignatureAuthenticator, Snapshotter,
+    VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps a [EpochService]
@@ -161,6 +162,9 @@ pub struct DependencyContainer {
 
     /// Upkeep service
     pub upkeep_service: Arc<dyn UpkeepService>,
+
+    /// Single signer authenticator
+    pub single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
 }
 
 #[doc(hidden)]
