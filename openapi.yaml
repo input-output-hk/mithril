@@ -733,6 +733,25 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Signer"
+        current_cardano_transactions_signing_config:
+          description: |
+            Cardano transactions signing configuration for the current epoch
+
+            Mandatory if `signed_entity_types` from the Aggregator configuration contains `CardanoTransactions`.
+          type: object
+          additionalProperties: false
+          required:
+            - security_parameter
+            - step
+          properties:
+            security_parameter:
+              description: Number of blocks to discard from the tip of the chain when importing Cardano transactions
+              type: integer
+              format: int64
+            step:
+              description: Number of blocks between signature of Cardano transactions
+              type: integer
+              format: int64
       example:
         {
           "epoch": 329,
@@ -771,7 +790,9 @@ components:
                 "operational_certificate": "2c38382c3138372c3233332c34302c37322c31362c36365d2c312c3132332c5b31362c3136392c3134312c3138332c32322c3137342c3131312c33322c36342c35322c2c3232382c37392c3137352c32395312c3838282c323030",
                 "kes_period": 876
               }
-            ]
+            ],
+          "current_cardano_transactions_signing_config":
+            { "security_parameter": 100, "step": 10 }
         }
 
     ProtocolParameters:
