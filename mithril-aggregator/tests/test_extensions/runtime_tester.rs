@@ -9,7 +9,6 @@ use mithril_aggregator::{
     AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
-use mithril_common::entities::ProtocolMessagePartKey;
 use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
@@ -17,8 +16,8 @@ use mithril_common::{
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
         BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
-        SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, Snapshot, StakeDistribution,
-        TimePoint,
+        ProtocolMessagePartKey, SignedEntityType, SignedEntityTypeDiscriminants,
+        SingleSignatureAuthenticationStatus, SlotNumber, Snapshot, StakeDistribution, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
@@ -380,11 +379,37 @@ impl RuntimeTester {
         Ok(())
     }
 
-    /// "Send", actually register, the given single signatures in the multi-signers
+    pub async fn send_authenticated_single_signatures(
+        &mut self,
+        discriminant: SignedEntityTypeDiscriminants,
+        signers: &[SignerFixture],
+    ) -> StdResult<()> {
+        self.send_single_signatures_with_auth_status(
+            discriminant,
+            signers,
+            SingleSignatureAuthenticationStatus::Authenticated,
+        )
+        .await
+    }
+
     pub async fn send_single_signatures(
         &mut self,
         discriminant: SignedEntityTypeDiscriminants,
         signers: &[SignerFixture],
+    ) -> StdResult<()> {
+        self.send_single_signatures_with_auth_status(
+            discriminant,
+            signers,
+            SingleSignatureAuthenticationStatus::Unauthenticated,
+        )
+        .await
+    }
+
+    async fn send_single_signatures_with_auth_status(
+        &mut self,
+        discriminant: SignedEntityTypeDiscriminants,
+        signers: &[SignerFixture],
+        authentication_status: SingleSignatureAuthenticationStatus,
     ) -> StdResult<()> {
         let certifier_service = self.dependencies.certifier_service.clone();
         let signed_entity_type = self
@@ -411,7 +436,12 @@ impl RuntimeTester {
         );
 
         for signer_fixture in signers {
-            if let Some(single_signatures) = signer_fixture.sign(&message) {
+            if let Some(mut single_signatures) = signer_fixture.sign(&message) {
+                if authentication_status == SingleSignatureAuthenticationStatus::Authenticated {
+                    single_signatures.authentication_status =
+                        SingleSignatureAuthenticationStatus::Authenticated;
+                }
+
                 certifier_service
                     .register_single_signature(&signed_entity_type, &single_signatures)
                     .await

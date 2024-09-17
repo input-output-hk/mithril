@@ -69,7 +69,7 @@ async fn create_certificate_with_buffered_signatures() {
 
     comment!("signers send their single signature before the state machine is signing");
     tester
-        .send_single_signatures(
+        .send_authenticated_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             &fixture.signers_fixture(),
         )
