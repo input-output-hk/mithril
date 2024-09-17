@@ -12,7 +12,6 @@ use crate::entities::OpenMessage;
 use crate::services::{
     BufferedSingleSignatureStore, CertifierService, CertifierServiceError, RegistrationStatus,
 };
-use crate::MultiSigner;
 
 /// A decorator of [CertifierService] that buffers that can buffer registration of single signatures
 /// when the open message is not yet created.
@@ -21,7 +20,6 @@ use crate::MultiSigner;
 /// registered.
 pub struct BufferedCertifierService {
     certifier_service: Arc<dyn CertifierService>,
-    multi_signer: Arc<dyn MultiSigner>,
     buffered_single_signature_store: Arc<dyn BufferedSingleSignatureStore>,
     logger: Logger,
 }
@@ -30,13 +28,11 @@ impl BufferedCertifierService {
     /// Create a new instance of `BufferedCertifierService`.
     pub fn new(
         certifier_service: Arc<dyn CertifierService>,
-        multi_signer: Arc<dyn MultiSigner>,
         buffered_single_signature_store: Arc<dyn BufferedSingleSignatureStore>,
         logger: Logger,
     ) -> Self {
         Self {
             certifier_service,
-            multi_signer,
             buffered_single_signature_store,
             logger,
         }
@@ -208,7 +204,6 @@ mod tests {
 
     use crate::database::repository::BufferedSingleSignatureRepository;
     use crate::database::test_helper::main_db_connection;
-    use crate::multi_signer::MockMultiSigner;
     use crate::services::{
         CertifierServiceError, MockBufferedSingleSignatureStore, MockCertifierService,
     };
@@ -222,14 +217,6 @@ mod tests {
         let mut certifier = MockCertifierService::new();
         certifier_mock_config(&mut certifier);
         Arc::new(certifier)
-    }
-
-    fn mock_multi_signer(
-        multi_signer_mock_config: impl FnOnce(&mut MockMultiSigner),
-    ) -> Arc<MockMultiSigner> {
-        let mut multi_signer = MockMultiSigner::new();
-        multi_signer_mock_config(&mut multi_signer);
-        Arc::new(multi_signer)
     }
 
     fn mock_store<F>(store_mock_config: F) -> Arc<MockBufferedSingleSignatureStore>
@@ -253,7 +240,6 @@ mod tests {
         )));
         let certifier = BufferedCertifierService::new(
             mock_certifier(decorated_certifier_mock_config),
-            mock_multi_signer(|_| {}),
             store.clone(),
             TestLogger::stdout(),
         );
@@ -402,7 +388,6 @@ mod tests {
                     .once()
                     .returning(|_, _| Ok(RegistrationStatus::Registered));
             }),
-            mock_multi_signer(|_| {}),
             store.clone(),
             TestLogger::stdout(),
         );
@@ -434,7 +419,6 @@ mod tests {
             let store = mock_store(store_mock_config);
             let certifier = BufferedCertifierService::new(
                 mock_certifier(certifier_mock_config),
-                mock_multi_signer(|_| {}),
                 store,
                 TestLogger::stdout(),
             );
