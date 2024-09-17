@@ -71,6 +71,14 @@ mod handlers {
                     .await,
                 "single_signer_authenticator::error"
             );
+
+            if !signatures.is_authenticated() {
+                debug!("register_signatures::unauthenticated_signature");
+                return Ok(reply::bad_request(
+                    "Could not authenticate signature".to_string(),
+                    "Signature could not be authenticated".to_string(),
+                ));
+            }
         }
 
         match certifier_service
@@ -160,13 +168,11 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_send_unauthenticated_signature_if_authentication_fail() {
+    async fn test_register_signatures_return_404_if_authentication_fail() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .withf(|_, signature| !signature.is_authenticated())
-            .once()
-            .return_once(move |_, _| Ok(RegistrationStatus::Registered));
+            .never();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
@@ -180,12 +186,23 @@ mod tests {
         let method = Method::POST.as_str();
         let path = "/register-signatures";
 
-        request()
+        let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &message,
+            &response,
+            &StatusCode::BAD_REQUEST,
+        )
+        .unwrap();
     }
 
     #[tokio::test]
