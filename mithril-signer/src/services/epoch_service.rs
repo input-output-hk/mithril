@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use mithril_common::crypto_helper::ProtocolInitializer;
+use mithril_common::entities::CardanoTransactionsSigningConfig;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
 use mithril_common::entities::ProtocolParameters;
@@ -49,6 +50,11 @@ pub trait EpochService: Sync + Send {
     /// Get signers with stake for the next epoch
     async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
 
+    /// Get the cardano transactions signing configuration for the current epoch
+    fn current_cardano_transactions_signing_config(
+        &self,
+    ) -> StdResult<&Option<CardanoTransactionsSigningConfig>>;
+
     /// Check if a signer is included in the current stake distribution
     fn is_signer_included_in_current_stake_distribution(
         &self,
@@ -62,6 +68,7 @@ struct EpochData {
     next_protocol_parameters: ProtocolParameters,
     current_signers: Vec<Signer>,
     next_signers: Vec<Signer>,
+    current_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 /// Implementation of the [epoch service][EpochService].
@@ -138,6 +145,8 @@ impl EpochService for MithrilEpochService {
             next_protocol_parameters: epoch_settings.next_protocol_parameters,
             current_signers: epoch_settings.current_signers,
             next_signers: epoch_settings.next_signers,
+            current_cardano_transactions_signing_config: epoch_settings
+                .current_cardano_transactions_signing_config,
         });
 
         Ok(())
@@ -175,6 +184,14 @@ impl EpochService for MithrilEpochService {
             self.next_signers()?,
         )
         .await
+    }
+
+    fn current_cardano_transactions_signing_config(
+        &self,
+    ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
+        Ok(&self
+            .unwrap_data()?
+            .current_cardano_transactions_signing_config)
     }
 
     fn is_signer_included_in_current_stake_distribution(
@@ -302,6 +319,9 @@ mod tests {
         assert!(service.next_signers().is_err());
         assert!(service.current_signers_with_stake().await.is_err());
         assert!(service.next_signers_with_stake().await.is_err());
+        assert!(service
+            .current_cardano_transactions_signing_config()
+            .is_err());
     }
 
     #[test]
@@ -350,6 +370,14 @@ mod tests {
             epoch_settings.next_protocol_parameters,
             *service.next_protocol_parameters().unwrap()
         );
+
+        // Check current_cardano_transactions_signing_config
+        assert_eq!(
+            epoch_settings.current_cardano_transactions_signing_config,
+            *service
+                .current_cardano_transactions_signing_config()
+                .unwrap()
+        )
     }
 
     #[tokio::test]

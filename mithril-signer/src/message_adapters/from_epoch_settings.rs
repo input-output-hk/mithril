@@ -19,6 +19,8 @@ impl TryFromMessageAdapter<EpochSettingsMessage, EpochSettings> for FromEpochSet
                 .with_context(|| "'FromMessageAdapter' can not convert the current signers")?,
             next_signers: SignerMessagePart::try_into_signers(message.next_signers)
                 .with_context(|| "'FromMessageAdapter' can not convert the next signers")?,
+            current_cardano_transactions_signing_config: message
+                .current_cardano_transactions_signing_config,
         };
         Ok(epoch_settings)
     }

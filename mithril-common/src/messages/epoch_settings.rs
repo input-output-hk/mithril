@@ -45,7 +45,7 @@ impl EpochSettingsMessage {
                 },
                 current_signers: [SignerMessagePart::dummy()].to_vec(),
                 next_signers: [SignerMessagePart::dummy()].to_vec(),
-                current_cardano_transactions_signing_config: None,
+                current_cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
             }
         }
     }

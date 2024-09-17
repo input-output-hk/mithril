@@ -458,7 +458,10 @@ mod tests {
             MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, ProtocolParameters},
+        entities::{
+            BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransactionsSigningConfig, Epoch,
+            ProtocolParameters,
+        },
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -544,6 +547,11 @@ mod tests {
         }
         async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
             Ok(vec![])
+        }
+        fn current_cardano_transactions_signing_config(
+            &self,
+        ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
+            Ok(&None)
         }
 
         fn is_signer_included_in_current_stake_distribution(
