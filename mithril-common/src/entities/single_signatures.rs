@@ -78,6 +78,11 @@ impl SingleSignatures {
     pub fn to_protocol_signature(&self) -> StmSig {
         self.signature.clone().into()
     }
+
+    /// Check that the signer that emitted the signature is authenticated
+    pub fn is_authenticated(&self) -> bool {
+        self.authentication_status == SingleSignatureAuthenticationStatus::Authenticated
+    }
 }
 
 cfg_test_tools! {

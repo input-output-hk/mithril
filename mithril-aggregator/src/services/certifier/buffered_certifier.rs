@@ -102,52 +102,19 @@ impl CertifierService for BufferedCertifierService {
         {
             Ok(res) => Ok(res),
             Err(error) => match error.downcast_ref::<CertifierServiceError>() {
-                Some(CertifierServiceError::NotFound(..)) => {
-                    match &signature.signed_message {
-                        // Only buffer signatures that have a signed message so we can validate them
-                        Some(signed_message) => {
-                            debug!(
-                                self.logger,
-                                "No OpenMessage available for signed entity - Buffering single signature";
-                                "signed_entity_type" => ?signed_entity_type,
-                                "party_id" => &signature.party_id
-                            );
+                Some(CertifierServiceError::NotFound(..)) if signature.is_authenticated() => {
+                    debug!(
+                        self.logger,
+                        "No OpenMessage available for signed entity - Buffering single signature";
+                        "signed_entity_type" => ?signed_entity_type,
+                        "party_id" => &signature.party_id
+                    );
 
-                            if let Err(error) = self
-                                .multi_signer
-                                .verify_single_signature(signed_message, signature)
-                                .await
-                            {
-                                // Signers may detect epoch changes before the aggregator and send
-                                // new signatures using the next epoch stake distribution
-                                debug!(
-                                    self.logger,
-                                    "Signature is invalid for current epoch stake distribution, trying next epoch";
-                                    "validation_error" => ?error
-                                );
+                    self.buffered_single_signature_store
+                        .buffer_signature(signed_entity_type.into(), signature)
+                        .await?;
 
-                                self.multi_signer
-                                    .verify_single_signature_for_next_epoch(
-                                        signed_message,
-                                        signature,
-                                    )
-                                    .await
-                                    .map_err(|err| {
-                                        CertifierServiceError::InvalidSingleSignature(
-                                            signed_entity_type.clone(),
-                                            err,
-                                        )
-                                    })?;
-                            }
-
-                            self.buffered_single_signature_store
-                                .buffer_signature(signed_entity_type.into(), signature)
-                                .await?;
-
-                            Ok(RegistrationStatus::Buffered)
-                        }
-                        None => Err(error),
-                    }
+                    Ok(RegistrationStatus::Buffered)
                 }
                 _ => Err(error),
             },
@@ -236,6 +203,7 @@ mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants::{
         CardanoTransactions, MithrilStakeDistribution,
     };
+    use mithril_common::entities::SingleSignatureAuthenticationStatus;
     use mithril_common::test_utils::fake_data;
 
     use crate::database::repository::BufferedSingleSignatureRepository;
@@ -278,7 +246,6 @@ mod tests {
     /// Return the registration result and the list of buffered signatures after the registration.
     async fn run_register_signature_scenario(
         decorated_certifier_mock_config: impl FnOnce(&mut MockCertifierService),
-        multi_signer_mock_config: impl FnOnce(&mut MockMultiSigner),
         signature_to_register: &SingleSignatures,
     ) -> (StdResult<RegistrationStatus>, Vec<SingleSignatures>) {
         let store = Arc::new(BufferedSingleSignatureRepository::new(Arc::new(
@@ -286,7 +253,7 @@ mod tests {
         )));
         let certifier = BufferedCertifierService::new(
             mock_certifier(decorated_certifier_mock_config),
-            mock_multi_signer(multi_signer_mock_config),
+            mock_multi_signer(|_| {}),
             store.clone(),
             TestLogger::stdout(),
         );
@@ -309,7 +276,6 @@ mod tests {
     #[tokio::test]
     async fn when_registering_single_signature_dont_buffer_signature_if_decorated_certifier_succeed(
     ) {
-        let signature = SingleSignatures::fake_with_signed_message("party_1", "a message");
         let (registration_result, buffered_signatures_after_registration) =
             run_register_signature_scenario(
                 |mock_certifier| {
@@ -317,8 +283,7 @@ mod tests {
                         .expect_register_single_signature()
                         .returning(|_, _| Ok(RegistrationStatus::Registered));
                 },
-                |_mock_multi_signer| {},
-                &signature,
+                &SingleSignatures::fake("party_1", "a message"),
             )
             .await;
 
@@ -334,7 +299,7 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn buffer_signature_with_valid_signed_message_for_current_epoch() {
+        async fn buffer_signature_if_authenticated() {
             let (registration_result, buffered_signatures_after_registration) =
                 run_register_signature_scenario(
                     |mock_certifier| {
@@ -347,12 +312,10 @@ mod tests {
                                 .into())
                             });
                     },
-                    |mock_multi_signer| {
-                        mock_multi_signer
-                            .expect_verify_single_signature()
-                            .returning(|_, _| Ok(()));
+                    &SingleSignatures {
+                        authentication_status: SingleSignatureAuthenticationStatus::Authenticated,
+                        ..SingleSignatures::fake("party_1", "a message")
                     },
-                    &SingleSignatures::fake_with_signed_message("party_1", "a message"),
                 )
                 .await;
 
@@ -365,7 +328,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn buffer_signature_with_valid_signed_message_for_next_epoch() {
+        async fn dont_buffer_signature_if_not_authenticated() {
             let (registration_result, buffered_signatures_after_registration) =
                 run_register_signature_scenario(
                     |mock_certifier| {
@@ -378,80 +341,10 @@ mod tests {
                                 .into())
                             });
                     },
-                    |mock_multi_signer| {
-                        mock_multi_signer
-                            .expect_verify_single_signature()
-                            .returning(|_, _| Err(anyhow!("Invalid signature")));
-                        mock_multi_signer
-                            .expect_verify_single_signature_for_next_epoch()
-                            .returning(|_, _| Ok(()));
+                    &SingleSignatures {
+                        authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
+                        ..SingleSignatures::fake("party_1", "a message")
                     },
-                    &SingleSignatures::fake_with_signed_message("party_1", "a message"),
-                )
-                .await;
-
-            let status = registration_result.expect("Registration should have succeed");
-            assert_eq!(status, RegistrationStatus::Buffered);
-            assert_eq!(
-                buffered_signatures_after_registration,
-                vec![SingleSignatures::fake("party_1", "a message")]
-            );
-        }
-
-        #[tokio::test]
-        async fn dont_buffer_signature_with_invalid_signed_message() {
-            let signature = SingleSignatures::fake_with_signed_message("party_1", "a message");
-            let (registration_result, buffered_signatures_after_registration) =
-                run_register_signature_scenario(
-                    |mock_certifier| {
-                        mock_certifier
-                            .expect_register_single_signature()
-                            .returning(|_, _| {
-                                Err(CertifierServiceError::NotFound(
-                                    SignedEntityType::MithrilStakeDistribution(Epoch(5)),
-                                )
-                                .into())
-                            });
-                    },
-                    |mock_multi_signer| {
-                        mock_multi_signer
-                            .expect_verify_single_signature()
-                            .returning(|_, _| Err(anyhow!("Invalid signature for current epoch")));
-                        mock_multi_signer
-                            .expect_verify_single_signature_for_next_epoch()
-                            .returning(|_, _| Err(anyhow!("Invalid signature for next epoch")));
-                    },
-                    &signature,
-                )
-                .await;
-
-            registration_result.expect_err("Registration should have failed");
-            assert_eq!(
-                buffered_signatures_after_registration,
-                Vec::<SingleSignatures>::new()
-            );
-        }
-
-        #[tokio::test]
-        async fn dont_buffer_signature_without_signed_message() {
-            let signature = SingleSignatures {
-                signed_message: None,
-                ..SingleSignatures::fake_with_signed_message("party_1", "a message")
-            };
-            let (registration_result, buffered_signatures_after_registration) =
-                run_register_signature_scenario(
-                    |mock_certifier| {
-                        mock_certifier
-                            .expect_register_single_signature()
-                            .returning(|_, _| {
-                                Err(CertifierServiceError::NotFound(
-                                    SignedEntityType::MithrilStakeDistribution(Epoch(5)),
-                                )
-                                .into())
-                            });
-                    },
-                    |_mock_multi_signer| {},
-                    &signature,
                 )
                 .await;
 
