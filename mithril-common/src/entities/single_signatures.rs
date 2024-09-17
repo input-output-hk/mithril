@@ -34,7 +34,7 @@ pub struct SingleSignatures {
 }
 
 /// Status of the authentication of the signer that emitted the signature
-#[derive(Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum SingleSignatureAuthenticationStatus {
     /// We could authenticate the signer that emitted the signature
     Authenticated,
