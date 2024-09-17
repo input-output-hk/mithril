@@ -29,6 +29,7 @@ pub struct SingleSignatures {
     pub signed_message: Option<String>,
 
     /// Status of the authentication of the signer that emitted the signature
+    #[serde(skip)]
     pub authentication_status: SingleSignatureAuthenticationStatus,
 }
 
