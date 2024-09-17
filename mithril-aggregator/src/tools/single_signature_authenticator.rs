@@ -77,6 +77,39 @@ impl SingleSignatureAuthenticator {
 }
 
 #[cfg(test)]
+impl SingleSignatureAuthenticator {
+    pub(crate) fn new_that_authenticate_everything() -> Self {
+        let mut multi_signer = crate::multi_signer::MockMultiSigner::new();
+        multi_signer
+            .expect_verify_single_signature()
+            .returning(|_, _| Ok(()));
+        multi_signer
+            .expect_verify_single_signature_for_next_epoch()
+            .returning(|_, _| Ok(()));
+
+        Self {
+            multi_signer: Arc::new(multi_signer),
+            logger: crate::test_tools::TestLogger::stdout(),
+        }
+    }
+
+    pub(crate) fn new_that_reject_everything() -> Self {
+        let mut multi_signer = crate::multi_signer::MockMultiSigner::new();
+        multi_signer
+            .expect_verify_single_signature()
+            .returning(|_, _| Err(anyhow::anyhow!("error")));
+        multi_signer
+            .expect_verify_single_signature_for_next_epoch()
+            .returning(|_, _| Err(anyhow::anyhow!("error")));
+
+        Self {
+            multi_signer: Arc::new(multi_signer),
+            logger: crate::test_tools::TestLogger::stdout(),
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use anyhow::anyhow;
 
