@@ -7,7 +7,7 @@ use crate::{
         ProtocolMultiSignature,
     },
     entities::SingleSignatures,
-    protocol::AsMessage,
+    protocol::ToMessage,
     StdResult,
 };
 
@@ -26,7 +26,7 @@ impl MultiSigner {
     }
 
     /// Aggregate the given single signatures into a multi-signature
-    pub fn aggregate_single_signatures<T: AsMessage>(
+    pub fn aggregate_single_signatures<T: ToMessage>(
         &self,
         single_signatures: &[SingleSignatures],
         message: &T,
@@ -37,7 +37,7 @@ impl MultiSigner {
             .collect();
 
         self.protocol_clerk
-            .aggregate(&protocol_signatures, message.message_string().as_bytes())
+            .aggregate(&protocol_signatures, message.to_message().as_bytes())
             .map(|multi_sig| multi_sig.into())
     }
 
@@ -47,7 +47,7 @@ impl MultiSigner {
     }
 
     /// Verify a single signature
-    pub fn verify_single_signature<T: AsMessage>(
+    pub fn verify_single_signature<T: ToMessage>(
         &self,
         message: &T,
         single_signature: &SingleSignatures,
@@ -74,7 +74,7 @@ impl MultiSigner {
                 &vk,
                 &stake,
                 &avk,
-                message.message_string().as_bytes(),
+                message.to_message().as_bytes(),
             )
             .with_context(|| {
                 format!(

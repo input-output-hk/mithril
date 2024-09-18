@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt::Display};
 
-use crate::protocol::AsMessage;
+use crate::protocol::ToMessage;
 
 /// The key of a ProtocolMessage
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
@@ -97,8 +97,8 @@ impl ProtocolMessage {
     }
 }
 
-impl AsMessage for ProtocolMessage {
-    fn message_string(&self) -> String {
+impl ToMessage for ProtocolMessage {
+    fn to_message(&self) -> String {
         self.compute_hash()
     }
 }

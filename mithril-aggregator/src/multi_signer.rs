@@ -139,7 +139,7 @@ mod tests {
 
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::entities::{CardanoDbBeacon, Epoch, SignedEntityType, SignerWithStake};
-    use mithril_common::protocol::AsMessage;
+    use mithril_common::protocol::ToMessage;
     use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
 
     use crate::services::FakeEpochService;
@@ -186,11 +186,11 @@ mod tests {
             let signature = fixture.signers_fixture()[0].sign(&message).unwrap();
 
             multi_signer
-                .verify_single_signature(&message.message_string(), &signature)
+                .verify_single_signature(&message.to_message(), &signature)
                 .await
                 .unwrap();
 
-            multi_signer.verify_single_signature_for_next_epoch(&message.message_string(), &signature).await.expect_err(
+            multi_signer.verify_single_signature_for_next_epoch(&message.to_message(), &signature).await.expect_err(
                 "single signature issued in the current epoch should not be valid for the next epoch",
             );
         }
@@ -200,13 +200,13 @@ mod tests {
 
             multi_signer
                 .verify_single_signature_for_next_epoch(
-                    &message.message_string(),
+                    &message.to_message(),
                     &next_epoch_signature,
                 )
                 .await
                 .unwrap();
 
-            multi_signer.verify_single_signature(&message.message_string(), &next_epoch_signature).await.expect_err(
+            multi_signer.verify_single_signature(&message.to_message(), &next_epoch_signature).await.expect_err(
                 "single signature issued in the next epoch should not be valid for the current epoch",
             );
         }
@@ -235,7 +235,7 @@ mod tests {
 
         for signature in &signatures {
             multi_signer
-                .verify_single_signature(&message.message_string(), signature)
+                .verify_single_signature(&message.to_message(), signature)
                 .await
                 .expect("single signature should be valid");
         }

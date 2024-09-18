@@ -1,7 +1,7 @@
 use anyhow::Context;
 use mithril_common::entities::{ProtocolMessage, SignedEntityType, SingleSignatures};
 use mithril_common::messages::{RegisterSignatureMessage, TryToMessageAdapter};
-use mithril_common::protocol::AsMessage;
+use mithril_common::protocol::ToMessage;
 use mithril_common::StdResult;
 
 pub struct ToRegisterSignatureMessageAdapter;
@@ -26,7 +26,7 @@ impl
                 "'ToRegisterSignatureMessageAdapter' can not convert the single signature"
             })?,
             won_indexes: single_signature.won_indexes,
-            signed_message: Some(protocol_message.message_string()),
+            signed_message: Some(protocol_message.to_message()),
         };
 
         Ok(message)
@@ -50,7 +50,7 @@ mod tests {
 
         assert_eq!("party_id".to_string(), message.party_id);
         assert_eq!(
-            Some(ProtocolMessage::default().message_string()),
+            Some(ProtocolMessage::default().to_message()),
             message.signed_message
         );
     }

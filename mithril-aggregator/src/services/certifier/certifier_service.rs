@@ -11,7 +11,7 @@ use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
     SignedEntityType, SingleSignatures, StakeDistributionParty,
 };
-use mithril_common::protocol::AsMessage;
+use mithril_common::protocol::ToMessage;
 use mithril_common::{CardanoNetwork, StdResult, TickerService};
 
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
@@ -130,7 +130,7 @@ impl CertifierService for MithrilCertifierService {
         }
 
         self.multi_signer
-            .verify_single_signature(&open_message.protocol_message.message_string(), signature)
+            .verify_single_signature(&open_message.protocol_message.to_message(), signature)
             .await
             .map_err(|err| {
                 CertifierServiceError::InvalidSingleSignature(signed_entity_type.clone(), err)

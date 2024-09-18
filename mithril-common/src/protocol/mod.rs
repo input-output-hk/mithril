@@ -13,19 +13,19 @@ pub use signer_builder::{SignerBuilder, SignerBuilderError};
 pub use single_signer::SingleSigner;
 
 /// Trait to convert a type to a message that can be signed or verified by the Mithril protocol.
-pub trait AsMessage: Sync + Send {
+pub trait ToMessage: Sync + Send {
     /// Return a String representation of the message.
-    fn message_string(&self) -> String;
+    fn to_message(&self) -> String;
 }
 
-impl AsMessage for String {
-    fn message_string(&self) -> String {
+impl ToMessage for String {
+    fn to_message(&self) -> String {
         self.clone()
     }
 }
 
-impl AsMessage for &str {
-    fn message_string(&self) -> String {
+impl ToMessage for &str {
+    fn to_message(&self) -> String {
         self.to_string()
     }
 }

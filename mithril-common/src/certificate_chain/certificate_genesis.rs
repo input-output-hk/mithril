@@ -15,7 +15,7 @@ use crate::{
         ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
     },
     era_deprecate,
-    protocol::AsMessage,
+    protocol::ToMessage,
     StdResult,
 };
 
@@ -53,7 +53,7 @@ impl CertificateGenesisProducer {
     }
 
     /// Sign the Genesis protocol message (test only)
-    pub fn sign_genesis_protocol_message<T: AsMessage>(
+    pub fn sign_genesis_protocol_message<T: ToMessage>(
         &self,
         genesis_message: T,
     ) -> Result<ProtocolGenesisSignature, CertificateGenesisProducerError> {
@@ -61,7 +61,7 @@ impl CertificateGenesisProducer {
             .genesis_signer
             .as_ref()
             .ok_or_else(CertificateGenesisProducerError::MissingGenesisSigner)?
-            .sign(genesis_message.message_string().as_bytes()))
+            .sign(genesis_message.to_message().as_bytes()))
     }
 
     era_deprecate!("Remove immutable_file_number");
