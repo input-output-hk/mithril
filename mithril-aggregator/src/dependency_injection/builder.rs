@@ -731,6 +731,7 @@ impl DependenciesBuilder {
         let chain_block_reader = PallasChainReader::new(
             &self.configuration.cardano_node_socket_path,
             self.configuration.get_network()?,
+            self.get_logger()?,
         );
 
         Ok(Arc::new(Mutex::new(chain_block_reader)))
