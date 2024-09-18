@@ -45,7 +45,10 @@ impl SingleSignatureAuthenticator {
                 // new signatures using the next epoch stake distribution
                 if self
                     .multi_signer
-                    .verify_single_signature_for_next_epoch(signed_message, single_signature)
+                    .verify_single_signature_for_next_stake_distribution(
+                        signed_message,
+                        single_signature,
+                    )
                     .await
                     .is_ok()
                 {
@@ -84,7 +87,7 @@ impl SingleSignatureAuthenticator {
             .expect_verify_single_signature()
             .returning(|_, _| Ok(()));
         multi_signer
-            .expect_verify_single_signature_for_next_epoch()
+            .expect_verify_single_signature_for_next_stake_distribution()
             .returning(|_, _| Ok(()));
 
         Self {
@@ -99,7 +102,7 @@ impl SingleSignatureAuthenticator {
             .expect_verify_single_signature()
             .returning(|_, _| Err(anyhow::anyhow!("error")));
         multi_signer
-            .expect_verify_single_signature_for_next_epoch()
+            .expect_verify_single_signature_for_next_stake_distribution()
             .returning(|_, _| Err(anyhow::anyhow!("error")));
 
         Self {
@@ -170,7 +173,7 @@ mod tests {
                     .expect_verify_single_signature()
                     .returning(|_, _| Err(anyhow!("error")));
                 mock_config
-                    .expect_verify_single_signature_for_next_epoch()
+                    .expect_verify_single_signature_for_next_stake_distribution()
                     .returning(|_, _| Ok(()));
             }),
             TestLogger::stdout(),
@@ -202,8 +205,12 @@ mod tests {
                     .expect_verify_single_signature()
                     .returning(|_, _| Err(anyhow!("verify_single_signature error")));
                 mock_config
-                    .expect_verify_single_signature_for_next_epoch()
-                    .returning(|_, _| Err(anyhow!("verify_single_signature_for_next_epoch error")));
+                    .expect_verify_single_signature_for_next_stake_distribution()
+                    .returning(|_, _| {
+                        Err(anyhow!(
+                            "verify_single_signature_for_next_stake_distribution error"
+                        ))
+                    });
             }),
             TestLogger::stdout(),
         );
@@ -234,8 +241,12 @@ mod tests {
                     .expect_verify_single_signature()
                     .returning(|_, _| Err(anyhow!("verify_single_signature error")));
                 mock_config
-                    .expect_verify_single_signature_for_next_epoch()
-                    .returning(|_, _| Err(anyhow!("verify_single_signature_for_next_epoch error")));
+                    .expect_verify_single_signature_for_next_stake_distribution()
+                    .returning(|_, _| {
+                        Err(anyhow!(
+                            "verify_single_signature_for_next_stake_distribution error"
+                        ))
+                    });
             }),
             TestLogger::stdout(),
         );

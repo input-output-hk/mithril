@@ -160,6 +160,17 @@ impl SqLiteEntity for BufferedSingleSignatureRecord {
     }
 }
 
+/// Test only - strip the date from the given records to make them comparable.
+#[cfg(test)]
+pub(crate) fn strip_buffered_sigs_date(
+    records: &[BufferedSingleSignatureRecord],
+) -> Vec<BufferedSingleSignatureRecord> {
+    records
+        .iter()
+        .map(BufferedSingleSignatureRecord::with_stripped_date)
+        .collect::<Vec<_>>()
+}
+
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants::{

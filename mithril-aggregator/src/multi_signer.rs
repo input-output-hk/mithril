@@ -27,7 +27,7 @@ pub trait MultiSigner: Sync + Send {
     ) -> StdResult<()>;
 
     /// Verify a single signature using the stake distribution of the next epoch
-    async fn verify_single_signature_for_next_epoch(
+    async fn verify_single_signature_for_next_stake_distribution(
         &self,
         message: &str,
         signatures: &entities::SingleSignatures,
@@ -87,7 +87,7 @@ impl MultiSigner for MultiSignerImpl {
         self.run_verify_single_signature(message, single_signature, protocol_multi_signer)
     }
 
-    async fn verify_single_signature_for_next_epoch(
+    async fn verify_single_signature_for_next_stake_distribution(
         &self,
         message: &str,
         single_signature: &entities::SingleSignatures,
@@ -190,7 +190,7 @@ mod tests {
                 .await
                 .unwrap();
 
-            multi_signer.verify_single_signature_for_next_epoch(&message.to_message(), &signature).await.expect_err(
+            multi_signer.verify_single_signature_for_next_stake_distribution(&message.to_message(), &signature).await.expect_err(
                 "single signature issued in the current epoch should not be valid for the next epoch",
             );
         }
@@ -199,7 +199,7 @@ mod tests {
             let next_epoch_signature = next_fixture.signers_fixture()[0].sign(&message).unwrap();
 
             multi_signer
-                .verify_single_signature_for_next_epoch(
+                .verify_single_signature_for_next_stake_distribution(
                     &message.to_message(),
                     &next_epoch_signature,
                 )

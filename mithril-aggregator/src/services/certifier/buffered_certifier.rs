@@ -10,10 +10,11 @@ use mithril_common::StdResult;
 
 use crate::entities::OpenMessage;
 use crate::services::{
-    BufferedSingleSignatureStore, CertifierService, CertifierServiceError, RegistrationStatus,
+    BufferedSingleSignatureStore, CertifierService, CertifierServiceError,
+    SignatureRegistrationStatus,
 };
 
-/// A decorator of [CertifierService] that buffers that can buffer registration of single signatures
+/// A decorator of [CertifierService] that can buffer registration of single signatures
 /// when the open message is not yet created.
 ///
 /// When an open message is created, buffered single signatures for the open message type are
@@ -90,7 +91,7 @@ impl CertifierService for BufferedCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignatures,
-    ) -> StdResult<RegistrationStatus> {
+    ) -> StdResult<SignatureRegistrationStatus> {
         match self
             .certifier_service
             .register_single_signature(signed_entity_type, signature)
@@ -110,7 +111,7 @@ impl CertifierService for BufferedCertifierService {
                         .buffer_signature(signed_entity_type.into(), signature)
                         .await?;
 
-                    Ok(RegistrationStatus::Buffered)
+                    Ok(SignatureRegistrationStatus::Buffered)
                 }
                 _ => Err(error),
             },
@@ -122,14 +123,8 @@ impl CertifierService for BufferedCertifierService {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage> {
-        // IMPORTANT: this method should not fail if the open message creation succeeds.
-        // else:
-        // 1 - state machine won't create a pending certificate for the signed entity type
-        // 2 - Without a pending certificate, the signers won't send their signatures
-        // 3 - state machine will retry the transition to signing and, since an open message was
-        // opened for the signed entity type, it will try the next on the list.
-        // 4 - since the state machine never was in signing it will never try to aggregate
-        // signatures for the signed entity type
+        // IMPORTANT: this method should not fail if the open message creation succeeds
+        // Otherwise, the state machine won't aggregate signatures for this open message.
 
         let creation_result = self
             .certifier_service
@@ -234,7 +229,10 @@ mod tests {
     async fn run_register_signature_scenario(
         decorated_certifier_mock_config: impl FnOnce(&mut MockCertifierService),
         signature_to_register: &SingleSignatures,
-    ) -> (StdResult<RegistrationStatus>, Vec<SingleSignatures>) {
+    ) -> (
+        StdResult<SignatureRegistrationStatus>,
+        Vec<SingleSignatures>,
+    ) {
         let store = Arc::new(BufferedSingleSignatureRepository::new(Arc::new(
             main_db_connection().unwrap(),
         )));
@@ -267,14 +265,14 @@ mod tests {
                 |mock_certifier| {
                     mock_certifier
                         .expect_register_single_signature()
-                        .returning(|_, _| Ok(RegistrationStatus::Registered));
+                        .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
                 },
                 &SingleSignatures::fake("party_1", "a message"),
             )
             .await;
 
         let status = registration_result.expect("Registration should have succeed");
-        assert_eq!(status, RegistrationStatus::Registered);
+        assert_eq!(status, SignatureRegistrationStatus::Registered);
         assert_eq!(
             buffered_signatures_after_registration,
             Vec::<SingleSignatures>::new()
@@ -306,7 +304,7 @@ mod tests {
                 .await;
 
             let status = registration_result.expect("Registration should have succeed");
-            assert_eq!(status, RegistrationStatus::Buffered);
+            assert_eq!(status, SignatureRegistrationStatus::Buffered);
             assert_eq!(
                 buffered_signatures_after_registration,
                 vec![SingleSignatures::fake("party_1", "a message")]
@@ -379,14 +377,14 @@ mod tests {
                         eq(SingleSignatures::fake("party_1", "message 1")),
                     )
                     .once()
-                    .returning(|_, _| Ok(RegistrationStatus::Registered));
+                    .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
                 mock.expect_register_single_signature()
                     .with(
                         eq(SignedEntityType::MithrilStakeDistribution(Epoch(5))),
                         eq(SingleSignatures::fake("party_2", "message 2")),
                     )
                     .once()
-                    .returning(|_, _| Ok(RegistrationStatus::Registered));
+                    .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
             }),
             store.clone(),
             TestLogger::stdout(),
@@ -441,7 +439,7 @@ mod tests {
 
                     mock.expect_register_single_signature()
                         .with(always(), eq(fake_data::single_signatures(vec![1])))
-                        .returning(|_, _| Ok(RegistrationStatus::Registered))
+                        .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
                         .once();
                     mock.expect_register_single_signature()
                         .with(always(), eq(fake_data::single_signatures(vec![2])))
@@ -455,7 +453,7 @@ mod tests {
                         .once();
                     mock.expect_register_single_signature()
                         .with(always(), eq(fake_data::single_signatures(vec![3])))
-                        .returning(|_, _| Ok(RegistrationStatus::Registered))
+                        .returning(|_, _| Ok(SignatureRegistrationStatus::Registered))
                         .once();
                 },
                 |mock| {
@@ -482,7 +480,7 @@ mod tests {
                     mock.expect_create_open_message()
                         .returning(|_, _| Ok(OpenMessage::dummy()));
                     mock.expect_register_single_signature()
-                        .returning(|_, _| Ok(RegistrationStatus::Registered));
+                        .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
                 },
                 |mock| {
                     mock.expect_get_buffered_signatures()
@@ -493,7 +491,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn do_not_return_an_error_if_getting_registering_signature_fail() {
+        async fn do_not_return_an_error_if_registering_signature_fail() {
             run_scenario(
                 |mock| {
                     mock.expect_create_open_message()
@@ -516,7 +514,7 @@ mod tests {
                     mock.expect_create_open_message()
                         .returning(|_, _| Ok(OpenMessage::dummy()));
                     mock.expect_register_single_signature()
-                        .returning(|_, _| Ok(RegistrationStatus::Registered));
+                        .returning(|_, _| Ok(SignatureRegistrationStatus::Registered));
                 },
                 |mock| {
                     mock.expect_get_buffered_signatures()

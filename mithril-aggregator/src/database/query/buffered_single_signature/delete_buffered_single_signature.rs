@@ -56,6 +56,7 @@ mod tests {
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::query::GetBufferedSingleSignatureQuery;
+    use crate::database::record::strip_buffered_sigs_date;
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
 
     use super::*;
@@ -82,10 +83,17 @@ mod tests {
             .unwrap();
         assert_eq!(2, cursor.count());
 
-        let cursor = connection
-            .fetch(GetBufferedSingleSignatureQuery::all())
+        let remaining_records: Vec<BufferedSingleSignatureRecord> = connection
+            .fetch_collect(GetBufferedSingleSignatureQuery::all())
             .unwrap();
-        assert_eq!(3, cursor.count());
+        assert_eq!(
+            strip_buffered_sigs_date(&BufferedSingleSignatureRecord::fakes(&[
+                ("party_2", CardanoTransactions),
+                ("party_1", CardanoTransactions),
+                ("party_2", MithrilStakeDistribution),
+            ])),
+            strip_buffered_sigs_date(&remaining_records)
+        );
 
         let cursor = connection
             .fetch(
@@ -97,9 +105,15 @@ mod tests {
             .unwrap();
         assert_eq!(2, cursor.count());
 
-        let cursor = connection
-            .fetch(GetBufferedSingleSignatureQuery::all())
+        let remaining_records: Vec<BufferedSingleSignatureRecord> = connection
+            .fetch_collect(GetBufferedSingleSignatureQuery::all())
             .unwrap();
-        assert_eq!(1, cursor.count());
+        assert_eq!(
+            strip_buffered_sigs_date(&BufferedSingleSignatureRecord::fakes(&[(
+                "party_2",
+                MithrilStakeDistribution
+            ),])),
+            strip_buffered_sigs_date(&remaining_records)
+        );
     }
 }

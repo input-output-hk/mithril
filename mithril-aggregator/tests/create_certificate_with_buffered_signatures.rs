@@ -78,9 +78,6 @@ async fn create_certificate_with_buffered_signatures() {
     cycle!(tester, "signing");
 
     comment!("register signers");
-    // Note: removing this registration makes the epoch_service unable to build its
-    // next_protocol_multi_signer because the list of next_signers is empty.
-    // Todo: Is this a bug ?
     tester
         .register_signers(&fixture.signers_fixture())
         .await

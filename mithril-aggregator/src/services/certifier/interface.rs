@@ -53,7 +53,7 @@ pub enum CertifierServiceError {
 
 /// Status of a successful registration of a single signature.
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum RegistrationStatus {
+pub enum SignatureRegistrationStatus {
     /// The signature was registered and will be used for the next certificate.
     Registered,
 
@@ -80,7 +80,7 @@ pub trait CertifierService: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignatures,
-    ) -> StdResult<RegistrationStatus>;
+    ) -> StdResult<SignatureRegistrationStatus>;
 
     /// Create an open message at the given beacon. If the open message does not
     /// exist or exists at an older beacon, the older open messages are cleared
@@ -130,7 +130,7 @@ pub trait CertifierService: Sync + Send {
     async fn verify_certificate_chain(&self, epoch: Epoch) -> StdResult<()>;
 }
 
-/// ## BufferedSignatureStore
+/// ## BufferedSingleSignatureStore
 ///
 /// Allow to buffer single signatures for later use when an open message isn't available yet.
 #[cfg_attr(test, mockall::automock)]

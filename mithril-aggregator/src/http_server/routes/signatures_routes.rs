@@ -36,7 +36,7 @@ mod handlers {
     use crate::{
         http_server::routes::reply,
         message_adapters::FromRegisterSingleSignatureAdapter,
-        services::{CertifierService, CertifierServiceError, RegistrationStatus},
+        services::{CertifierService, CertifierServiceError, SignatureRegistrationStatus},
         unwrap_to_internal_server_error, SingleSignatureAuthenticator,
     };
 
@@ -99,8 +99,8 @@ mod handlers {
                     Ok(reply::server_error(err))
                 }
             },
-            Ok(RegistrationStatus::Registered) => Ok(reply::empty(StatusCode::CREATED)),
-            Ok(RegistrationStatus::Buffered) => Ok(reply::empty(StatusCode::ACCEPTED)),
+            Ok(SignatureRegistrationStatus::Registered) => Ok(reply::empty(StatusCode::CREATED)),
+            Ok(SignatureRegistrationStatus::Buffered) => Ok(reply::empty(StatusCode::ACCEPTED)),
         }
     }
 }
@@ -119,7 +119,7 @@ mod tests {
     use crate::{
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
-        services::{CertifierServiceError, MockCertifierService, RegistrationStatus},
+        services::{CertifierServiceError, MockCertifierService, SignatureRegistrationStatus},
         SingleSignatureAuthenticator,
     };
 
@@ -145,7 +145,7 @@ mod tests {
             .expect_register_single_signature()
             .withf(|_, signature| signature.is_authenticated())
             .once()
-            .return_once(move |_, _| Ok(RegistrationStatus::Registered));
+            .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
         dependency_manager.single_signer_authenticator =
@@ -210,7 +210,7 @@ mod tests {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Ok(RegistrationStatus::Registered));
+            .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
@@ -243,7 +243,7 @@ mod tests {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Ok(RegistrationStatus::Buffered));
+            .return_once(move |_, _| Ok(SignatureRegistrationStatus::Buffered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
@@ -276,7 +276,7 @@ mod tests {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Ok(RegistrationStatus::Registered));
+            .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 

@@ -107,17 +107,10 @@ mod tests {
     };
     use mithril_common::test_utils::fake_keys;
 
-    use crate::database::record::BufferedSingleSignatureRecord;
+    use crate::database::record::{strip_buffered_sigs_date, BufferedSingleSignatureRecord};
     use crate::database::test_helper::{insert_buffered_single_signatures, main_db_connection};
 
     use super::*;
-
-    fn strip_date(records: &[BufferedSingleSignatureRecord]) -> Vec<BufferedSingleSignatureRecord> {
-        records
-            .iter()
-            .map(BufferedSingleSignatureRecord::with_stripped_date)
-            .collect::<Vec<_>>()
-    }
 
     #[test]
     fn retrieve_all() {
@@ -136,12 +129,12 @@ mod tests {
 
         let buffered_signatures_ctx = store.get_all().unwrap();
         assert_eq!(
-            strip_date(&BufferedSingleSignatureRecord::fakes(&[
+            strip_buffered_sigs_date(&BufferedSingleSignatureRecord::fakes(&[
                 ("party3", MithrilStakeDistribution),
                 ("party2", CardanoTransactions),
                 ("party1", CardanoTransactions),
             ])),
-            strip_date(&buffered_signatures_ctx)
+            strip_buffered_sigs_date(&buffered_signatures_ctx)
         );
     }
 
@@ -164,22 +157,22 @@ mod tests {
             .get_by_discriminant::<BufferedSingleSignatureRecord>(CardanoTransactions)
             .unwrap();
         assert_eq!(
-            strip_date(&BufferedSingleSignatureRecord::fakes(&[
+            strip_buffered_sigs_date(&BufferedSingleSignatureRecord::fakes(&[
                 ("party2", CardanoTransactions),
                 ("party1", CardanoTransactions),
             ])),
-            strip_date(&buffered_signatures_ctx)
+            strip_buffered_sigs_date(&buffered_signatures_ctx)
         );
 
         let buffered_signatures_msd = store
             .get_by_discriminant::<BufferedSingleSignatureRecord>(MithrilStakeDistribution)
             .unwrap();
         assert_eq!(
-            strip_date(&BufferedSingleSignatureRecord::fakes(&[(
+            strip_buffered_sigs_date(&BufferedSingleSignatureRecord::fakes(&[(
                 "party3",
                 MithrilStakeDistribution
             ),])),
-            strip_date(&buffered_signatures_msd)
+            strip_buffered_sigs_date(&buffered_signatures_msd)
         );
     }
 
@@ -295,11 +288,11 @@ mod tests {
 
         let remaining_msd_sigs = store.get_all().unwrap();
         assert_eq!(
-            strip_date(&BufferedSingleSignatureRecord::fakes(&[
+            strip_buffered_sigs_date(&BufferedSingleSignatureRecord::fakes(&[
                 ("party4", CardanoTransactions),
                 ("party2", MithrilStakeDistribution),
             ])),
-            strip_date(&remaining_msd_sigs)
+            strip_buffered_sigs_date(&remaining_msd_sigs)
         );
     }
 }

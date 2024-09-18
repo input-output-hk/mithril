@@ -62,10 +62,6 @@ impl AggregatorObserver {
 
     /// Compute the full [SignedEntityType] for the given discriminant based on the current
     /// [TimePoint].
-    ///
-    /// Note: It computes what would be the signed entity type if the aggregator was working on this
-    /// discriminant now.
-    /// Consequently, it doesn't mean that an open message is available for this type.
     pub async fn build_current_signed_entity_type(
         &self,
         discriminant: SignedEntityTypeDiscriminants,
