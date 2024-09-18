@@ -264,8 +264,11 @@ impl<'a> DependenciesBuilder<'a> {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             sqlite_connection_cardano_transaction_pool.clone(),
         ));
-        let chain_block_reader =
-            PallasChainReader::new(&self.config.cardano_node_socket_path, network);
+        let chain_block_reader = PallasChainReader::new(
+            &self.config.cardano_node_socket_path,
+            network,
+            slog_scope::logger(),
+        );
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             Arc::new(Mutex::new(chain_block_reader)),
             self.config

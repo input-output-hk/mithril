@@ -7,6 +7,7 @@ use pallas_network::{
     miniprotocols::chainsync::{BlockContent, NextResponse},
 };
 use pallas_traverse::MultiEraBlock;
+use slog::{debug, Logger};
 
 use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint, CardanoNetwork, StdResult};
 
@@ -17,15 +18,17 @@ pub struct PallasChainReader {
     socket: PathBuf,
     network: CardanoNetwork,
     client: Option<NodeClient>,
+    logger: Logger,
 }
 
 impl PallasChainReader {
     /// Creates a new `PallasChainReader` with the specified socket and network.
-    pub fn new(socket: &Path, network: CardanoNetwork) -> Self {
+    pub fn new(socket: &Path, network: CardanoNetwork, logger: Logger) -> Self {
         Self {
             socket: socket.to_owned(),
             network,
             client: None,
+            logger,
         }
     }
 
@@ -42,6 +45,7 @@ impl PallasChainReader {
     async fn get_client(&mut self) -> StdResult<&mut NodeClient> {
         if self.client.is_none() {
             self.client = Some(self.new_client().await?);
+            debug!(self.logger, "PallasChainReader connected to a new client");
         }
 
         self.client
@@ -51,13 +55,17 @@ impl PallasChainReader {
 
     /// Intersects the point of the chain with the given point.
     async fn find_intersect_point(&mut self, point: &ChainPoint) -> StdResult<()> {
+        let logger = self.logger.clone();
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
 
         if chainsync.has_agency() {
+            debug!(logger, "PallasChainReader has agency, finding intersect point..."; "point" => ?point);
             chainsync
                 .find_intersect(vec![point.to_owned().into()])
                 .await?;
+        } else {
+            debug!(logger, "PallasChainReader doesn't have agency, no need to find intersect point";);
         }
 
         Ok(())
@@ -130,6 +138,7 @@ mod tests {
 
     use super::*;
 
+    use crate::test_utils::TestLogger;
     use crate::{entities::BlockNumber, test_utils::TempDir};
 
     /// Enum representing the action to be performed by the server.
@@ -253,8 +262,11 @@ mod tests {
         )
         .await;
         let client = tokio::spawn(async move {
-            let mut chain_reader =
-                PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            let mut chain_reader = PallasChainReader::new(
+                socket_path.as_path(),
+                CardanoNetwork::TestNet(10),
+                TestLogger::stdout(),
+            );
 
             chain_reader
                 .set_chain_point(&ChainPoint::from(known_point.clone()))
@@ -285,8 +297,11 @@ mod tests {
         )
         .await;
         let client = tokio::spawn(async move {
-            let mut chain_reader =
-                PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            let mut chain_reader = PallasChainReader::new(
+                socket_path.as_path(),
+                CardanoNetwork::TestNet(10),
+                TestLogger::stdout(),
+            );
 
             chain_reader
                 .set_chain_point(&ChainPoint::from(known_point.clone()))
@@ -317,8 +332,11 @@ mod tests {
         )
         .await;
         let client = tokio::spawn(async move {
-            let mut chain_reader =
-                PallasChainReader::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            let mut chain_reader = PallasChainReader::new(
+                socket_path.as_path(),
+                CardanoNetwork::TestNet(10),
+                TestLogger::stdout(),
+            );
 
             chain_reader
                 .set_chain_point(&ChainPoint::from(known_point.clone()))
