@@ -84,7 +84,6 @@ pallas-crypto = "0.30.1"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
 reqwest = { version = "0.12.7", features = ["json"] }
 slog-async = "2.8.0"
-slog-scope = "4.4.0"
 slog-term = "2.9.1"
 tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread", "time"] }
 
