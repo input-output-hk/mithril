@@ -6,6 +6,7 @@ mod genesis;
 pub mod mocks;
 mod remote_file_uploader;
 mod signer_importer;
+mod single_signature_authenticator;
 
 pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use digest_helpers::extract_digest_from_path;
@@ -15,6 +16,7 @@ pub use remote_file_uploader::{GcpFileUploader, RemoteFileUploader};
 pub use signer_importer::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
 };
+pub use single_signature_authenticator::*;
 
 #[cfg(test)]
 pub use remote_file_uploader::MockRemoteFileUploader;

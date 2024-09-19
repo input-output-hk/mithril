@@ -1,6 +1,6 @@
 use anyhow::Context;
 use mithril_common::{
-    entities::SingleSignatures,
+    entities::{SingleSignatureAuthenticationStatus, SingleSignatures},
     messages::{RegisterSignatureMessage, TryFromMessageAdapter},
     StdResult,
 };
@@ -22,7 +22,7 @@ impl TryFromMessageAdapter<RegisterSignatureMessage, SingleSignatures>
                     "'FromRegisterSingleSignatureAdapter' can not convert the single signature"
                 })?,
             won_indexes: register_single_signature_message.won_indexes,
-            signed_message: register_single_signature_message.signed_message,
+            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         };
 
         Ok(signatures)
@@ -42,9 +42,5 @@ mod tests {
         .unwrap();
 
         assert_eq!("party_id".to_string(), signatures.party_id);
-        assert_eq!(
-            Some("signed_message".to_string()),
-            signatures.signed_message
-        );
     }
 }

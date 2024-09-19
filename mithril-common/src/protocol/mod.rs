@@ -11,3 +11,21 @@ mod single_signer;
 pub use multi_signer::MultiSigner;
 pub use signer_builder::{SignerBuilder, SignerBuilderError};
 pub use single_signer::SingleSigner;
+
+/// Trait to convert a type to a message that can be signed or verified by the Mithril protocol.
+pub trait ToMessage: Sync + Send {
+    /// Return a String representation of the message.
+    fn to_message(&self) -> String;
+}
+
+impl ToMessage for String {
+    fn to_message(&self) -> String {
+        self.clone()
+    }
+}
+
+impl ToMessage for &str {
+    fn to_message(&self) -> String {
+        self.to_string()
+    }
+}

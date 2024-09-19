@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.29
+  version: 0.1.30
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -567,6 +567,8 @@ paths:
       responses:
         "201":
           description: signatures registration succeeded
+        "202":
+          description: signatures registration received and queued for later processing
         "400":
           description: signatures registration bad request
           content:

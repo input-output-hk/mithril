@@ -2,6 +2,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt::Display};
 
+use crate::protocol::ToMessage;
+
 /// The key of a ProtocolMessage
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProtocolMessagePartKey {
@@ -92,6 +94,12 @@ impl ProtocolMessage {
             hasher.update(v.as_bytes());
         });
         hex::encode(hasher.finalize())
+    }
+}
+
+impl ToMessage for ProtocolMessage {
+    fn to_message(&self) -> String {
+        self.compute_hash()
     }
 }
 

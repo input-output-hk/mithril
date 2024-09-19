@@ -14,7 +14,9 @@ use crate::{
         Certificate, CertificateMetadata, CertificateSignature, Epoch, ImmutableFileNumber,
         ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
     },
-    era_deprecate, StdResult,
+    era_deprecate,
+    protocol::ToMessage,
+    StdResult,
 };
 
 /// [CertificateGenesisProducer] related errors.
@@ -51,15 +53,15 @@ impl CertificateGenesisProducer {
     }
 
     /// Sign the Genesis protocol message (test only)
-    pub fn sign_genesis_protocol_message(
+    pub fn sign_genesis_protocol_message<T: ToMessage>(
         &self,
-        genesis_protocol_message: ProtocolMessage,
+        genesis_message: T,
     ) -> Result<ProtocolGenesisSignature, CertificateGenesisProducerError> {
         Ok(self
             .genesis_signer
             .as_ref()
             .ok_or_else(CertificateGenesisProducerError::MissingGenesisSigner)?
-            .sign(genesis_protocol_message.compute_hash().as_bytes()))
+            .sign(genesis_message.to_message().as_bytes()))
     }
 
     era_deprecate!("Remove immutable_file_number");

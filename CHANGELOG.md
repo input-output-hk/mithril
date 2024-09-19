@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Optimizations of the state machine used by the signer to create individual signatures.
 
+- Support for buffering of incoming single signatures by the aggregator if it can not aggregate them yet
+
 - Crates versions:
 
 | Crate | Version |

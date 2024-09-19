@@ -4,8 +4,8 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use mithril_common::{
     entities::{
-        CertificatePending, Epoch, EpochSettings, SignedEntityConfig, SignedEntityType,
-        SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
+        CertificatePending, Epoch, EpochSettings, ProtocolMessage, SignedEntityConfig,
+        SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
     },
     messages::AggregatorFeaturesMessage,
     test_utils::fake_data,
@@ -157,6 +157,7 @@ impl AggregatorClient for FakeAggregator {
         &self,
         _signed_entity_type: &SignedEntityType,
         _signatures: &SingleSignatures,
+        _protocol_message: &ProtocolMessage,
     ) -> Result<(), AggregatorClientError> {
         Ok(())
     }

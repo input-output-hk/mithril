@@ -138,7 +138,7 @@ impl MithrilFixtureBuilder {
                             &mut kes_keys_seed,
                         )
                     } else {
-                        format!("{party_index:<032}")
+                        party_index.to_string()
                     }
                 });
                 signers_party_ids.collect::<Vec<_>>()
@@ -265,11 +265,11 @@ mod tests {
     #[test]
     fn changing_party_id_seed_change_all_builded_party_ids() {
         let first_signers = MithrilFixtureBuilder::default()
-            .with_signers(100)
+            .with_signers(20)
             .build()
             .signers_with_stake();
         let different_party_id_seed_signers = MithrilFixtureBuilder::default()
-            .with_signers(100)
+            .with_signers(20)
             .with_party_id_seed([1u8; 32])
             .build()
             .signers_with_stake();

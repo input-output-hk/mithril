@@ -12,7 +12,7 @@ use crate::event_store::{EventMessage, TransmitterService};
 use crate::services::{CertifierService, MessageService, ProverService, SignedEntityService};
 use crate::{
     CertificatePendingStore, Configuration, DependencyContainer, SignerRegisterer,
-    VerificationKeyStorer,
+    SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// With certificate pending store
@@ -111,6 +111,13 @@ pub fn with_prover_service(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Arc<dyn ProverService>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.prover_service.clone())
+}
+
+/// With Single Signature Authenticator
+pub fn with_single_signature_authenticator(
+    dependency_manager: Arc<DependencyContainer>,
+) -> impl Filter<Extract = (Arc<SingleSignatureAuthenticator>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.single_signer_authenticator.clone())
 }
 
 pub mod validators {

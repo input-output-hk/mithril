@@ -5,6 +5,7 @@ use slog_scope::{debug, warn};
 use mithril_common::{
     crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
     entities::{self},
+    protocol::MultiSigner as ProtocolMultiSigner,
     StdResult,
 };
 
@@ -21,7 +22,14 @@ pub trait MultiSigner: Sync + Send {
     /// Verify a single signature
     async fn verify_single_signature(
         &self,
-        message: &entities::ProtocolMessage,
+        message: &str,
+        signatures: &entities::SingleSignatures,
+    ) -> StdResult<()>;
+
+    /// Verify a single signature using the stake distribution of the next epoch
+    async fn verify_single_signature_for_next_stake_distribution(
+        &self,
+        message: &str,
         signatures: &entities::SingleSignatures,
     ) -> StdResult<()>;
 
@@ -43,6 +51,24 @@ impl MultiSignerImpl {
         debug!("New MultiSignerImpl created");
         Self { epoch_service }
     }
+
+    fn run_verify_single_signature(
+        &self,
+        message: &str,
+        single_signature: &entities::SingleSignatures,
+        protocol_multi_signer: &ProtocolMultiSigner,
+    ) -> StdResult<()> {
+        debug!(
+            "Verify single signature from {} at indexes {:?} for message {:?}",
+            single_signature.party_id, single_signature.won_indexes, message
+        );
+
+        protocol_multi_signer
+            .verify_single_signature(&message, single_signature)
+            .with_context(|| {
+                format!("Multi Signer can not verify single signature for message '{message:?}'")
+            })
+    }
 }
 
 #[async_trait]
@@ -50,24 +76,31 @@ impl MultiSigner for MultiSignerImpl {
     /// Verify a single signature
     async fn verify_single_signature(
         &self,
-        message: &entities::ProtocolMessage,
+        message: &str,
         single_signature: &entities::SingleSignatures,
     ) -> StdResult<()> {
-        debug!(
-            "Verify single signature from {} at indexes {:?} for message {:?}",
-            single_signature.party_id, single_signature.won_indexes, message
-        );
-
         let epoch_service = self.epoch_service.read().await;
         let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
             "Multi Signer could not get protocol multi-signer from epoch service"
         })?;
 
-        protocol_multi_signer
-            .verify_single_signature(message, single_signature)
-            .with_context(|| {
-                format!("Multi Signer can not verify single signature for message '{message:?}'")
-            })
+        self.run_verify_single_signature(message, single_signature, protocol_multi_signer)
+    }
+
+    async fn verify_single_signature_for_next_stake_distribution(
+        &self,
+        message: &str,
+        single_signature: &entities::SingleSignatures,
+    ) -> StdResult<()> {
+        let epoch_service = self.epoch_service.read().await;
+        let next_protocol_multi_signer =
+            epoch_service
+                .next_protocol_multi_signer()
+                .with_context(|| {
+                    "Multi Signer could not get next protocol multi-signer from epoch service"
+                })?;
+
+        self.run_verify_single_signature(message, single_signature, next_protocol_multi_signer)
     }
 
     /// Creates a multi signature from single signatures
@@ -101,16 +134,17 @@ impl MultiSigner for MultiSignerImpl {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::services::FakeEpochService;
-    use mithril_common::entities::SignerWithStake;
-    use mithril_common::{
-        crypto_helper::tests_setup::*,
-        entities::{CardanoDbBeacon, Epoch, SignedEntityType},
-        test_utils::{fake_data, MithrilFixtureBuilder},
-    };
     use std::sync::Arc;
     use tokio::sync::RwLock;
+
+    use mithril_common::crypto_helper::tests_setup::*;
+    use mithril_common::entities::{CardanoDbBeacon, Epoch, SignedEntityType, SignerWithStake};
+    use mithril_common::protocol::ToMessage;
+    use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
+
+    use crate::services::FakeEpochService;
+
+    use super::*;
 
     fn take_signatures_until_quorum_is_almost_reached(
         signatures: &mut Vec<entities::SingleSignatures>,
@@ -133,6 +167,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_verify_single_signature() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let multi_signer =
+            MultiSignerImpl::new(Arc::new(RwLock::new(FakeEpochService::with_data(
+                epoch,
+                &fixture.protocol_parameters(),
+                &next_fixture.protocol_parameters(),
+                &next_fixture.protocol_parameters(),
+                &fixture.signers_with_stake(),
+                &next_fixture.signers_with_stake(),
+            ))));
+
+        {
+            let message = setup_message();
+            let signature = fixture.signers_fixture()[0].sign(&message).unwrap();
+
+            multi_signer
+                .verify_single_signature(&message.to_message(), &signature)
+                .await
+                .unwrap();
+
+            multi_signer.verify_single_signature_for_next_stake_distribution(&message.to_message(), &signature).await.expect_err(
+                "single signature issued in the current epoch should not be valid for the next epoch",
+            );
+        }
+        {
+            let message = setup_message();
+            let next_epoch_signature = next_fixture.signers_fixture()[0].sign(&message).unwrap();
+
+            multi_signer
+                .verify_single_signature_for_next_stake_distribution(
+                    &message.to_message(),
+                    &next_epoch_signature,
+                )
+                .await
+                .unwrap();
+
+            multi_signer.verify_single_signature(&message.to_message(), &next_epoch_signature).await.expect_err(
+                "single signature issued in the next epoch should not be valid for the current epoch",
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn test_multi_signer_multi_signature_ok() {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
@@ -147,25 +227,15 @@ mod tests {
 
         let mut expected_certificate_signers: Vec<SignerWithStake> = Vec::new();
         for signer_fixture in fixture.signers_fixture() {
-            if let Some(signature) = signer_fixture
-                .protocol_signer
-                .sign(message.compute_hash().as_bytes())
-            {
-                let won_indexes = signature.indexes.clone();
-
-                signatures.push(entities::SingleSignatures::new(
-                    signer_fixture.signer_with_stake.party_id.to_owned(),
-                    signature.into(),
-                    won_indexes,
-                ));
-
+            if let Some(signature) = signer_fixture.sign(&message) {
+                signatures.push(signature);
                 expected_certificate_signers.push(signer_fixture.signer_with_stake.to_owned())
             }
         }
 
         for signature in &signatures {
             multi_signer
-                .verify_single_signature(&message, signature)
+                .verify_single_signature(&message.to_message(), signature)
                 .await
                 .expect("single signature should be valid");
         }

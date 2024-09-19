@@ -19,6 +19,9 @@ fn register_signatures(
         .and(middlewares::with_certifier_service(
             dependency_manager.clone(),
         ))
+        .and(middlewares::with_single_signature_authenticator(
+            dependency_manager,
+        ))
         .and_then(handlers::register_signatures)
 }
 
@@ -33,20 +36,23 @@ mod handlers {
     use crate::{
         http_server::routes::reply,
         message_adapters::FromRegisterSingleSignatureAdapter,
-        services::{CertifierService, CertifierServiceError},
+        services::{CertifierService, CertifierServiceError, SignatureRegistrationStatus},
+        unwrap_to_internal_server_error, SingleSignatureAuthenticator,
     };
 
     /// Register Signatures
     pub async fn register_signatures(
         message: RegisterSignatureMessage,
         certifier_service: Arc<dyn CertifierService>,
+        single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
         trace!("⇄ HTTP SERVER: register_signatures"; "complete_message" => #?message );
 
         let signed_entity_type = message.signed_entity_type.clone();
+        let signed_message = message.signed_message.clone();
 
-        let signatures = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
+        let mut signatures = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
             Ok(signature) => signature,
             Err(err) => {
                 warn!("register_signatures::payload decoding error"; "error" => ?err);
@@ -57,6 +63,23 @@ mod handlers {
                 ));
             }
         };
+
+        if let Some(signed_message) = signed_message {
+            unwrap_to_internal_server_error!(
+                single_signer_authenticator
+                    .authenticate(&mut signatures, &signed_message)
+                    .await,
+                "single_signer_authenticator::error"
+            );
+
+            if !signatures.is_authenticated() {
+                debug!("register_signatures::unauthenticated_signature");
+                return Ok(reply::bad_request(
+                    "Could not authenticate signature".to_string(),
+                    "Signature could not be authenticated".to_string(),
+                ));
+            }
+        }
 
         match certifier_service
             .register_single_signature(&signed_entity_type, &signatures)
@@ -76,7 +99,8 @@ mod handlers {
                     Ok(reply::server_error(err))
                 }
             },
-            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+            Ok(SignatureRegistrationStatus::Registered) => Ok(reply::empty(StatusCode::CREATED)),
+            Ok(SignatureRegistrationStatus::Buffered) => Ok(reply::empty(StatusCode::ACCEPTED)),
         }
     }
 }
@@ -95,7 +119,8 @@ mod tests {
     use crate::{
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
-        services::{CertifierServiceError, MockCertifierService},
+        services::{CertifierServiceError, MockCertifierService, SignatureRegistrationStatus},
+        SingleSignatureAuthenticator,
     };
 
     use super::*;
@@ -114,11 +139,78 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ok() {
+    async fn test_register_signatures_try_to_authenticate_signature_with_signed_message() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Ok(()));
+            .withf(|_, signature| signature.is_authenticated())
+            .once()
+            .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
+
+        let message = RegisterSignatureMessage {
+            signed_message: Some("message".to_string()),
+            ..RegisterSignatureMessage::dummy()
+        };
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&message)
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_return_400_if_authentication_fail() {
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_register_single_signature()
+            .never();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_reject_everything());
+
+        let message = RegisterSignatureMessage {
+            signed_message: Some("message".to_string()),
+            ..RegisterSignatureMessage::dummy()
+        };
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&message)
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &message,
+            &response,
+            &StatusCode::BAD_REQUEST,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_post_ok_201() {
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_register_single_signature()
+            .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
@@ -147,11 +239,44 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_register_signatures_post_ok_202() {
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_register_single_signature()
+            .return_once(move |_, _| Ok(SignatureRegistrationStatus::Buffered));
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+
+        let message = RegisterSignatureMessage::dummy();
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&message)
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &message,
+            &response,
+            &StatusCode::ACCEPTED,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
     async fn test_register_signatures_post_ko_400() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Ok(()));
+            .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 

@@ -57,6 +57,7 @@ pub use store::{
 };
 pub use tools::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
+    SingleSignatureAuthenticator,
 };
 
 #[cfg(test)]

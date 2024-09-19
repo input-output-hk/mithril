@@ -16,8 +16,8 @@ use mithril_common::{
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
         BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
-        SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, Snapshot, StakeDistribution,
-        TimePoint,
+        ProtocolMessagePartKey, SignedEntityType, SignedEntityTypeDiscriminants,
+        SingleSignatureAuthenticationStatus, SlotNumber, Snapshot, StakeDistribution, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
@@ -379,28 +379,69 @@ impl RuntimeTester {
         Ok(())
     }
 
-    /// "Send", actually register, the given single signatures in the multi-signers
+    pub async fn send_authenticated_single_signatures(
+        &mut self,
+        discriminant: SignedEntityTypeDiscriminants,
+        signers: &[SignerFixture],
+    ) -> StdResult<()> {
+        self.send_single_signatures_with_auth_status(
+            discriminant,
+            signers,
+            SingleSignatureAuthenticationStatus::Authenticated,
+        )
+        .await
+    }
+
     pub async fn send_single_signatures(
         &mut self,
         discriminant: SignedEntityTypeDiscriminants,
         signers: &[SignerFixture],
     ) -> StdResult<()> {
+        self.send_single_signatures_with_auth_status(
+            discriminant,
+            signers,
+            SingleSignatureAuthenticationStatus::Unauthenticated,
+        )
+        .await
+    }
+
+    async fn send_single_signatures_with_auth_status(
+        &mut self,
+        discriminant: SignedEntityTypeDiscriminants,
+        signers: &[SignerFixture],
+        authentication_status: SingleSignatureAuthenticationStatus,
+    ) -> StdResult<()> {
         let certifier_service = self.dependencies.certifier_service.clone();
         let signed_entity_type = self
             .observer
-            .get_current_signed_entity_type(discriminant)
+            .build_current_signed_entity_type(discriminant)
             .await?;
-        let message = certifier_service
-            .get_open_message(&signed_entity_type)
-            .await
-            .with_context(|| {
-                format!("An open message should exist for signed_entity_type: {signed_entity_type}")
-            })?
-            .ok_or(anyhow!("There should be a message to be signed."))?
-            .protocol_message;
+
+        // Code copied from `AggregatorRunner::compute_protocol_message`
+        // Todo: Refactor this code to avoid code duplication by making the signable_builder_service
+        // able to retrieve the next avk by itself.
+        let mut message = self
+            .dependencies
+            .signable_builder_service
+            .compute_protocol_message(signed_entity_type.clone())
+            .await?;
+
+        let epoch_service = self.dependencies.epoch_service.read().await;
+        message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            epoch_service
+                .next_aggregate_verification_key()?
+                .to_json_hex()
+                .with_context(|| "convert next avk to json hex failure")?,
+        );
 
         for signer_fixture in signers {
-            if let Some(single_signatures) = signer_fixture.sign(&message) {
+            if let Some(mut single_signatures) = signer_fixture.sign(&message) {
+                if authentication_status == SingleSignatureAuthenticationStatus::Authenticated {
+                    single_signatures.authentication_status =
+                        SingleSignatureAuthenticationStatus::Authenticated;
+                }
+
                 certifier_service
                     .register_single_signature(&signed_entity_type, &single_signatures)
                     .await
@@ -493,7 +534,7 @@ impl RuntimeTester {
     ) -> StdResult<()> {
         let signed_entity_type = self
             .observer
-            .get_current_signed_entity_type(discriminant)
+            .build_current_signed_entity_type(discriminant)
             .await?;
         let mut open_message = self
             .open_message_repository

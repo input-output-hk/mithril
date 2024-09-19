@@ -444,7 +444,7 @@ impl StateMachine {
                 message: format!("Could not compute single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
-        self.runner.send_single_signature(signed_entity_type, single_signatures).await
+        self.runner.send_single_signature(signed_entity_type, single_signatures, &message).await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not send single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
@@ -952,7 +952,7 @@ mod tests {
         runner
             .expect_send_single_signature()
             .once()
-            .returning(|_, _| Ok(()));
+            .returning(|_, _, _| Ok(()));
         runner
             .expect_can_sign_signed_entity_type()
             .once()

@@ -11,12 +11,13 @@ use mithril_persistence::sqlite::{
 
 use crate::database::query::{
     ImportSignerRecordQuery, InsertCertificateRecordQuery,
+    InsertOrReplaceBufferedSingleSignatureRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery, InsertOrReplaceStakePoolQuery,
     InsertSignedEntityRecordQuery, UpdateEpochSettingQuery, UpdateSingleSignatureRecordQuery,
 };
 use crate::database::record::{
-    CertificateRecord, SignedEntityRecord, SignerRecord, SignerRegistrationRecord,
-    SingleSignatureRecord,
+    BufferedSingleSignatureRecord, CertificateRecord, SignedEntityRecord, SignerRecord,
+    SignerRegistrationRecord, SingleSignatureRecord,
 };
 
 /// In-memory sqlite database without foreign key support with migrations applied
@@ -136,6 +137,44 @@ pub fn insert_single_signatures_in_db(
             ])
             .unwrap();
         statement.next().unwrap();
+    }
+
+    Ok(())
+}
+
+pub fn insert_buffered_single_signatures(
+    connection: &SqliteConnection,
+    buffered_signature_records: Vec<BufferedSingleSignatureRecord>,
+) -> StdResult<()> {
+    if buffered_signature_records.is_empty() {
+        return Ok(());
+    }
+
+    let query = {
+        // leverage the expanded parameter from this query which is unit
+        // tested on its own above.
+        let (sql_values, _) = InsertOrReplaceBufferedSingleSignatureRecordQuery::one(
+            buffered_signature_records.first().unwrap().clone(),
+        )
+        .filters()
+        .expand();
+        format!("insert into buffered_single_signature {sql_values}")
+    };
+
+    for record in buffered_signature_records {
+        let mut statement = connection.prepare(&query)?;
+
+        statement.bind::<&[(_, Value)]>(&[
+            (
+                1,
+                Value::Integer(record.signed_entity_type_id.index() as i64),
+            ),
+            (2, record.party_id.into()),
+            (3, serde_json::to_string(&record.lottery_indexes)?.into()),
+            (4, record.signature.into()),
+            (5, record.created_at.to_rfc3339().into()),
+        ])?;
+        statement.next()?;
     }
 
     Ok(())

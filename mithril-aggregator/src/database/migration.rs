@@ -760,5 +760,22 @@ pragma foreign_keys=true;
 create unique index signed_entity_unique_index on signed_entity(signed_entity_type_id, beacon);
 "#,
         ),
+        // Migration 27
+        SqlMigration::new(
+            27,
+            r#"
+create table buffered_single_signature (
+    signed_entity_type_id           integer     not null,
+    party_id                        text        not null,
+    lottery_indexes                 json        not null,
+    signature                       text        not null,
+    created_at                      text        not null,
+    primary key (signed_entity_type_id, party_id)
+);
+
+create index buffered_single_signature_signed_entity_type_id on buffered_single_signature(signed_entity_type_id);
+create index buffered_single_signature_party_id_index on buffered_single_signature(party_id);
+"#,
+        ),
     ]
 }

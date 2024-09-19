@@ -1,148 +1,27 @@
-//! ## Certifier Service
-//!
-//! This service is responsible for [OpenMessage] cycle of life. It creates open
-//! messages and turn them into [Certificate]. To do so, it registers
-//! single signatures and deal with the multi_signer for aggregate signature
-//! creation.
-
 use anyhow::Context;
 use async_trait::async_trait;
 use chrono::Utc;
-use mithril_common::{
-    certificate_chain::CertificateVerifier,
-    crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION},
-    entities::{
-        Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
-        SignedEntityType, SingleSignatures, StakeDistributionParty,
-    },
-    CardanoNetwork, StdResult, TickerService,
-};
 use slog::Logger;
-use slog_scope::{debug, error, info, trace, warn};
+use slog_scope::{debug, info, trace, warn};
 use std::sync::Arc;
-use thiserror::Error;
-use tokio::sync::RwLock;
 
-use crate::{
-    database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord},
-    database::repository::{
-        CertificateRepository, OpenMessageRepository, SingleSignatureRepository,
-    },
-    entities::OpenMessage,
-    MultiSigner,
+use mithril_common::certificate_chain::CertificateVerifier;
+use mithril_common::crypto_helper::{ProtocolGenesisVerifier, PROTOCOL_VERSION};
+use mithril_common::entities::{
+    Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
+    SignedEntityType, SingleSignatures, StakeDistributionParty,
 };
+use mithril_common::protocol::ToMessage;
+use mithril_common::{CardanoNetwork, StdResult, TickerService};
 
+use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
+use crate::database::repository::{
+    CertificateRepository, OpenMessageRepository, SingleSignatureRepository,
+};
 use crate::dependency_injection::EpochServiceWrapper;
-
-#[cfg(test)]
-use mockall::automock;
-
-/// Errors dedicated to the CertifierService.
-#[derive(Debug, Error)]
-pub enum CertifierServiceError {
-    /// OpenMessage not found.
-    #[error("The open message was not found for beacon {0:?}.")]
-    NotFound(SignedEntityType),
-
-    /// The open message is already certified, no more single signatures may be
-    /// attached to it nor be certified again.
-    #[error("Open message for beacon {0:?} already certified.")]
-    AlreadyCertified(SignedEntityType),
-
-    /// The open message is expired, no more single signatures may be
-    /// attached to it nor be certified again.
-    #[error("Open message for beacon {0:?} is expired.")]
-    Expired(SignedEntityType),
-
-    /// No parent certificate could be found, this certifier cannot create genesis certificates.
-    #[error(
-        "No parent certificate could be found, this certifier cannot create genesis certificates."
-    )]
-    NoParentCertificateFound,
-
-    /// No certificate for this epoch
-    #[error("There is an epoch gap between the last certificate epoch ({certificate_epoch:?}) and current epoch ({current_epoch:?})")]
-    CertificateEpochGap {
-        /// Epoch of the last issued certificate
-        certificate_epoch: Epoch,
-
-        /// Given current epoch
-        current_epoch: Epoch,
-    },
-
-    /// Could not verify certificate chain because could not find last certificate.
-    #[error("No certificate found.")]
-    CouldNotFindLastCertificate,
-}
-
-/// ## CertifierService
-///
-/// This service manages the open message and their beacon transitions. It can
-/// ultimately transform open messages into certificates.
-#[cfg_attr(test, automock)]
-#[async_trait]
-pub trait CertifierService: Sync + Send {
-    /// Inform the certifier I have detected a new epoch, it may clear its state
-    /// and prepare the new signature round. If the given Epoch is equal or less
-    /// than the previous informed Epoch, nothing is done.
-    async fn inform_epoch(&self, epoch: Epoch) -> StdResult<()>;
-
-    /// Add a new single signature for the open message at the given beacon. If
-    /// the open message does not exist or the open message has been certified
-    /// since then, an error is returned.
-    async fn register_single_signature(
-        &self,
-        signed_entity_type: &SignedEntityType,
-        signature: &SingleSignatures,
-    ) -> StdResult<()>;
-
-    /// Create an open message at the given beacon. If the open message does not
-    /// exist or exists at an older beacon, the older open messages are cleared
-    /// along with their associated single signatures and the new open message
-    /// is created. If the message already exists, an error is returned.
-    async fn create_open_message(
-        &self,
-        signed_entity_type: &SignedEntityType,
-        protocol_message: &ProtocolMessage,
-    ) -> StdResult<OpenMessage>;
-
-    /// Return the open message at the given Beacon. If the message does not
-    /// exist, None is returned.
-    async fn get_open_message(
-        &self,
-        signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessage>>;
-
-    /// Mark the open message if it has expired.
-    async fn mark_open_message_if_expired(
-        &self,
-        signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessage>>;
-
-    /// Create a certificate if possible. If the pointed open message does
-    /// not exist or has been already certified, an error is raised. If a multi
-    /// signature is created then the flag `is_certified` of the open
-    /// message is set to true. The Certificate is created.
-    /// If the stake quorum of the single signatures is
-    /// not reached for the multisignature to be created, the certificate is not
-    /// created and None is returned. If the certificate can be created, the
-    /// list of the registered signers for the given epoch is used.
-    async fn create_certificate(
-        &self,
-        signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<Certificate>>;
-
-    /// Returns a certificate from its hash.
-    async fn get_certificate_by_hash(&self, hash: &str) -> StdResult<Option<Certificate>>;
-
-    /// Returns the list of the latest created certificates.
-    async fn get_latest_certificates(&self, last_n: usize) -> StdResult<Vec<Certificate>>;
-
-    /// Verify the certificate chain and epoch gap. This will return an error if
-    /// there is at least an epoch between the given epoch and the most recent
-    /// certificate.
-    async fn verify_certificate_chain(&self, epoch: Epoch) -> StdResult<()>;
-}
+use crate::entities::OpenMessage;
+use crate::services::{CertifierService, CertifierServiceError, SignatureRegistrationStatus};
+use crate::MultiSigner;
 
 /// Mithril CertifierService implementation
 pub struct MithrilCertifierService {
@@ -152,7 +31,7 @@ pub struct MithrilCertifierService {
     certificate_repository: Arc<CertificateRepository>,
     certificate_verifier: Arc<dyn CertificateVerifier>,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
-    multi_signer: Arc<RwLock<dyn MultiSigner>>,
+    multi_signer: Arc<dyn MultiSigner>,
     // todo: should be removed after removing immutable file number from the certificate metadata
     ticker_service: Arc<dyn TickerService>,
     epoch_service: EpochServiceWrapper,
@@ -169,7 +48,7 @@ impl MithrilCertifierService {
         certificate_repository: Arc<CertificateRepository>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
-        multi_signer: Arc<RwLock<dyn MultiSigner>>,
+        multi_signer: Arc<dyn MultiSigner>,
         ticker_service: Arc<dyn TickerService>,
         epoch_service: EpochServiceWrapper,
         logger: Logger,
@@ -226,7 +105,7 @@ impl CertifierService for MithrilCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignatures,
-    ) -> StdResult<()> {
+    ) -> StdResult<SignatureRegistrationStatus> {
         debug!("CertifierService::register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
         trace!("CertifierService::register_single_signature"; "complete_single_signatures" => #?signature);
 
@@ -250,10 +129,12 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
 
-        let multi_signer = self.multi_signer.read().await;
-        multi_signer
-            .verify_single_signature(&open_message.protocol_message, signature)
-            .await?;
+        self.multi_signer
+            .verify_single_signature(&open_message.protocol_message.to_message(), signature)
+            .await
+            .map_err(|err| {
+                CertifierServiceError::InvalidSingleSignature(signed_entity_type.clone(), err)
+            })?;
 
         let single_signature = self
             .single_signature_repository
@@ -262,7 +143,7 @@ impl CertifierService for MithrilCertifierService {
         info!("CertifierService::register_single_signature: created pool '{}' single signature for {signed_entity_type:?}.", single_signature.signer_id);
         debug!("CertifierService::register_single_signature: created single signature for open message ID='{}'.", single_signature.open_message_id);
 
-        Ok(())
+        Ok(SignatureRegistrationStatus::Registered)
     }
 
     async fn create_open_message(
@@ -359,8 +240,11 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
 
-        let multi_signer = self.multi_signer.read().await;
-        let multi_signature = match multi_signer.create_multi_signature(&open_message).await? {
+        let multi_signature = match self
+            .multi_signer
+            .create_multi_signature(&open_message)
+            .await?
+        {
             None => {
                 debug!("CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
                 return Ok(None);
@@ -501,6 +385,7 @@ mod tests {
         entities::{CardanoDbBeacon, ProtocolMessagePartKey},
         test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder},
     };
+    use tokio::sync::RwLock;
 
     use super::*;
 
@@ -743,10 +628,18 @@ mod tests {
                 signatures.push(signature);
             }
         }
-        certifier_service
+        let err = certifier_service
             .register_single_signature(&signed_entity_type, &signatures[0])
             .await
             .expect_err("register_single_signature should fail");
+
+        assert!(
+            matches!(
+                err.downcast_ref::<CertifierServiceError>(),
+                Some(CertifierServiceError::InvalidSingleSignature(..))
+            ),
+            "Expected CertifierServiceError::InvalidSingleSignature, got: '{err:?}'"
+        );
     }
 
     #[tokio::test]
@@ -935,7 +828,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let mut certifier_service =
             setup_certifier_service(&fixture, &epochs_with_signers, None).await;
-        certifier_service.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        certifier_service.multi_signer = Arc::new(mock_multi_signer);
         certifier_service
             .create_open_message(&signed_entity_type, &protocol_message)
             .await

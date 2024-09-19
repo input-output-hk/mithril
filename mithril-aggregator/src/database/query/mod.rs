@@ -1,4 +1,5 @@
 //! Aggregator related database queries
+mod buffered_single_signature;
 mod certificate;
 mod epoch_setting;
 mod open_message;
@@ -8,6 +9,7 @@ mod signer_registration;
 mod single_signature;
 mod stake_pool;
 
+pub use buffered_single_signature::*;
 pub use certificate::*;
 pub use epoch_setting::*;
 pub use open_message::*;

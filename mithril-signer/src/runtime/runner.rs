@@ -61,6 +61,7 @@ pub trait Runner: Send + Sync {
         &self,
         signed_entity_type: &SignedEntityType,
         maybe_signature: Option<SingleSignatures>,
+        signed_message: &ProtocolMessage,
     ) -> StdResult<()>;
 
     /// Read the current era and update the EraChecker.
@@ -390,6 +391,7 @@ impl Runner for SignerRunner {
         &self,
         signed_entity_type: &SignedEntityType,
         maybe_signature: Option<SingleSignatures>,
+        protocol_message: &ProtocolMessage,
     ) -> StdResult<()> {
         debug!("RUNNER: send_single_signature");
 
@@ -398,7 +400,7 @@ impl Runner for SignerRunner {
 
             self.services
                 .certificate_handler
-                .register_signatures(signed_entity_type, &single_signatures)
+                .register_signatures(signed_entity_type, &single_signatures, protocol_message)
                 .await?;
 
             Ok(())
@@ -1047,7 +1049,7 @@ mod tests {
         certificate_handler
             .expect_register_signatures()
             .once()
-            .returning(|_, _| Ok(()));
+            .returning(|_, _, _| Ok(()));
         services.certificate_handler = Arc::new(certificate_handler);
         let runner = init_runner(Some(services), None).await;
 
@@ -1055,6 +1057,7 @@ mod tests {
             .send_single_signature(
                 &SignedEntityType::dummy(),
                 Some(fake_data::single_signatures(vec![2, 5, 12])),
+                &ProtocolMessage::default(),
             )
             .await
             .expect("send_single_signature should not fail");

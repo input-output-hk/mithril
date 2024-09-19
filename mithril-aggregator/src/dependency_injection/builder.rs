@@ -51,6 +51,7 @@ use mithril_persistence::{
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
 };
 
+use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 use crate::{
     artifact_builder::{
         CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
@@ -58,27 +59,27 @@ use crate::{
     },
     configuration::ExecutionEnvironment,
     database::repository::{
-        CertificateRepository, EpochSettingStore, OpenMessageRepository, SignedEntityStore,
-        SignedEntityStorer, SignerRegistrationStore, SignerStore, SingleSignatureRepository,
-        StakePoolStore,
+        BufferedSingleSignatureRepository, CertificateRepository, EpochSettingStore,
+        OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
+        SignerStore, SingleSignatureRepository, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        AggregatorUpkeepService, CardanoTransactionsImporter, CertifierService, MessageService,
-        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
-        MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, StakeDistributionService, UpkeepService,
+        AggregatorUpkeepService, BufferedCertifierService, CardanoTransactionsImporter,
+        CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
+        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
+        MithrilStakeDistributionService, ProverService, SignedEntityService,
+        StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
     DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader, SnapshotUploaderType,
-    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
+    ProtocolParametersStorer, RemoteSnapshotUploader, SingleSignatureAuthenticator,
+    SnapshotUploader, SnapshotUploaderType, Snapshotter, SnapshotterCompressionAlgorithm,
+    VerificationKeyStorer,
 };
-
-use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
@@ -115,7 +116,7 @@ pub struct DependenciesBuilder {
     pub snapshot_uploader: Option<Arc<dyn SnapshotUploader>>,
 
     /// Multisigner service.
-    pub multi_signer: Option<Arc<RwLock<dyn MultiSigner>>>,
+    pub multi_signer: Option<Arc<dyn MultiSigner>>,
 
     /// Certificate pending store.
     pub certificate_pending_store: Option<Arc<CertificatePendingStore>>,
@@ -230,6 +231,9 @@ pub struct DependenciesBuilder {
 
     /// Upkeep service
     pub upkeep_service: Option<Arc<dyn UpkeepService>>,
+
+    /// Single signer authenticator
+    pub single_signer_authenticator: Option<Arc<SingleSignatureAuthenticator>>,
 }
 
 impl DependenciesBuilder {
@@ -280,6 +284,7 @@ impl DependenciesBuilder {
             signed_entity_type_lock: None,
             transactions_importer: None,
             upkeep_service: None,
+            single_signer_authenticator: None,
         }
     }
 
@@ -449,14 +454,14 @@ impl DependenciesBuilder {
         Ok(self.snapshot_uploader.as_ref().cloned().unwrap())
     }
 
-    async fn build_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
+    async fn build_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
         let multi_signer = MultiSignerImpl::new(self.get_epoch_service().await?);
 
-        Ok(Arc::new(RwLock::new(multi_signer)))
+        Ok(Arc::new(multi_signer))
     }
 
     /// Get a configured multi signer
-    pub async fn get_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
+    pub async fn get_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
         if self.multi_signer.is_none() {
             self.multi_signer = Some(self.build_multi_signer().await?);
         }
@@ -1263,6 +1268,27 @@ impl DependenciesBuilder {
         Ok(self.upkeep_service.as_ref().cloned().unwrap())
     }
 
+    async fn build_single_signature_authenticator(
+        &mut self,
+    ) -> Result<Arc<SingleSignatureAuthenticator>> {
+        let authenticator =
+            SingleSignatureAuthenticator::new(self.get_multi_signer().await?, self.get_logger()?);
+
+        Ok(Arc::new(authenticator))
+    }
+
+    /// [SingleSignatureAuthenticator] service
+    pub async fn get_single_signature_authenticator(
+        &mut self,
+    ) -> Result<Arc<SingleSignatureAuthenticator>> {
+        if self.single_signer_authenticator.is_none() {
+            self.single_signer_authenticator =
+                Some(self.build_single_signature_authenticator().await?);
+        }
+
+        Ok(self.single_signer_authenticator.as_ref().cloned().unwrap())
+    }
+
     /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
@@ -1307,6 +1333,7 @@ impl DependenciesBuilder {
             prover_service: self.get_prover_service().await?,
             signed_entity_type_lock: self.get_signed_entity_lock().await?,
             upkeep_service: self.get_upkeep_service().await?,
+            single_signer_authenticator: self.get_single_signature_authenticator().await?,
         };
 
         Ok(dependency_manager)
@@ -1428,10 +1455,10 @@ impl DependenciesBuilder {
         let cardano_network = self.configuration.get_network().with_context(|| {
             "Dependencies Builder can not get Cardano network while building the chain observer"
         })?;
+        let sqlite_connection = self.get_sqlite_connection().await?;
         let open_message_repository = self.get_open_message_repository().await?;
-        let single_signature_repository = Arc::new(SingleSignatureRepository::new(
-            self.get_sqlite_connection().await?,
-        ));
+        let single_signature_repository =
+            Arc::new(SingleSignatureRepository::new(sqlite_connection.clone()));
         let certificate_repository = self.get_certificate_repository().await?;
         let certificate_verifier = self.get_certificate_verifier().await?;
         let genesis_verifier = self.get_genesis_verifier().await?;
@@ -1440,7 +1467,7 @@ impl DependenciesBuilder {
         let epoch_service = self.get_epoch_service().await?;
         let logger = self.get_logger()?;
 
-        Ok(Arc::new(MithrilCertifierService::new(
+        let certifier = Arc::new(MithrilCertifierService::new(
             cardano_network,
             open_message_repository,
             single_signature_repository,
@@ -1451,6 +1478,12 @@ impl DependenciesBuilder {
             ticker_service,
             epoch_service,
             logger,
+        ));
+
+        Ok(Arc::new(BufferedCertifierService::new(
+            certifier,
+            Arc::new(BufferedSingleSignatureRepository::new(sqlite_connection)),
+            self.get_logger()?,
         )))
     }
 

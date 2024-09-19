@@ -21,41 +21,33 @@ pub struct SingleSignatures {
     #[serde(rename = "indexes")]
     pub won_indexes: Vec<LotteryIndex>,
 
-    /// Message that is signed by the signer
-    ///
-    /// Used to buffer the signature for later if the aggregator has yet to create an open message
-    /// for the signed entity type.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub signed_message: Option<String>,
+    /// Status of the authentication of the signer that emitted the signature
+    #[serde(skip)]
+    pub authentication_status: SingleSignatureAuthenticationStatus,
+}
+
+/// Status of the authentication of the signer that emitted the signature
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum SingleSignatureAuthenticationStatus {
+    /// The signer that emitted the signature is authenticated
+    Authenticated,
+    /// The signer that emitted the signature is not authenticated
+    #[default]
+    Unauthenticated,
 }
 
 impl SingleSignatures {
     /// `SingleSignatures` factory
-    pub fn new(
-        party_id: PartyId,
+    pub fn new<T: Into<PartyId>>(
+        party_id: T,
         signature: ProtocolSingleSignature,
         won_indexes: Vec<LotteryIndex>,
     ) -> SingleSignatures {
         SingleSignatures {
-            party_id,
+            party_id: party_id.into(),
             signature,
             won_indexes,
-            signed_message: None,
-        }
-    }
-
-    /// `SingleSignatures` factory including the signed message
-    pub fn new_with_signed_message(
-        party_id: PartyId,
-        signature: ProtocolSingleSignature,
-        won_indexes: Vec<LotteryIndex>,
-        signed_message: String,
-    ) -> SingleSignatures {
-        SingleSignatures {
-            party_id,
-            signature,
-            won_indexes,
-            signed_message: Some(signed_message),
+            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
         }
     }
 
@@ -63,6 +55,41 @@ impl SingleSignatures {
     pub fn to_protocol_signature(&self) -> StmSig {
         self.signature.clone().into()
     }
+
+    /// Check that the signer that emitted the signature is authenticated
+    pub fn is_authenticated(&self) -> bool {
+        self.authentication_status == SingleSignatureAuthenticationStatus::Authenticated
+    }
+}
+
+cfg_test_tools! {
+impl SingleSignatures {
+    /// Create a fake [SingleSignatures] with valid cryptographic data for testing purposes.
+    // TODO: this method is slow due to the fixture creation, we should either make
+    // the fixture faster or find a faster alternative.
+    pub fn fake<TPartyId: Into<String>, TMessage: Into<String>>(party_id: TPartyId, message: TMessage) -> Self {
+        use crate::entities::{ProtocolParameters};
+        use crate::test_utils::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
+
+        let party_id = party_id.into();
+        let message = message.into();
+
+        let fixture = MithrilFixtureBuilder::default()
+            .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
+                std::collections::BTreeMap::from([(party_id.to_string(), 100)]),
+            ))
+            .with_protocol_parameters(ProtocolParameters::new(1, 1, 1.0))
+            .build();
+        let signature = fixture.signers_fixture()[0].sign(&message).unwrap();
+
+        Self {
+            party_id,
+            signature: signature.signature,
+            won_indexes: vec![10, 15],
+            authentication_status: SingleSignatureAuthenticationStatus::Unauthenticated,
+        }
+    }
+}
 }
 
 impl Debug for SingleSignatures {

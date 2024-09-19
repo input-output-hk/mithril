@@ -57,7 +57,9 @@ fn setup_protocol_initializer(
     stake: Stake,
     protocol_parameters: &ProtocolParameters,
 ) -> ProtocolInitializer {
-    let protocol_initializer_seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
+    let protocol_initializer_seed: [u8; 32] = format!("{party_id:<032}").as_bytes()[..32]
+        .try_into()
+        .unwrap();
     let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
     let kes_period = kes_secret_key_path.as_ref().map(|_| 0);
     let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(

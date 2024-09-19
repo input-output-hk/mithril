@@ -78,6 +78,9 @@ pub trait EpochService: Sync + Send {
 
     /// Get the [protocol multi signer][ProtocolMultiSigner] for the current epoch
     fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner>;
+
+    /// Get the [protocol multi signer][ProtocolMultiSigner] for the next epoch
+    fn next_protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner>;
 }
 
 struct EpochData {
@@ -95,6 +98,7 @@ struct ComputedEpochData {
     aggregate_verification_key: ProtocolAggregateVerificationKey,
     next_aggregate_verification_key: ProtocolAggregateVerificationKey,
     protocol_multi_signer: ProtocolMultiSigner,
+    next_protocol_multi_signer: ProtocolMultiSigner,
 }
 
 /// Implementation of the [epoch service][EpochService].
@@ -267,6 +271,7 @@ impl EpochService for MithrilEpochService {
             next_aggregate_verification_key: next_protocol_multi_signer
                 .compute_aggregate_verification_key(),
             protocol_multi_signer,
+            next_protocol_multi_signer,
         });
 
         Ok(())
@@ -314,6 +319,10 @@ impl EpochService for MithrilEpochService {
 
     fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {
         Ok(&self.unwrap_computed_data()?.protocol_multi_signer)
+    }
+
+    fn next_protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {
+        Ok(&self.unwrap_computed_data()?.next_protocol_multi_signer)
     }
 }
 
@@ -371,6 +380,7 @@ impl FakeEpochService {
                 next_aggregate_verification_key: next_protocol_multi_signer
                     .compute_aggregate_verification_key(),
                 protocol_multi_signer,
+                next_protocol_multi_signer,
             }),
             inform_epoch_error: false,
             update_protocol_parameters_error: false,
@@ -496,6 +506,10 @@ impl EpochService for FakeEpochService {
 
     fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {
         Ok(&self.unwrap_computed_data()?.protocol_multi_signer)
+    }
+
+    fn next_protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {
+        Ok(&self.unwrap_computed_data()?.next_protocol_multi_signer)
     }
 }
 
@@ -738,15 +752,16 @@ mod tests {
         let avk = fixture.compute_avk();
         let epoch = Epoch(4);
         let mut service = build_service(epoch, &fixture, &[]).await;
+        let signer_builder = SignerBuilder::new(
+            &fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
+        )
+        .unwrap();
         service.computed_epoch_data = Some(ComputedEpochData {
             aggregate_verification_key: avk.clone(),
             next_aggregate_verification_key: avk.clone(),
-            protocol_multi_signer: SignerBuilder::new(
-                &fixture.signers_with_stake(),
-                &fixture.protocol_parameters(),
-            )
-            .unwrap()
-            .build_multi_signer(),
+            protocol_multi_signer: signer_builder.build_multi_signer(),
+            next_protocol_multi_signer: signer_builder.build_multi_signer(),
         });
 
         service
@@ -841,6 +856,10 @@ mod tests {
                 "protocol_multi_signer",
                 service.protocol_multi_signer().err(),
             ),
+            (
+                "next_protocol_multi_signer",
+                service.next_protocol_multi_signer().err(),
+            ),
         ] {
             let error =
                 res.unwrap_or_else(|| panic!("getting {name} should have returned an error"));
@@ -880,6 +899,10 @@ mod tests {
             (
                 "protocol_multi_signer",
                 service.protocol_multi_signer().err(),
+            ),
+            (
+                "next_protocol_multi_signer",
+                service.next_protocol_multi_signer().err(),
             ),
         ] {
             let error =
