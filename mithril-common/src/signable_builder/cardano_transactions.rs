@@ -65,7 +65,7 @@ impl<S: MKTreeStorer> CardanoTransactionsSignableBuilder<S> {
         Self {
             transaction_importer,
             block_range_root_retriever,
-            logger,
+            logger: logger.new(slog::o!("src" => "CardanoTransactionsSignableBuilder")),
         }
     }
 }
@@ -113,8 +113,7 @@ mod tests {
 
     fn compute_mk_map_from_transactions(
         transactions: Vec<CardanoTransaction>,
-    ) -> MKMap<BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>, MKTreeStoreInMemory>
-    {
+    ) -> MKMap<BlockRange, MKMapNode<BlockRange, MKTreeStoreInMemory>, MKTreeStoreInMemory> {
         MKMap::new_from_iter(transactions.iter().map(|tx| {
             (
                 BlockRange::from_block_number(tx.block_number),

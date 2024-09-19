@@ -122,7 +122,7 @@ impl MithrilCertificateVerifier {
     pub fn new(logger: Logger, certificate_retriever: Arc<dyn CertificateRetriever>) -> Self {
         debug!(logger, "New MithrilCertificateVerifier created");
         Self {
-            logger,
+            logger: logger.new(slog::o!("src" => "MithrilCertificateVerifier")),
             certificate_retriever,
         }
     }

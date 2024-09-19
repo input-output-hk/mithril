@@ -43,7 +43,7 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
 
     /// Set the [Logger] to use.
     pub fn with_logger(&mut self, logger: Logger) -> &mut Self {
-        self.logger = logger;
+        self.logger = logger.new(slog::o!("src" => "JsonImmutableFileDigestCacheProviderBuilder"));
         self
     }
 

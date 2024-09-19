@@ -32,7 +32,7 @@ impl CardanoImmutableDigester {
     ) -> Self {
         Self {
             cache_provider,
-            logger,
+            logger: logger.new(slog::o!("src" => "CardanoImmutableDigester")),
         }
     }
 }

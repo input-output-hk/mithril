@@ -31,7 +31,7 @@ pub struct ChainReaderBlockStreamer {
 #[async_trait]
 impl BlockStreamer for ChainReaderBlockStreamer {
     async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>> {
-        debug!(self.logger, "ChainReaderBlockStreamer polls next");
+        debug!(self.logger, "polls next");
 
         let chain_scanned_blocks: ChainScannedBlocks;
         let mut roll_forwards = vec![];
@@ -111,7 +111,7 @@ impl ChainReaderBlockStreamer {
             from,
             until,
             max_roll_forwards_per_poll,
-            logger,
+            logger: logger.new(slog::o!("src" => "ChainReaderBlockStreamer")),
         })
     }
 
@@ -122,14 +122,14 @@ impl ChainReaderBlockStreamer {
                 if parsed_block.block_number > self.until {
                     trace!(
                         self.logger,
-                        "ChainReaderBlockStreamer received a RollForward above threshold block number ({})",
+                        "received a RollForward above threshold block number ({})",
                         parsed_block.block_number
                     );
                     Ok(None)
                 } else {
                     trace!(
                         self.logger,
-                        "ChainReaderBlockStreamer received a RollForward below threshold block number ({})",
+                        "received a RollForward below threshold block number ({})",
                         parsed_block.block_number
                     );
                     Ok(Some(BlockStreamerNextAction::ChainBlockNextAction(
@@ -142,7 +142,7 @@ impl ChainReaderBlockStreamer {
             }) => {
                 trace!(
                     self.logger,
-                    "ChainReaderBlockStreamer received a RollBackward({rollback_slot_number:?})"
+                    "received a RollBackward({rollback_slot_number:?})"
                 );
                 let block_streamer_next_action = if rollback_slot_number == self.from.slot_number {
                     BlockStreamerNextAction::SkipToNextAction
@@ -156,7 +156,7 @@ impl ChainReaderBlockStreamer {
                 Ok(Some(block_streamer_next_action))
             }
             None => {
-                trace!(self.logger, "ChainReaderBlockStreamer received nothing");
+                trace!(self.logger, "received nothing");
                 Ok(None)
             }
         }
