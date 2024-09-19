@@ -548,7 +548,8 @@ mod tests {
             next_protocol_parameters: fake_data::protocol_parameters(),
             current_signers: vec![],
             next_signers: vec![],
-            current_cardano_transactions_signing_config: None,
+            cardano_transactions_signing_config: None,
+            next_cardano_transactions_signing_config: None,
         };
         let known_epoch = Epoch(4);
         runner

@@ -548,7 +548,12 @@ mod tests {
         async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
             Ok(vec![])
         }
-        fn current_cardano_transactions_signing_config(
+        fn cardano_transactions_signing_config(
+            &self,
+        ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
+            Ok(&None)
+        }
+        fn next_cardano_transactions_signing_config(
             &self,
         ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
             Ok(&None)

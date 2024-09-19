@@ -21,5 +21,8 @@ pub struct EpochSettings {
     pub next_signers: Vec<Signer>,
 
     /// Cardano transactions signing configuration for the current epoch
-    pub current_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+    pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+
+    /// Cardano transactions signing configuration for the next epoch
+    pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
