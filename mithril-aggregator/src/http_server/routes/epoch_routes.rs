@@ -46,7 +46,7 @@ mod handlers {
         debug!("⇄ HTTP SERVER: epoch_settings");
         let epoch_service = epoch_service.read().await;
 
-        let current_cardano_transactions_signing_config = signed_entity_config
+        let cardano_transactions_signing_config = signed_entity_config
             .list_allowed_signed_entity_types_discriminants()
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
             .then_some(configuration.cardano_transactions_signing_config);
@@ -71,7 +71,9 @@ mod handlers {
                     next_protocol_parameters: next_protocol_parameters.clone(),
                     current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
                     next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
-                    current_cardano_transactions_signing_config,
+                    cardano_transactions_signing_config: cardano_transactions_signing_config
+                        .clone(),
+                    next_cardano_transactions_signing_config: cardano_transactions_signing_config,
                 };
                 Ok(reply::json(&epoch_settings_message, StatusCode::OK))
             }

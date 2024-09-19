@@ -24,7 +24,11 @@ pub struct EpochSettingsMessage {
 
     /// Cardano transactions signing configuration for the current epoch
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub current_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+    pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+
+    /// Cardano transactions signing configuration for the next epoch
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 impl EpochSettingsMessage {
@@ -45,7 +49,8 @@ impl EpochSettingsMessage {
                 },
                 current_signers: [SignerMessagePart::dummy()].to_vec(),
                 next_signers: [SignerMessagePart::dummy()].to_vec(),
-                current_cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+                cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
+                next_cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
             }
         }
     }
@@ -76,15 +81,20 @@ mod tests {
             "operational_certificate":"certificate_456",
             "kes_period":45
         }],
-        "current_cardano_transactions_signing_config": {
+        "cardano_transactions_signing_config": {
             "security_parameter": 70,
             "step": 20
+        },
+        "next_cardano_transactions_signing_config": {
+            "security_parameter": 50,
+            "step": 10
         }
         
         }"#;
 
+    // Supported structure until OpenAPI version 0.1.28.
     #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-    pub struct EpochSettingsMessageLegacyVersion {
+    pub struct EpochSettingsMessageUntilV0_1_28 {
         /// Current Epoch
         pub epoch: Epoch,
 
@@ -97,8 +107,9 @@ mod tests {
         pub next_protocol_parameters: ProtocolParameters,
     }
 
+    // Supported structure until OpenAPI version 0.1.29.
     #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-    pub struct EpochSettingsMessagePreviousVersion {
+    pub struct EpochSettingsMessageUntilV0_1_29 {
         /// Current Epoch
         pub epoch: Epoch,
 
@@ -117,8 +128,8 @@ mod tests {
         pub next_signers: Vec<SignerMessagePart>,
     }
 
-    fn golden_legacy_message() -> EpochSettingsMessageLegacyVersion {
-        EpochSettingsMessageLegacyVersion {
+    fn golden_message_until_open_api_0_1_28() -> EpochSettingsMessageUntilV0_1_28 {
+        EpochSettingsMessageUntilV0_1_28 {
             epoch: Epoch(10),
             protocol_parameters: ProtocolParameters {
                 k: 5,
@@ -133,8 +144,8 @@ mod tests {
         }
     }
 
-    fn golden_previous_message() -> EpochSettingsMessagePreviousVersion {
-        EpochSettingsMessagePreviousVersion {
+    fn golden_message_until_open_api_0_1_29() -> EpochSettingsMessageUntilV0_1_29 {
+        EpochSettingsMessageUntilV0_1_29 {
             epoch: Epoch(10),
             protocol_parameters: ProtocolParameters {
                 k: 5,
@@ -190,33 +201,37 @@ mod tests {
                 operational_certificate: Some("certificate_456".to_string()),
                 kes_period: Some(45),
             }],
-            current_cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+            cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(70),
                 step: BlockNumber(20),
+            }),
+            next_cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(50),
+                step: BlockNumber(10),
             }),
         }
     }
 
-    // Test the backward compatibility with legacy structure.
+    // Test the backward compatibility with the structure supported until OpenAPI version 0.1.28.
     #[test]
-    fn test_actual_json_deserialized_into_legacy_message() {
+    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_28() {
         let json = ACTUAL_JSON;
-        let message: EpochSettingsMessageLegacyVersion = serde_json::from_str(json).expect(
-            "This JSON is expected to be successfully parsed into a EpochSettingsMessageLegacyVersion instance.",
+        let message: EpochSettingsMessageUntilV0_1_28 = serde_json::from_str(json).expect(
+            "This JSON is expected to be successfully parsed into a EpochSettingsMessageUntilVersion0_1_28 instance.",
         );
 
-        assert_eq!(golden_legacy_message(), message);
+        assert_eq!(golden_message_until_open_api_0_1_28(), message);
     }
 
-    // Test the backward compatibility with previous structure.
+    // Test the backward compatibility with the structure supported until OpenAPI version 0.1.29.
     #[test]
-    fn test_actual_json_deserialized_into_previous_message() {
+    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_29() {
         let json = ACTUAL_JSON;
-        let message: EpochSettingsMessagePreviousVersion = serde_json::from_str(json).expect(
-            "This JSON is expected to be successfully parsed into a EpochSettingsMessagePreviousVersion instance.",
+        let message: EpochSettingsMessageUntilV0_1_29 = serde_json::from_str(json).expect(
+            "This JSON is expected to be successfully parsed into a EpochSettingsMessageUntilVersion0_1_29 instance.",
         );
 
-        assert_eq!(golden_previous_message(), message);
+        assert_eq!(golden_message_until_open_api_0_1_29(), message);
     }
 
     // Test the compatibility with current structure.
