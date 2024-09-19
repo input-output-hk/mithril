@@ -2,9 +2,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use slog_scope::{debug, info, warn};
 use thiserror::Error;
-
-#[cfg(test)]
-use mockall::automock;
+use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
@@ -15,7 +13,7 @@ use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::dependency_injection::SignerDependencyContainer;
-use crate::services::MithrilProtocolInitializerBuilder;
+use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 use crate::Configuration;
 
 /// This trait is mainly intended for mocking.
@@ -36,8 +34,11 @@ pub trait Runner: Send + Sync {
     /// Read the stake distribution and store it.
     async fn update_stake_distribution(&self, epoch: Epoch) -> StdResult<()>;
 
-    /// Check if all prerequisites for signing are met.
-    async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool>;
+    /// Check if the signer can sign the current epoch.
+    async fn can_sign_current_epoch(&self) -> StdResult<bool>;
+
+    /// Check if the signer can sign the given signed entity type.
+    async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool;
 
     /// Register epoch information
     async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()>;
@@ -100,36 +101,24 @@ impl SignerRunner {
 
     /// Get the current signers with their stake.
     async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .current_signers_with_stake()
-            .await
+        let epoch_service = self.epoch_service_read().await;
+
+        epoch_service.current_signers_with_stake().await
     }
 
     /// Get the next signers with their stake.
     async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .next_signers_with_stake()
-            .await
+        let epoch_service = self.epoch_service_read().await;
+
+        epoch_service.next_signers_with_stake().await
     }
 
-    /// Get the current signers.
-    async fn get_current_signers(&self) -> StdResult<Vec<Signer>> {
-        self.services
-            .epoch_service
-            .read()
-            .await
-            .current_signers()
-            .cloned()
+    async fn epoch_service_read(&self) -> RwLockReadGuard<'_, dyn EpochService> {
+        self.services.epoch_service.read().await
     }
 }
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl Runner for SignerRunner {
     async fn get_epoch_settings(&self) -> StdResult<Option<EpochSettings>> {
@@ -165,9 +154,13 @@ impl Runner for SignerRunner {
     async fn register_signer_to_aggregator(&self) -> StdResult<()> {
         debug!("RUNNER: register_signer_to_aggregator");
 
-        let epoch_service = self.services.epoch_service.read().await;
-        let epoch = epoch_service.epoch_of_current_data()?;
-        let protocol_parameters = epoch_service.next_protocol_parameters()?;
+        let (epoch, protocol_parameters) = {
+            let epoch_service = self.services.epoch_service.read().await;
+            let epoch = epoch_service.epoch_of_current_data()?;
+            let protocol_parameters = epoch_service.next_protocol_parameters()?;
+
+            (epoch, protocol_parameters.clone())
+        };
 
         let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch();
         let stake_distribution = self
@@ -211,7 +204,7 @@ impl Runner for SignerRunner {
         };
         let protocol_initializer = MithrilProtocolInitializerBuilder::build(
             stake,
-            protocol_parameters,
+            &protocol_parameters,
             self.config.kes_secret_key_path.clone(),
             kes_period,
         )?;
@@ -262,69 +255,45 @@ impl Runner for SignerRunner {
         Ok(())
     }
 
-    async fn can_i_sign(&self, pending_certificate: &CertificatePending) -> StdResult<bool> {
-        debug!("RUNNER: can_i_sign");
-        if self
+    async fn can_sign_current_epoch(&self) -> StdResult<bool> {
+        let epoch_service = self.epoch_service_read().await;
+        let epoch = epoch_service.epoch_of_current_data()?;
+        if let Some(protocol_initializer) = self
             .services
-            .signed_entity_type_lock
-            .is_locked(&pending_certificate.signed_entity_type)
-            .await
+            .protocol_initializer_store
+            .get_protocol_initializer(epoch.offset_to_signer_retrieval_epoch()?)
+            .await?
         {
-            debug!(" > signed entity type is locked, can NOT sign");
-            return Ok(false);
-        }
-
-        let current_signer: Option<Signer> = {
-            let current_signers = self.get_current_signers().await;
-            if let Ok(signers) = current_signers {
-                signers
-                    .iter()
-                    .find(|s| s.party_id == self.services.single_signer.get_party_id())
-                    .cloned()
+            debug!(" > got protocol initializer for this epoch ({epoch})");
+            if epoch_service.is_signer_included_in_current_stake_distribution(
+                self.services.single_signer.get_party_id(),
+                protocol_initializer,
+            )? {
+                return Ok(true);
             } else {
-                warn!(" > could not get current signers with stake, can NOT sign");
-                return Ok(false);
-            }
-        };
-
-        if let Some(signer) = current_signer {
-            debug!(" > got a Signer from pending certificate");
-
-            if let Some(protocol_initializer) = self
-                .services
-                .protocol_initializer_store
-                .get_protocol_initializer(
-                    pending_certificate
-                        .epoch
-                        .offset_to_signer_retrieval_epoch()?,
-                )
-                .await?
-            {
-                debug!(
-                    " > got protocol initializer for this epoch ({})",
-                    pending_certificate.epoch
-                );
-
-                if signer.verification_key == protocol_initializer.verification_key().into() {
-                    debug!("verification keys match, we can sign");
-
-                    return Ok(true);
-                }
-                debug!(" > verification key do not match, can NOT sign");
-            } else {
-                warn!(
-                    " > NO protocol initializer found for this epoch ({})",
-                    pending_certificate.epoch
-                );
+                debug!(" > Signer not in current stake distribution. Can NOT sign");
             }
         } else {
-            debug!(" > Signer not found in the certificate pending");
+            warn!(" > NO protocol initializer found for this epoch ({epoch})",);
         }
 
         Ok(false)
     }
 
-    // Register epoch settings information
+    async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool {
+        if self
+            .services
+            .signed_entity_type_lock
+            .is_locked(signed_entity_type)
+            .await
+        {
+            debug!(" > signed entity type is locked, can NOT sign");
+            false
+        } else {
+            true
+        }
+    }
+
     async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()> {
         debug!("RUNNER: register_epoch");
         self.services
@@ -332,7 +301,6 @@ impl Runner for SignerRunner {
             .write()
             .await
             .inform_epoch_settings(epoch_settings)
-            .await
     }
 
     async fn compute_message(
@@ -488,7 +456,7 @@ mod tests {
             MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch},
+        entities::{BlockNumber, BlockRange, CardanoDbBeacon, Epoch, ProtocolParameters},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
@@ -502,7 +470,10 @@ mod tests {
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_persistence::store::{StakeStore, StakeStorer};
     use mockall::mock;
-    use std::{path::Path, sync::Arc};
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use std::{path::Path, path::PathBuf, sync::Arc};
 
     use crate::metrics::MetricsService;
     use crate::services::{
@@ -542,6 +513,58 @@ mod tests {
                 up_to_beacon: BlockNumber,
             ) -> StdResult<MKMap<BlockRange, MKMapNode<BlockRange,S>, S>>;
         }
+    }
+
+    struct FakeEpochServiceImpl {
+        epoch_returned: Epoch,
+        can_signer_sign_current_epoch_returned: Result<bool, String>,
+    }
+
+    #[async_trait]
+    impl EpochService for FakeEpochServiceImpl {
+        fn inform_epoch_settings(&mut self, _epoch_settings: EpochSettings) -> StdResult<()> {
+            Ok(())
+        }
+        fn epoch_of_current_data(&self) -> StdResult<Epoch> {
+            Ok(self.epoch_returned)
+        }
+        fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+            unimplemented!()
+        }
+        fn current_signers(&self) -> StdResult<&Vec<Signer>> {
+            unimplemented!()
+        }
+        fn next_signers(&self) -> StdResult<&Vec<Signer>> {
+            unimplemented!()
+        }
+        async fn current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+            Ok(vec![])
+        }
+        async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
+            Ok(vec![])
+        }
+
+        fn is_signer_included_in_current_stake_distribution(
+            &self,
+            _party_id: PartyId,
+            _protocol_initializer: ProtocolInitializer,
+        ) -> StdResult<bool> {
+            match &self.can_signer_sign_current_epoch_returned {
+                Ok(result) => Ok(*result),
+                Err(e) => Err(anyhow::anyhow!(e.clone())),
+            }
+        }
+    }
+
+    fn dummy_protocol_initializer() -> ProtocolInitializer {
+        ProtocolInitializer::setup(
+            fake_data::protocol_parameters().into(),
+            None::<PathBuf>,
+            Some(0),
+            1234,
+            &mut ChaCha20Rng::from_seed([0; 32]),
+        )
+        .unwrap()
     }
 
     async fn init_services() -> SignerDependencyContainer {
@@ -749,78 +772,122 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_can_i_sign() {
-        let signers_with_stake = fake_data::signers_with_stakes(5);
-        let signers = Signer::vec_from(signers_with_stake.to_vec());
-        let stake_distribution = signers_with_stake
-            .iter()
-            .map(|signer| (signer.party_id.clone(), signer.stake))
-            .collect();
-
-        let mut current_signers = signers[1..3].to_vec();
-        let next_signers = signers[2..5].to_vec();
-
-        let mut pending_certificate = fake_data::certificate_pending();
-        pending_certificate.signers = vec![];
-        pending_certificate.next_signers = vec![];
-        let epoch = pending_certificate.epoch;
-        let signer = &mut current_signers[0];
-
+    async fn can_sign_signed_entity_type_when_signed_entity_type_is_locked() {
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(9));
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
+        signed_entity_type_lock.lock(&signed_entity_type).await;
         let mut services = init_services().await;
-        let protocol_initializer_store = services.protocol_initializer_store.clone();
-        services.single_signer = Arc::new(MithrilSingleSigner::new(signer.party_id.to_owned()));
         services.signed_entity_type_lock = signed_entity_type_lock.clone();
-        services
-            .stake_store
-            .save_stakes(
-                epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                stake_distribution,
-            )
-            .await
-            .expect("save_stakes should not fail");
-
-        let protocol_initializer = MithrilProtocolInitializerBuilder::build(
-            &100,
-            &fake_data::protocol_parameters(),
-            None,
-            None,
-        )
-        .expect("build protocol initializer should not fail");
-        signer.verification_key = protocol_initializer.verification_key().into();
-        protocol_initializer_store
-            .save_protocol_initializer(
-                epoch
-                    .offset_to_signer_retrieval_epoch()
-                    .expect("offset_to_signer_retrieval_epoch should not fail"),
-                protocol_initializer,
-            )
-            .await
-            .expect("save_protocol_initializer should not fail");
 
         let runner = init_runner(Some(services), None).await;
-        // inform epoch settings
-        let epoch_settings = EpochSettings {
-            epoch,
-            current_signers,
-            next_signers,
-            ..fake_data::epoch_settings().clone()
-        };
-        runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
-        let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
-        assert!(can_i_sign_result);
-
-        // Lock the pending certificate signed entity type, the signer should not be able to sign.
-        signed_entity_type_lock
-            .lock(&pending_certificate.signed_entity_type)
-            .await;
-
-        let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
         assert!(
-            !can_i_sign_result,
-            "The signer should not be able to sign when the signed entity type is locked."
+            !runner
+                .can_sign_signed_entity_type(&signed_entity_type)
+                .await
         );
+    }
+
+    #[tokio::test]
+    async fn can_sign_signed_entity_type_when_signed_entity_type_is_not_locked() {
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(9));
+        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
+        let mut services = init_services().await;
+        services.signed_entity_type_lock = signed_entity_type_lock.clone();
+
+        let runner = init_runner(Some(services), None).await;
+
+        assert!(
+            runner
+                .can_sign_signed_entity_type(&signed_entity_type)
+                .await
+        );
+    }
+
+    #[tokio::test]
+    async fn can_sign_current_epoch_returns_false_when_epoch_service_returns_false() {
+        let mut services = init_services().await;
+        let epoch_service = FakeEpochServiceImpl {
+            epoch_returned: Epoch(8),
+            can_signer_sign_current_epoch_returned: Ok(false),
+        };
+        services.epoch_service = Arc::new(RwLock::new(epoch_service));
+
+        services
+            .protocol_initializer_store
+            .save_protocol_initializer(Epoch(7), dummy_protocol_initializer())
+            .await
+            .unwrap();
+
+        let runner = init_runner(Some(services), None).await;
+
+        assert!(!runner.can_sign_current_epoch().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn can_sign_current_epoch_returns_true_when_epoch_service_returns_true() {
+        let mut services = init_services().await;
+
+        let epoch_service = FakeEpochServiceImpl {
+            epoch_returned: Epoch(8),
+            can_signer_sign_current_epoch_returned: Ok(true),
+        };
+        services.epoch_service = Arc::new(RwLock::new(epoch_service));
+
+        services
+            .protocol_initializer_store
+            .save_protocol_initializer(Epoch(7), dummy_protocol_initializer())
+            .await
+            .unwrap();
+
+        let runner = init_runner(Some(services), None).await;
+
+        assert!(runner.can_sign_current_epoch().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn can_sign_current_epoch_when_epoch_service_returns_error() {
+        let mut services = init_services().await;
+
+        let epoch_service = FakeEpochServiceImpl {
+            epoch_returned: Epoch(8),
+            can_signer_sign_current_epoch_returned: Err("Simulate an error".to_string()),
+        };
+        services.epoch_service = Arc::new(RwLock::new(epoch_service));
+
+        services
+            .protocol_initializer_store
+            .save_protocol_initializer(Epoch(7), dummy_protocol_initializer())
+            .await
+            .unwrap();
+
+        let runner = init_runner(Some(services), None).await;
+
+        assert!(runner.can_sign_current_epoch().await.is_err());
+    }
+
+    #[tokio::test]
+    async fn can_sign_current_epoch_returns_false_when_cannot_get_protocol_initializer_for_current_epoch(
+    ) {
+        let mut services = init_services().await;
+
+        let epoch_service = FakeEpochServiceImpl {
+            epoch_returned: Epoch(8),
+            can_signer_sign_current_epoch_returned: Ok(true),
+        };
+        services.epoch_service = Arc::new(RwLock::new(epoch_service));
+
+        let runner = init_runner(Some(services), None).await;
+
+        assert!(runner
+            .services
+            .protocol_initializer_store
+            .get_protocol_initializer(Epoch(7))
+            .await
+            .unwrap()
+            .is_none());
+
+        assert!(!runner.can_sign_current_epoch().await.unwrap());
     }
 
     #[tokio::test]

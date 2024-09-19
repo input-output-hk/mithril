@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::Epoch;
+use mithril_common::entities::PartyId;
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::entities::Signer;
 use mithril_persistence::store::StakeStorer;
@@ -27,7 +29,7 @@ pub enum EpochServiceError {
 pub trait EpochService: Sync + Send {
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
-    async fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
+    fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
 
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
@@ -46,6 +48,13 @@ pub trait EpochService: Sync + Send {
 
     /// Get signers with stake for the next epoch
     async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+
+    /// Check if a signer is included in the current stake distribution
+    fn is_signer_included_in_current_stake_distribution(
+        &self,
+        party_id: PartyId,
+        protocol_initializer: ProtocolInitializer,
+    ) -> StdResult<bool>;
 }
 
 struct EpochData {
@@ -118,7 +127,7 @@ impl MithrilEpochService {
 
 #[async_trait]
 impl EpochService for MithrilEpochService {
-    async fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()> {
+    fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()> {
         debug!(
             "EpochService: register_epoch_settings: {:?}",
             epoch_settings
@@ -167,22 +176,105 @@ impl EpochService for MithrilEpochService {
         )
         .await
     }
+
+    fn is_signer_included_in_current_stake_distribution(
+        &self,
+        party_id: PartyId,
+        protocol_initializer: ProtocolInitializer,
+    ) -> StdResult<bool> {
+        Ok(self.current_signers()?.iter().any(|s| {
+            s.party_id == party_id
+                && s.verification_key == protocol_initializer.verification_key().into()
+        }))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
+    use crate::services::MithrilProtocolInitializerBuilder;
+
     use super::*;
 
     use mithril_common::{
         entities::{Epoch, EpochSettings, StakeDistribution},
-        test_utils::fake_data::{self},
+        test_utils::{
+            fake_data::{self},
+            MithrilFixtureBuilder,
+        },
     };
     use mithril_persistence::store::{
         adapter::{DumbStoreAdapter, MemoryAdapter},
         StakeStore, StakeStorer,
     };
+
+    #[test]
+    fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set(
+    ) {
+        let party_id = "party_id".to_string();
+        let protocol_initializer = MithrilProtocolInitializerBuilder::build(
+            &100,
+            &fake_data::protocol_parameters(),
+            None,
+            None,
+        )
+        .unwrap();
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let service = MithrilEpochService::new(stake_store);
+
+        service
+            .is_signer_included_in_current_stake_distribution(party_id, protocol_initializer)
+            .expect_err("can_signer_sign should return error when epoch settings is not set");
+    }
+
+    #[test]
+    fn test_is_signer_included_in_current_stake_distribution_returns_true_when_signer_verification_key_and_pool_id_found(
+    ) {
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
+        let protocol_initializer = fixtures.signers_fixture()[0]
+            .protocol_initializer
+            .to_owned();
+        let epoch = Epoch(12);
+        let signers = fixtures.signers();
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let epoch_settings = EpochSettings {
+            epoch,
+            current_signers: signers[..5].to_vec(),
+            ..fake_data::epoch_settings().clone()
+        };
+
+        let mut service = MithrilEpochService::new(stake_store);
+        service
+            .inform_epoch_settings(epoch_settings.clone())
+            .unwrap();
+
+        let party_id = fixtures.signers_fixture()[0].party_id();
+        assert!(service
+            .is_signer_included_in_current_stake_distribution(
+                party_id.clone(),
+                protocol_initializer.clone()
+            )
+            .unwrap());
+
+        let party_id_not_included = fixtures.signers_fixture()[6].party_id();
+        assert!(!service
+            .is_signer_included_in_current_stake_distribution(
+                party_id_not_included,
+                protocol_initializer
+            )
+            .unwrap());
+
+        let protocol_initializer_not_included = fixtures.signers_fixture()[6]
+            .protocol_initializer
+            .to_owned();
+        assert!(!service
+            .is_signer_included_in_current_stake_distribution(
+                party_id,
+                protocol_initializer_not_included
+            )
+            .unwrap());
+    }
 
     #[tokio::test]
     async fn test_retrieve_data_return_error_before_register_epoch_settings_was_call() {
@@ -212,8 +304,8 @@ mod tests {
         assert!(service.next_signers_with_stake().await.is_err());
     }
 
-    #[tokio::test]
-    async fn test_data_are_available_after_register_epoch_settings_call() {
+    #[test]
+    fn test_data_are_available_after_register_epoch_settings_call() {
         let epoch = Epoch(12);
         // Signers and stake distribution
         let signers = fake_data::signers(10);
@@ -234,7 +326,6 @@ mod tests {
 
         service
             .inform_epoch_settings(epoch_settings.clone())
-            .await
             .unwrap();
 
         // Check current_signers
@@ -307,7 +398,6 @@ mod tests {
         let mut service = MithrilEpochService::new(stake_store);
         service
             .inform_epoch_settings(epoch_settings.clone())
-            .await
             .unwrap();
 
         // Check current signers with stake

@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Optimizations of the state machine used by the signer to create individual signatures.
+
 - Crates versions:
 
 | Crate | Version |
