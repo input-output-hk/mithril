@@ -12,7 +12,7 @@ pub struct DeleteBufferedSingleSignatureQuery {
 
 impl DeleteBufferedSingleSignatureQuery {
     pub fn by_discriminant_and_party_ids(
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
         party_ids: Vec<PartyId>,
     ) -> Self {
         let ids_values = party_ids.into_iter().map(Value::String).collect();
@@ -21,7 +21,7 @@ impl DeleteBufferedSingleSignatureQuery {
             condition: WhereCondition::new(
                 "signed_entity_type_id = ?*",
                 vec![Value::Integer(
-                    signed_entity_type_discriminants.index() as i64
+                    signed_entity_type_discriminant.index() as i64
                 )],
             )
             .and_where(WhereCondition::where_in("party_id", ids_values)),

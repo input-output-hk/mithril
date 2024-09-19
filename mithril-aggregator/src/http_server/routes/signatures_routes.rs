@@ -168,7 +168,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_return_404_if_authentication_fail() {
+    async fn test_register_signatures_return_400_if_authentication_fail() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()

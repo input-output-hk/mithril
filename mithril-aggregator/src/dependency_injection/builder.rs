@@ -1277,7 +1277,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(authenticator))
     }
 
-    /// [MithrilSignerRegisterer] service
+    /// [SingleSignatureAuthenticator] service
     pub async fn get_single_signature_authenticator(
         &mut self,
     ) -> Result<Arc<SingleSignatureAuthenticator>> {

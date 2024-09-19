@@ -139,20 +139,20 @@ pub trait BufferedSingleSignatureStore: Sync + Send {
     /// Buffer a single signature for later use.
     async fn buffer_signature(
         &self,
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
         signature: &SingleSignatures,
     ) -> StdResult<()>;
 
     /// Get the buffered single signatures for the given signed entity discriminant.
     async fn get_buffered_signatures(
         &self,
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
     ) -> StdResult<Vec<SingleSignatures>>;
 
     /// Remove the given single signatures from the buffer.
     async fn remove_buffered_signatures(
         &self,
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
         single_signatures: Vec<SingleSignatures>,
     ) -> StdResult<()>;
 }

@@ -34,7 +34,7 @@ impl BufferedSingleSignatureRepository {
 
     fn get_by_discriminant<T>(
         &self,
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
     ) -> StdResult<Vec<T>>
     where
         T: TryFrom<BufferedSingleSignatureRecord>,
@@ -43,7 +43,7 @@ impl BufferedSingleSignatureRepository {
         let records: Vec<BufferedSingleSignatureRecord> =
             self.connection
                 .fetch_collect(GetBufferedSingleSignatureQuery::by_discriminant(
-                    signed_entity_type_discriminants,
+                    signed_entity_type_discriminant,
                 ))?;
 
         let mut entities: Vec<T> = Vec::with_capacity(records.len());
@@ -59,12 +59,12 @@ impl BufferedSingleSignatureRepository {
 impl BufferedSingleSignatureStore for BufferedSingleSignatureRepository {
     async fn buffer_signature(
         &self,
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
         signature: &SingleSignatures,
     ) -> StdResult<()> {
         let record = BufferedSingleSignatureRecord::try_from_single_signatures(
             signature,
-            signed_entity_type_discriminants,
+            signed_entity_type_discriminant,
         )
         .with_context(|| "Failed to convert SingleSignatures to BufferedSingleSignatureRecord")?;
 
@@ -78,20 +78,20 @@ impl BufferedSingleSignatureStore for BufferedSingleSignatureRepository {
 
     async fn get_buffered_signatures(
         &self,
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
     ) -> StdResult<Vec<SingleSignatures>> {
-        self.get_by_discriminant(signed_entity_type_discriminants)
+        self.get_by_discriminant(signed_entity_type_discriminant)
     }
 
     async fn remove_buffered_signatures(
         &self,
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
+        signed_entity_type_discriminant: SignedEntityTypeDiscriminants,
         single_signatures: Vec<SingleSignatures>,
     ) -> StdResult<()> {
         let signatures_party_ids = single_signatures.into_iter().map(|s| s.party_id).collect();
         self.connection.fetch_first(
             DeleteBufferedSingleSignatureQuery::by_discriminant_and_party_ids(
-                signed_entity_type_discriminants,
+                signed_entity_type_discriminant,
                 signatures_party_ids,
             ),
         )?;

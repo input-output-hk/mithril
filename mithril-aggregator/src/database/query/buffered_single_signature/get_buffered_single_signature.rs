@@ -18,14 +18,12 @@ impl GetBufferedSingleSignatureQuery {
         }
     }
 
-    pub fn by_discriminant(
-        signed_entity_type_discriminants: SignedEntityTypeDiscriminants,
-    ) -> Self {
+    pub fn by_discriminant(signed_entity_type_discriminant: SignedEntityTypeDiscriminants) -> Self {
         Self {
             condition: WhereCondition::new(
                 "signed_entity_type_id = ?*",
                 vec![Value::Integer(
-                    signed_entity_type_discriminants.index() as i64
+                    signed_entity_type_discriminant.index() as i64
                 )],
             ),
         }
