@@ -66,6 +66,12 @@ pub fn epoch_settings() -> entities::EpochSettings {
     let current_signers = signers[1..3].to_vec();
     let next_signers = signers[2..5].to_vec();
 
+    // Cardano transactions signing configuration
+    let cardano_transactions_signing_config =
+        Some(entities::CardanoTransactionsSigningConfig::dummy());
+    let next_cardano_transactions_signing_config =
+        Some(entities::CardanoTransactionsSigningConfig::dummy());
+
     // Epoch settings
     entities::EpochSettings {
         epoch: beacon.epoch,
@@ -73,6 +79,8 @@ pub fn epoch_settings() -> entities::EpochSettings {
         next_protocol_parameters,
         current_signers,
         next_signers,
+        cardano_transactions_signing_config,
+        next_cardano_transactions_signing_config,
     }
 }
 

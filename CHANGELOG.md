@@ -11,7 +11,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Optimizations of the state machine used by the signer to create individual signatures.
 
-- Support for buffering of incoming single signatures by the aggregator if it can not aggregate them yet
+- Support for buffering of incoming single signatures by the aggregator if it can not aggregate them yet.
+
+- Expose the Cardano transactions signing configuration for the current and upcoming epoch via the `/epoch-settings` route.
 
 - Crates versions:
 

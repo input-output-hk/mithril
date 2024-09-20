@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.30
+  version: 0.1.31
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -55,6 +55,10 @@ paths:
         Returns the information related to the current epoch:
           * protocol parameters for current epoch
           * protocol parameters for next epoch (to setup cryptography, allowing signers to register)
+          * signers for current epoch
+          * signers for next epoch
+          * cardano transactions signing configuration for current epoch
+          * cardano transactions signing configuration for next epoch
       responses:
         "200":
           description: epoch settings found
@@ -733,6 +737,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Signer"
+        cardano_transactions_signing_config:
+          $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
+        next_cardano_transactions_signing_config:
+          $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
       example:
         {
           "epoch": 329,
@@ -771,7 +779,11 @@ components:
                 "operational_certificate": "2c38382c3138372c3233332c34302c37322c31362c36365d2c312c3132332c5b31362c3136392c3134312c3138332c32322c3137342c3131312c33322c36342c35322c2c3232382c37392c3137352c32395312c3838282c323030",
                 "kes_period": 876
               }
-            ]
+            ],
+          "cardano_transactions_signing_config":
+            { "security_parameter": 100, "step": 10 },
+          "next_cardano_transactions_signing_config":
+            { "security_parameter": 50, "step": 5 }
         }
 
     ProtocolParameters:
@@ -796,6 +808,24 @@ components:
           type: number
           format: double
       example: { "k": 857, "m": 6172, "phi_f": 0.2 }
+
+    CardanoTransactionsSigningConfig:
+      description: Cardano transactions signing configuration
+      type: object
+      additionalProperties: false
+      required:
+        - security_parameter
+        - step
+      properties:
+        security_parameter:
+          description: Number of blocks to discard from the tip of the chain when importing Cardano transactions
+          type: integer
+          format: int64
+        step:
+          description: Number of blocks between signature of Cardano transactions
+          type: integer
+          format: int64
+      example: { "security_parameter": 100, "step": 10 }
 
     CardanoDbBeacon:
       description: A point in the Cardano chain at which a Mithril certificate of the Cardano Database should be produced
