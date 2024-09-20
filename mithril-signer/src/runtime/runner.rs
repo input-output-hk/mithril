@@ -6,8 +6,8 @@ use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    CertificatePending, Epoch, PartyId, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
-    Signer, SignerWithStake, SingleSignatures, TimePoint,
+    CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage, SignedEntityType, Signer,
+    SignerWithStake, SingleSignatures, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -106,13 +106,6 @@ impl SignerRunner {
         let epoch_service = self.epoch_service_read().await;
 
         epoch_service.current_signers_with_stake().await
-    }
-
-    /// Get the next signers with their stake.
-    async fn get_next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        let epoch_service = self.epoch_service_read().await;
-
-        epoch_service.next_signers_with_stake().await
     }
 
     async fn epoch_service_read(&self) -> RwLockReadGuard<'_, dyn EpochService> {
@@ -311,41 +304,14 @@ impl Runner for SignerRunner {
     ) -> StdResult<ProtocolMessage> {
         debug!("RUNNER: compute_message");
 
-        let next_signers = self
-            .get_next_signers_with_stake()
-            .await
-            .with_context(|| "Runner can not not retrieve next signers")?;
-
-        // 1 compute the signed entity type part of the message
-        let mut message = self
+        let protocol_message = self
             .services
             .signable_builder_service
             .compute_protocol_message(signed_entity_type.to_owned())
             .await
             .with_context(|| format!("Runner can not compute protocol message for signed entity type: '{signed_entity_type}'"))?;
 
-        // 2 set the next signers keys and stakes in the message
-        let epoch = signed_entity_type.get_epoch();
-        let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
-        let next_protocol_initializer = self
-            .services
-            .protocol_initializer_store
-            .get_protocol_initializer(next_signer_retrieval_epoch)
-            .await?
-            .ok_or_else(|| {
-                RunnerError::NoValueError(format!(
-                    "protocol_initializer at epoch {next_signer_retrieval_epoch}"
-                ))
-            })?;
-
-        let avk = self
-            .services
-            .single_signer
-            .compute_aggregate_verification_key(&next_signers, &next_protocol_initializer)?
-            .ok_or_else(|| RunnerError::NoValueError("next_signers avk".to_string()))?;
-        message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
-
-        Ok(message)
+        Ok(protocol_message)
     }
 
     async fn compute_single_signature(
@@ -448,6 +414,14 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
+
+    use mockall::mock;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    use std::{path::Path, path::PathBuf, sync::Arc};
+    use tokio::sync::RwLock;
+
     use mithril_common::{
         api_version::APIVersionProvider,
         cardano_block_scanner::DumbBlockScanner,
@@ -461,7 +435,7 @@ mod tests {
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{
             BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransactionsSigningConfig, Epoch,
-            ProtocolParameters,
+            ProtocolMessagePartKey, ProtocolParameters,
         },
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         signable_builder::{
@@ -475,21 +449,16 @@ mod tests {
     };
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_persistence::store::{StakeStore, StakeStorer};
-    use mockall::mock;
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
 
-    use std::{path::Path, path::PathBuf, sync::Arc};
-
-    use crate::metrics::MetricsService;
-    use crate::services::{
-        CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
-        MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
-        SingleSigner,
+    use crate::{
+        metrics::MetricsService,
+        services::{
+            CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
+            MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
+            SignableSeedBuilderService, SingleSigner,
+        },
+        store::ProtocolInitializerStore,
     };
-    use crate::store::ProtocolInitializerStore;
-
-    use tokio::sync::RwLock;
 
     use super::*;
 
@@ -632,7 +601,17 @@ mod tests {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
+        let single_signer = Arc::new(MithrilSingleSigner::new(party_id));
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerStore::new(Box::new(adapter), None));
+        let signable_seed_builder_service = Arc::new(SignableSeedBuilderService::new(
+            epoch_service.clone(),
+            single_signer.clone(),
+            protocol_initializer_store.clone(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            signable_seed_builder_service,
             mithril_stake_distribution_signable_builder,
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
@@ -650,19 +629,15 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
 
         SignerDependencyContainer {
             stake_store,
             certificate_handler: Arc::new(DumbAggregatorClient::default()),
             chain_observer,
             digester,
-            single_signer: Arc::new(MithrilSingleSigner::new(party_id)),
+            single_signer,
             ticker_service,
-            protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(
-                Box::new(adapter),
-                None,
-            )),
+            protocol_initializer_store,
             era_checker,
             era_reader,
             api_version_provider,
