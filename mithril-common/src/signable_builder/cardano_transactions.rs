@@ -7,6 +7,7 @@ use slog::{debug, Logger};
 use crate::{
     crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStorer},
     entities::{BlockNumber, BlockRange, ProtocolMessage, ProtocolMessagePartKey},
+    logging::LoggerExtensions,
     signable_builder::SignableBuilder,
     StdResult,
 };
@@ -65,7 +66,7 @@ impl<S: MKTreeStorer> CardanoTransactionsSignableBuilder<S> {
         Self {
             transaction_importer,
             block_range_root_retriever,
-            logger: logger.new(slog::o!("src" => "CardanoTransactionsSignableBuilder")),
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 }

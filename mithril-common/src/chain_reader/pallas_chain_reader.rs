@@ -9,6 +9,7 @@ use pallas_network::{
 use pallas_traverse::MultiEraBlock;
 use slog::{debug, Logger};
 
+use crate::logging::LoggerExtensions;
 use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint, CardanoNetwork, StdResult};
 
 use super::{ChainBlockNextAction, ChainBlockReader};
@@ -28,7 +29,7 @@ impl PallasChainReader {
             socket: socket.to_owned(),
             network,
             client: None,
-            logger: logger.new(slog::o!("src" => "PallasChainReader")),
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 

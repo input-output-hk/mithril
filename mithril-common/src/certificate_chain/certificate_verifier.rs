@@ -15,6 +15,7 @@ use crate::crypto_helper::{
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
 };
+use crate::logging::LoggerExtensions;
 use crate::StdResult;
 
 #[cfg(test)]
@@ -122,7 +123,7 @@ impl MithrilCertificateVerifier {
     pub fn new(logger: Logger, certificate_retriever: Arc<dyn CertificateRetriever>) -> Self {
         debug!(logger, "New MithrilCertificateVerifier created");
         Self {
-            logger: logger.new(slog::o!("src" => "MithrilCertificateVerifier")),
+            logger: logger.new_with_component_name::<Self>(),
             certificate_retriever,
         }
     }

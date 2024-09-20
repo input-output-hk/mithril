@@ -6,6 +6,7 @@ use std::{
 use crate::{
     digesters::ImmutableDigester,
     entities::{CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
+    logging::LoggerExtensions,
     signable_builder::SignableBuilder,
     StdResult,
 };
@@ -29,7 +30,7 @@ impl CardanoImmutableFilesFullSignableBuilder {
     ) -> Self {
         Self {
             immutable_digester,
-            logger: logger.new(slog::o!("src" => "CardanoImmutableFilesFullSignableBuilder")),
+            logger: logger.new_with_component_name::<Self>(),
             dirpath: dirpath.to_owned(),
         }
     }

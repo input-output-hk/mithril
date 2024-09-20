@@ -11,6 +11,7 @@ use slog::{debug, info, Logger};
 
 use crate::chain_observer::ChainObserver;
 use crate::entities::{BlockNumber, SignedEntityTypeDiscriminants};
+use crate::logging::LoggerExtensions;
 use crate::signable_builder::TransactionsImporter;
 use crate::signed_entity_type_lock::SignedEntityTypeLock;
 use crate::StdResult;
@@ -71,7 +72,7 @@ impl CardanoTransactionsPreloader {
             importer,
             security_parameter,
             chain_observer,
-            logger: logger.new(slog::o!("src" => "CardanoTransactionsPreloader")),
+            logger: logger.new_with_component_name::<Self>(),
             activation_state,
         }
     }

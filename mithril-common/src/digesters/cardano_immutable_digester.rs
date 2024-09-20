@@ -4,6 +4,7 @@ use crate::{
         ImmutableFile,
     },
     entities::{CardanoDbBeacon, HexEncodedDigest, ImmutableFileName},
+    logging::LoggerExtensions,
 };
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
@@ -32,7 +33,7 @@ impl CardanoImmutableDigester {
     ) -> Self {
         Self {
             cache_provider,
-            logger: logger.new(slog::o!("src" => "CardanoImmutableDigester")),
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 }

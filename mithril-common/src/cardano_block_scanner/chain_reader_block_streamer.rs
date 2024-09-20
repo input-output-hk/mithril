@@ -8,6 +8,7 @@ use crate::cardano_block_scanner::BlockStreamer;
 use crate::cardano_block_scanner::ChainScannedBlocks;
 use crate::chain_reader::{ChainBlockNextAction, ChainBlockReader};
 use crate::entities::{BlockNumber, ChainPoint};
+use crate::logging::LoggerExtensions;
 use crate::StdResult;
 
 /// The action that indicates what to do next with the streamer
@@ -111,7 +112,7 @@ impl ChainReaderBlockStreamer {
             from,
             until,
             max_roll_forwards_per_poll,
-            logger: logger.new(slog::o!("src" => "ChainReaderBlockStreamer")),
+            logger: logger.new_with_component_name::<Self>(),
         })
     }
 
