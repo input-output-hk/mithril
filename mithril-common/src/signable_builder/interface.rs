@@ -16,7 +16,7 @@ pub trait Artifact: Debug + Send + Sync {
     fn get_id(&self) -> String;
 }
 
-/// SignableBuilder is trait for building a protocol message for a beacon
+/// SignableBuilder is a trait for building a protocol message for a beacon
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait SignableBuilder<U>: Send + Sync
@@ -24,5 +24,17 @@ where
     U: Beacon,
 {
     /// Compute a protocol message
-    async fn compute_protocol_message(&self, beacon: U) -> StdResult<ProtocolMessage>;
+    async fn compute_protocol_message(
+        &self,
+        beacon: U,
+        seed_protocol_message: ProtocolMessage,
+    ) -> StdResult<ProtocolMessage>;
+}
+
+/// SignableSeedBuilder is a trait for building a seed protocol message
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait SignableSeedBuilder: Send + Sync {
+    /// Compute seed protocol message
+    async fn compute_seed_protocol_message(&self) -> StdResult<ProtocolMessage>;
 }
