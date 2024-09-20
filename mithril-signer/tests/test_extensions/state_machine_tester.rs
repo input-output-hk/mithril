@@ -32,7 +32,7 @@ use mithril_signer::{
     metrics::*,
     services::{
         AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
-        SignerUpkeepService,
+        SignableSeedBuilderService, SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer},
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
@@ -205,7 +205,14 @@ impl StateMachineTester {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
+        let signable_seed_builder_service = Arc::new(SignableSeedBuilderService::new(
+            epoch_service.clone(),
+            single_signer.clone(),
+            protocol_initializer_store.clone(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            signable_seed_builder_service,
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
@@ -229,7 +236,6 @@ impl StateMachineTester {
             signed_entity_type_lock.clone(),
             slog_scope::logger(),
         ));
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
 
         let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
