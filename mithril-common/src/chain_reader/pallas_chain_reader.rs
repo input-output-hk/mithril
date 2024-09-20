@@ -9,6 +9,7 @@ use pallas_network::{
 use pallas_traverse::MultiEraBlock;
 use slog::{debug, Logger};
 
+use crate::logging::LoggerExtensions;
 use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint, CardanoNetwork, StdResult};
 
 use super::{ChainBlockNextAction, ChainBlockReader};
@@ -28,7 +29,7 @@ impl PallasChainReader {
             socket: socket.to_owned(),
             network,
             client: None,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -45,7 +46,7 @@ impl PallasChainReader {
     async fn get_client(&mut self) -> StdResult<&mut NodeClient> {
         if self.client.is_none() {
             self.client = Some(self.new_client().await?);
-            debug!(self.logger, "PallasChainReader connected to a new client");
+            debug!(self.logger, "connected to a new client");
         }
 
         self.client
@@ -60,12 +61,12 @@ impl PallasChainReader {
         let chainsync = client.chainsync();
 
         if chainsync.has_agency() {
-            debug!(logger, "PallasChainReader has agency, finding intersect point..."; "point" => ?point);
+            debug!(logger, "has agency, finding intersect point..."; "point" => ?point);
             chainsync
                 .find_intersect(vec![point.to_owned().into()])
                 .await?;
         } else {
-            debug!(logger, "PallasChainReader doesn't have agency, no need to find intersect point";);
+            debug!(logger, "doesn't have agency, no need to find intersect point";);
         }
 
         Ok(())

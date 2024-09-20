@@ -11,6 +11,7 @@ use slog::{debug, info, Logger};
 
 use crate::chain_observer::ChainObserver;
 use crate::entities::{BlockNumber, SignedEntityTypeDiscriminants};
+use crate::logging::LoggerExtensions;
 use crate::signable_builder::TransactionsImporter;
 use crate::signed_entity_type_lock::SignedEntityTypeLock;
 use crate::StdResult;
@@ -71,7 +72,7 @@ impl CardanoTransactionsPreloader {
             importer,
             security_parameter,
             chain_observer,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
             activation_state,
         }
     }
@@ -79,26 +80,23 @@ impl CardanoTransactionsPreloader {
     /// Preload the Cardano Transactions by running the importer up to the current chain block number.
     pub async fn preload(&self) -> StdResult<()> {
         if !self.is_activated().await? {
-            debug!(
-                self.logger,
-                "⟳ Preload Cardano Transactions - Not running, conditions not met"
-            );
+            debug!(self.logger, "Not running, conditions not met");
             return Ok(());
         }
 
-        info!(self.logger, "⟳ Preload Cardano Transactions - Started");
-        debug!(self.logger, "⟳ Locking signed entity type"; "entity_type" => "CardanoTransactions");
+        info!(self.logger, "Started");
+        debug!(self.logger, "Locking signed entity type"; "entity_type" => "CardanoTransactions");
         self.signed_entity_type_lock
             .lock(SignedEntityTypeDiscriminants::CardanoTransactions)
             .await;
 
         let preload_result = self.do_preload().await;
 
-        debug!(self.logger, "⟳ Releasing signed entity type"; "entity_type" => "CardanoTransactions");
+        debug!(self.logger, "Releasing signed entity type"; "entity_type" => "CardanoTransactions");
         self.signed_entity_type_lock
             .release(SignedEntityTypeDiscriminants::CardanoTransactions)
             .await;
-        info!(self.logger, "⟳ Preload Cardano Transactions - Finished");
+        info!(self.logger, "Finished");
 
         preload_result
     }

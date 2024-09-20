@@ -1,5 +1,6 @@
 use crate::{
     digesters::cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider},
+    logging::LoggerExtensions,
     StdResult,
 };
 use anyhow::Context;
@@ -43,7 +44,7 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
 
     /// Set the [Logger] to use.
     pub fn with_logger(&mut self, logger: Logger) -> &mut Self {
-        self.logger = logger;
+        self.logger = logger.new_with_component_name::<Self>();
         self
     }
 

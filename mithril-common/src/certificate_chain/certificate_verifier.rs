@@ -15,6 +15,7 @@ use crate::crypto_helper::{
 use crate::entities::{
     Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
 };
+use crate::logging::LoggerExtensions;
 use crate::StdResult;
 
 #[cfg(test)]
@@ -122,7 +123,7 @@ impl MithrilCertificateVerifier {
     pub fn new(logger: Logger, certificate_retriever: Arc<dyn CertificateRetriever>) -> Self {
         debug!(logger, "New MithrilCertificateVerifier created");
         Self {
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
             certificate_retriever,
         }
     }
@@ -302,14 +303,13 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 mod tests {
     use async_trait::async_trait;
     use mockall::mock;
-    use slog_scope;
 
     use super::CertificateRetriever;
     use super::*;
 
     use crate::certificate_chain::CertificateRetrieverError;
     use crate::crypto_helper::{tests_setup::*, ProtocolClerk};
-    use crate::test_utils::MithrilFixtureBuilder;
+    use crate::test_utils::{MithrilFixtureBuilder, TestLogger};
 
     mock! {
         pub CertificateRetrieverImpl { }
@@ -348,7 +348,7 @@ mod tests {
             .into();
 
         let verifier = MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             Arc::new(MockCertificateRetrieverImpl::new()),
         );
         let message_tampered = message_hash[1..].to_vec();
@@ -387,7 +387,7 @@ mod tests {
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
         let verifier = MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             Arc::new(mock_certificate_retriever),
         );
         let verify = verifier
@@ -410,7 +410,7 @@ mod tests {
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
         let verifier = MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             Arc::new(mock_certificate_retriever),
         );
         let verify = verifier
@@ -435,7 +435,7 @@ mod tests {
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
         let verifier = MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             Arc::new(mock_certificate_retriever),
         );
         let error = verifier
@@ -478,7 +478,7 @@ mod tests {
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
         let verifier = MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             Arc::new(mock_certificate_retriever),
         );
         let error = verifier
@@ -505,7 +505,7 @@ mod tests {
         fake_certificate1.hash = "another-hash".to_string();
         let mock_certificate_retriever = MockCertificateRetrieverImpl::new();
         let verifier = MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             Arc::new(mock_certificate_retriever),
         );
         let error = verifier
@@ -537,7 +537,7 @@ mod tests {
                 .times(1);
         }
         let verifier = MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             Arc::new(mock_certificate_retriever),
         );
         let verify = verifier
@@ -570,7 +570,7 @@ mod tests {
                 .times(1);
         }
         let verifier = MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             Arc::new(mock_certificate_retriever),
         );
         let error = verifier

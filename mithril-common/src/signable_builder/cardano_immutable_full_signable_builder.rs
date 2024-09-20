@@ -6,6 +6,7 @@ use std::{
 use crate::{
     digesters::ImmutableDigester,
     entities::{CardanoDbBeacon, ProtocolMessage, ProtocolMessagePartKey},
+    logging::LoggerExtensions,
     signable_builder::SignableBuilder,
     StdResult,
 };
@@ -29,7 +30,7 @@ impl CardanoImmutableFilesFullSignableBuilder {
     ) -> Self {
         Self {
             immutable_digester,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
             dirpath: dirpath.to_owned(),
         }
     }
@@ -41,7 +42,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
         &self,
         beacon: CardanoDbBeacon,
     ) -> StdResult<ProtocolMessage> {
-        debug!(self.logger, "SignableBuilder::compute_signable({beacon:?})");
+        debug!(self.logger, "compute_signable({beacon:?})");
         let digest = self
             .immutable_digester
             .compute_digest(&self.dirpath, &beacon)
@@ -52,7 +53,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
                     &self.dirpath.display()
                 )
             })?;
-        info!(self.logger, "SignableBuilder: digest = '{digest}'.");
+        info!(self.logger, "digest = '{digest}'.");
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 

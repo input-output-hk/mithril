@@ -3559,7 +3559,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.4.53"
+version = "0.4.54"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3600,7 +3600,6 @@ dependencies = [
  "sha2",
  "slog",
  "slog-async",
- "slog-scope",
  "slog-term",
  "strum",
  "thiserror",

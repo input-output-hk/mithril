@@ -57,6 +57,7 @@ pub mod crypto_helper;
 pub mod entities;
 #[macro_use]
 pub mod era;
+pub mod logging;
 pub mod messages;
 pub mod protocol;
 pub mod resource_pool;
