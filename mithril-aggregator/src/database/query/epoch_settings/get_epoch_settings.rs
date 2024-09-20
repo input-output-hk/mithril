@@ -1,8 +1,8 @@
 use anyhow::Context;
-use sqlite::Value;
-
-use mithril_common::{entities::Epoch, StdResult};
+use mithril_common::entities::{CardanoTransactionsSigningConfig, Epoch};
+use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use sqlite::Value;
 
 use crate::database::record::EpochSettingsRecord;
 
@@ -42,7 +42,10 @@ impl Query for GetEpochSettingsQuery {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::ProtocolParameters;
+    use mithril_common::{
+        entities::{BlockNumber, ProtocolParameters},
+        signable_builder::CardanoTransactionsSignableBuilder,
+    };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
@@ -64,6 +67,11 @@ mod tests {
             epoch_settings_record.protocol_parameters
         );
 
+        assert_eq!(
+            CardanoTransactionsSigningConfig::new(BlockNumber(10), BlockNumber(15)),
+            epoch_settings_record.cardano_transactions_signing_config
+        );
+
         let epoch_settings_record = connection
             .fetch_first(GetEpochSettingsQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap()
@@ -72,6 +80,13 @@ mod tests {
         assert_eq!(
             ProtocolParameters::new(3, 4, 1.0),
             epoch_settings_record.protocol_parameters
+        );
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(30),
+                step: BlockNumber(15),
+            },
+            epoch_settings_record.cardano_transactions_signing_config
         );
 
         let cursor = connection

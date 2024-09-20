@@ -1,6 +1,6 @@
 use sqlite::Value;
 
-use mithril_common::entities::{Epoch, ProtocolParameters};
+use mithril_common::entities::{CardanoTransactionsSigningConfig, Epoch, ProtocolParameters};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::EpochSettingsRecord;
@@ -11,15 +11,22 @@ pub struct UpdateEpochSettingsQuery {
 }
 
 impl UpdateEpochSettingsQuery {
-    pub fn one(epoch: Epoch, protocol_parameters: ProtocolParameters) -> Self {
+    pub fn one(
+        epoch: Epoch,
+        protocol_parameters: ProtocolParameters,
+        cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+    ) -> Self {
         let epoch_settings_id: i64 = epoch.try_into().unwrap();
 
         Self {
             condition: WhereCondition::new(
-                "(epoch_setting_id, protocol_parameters) values (?1, ?2)",
+                "(epoch_setting_id, protocol_parameters, cardano_transactions_signing_config) values (?1, ?2, ?3)",
                 vec![
                     Value::Integer(epoch_settings_id),
                     Value::String(serde_json::to_string(&protocol_parameters).unwrap()),
+                    Value::String(
+                        serde_json::to_string(&cardano_transactions_signing_config).unwrap(),
+                    ),
                 ],
             ),
         }
@@ -45,6 +52,7 @@ impl Query for UpdateEpochSettingsQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::{BlockNumber, CardanoTransactionsSigningConfig};
     use mithril_common::test_utils::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -62,6 +70,7 @@ mod tests {
             .fetch_first(UpdateEpochSettingsQuery::one(
                 Epoch(3),
                 fake_data::protocol_parameters(),
+                CardanoTransactionsSigningConfig::new(BlockNumber(24), BlockNumber(62)),
             ))
             .unwrap()
             .unwrap();
@@ -70,6 +79,13 @@ mod tests {
         assert_eq!(
             fake_data::protocol_parameters(),
             epoch_settings_record.protocol_parameters
+        );
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(24),
+                step: BlockNumber(62),
+            },
+            epoch_settings_record.cardano_transactions_signing_config
         );
 
         let mut cursor = connection
@@ -83,6 +99,13 @@ mod tests {
         assert_eq!(
             fake_data::protocol_parameters(),
             epoch_settings_record.protocol_parameters
+        );
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(24),
+                step: BlockNumber(62),
+            },
+            epoch_settings_record.cardano_transactions_signing_config
         );
         assert_eq!(0, cursor.count());
     }

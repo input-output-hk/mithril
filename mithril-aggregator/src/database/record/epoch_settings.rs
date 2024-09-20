@@ -1,4 +1,6 @@
-use mithril_common::entities::{Epoch, ProtocolParameters};
+use mithril_common::entities::{
+    BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
+};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// Settings for an epoch, including the protocol parameters.
@@ -9,6 +11,9 @@ pub struct EpochSettingsRecord {
 
     /// Protocol parameters.
     pub protocol_parameters: ProtocolParameters,
+
+    /// Cardano transactions signing configuration.
+    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 }
 
 impl SqLiteEntity for EpochSettingsRecord {
@@ -18,6 +23,7 @@ impl SqLiteEntity for EpochSettingsRecord {
     {
         let epoch_settings_id_int = row.read::<i64, _>(0);
         let protocol_parameters_string = &row.read::<&str, _>(1);
+        let cardano_transactions_signing_config_string = &row.read::<&str, _>(2);
 
         let epoch_settings_record = Self {
             epoch_settings_id: Epoch(epoch_settings_id_int.try_into().map_err(|e| {
@@ -32,6 +38,14 @@ impl SqLiteEntity for EpochSettingsRecord {
                     ))
                 },
             )?,
+            cardano_transactions_signing_config: serde_json::from_str(cardano_transactions_signing_config_string).map_err(
+                |e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{cardano_transactions_signing_config_string}' to CardanoTransactionsSigningConfig. Error: {e}"
+                    ))
+                },
+            )?,
+
         };
 
         Ok(epoch_settings_record)
@@ -47,6 +61,11 @@ impl SqLiteEntity for EpochSettingsRecord {
         projection.add_field(
             "protocol_parameters",
             "{:epoch_setting:}.protocol_parameters",
+            "text",
+        );
+        projection.add_field(
+            "cardano_transactions_signing_config",
+            "{:epoch_setting:}.cardano_transactions_signing_config",
             "text",
         );
 

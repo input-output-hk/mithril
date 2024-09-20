@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use mithril_common::entities::{Epoch, ProtocolParameters};
+use mithril_common::entities::{
+    BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
+};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
@@ -44,6 +46,11 @@ impl EpochSettingsStorer for EpochSettingsStore {
             .fetch_first(UpdateEpochSettingsQuery::one(
                 epoch,
                 epoch_settings.protocol_parameters,
+                // TODO retrieve from the AggregatorEpochSettings
+                CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(0),
+                    step: BlockNumber(0),
+                },
             ))
             .map_err(|e| AdapterError::GeneralError(e.context("persist epoch settings failure")))?
             .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
@@ -122,5 +129,29 @@ mod tests {
             epoch2_params.is_some(),
             "Epoch settings at epoch 2 should still exist",
         );
+    }
+
+    #[tokio::test]
+    async fn save_epoch_settings_stores_in_database() {
+        let connection = main_db_connection().unwrap();
+
+        let store = EpochSettingsStore::new(Arc::new(connection), None);
+
+        store
+            .save_epoch_settings(Epoch(2), AggregatorEpochSettings::dummy())
+            .await
+            .expect("saving epoch settings should not fails");
+        {
+            let epoch_settings = store.get_epoch_settings(Epoch(1)).await.unwrap();
+            assert_eq!(None, epoch_settings);
+        }
+        {
+            let epoch_settings = store.get_epoch_settings(Epoch(2)).await.unwrap().unwrap();
+            assert_eq!(AggregatorEpochSettings::dummy(), epoch_settings);
+        }
+        {
+            let epoch_settings = store.get_epoch_settings(Epoch(3)).await.unwrap();
+            assert_eq!(None, epoch_settings);
+        }
     }
 }

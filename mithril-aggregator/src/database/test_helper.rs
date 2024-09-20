@@ -1,9 +1,12 @@
 use chrono::Utc;
+use mithril_persistence::store::adapter::AdapterError;
 use sqlite::{ConnectionThreadSafe, Value};
 use std::path::Path;
 use uuid::Uuid;
 
-use mithril_common::entities::{ProtocolParameters, SignerWithStake};
+use mithril_common::entities::{
+    BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters, SignerWithStake,
+};
 use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
@@ -195,20 +198,44 @@ pub fn insert_epoch_settings(
     connection: &SqliteConnection,
     epoch_to_insert_settings: &[u64],
 ) -> StdResult<()> {
+    // for (epoch, protocol_parameters) in epoch_to_insert_settings.iter().map(|epoch| {
+    //     (
+    //         Epoch(*epoch),
+    //         ProtocolParameters::new(*epoch, epoch + 1, 1.0),
+    //     )
+    // }) {
+    //     connection.fetch_first(UpdateEpochSettingsQuery::one(epoch, protocol_parameters))?
+    // }
+
+    // for epoch in epoch_to_insert_settings {
+    //     connection.fetch_first(UpdateEpochSettingsQuery::one(
+    //         Epoch(*epoch),
+    //         ProtocolParameters::new(*epoch, epoch + 1, 1.0),
+    //     ))?
+    // }
+
     let query = {
         // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let (sql_values, _) =
-            UpdateEpochSettingsQuery::one(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
-                .filters()
-                .expand();
+        let (sql_values, _) = UpdateEpochSettingsQuery::one(
+            Epoch(1),
+            ProtocolParameters::new(1, 2, 1.0),
+            CardanoTransactionsSigningConfig::new(BlockNumber(0), BlockNumber(0)),
+        )
+        .filters()
+        .expand();
 
         format!("insert into epoch_setting {sql_values}")
     };
 
-    for (epoch, protocol_parameters) in epoch_to_insert_settings
-        .iter()
-        .map(|epoch| (epoch, ProtocolParameters::new(*epoch, epoch + 1, 1.0)))
+    for (epoch, protocol_parameters, signing_config) in
+        epoch_to_insert_settings.iter().map(|epoch| {
+            (
+                epoch,
+                ProtocolParameters::new(*epoch, epoch + 1, 1.0),
+                CardanoTransactionsSigningConfig::new(BlockNumber(epoch * 10), BlockNumber(15)),
+            )
+        })
     {
         let mut statement = connection.prepare(&query)?;
         statement
@@ -218,6 +245,7 @@ pub fn insert_epoch_settings(
                     2,
                     serde_json::to_string(&protocol_parameters).unwrap().into(),
                 ),
+                (3, serde_json::to_string(&signing_config).unwrap().into()),
             ])
             .unwrap();
 
