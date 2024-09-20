@@ -17,6 +17,7 @@ harness = false
 anyhow = "1.0.86"
 async-trait = "0.1.82"
 axum = "0.7.5"
+chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.17", features = ["derive", "env"] }
 config = "0.14.0"
 hex = "0.4.3"

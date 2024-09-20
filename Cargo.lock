@@ -3708,6 +3708,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "axum",
+ "chrono",
  "clap",
  "config",
  "criterion",
