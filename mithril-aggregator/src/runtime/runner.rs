@@ -5,8 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::entities::{
-    Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-    SignedEntityConfig, SignedEntityType, Signer, TimePoint,
+    Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityConfig, SignedEntityType,
+    Signer, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -284,21 +284,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
         debug!("RUNNER: compute protocol message");
-        let mut protocol_message = self
+        let protocol_message = self
             .dependencies
             .signable_builder_service
             .compute_protocol_message(signed_entity_type.to_owned())
             .await
             .with_context(|| format!("Runner can not compute protocol message for signed entity type: '{signed_entity_type}'"))?;
-
-        let epoch_service = self.dependencies.epoch_service.read().await;
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            epoch_service
-                .next_aggregate_verification_key()?
-                .to_json_hex()
-                .with_context(|| "convert next avk to json hex failure")?,
-        );
 
         Ok(protocol_message)
     }
