@@ -12,6 +12,7 @@
 mod aggregator_client;
 mod cardano_transactions;
 mod epoch_service;
+mod signable_seed_builder;
 mod single_signer;
 mod upkeep_service;
 
@@ -20,5 +21,6 @@ pub use aggregator_client::dumb::DumbAggregatorClient;
 pub use aggregator_client::*;
 pub use cardano_transactions::*;
 pub use epoch_service::*;
+pub use signable_seed_builder::*;
 pub use single_signer::*;
 pub use upkeep_service::*;
