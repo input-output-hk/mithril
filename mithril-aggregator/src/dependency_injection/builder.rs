@@ -40,7 +40,8 @@ use mithril_common::{
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
         CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder, SignableBuilderService, TransactionsImporter,
+        MithrilStakeDistributionSignableBuilder, SignableBuilderService, SignableSeedBuilder,
+        TransactionsImporter,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, TickerService,
@@ -69,8 +70,8 @@ use crate::{
         AggregatorUpkeepService, BufferedCertifierService, CardanoTransactionsImporter,
         CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
         MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
-        MithrilStakeDistributionService, ProverService, SignedEntityService,
-        StakeDistributionService, UpkeepService,
+        MithrilStakeDistributionService, ProverService, SignableSeedBuilderService,
+        SignedEntityService, StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -202,6 +203,9 @@ pub struct DependenciesBuilder {
     /// Signer Store
     pub signer_store: Option<Arc<SignerStore>>,
 
+    /// Signable Seed Builder Service
+    pub signable_seed_builder_service: Option<Arc<dyn SignableSeedBuilder>>,
+
     /// Signable Builder Service
     pub signable_builder_service: Option<Arc<dyn SignableBuilderService>>,
 
@@ -274,6 +278,7 @@ impl DependenciesBuilder {
             stake_distribution_service: None,
             ticker_service: None,
             signer_store: None,
+            signable_seed_builder_service: None,
             signable_builder_service: None,
             signed_entity_service: None,
             certifier_service: None,
@@ -1079,6 +1084,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_signable_builder_service(&mut self) -> Result<Arc<dyn SignableBuilderService>> {
+        let seed_signable_builder = self.get_signable_seed_builder_service().await?;
         let mithril_stake_distribution_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let immutable_signable_builder = Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
@@ -1099,6 +1105,7 @@ impl DependenciesBuilder {
             CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
         );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            seed_signable_builder,
             mithril_stake_distribution_builder,
             immutable_signable_builder,
             cardano_transactions_builder,
@@ -1119,11 +1126,38 @@ impl DependenciesBuilder {
         Ok(self.signable_builder_service.as_ref().cloned().unwrap())
     }
 
+    async fn build_signable_seed_builder_service(
+        &mut self,
+    ) -> Result<Arc<dyn SignableSeedBuilder>> {
+        let signable_seed_builder_service = Arc::new(SignableSeedBuilderService::new(
+            self.get_epoch_service().await?,
+        ));
+
+        Ok(signable_seed_builder_service)
+    }
+
+    /// [SignableSeedBuilderService] service
+    pub async fn get_signable_seed_builder_service(
+        &mut self,
+    ) -> Result<Arc<dyn SignableSeedBuilder>> {
+        if self.signable_seed_builder_service.is_none() {
+            self.signable_seed_builder_service =
+                Some(self.build_signable_seed_builder_service().await?);
+        }
+
+        Ok(self
+            .signable_seed_builder_service
+            .as_ref()
+            .cloned()
+            .unwrap())
+    }
+
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let signed_entity_storer = self.build_signed_entity_storer().await?;
         let epoch_service = self.get_epoch_service().await?;
-        let mithril_stake_distribution_artifact_builder =
-            Arc::new(MithrilStakeDistributionArtifactBuilder::new(epoch_service));
+        let mithril_stake_distribution_artifact_builder = Arc::new(
+            MithrilStakeDistributionArtifactBuilder::new(epoch_service.clone()),
+        );
         let snapshotter = self.build_snapshotter().await?;
         let snapshot_uploader = self.build_snapshot_uploader().await?;
         let cardano_node_version = Version::parse(&self.configuration.cardano_node_version)
