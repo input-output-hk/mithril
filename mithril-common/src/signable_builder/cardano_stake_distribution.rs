@@ -63,7 +63,11 @@ impl CardanoStakeDistributionSignableBuilder {
 
 #[async_trait]
 impl SignableBuilder<Epoch> for CardanoStakeDistributionSignableBuilder {
-    async fn compute_protocol_message(&self, epoch: Epoch) -> StdResult<ProtocolMessage> {
+    async fn compute_protocol_message(
+        &self,
+        epoch: Epoch,
+        seed_protocol_message: ProtocolMessage,
+    ) -> StdResult<ProtocolMessage> {
         let pools_with_stake = self
             .cardano_stake_distribution_retriever
             .retrieve(epoch.offset_to_cardano_stake_distribution_snapshot_epoch())
@@ -73,7 +77,7 @@ impl SignableBuilder<Epoch> for CardanoStakeDistributionSignableBuilder {
 
         let mk_tree = Self::compute_merkle_tree_from_stake_distribution(pools_with_stake)?;
 
-        let mut protocol_message = ProtocolMessage::new();
+        let mut protocol_message = seed_protocol_message;
         protocol_message.set_message_part(
             ProtocolMessagePartKey::CardanoStakeDistributionEpoch,
             epoch.to_string(),
@@ -142,6 +146,7 @@ mod tests {
     #[tokio::test]
     async fn compute_protocol_message_returns_error_when_no_cardano_stake_distribution_found() {
         let epoch = Epoch(1);
+        let seed_protocol_message = ProtocolMessage::new();
 
         let mut cardano_stake_distribution_retriever = MockStakeDistributionRetriever::new();
         cardano_stake_distribution_retriever
@@ -153,7 +158,7 @@ mod tests {
             ));
 
         cardano_stake_distribution_signable_builder
-            .compute_protocol_message(epoch)
+            .compute_protocol_message(epoch, seed_protocol_message)
             .await
             .expect_err("Should return an error when no cardano stake distribution found");
     }
@@ -164,6 +169,7 @@ mod tests {
         let epoch_to_retrieve = Epoch(3);
         let stake_distribution = StakeDistribution::from([("pool-123".to_string(), 100)]);
         let stake_distribution_clone = stake_distribution.clone();
+        let seed_protocol_message = ProtocolMessage::new();
 
         let mut pools_with_stake_retriever = MockStakeDistributionRetriever::new();
         pools_with_stake_retriever
@@ -174,7 +180,7 @@ mod tests {
             CardanoStakeDistributionSignableBuilder::new(Arc::new(pools_with_stake_retriever));
 
         let signable = cardano_stake_distribution_signable_builder
-            .compute_protocol_message(epoch)
+            .compute_protocol_message(epoch, seed_protocol_message)
             .await
             .unwrap();
 
