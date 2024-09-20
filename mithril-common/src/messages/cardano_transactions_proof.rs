@@ -390,6 +390,7 @@ mod tests {
             transactions: &[CardanoTransaction],
             block_number: BlockNumber,
         ) -> ProtocolMessage {
+            let seed_protocol_message = ProtocolMessage::new();
             let mut transaction_importer = MockTransactionsImporter::new();
             transaction_importer
                 .expect_import()
@@ -419,7 +420,7 @@ mod tests {
                 Logger::root(slog::Discard, slog::o!()),
             );
             cardano_transaction_signable_builder
-                .compute_protocol_message(block_number)
+                .compute_protocol_message(block_number, seed_protocol_message)
                 .await
                 .unwrap()
         }
