@@ -41,6 +41,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
     async fn compute_protocol_message(
         &self,
         beacon: CardanoDbBeacon,
+        seed_protocol_message: ProtocolMessage,
     ) -> StdResult<ProtocolMessage> {
         debug!(self.logger, "compute_signable({beacon:?})");
         let digest = self
@@ -54,7 +55,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
                 )
             })?;
         info!(self.logger, "digest = '{digest}'.");
-        let mut protocol_message = ProtocolMessage::new();
+        let mut protocol_message = seed_protocol_message;
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
         Ok(protocol_message)
@@ -94,8 +95,9 @@ mod tests {
             Path::new(""),
             TestLogger::stdout(),
         );
+        let seed_protocol_message = ProtocolMessage::new();
         let protocol_message = signable_builder
-            .compute_protocol_message(CardanoDbBeacon::default())
+            .compute_protocol_message(CardanoDbBeacon::default(), seed_protocol_message)
             .await
             .unwrap();
 
