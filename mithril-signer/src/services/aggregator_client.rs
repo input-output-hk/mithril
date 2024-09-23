@@ -8,8 +8,7 @@ use thiserror::Error;
 use mithril_common::{
     api_version::APIVersionProvider,
     entities::{
-        CertificatePending, Epoch, EpochSettings, ProtocolMessage, SignedEntityType, Signer,
-        SingleSignatures,
+        CertificatePending, Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignatures,
     },
     messages::{
         AggregatorFeaturesMessage, CertificatePendingMessage, EpochSettingsMessage,
@@ -18,6 +17,7 @@ use mithril_common::{
     StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
+use crate::entities::SignerEpochSettings;
 use crate::message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter,
     ToRegisterSignatureMessageAdapter, ToRegisterSignerMessageAdapter,
@@ -76,8 +76,9 @@ impl AggregatorClientError {
 #[async_trait]
 pub trait AggregatorClient: Sync + Send {
     /// Retrieves epoch settings from the aggregator
-    async fn retrieve_epoch_settings(&self)
-        -> Result<Option<EpochSettings>, AggregatorClientError>;
+    async fn retrieve_epoch_settings(
+        &self,
+    ) -> Result<Option<SignerEpochSettings>, AggregatorClientError>;
 
     /// Retrieves a pending certificate from the aggregator
     async fn retrieve_pending_certificate(
@@ -185,7 +186,7 @@ impl AggregatorHTTPClient {
 impl AggregatorClient for AggregatorHTTPClient {
     async fn retrieve_epoch_settings(
         &self,
-    ) -> Result<Option<EpochSettings>, AggregatorClientError> {
+    ) -> Result<Option<SignerEpochSettings>, AggregatorClientError> {
         debug!("Retrieve epoch settings");
         let url = format!("{}/epoch-settings", self.aggregator_endpoint);
         let response = self
@@ -351,7 +352,7 @@ pub(crate) mod dumb {
     /// It actually does not communicate with an aggregator host but mimics this behavior.
     /// It is driven by a Tester that controls the CertificatePending it can return and it can return its internal state for testing.
     pub struct DumbAggregatorClient {
-        epoch_settings: RwLock<Option<EpochSettings>>,
+        epoch_settings: RwLock<Option<SignerEpochSettings>>,
         certificate_pending: RwLock<Option<CertificatePending>>,
         last_registered_signer: RwLock<Option<Signer>>,
     }
@@ -367,7 +368,7 @@ pub(crate) mod dumb {
         }
 
         /// this method pilots the epoch settings handler
-        pub async fn set_epoch_settings(&self, epoch_settings: Option<EpochSettings>) {
+        pub async fn set_epoch_settings(&self, epoch_settings: Option<SignerEpochSettings>) {
             let mut epoch_settings_writer = self.epoch_settings.write().await;
             *epoch_settings_writer = epoch_settings;
         }
@@ -393,7 +394,7 @@ pub(crate) mod dumb {
     impl Default for DumbAggregatorClient {
         fn default() -> Self {
             Self {
-                epoch_settings: RwLock::new(Some(fake_data::epoch_settings())),
+                epoch_settings: RwLock::new(Some(SignerEpochSettings::dummy())),
                 certificate_pending: RwLock::new(Some(fake_data::certificate_pending())),
                 last_registered_signer: RwLock::new(None),
             }
@@ -404,7 +405,7 @@ pub(crate) mod dumb {
     impl AggregatorClient for DumbAggregatorClient {
         async fn retrieve_epoch_settings(
             &self,
-        ) -> Result<Option<EpochSettings>, AggregatorClientError> {
+        ) -> Result<Option<SignerEpochSettings>, AggregatorClientError> {
             let epoch_settings = self.epoch_settings.read().await.clone();
 
             Ok(epoch_settings)

@@ -4,10 +4,10 @@ use tokio::{sync::Mutex, time::sleep};
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
-    entities::{CertificatePending, Epoch, EpochSettings, SignedEntityType, TimePoint},
+    entities::{CertificatePending, Epoch, SignedEntityType, TimePoint},
 };
 
-use crate::MetricsService;
+use crate::{entities::SignerEpochSettings, MetricsService};
 
 use super::{Runner, RuntimeError};
 
@@ -324,7 +324,7 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to `ReadyToSign` or `RegisteredNotAbleToSign` state.
     async fn transition_from_unregistered_to_one_of_registered_states(
         &self,
-        epoch_settings: EpochSettings,
+        epoch_settings: SignerEpochSettings,
     ) -> Result<SignerState, RuntimeError> {
         self.metrics_service
             .signer_registration_total_since_startup_counter_increment();
@@ -542,7 +542,7 @@ mod tests {
     #[tokio::test]
     async fn unregistered_epoch_settings_behind_known_epoch() {
         let mut runner = MockSignerRunner::new();
-        let epoch_settings = EpochSettings {
+        let epoch_settings = SignerEpochSettings {
             epoch: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             next_protocol_parameters: fake_data::protocol_parameters(),
@@ -582,11 +582,11 @@ mod tests {
         runner
             .expect_get_epoch_settings()
             .once()
-            .returning(|| Ok(Some(fake_data::epoch_settings())));
+            .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
             .expect_inform_epoch_settings()
-            .with(predicate::eq(fake_data::epoch_settings()))
+            .with(predicate::eq(SignerEpochSettings::dummy()))
             .once()
             .returning(|_| Ok(()));
 
@@ -636,11 +636,11 @@ mod tests {
         runner
             .expect_get_epoch_settings()
             .once()
-            .returning(|| Ok(Some(fake_data::epoch_settings())));
+            .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
             .expect_inform_epoch_settings()
-            .with(predicate::eq(fake_data::epoch_settings()))
+            .with(predicate::eq(SignerEpochSettings::dummy()))
             .once()
             .returning(|_| Ok(()));
 
