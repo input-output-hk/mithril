@@ -41,6 +41,7 @@ impl CertificateGenesisProducer {
 
     /// Create the Genesis protocol message
     pub fn create_genesis_protocol_message(
+        genesis_protocol_paremeters: &ProtocolParameters,
         genesis_avk: &ProtocolAggregateVerificationKey,
     ) -> StdResult<ProtocolMessage> {
         let genesis_avk = genesis_avk.to_json_hex()?;
@@ -48,6 +49,10 @@ impl CertificateGenesisProducer {
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             genesis_avk,
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            genesis_protocol_paremeters.compute_hash(),
         );
         Ok(protocol_message)
     }
@@ -82,13 +87,14 @@ impl CertificateGenesisProducer {
             network,
             immutable_file_number,
             protocol_version,
-            protocol_parameters,
+            protocol_parameters.clone(),
             initiated_at,
             sealed_at,
             signers,
         );
         let previous_hash = "".to_string();
-        let genesis_protocol_message = Self::create_genesis_protocol_message(&genesis_avk)?;
+        let genesis_protocol_message =
+            Self::create_genesis_protocol_message(&protocol_parameters, &genesis_avk)?;
         Ok(Certificate::new(
             previous_hash,
             epoch,
@@ -97,5 +103,37 @@ impl CertificateGenesisProducer {
             genesis_avk,
             CertificateSignature::GenesisSignature(genesis_signature),
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::{entities::ProtocolMessagePartKey, test_utils::MithrilFixtureBuilder};
+
+    #[test]
+    fn test_create_genesis_protocol_message_has_expected_keys_and_values() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let genesis_protocol_parameters = fixture.protocol_parameters();
+        let genesis_avk = fixture.compute_avk();
+        let protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
+            &genesis_protocol_parameters,
+            &genesis_avk,
+        )
+        .unwrap();
+
+        let expected_genesis_avk_value = fixture.compute_and_encode_avk();
+        assert_eq!(
+            protocol_message
+                .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey),
+            Some(&expected_genesis_avk_value)
+        );
+
+        let expected_genesis_protocol_parameters_value = genesis_protocol_parameters.compute_hash();
+        assert_eq!(
+            protocol_message.get_message_part(&ProtocolMessagePartKey::NextProtocolParameters),
+            Some(&expected_genesis_protocol_parameters_value)
+        );
     }
 }
