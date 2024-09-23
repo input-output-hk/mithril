@@ -185,8 +185,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn if_available_mithril_stake_distribution_is_the_first_beacon_to_sign() {
-        let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
+    async fn only_one_unlocked_and_not_yet_signed_yield_a_beacon_to_sign() {
+        let ticker_service = DumbTickerService::new(TimePoint::new(3, 14, ChainPoint::dummy()));
+        let locker = Arc::new(SignedEntityTypeLock::new());
+        for signed_entity_type in SignedEntityTypeDiscriminants::all().into_iter().skip(1) {
+            locker.lock(signed_entity_type).await;
+        }
         let certifier_service = SignerCertifierService::new(
             CardanoNetwork::TestNet(42),
             Arc::new(ticker_service),
@@ -199,17 +203,7 @@ mod tests {
 
         let beacon_to_sign = certifier_service.get_beacon_to_sign().await.unwrap();
 
-        assert!(
-            matches!(
-                beacon_to_sign,
-                Some(BeaconToSign {
-                    epoch: Epoch(1),
-                    signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-                    ..
-                })
-            ),
-            "expected beacon to sign to be MithrilStakeDistribution(Epoch(1)), got: {beacon_to_sign:?}",
-        );
+        assert!(beacon_to_sign.is_some());
     }
 
     #[tokio::test]
@@ -273,6 +267,54 @@ mod tests {
             first_beacon_to_sign.signed_entity_type,
             second_beacon_to_sign.signed_entity_type
         );
+    }
+
+    #[tokio::test]
+    async fn draining_out_all_beacon_to_signs_dont_repeat_value_and_use_signed_entity_discriminant_order(
+    ) {
+        let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
+        let certifier_service = SignerCertifierService::new(
+            CardanoNetwork::TestNet(42),
+            Arc::new(ticker_service),
+            Arc::new(DumbSignedBeaconStore::default()),
+            Arc::new(DumbCardanoTransactionsSigningConfigProvider::new(
+                CardanoTransactionsSigningConfig::dummy(),
+            )),
+            Arc::new(SignedEntityTypeLock::new()),
+        );
+
+        let mut previous_beacon_to_sign = certifier_service
+            .get_beacon_to_sign()
+            .await
+            .unwrap()
+            .expect("There should be a beacon to sign since nothing is locked or signed");
+        let mut all_signed_beacons = vec![previous_beacon_to_sign.clone()];
+
+        loop {
+            certifier_service
+                .mark_beacon_as_signed(&previous_beacon_to_sign)
+                .await
+                .unwrap();
+            let next_beacon_to_sign = certifier_service.get_beacon_to_sign().await.unwrap();
+
+            if let Some(beacon) = next_beacon_to_sign {
+                assert!(
+                    !all_signed_beacons.contains(&beacon),
+                    "Beacon should not repeat"
+                );
+                assert!(
+                    SignedEntityTypeDiscriminants::from(
+                        &previous_beacon_to_sign.signed_entity_type
+                    ) < SignedEntityTypeDiscriminants::from(&beacon.signed_entity_type),
+                    "Beacon should follow SignedEntityTypeDiscriminants order"
+                );
+
+                all_signed_beacons.push(beacon.clone());
+                previous_beacon_to_sign = beacon;
+            } else {
+                break;
+            }
+        }
     }
 
     pub mod tests_tooling {
