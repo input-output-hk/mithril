@@ -11,6 +11,7 @@ repository = { workspace = true }
 
 [[bench]]
 name = "mktree_store_sqlite"
+path = "benches/mktree_store_sqlite.rs"
 harness = false
 
 [dependencies]
