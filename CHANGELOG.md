@@ -21,7 +21,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2437.0] - UNRELEASED
+## Mithril Distribution [2437.1] - 2024-09-23
 
 - **BREAKING** changes in Mithril client WASM:
 
@@ -56,9 +56,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.5.63`  |
+| mithril-client      | `0.8.18`  |
+| mithril-client-cli  | `0.9.12`  |
+| mithril-client-wasm | `0.4.1`   |
+| mithril-common      | `0.4.51`  |
+| mithril-signer      | `0.2.182` |
+| mithril-stm         | `0.3.29`  |
 
 ## Mithril Distribution [2430.0] - 2024-07-30
 
