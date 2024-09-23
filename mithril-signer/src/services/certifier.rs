@@ -33,6 +33,9 @@ pub trait CertifierService: Sync + Send {
     ///
     /// If all available signed entity have already been signed, `None` is returned.
     async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>>;
+
+    /// Mark a beacon as signed so it won't be returned by `get_beacon_to_sign` anymore.
+    async fn mark_beacon_as_signed(&self, signed_beacon: &BeaconToSign) -> StdResult<()>;
 }
 
 /// Trait to provide the current Cardano transactions signing configuration.
@@ -42,10 +45,25 @@ pub trait CardanoTransactionsSigningConfigProvider: Sync + Send {
     fn get(&self) -> StdResult<CardanoTransactionsSigningConfig>;
 }
 
+/// Trait to store beacons that have been signed in order to avoid signing them twice.
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait SignedBeaconStore: Sync + Send {
+    /// Filter out already signed entities from a list of signed entities.
+    async fn filter_out_already_signed_entities(
+        &self,
+        entities: Vec<SignedEntityType>,
+    ) -> StdResult<Vec<SignedEntityType>>;
+
+    /// Mark a beacon as signed.
+    async fn mark_beacon_as_signed(&self, entity: &BeaconToSign) -> StdResult<()>;
+}
+
 /// Implementation of the [Certifier Service][CertifierService] for the Mithril Signer.
 pub struct SignerCertifierService {
     network: CardanoNetwork,
     ticker_service: Arc<dyn TickerService>,
+    signed_beacon_store: Arc<dyn SignedBeaconStore>,
     cardano_transactions_signing_config_provider: Arc<dyn CardanoTransactionsSigningConfigProvider>,
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
 }
@@ -55,6 +73,7 @@ impl SignerCertifierService {
     pub fn new(
         network: CardanoNetwork,
         ticker_service: Arc<dyn TickerService>,
+        signed_beacon_store: Arc<dyn SignedBeaconStore>,
         cardano_transactions_signing_config_provider: Arc<
             dyn CardanoTransactionsSigningConfigProvider,
         >,
@@ -63,6 +82,7 @@ impl SignerCertifierService {
         Self {
             network,
             ticker_service,
+            signed_beacon_store,
             cardano_transactions_signing_config_provider,
             signed_entity_type_lock,
         }
@@ -126,6 +146,12 @@ impl CertifierService for SignerCertifierService {
             Ok(Some(beacon_to_sign))
         }
     }
+
+    async fn mark_beacon_as_signed(&self, signed_beacon: &BeaconToSign) -> StdResult<()> {
+        self.signed_beacon_store
+            .mark_beacon_as_signed(signed_beacon)
+            .await
+    }
 }
 
 #[cfg(test)]
@@ -143,6 +169,7 @@ mod tests {
         let certifier_service = SignerCertifierService::new(
             CardanoNetwork::TestNet(42),
             Arc::new(DumbTickerService::new(TimePoint::dummy())),
+            Arc::new(DumbSignedBeaconStore::default()),
             Arc::new(DumbCardanoTransactionsSigningConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
             )),
@@ -159,6 +186,7 @@ mod tests {
         let certifier_service = SignerCertifierService::new(
             CardanoNetwork::TestNet(42),
             Arc::new(ticker_service),
+            Arc::new(DumbSignedBeaconStore::default()),
             Arc::new(DumbCardanoTransactionsSigningConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
             )),
@@ -180,7 +208,38 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn mark_beacon_as_signed_update_the_store() {
+        let signed_beacons_store = Arc::new(DumbSignedBeaconStore::default());
+        let certifier_service = SignerCertifierService::new(
+            CardanoNetwork::TestNet(42),
+            Arc::new(DumbTickerService::new(TimePoint::dummy())),
+            signed_beacons_store.clone(),
+            Arc::new(DumbCardanoTransactionsSigningConfigProvider::new(
+                CardanoTransactionsSigningConfig::dummy(),
+            )),
+            Arc::new(SignedEntityTypeLock::new()),
+        );
+
+        certifier_service
+            .mark_beacon_as_signed(&BeaconToSign {
+                epoch: Epoch(1),
+                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+                initiated_at: Utc::now(),
+            })
+            .await
+            .unwrap();
+
+        let signed_beacons = signed_beacons_store.signed_beacons().await;
+        assert_eq!(
+            vec![SignedEntityType::MithrilStakeDistribution(Epoch(4))],
+            signed_beacons
+        );
+    }
+
     pub mod tests_tooling {
+        use tokio::sync::RwLock;
+
         use super::*;
 
         pub struct DumbTickerService {
@@ -213,6 +272,48 @@ mod tests {
         impl CardanoTransactionsSigningConfigProvider for DumbCardanoTransactionsSigningConfigProvider {
             fn get(&self) -> StdResult<CardanoTransactionsSigningConfig> {
                 Ok(self.config.clone())
+            }
+        }
+
+        pub struct DumbSignedBeaconStore {
+            signed_beacons: RwLock<Vec<SignedEntityType>>,
+        }
+
+        impl DumbSignedBeaconStore {
+            pub fn new(signed_beacons: Vec<SignedEntityType>) -> Self {
+                Self {
+                    signed_beacons: RwLock::new(signed_beacons),
+                }
+            }
+
+            pub async fn signed_beacons(&self) -> Vec<SignedEntityType> {
+                self.signed_beacons.read().await.clone()
+            }
+        }
+
+        impl Default for DumbSignedBeaconStore {
+            fn default() -> Self {
+                Self::new(vec![])
+            }
+        }
+
+        #[async_trait]
+        impl SignedBeaconStore for DumbSignedBeaconStore {
+            async fn filter_out_already_signed_entities(
+                &self,
+                entities: Vec<SignedEntityType>,
+            ) -> StdResult<Vec<SignedEntityType>> {
+                let already_signed_entities = self.signed_beacons.read().await.clone();
+                Ok(entities
+                    .into_iter()
+                    .filter(|entity| !already_signed_entities.contains(entity))
+                    .collect())
+            }
+
+            async fn mark_beacon_as_signed(&self, beacon: &BeaconToSign) -> StdResult<()> {
+                let mut already_signed_entities = self.signed_beacons.write().await;
+                already_signed_entities.push(beacon.signed_entity_type.clone());
+                Ok(())
             }
         }
     }
