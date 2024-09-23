@@ -75,8 +75,8 @@ use crate::{
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
-    DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    ProtocolParametersStorer, RemoteSnapshotUploader, SingleSignatureAuthenticator,
+    DumbSnapshotter, EpochSettingsStorer, LocalSnapshotUploader, MithrilSignerRegisterer,
+    MultiSigner, MultiSignerImpl, RemoteSnapshotUploader, SingleSignatureAuthenticator,
     SnapshotUploader, SnapshotUploaderType, Snapshotter, SnapshotterCompressionAlgorithm,
     VerificationKeyStorer,
 };
@@ -130,8 +130,8 @@ pub struct DependenciesBuilder {
     /// Verification key store.
     pub verification_key_store: Option<Arc<dyn VerificationKeyStorer>>,
 
-    /// Protocol parameter store.
-    pub protocol_parameters_store: Option<Arc<dyn ProtocolParametersStorer>>,
+    /// Epoch settings storer.
+    pub epoch_settings_storer: Option<Arc<dyn EpochSettingsStorer>>,
 
     /// Cardano CLI Runner for the [ChainObserver]
     pub cardano_cli_runner: Option<Box<CardanoCliRunner>>,
@@ -251,7 +251,7 @@ impl DependenciesBuilder {
             certificate_repository: None,
             open_message_repository: None,
             verification_key_store: None,
-            protocol_parameters_store: None,
+            epoch_settings_storer: None,
             cardano_cli_runner: None,
             chain_observer: None,
             chain_block_reader: None,
@@ -554,10 +554,8 @@ impl DependenciesBuilder {
         Ok(self.verification_key_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_protocol_parameters_store(
-        &mut self,
-    ) -> Result<Arc<dyn ProtocolParametersStorer>> {
-        let protocol_parameters_store = EpochSettingsStore::new(
+    async fn build_epoch_settings_storer(&mut self) -> Result<Arc<dyn EpochSettingsStorer>> {
+        let epoch_settings_store = EpochSettingsStore::new(
             self.get_sqlite_connection().await?,
             self.configuration.safe_epoch_retention_limit(),
         );
@@ -576,7 +574,7 @@ impl DependenciesBuilder {
                 error: None,
             })?;
 
-        protocol_parameters_store
+        epoch_settings_store
             .handle_discrepancies_at_startup(current_epoch, &self.configuration.protocol_parameters)
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
@@ -584,18 +582,16 @@ impl DependenciesBuilder {
                 error: Some(e),
             })?;
 
-        Ok(Arc::new(protocol_parameters_store))
+        Ok(Arc::new(epoch_settings_store))
     }
 
-    /// Get a configured [ProtocolParametersStorer].
-    pub async fn get_protocol_parameters_store(
-        &mut self,
-    ) -> Result<Arc<dyn ProtocolParametersStorer>> {
-        if self.protocol_parameters_store.is_none() {
-            self.protocol_parameters_store = Some(self.build_protocol_parameters_store().await?);
+    /// Get a configured [EpochSettingsStorer].
+    pub async fn get_epoch_settings_storer(&mut self) -> Result<Arc<dyn EpochSettingsStorer>> {
+        if self.epoch_settings_storer.is_none() {
+            self.epoch_settings_storer = Some(self.build_epoch_settings_storer().await?);
         }
 
-        Ok(self.protocol_parameters_store.as_ref().cloned().unwrap())
+        Ok(self.epoch_settings_storer.as_ref().cloned().unwrap())
     }
 
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
@@ -1181,11 +1177,11 @@ impl DependenciesBuilder {
 
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
         let verification_key_store = self.get_verification_key_store().await?;
-        let protocol_parameters_store = self.get_protocol_parameters_store().await?;
+        let epoch_settings_storer = self.get_epoch_settings_storer().await?;
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             self.configuration.protocol_parameters.clone(),
-            protocol_parameters_store,
+            epoch_settings_storer,
             verification_key_store,
         )));
 
@@ -1305,7 +1301,7 @@ impl DependenciesBuilder {
             certificate_repository: self.get_certificate_repository().await?,
             open_message_repository: self.get_open_message_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,
-            protocol_parameters_store: self.get_protocol_parameters_store().await?,
+            epoch_settings_storer: self.get_epoch_settings_storer().await?,
             chain_observer: self.get_chain_observer().await?,
             immutable_file_observer: self.get_immutable_file_observer().await?,
             digester: self.get_immutable_digester().await?,
@@ -1411,7 +1407,7 @@ impl DependenciesBuilder {
             certificate_repository: self.get_certificate_repository().await?,
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
-            protocol_parameters_store: self.get_protocol_parameters_store().await?,
+            epoch_settings_storer: self.get_epoch_settings_storer().await?,
             verification_key_store: self.get_verification_key_store().await?,
         };
 

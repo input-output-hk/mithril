@@ -10,7 +10,7 @@ use mithril_persistence::store::adapter::AdapterError;
 use crate::database::query::{
     DeleteEpochSettingsQuery, GetEpochSettingsQuery, UpdateEpochSettingsQuery,
 };
-use crate::ProtocolParametersStorer;
+use crate::EpochSettingsStorer;
 
 /// Service to deal with epoch settings (read & write).
 pub struct EpochSettingsStore {
@@ -32,8 +32,8 @@ impl EpochSettingsStore {
 }
 
 #[async_trait]
-impl ProtocolParametersStorer for EpochSettingsStore {
-    async fn save_protocol_parameters(
+impl EpochSettingsStorer for EpochSettingsStore {
+    async fn save_epoch_settings(
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
@@ -60,7 +60,7 @@ impl ProtocolParametersStorer for EpochSettingsStore {
         Ok(Some(epoch_setting_record.protocol_parameters))
     }
 
-    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
+    async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
         let mut cursor = self
             .connection
             .fetch(GetEpochSettingsQuery::by_epoch(epoch)?)
@@ -93,14 +93,14 @@ mod tests {
         );
 
         store
-            .save_protocol_parameters(
+            .save_epoch_settings(
                 Epoch(2) + EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD,
                 fake_data::protocol_parameters(),
             )
             .await
             .expect("saving protocol parameters should not fails");
-        let epoch1_params = store.get_protocol_parameters(Epoch(1)).await.unwrap();
-        let epoch2_params = store.get_protocol_parameters(Epoch(2)).await.unwrap();
+        let epoch1_params = store.get_epoch_settings(Epoch(1)).await.unwrap();
+        let epoch2_params = store.get_epoch_settings(Epoch(2)).await.unwrap();
 
         assert!(
             epoch1_params.is_none(),

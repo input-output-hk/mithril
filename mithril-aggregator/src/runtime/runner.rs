@@ -940,7 +940,7 @@ pub mod tests {
 
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
-        let protocol_parameters_store = deps.protocol_parameters_store.clone();
+        let epoch_settings_storer = deps.epoch_settings_storer.clone();
         let expected_protocol_parameters = deps.config.protocol_parameters.clone();
         let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
         let insert_epoch = current_epoch.offset_to_protocol_parameters_recording_epoch();
@@ -952,8 +952,8 @@ pub mod tests {
             .await
             .expect("update_protocol_parameters should not fail");
 
-        let saved_protocol_parameters = protocol_parameters_store
-            .get_protocol_parameters(insert_epoch)
+        let saved_protocol_parameters = epoch_settings_storer
+            .get_epoch_settings(insert_epoch)
             .await
             .unwrap()
             .unwrap_or_else(|| panic!("should have protocol parameters for epoch {insert_epoch}",));
