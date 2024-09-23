@@ -13,7 +13,7 @@ use crate::database::query::{
     ImportSignerRecordQuery, InsertCertificateRecordQuery,
     InsertOrReplaceBufferedSingleSignatureRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery, InsertOrReplaceStakePoolQuery,
-    InsertSignedEntityRecordQuery, UpdateEpochSettingQuery, UpdateSingleSignatureRecordQuery,
+    InsertSignedEntityRecordQuery, UpdateEpochSettingsQuery, UpdateSingleSignatureRecordQuery,
 };
 use crate::database::record::{
     BufferedSingleSignatureRecord, CertificateRecord, SignedEntityRecord, SignerRecord,
@@ -199,7 +199,7 @@ pub fn insert_epoch_settings(
         // leverage the expanded parameter from this query which is unit
         // tested on its own above.
         let (sql_values, _) =
-            UpdateEpochSettingQuery::one(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
+            UpdateEpochSettingsQuery::one(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
                 .filters()
                 .expand();
 

@@ -59,7 +59,7 @@ use crate::{
     },
     configuration::ExecutionEnvironment,
     database::repository::{
-        BufferedSingleSignatureRepository, CertificateRepository, EpochSettingStore,
+        BufferedSingleSignatureRepository, CertificateRepository, EpochSettingsStore,
         OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
         SignerStore, SingleSignatureRepository, StakePoolStore,
     },
@@ -557,7 +557,7 @@ impl DependenciesBuilder {
     async fn build_protocol_parameters_store(
         &mut self,
     ) -> Result<Arc<dyn ProtocolParametersStorer>> {
-        let protocol_parameters_store = EpochSettingStore::new(
+        let protocol_parameters_store = EpochSettingsStore::new(
             self.get_sqlite_connection().await?,
             self.configuration.safe_epoch_retention_limit(),
         );

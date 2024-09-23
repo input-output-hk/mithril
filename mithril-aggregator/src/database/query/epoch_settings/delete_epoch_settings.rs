@@ -3,15 +3,15 @@ use sqlite::Value;
 use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
-use crate::database::record::EpochSettingRecord;
+use crate::database::record::EpochSettingsRecord;
 
-/// Query to delete old [EpochSettingRecord] from the sqlite database
-pub struct DeleteEpochSettingQuery {
+/// Query to delete old [EpochSettingsRecord] from the sqlite database
+pub struct DeleteEpochSettingsQuery {
     condition: WhereCondition,
 }
 
-impl Query for DeleteEpochSettingQuery {
-    type Entity = EpochSettingRecord;
+impl Query for DeleteEpochSettingsQuery {
+    type Entity = EpochSettingsRecord;
 
     fn filters(&self) -> WhereCondition {
         self.condition.clone()
@@ -27,7 +27,7 @@ impl Query for DeleteEpochSettingQuery {
     }
 }
 
-impl DeleteEpochSettingQuery {
+impl DeleteEpochSettingsQuery {
     #[cfg(test)]
     /// Create the SQL condition to delete a record given the Epoch.
     pub fn by_epoch(epoch: Epoch) -> Self {
@@ -50,7 +50,7 @@ impl DeleteEpochSettingQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::query::GetEpochSettingQuery;
+    use crate::database::query::GetEpochSettingsQuery;
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -62,19 +62,19 @@ mod tests {
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
 
         let cursor = connection
-            .fetch(DeleteEpochSettingQuery::by_epoch(Epoch(2)))
+            .fetch(DeleteEpochSettingsQuery::by_epoch(Epoch(2)))
             .unwrap();
 
         assert_eq!(1, cursor.count());
 
         let cursor = connection
-            .fetch(GetEpochSettingQuery::by_epoch(Epoch(1)).unwrap())
+            .fetch(GetEpochSettingsQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
 
         assert_eq!(1, cursor.count());
 
         let cursor = connection
-            .fetch(GetEpochSettingQuery::by_epoch(Epoch(2)).unwrap())
+            .fetch(GetEpochSettingsQuery::by_epoch(Epoch(2)).unwrap())
             .unwrap();
 
         assert_eq!(0, cursor.count());
@@ -86,19 +86,19 @@ mod tests {
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
 
         let cursor = connection
-            .fetch(DeleteEpochSettingQuery::below_epoch_threshold(Epoch(2)))
+            .fetch(DeleteEpochSettingsQuery::below_epoch_threshold(Epoch(2)))
             .unwrap();
 
         assert_eq!(1, cursor.count());
 
         let cursor = connection
-            .fetch(GetEpochSettingQuery::by_epoch(Epoch(1)).unwrap())
+            .fetch(GetEpochSettingsQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap();
 
         assert_eq!(0, cursor.count());
 
         let cursor = connection
-            .fetch(GetEpochSettingQuery::by_epoch(Epoch(2)).unwrap())
+            .fetch(GetEpochSettingsQuery::by_epoch(Epoch(2)).unwrap())
             .unwrap();
 
         assert_eq!(1, cursor.count());

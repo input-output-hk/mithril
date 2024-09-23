@@ -8,12 +8,12 @@ use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
 
 use crate::database::query::{
-    DeleteEpochSettingQuery, GetEpochSettingQuery, UpdateEpochSettingQuery,
+    DeleteEpochSettingsQuery, GetEpochSettingsQuery, UpdateEpochSettingsQuery,
 };
 use crate::ProtocolParametersStorer;
 
 /// Service to deal with epoch settings (read & write).
-pub struct EpochSettingStore {
+pub struct EpochSettingsStore {
     connection: Arc<SqliteConnection>,
 
     /// Number of epochs before previous records will be pruned at the next call to
@@ -21,8 +21,8 @@ pub struct EpochSettingStore {
     retention_limit: Option<u64>,
 }
 
-impl EpochSettingStore {
-    /// Create a new EpochSetting service
+impl EpochSettingsStore {
+    /// Create a new EpochSettings store
     pub fn new(connection: Arc<SqliteConnection>, retention_limit: Option<u64>) -> Self {
         Self {
             connection,
@@ -32,7 +32,7 @@ impl EpochSettingStore {
 }
 
 #[async_trait]
-impl ProtocolParametersStorer for EpochSettingStore {
+impl ProtocolParametersStorer for EpochSettingsStore {
     async fn save_protocol_parameters(
         &self,
         epoch: Epoch,
@@ -40,7 +40,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
     ) -> StdResult<Option<ProtocolParameters>> {
         let epoch_setting_record = self
             .connection
-            .fetch_first(UpdateEpochSettingQuery::one(epoch, protocol_parameters))
+            .fetch_first(UpdateEpochSettingsQuery::one(epoch, protocol_parameters))
             .map_err(|e| {
                 AdapterError::GeneralError(e.context("persist protocol parameters failure"))
             })?
@@ -50,7 +50,7 @@ impl ProtocolParametersStorer for EpochSettingStore {
         if let Some(threshold) = self.retention_limit {
             let _ = self
                 .connection
-                .fetch(DeleteEpochSettingQuery::below_epoch_threshold(
+                .fetch(DeleteEpochSettingsQuery::below_epoch_threshold(
                     epoch - threshold,
                 ))
                 .map_err(AdapterError::QueryError)?
@@ -63,8 +63,8 @@ impl ProtocolParametersStorer for EpochSettingStore {
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
         let mut cursor = self
             .connection
-            .fetch(GetEpochSettingQuery::by_epoch(epoch)?)
-            .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch setting")))?;
+            .fetch(GetEpochSettingsQuery::by_epoch(epoch)?)
+            .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch settings")))?;
 
         if let Some(epoch_setting_record) = cursor.next() {
             return Ok(Some(epoch_setting_record.protocol_parameters));
@@ -87,7 +87,7 @@ mod tests {
 
         let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
-        let store = EpochSettingStore::new(
+        let store = EpochSettingsStore::new(
             Arc::new(connection),
             Some(EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD),
         );

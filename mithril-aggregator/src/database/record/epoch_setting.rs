@@ -3,7 +3,7 @@ use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// Settings for an epoch, including the protocol parameters.
 #[derive(Debug, PartialEq)]
-pub struct EpochSettingRecord {
+pub struct EpochSettingsRecord {
     /// Epoch setting id, i.e. the epoch number.
     pub epoch_setting_id: Epoch,
 
@@ -11,7 +11,7 @@ pub struct EpochSettingRecord {
     pub protocol_parameters: ProtocolParameters,
 }
 
-impl SqLiteEntity for EpochSettingRecord {
+impl SqLiteEntity for EpochSettingsRecord {
     fn hydrate(row: sqlite::Row) -> Result<Self, HydrationError>
     where
         Self: Sized,
