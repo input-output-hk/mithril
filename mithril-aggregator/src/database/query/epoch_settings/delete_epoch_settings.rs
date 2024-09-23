@@ -31,19 +31,19 @@ impl DeleteEpochSettingsQuery {
     #[cfg(test)]
     /// Create the SQL condition to delete a record given the Epoch.
     pub fn by_epoch(epoch: Epoch) -> Self {
-        let epoch_setting_id_value = Value::Integer(epoch.try_into().unwrap());
+        let epoch_settings_id_value = Value::Integer(epoch.try_into().unwrap());
 
         Self {
-            condition: WhereCondition::new("epoch_setting_id = ?*", vec![epoch_setting_id_value]),
+            condition: WhereCondition::new("epoch_setting_id = ?*", vec![epoch_settings_id_value]),
         }
     }
 
     /// Create the SQL condition to prune data older than the given Epoch.
     pub fn below_epoch_threshold(epoch_threshold: Epoch) -> Self {
-        let epoch_setting_id_value = Value::Integer(epoch_threshold.try_into().unwrap());
+        let epoch_settings_id_value = Value::Integer(epoch_threshold.try_into().unwrap());
 
         Self {
-            condition: WhereCondition::new("epoch_setting_id < ?*", vec![epoch_setting_id_value]),
+            condition: WhereCondition::new("epoch_setting_id < ?*", vec![epoch_settings_id_value]),
         }
     }
 }

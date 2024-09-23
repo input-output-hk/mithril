@@ -82,7 +82,7 @@ pub fn setup_single_signature_records(
                 single_signature_records.push(SingleSignatureRecord {
                     open_message_id,
                     signer_id: format!("signer-{signer_idx}"),
-                    registration_epoch_setting_id: Epoch(epoch),
+                    registration_epoch_settings_id: Epoch(epoch),
                     lottery_indexes: (1..=single_signature_id).collect(),
                     signature: fake_keys::single_signature()[3].to_string(),
                     created_at: Utc::now(),
@@ -124,7 +124,7 @@ pub fn insert_single_signatures_in_db(
                 (2, single_signature_record.signer_id.into()),
                 (
                     3,
-                    Value::Integer(*single_signature_record.registration_epoch_setting_id as i64),
+                    Value::Integer(*single_signature_record.registration_epoch_settings_id as i64),
                 ),
                 (
                     4,
@@ -360,7 +360,7 @@ pub fn insert_signer_registrations(
                     (1, signer_registration_record.signer_id.into()),
                     (
                         2,
-                        Value::Integer(*signer_registration_record.epoch_setting_id as i64),
+                        Value::Integer(*signer_registration_record.epoch_settings_id as i64),
                     ),
                     (3, signer_registration_record.verification_key.into()),
                     (

@@ -76,9 +76,9 @@ impl SqLiteEntity for OpenMessageRecord {
                 "Invalid protocol message JSON representation '{protocol_message}'. Error: {e}"
             ))
         })?;
-        let epoch_setting_id = row.read::<i64, _>(1);
-        let epoch_val = u64::try_from(epoch_setting_id)
-            .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_setting_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
+        let epoch_settings_id = row.read::<i64, _>(1);
+        let epoch_val = u64::try_from(epoch_settings_id)
+            .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_settings_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
         let beacon_str = Hydrator::read_signed_entity_beacon_column(&row, 2);
         let signed_entity_type_id = usize::try_from(row.read::<i64, _>(3)).map_err(|e| {
             panic!(

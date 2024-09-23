@@ -13,14 +13,14 @@ pub struct GetEpochSettingsQuery {
 
 impl GetEpochSettingsQuery {
     pub fn by_epoch(epoch: Epoch) -> StdResult<Self> {
-        let epoch_setting_id: i64 = epoch
+        let epoch_settings_id: i64 = epoch
             .try_into()
             .with_context(|| format!("Can not convert epoch: '{epoch}'"))?;
 
         Ok(Self {
             condition: WhereCondition::new(
                 "epoch_setting_id = ?*",
-                vec![Value::Integer(epoch_setting_id)],
+                vec![Value::Integer(epoch_settings_id)],
             ),
         })
     }
@@ -54,24 +54,24 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2, 3]).unwrap();
 
-        let epoch_setting_record = connection
+        let epoch_settings_record = connection
             .fetch_first(GetEpochSettingsQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap()
             .expect("Should have an epoch settings for epoch 1.");
-        assert_eq!(Epoch(1), epoch_setting_record.epoch_setting_id);
+        assert_eq!(Epoch(1), epoch_settings_record.epoch_settings_id);
         assert_eq!(
             ProtocolParameters::new(1, 2, 1.0),
-            epoch_setting_record.protocol_parameters
+            epoch_settings_record.protocol_parameters
         );
 
-        let epoch_setting_record = connection
+        let epoch_settings_record = connection
             .fetch_first(GetEpochSettingsQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap()
             .expect("Should have an epoch settings for epoch 3.");
-        assert_eq!(Epoch(3), epoch_setting_record.epoch_setting_id);
+        assert_eq!(Epoch(3), epoch_settings_record.epoch_settings_id);
         assert_eq!(
             ProtocolParameters::new(3, 4, 1.0),
-            epoch_setting_record.protocol_parameters
+            epoch_settings_record.protocol_parameters
         );
 
         let cursor = connection

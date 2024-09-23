@@ -38,7 +38,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
     ) -> StdResult<Option<ProtocolParameters>> {
-        let epoch_setting_record = self
+        let epoch_settings_record = self
             .connection
             .fetch_first(UpdateEpochSettingsQuery::one(epoch, protocol_parameters))
             .map_err(|e| {
@@ -57,7 +57,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
                 .count();
         }
 
-        Ok(Some(epoch_setting_record.protocol_parameters))
+        Ok(Some(epoch_settings_record.protocol_parameters))
     }
 
     async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
@@ -66,8 +66,8 @@ impl EpochSettingsStorer for EpochSettingsStore {
             .fetch(GetEpochSettingsQuery::by_epoch(epoch)?)
             .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch settings")))?;
 
-        if let Some(epoch_setting_record) = cursor.next() {
-            return Ok(Some(epoch_setting_record.protocol_parameters));
+        if let Some(epoch_settings_record) = cursor.next() {
+            return Ok(Some(epoch_settings_record.protocol_parameters));
         }
         Ok(None)
     }
@@ -83,18 +83,18 @@ mod tests {
 
     #[tokio::test]
     async fn save_protocol_parameters_prune_older_epoch_settings() {
-        const EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD: u64 = 5;
+        const EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD: u64 = 5;
 
         let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2]).unwrap();
         let store = EpochSettingsStore::new(
             Arc::new(connection),
-            Some(EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD),
+            Some(EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD),
         );
 
         store
             .save_epoch_settings(
-                Epoch(2) + EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD,
+                Epoch(2) + EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD,
                 fake_data::protocol_parameters(),
             )
             .await

@@ -18,7 +18,7 @@ impl UpdateSingleSignatureRecordQuery {
                 Value::String(single_signature_record.open_message_id.to_string()),
                 Value::String(single_signature_record.signer_id),
                 Value::Integer(
-                    single_signature_record.registration_epoch_setting_id.try_into().unwrap(),
+                    single_signature_record.registration_epoch_settings_id.try_into().unwrap(),
                 ),
                 Value::String(serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()),
                 Value::String(single_signature_record.signature),
