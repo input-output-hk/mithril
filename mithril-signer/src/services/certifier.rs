@@ -120,8 +120,12 @@ impl SignerCertifierService {
             .signed_entity_type_lock
             .filter_unlocked_entries(signed_entity_types)
             .await;
+        let not_already_signed_entities = self
+            .signed_beacon_store
+            .filter_out_already_signed_entities(unlocked_signed_entities)
+            .await?;
 
-        Ok(unlocked_signed_entities)
+        Ok(not_already_signed_entities)
     }
 }
 
@@ -234,6 +238,40 @@ mod tests {
         assert_eq!(
             vec![SignedEntityType::MithrilStakeDistribution(Epoch(4))],
             signed_beacons
+        );
+    }
+
+    #[tokio::test]
+    async fn if_already_signed_a_beacon_is_not_returned_anymore() {
+        let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
+        let certifier_service = SignerCertifierService::new(
+            CardanoNetwork::TestNet(42),
+            Arc::new(ticker_service),
+            Arc::new(DumbSignedBeaconStore::default()),
+            Arc::new(DumbCardanoTransactionsSigningConfigProvider::new(
+                CardanoTransactionsSigningConfig::dummy(),
+            )),
+            Arc::new(SignedEntityTypeLock::new()),
+        );
+
+        let first_beacon_to_sign = certifier_service
+            .get_beacon_to_sign()
+            .await
+            .unwrap()
+            .unwrap();
+        certifier_service
+            .mark_beacon_as_signed(&first_beacon_to_sign.clone())
+            .await
+            .unwrap();
+        let second_beacon_to_sign = certifier_service
+            .get_beacon_to_sign()
+            .await
+            .unwrap()
+            .unwrap();
+
+        assert_ne!(
+            first_beacon_to_sign.signed_entity_type,
+            second_beacon_to_sign.signed_entity_type
         );
     }
 
