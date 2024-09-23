@@ -125,39 +125,56 @@ mod tests {
         }
     }
 
+    struct MockDependencyInjector {
+        mock_signable_seed_builder: MockSignableSeedBuilderImpl,
+        mock_mithril_stake_distribution_signable_builder: MockSignableBuilderImpl<Epoch>,
+        mock_cardano_immutable_files_full_signable_builder:
+            MockSignableBuilderImpl<CardanoDbBeacon>,
+        mock_cardano_transactions_signable_builder: MockSignableBuilderImpl<BlockNumber>,
+        mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl<Epoch>,
+    }
+
+    impl MockDependencyInjector {
+        fn new() -> MockDependencyInjector {
+            MockDependencyInjector {
+                mock_signable_seed_builder: MockSignableSeedBuilderImpl::new(),
+                mock_mithril_stake_distribution_signable_builder: MockSignableBuilderImpl::new(),
+                mock_cardano_immutable_files_full_signable_builder: MockSignableBuilderImpl::new(),
+                mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl::new(),
+                mock_cardano_transactions_signable_builder: MockSignableBuilderImpl::new(),
+            }
+        }
+
+        fn build_signable_builder_service(self) -> MithrilSignableBuilderService {
+            MithrilSignableBuilderService::new(
+                Arc::new(self.mock_signable_seed_builder),
+                Arc::new(self.mock_mithril_stake_distribution_signable_builder),
+                Arc::new(self.mock_cardano_immutable_files_full_signable_builder),
+                Arc::new(self.mock_cardano_transactions_signable_builder),
+                Arc::new(self.mock_cardano_stake_distribution_signable_builder),
+            )
+        }
+    }
+
     #[tokio::test]
     async fn build_mithril_stake_distribution_signable_when_given_mithril_stake_distribution_entity_type(
     ) {
         let protocol_message = ProtocolMessage::new();
         let protocol_message_clone = protocol_message.clone();
-        let mut mock_signable_seed_builder = MockSignableSeedBuilderImpl::new();
-        mock_signable_seed_builder
+        let mut mock_container = MockDependencyInjector::new();
+        mock_container
+            .mock_signable_seed_builder
             .expect_compute_seed_protocol_message()
             .once()
             .return_once(move || Ok(ProtocolMessage::new()));
-        let mut mock_mithril_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch>::new();
-        mock_mithril_stake_distribution_signable_builder
+        mock_container
+            .mock_mithril_stake_distribution_signable_builder
             .expect_compute_protocol_message()
             .once()
             .return_once(move |_, _| Ok(protocol_message_clone));
-        let mock_cardano_immutable_files_full_signable_builder =
-            MockSignableBuilderImpl::<CardanoDbBeacon>::new();
-        let mock_cardano_transactions_signable_builder =
-            MockSignableBuilderImpl::<BlockNumber>::new();
-        let mock_cardano_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch>::new();
-
-        // TODO: refactor mock builders
-        let signable_builder_service = MithrilSignableBuilderService::new(
-            Arc::new(mock_signable_seed_builder),
-            Arc::new(mock_mithril_stake_distribution_signable_builder),
-            Arc::new(mock_cardano_immutable_files_full_signable_builder),
-            Arc::new(mock_cardano_transactions_signable_builder),
-            Arc::new(mock_cardano_stake_distribution_signable_builder),
-        );
-
+        let signable_builder_service = mock_container.build_signable_builder_service();
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
+
         signable_builder_service
             .compute_protocol_message(signed_entity_type)
             .await
@@ -168,34 +185,21 @@ mod tests {
     async fn build_snapshot_signable_when_given_cardano_immutable_files_full_entity_type() {
         let protocol_message = ProtocolMessage::new();
         let protocol_message_clone = protocol_message.clone();
-        let mut mock_signable_seed_builder = MockSignableSeedBuilderImpl::new();
-        mock_signable_seed_builder
+        let mut mock_container = MockDependencyInjector::new();
+        mock_container
+            .mock_signable_seed_builder
             .expect_compute_seed_protocol_message()
             .once()
             .return_once(move || Ok(ProtocolMessage::new()));
-        let mock_mithril_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch>::new();
-        let mut mock_cardano_immutable_files_full_signable_builder =
-            MockSignableBuilderImpl::<CardanoDbBeacon>::new();
-        mock_cardano_immutable_files_full_signable_builder
+        mock_container
+            .mock_cardano_immutable_files_full_signable_builder
             .expect_compute_protocol_message()
             .once()
             .return_once(move |_, _| Ok(protocol_message_clone));
-        let mock_cardano_transactions_signable_builder =
-            MockSignableBuilderImpl::<BlockNumber>::new();
-        let mock_cardano_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch>::new();
-
-        let signable_builder_service = MithrilSignableBuilderService::new(
-            Arc::new(mock_signable_seed_builder),
-            Arc::new(mock_mithril_stake_distribution_signable_builder),
-            Arc::new(mock_cardano_immutable_files_full_signable_builder),
-            Arc::new(mock_cardano_transactions_signable_builder),
-            Arc::new(mock_cardano_stake_distribution_signable_builder),
-        );
-
+        let signable_builder_service = mock_container.build_signable_builder_service();
         let signed_entity_type =
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
+
         signable_builder_service
             .compute_protocol_message(signed_entity_type)
             .await
@@ -206,33 +210,20 @@ mod tests {
     async fn build_transactions_signable_when_given_cardano_transactions_entity_type() {
         let protocol_message = ProtocolMessage::new();
         let protocol_message_clone = protocol_message.clone();
-        let mut mock_signable_seed_builder = MockSignableSeedBuilderImpl::new();
-        mock_signable_seed_builder
+        let mut mock_container = MockDependencyInjector::new();
+        mock_container
+            .mock_signable_seed_builder
             .expect_compute_seed_protocol_message()
             .once()
             .return_once(move || Ok(ProtocolMessage::new()));
-        let mock_mithril_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch>::new();
-        let mock_cardano_immutable_files_full_signable_builder =
-            MockSignableBuilderImpl::<CardanoDbBeacon>::new();
-        let mut mock_cardano_transactions_signable_builder =
-            MockSignableBuilderImpl::<BlockNumber>::new();
-        mock_cardano_transactions_signable_builder
+        mock_container
+            .mock_cardano_transactions_signable_builder
             .expect_compute_protocol_message()
             .once()
             .return_once(move |_, _| Ok(protocol_message_clone));
-        let mock_cardano_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch>::new();
-
-        let signable_builder_service = MithrilSignableBuilderService::new(
-            Arc::new(mock_signable_seed_builder),
-            Arc::new(mock_mithril_stake_distribution_signable_builder),
-            Arc::new(mock_cardano_immutable_files_full_signable_builder),
-            Arc::new(mock_cardano_transactions_signable_builder),
-            Arc::new(mock_cardano_stake_distribution_signable_builder),
-        );
-
+        let signable_builder_service = mock_container.build_signable_builder_service();
         let signed_entity_type = SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(1000));
+
         signable_builder_service
             .compute_protocol_message(signed_entity_type)
             .await
@@ -244,33 +235,20 @@ mod tests {
     ) {
         let protocol_message = ProtocolMessage::new();
         let protocol_message_clone = protocol_message.clone();
-        let mut mock_signable_seed_builder = MockSignableSeedBuilderImpl::new();
-        mock_signable_seed_builder
+        let mut mock_container = MockDependencyInjector::new();
+        mock_container
+            .mock_signable_seed_builder
             .expect_compute_seed_protocol_message()
             .once()
             .return_once(move || Ok(ProtocolMessage::new()));
-        let mock_mithril_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch>::new();
-        let mock_cardano_immutable_files_full_signable_builder =
-            MockSignableBuilderImpl::<CardanoDbBeacon>::new();
-        let mock_cardano_transactions_signable_builder =
-            MockSignableBuilderImpl::<BlockNumber>::new();
-        let mut mock_cardano_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch>::new();
-        mock_cardano_stake_distribution_signable_builder
+        mock_container
+            .mock_cardano_stake_distribution_signable_builder
             .expect_compute_protocol_message()
             .once()
             .return_once(move |_, _| Ok(protocol_message_clone));
-
-        let signable_builder_service = MithrilSignableBuilderService::new(
-            Arc::new(mock_signable_seed_builder),
-            Arc::new(mock_mithril_stake_distribution_signable_builder),
-            Arc::new(mock_cardano_immutable_files_full_signable_builder),
-            Arc::new(mock_cardano_transactions_signable_builder),
-            Arc::new(mock_cardano_stake_distribution_signable_builder),
-        );
-
+        let signable_builder_service = mock_container.build_signable_builder_service();
         let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(5));
+
         signable_builder_service
             .compute_protocol_message(signed_entity_type)
             .await
