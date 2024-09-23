@@ -21,6 +21,12 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "next_aggregate_verification_key")]
     NextAggregateVerificationKey,
 
+    /// The ProtocolMessage part key associated to the Next epoch protocol parameters
+    /// The protocol parameters that will be allowed to be used to sign during the next epoch
+    /// aka PPARAMS(n-1)
+    #[serde(rename = "next_protocol_parameters")]
+    NextProtocolParameters,
+
     /// The ProtocolMessage part key associated to the latest block number signed
     #[serde(rename = "latest_block_number")]
     LatestBlockNumber,
@@ -39,6 +45,7 @@ impl Display for ProtocolMessagePartKey {
         match *self {
             Self::SnapshotDigest => write!(f, "snapshot_digest"),
             Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
+            Self::NextProtocolParameters => write!(f, "next_protocol_parameters"),
             Self::CardanoTransactionsMerkleRoot => write!(f, "cardano_transactions_merkle_root"),
             Self::LatestBlockNumber => write!(f, "latest_block_number"),
             Self::CardanoStakeDistributionEpoch => write!(f, "cardano_stake_distribution_epoch"),
@@ -192,6 +199,20 @@ mod tests {
     }
 
     #[test]
+    fn test_protocol_message_compute_hash_include_next_protocol_parameters() {
+        let protocol_message = build_protocol_message_reference();
+        let hash_expected = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            "latest-protocol-parameters-456".to_string(),
+        );
+
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
     fn test_protocol_message_compute_hash_the_same_hash_with_same_protocol_message() {
         assert_eq!(
             build_protocol_message_reference().compute_hash(),
@@ -208,6 +229,10 @@ mod tests {
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            "next-protocol-parameters-123".to_string(),
         );
         protocol_message.set_message_part(
             ProtocolMessagePartKey::CardanoTransactionsMerkleRoot,
