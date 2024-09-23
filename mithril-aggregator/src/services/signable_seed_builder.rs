@@ -49,8 +49,37 @@ impl SignableSeedBuilder for SignableSeedBuilderService {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn test_compute_seed_protocol_message() {
-        // TODO: implement test
+    use mithril_common::{entities::Epoch, test_utils::MithrilFixtureBuilder};
+
+    use crate::services::FakeEpochService;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_compute_seed_protocol_message() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let expected_next_aggregate_verification_key = next_fixture.compute_and_encode_avk();
+        let epoch_service = Arc::new(RwLock::new(FakeEpochService::with_data(
+            epoch,
+            &fixture.protocol_parameters(),
+            &next_fixture.protocol_parameters(),
+            &next_fixture.protocol_parameters(),
+            &fixture.signers_with_stake(),
+            &next_fixture.signers_with_stake(),
+        )));
+        let signable_seed_builder_service = SignableSeedBuilderService::new(epoch_service);
+
+        let protocol_message = signable_seed_builder_service
+            .compute_seed_protocol_message()
+            .await
+            .unwrap();
+
+        assert_eq!(
+            protocol_message
+                .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey),
+            Some(&expected_next_aggregate_verification_key)
+        );
     }
 }
