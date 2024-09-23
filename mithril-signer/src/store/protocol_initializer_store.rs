@@ -4,8 +4,12 @@ use tokio::sync::RwLock;
 use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch, StdResult};
 use mithril_persistence::store::{adapter::StoreAdapter, StorePruner};
 
+#[cfg(test)]
+use mockall::automock;
+
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolInitializer>>;
 
+#[cfg_attr(test, automock)]
 #[async_trait]
 /// Store the ProtocolInitializer used for each Epoch. This is useful because
 /// protocol parameters and stake distribution change over time.
