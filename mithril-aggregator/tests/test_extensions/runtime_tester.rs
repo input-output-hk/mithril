@@ -491,7 +491,7 @@ impl RuntimeTester {
         let epoch = self.observer.current_time_point().await.epoch;
         let protocol_parameters = self
             .dependencies
-            .protocol_parameters_store
+            .epoch_settings_storer
             .get_protocol_parameters(epoch.offset_to_recording_epoch())
             .await
             .with_context(|| "Querying the recording epoch protocol_parameters should not fail")?

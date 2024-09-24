@@ -4,13 +4,14 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use mithril_common::{
     entities::{
-        CertificatePending, Epoch, EpochSettings, ProtocolMessage, SignedEntityConfig,
-        SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
+        CertificatePending, Epoch, ProtocolMessage, SignedEntityConfig, SignedEntityType,
+        SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
     },
     messages::AggregatorFeaturesMessage,
     test_utils::fake_data,
     MithrilTickerService, TickerService,
 };
+use mithril_signer::entities::SignerEpochSettings;
 use mithril_signer::services::{AggregatorClient, AggregatorClientError};
 use tokio::sync::RwLock;
 
@@ -94,7 +95,7 @@ impl FakeAggregator {
 impl AggregatorClient for FakeAggregator {
     async fn retrieve_epoch_settings(
         &self,
-    ) -> Result<Option<EpochSettings>, AggregatorClientError> {
+    ) -> Result<Option<SignerEpochSettings>, AggregatorClientError> {
         if *self.withhold_epoch_settings.read().await {
             Ok(None)
         } else {
@@ -103,7 +104,7 @@ impl AggregatorClient for FakeAggregator {
             let current_signers = self.get_current_signers(&store).await?;
             let next_signers = self.get_next_signers(&store).await?;
 
-            Ok(Some(EpochSettings {
+            Ok(Some(SignerEpochSettings {
                 epoch: time_point.epoch,
                 current_signers,
                 next_signers,

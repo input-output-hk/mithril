@@ -11,10 +11,10 @@ use mithril_persistence::store::StakeStorer;
 use slog_scope::{debug, trace};
 use thiserror::Error;
 
-use mithril_common::entities::EpochSettings;
 use mithril_common::entities::SignerWithStake;
 use mithril_common::StdResult;
 
+use crate::entities::SignerEpochSettings;
 use crate::RunnerError;
 
 /// Errors dedicated to the EpochService.
@@ -30,7 +30,7 @@ pub enum EpochServiceError {
 pub trait EpochService: Sync + Send {
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
-    fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
+    fn inform_epoch_settings(&mut self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
 
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
@@ -140,7 +140,7 @@ impl MithrilEpochService {
 
 #[async_trait]
 impl EpochService for MithrilEpochService {
-    fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()> {
+    fn inform_epoch_settings(&mut self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
         debug!(
             "EpochService: register_epoch_settings: {:?}",
             epoch_settings
@@ -221,12 +221,13 @@ impl EpochService for MithrilEpochService {
 mod tests {
     use std::sync::Arc;
 
+    use crate::entities::SignerEpochSettings;
     use crate::services::MithrilProtocolInitializerBuilder;
 
     use super::*;
 
     use mithril_common::{
-        entities::{Epoch, EpochSettings, StakeDistribution},
+        entities::{Epoch, StakeDistribution},
         test_utils::{
             fake_data::{self},
             MithrilFixtureBuilder,
@@ -266,10 +267,10 @@ mod tests {
         let epoch = Epoch(12);
         let signers = fixtures.signers();
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        let epoch_settings = EpochSettings {
+        let epoch_settings = SignerEpochSettings {
             epoch,
             current_signers: signers[..5].to_vec(),
-            ..fake_data::epoch_settings().clone()
+            ..SignerEpochSettings::dummy().clone()
         };
 
         let mut service = MithrilEpochService::new(stake_store);
@@ -344,11 +345,11 @@ mod tests {
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
 
         // Epoch settings
-        let epoch_settings = EpochSettings {
+        let epoch_settings = SignerEpochSettings {
             epoch,
             current_signers: signers[2..5].to_vec(),
             next_signers: signers[3..7].to_vec(),
-            ..fake_data::epoch_settings().clone()
+            ..SignerEpochSettings::dummy().clone()
         };
 
         // Build service and register epoch settings
@@ -428,11 +429,11 @@ mod tests {
         ));
 
         // Epoch settings
-        let epoch_settings = EpochSettings {
+        let epoch_settings = SignerEpochSettings {
             epoch,
             current_signers: signers[2..5].to_vec(),
             next_signers: signers[3..7].to_vec(),
-            ..fake_data::epoch_settings().clone()
+            ..SignerEpochSettings::dummy().clone()
         };
 
         // Build service and register epoch settings

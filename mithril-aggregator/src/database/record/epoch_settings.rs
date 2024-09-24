@@ -3,26 +3,26 @@ use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// Settings for an epoch, including the protocol parameters.
 #[derive(Debug, PartialEq)]
-pub struct EpochSettingRecord {
-    /// Epoch setting id, i.e. the epoch number.
-    pub epoch_setting_id: Epoch,
+pub struct EpochSettingsRecord {
+    /// Epoch settings id, i.e. the epoch number.
+    pub epoch_settings_id: Epoch,
 
     /// Protocol parameters.
     pub protocol_parameters: ProtocolParameters,
 }
 
-impl SqLiteEntity for EpochSettingRecord {
+impl SqLiteEntity for EpochSettingsRecord {
     fn hydrate(row: sqlite::Row) -> Result<Self, HydrationError>
     where
         Self: Sized,
     {
-        let epoch_setting_id_int = row.read::<i64, _>(0);
+        let epoch_settings_id_int = row.read::<i64, _>(0);
         let protocol_parameters_string = &row.read::<&str, _>(1);
 
-        let epoch_setting_record = Self {
-            epoch_setting_id: Epoch(epoch_setting_id_int.try_into().map_err(|e| {
+        let epoch_settings_record = Self {
+            epoch_settings_id: Epoch(epoch_settings_id_int.try_into().map_err(|e| {
                 HydrationError::InvalidData(format!(
-                    "Could not cast i64 ({epoch_setting_id_int}) to u64. Error: '{e}'"
+                    "Could not cast i64 ({epoch_settings_id_int}) to u64. Error: '{e}'"
                 ))
             })?),
             protocol_parameters: serde_json::from_str(protocol_parameters_string).map_err(
@@ -34,7 +34,7 @@ impl SqLiteEntity for EpochSettingRecord {
             )?,
         };
 
-        Ok(epoch_setting_record)
+        Ok(epoch_settings_record)
     }
 
     fn get_projection() -> Projection {

@@ -9,7 +9,7 @@ use mithril_common::entities::{Epoch, ProtocolParameters};
 
 /// Store and get [protocol parameters][ProtocolParameters] for given epoch.
 #[async_trait]
-pub trait ProtocolParametersStorer: Sync + Send {
+pub trait EpochSettingsStorer: Sync + Send {
     /// Save the given `ProtocolParameter` for the given [Epoch].
     async fn save_protocol_parameters(
         &self,
@@ -42,11 +42,11 @@ pub trait ProtocolParametersStorer: Sync + Send {
     }
 }
 
-pub struct FakeProtocolParametersStorer {
+pub struct FakeEpochSettingsStorer {
     pub protocol_parameters: RwLock<HashMap<Epoch, ProtocolParameters>>,
 }
 
-impl FakeProtocolParametersStorer {
+impl FakeEpochSettingsStorer {
     #[cfg(test)]
     pub fn new(data: Vec<(Epoch, ProtocolParameters)>) -> Self {
         let protocol_parameters = RwLock::new(data.into_iter().collect());
@@ -57,7 +57,7 @@ impl FakeProtocolParametersStorer {
 }
 
 #[async_trait]
-impl ProtocolParametersStorer for FakeProtocolParametersStorer {
+impl EpochSettingsStorer for FakeEpochSettingsStorer {
     async fn save_protocol_parameters(
         &self,
         epoch: Epoch,
@@ -84,7 +84,7 @@ mod tests {
     async fn test_save_protocol_parameters_do_not_exist_yet() {
         let protocol_parameters = fake_data::protocol_parameters();
         let epoch = Epoch(1);
-        let store = FakeProtocolParametersStorer::new(vec![]);
+        let store = FakeEpochSettingsStorer::new(vec![]);
         let protocol_parameters_previous = store
             .save_protocol_parameters(epoch, protocol_parameters)
             .await
@@ -97,7 +97,7 @@ mod tests {
     async fn test_save_protocol_parameters_already_exist() {
         let protocol_parameters = fake_data::protocol_parameters();
         let epoch = Epoch(1);
-        let store = FakeProtocolParametersStorer::new(vec![(epoch, protocol_parameters.clone())]);
+        let store = FakeEpochSettingsStorer::new(vec![(epoch, protocol_parameters.clone())]);
         let protocol_parameters_new = ProtocolParameters {
             k: protocol_parameters.k + 1,
             ..protocol_parameters
@@ -114,7 +114,7 @@ mod tests {
     async fn test_get_protocol_parameters_exist() {
         let protocol_parameters = fake_data::protocol_parameters();
         let epoch = Epoch(1);
-        let store = FakeProtocolParametersStorer::new(vec![(epoch, protocol_parameters.clone())]);
+        let store = FakeEpochSettingsStorer::new(vec![(epoch, protocol_parameters.clone())]);
         let protocol_parameters_stored = store.get_protocol_parameters(epoch).await.unwrap();
 
         assert_eq!(Some(protocol_parameters), protocol_parameters_stored);
@@ -124,7 +124,7 @@ mod tests {
     async fn test_get_protocol_parameters_do_not_exist() {
         let protocol_parameters = fake_data::protocol_parameters();
         let epoch = Epoch(1);
-        let store = FakeProtocolParametersStorer::new(vec![(epoch, protocol_parameters.clone())]);
+        let store = FakeEpochSettingsStorer::new(vec![(epoch, protocol_parameters.clone())]);
         let protocol_parameters_stored = store.get_protocol_parameters(epoch + 1).await.unwrap();
 
         assert!(protocol_parameters_stored.is_none());
@@ -138,7 +138,7 @@ mod tests {
             ..protocol_parameters
         };
         let epoch = Epoch(1);
-        let store = FakeProtocolParametersStorer::new(vec![
+        let store = FakeEpochSettingsStorer::new(vec![
             (epoch, protocol_parameters.clone()),
             (epoch + 1, protocol_parameters.clone()),
         ]);

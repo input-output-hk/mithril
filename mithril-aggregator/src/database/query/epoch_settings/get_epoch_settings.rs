@@ -4,30 +4,30 @@ use sqlite::Value;
 use mithril_common::{entities::Epoch, StdResult};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
-use crate::database::record::EpochSettingRecord;
+use crate::database::record::EpochSettingsRecord;
 
-/// Simple queries to retrieve [EpochSettingRecord] from the sqlite database.
-pub struct GetEpochSettingQuery {
+/// Simple queries to retrieve [EpochSettingsRecord] from the sqlite database.
+pub struct GetEpochSettingsQuery {
     condition: WhereCondition,
 }
 
-impl GetEpochSettingQuery {
+impl GetEpochSettingsQuery {
     pub fn by_epoch(epoch: Epoch) -> StdResult<Self> {
-        let epoch_setting_id: i64 = epoch
+        let epoch_settings_id: i64 = epoch
             .try_into()
             .with_context(|| format!("Can not convert epoch: '{epoch}'"))?;
 
         Ok(Self {
             condition: WhereCondition::new(
                 "epoch_setting_id = ?*",
-                vec![Value::Integer(epoch_setting_id)],
+                vec![Value::Integer(epoch_settings_id)],
             ),
         })
     }
 }
 
-impl Query for GetEpochSettingQuery {
-    type Entity = EpochSettingRecord;
+impl Query for GetEpochSettingsQuery {
+    type Entity = EpochSettingsRecord;
 
     fn filters(&self) -> WhereCondition {
         self.condition.clone()
@@ -54,28 +54,28 @@ mod tests {
         let connection = main_db_connection().unwrap();
         insert_epoch_settings(&connection, &[1, 2, 3]).unwrap();
 
-        let epoch_setting_record = connection
-            .fetch_first(GetEpochSettingQuery::by_epoch(Epoch(1)).unwrap())
+        let epoch_settings_record = connection
+            .fetch_first(GetEpochSettingsQuery::by_epoch(Epoch(1)).unwrap())
             .unwrap()
-            .expect("Should have an epoch setting for epoch 1.");
-        assert_eq!(Epoch(1), epoch_setting_record.epoch_setting_id);
+            .expect("Should have an epoch settings for epoch 1.");
+        assert_eq!(Epoch(1), epoch_settings_record.epoch_settings_id);
         assert_eq!(
             ProtocolParameters::new(1, 2, 1.0),
-            epoch_setting_record.protocol_parameters
+            epoch_settings_record.protocol_parameters
         );
 
-        let epoch_setting_record = connection
-            .fetch_first(GetEpochSettingQuery::by_epoch(Epoch(3)).unwrap())
+        let epoch_settings_record = connection
+            .fetch_first(GetEpochSettingsQuery::by_epoch(Epoch(3)).unwrap())
             .unwrap()
-            .expect("Should have an epoch setting for epoch 3.");
-        assert_eq!(Epoch(3), epoch_setting_record.epoch_setting_id);
+            .expect("Should have an epoch settings for epoch 3.");
+        assert_eq!(Epoch(3), epoch_settings_record.epoch_settings_id);
         assert_eq!(
             ProtocolParameters::new(3, 4, 1.0),
-            epoch_setting_record.protocol_parameters
+            epoch_settings_record.protocol_parameters
         );
 
         let cursor = connection
-            .fetch(GetEpochSettingQuery::by_epoch(Epoch(5)).unwrap())
+            .fetch(GetEpochSettingsQuery::by_epoch(Epoch(5)).unwrap())
             .unwrap();
         assert_eq!(0, cursor.count());
     }

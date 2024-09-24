@@ -9,7 +9,7 @@ use mithril_common::entities::{Epoch, ProtocolParameters, Signer, SignerWithStak
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::StdResult;
 
-use crate::{ProtocolParametersStorer, VerificationKeyStorer};
+use crate::{EpochSettingsStorer, VerificationKeyStorer};
 
 /// Errors dedicated to the CertifierService.
 #[derive(Debug, Error)]
@@ -107,7 +107,7 @@ pub struct MithrilEpochService {
     future_protocol_parameters: ProtocolParameters,
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
-    protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
+    epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     verification_key_store: Arc<dyn VerificationKeyStorer>,
 }
 
@@ -115,14 +115,14 @@ impl MithrilEpochService {
     /// Create a new service instance
     pub fn new(
         future_protocol_parameters: ProtocolParameters,
-        protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
+        epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Self {
         Self {
             future_protocol_parameters,
             epoch_data: None,
             computed_epoch_data: None,
-            protocol_parameters_store,
+            epoch_settings_storer,
             verification_key_store,
         }
     }
@@ -146,7 +146,7 @@ impl MithrilEpochService {
         name: &str,
     ) -> StdResult<ProtocolParameters> {
         let parameters = self
-            .protocol_parameters_store
+            .epoch_settings_storer
             .get_protocol_parameters(epoch)
             .await
             .with_context(|| format!("Epoch service failed to obtain {name}"))?
@@ -164,7 +164,7 @@ impl MithrilEpochService {
             "protocol_parameters" => ?self.future_protocol_parameters
         );
 
-        self.protocol_parameters_store
+        self.epoch_settings_storer
             .save_protocol_parameters(
                 recording_epoch,
                 self.future_protocol_parameters.clone(),
@@ -521,7 +521,7 @@ mod tests {
     use std::collections::{BTreeSet, HashMap};
 
     use crate::services::epoch_service::tests::ServiceBuilderParameters::WithFutureProtocolParameters;
-    use crate::store::FakeProtocolParametersStorer;
+    use crate::store::FakeEpochSettingsStorer;
     use crate::VerificationKeyStore;
 
     use super::*;
@@ -617,7 +617,7 @@ mod tests {
             }
         }
 
-        let protocol_parameters_store = FakeProtocolParametersStorer::new(vec![
+        let epoch_settings_storer = FakeEpochSettingsStorer::new(vec![
             (
                 signer_retrieval_epoch,
                 current_epoch_fixture.protocol_parameters(),
@@ -647,7 +647,7 @@ mod tests {
 
         MithrilEpochService::new(
             future_protocol_parameters,
-            Arc::new(protocol_parameters_store),
+            Arc::new(epoch_settings_storer),
             Arc::new(vkey_store),
         )
     }
@@ -796,7 +796,7 @@ mod tests {
             .expect("update_protocol_parameters should not fail");
 
         let inserted_protocol_parameters = service
-            .protocol_parameters_store
+            .epoch_settings_storer
             .get_protocol_parameters(epoch.offset_to_protocol_parameters_recording_epoch())
             .await
             .unwrap_or_else(|_| {

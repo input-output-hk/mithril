@@ -6,13 +6,14 @@ use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage, ProtocolMessagePartKey,
-    SignedEntityType, Signer, SignerWithStake, SingleSignatures, TimePoint,
+    CertificatePending, Epoch, PartyId, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
+    Signer, SignerWithStake, SingleSignatures, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::dependency_injection::SignerDependencyContainer;
+use crate::entities::SignerEpochSettings;
 use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 use crate::Configuration;
 
@@ -20,7 +21,7 @@ use crate::Configuration;
 #[async_trait]
 pub trait Runner: Send + Sync {
     /// Fetch the current epoch settings if any.
-    async fn get_epoch_settings(&self) -> StdResult<Option<EpochSettings>>;
+    async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>>;
 
     /// Fetch the current pending certificate if any.
     async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
@@ -41,7 +42,7 @@ pub trait Runner: Send + Sync {
     async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool;
 
     /// Register epoch information
-    async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()>;
+    async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
 
     /// Create the message to be signed with the single signature.
     async fn compute_message(
@@ -122,7 +123,7 @@ impl SignerRunner {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl Runner for SignerRunner {
-    async fn get_epoch_settings(&self) -> StdResult<Option<EpochSettings>> {
+    async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
         debug!("RUNNER: get_epoch_settings");
 
         self.services
@@ -295,7 +296,7 @@ impl Runner for SignerRunner {
         }
     }
 
-    async fn inform_epoch_settings(&self, epoch_settings: EpochSettings) -> StdResult<()> {
+    async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
         debug!("RUNNER: register_epoch");
         self.services
             .epoch_service
@@ -527,7 +528,7 @@ mod tests {
 
     #[async_trait]
     impl EpochService for FakeEpochServiceImpl {
-        fn inform_epoch_settings(&mut self, _epoch_settings: EpochSettings) -> StdResult<()> {
+        fn inform_epoch_settings(&mut self, _epoch_settings: SignerEpochSettings) -> StdResult<()> {
             Ok(())
         }
         fn epoch_of_current_data(&self) -> StdResult<Epoch> {
@@ -759,11 +760,11 @@ mod tests {
 
         let runner = init_runner(Some(services), None).await;
         // inform epoch settings
-        let epoch_settings = EpochSettings {
+        let epoch_settings = SignerEpochSettings {
             epoch: current_epoch,
             current_signers: fixture.signers(),
             next_signers: fixture.signers(),
-            ..fake_data::epoch_settings().clone()
+            ..SignerEpochSettings::dummy().clone()
         };
         runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
@@ -965,11 +966,11 @@ mod tests {
         let runner = init_runner(Some(services), None).await;
 
         // inform epoch settings
-        let epoch_settings = EpochSettings {
+        let epoch_settings = SignerEpochSettings {
             epoch: current_time_point.epoch,
             current_signers: fixture.signers(),
             next_signers: next_signers.to_vec(),
-            ..fake_data::epoch_settings().clone()
+            ..SignerEpochSettings::dummy().clone()
         };
         runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
@@ -1040,11 +1041,11 @@ mod tests {
         let runner = init_runner(Some(services), None).await;
 
         // inform epoch settings
-        let epoch_settings = EpochSettings {
+        let epoch_settings = SignerEpochSettings {
             epoch: current_time_point.epoch,
             current_signers: signers.to_vec(),
             next_signers: fixture.signers(),
-            ..fake_data::epoch_settings().clone()
+            ..SignerEpochSettings::dummy().clone()
         };
         runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
