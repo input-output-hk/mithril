@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Expose the Cardano transactions signing configuration for the current and upcoming epoch via the `/epoch-settings` route.
 
+- Support for new `Pythagoras` Mithril era.
+
 - Crates versions:
 
 | Crate | Version |
