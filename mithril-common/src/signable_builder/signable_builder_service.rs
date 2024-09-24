@@ -125,8 +125,8 @@ mod tests {
     use super::*;
 
     use crate::{
-        entities::{BlockNumber, Epoch, ProtocolMessage, ProtocolMessagePartValue},
-        signable_builder::{Beacon as Beaconnable, SignableBuilder},
+        entities::{BlockNumber, Epoch, ProtocolMessage},
+        signable_builder::{Beacon as Beaconnable, MockSignableSeedBuilder, SignableBuilder},
         StdResult,
     };
 
@@ -143,17 +143,8 @@ mod tests {
         }
     }
 
-    mock! {
-        SignableSeedBuilderImpl { }
-
-        #[async_trait]
-        impl SignableSeedBuilder for SignableSeedBuilderImpl {
-            async fn compute_next_aggregate_verification_key_protocol_message_part_value(&self) -> StdResult<ProtocolMessagePartValue>;
-        }
-    }
-
     struct MockDependencyInjector {
-        mock_signable_seed_builder: MockSignableSeedBuilderImpl,
+        mock_signable_seed_builder: MockSignableSeedBuilder,
         mock_mithril_stake_distribution_signable_builder: MockSignableBuilderImpl<Epoch>,
         mock_cardano_immutable_files_full_signable_builder:
             MockSignableBuilderImpl<CardanoDbBeacon>,
@@ -164,7 +155,7 @@ mod tests {
     impl MockDependencyInjector {
         fn new() -> MockDependencyInjector {
             MockDependencyInjector {
-                mock_signable_seed_builder: MockSignableSeedBuilderImpl::new(),
+                mock_signable_seed_builder: MockSignableSeedBuilder::new(),
                 mock_mithril_stake_distribution_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_immutable_files_full_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl::new(),
