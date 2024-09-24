@@ -14,20 +14,20 @@ use mithril_common::{
 
 use crate::services::EpochService;
 
-/// SignableSeedBuilder service
-pub struct SignableSeedBuilderService {
+/// SignableSeedBuilder aggregator implementation
+pub struct AggregatorSignableSeedBuilder {
     epoch_service: Arc<RwLock<dyn EpochService>>,
 }
 
-impl SignableSeedBuilderService {
-    /// SignableSeedBuilderService factory
+impl AggregatorSignableSeedBuilder {
+    /// AggregatorSignableSeedBuilder factory
     pub fn new(epoch_service: Arc<RwLock<dyn EpochService>>) -> Self {
         Self { epoch_service }
     }
 }
 
 #[async_trait]
-impl SignableSeedBuilder for SignableSeedBuilderService {
+impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
     async fn compute_next_aggregate_verification_key_protocol_message_part_value(
         &self,
     ) -> StdResult<ProtocolMessagePartValue> {
@@ -64,9 +64,9 @@ mod tests {
             &fixture.signers_with_stake(),
             &next_fixture.signers_with_stake(),
         )));
-        let signable_seed_builder_service = SignableSeedBuilderService::new(epoch_service);
+        let signable_seed_builder = AggregatorSignableSeedBuilder::new(epoch_service);
 
-        let next_aggregate_verification_key = signable_seed_builder_service
+        let next_aggregate_verification_key = signable_seed_builder
             .compute_next_aggregate_verification_key_protocol_message_part_value()
             .await
             .unwrap();

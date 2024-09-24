@@ -67,10 +67,10 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        AggregatorUpkeepService, BufferedCertifierService, CardanoTransactionsImporter,
-        CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
-        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
-        MithrilStakeDistributionService, ProverService, SignableSeedBuilderService,
+        AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
+        CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
+        MithrilEpochService, MithrilMessageService, MithrilProverService,
+        MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
         SignedEntityService, StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
@@ -1129,7 +1129,7 @@ impl DependenciesBuilder {
     async fn build_signable_seed_builder_service(
         &mut self,
     ) -> Result<Arc<dyn SignableSeedBuilder>> {
-        let signable_seed_builder_service = Arc::new(SignableSeedBuilderService::new(
+        let signable_seed_builder_service = Arc::new(AggregatorSignableSeedBuilder::new(
             self.get_epoch_service().await?,
         ));
 
