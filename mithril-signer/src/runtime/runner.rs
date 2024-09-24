@@ -6,8 +6,8 @@ use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    CertificatePending, Epoch, EpochSettings, PartyId, ProtocolMessage, SignedEntityType, Signer,
-    SignerWithStake, SingleSignatures, TimePoint,
+    CertificatePending, Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, SignerWithStake,
+    SingleSignatures, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;

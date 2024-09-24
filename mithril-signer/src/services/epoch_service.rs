@@ -230,7 +230,7 @@ pub mod mock {
         impl EpochService for EpochServiceImpl {
             /// Inform the service a new epoch has been detected, telling it to update its
             /// internal state for the new epoch.
-            fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
+            fn inform_epoch_settings(&mut self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
 
             /// Get the current epoch for which the data stored in this service are computed.
             fn epoch_of_current_data(&self) -> StdResult<Epoch>;
