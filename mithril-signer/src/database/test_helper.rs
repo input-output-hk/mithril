@@ -1,7 +1,12 @@
 use std::path::Path;
 
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection};
+use mithril_persistence::sqlite::{
+    ConnectionBuilder, ConnectionExtensions, ConnectionOptions, SqliteConnection,
+};
+
+use crate::database::query::InsertSignedBeaconRecordQuery;
+use crate::database::record::SignedBeaconRecord;
 
 /// In-memory sqlite database without foreign key support with migrations applied
 pub fn main_db_connection() -> StdResult<SqliteConnection> {
@@ -47,4 +52,12 @@ fn build_cardano_tx_db_connection(
         )
         .build()?;
     Ok(connection)
+}
+
+pub fn insert_signed_beacons(connection: &SqliteConnection, records: Vec<SignedBeaconRecord>) {
+    for record in records.iter() {
+        connection
+            .fetch_first(InsertSignedBeaconRecordQuery::one(record.clone()).unwrap())
+            .unwrap();
+    }
 }
