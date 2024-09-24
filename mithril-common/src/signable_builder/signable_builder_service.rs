@@ -191,7 +191,7 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_next_aggregate_verification_key_protocol_message_value()
+            .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
             .once()
             .return_once(move || Ok("next-avk-123".to_string()));
         mock_container
@@ -215,7 +215,7 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_next_aggregate_verification_key_protocol_message_value()
+            .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
             .once()
             .return_once(move || Ok("next-avk-123".to_string()));
         mock_container
@@ -240,7 +240,7 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_next_aggregate_verification_key_protocol_message_value()
+            .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
             .once()
             .return_once(move || Ok("next-avk-123".to_string()));
         mock_container
@@ -265,7 +265,7 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_next_aggregate_verification_key_protocol_message_value()
+            .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
             .once()
             .return_once(move || Ok("next-avk-123".to_string()));
         mock_container
