@@ -24,11 +24,7 @@ where
     U: Beacon,
 {
     /// Compute a protocol message
-    async fn compute_protocol_message(
-        &self,
-        beacon: U,
-        seed_protocol_message: ProtocolMessage,
-    ) -> StdResult<ProtocolMessage>;
+    async fn compute_protocol_message(&self, beacon: U) -> StdResult<ProtocolMessage>;
 }
 
 /// SignableSeedBuilder is a trait for building a seed protocol message

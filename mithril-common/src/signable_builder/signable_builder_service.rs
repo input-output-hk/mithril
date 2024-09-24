@@ -56,38 +56,38 @@ impl SignableBuilderService for MithrilSignableBuilderService {
         &self,
         signed_entity_type: SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
-        let seed_protocol_message = self
-            .seed_signable_builder
-            .compute_seed_protocol_message()
-            .await?;
         let protocol_message = match signed_entity_type {
             SignedEntityType::MithrilStakeDistribution(e) => self
                 .mithril_stake_distribution_builder
-                .compute_protocol_message(e, seed_protocol_message)
+                .compute_protocol_message(e)
                 .await
                 .with_context(|| format!(
                     "Signable builder service can not compute protocol message with epoch: '{e}'"
                 ))?,
             SignedEntityType::CardanoImmutableFilesFull(beacon) => self
                 .immutable_signable_builder
-                .compute_protocol_message(beacon.clone(), seed_protocol_message)
+                .compute_protocol_message(beacon.clone())
                 .await
                 .with_context(|| format!(
                     "Signable builder service can not compute protocol message with beacon: '{beacon}'"
                 ))?,
             SignedEntityType::CardanoStakeDistribution(e) => self
                 .cardano_stake_distribution_builder
-                .compute_protocol_message(e, seed_protocol_message)
+                .compute_protocol_message(e)
                 .await
                 .with_context(|| "Signable builder service can not compute protocol message for Cardano stake distribution with epoch: '{e}")?,
             SignedEntityType::CardanoTransactions(_, block_number) => self
                 .cardano_transactions_signable_builder
-                .compute_protocol_message(block_number, seed_protocol_message)
+                .compute_protocol_message(block_number)
                 .await
                 .with_context(|| format!(
                     "Signable builder service can not compute protocol message with block_number: '{block_number}'"
                 ))?,
         };
+        let seed_protocol_message = self
+            .seed_signable_builder
+            .compute_seed_protocol_message()
+            .await?;
 
         Ok(protocol_message)
     }
@@ -112,7 +112,7 @@ mod tests {
         #[async_trait]
         impl<U> SignableBuilder<U> for SignableBuilderImpl<U> where U: Beaconnable,
         {
-            async fn compute_protocol_message(&self, beacon: U, seed_protocol_message: ProtocolMessage) -> StdResult<ProtocolMessage>;
+            async fn compute_protocol_message(&self, beacon: U) -> StdResult<ProtocolMessage>;
         }
     }
 
@@ -171,7 +171,7 @@ mod tests {
             .mock_mithril_stake_distribution_signable_builder
             .expect_compute_protocol_message()
             .once()
-            .return_once(move |_, _| Ok(protocol_message_clone));
+            .return_once(move |_| Ok(protocol_message_clone));
         let signable_builder_service = mock_container.build_signable_builder_service();
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
 
@@ -195,7 +195,7 @@ mod tests {
             .mock_cardano_immutable_files_full_signable_builder
             .expect_compute_protocol_message()
             .once()
-            .return_once(move |_, _| Ok(protocol_message_clone));
+            .return_once(move |_| Ok(protocol_message_clone));
         let signable_builder_service = mock_container.build_signable_builder_service();
         let signed_entity_type =
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
@@ -220,7 +220,7 @@ mod tests {
             .mock_cardano_transactions_signable_builder
             .expect_compute_protocol_message()
             .once()
-            .return_once(move |_, _| Ok(protocol_message_clone));
+            .return_once(move |_| Ok(protocol_message_clone));
         let signable_builder_service = mock_container.build_signable_builder_service();
         let signed_entity_type = SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(1000));
 
@@ -245,7 +245,7 @@ mod tests {
             .mock_cardano_stake_distribution_signable_builder
             .expect_compute_protocol_message()
             .once()
-            .return_once(move |_, _| Ok(protocol_message_clone));
+            .return_once(move |_| Ok(protocol_message_clone));
         let signable_builder_service = mock_container.build_signable_builder_service();
         let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(5));
 

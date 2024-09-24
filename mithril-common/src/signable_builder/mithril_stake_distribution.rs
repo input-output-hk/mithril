@@ -12,12 +12,8 @@ pub struct MithrilStakeDistributionSignableBuilder {}
 
 #[async_trait]
 impl SignableBuilder<Epoch> for MithrilStakeDistributionSignableBuilder {
-    async fn compute_protocol_message(
-        &self,
-        _beacon: Epoch,
-        seed_protocol_message: ProtocolMessage,
-    ) -> StdResult<ProtocolMessage> {
-        Ok(seed_protocol_message)
+    async fn compute_protocol_message(&self, _beacon: Epoch) -> StdResult<ProtocolMessage> {
+        Ok(ProtocolMessage::new())
     }
 }
 
@@ -27,11 +23,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_signable() {
-        let seed_protocol_message = ProtocolMessage::new();
         let mithril_stake_distribution_signable_builder =
             MithrilStakeDistributionSignableBuilder::default();
         let signable = mithril_stake_distribution_signable_builder
-            .compute_protocol_message(Epoch(1), seed_protocol_message)
+            .compute_protocol_message(Epoch(1))
             .await
             .unwrap();
         let signable_expected = ProtocolMessage::new();
