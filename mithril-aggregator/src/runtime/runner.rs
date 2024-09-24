@@ -953,7 +953,7 @@ pub mod tests {
             .expect("update_protocol_parameters should not fail");
 
         let saved_protocol_parameters = epoch_settings_storer
-            .get_epoch_settings(insert_epoch)
+            .get_protocol_parameters(insert_epoch)
             .await
             .unwrap()
             .unwrap_or_else(|| panic!("should have protocol parameters for epoch {insert_epoch}",));

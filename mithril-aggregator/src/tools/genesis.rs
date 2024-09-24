@@ -80,7 +80,7 @@ impl GenesisTools {
 
         let protocol_params_epoch = time_point.epoch.offset_to_signer_retrieval_epoch()?;
         let protocol_parameters = epoch_settings_storer
-            .get_epoch_settings(protocol_params_epoch)
+            .get_protocol_parameters(protocol_params_epoch)
             .await?
             .ok_or_else(|| {
                 anyhow!("Missing protocol parameters for epoch {protocol_params_epoch}")
@@ -88,7 +88,7 @@ impl GenesisTools {
 
         let genesis_avk_epoch = time_point.epoch.offset_to_next_signer_retrieval_epoch();
         let genesis_avk_protocol_parameters = epoch_settings_storer
-            .get_epoch_settings(time_point.epoch.offset_to_signer_retrieval_epoch()?)
+            .get_protocol_parameters(time_point.epoch.offset_to_signer_retrieval_epoch()?)
             .await?
             .ok_or_else(|| anyhow!("Missing protocol parameters for epoch {genesis_avk_epoch}"))?;
         let genesis_signers = dependencies

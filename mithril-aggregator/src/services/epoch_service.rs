@@ -147,7 +147,7 @@ impl MithrilEpochService {
     ) -> StdResult<ProtocolParameters> {
         let parameters = self
             .epoch_settings_storer
-            .get_epoch_settings(epoch)
+            .get_protocol_parameters(epoch)
             .await
             .with_context(|| format!("Epoch service failed to obtain {name}"))?
             .ok_or(EpochServiceError::UnavailableData(epoch, name.to_string()))?;
@@ -165,7 +165,7 @@ impl MithrilEpochService {
         );
 
         self.epoch_settings_storer
-            .save_epoch_settings(
+            .save_protocol_parameters(
                 recording_epoch,
                 self.future_protocol_parameters.clone(),
             )
@@ -797,7 +797,7 @@ mod tests {
 
         let inserted_protocol_parameters = service
             .epoch_settings_storer
-            .get_epoch_settings(epoch.offset_to_protocol_parameters_recording_epoch())
+            .get_protocol_parameters(epoch.offset_to_protocol_parameters_recording_epoch())
             .await
             .unwrap_or_else(|_| {
                 panic!(

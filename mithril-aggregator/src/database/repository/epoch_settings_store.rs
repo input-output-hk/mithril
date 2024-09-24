@@ -33,7 +33,7 @@ impl EpochSettingsStore {
 
 #[async_trait]
 impl EpochSettingsStorer for EpochSettingsStore {
-    async fn save_epoch_settings(
+    async fn save_protocol_parameters(
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
@@ -60,7 +60,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
         Ok(Some(epoch_settings_record.protocol_parameters))
     }
 
-    async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
         let mut cursor = self
             .connection
             .fetch(GetEpochSettingsQuery::by_epoch(epoch)?)
@@ -93,14 +93,14 @@ mod tests {
         );
 
         store
-            .save_epoch_settings(
+            .save_protocol_parameters(
                 Epoch(2) + EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD,
                 fake_data::protocol_parameters(),
             )
             .await
             .expect("saving protocol parameters should not fails");
-        let epoch1_params = store.get_epoch_settings(Epoch(1)).await.unwrap();
-        let epoch2_params = store.get_epoch_settings(Epoch(2)).await.unwrap();
+        let epoch1_params = store.get_protocol_parameters(Epoch(1)).await.unwrap();
+        let epoch2_params = store.get_protocol_parameters(Epoch(2)).await.unwrap();
 
         assert!(
             epoch1_params.is_none(),

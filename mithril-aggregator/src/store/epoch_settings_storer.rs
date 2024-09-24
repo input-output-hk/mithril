@@ -11,14 +11,14 @@ use mithril_common::entities::{Epoch, ProtocolParameters};
 #[async_trait]
 pub trait EpochSettingsStorer: Sync + Send {
     /// Save the given `ProtocolParameter` for the given [Epoch].
-    async fn save_epoch_settings(
+    async fn save_protocol_parameters(
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
     ) -> StdResult<Option<ProtocolParameters>>;
 
     /// Get the saved `ProtocolParameter` for the given [Epoch] if any.
-    async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>>;
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>>;
 
     /// Handle discrepancies at startup in the protocol parameters store.
     /// In case an aggregator has been launched after some epochs of not being up or at initial startup,
@@ -31,9 +31,9 @@ pub trait EpochSettingsStorer: Sync + Send {
     ) -> StdResult<()> {
         for epoch_offset in 0..=2 {
             let epoch = current_epoch + epoch_offset;
-            if self.get_epoch_settings(epoch).await?.is_none() {
+            if self.get_protocol_parameters(epoch).await?.is_none() {
                 debug!("Handle discrepancies at startup of protocol parameters store, will record protocol parameters from the configuration for epoch {epoch}: {configuration_protocol_parameters:?}");
-                self.save_epoch_settings(epoch, configuration_protocol_parameters.clone())
+                self.save_protocol_parameters(epoch, configuration_protocol_parameters.clone())
                     .await?;
             }
         }
@@ -58,7 +58,7 @@ impl FakeEpochSettingsStorer {
 
 #[async_trait]
 impl EpochSettingsStorer for FakeEpochSettingsStorer {
-    async fn save_epoch_settings(
+    async fn save_protocol_parameters(
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
@@ -67,7 +67,7 @@ impl EpochSettingsStorer for FakeEpochSettingsStorer {
         Ok(protocol_parameters_write.insert(epoch, protocol_parameters))
     }
 
-    async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
+    async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
         let protocol_parameters = self.protocol_parameters.read().await;
         Ok(protocol_parameters.get(&epoch).cloned())
     }
@@ -86,7 +86,7 @@ mod tests {
         let epoch = Epoch(1);
         let store = FakeEpochSettingsStorer::new(vec![]);
         let protocol_parameters_previous = store
-            .save_epoch_settings(epoch, protocol_parameters)
+            .save_protocol_parameters(epoch, protocol_parameters)
             .await
             .unwrap();
 
@@ -103,7 +103,7 @@ mod tests {
             ..protocol_parameters
         };
         let protocol_parameters_previous = store
-            .save_epoch_settings(epoch, protocol_parameters_new)
+            .save_protocol_parameters(epoch, protocol_parameters_new)
             .await
             .unwrap();
 
@@ -115,7 +115,7 @@ mod tests {
         let protocol_parameters = fake_data::protocol_parameters();
         let epoch = Epoch(1);
         let store = FakeEpochSettingsStorer::new(vec![(epoch, protocol_parameters.clone())]);
-        let protocol_parameters_stored = store.get_epoch_settings(epoch).await.unwrap();
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch).await.unwrap();
 
         assert_eq!(Some(protocol_parameters), protocol_parameters_stored);
     }
@@ -125,7 +125,7 @@ mod tests {
         let protocol_parameters = fake_data::protocol_parameters();
         let epoch = Epoch(1);
         let store = FakeEpochSettingsStorer::new(vec![(epoch, protocol_parameters.clone())]);
-        let protocol_parameters_stored = store.get_epoch_settings(epoch + 1).await.unwrap();
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 1).await.unwrap();
 
         assert!(protocol_parameters_stored.is_none());
     }
@@ -148,25 +148,25 @@ mod tests {
             .await
             .unwrap();
 
-        let protocol_parameters_stored = store.get_epoch_settings(epoch).await.unwrap();
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch).await.unwrap();
         assert_eq!(
             Some(protocol_parameters.clone()),
             protocol_parameters_stored
         );
 
-        let protocol_parameters_stored = store.get_epoch_settings(epoch + 1).await.unwrap();
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 1).await.unwrap();
         assert_eq!(
             Some(protocol_parameters.clone()),
             protocol_parameters_stored
         );
 
-        let protocol_parameters_stored = store.get_epoch_settings(epoch + 2).await.unwrap();
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 2).await.unwrap();
         assert_eq!(
             Some(protocol_parameters_new.clone()),
             protocol_parameters_stored
         );
 
-        let protocol_parameters_stored = store.get_epoch_settings(epoch + 3).await.unwrap();
+        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 3).await.unwrap();
         assert!(protocol_parameters_stored.is_none());
     }
 }
