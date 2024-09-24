@@ -31,6 +31,9 @@ where
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait SignableSeedBuilder: Send + Sync {
-    /// Compute seed protocol message
-    async fn compute_seed_protocol_message(&self) -> StdResult<ProtocolMessage>;
+    /// Compute seeded protocol message
+    async fn compute_seeded_protocol_message(
+        &self,
+        protocol_message: ProtocolMessage,
+    ) -> StdResult<ProtocolMessage>;
 }

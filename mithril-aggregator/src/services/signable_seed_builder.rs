@@ -30,10 +30,12 @@ impl SignableSeedBuilderService {
 
 #[async_trait]
 impl SignableSeedBuilder for SignableSeedBuilderService {
-    /// Compute seed protocol message
-    async fn compute_seed_protocol_message(&self) -> StdResult<ProtocolMessage> {
+    async fn compute_seeded_protocol_message(
+        &self,
+        protocol_message: ProtocolMessage,
+    ) -> StdResult<ProtocolMessage> {
         let epoch_service = self.epoch_service.read().await;
-        let mut protocol_message = ProtocolMessage::new();
+        let mut protocol_message = protocol_message;
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             (*epoch_service)
@@ -56,7 +58,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_compute_seed_protocol_message() {
+    async fn test_compute_seeded_protocol_message() {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
@@ -72,7 +74,7 @@ mod tests {
         let signable_seed_builder_service = SignableSeedBuilderService::new(epoch_service);
 
         let protocol_message = signable_seed_builder_service
-            .compute_seed_protocol_message()
+            .compute_seeded_protocol_message(ProtocolMessage::new())
             .await
             .unwrap();
 

@@ -84,9 +84,9 @@ impl SignableBuilderService for MithrilSignableBuilderService {
                     "Signable builder service can not compute protocol message with block_number: '{block_number}'"
                 ))?,
         };
-        let seed_protocol_message = self
+        let protocol_message = self
             .seed_signable_builder
-            .compute_seed_protocol_message()
+            .compute_seeded_protocol_message(protocol_message)
             .await?;
 
         Ok(protocol_message)
@@ -121,7 +121,7 @@ mod tests {
 
         #[async_trait]
         impl SignableSeedBuilder for SignableSeedBuilderImpl {
-            async fn compute_seed_protocol_message(&self) -> StdResult<ProtocolMessage>;
+            async fn compute_seeded_protocol_message(&self, protocol_message: ProtocolMessage) -> StdResult<ProtocolMessage>;
         }
     }
 
@@ -164,9 +164,9 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_seed_protocol_message()
+            .expect_compute_seeded_protocol_message()
             .once()
-            .return_once(move || Ok(ProtocolMessage::new()));
+            .return_once(move |_| Ok(ProtocolMessage::new()));
         mock_container
             .mock_mithril_stake_distribution_signable_builder
             .expect_compute_protocol_message()
@@ -188,9 +188,9 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_seed_protocol_message()
+            .expect_compute_seeded_protocol_message()
             .once()
-            .return_once(move || Ok(ProtocolMessage::new()));
+            .return_once(move |_| Ok(ProtocolMessage::new()));
         mock_container
             .mock_cardano_immutable_files_full_signable_builder
             .expect_compute_protocol_message()
@@ -213,9 +213,9 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_seed_protocol_message()
+            .expect_compute_seeded_protocol_message()
             .once()
-            .return_once(move || Ok(ProtocolMessage::new()));
+            .return_once(move |_| Ok(ProtocolMessage::new()));
         mock_container
             .mock_cardano_transactions_signable_builder
             .expect_compute_protocol_message()
@@ -238,9 +238,9 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_seed_protocol_message()
+            .expect_compute_seeded_protocol_message()
             .once()
-            .return_once(move || Ok(ProtocolMessage::new()));
+            .return_once(move |_| Ok(ProtocolMessage::new()));
         mock_container
             .mock_cardano_stake_distribution_signable_builder
             .expect_compute_protocol_message()
