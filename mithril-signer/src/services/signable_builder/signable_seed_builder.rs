@@ -1,4 +1,4 @@
-//! ## SignableSeedBuilderService
+//! ## SignerSignableSeedBuilder
 //!
 //! This service is responsible for computing the seed protocol message
 //! that is used by the [SignableBuilder] to compute the final protocol message.
