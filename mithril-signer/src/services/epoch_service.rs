@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use async_trait::async_trait;
 use slog_scope::{debug, trace};
 use std::collections::BTreeSet;
@@ -15,6 +16,7 @@ use mithril_common::entities::SignerWithStake;
 use mithril_common::StdResult;
 
 use crate::entities::SignerEpochSettings;
+use crate::services::SignedEntityConfigDataProvider;
 use crate::RunnerError;
 
 /// Errors dedicated to the EpochService.
@@ -230,6 +232,21 @@ impl EpochService for MithrilEpochService {
             s.party_id == party_id
                 && s.verification_key == protocol_initializer.verification_key().into()
         }))
+    }
+}
+
+impl SignedEntityConfigDataProvider for MithrilEpochService {
+    fn get_cardano_transaction_signing_config(
+        &self,
+    ) -> StdResult<CardanoTransactionsSigningConfig> {
+        match self.cardano_transactions_signing_config()? {
+            Some(config) => Ok(config.clone()),
+            None => Err(anyhow!("No cardano transaction signing config available")),
+        }
+    }
+
+    fn get_allowed_discriminants(&self) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
+        self.allowed_discriminants().cloned()
     }
 }
 
