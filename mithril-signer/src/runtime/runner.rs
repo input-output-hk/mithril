@@ -291,11 +291,20 @@ impl Runner for SignerRunner {
 
     async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
         debug!("RUNNER: register_epoch");
+        let aggregator_features = self
+            .services
+            .certificate_handler
+            .retrieve_aggregator_features()
+            .await?;
+
         self.services
             .epoch_service
             .write()
             .await
-            .inform_epoch_settings(epoch_settings)
+            .inform_epoch_settings(
+                epoch_settings,
+                aggregator_features.capabilities.signed_entity_types,
+            )
     }
 
     async fn compute_message(
@@ -414,11 +423,10 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
-
     use mockall::mock;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
-
+    use std::collections::BTreeSet;
     use std::{path::Path, path::PathBuf, sync::Arc};
     use tokio::sync::RwLock;
 
@@ -435,9 +443,10 @@ mod tests {
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{
             BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransactionsSigningConfig, Epoch,
-            ProtocolMessagePartKey, ProtocolParameters,
+            ProtocolMessagePartKey, ProtocolParameters, SignedEntityTypeDiscriminants,
         },
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
+        messages::{AggregatorCapabilities, AggregatorFeaturesMessage},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
             CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -450,15 +459,13 @@ mod tests {
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_persistence::store::{StakeStore, StakeStorer};
 
-    use crate::{
-        metrics::MetricsService,
-        services::{
-            CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
-            MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
-            SignerSignableSeedBuilder, SingleSigner,
-        },
-        store::ProtocolInitializerStore,
+    use crate::metrics::MetricsService;
+    use crate::services::{
+        CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
+        MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
+        SignerSignableSeedBuilder, SingleSigner,
     };
+    use crate::store::ProtocolInitializerStore;
 
     use super::*;
 
@@ -497,7 +504,11 @@ mod tests {
 
     #[async_trait]
     impl EpochService for FakeEpochServiceImpl {
-        fn inform_epoch_settings(&mut self, _epoch_settings: SignerEpochSettings) -> StdResult<()> {
+        fn inform_epoch_settings(
+            &mut self,
+            _epoch_settings: SignerEpochSettings,
+            _allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        ) -> StdResult<()> {
             Ok(())
         }
         fn epoch_of_current_data(&self) -> StdResult<Epoch> {
@@ -518,6 +529,11 @@ mod tests {
         async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
             Ok(vec![])
         }
+
+        fn allowed_discriminants(&self) -> StdResult<&BTreeSet<SignedEntityTypeDiscriminants>> {
+            unimplemented!()
+        }
+
         fn cardano_transactions_signing_config(
             &self,
         ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
@@ -1077,5 +1093,42 @@ mod tests {
 
         let runner = init_runner(Some(services), None).await;
         runner.upkeep().await.expect("upkeep should not fail");
+    }
+
+    #[tokio::test]
+    async fn test_inform_epoch_setting_pass_allowed_discriminant_to_epoch_service() {
+        let mut services = init_services().await;
+        let certificate_handler = Arc::new(DumbAggregatorClient::default());
+        certificate_handler
+            .set_aggregator_features(AggregatorFeaturesMessage {
+                capabilities: AggregatorCapabilities {
+                    signed_entity_types: BTreeSet::from([
+                        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                        SignedEntityTypeDiscriminants::CardanoTransactions,
+                    ]),
+                    ..AggregatorFeaturesMessage::dummy().capabilities
+                },
+                ..AggregatorFeaturesMessage::dummy()
+            })
+            .await;
+        services.certificate_handler = certificate_handler;
+        let runner = init_runner(Some(services), None).await;
+
+        let epoch_settings = SignerEpochSettings {
+            epoch: Epoch(1),
+            ..SignerEpochSettings::dummy()
+        };
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
+        let epoch_service = runner.services.epoch_service.read().await;
+        let recorded_allowed_discriminants = epoch_service.allowed_discriminants().unwrap();
+
+        assert_eq!(
+            &BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ]),
+            recorded_allowed_discriminants
+        );
     }
 }

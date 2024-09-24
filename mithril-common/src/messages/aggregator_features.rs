@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::entities::{CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants};
 
 /// Message advertised by an Aggregator to inform about its features
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AggregatorFeaturesMessage {
     /// Version of the OpenAPI specification
     pub open_api_version: String,
@@ -35,7 +35,7 @@ impl AggregatorFeaturesMessage {
 }
 
 /// Capabilities of an Aggregator
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AggregatorCapabilities {
     /// Signed entity types that are signed by the aggregator
     pub signed_entity_types: BTreeSet<SignedEntityTypeDiscriminants>,
@@ -50,7 +50,7 @@ pub struct AggregatorCapabilities {
 }
 
 /// Cardano transactions prover capabilities
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct CardanoTransactionsProverCapabilities {
     /// Maximum number of hashes allowed for a single request
     pub max_hashes_allowed_by_request: usize,

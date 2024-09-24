@@ -1,15 +1,15 @@
-use std::sync::Arc;
-
 use async_trait::async_trait;
-use mithril_common::crypto_helper::ProtocolInitializer;
-use mithril_common::entities::CardanoTransactionsSigningConfig;
-use mithril_common::entities::Epoch;
-use mithril_common::entities::PartyId;
-use mithril_common::entities::ProtocolParameters;
-use mithril_common::entities::Signer;
-use mithril_persistence::store::StakeStorer;
 use slog_scope::{debug, trace};
+use std::collections::BTreeSet;
+use std::sync::Arc;
 use thiserror::Error;
+
+use mithril_common::crypto_helper::ProtocolInitializer;
+use mithril_common::entities::{
+    CardanoTransactionsSigningConfig, Epoch, PartyId, ProtocolParameters,
+    SignedEntityTypeDiscriminants, Signer,
+};
+use mithril_persistence::store::StakeStorer;
 
 use mithril_common::entities::SignerWithStake;
 use mithril_common::StdResult;
@@ -30,7 +30,11 @@ pub enum EpochServiceError {
 pub trait EpochService: Sync + Send {
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
-    fn inform_epoch_settings(&mut self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
+    fn inform_epoch_settings(
+        &mut self,
+        epoch_settings: SignerEpochSettings,
+        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> StdResult<()>;
 
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
@@ -49,6 +53,9 @@ pub trait EpochService: Sync + Send {
 
     /// Get signers with stake for the next epoch
     async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+
+    /// Get the list of signed entity types that are allowed to sign for the current epoch
+    fn allowed_discriminants(&self) -> StdResult<&BTreeSet<SignedEntityTypeDiscriminants>>;
 
     /// Get the cardano transactions signing configuration for the current epoch
     fn cardano_transactions_signing_config(
@@ -73,6 +80,7 @@ struct EpochData {
     next_protocol_parameters: ProtocolParameters,
     current_signers: Vec<Signer>,
     next_signers: Vec<Signer>,
+    allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
     next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
@@ -80,7 +88,6 @@ struct EpochData {
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
     stake_storer: Arc<dyn StakeStorer>,
-
     epoch_data: Option<EpochData>,
 }
 
@@ -140,7 +147,11 @@ impl MithrilEpochService {
 
 #[async_trait]
 impl EpochService for MithrilEpochService {
-    fn inform_epoch_settings(&mut self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
+    fn inform_epoch_settings(
+        &mut self,
+        epoch_settings: SignerEpochSettings,
+        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> StdResult<()> {
         debug!(
             "EpochService: register_epoch_settings: {:?}",
             epoch_settings
@@ -151,6 +162,7 @@ impl EpochService for MithrilEpochService {
             next_protocol_parameters: epoch_settings.next_protocol_parameters,
             current_signers: epoch_settings.current_signers,
             next_signers: epoch_settings.next_signers,
+            allowed_discriminants,
             cardano_transactions_signing_config: epoch_settings.cardano_transactions_signing_config,
             next_cardano_transactions_signing_config: epoch_settings
                 .next_cardano_transactions_signing_config,
@@ -193,6 +205,10 @@ impl EpochService for MithrilEpochService {
         .await
     }
 
+    fn allowed_discriminants(&self) -> StdResult<&BTreeSet<SignedEntityTypeDiscriminants>> {
+        Ok(&self.unwrap_data()?.allowed_discriminants)
+    }
+
     fn cardano_transactions_signing_config(
         &self,
     ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
@@ -230,7 +246,11 @@ pub mod mock_epoch_service {
         impl EpochService for EpochServiceImpl {
             /// Inform the service a new epoch has been detected, telling it to update its
             /// internal state for the new epoch.
-            fn inform_epoch_settings(&mut self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
+            fn inform_epoch_settings(
+                &mut self,
+                epoch_settings: SignerEpochSettings,
+                allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+            ) -> StdResult<()>;
 
             /// Get the current epoch for which the data stored in this service are computed.
             fn epoch_of_current_data(&self) -> StdResult<Epoch>;
@@ -243,6 +263,9 @@ pub mod mock_epoch_service {
 
             /// Get signers for the next epoch
             fn next_signers(&self) -> StdResult<&'static Vec<Signer>>;
+
+            /// Get the list of signed entity types that are allowed to sign for the current epoch
+            fn allowed_discriminants(&self) -> StdResult<&'static BTreeSet<SignedEntityTypeDiscriminants>>;
 
             /// Get signers with stake for the current epoch
             async fn current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
@@ -339,7 +362,7 @@ mod tests {
 
         let mut service = MithrilEpochService::new(stake_store);
         service
-            .inform_epoch_settings(epoch_settings.clone())
+            .inform_epoch_settings(epoch_settings.clone(), BTreeSet::new())
             .unwrap();
 
         let party_id = fixtures.signers_fixture()[0].party_id();
@@ -420,7 +443,10 @@ mod tests {
         let mut service = MithrilEpochService::new(stake_store);
 
         service
-            .inform_epoch_settings(epoch_settings.clone())
+            .inform_epoch_settings(
+                epoch_settings.clone(),
+                BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]),
+            )
             .unwrap();
 
         // Check current_signers
@@ -444,6 +470,12 @@ mod tests {
         assert_eq!(
             epoch_settings.next_protocol_parameters,
             *service.next_protocol_parameters().unwrap()
+        );
+
+        // Check allowed_discriminants
+        assert_eq!(
+            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]),
+            *service.allowed_discriminants().unwrap()
         );
 
         // Check cardano_transactions_signing_config
@@ -503,7 +535,7 @@ mod tests {
         // Build service and register epoch settings
         let mut service = MithrilEpochService::new(stake_store);
         service
-            .inform_epoch_settings(epoch_settings.clone())
+            .inform_epoch_settings(epoch_settings.clone(), BTreeSet::new())
             .unwrap();
 
         // Check current signers with stake
