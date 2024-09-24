@@ -9,6 +9,7 @@ use mithril_common::entities::{Epoch, ProtocolParameters, Signer, SignerWithStak
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::StdResult;
 
+use crate::entities::AggregatorEpochSettings;
 use crate::{EpochSettingsStorer, VerificationKeyStorer};
 
 /// Errors dedicated to the CertifierService.
@@ -85,9 +86,9 @@ pub trait EpochService: Sync + Send {
 
 struct EpochData {
     epoch: Epoch,
-    protocol_parameters: ProtocolParameters,
-    next_protocol_parameters: ProtocolParameters,
-    upcoming_protocol_parameters: ProtocolParameters,
+    epoch_settings: AggregatorEpochSettings,
+    next_epoch_settings: AggregatorEpochSettings,
+    upcoming_epoch_settings: AggregatorEpochSettings,
     current_signers_with_stake: Vec<SignerWithStake>,
     next_signers_with_stake: Vec<SignerWithStake>,
     current_signers: Vec<Signer>,
@@ -140,19 +141,21 @@ impl MithrilEpochService {
         Ok(signers)
     }
 
-    async fn get_protocol_parameters(
+    async fn get_epoch_settings(
         &self,
         epoch: Epoch,
         name: &str,
-    ) -> StdResult<ProtocolParameters> {
-        let parameters = self
+    ) -> StdResult<AggregatorEpochSettings> {
+        let protocol_parameters = self
             .epoch_settings_storer
             .get_protocol_parameters(epoch)
             .await
             .with_context(|| format!("Epoch service failed to obtain {name}"))?
             .ok_or(EpochServiceError::UnavailableData(epoch, name.to_string()))?;
 
-        Ok(parameters)
+        Ok(AggregatorEpochSettings {
+            protocol_parameters,
+        })
     }
 
     async fn insert_future_protocol_parameters(&self, actual_epoch: Epoch) -> StdResult<()> {
@@ -200,16 +203,18 @@ impl EpochService for MithrilEpochService {
             })?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
 
-        let current_protocol_parameters = self
-            .get_protocol_parameters(signer_retrieval_epoch, "current protocol parameters")
+        let epoch_settings = self
+            .get_epoch_settings(signer_retrieval_epoch, "current epoch settings")
             .await?;
-        let next_protocol_parameters = self
-            .get_protocol_parameters(next_signer_retrieval_epoch, "next protocol parameters")
+
+        let next_epoch_settings = self
+            .get_epoch_settings(next_signer_retrieval_epoch, "next epoch settings")
             .await?;
-        let upcoming_protocol_parameters = self
-            .get_protocol_parameters(
+
+        let upcoming_epoch_settings = self
+            .get_epoch_settings(
                 next_signer_retrieval_epoch.next(),
-                "upcoming protocol parameters",
+                "upcoming epoch settings",
             )
             .await?;
 
@@ -224,9 +229,9 @@ impl EpochService for MithrilEpochService {
 
         self.epoch_data = Some(EpochData {
             epoch,
-            protocol_parameters: current_protocol_parameters,
-            next_protocol_parameters,
-            upcoming_protocol_parameters,
+            epoch_settings,
+            next_epoch_settings,
+            upcoming_epoch_settings,
             current_signers_with_stake,
             next_signers_with_stake,
             current_signers,
@@ -254,14 +259,16 @@ impl EpochService for MithrilEpochService {
             "can't precompute epoch data if inform_epoch has not been called first"
         })?;
 
-        let protocol_multi_signer =
-            SignerBuilder::new(&data.current_signers_with_stake, &data.protocol_parameters)
-                .with_context(|| "Epoch service failed to build protocol multi signer")?
-                .build_multi_signer();
+        let protocol_multi_signer = SignerBuilder::new(
+            &data.current_signers_with_stake,
+            &data.epoch_settings.protocol_parameters,
+        )
+        .with_context(|| "Epoch service failed to build protocol multi signer")?
+        .build_multi_signer();
 
         let next_protocol_multi_signer = SignerBuilder::new(
             &data.next_signers_with_stake,
-            &data.next_protocol_parameters,
+            &data.next_epoch_settings.protocol_parameters,
         )
         .with_context(|| "Epoch service failed to build next protocol multi signer")?
         .build_multi_signer();
@@ -282,15 +289,18 @@ impl EpochService for MithrilEpochService {
     }
 
     fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.protocol_parameters)
+        Ok(&self.unwrap_data()?.epoch_settings.protocol_parameters)
     }
 
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.next_protocol_parameters)
+        Ok(&self.unwrap_data()?.next_epoch_settings.protocol_parameters)
     }
 
     fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.upcoming_protocol_parameters)
+        Ok(&self
+            .unwrap_data()?
+            .upcoming_epoch_settings
+            .protocol_parameters)
     }
 
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
@@ -362,13 +372,21 @@ impl FakeEpochService {
         let next_signers_with_stake = next_signers_with_stake.to_vec();
         let current_signers = Signer::vec_from(current_signers_with_stake.clone());
         let next_signers = Signer::vec_from(next_signers_with_stake.clone());
-
+        let epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: protocol_parameters.clone(),
+        };
+        let next_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: next_protocol_parameters.clone(),
+        };
+        let upcoming_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: upcoming_protocol_parameters.clone(),
+        };
         Self {
             epoch_data: Some(EpochData {
                 epoch,
-                protocol_parameters: protocol_parameters.clone(),
-                next_protocol_parameters: next_protocol_parameters.clone(),
-                upcoming_protocol_parameters: upcoming_protocol_parameters.clone(),
+                epoch_settings,
+                next_epoch_settings,
+                upcoming_epoch_settings,
                 current_signers_with_stake,
                 next_signers_with_stake,
                 current_signers,
@@ -469,15 +487,18 @@ impl EpochService for FakeEpochService {
     }
 
     fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.protocol_parameters)
+        Ok(&self.unwrap_data()?.epoch_settings.protocol_parameters)
     }
 
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.next_protocol_parameters)
+        Ok(&self.unwrap_data()?.next_epoch_settings.protocol_parameters)
     }
 
     fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.upcoming_protocol_parameters)
+        Ok(&self
+            .unwrap_data()?
+            .upcoming_epoch_settings
+            .protocol_parameters)
     }
 
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
