@@ -74,7 +74,7 @@ mod tests {
     use mithril_common::{entities::Epoch, test_utils::MithrilFixtureBuilder};
 
     use crate::{
-        services::{mock::MockEpochServiceImpl, MockSingleSigner},
+        services::{mock_epoch_service::MockEpochServiceImpl, MockSingleSigner},
         store::MockProtocolInitializerStorer,
     };
 

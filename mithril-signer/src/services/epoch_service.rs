@@ -218,7 +218,7 @@ impl EpochService for MithrilEpochService {
 }
 
 #[cfg(test)]
-pub mod mock {
+pub mod mock_epoch_service {
     use mockall::mock;
 
     use super::*;
