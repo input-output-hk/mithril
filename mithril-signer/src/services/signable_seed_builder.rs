@@ -75,66 +75,14 @@ impl SignableSeedBuilder for SignableSeedBuilderService {
 #[cfg(test)]
 mod tests {
 
-    use mockall::mock;
+    use mithril_common::{entities::Epoch, test_utils::MithrilFixtureBuilder};
 
-    use mithril_common::{
-        crypto_helper::ProtocolInitializer,
-        entities::{
-            CardanoTransactionsSigningConfig, Epoch, EpochSettings, PartyId, ProtocolParameters,
-            Signer, SignerWithStake,
-        },
-        test_utils::MithrilFixtureBuilder,
+    use crate::{
+        services::{mock::MockEpochServiceImpl, MockSingleSigner},
+        store::MockProtocolInitializerStorer,
     };
 
-    use crate::{services::MockSingleSigner, store::MockProtocolInitializerStorer};
-
     use super::*;
-
-    mock! {
-        pub EpochServiceImpl {}
-
-        #[async_trait]
-        impl EpochService for EpochServiceImpl {
-            /// Inform the service a new epoch has been detected, telling it to update its
-            /// internal state for the new epoch.
-            fn inform_epoch_settings(&mut self, epoch_settings: EpochSettings) -> StdResult<()>;
-
-            /// Get the current epoch for which the data stored in this service are computed.
-            fn epoch_of_current_data(&self) -> StdResult<Epoch>;
-
-            /// Get next protocol parameters used in next epoch (associated with the actual epoch)
-            fn next_protocol_parameters(&self) -> StdResult<&'static ProtocolParameters>;
-
-            /// Get signers for the current epoch
-            fn current_signers(&self) -> StdResult<&'static Vec<Signer>>;
-
-            /// Get signers for the next epoch
-            fn next_signers(&self) -> StdResult<&'static Vec<Signer>>;
-
-            /// Get signers with stake for the current epoch
-            async fn current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
-
-            /// Get signers with stake for the next epoch
-            async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
-
-            /// Get the cardano transactions signing configuration for the current epoch
-            fn cardano_transactions_signing_config(
-                &self,
-            ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
-
-            /// Get the cardano transactions signing configuration for the next epoch
-            fn next_cardano_transactions_signing_config(
-                &self,
-            ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
-
-            /// Check if a signer is included in the current stake distribution
-            fn is_signer_included_in_current_stake_distribution(
-                &self,
-                party_id: PartyId,
-                protocol_initializer: ProtocolInitializer,
-            ) -> StdResult<bool>;
-        }
-    }
 
     #[tokio::test]
     async fn test_compute_seed_protocol_message() {
@@ -145,15 +93,16 @@ mod tests {
         let expected_next_aggregate_verification_key_clone =
             expected_next_aggregate_verification_key.clone();
         let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
-        let mut mock_epoch_service = MockEpochServiceImpl::new();
-        mock_epoch_service
-            .expect_epoch_of_current_data()
-            .return_once(move || Ok(epoch))
-            .once();
-        mock_epoch_service
-            .expect_next_signers_with_stake()
-            .return_once(move || Ok(Vec::new()))
-            .once();
+        let mock_epoch_service = MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
+            mock_epoch_service
+                .expect_epoch_of_current_data()
+                .return_once(move || Ok(epoch))
+                .once();
+            mock_epoch_service
+                .expect_next_signers_with_stake()
+                .return_once(move || Ok(Vec::new()))
+                .once();
+        });
         let mut mock_single_signer = MockSingleSigner::new();
         mock_single_signer
             .expect_compute_aggregate_verification_key()
