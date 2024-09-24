@@ -17,15 +17,15 @@ use crate::{
     store::ProtocolInitializerStorer,
 };
 
-/// SignableSeedBuilder service
-pub struct SignableSeedBuilderService {
+/// SignableSeedBuilder signer implementation
+pub struct SignerSignableSeedBuilder {
     epoch_service: Arc<RwLock<dyn EpochService>>,
     single_signer: Arc<dyn SingleSigner>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
 }
 
-impl SignableSeedBuilderService {
-    /// SignableSeedBuilderService factory
+impl SignerSignableSeedBuilder {
+    /// SignerSignableSeedBuilder factory
     pub fn new(
         epoch_service: Arc<RwLock<dyn EpochService>>,
         single_signer: Arc<dyn SingleSigner>,
@@ -40,7 +40,7 @@ impl SignableSeedBuilderService {
 }
 
 #[async_trait]
-impl SignableSeedBuilder for SignableSeedBuilderService {
+impl SignableSeedBuilder for SignerSignableSeedBuilder {
     async fn compute_next_aggregate_verification_key_protocol_message_part_value(
         &self,
     ) -> StdResult<ProtocolMessagePartValue> {
@@ -112,13 +112,13 @@ mod tests {
         let epoch_service = Arc::new(RwLock::new(mock_epoch_service));
         let single_signer = Arc::new(mock_single_signer);
         let protocol_initializer_store = Arc::new(mock_protocol_initializer_store);
-        let signable_seed_builder_service = SignableSeedBuilderService::new(
+        let signable_seed_builder = SignerSignableSeedBuilder::new(
             epoch_service,
             single_signer,
             protocol_initializer_store,
         );
 
-        let next_aggregate_verification_key = signable_seed_builder_service
+        let next_aggregate_verification_key = signable_seed_builder
             .compute_next_aggregate_verification_key_protocol_message_part_value()
             .await
             .unwrap();

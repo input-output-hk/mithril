@@ -39,7 +39,7 @@ use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignableSeedBuilderService, SignerUpkeepService, TransactionsImporterByChunk,
+    SignerSignableSeedBuilder, SignerUpkeepService, TransactionsImporterByChunk,
     TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
 };
 use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore};
@@ -321,7 +321,7 @@ impl<'a> DependenciesBuilder<'a> {
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
-        let signable_seed_builder_service = Arc::new(SignableSeedBuilderService::new(
+        let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
             single_signer.clone(),
             protocol_initializer_store.clone(),

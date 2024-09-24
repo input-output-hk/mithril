@@ -455,7 +455,7 @@ mod tests {
         services::{
             CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
             MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
-            SignableSeedBuilderService, SingleSigner,
+            SignerSignableSeedBuilder, SingleSigner,
         },
         store::ProtocolInitializerStore,
     };
@@ -605,7 +605,7 @@ mod tests {
         let single_signer = Arc::new(MithrilSingleSigner::new(party_id));
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerStore::new(Box::new(adapter), None));
-        let signable_seed_builder_service = Arc::new(SignableSeedBuilderService::new(
+        let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
             single_signer.clone(),
             protocol_initializer_store.clone(),
