@@ -16,12 +16,14 @@ pub enum ProtocolMessagePartKey {
     CardanoTransactionsMerkleRoot,
 
     /// The ProtocolMessage part key associated to the Next epoch aggregate verification key
+    ///
     /// The AVK that will be allowed to be used to sign during the next epoch
     /// aka AVK(n-1)
     #[serde(rename = "next_aggregate_verification_key")]
     NextAggregateVerificationKey,
 
     /// The ProtocolMessage part key associated to the Next epoch protocol parameters
+    ///
     /// The protocol parameters that will be allowed to be used to sign during the next epoch
     /// aka PPARAMS(n-1)
     #[serde(rename = "next_protocol_parameters")]
