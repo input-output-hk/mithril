@@ -54,7 +54,7 @@ impl SignableSeedBuilder for SignableSeedBuilderService {
             .get_protocol_initializer(next_signer_retrieval_epoch)
             .await?
             .ok_or_else(|| {
-                anyhow!("protocol_initializer at epoch {next_signer_retrieval_epoch}")
+                anyhow!("can not get protocol_initializer at epoch {next_signer_retrieval_epoch}")
             })?;
 
         let next_signers_with_stake = epoch_service.next_signers_with_stake().await?;
