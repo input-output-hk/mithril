@@ -219,6 +219,7 @@ pub fn setup_certificate_chain(
             let next_fixture = fixture_per_epoch.get(&(epoch + 1)).unwrap();
             let avk = avk_for_signers(&fixture.signers_fixture());
             let next_avk = avk_for_signers(&next_fixture.signers_fixture());
+            let next_protocol_parameters = &next_fixture.protocol_parameters();
             let mut fake_certificate = {
                 let mut base_certificate = fake_data::certificate(certificate_hash);
                 base_certificate
@@ -228,7 +229,6 @@ pub fn setup_certificate_chain(
                     ProtocolMessagePartKey::NextAggregateVerificationKey,
                     next_avk.to_json_hex().unwrap(),
                 );
-
                 Certificate {
                     epoch,
                     aggregate_verification_key: avk,
@@ -247,8 +247,11 @@ pub fn setup_certificate_chain(
             match i {
                 0 => {
                     let genesis_protocol_message =
-                        CertificateGenesisProducer::create_genesis_protocol_message(&next_avk)
-                            .unwrap();
+                        CertificateGenesisProducer::create_genesis_protocol_message(
+                            next_protocol_parameters,
+                            &next_avk,
+                        )
+                        .unwrap();
                     let genesis_signature = genesis_producer
                         .sign_genesis_protocol_message(genesis_protocol_message)
                         .unwrap();

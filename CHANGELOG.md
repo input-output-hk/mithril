@@ -17,6 +17,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for new `Pythagoras` Mithril era.
 
+- Support for signing the protocol parameters in the Genesis certificate.
+
 - Crates versions:
 
 | Crate | Version |
