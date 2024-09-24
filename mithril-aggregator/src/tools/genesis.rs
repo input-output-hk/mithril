@@ -77,7 +77,7 @@ impl GenesisTools {
         let certificate_repository = dependencies.certificate_repository.clone();
         let epoch_settings_storer = dependencies.epoch_settings_storer.clone();
         let genesis_avk_epoch = time_point.epoch.offset_to_next_signer_retrieval_epoch();
-        let genesis_avk_protocol_parameters = epoch_settings_storer
+        let genesis_protocol_parameters = epoch_settings_storer
             .get_protocol_parameters(time_point.epoch.offset_to_signer_retrieval_epoch()?)
             .await?
             .ok_or_else(|| anyhow!("Missing protocol parameters for epoch {genesis_avk_epoch}"))?;
