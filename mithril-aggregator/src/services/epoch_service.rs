@@ -168,9 +168,11 @@ impl MithrilEpochService {
         );
 
         self.epoch_settings_storer
-            .save_protocol_parameters(
+            .save_epoch_settings(
                 recording_epoch,
-                self.future_protocol_parameters.clone(),
+                AggregatorEpochSettings {
+                    protocol_parameters: self.future_protocol_parameters.clone(),
+                },
             )
             .await
             .with_context(|| format!("Epoch service failed to insert future_protocol_parameters to epoch {recording_epoch}"))

@@ -10,6 +10,7 @@ use mithril_persistence::store::adapter::AdapterError;
 use crate::database::query::{
     DeleteEpochSettingsQuery, GetEpochSettingsQuery, UpdateEpochSettingsQuery,
 };
+use crate::entities::AggregatorEpochSettings;
 use crate::EpochSettingsStorer;
 
 /// Service to deal with epoch settings (read & write).
@@ -33,17 +34,18 @@ impl EpochSettingsStore {
 
 #[async_trait]
 impl EpochSettingsStorer for EpochSettingsStore {
-    async fn save_protocol_parameters(
+    async fn save_epoch_settings(
         &self,
         epoch: Epoch,
-        protocol_parameters: ProtocolParameters,
-    ) -> StdResult<Option<ProtocolParameters>> {
+        epoch_settings: AggregatorEpochSettings,
+    ) -> StdResult<Option<AggregatorEpochSettings>> {
         let epoch_settings_record = self
             .connection
-            .fetch_first(UpdateEpochSettingsQuery::one(epoch, protocol_parameters))
-            .map_err(|e| {
-                AdapterError::GeneralError(e.context("persist protocol parameters failure"))
-            })?
+            .fetch_first(UpdateEpochSettingsQuery::one(
+                epoch,
+                epoch_settings.protocol_parameters,
+            ))
+            .map_err(|e| AdapterError::GeneralError(e.context("persist epoch settings failure")))?
             .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
 
         // Prune useless old epoch settings.
@@ -57,7 +59,9 @@ impl EpochSettingsStorer for EpochSettingsStore {
                 .count();
         }
 
-        Ok(Some(epoch_settings_record.protocol_parameters))
+        Ok(Some(AggregatorEpochSettings {
+            protocol_parameters: epoch_settings_record.protocol_parameters,
+        }))
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
@@ -75,8 +79,6 @@ impl EpochSettingsStorer for EpochSettingsStore {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::fake_data;
-
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     use super::*;
@@ -93,12 +95,12 @@ mod tests {
         );
 
         store
-            .save_protocol_parameters(
+            .save_epoch_settings(
                 Epoch(2) + EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD,
-                fake_data::protocol_parameters(),
+                AggregatorEpochSettings::dummy(),
             )
             .await
-            .expect("saving protocol parameters should not fails");
+            .expect("saving epoch settings should not fails");
         let epoch1_params = store.get_protocol_parameters(Epoch(1)).await.unwrap();
         let epoch2_params = store.get_protocol_parameters(Epoch(2)).await.unwrap();
 

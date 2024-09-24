@@ -24,6 +24,7 @@ use crate::{
         CertificateRepository, OpenMessageRepository, SignedEntityStorer, SignerGetter,
         StakePoolStore,
     },
+    entities::AggregatorEpochSettings,
     event_store::{EventMessage, TransmitterService},
     multi_signer::MultiSigner,
     services::{
@@ -193,7 +194,12 @@ impl DependencyContainer {
     pub async fn init_state_from_fixture(&self, fixture: &MithrilFixture, target_epochs: &[Epoch]) {
         for epoch in target_epochs {
             self.epoch_settings_storer
-                .save_protocol_parameters(*epoch, fixture.protocol_parameters())
+                .save_epoch_settings(
+                    *epoch,
+                    AggregatorEpochSettings {
+                        protocol_parameters: fixture.protocol_parameters(),
+                    },
+                )
                 .await
                 .expect("save_protocol_parameters should not fail");
             self.fill_verification_key_store(*epoch, &fixture.signers_with_stake())
@@ -241,9 +247,14 @@ impl DependencyContainer {
         epochs_to_save.push(epoch_to_sign.next());
         for epoch in epochs_to_save {
             self.epoch_settings_storer
-                .save_protocol_parameters(epoch, protocol_parameters.clone())
+                .save_epoch_settings(
+                    epoch,
+                    AggregatorEpochSettings {
+                        protocol_parameters: protocol_parameters.clone(),
+                    },
+                )
                 .await
-                .expect("save_protocol_parameters should not fail");
+                .expect("save_epoch_settings should not fail");
         }
     }
 
