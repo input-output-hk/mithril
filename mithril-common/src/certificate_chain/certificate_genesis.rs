@@ -41,7 +41,7 @@ impl CertificateGenesisProducer {
 
     /// Create the Genesis protocol message
     pub fn create_genesis_protocol_message(
-        genesis_protocol_paremeters: &ProtocolParameters,
+        genesis_protocol_parameters: &ProtocolParameters,
         genesis_avk: &ProtocolAggregateVerificationKey,
     ) -> StdResult<ProtocolMessage> {
         let genesis_avk = genesis_avk.to_json_hex()?;
@@ -52,7 +52,7 @@ impl CertificateGenesisProducer {
         );
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
-            genesis_protocol_paremeters.compute_hash(),
+            genesis_protocol_parameters.compute_hash(),
         );
         Ok(protocol_message)
     }
