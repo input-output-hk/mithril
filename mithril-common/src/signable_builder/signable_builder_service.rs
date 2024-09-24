@@ -3,16 +3,16 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::{
-    entities::{BlockNumber, CardanoDbBeacon, Epoch, ProtocolMessage, SignedEntityType},
+    entities::{
+        BlockNumber, CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey,
+        SignedEntityType,
+    },
     signable_builder::{SignableBuilder, SignableSeedBuilder},
     StdResult,
 };
 
-#[cfg(test)]
-use mockall::automock;
-
 /// ArtifactBuilder Service trait
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignableBuilderService: Send + Sync {
     /// Compute signable from signed entity type
@@ -48,11 +48,8 @@ impl MithrilSignableBuilderService {
             cardano_stake_distribution_builder,
         }
     }
-}
 
-#[async_trait]
-impl SignableBuilderService for MithrilSignableBuilderService {
-    async fn compute_protocol_message(
+    async fn compute_signed_entity_protocol_message(
         &self,
         signed_entity_type: SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
@@ -84,8 +81,38 @@ impl SignableBuilderService for MithrilSignableBuilderService {
                     "Signable builder service can not compute protocol message with block_number: '{block_number}'"
                 ))?,
         };
-        let protocol_message = self
+
+        Ok(protocol_message)
+    }
+
+    async fn compute_seeded_protocol_message(
+        &self,
+        protocol_message: ProtocolMessage,
+    ) -> StdResult<ProtocolMessage> {
+        let next_aggregate_verification_key = self
             .seed_signable_builder
+            .compute_next_aggregate_verification_key_protocol_message_part_value()
+            .await?;
+        let mut protocol_message = protocol_message;
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            next_aggregate_verification_key,
+        );
+
+        Ok(protocol_message)
+    }
+}
+
+#[async_trait]
+impl SignableBuilderService for MithrilSignableBuilderService {
+    async fn compute_protocol_message(
+        &self,
+        signed_entity_type: SignedEntityType,
+    ) -> StdResult<ProtocolMessage> {
+        let protocol_message = self
+            .compute_signed_entity_protocol_message(signed_entity_type)
+            .await?;
+        let protocol_message = self
             .compute_seeded_protocol_message(protocol_message)
             .await?;
 
@@ -98,7 +125,7 @@ mod tests {
     use super::*;
 
     use crate::{
-        entities::{BlockNumber, Epoch, ProtocolMessage},
+        entities::{BlockNumber, Epoch, ProtocolMessage, ProtocolMessagePartValue},
         signable_builder::{Beacon as Beaconnable, SignableBuilder},
         StdResult,
     };
@@ -121,7 +148,7 @@ mod tests {
 
         #[async_trait]
         impl SignableSeedBuilder for SignableSeedBuilderImpl {
-            async fn compute_seeded_protocol_message(&self, protocol_message: ProtocolMessage) -> StdResult<ProtocolMessage>;
+            async fn compute_next_aggregate_verification_key_protocol_message_part_value(&self) -> StdResult<ProtocolMessagePartValue>;
         }
     }
 
@@ -164,9 +191,9 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_seeded_protocol_message()
+            .expect_compute_next_aggregate_verification_key_protocol_message_value()
             .once()
-            .return_once(move |_| Ok(ProtocolMessage::new()));
+            .return_once(move || Ok("next-avk-123".to_string()));
         mock_container
             .mock_mithril_stake_distribution_signable_builder
             .expect_compute_protocol_message()
@@ -188,9 +215,9 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_seeded_protocol_message()
+            .expect_compute_next_aggregate_verification_key_protocol_message_value()
             .once()
-            .return_once(move |_| Ok(ProtocolMessage::new()));
+            .return_once(move || Ok("next-avk-123".to_string()));
         mock_container
             .mock_cardano_immutable_files_full_signable_builder
             .expect_compute_protocol_message()
@@ -213,9 +240,9 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_seeded_protocol_message()
+            .expect_compute_next_aggregate_verification_key_protocol_message_value()
             .once()
-            .return_once(move |_| Ok(ProtocolMessage::new()));
+            .return_once(move || Ok("next-avk-123".to_string()));
         mock_container
             .mock_cardano_transactions_signable_builder
             .expect_compute_protocol_message()
@@ -238,9 +265,9 @@ mod tests {
         let mut mock_container = MockDependencyInjector::new();
         mock_container
             .mock_signable_seed_builder
-            .expect_compute_seeded_protocol_message()
+            .expect_compute_next_aggregate_verification_key_protocol_message_value()
             .once()
-            .return_once(move |_| Ok(ProtocolMessage::new()));
+            .return_once(move || Ok("next-avk-123".to_string()));
         mock_container
             .mock_cardano_stake_distribution_signable_builder
             .expect_compute_protocol_message()

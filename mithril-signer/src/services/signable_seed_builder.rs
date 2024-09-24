@@ -9,9 +9,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::{
-    entities::{ProtocolMessage, ProtocolMessagePartKey},
-    signable_builder::SignableSeedBuilder,
-    StdResult,
+    entities::ProtocolMessagePartValue, signable_builder::SignableSeedBuilder, StdResult,
 };
 
 use crate::{
@@ -43,11 +41,9 @@ impl SignableSeedBuilderService {
 
 #[async_trait]
 impl SignableSeedBuilder for SignableSeedBuilderService {
-    async fn compute_seeded_protocol_message(
+    async fn compute_next_aggregate_verification_key_protocol_message_part_value(
         &self,
-        protocol_message: ProtocolMessage,
-    ) -> StdResult<ProtocolMessage> {
-        let mut protocol_message = protocol_message;
+    ) -> StdResult<ProtocolMessagePartValue> {
         let epoch_service = self.epoch_service.read().await;
         let epoch = (*epoch_service).epoch_of_current_data()?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
@@ -60,17 +56,15 @@ impl SignableSeedBuilder for SignableSeedBuilderService {
             })?;
 
         let next_signers_with_stake = epoch_service.next_signers_with_stake().await?;
-        let avk = self
+        let next_aggregate_verification_key = self
             .single_signer
             .compute_aggregate_verification_key(
                 &next_signers_with_stake,
                 &next_protocol_initializer,
             )?
             .ok_or_else(|| anyhow!("next_signers avk".to_string()))?;
-        protocol_message
-            .set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
-        Ok(protocol_message)
+        Ok(next_aggregate_verification_key)
     }
 }
 
@@ -87,7 +81,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_compute_seeded_protocol_message() {
+    async fn test_compute_next_aggregate_verification_key_protocol_message_value() {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
@@ -124,15 +118,14 @@ mod tests {
             protocol_initializer_store,
         );
 
-        let protocol_message = signable_seed_builder_service
-            .compute_seeded_protocol_message(ProtocolMessage::new())
+        let next_aggregate_verification_key = signable_seed_builder_service
+            .compute_next_aggregate_verification_key_protocol_message_part_value()
             .await
             .unwrap();
 
         assert_eq!(
-            protocol_message
-                .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey),
-            Some(&expected_next_aggregate_verification_key)
+            next_aggregate_verification_key,
+            expected_next_aggregate_verification_key
         );
     }
 }
