@@ -65,13 +65,23 @@ impl EpochSettingsStorer for EpochSettingsStore {
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
+        Ok(self
+            .get_epoch_settings(epoch)
+            .await?
+            .map(|epoch_settings| epoch_settings.protocol_parameters))
+    }
+
+    async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>> {
         let mut cursor = self
             .connection
             .fetch(GetEpochSettingsQuery::by_epoch(epoch)?)
             .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch settings")))?;
 
         if let Some(epoch_settings_record) = cursor.next() {
-            return Ok(Some(epoch_settings_record.protocol_parameters));
+            // TODO create an adapter ?
+            return Ok(Some(AggregatorEpochSettings {
+                protocol_parameters: epoch_settings_record.protocol_parameters,
+            }));
         }
         Ok(None)
     }
@@ -84,7 +94,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn save_protocol_parameters_prune_older_epoch_settings() {
+    async fn save_epoch_settings_prune_older_epoch_settings() {
         const EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD: u64 = 5;
 
         let connection = main_db_connection().unwrap();
@@ -101,16 +111,16 @@ mod tests {
             )
             .await
             .expect("saving epoch settings should not fails");
-        let epoch1_params = store.get_protocol_parameters(Epoch(1)).await.unwrap();
-        let epoch2_params = store.get_protocol_parameters(Epoch(2)).await.unwrap();
+        let epoch1_params = store.get_epoch_settings(Epoch(1)).await.unwrap();
+        let epoch2_params = store.get_epoch_settings(Epoch(2)).await.unwrap();
 
         assert!(
             epoch1_params.is_none(),
-            "Protocol parameters at epoch 1 should have been pruned",
+            "Epoch settings at epoch 1 should have been pruned",
         );
         assert!(
             epoch2_params.is_some(),
-            "Protocol parameters at epoch 2 should still exist",
+            "Epoch settings at epoch 2 should still exist",
         );
     }
 }

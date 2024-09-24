@@ -22,6 +22,9 @@ pub trait EpochSettingsStorer: Sync + Send {
     /// Get the saved `ProtocolParameter` for the given [Epoch] if any.
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>>;
 
+    /// Get the saved `AggregatorEpochSettings` for the given [Epoch] if any.
+    async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>>;
+
     /// Handle discrepancies at startup in the protocol parameters store.
     /// In case an aggregator has been launched after some epochs of not being up or at initial startup,
     /// the discrepancies in the protocol parameters store needs to be fixed.
@@ -83,10 +86,15 @@ impl EpochSettingsStorer for FakeEpochSettingsStorer {
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
+        Ok(self
+            .get_epoch_settings(epoch)
+            .await?
+            .map(|epoch_settings| epoch_settings.protocol_parameters.clone()))
+    }
+
+    async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>> {
         let epoch_settings = self.epoch_settings.read().await;
-        Ok(epoch_settings
-            .get(&epoch)
-            .map(|es| es.protocol_parameters.clone()))
+        Ok(epoch_settings.get(&epoch).cloned())
     }
 }
 
@@ -151,6 +159,28 @@ mod tests {
         let protocol_parameters_stored = store.get_protocol_parameters(epoch + 1).await.unwrap();
 
         assert!(protocol_parameters_stored.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_epoch_settings_exist() {
+        let epoch_settings = AggregatorEpochSettings::dummy();
+        let epoch = Epoch(1);
+        let store =
+            FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.protocol_parameters.clone())]);
+        let epoch_settings_stored = store.get_epoch_settings(epoch).await.unwrap();
+
+        assert_eq!(Some(epoch_settings), epoch_settings_stored);
+    }
+
+    #[tokio::test]
+    async fn test_get_epoch_settings_do_not_exist() {
+        let epoch_settings = AggregatorEpochSettings::dummy();
+        let epoch = Epoch(1);
+        let store =
+            FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.protocol_parameters.clone())]);
+        let epoch_settings_stored = store.get_epoch_settings(epoch + 1).await.unwrap();
+
+        assert!(epoch_settings_stored.is_none());
     }
 
     #[tokio::test]
