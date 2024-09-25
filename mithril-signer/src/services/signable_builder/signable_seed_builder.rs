@@ -92,6 +92,30 @@ mod tests {
 
     use super::*;
 
+    struct MockDependencyInjector {
+        mock_epoch_service: MockEpochServiceImpl,
+        mock_single_signer: MockSingleSigner,
+        mock_protocol_initializer_store: MockProtocolInitializerStorer,
+    }
+
+    impl MockDependencyInjector {
+        fn new() -> MockDependencyInjector {
+            MockDependencyInjector {
+                mock_epoch_service: MockEpochServiceImpl::new(),
+                mock_single_signer: MockSingleSigner::new(),
+                mock_protocol_initializer_store: MockProtocolInitializerStorer::new(),
+            }
+        }
+
+        fn build_signable_builder_service(self) -> SignerSignableSeedBuilder {
+            SignerSignableSeedBuilder::new(
+                Arc::new(RwLock::new(self.mock_epoch_service)),
+                Arc::new(self.mock_single_signer),
+                Arc::new(self.mock_protocol_initializer_store),
+            )
+        }
+    }
+
     #[tokio::test]
     async fn test_compute_next_aggregate_verification_key_protocol_message_value() {
         let epoch = Epoch(5);
@@ -101,34 +125,29 @@ mod tests {
         let expected_next_aggregate_verification_key_clone =
             expected_next_aggregate_verification_key.clone();
         let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
-        let mock_epoch_service = MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
-            mock_epoch_service
-                .expect_epoch_of_current_data()
-                .return_once(move || Ok(epoch))
-                .once();
-            mock_epoch_service
-                .expect_next_signers_with_stake()
-                .return_once(move || Ok(Vec::new()))
-                .once();
-        });
-        let mut mock_single_signer = MockSingleSigner::new();
-        mock_single_signer
+        let mut mock_container = MockDependencyInjector::new();
+        mock_container.mock_epoch_service =
+            MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
+                mock_epoch_service
+                    .expect_epoch_of_current_data()
+                    .return_once(move || Ok(epoch))
+                    .once();
+                mock_epoch_service
+                    .expect_next_signers_with_stake()
+                    .return_once(move || Ok(Vec::new()))
+                    .once();
+            });
+        mock_container
+            .mock_single_signer
             .expect_compute_aggregate_verification_key()
             .return_once(move |_, _| Ok(Some(expected_next_aggregate_verification_key_clone)))
             .once();
-        let mut mock_protocol_initializer_store = MockProtocolInitializerStorer::new();
-        mock_protocol_initializer_store
+        mock_container
+            .mock_protocol_initializer_store
             .expect_get_protocol_initializer()
             .return_once(move |_| Ok(Some(protocol_initializer)))
             .once();
-        let epoch_service = Arc::new(RwLock::new(mock_epoch_service));
-        let single_signer = Arc::new(mock_single_signer);
-        let protocol_initializer_store = Arc::new(mock_protocol_initializer_store);
-        let signable_seed_builder = SignerSignableSeedBuilder::new(
-            epoch_service,
-            single_signer,
-            protocol_initializer_store,
-        );
+        let signable_seed_builder = mock_container.build_signable_builder_service();
 
         let next_aggregate_verification_key = signable_seed_builder
             .compute_next_aggregate_verification_key_protocol_message_part_value()
@@ -149,22 +168,15 @@ mod tests {
             phi_f: 1.0,
         };
         let expected_next_protocol_parameters = NEXT_PROTOCOL_PARAMETERS.compute_hash();
-        let mock_epoch_service = MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
-            mock_epoch_service
-                .expect_next_protocol_parameters()
-                .return_once(|| Ok(&NEXT_PROTOCOL_PARAMETERS))
-                .once();
-        });
-        let mock_single_signer = MockSingleSigner::new();
-        let mock_protocol_initializer_store = MockProtocolInitializerStorer::new();
-        let epoch_service = Arc::new(RwLock::new(mock_epoch_service));
-        let single_signer = Arc::new(mock_single_signer);
-        let protocol_initializer_store = Arc::new(mock_protocol_initializer_store);
-        let signable_seed_builder = SignerSignableSeedBuilder::new(
-            epoch_service,
-            single_signer,
-            protocol_initializer_store,
-        );
+        let mut mock_container = MockDependencyInjector::new();
+        mock_container.mock_epoch_service =
+            MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
+                mock_epoch_service
+                    .expect_next_protocol_parameters()
+                    .return_once(|| Ok(&NEXT_PROTOCOL_PARAMETERS))
+                    .once();
+            });
+        let signable_seed_builder = mock_container.build_signable_builder_service();
 
         let next_protocol_parameters = signable_seed_builder
             .compute_next_protocol_parameters_protocol_message_part_value()
