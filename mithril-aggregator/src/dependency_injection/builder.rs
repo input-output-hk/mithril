@@ -1104,7 +1104,9 @@ impl DependenciesBuilder {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
         );
+        let era_checker = self.get_era_checker().await?;
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker,
             seed_signable_builder,
             mithril_stake_distribution_builder,
             immutable_signable_builder,
