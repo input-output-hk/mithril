@@ -1465,7 +1465,7 @@ impl DependenciesBuilder {
             Some(socket_path) => {
                 let consumer = SignatureConsumer::new(
                     socket_path,
-                    Duration::from_millis(10),
+                    Duration::from_millis(50),
                     self.get_certifier_service().await?,
                     &self.root_logger(),
                 );

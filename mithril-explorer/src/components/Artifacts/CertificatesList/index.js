@@ -5,6 +5,7 @@ import CertificateModal from "#/CertificateModal";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
 import { selectedAggregator } from "@/store/settingsSlice";
+import SignedEntityType from "#/SignedEntityType";
 
 export default function CertificatesList(props) {
   const [certificates, setCertificates] = useState([]);
@@ -79,10 +80,14 @@ export default function CertificatesList(props) {
                         </ListGroup.Item>
                         <ListGroup.Item>Epoch: {certificate.beacon.epoch}</ListGroup.Item>
                         <ListGroup.Item>
-                          Immutable file number: {certificate.beacon.immutable_file_number}
+                          Number of signers: {certificate.metadata.total_signers}
                         </ListGroup.Item>
                         <ListGroup.Item>
-                          Number of signers: {certificate.metadata.total_signers}
+                          Signed entity:{" "}
+                          <SignedEntityType
+                            signedEntityType={certificate.signed_entity_type}
+                            table
+                          />
                         </ListGroup.Item>
                         <ListGroup.Item>
                           Initiated at:{" "}
