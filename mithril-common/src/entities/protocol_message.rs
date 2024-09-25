@@ -29,6 +29,12 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "next_protocol_parameters")]
     NextProtocolParameters,
 
+    /// The ProtocolMessage part key associated to the current epoch
+    ///
+    /// aka EPOCH(n)
+    #[serde(rename = "current_epoch")]
+    CurrentEpoch,
+
     /// The ProtocolMessage part key associated to the latest block number signed
     #[serde(rename = "latest_block_number")]
     LatestBlockNumber,
@@ -48,6 +54,7 @@ impl Display for ProtocolMessagePartKey {
             Self::SnapshotDigest => write!(f, "snapshot_digest"),
             Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
             Self::NextProtocolParameters => write!(f, "next_protocol_parameters"),
+            Self::CurrentEpoch => write!(f, "current_epoch"),
             Self::CardanoTransactionsMerkleRoot => write!(f, "cardano_transactions_merkle_root"),
             Self::LatestBlockNumber => write!(f, "latest_block_number"),
             Self::CardanoStakeDistributionEpoch => write!(f, "cardano_stake_distribution_epoch"),
