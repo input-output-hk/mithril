@@ -12,7 +12,6 @@ pub struct MithrilStakeDistributionSignableBuilder {}
 
 #[async_trait]
 impl SignableBuilder<Epoch> for MithrilStakeDistributionSignableBuilder {
-    // We just need to return an empty protocol message as the next AVK will be appended by the signing engine automatically
     async fn compute_protocol_message(&self, _beacon: Epoch) -> StdResult<ProtocolMessage> {
         Ok(ProtocolMessage::new())
     }

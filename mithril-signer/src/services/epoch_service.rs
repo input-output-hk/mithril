@@ -218,6 +218,70 @@ impl EpochService for MithrilEpochService {
 }
 
 #[cfg(test)]
+pub mod mock_epoch_service {
+    use mockall::mock;
+
+    use super::*;
+
+    mock! {
+        pub EpochServiceImpl {}
+
+        #[async_trait]
+        impl EpochService for EpochServiceImpl {
+            /// Inform the service a new epoch has been detected, telling it to update its
+            /// internal state for the new epoch.
+            fn inform_epoch_settings(&mut self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
+
+            /// Get the current epoch for which the data stored in this service are computed.
+            fn epoch_of_current_data(&self) -> StdResult<Epoch>;
+
+            /// Get next protocol parameters used in next epoch (associated with the actual epoch)
+            fn next_protocol_parameters(&self) -> StdResult<&'static ProtocolParameters>;
+
+            /// Get signers for the current epoch
+            fn current_signers(&self) -> StdResult<&'static Vec<Signer>>;
+
+            /// Get signers for the next epoch
+            fn next_signers(&self) -> StdResult<&'static Vec<Signer>>;
+
+            /// Get signers with stake for the current epoch
+            async fn current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+
+            /// Get signers with stake for the next epoch
+            async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
+
+            /// Get the cardano transactions signing configuration for the current epoch
+            fn cardano_transactions_signing_config(
+                &self,
+            ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
+
+            /// Get the cardano transactions signing configuration for the next epoch
+            fn next_cardano_transactions_signing_config(
+                &self,
+            ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
+
+            /// Check if a signer is included in the current stake distribution
+            fn is_signer_included_in_current_stake_distribution(
+                &self,
+                party_id: PartyId,
+                protocol_initializer: ProtocolInitializer,
+            ) -> StdResult<bool>;
+        }
+    }
+
+    impl MockEpochServiceImpl {
+        pub fn new_with_config(
+            config: impl FnOnce(&mut MockEpochServiceImpl),
+        ) -> MockEpochServiceImpl {
+            let mut epoch_service_mock = MockEpochServiceImpl::new();
+            config(&mut epoch_service_mock);
+
+            epoch_service_mock
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use std::sync::Arc;
 

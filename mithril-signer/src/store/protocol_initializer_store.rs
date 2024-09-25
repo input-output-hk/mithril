@@ -6,6 +6,7 @@ use mithril_persistence::store::{adapter::StoreAdapter, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolInitializer>>;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 /// Store the ProtocolInitializer used for each Epoch. This is useful because
 /// protocol parameters and stake distribution change over time.
