@@ -40,6 +40,16 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
 
         Ok(next_aggregate_verification_key)
     }
+
+    /// Compute next protocol parameters protocol message part value
+    async fn compute_next_protocol_parameters_protocol_message_part_value(
+        &self,
+    ) -> StdResult<ProtocolMessagePartValue> {
+        let epoch_service = self.epoch_service.read().await;
+        let next_protocol_parameters = epoch_service.next_protocol_parameters()?.compute_hash();
+
+        Ok(next_protocol_parameters)
+    }
 }
 
 #[cfg(test)]
@@ -75,5 +85,29 @@ mod tests {
             next_aggregate_verification_key,
             expected_next_aggregate_verification_key
         );
+    }
+
+    #[tokio::test]
+    async fn test_compute_next_protocol_parameters_protocol_message_value() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let expected_next_protocol_parameters = next_fixture.protocol_parameters().compute_hash();
+        let epoch_service = Arc::new(RwLock::new(FakeEpochService::with_data(
+            epoch,
+            &fixture.protocol_parameters(),
+            &next_fixture.protocol_parameters(),
+            &next_fixture.protocol_parameters(),
+            &fixture.signers_with_stake(),
+            &next_fixture.signers_with_stake(),
+        )));
+        let signable_seed_builder = AggregatorSignableSeedBuilder::new(epoch_service);
+
+        let next_protocol_parameters = signable_seed_builder
+            .compute_next_protocol_parameters_protocol_message_part_value()
+            .await
+            .unwrap();
+
+        assert_eq!(next_protocol_parameters, expected_next_protocol_parameters);
     }
 }
