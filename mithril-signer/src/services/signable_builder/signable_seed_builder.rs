@@ -67,7 +67,6 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
         Ok(next_aggregate_verification_key)
     }
 
-    /// Compute next protocol parameters protocol message part value
     async fn compute_next_protocol_parameters_protocol_message_part_value(
         &self,
     ) -> StdResult<ProtocolMessagePartValue> {
@@ -75,6 +74,15 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
         let next_protocol_parameters = epoch_service.next_protocol_parameters()?.compute_hash();
 
         Ok(next_protocol_parameters)
+    }
+
+    async fn compute_current_epoch_protocol_message_part_value(
+        &self,
+    ) -> StdResult<ProtocolMessagePartValue> {
+        let epoch_service = self.epoch_service.read().await;
+        let current_epoch = epoch_service.epoch_of_current_data()?.to_string();
+
+        Ok(current_epoch)
     }
 }
 
@@ -184,5 +192,27 @@ mod tests {
             .unwrap();
 
         assert_eq!(next_protocol_parameters, expected_next_protocol_parameters);
+    }
+
+    #[tokio::test]
+    async fn test_compute_current_epoch_protocol_message_value() {
+        let epoch = Epoch(5);
+        let expected_current_epoch = epoch.to_string();
+        let mut mock_container = MockDependencyInjector::new();
+        mock_container.mock_epoch_service =
+            MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
+                mock_epoch_service
+                    .expect_epoch_of_current_data()
+                    .return_once(move || Ok(epoch))
+                    .once();
+            });
+        let signable_seed_builder = mock_container.build_signable_builder_service();
+
+        let current_epoch = signable_seed_builder
+            .compute_current_epoch_protocol_message_part_value()
+            .await
+            .unwrap();
+
+        assert_eq!(current_epoch, expected_current_epoch);
     }
 }
