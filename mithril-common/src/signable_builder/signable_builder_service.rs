@@ -112,6 +112,11 @@ impl MithrilSignableBuilderService {
                 ProtocolMessagePartKey::NextProtocolParameters,
                 next_protocol_parameters,
             );
+            let current_epoch = self
+                .seed_signable_builder
+                .compute_current_epoch_protocol_message_part_value()
+                .await?;
+            protocol_message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, current_epoch);
         }
 
         Ok(protocol_message)
@@ -214,6 +219,11 @@ mod tests {
                 .once()
                 .return_once(move || Ok("protocol-params-hash-123".to_string()));
             mock_container
+                .mock_signable_seed_builder
+                .expect_compute_current_epoch_protocol_message_part_value()
+                .once()
+                .return_once(move || Ok("epoch-123".to_string()));
+            mock_container
                 .mock_mithril_stake_distribution_signable_builder
                 .expect_compute_protocol_message()
                 .once()
@@ -243,6 +253,11 @@ mod tests {
                 .expect_compute_next_protocol_parameters_protocol_message_part_value()
                 .once()
                 .return_once(move || Ok("protocol-params-hash-123".to_string()));
+            mock_container
+                .mock_signable_seed_builder
+                .expect_compute_current_epoch_protocol_message_part_value()
+                .once()
+                .return_once(move || Ok("epoch-123".to_string()));
             mock_container
                 .mock_cardano_immutable_files_full_signable_builder
                 .expect_compute_protocol_message()
@@ -275,6 +290,11 @@ mod tests {
                 .once()
                 .return_once(move || Ok("protocol-params-hash-123".to_string()));
             mock_container
+                .mock_signable_seed_builder
+                .expect_compute_current_epoch_protocol_message_part_value()
+                .once()
+                .return_once(move || Ok("epoch-123".to_string()));
+            mock_container
                 .mock_cardano_transactions_signable_builder
                 .expect_compute_protocol_message()
                 .once()
@@ -306,6 +326,11 @@ mod tests {
                 .expect_compute_next_protocol_parameters_protocol_message_part_value()
                 .once()
                 .return_once(move || Ok("protocol-params-hash-123".to_string()));
+            mock_container
+                .mock_signable_seed_builder
+                .expect_compute_current_epoch_protocol_message_part_value()
+                .once()
+                .return_once(move || Ok("epoch-123".to_string()));
             mock_container
                 .mock_cardano_stake_distribution_signable_builder
                 .expect_compute_protocol_message()
