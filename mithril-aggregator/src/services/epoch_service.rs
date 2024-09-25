@@ -641,15 +641,21 @@ mod tests {
         let epoch_settings_storer = FakeEpochSettingsStorer::new(vec![
             (
                 signer_retrieval_epoch,
-                current_epoch_fixture.protocol_parameters(),
+                AggregatorEpochSettings {
+                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                },
             ),
             (
                 next_signer_retrieval_epoch,
-                next_epoch_fixture.protocol_parameters(),
+                AggregatorEpochSettings {
+                    protocol_parameters: next_epoch_fixture.protocol_parameters(),
+                },
             ),
             (
                 next_signer_retrieval_epoch.next(),
-                upcoming_protocol_parameters.clone(),
+                AggregatorEpochSettings {
+                    protocol_parameters: upcoming_protocol_parameters.clone(),
+                },
             ),
         ]);
         let vkey_store = VerificationKeyStore::new(Box::new(

@@ -59,16 +59,8 @@ pub struct FakeEpochSettingsStorer {
 
 impl FakeEpochSettingsStorer {
     #[cfg(test)]
-    pub fn new(data: Vec<(Epoch, ProtocolParameters)>) -> Self {
-        let data_epoch_settings = data.into_iter().map(|(epoch, protocol_parameters)| {
-            (
-                epoch,
-                AggregatorEpochSettings {
-                    protocol_parameters,
-                },
-            )
-        });
-        let epoch_settings = RwLock::new(data_epoch_settings.into_iter().collect());
+    pub fn new(data: Vec<(Epoch, AggregatorEpochSettings)>) -> Self {
+        let epoch_settings = RwLock::new(data.into_iter().collect());
         Self { epoch_settings }
     }
 }
@@ -122,8 +114,7 @@ mod tests {
     async fn test_save_epoch_settings_already_exist() {
         let epoch_settings = AggregatorEpochSettings::dummy();
         let epoch = Epoch(1);
-        let store =
-            FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.protocol_parameters.clone())]);
+        let store = FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.clone())]);
         let protocol_parameters_new = ProtocolParameters {
             k: epoch_settings.protocol_parameters.k + 1,
             ..epoch_settings.protocol_parameters
@@ -142,31 +133,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_protocol_parameters_exist() {
-        let protocol_parameters = fake_data::protocol_parameters();
-        let epoch = Epoch(1);
-        let store = FakeEpochSettingsStorer::new(vec![(epoch, protocol_parameters.clone())]);
-        let protocol_parameters_stored = store.get_protocol_parameters(epoch).await.unwrap();
-
-        assert_eq!(Some(protocol_parameters), protocol_parameters_stored);
-    }
-
-    #[tokio::test]
-    async fn test_get_protocol_parameters_do_not_exist() {
-        let protocol_parameters = fake_data::protocol_parameters();
-        let epoch = Epoch(1);
-        let store = FakeEpochSettingsStorer::new(vec![(epoch, protocol_parameters.clone())]);
-        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 1).await.unwrap();
-
-        assert!(protocol_parameters_stored.is_none());
-    }
-
-    #[tokio::test]
     async fn test_get_epoch_settings_exist() {
         let epoch_settings = AggregatorEpochSettings::dummy();
         let epoch = Epoch(1);
-        let store =
-            FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.protocol_parameters.clone())]);
+        let store = FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.clone())]);
         let epoch_settings_stored = store.get_epoch_settings(epoch).await.unwrap();
 
         assert_eq!(Some(epoch_settings), epoch_settings_stored);
@@ -176,8 +146,7 @@ mod tests {
     async fn test_get_epoch_settings_do_not_exist() {
         let epoch_settings = AggregatorEpochSettings::dummy();
         let epoch = Epoch(1);
-        let store =
-            FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.protocol_parameters.clone())]);
+        let store = FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.clone())]);
         let epoch_settings_stored = store.get_epoch_settings(epoch + 1).await.unwrap();
 
         assert!(epoch_settings_stored.is_none());
@@ -190,10 +159,13 @@ mod tests {
             k: protocol_parameters.k + 1,
             ..protocol_parameters
         };
+        let aggregator_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: protocol_parameters.clone(),
+        };
         let epoch = Epoch(1);
         let store = FakeEpochSettingsStorer::new(vec![
-            (epoch, protocol_parameters.clone()),
-            (epoch + 1, protocol_parameters.clone()),
+            (epoch, aggregator_epoch_settings.clone()),
+            (epoch + 1, aggregator_epoch_settings.clone()),
         ]);
 
         store
