@@ -46,7 +46,12 @@ mod handlers {
         certifier_service: Arc<dyn CertifierService>,
         single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
+        // debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
+        debug!(
+            "⇄ HTTP SERVER: register_signatures";
+            "party_id" => &message.party_id,
+            "signed_entity_type" => ?message.signed_entity_type,
+        );
         trace!("⇄ HTTP SERVER: register_signatures"; "complete_message" => #?message );
 
         let signed_entity_type = message.signed_entity_type.clone();

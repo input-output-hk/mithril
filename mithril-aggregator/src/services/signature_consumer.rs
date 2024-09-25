@@ -1,4 +1,4 @@
-use slog::{error, trace, Logger};
+use slog::{debug, error, trace, Logger};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -8,7 +8,7 @@ use mithril_common::socket_client::HttpUnixSocketClient;
 use mithril_common::StdResult;
 
 use crate::message_adapters::FromRegisterSingleSignatureAdapter;
-use crate::services::CertifierService;
+use crate::services::{CertifierService, CertifierServiceError};
 
 /// A service that consumes signatures from a network through a Unix socket.
 pub struct SignatureConsumer {
@@ -56,13 +56,54 @@ impl SignatureConsumer {
         let signatures_message: Vec<RegisterSignatureMessage> =
             self.unix_socket_client.read(Self::PULL_SIGNATURES_ROUTE)?;
 
+        if !signatures_message.is_empty() {
+            let mut signatures_pools: Vec<String> = signatures_message
+                .iter()
+                .map(|s| s.party_id.clone())
+                .collect();
+            signatures_pools.dedup();
+            let mut sign_entity_types: Vec<String> = signatures_message
+                .iter()
+                .map(|s| s.signed_entity_type.to_string())
+                .collect();
+            sign_entity_types.dedup();
+            debug!(
+                self.logger,
+                "{} signatures pulled from the decentralized network",
+                signatures_message.len();
+                "pools_ids" => signatures_pools.as_slice().join(", "),
+                "signed_entity_types" => sign_entity_types.as_slice().join(", "),
+            );
+        }
+
         for signature_message in signatures_message {
             let signed_entity_type = signature_message.signed_entity_type.clone();
             let signature = FromRegisterSingleSignatureAdapter::try_adapt(signature_message)?;
 
-            self.certifier_service
+            if let Err(error) = self
+                .certifier_service
                 .register_single_signature(&signed_entity_type, &signature)
-                .await?;
+                .await
+            {
+                match error.downcast_ref::<CertifierServiceError>() {
+                    Some(CertifierServiceError::Expired(se))
+                    | Some(CertifierServiceError::AlreadyCertified(se)) => {
+                        trace!(
+                            self.logger,
+                            "Certificate already created for '{se:?}', no need to register this signature";
+                            "party_id" => &signature.party_id,
+                        );
+                        // Removing this line may trigger the following error:
+                        // "UNIQUE constraint failed: signed_entity.signed_entity_id (code 19)"
+                        // 12: database::repository::SignedEntityStore::store_signed_entity::...
+                        // 13: services::SignedEntityService::create_artifact::...
+                        break;
+                    }
+                    _ => {
+                        anyhow::bail!(error);
+                    }
+                };
+            }
         }
 
         Ok(())

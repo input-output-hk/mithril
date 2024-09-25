@@ -280,14 +280,18 @@ impl MithrilInfrastructure {
             } else {
                 aggregator_endpoint.clone()
             };
+            // First signer will use "old" aggregator http endpoint to send single signatures.
+            let signature_network_node_socket = if index > 0 {
+                signature_network_nodes.get(index).map(|s| s.socket_path())
+            } else {
+                None
+            };
 
             let mut signer = Signer::new(&SignerConfig {
                 aggregator_endpoint,
                 pool_node,
                 cardano_cli_path: &config.devnet.cardano_cli_path(),
-                signature_network_node_socket: signature_network_nodes
-                    .get(index)
-                    .map(|s| s.socket_path()),
+                signature_network_node_socket,
                 work_dir: &config.work_dir,
                 bin_dir: &config.bin_dir,
                 mithril_run_interval: config.mithril_run_interval,

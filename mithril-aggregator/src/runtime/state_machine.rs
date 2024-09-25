@@ -201,7 +201,10 @@ impl AggregatorRuntime {
                     .with_context(|| "AggregatorRuntime can not get the current open message")?
                 {
                     // transition READY > SIGNING
-                    info!("→ transitioning to SIGNING");
+                    info!(
+                        "→ transitioning to SIGNING";
+                        "signed_entity_type" => ?open_message.signed_entity_type
+                    );
                     let new_state = self
                         .transition_from_ready_to_signing(last_time_point.clone(), open_message.clone())
                         .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
@@ -258,10 +261,14 @@ impl AggregatorRuntime {
                     self.state = AggregatorState::Ready(new_state);
                 } else {
                     // SIGNING > READY
+                    let signed_entity_type = state.open_message.signed_entity_type.clone();
                     let new_state = self
                         .transition_from_signing_to_ready_multisignature(state)
                         .await?;
-                    info!("→ a multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
+                    info!(
+                        "→ a multi-signature has been created, build an artifact & a certificate and transitioning back to READY";
+                        "signed_entity_type" => ?signed_entity_type
+                    );
                     self.state = AggregatorState::Ready(new_state);
                 }
             }
