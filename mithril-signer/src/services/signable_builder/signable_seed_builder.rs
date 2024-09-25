@@ -66,12 +66,24 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
 
         Ok(next_aggregate_verification_key)
     }
+
+    /// Compute next protocol parameters protocol message part value
+    async fn compute_next_protocol_parameters_protocol_message_part_value(
+        &self,
+    ) -> StdResult<ProtocolMessagePartValue> {
+        let epoch_service = self.epoch_service.read().await;
+        let next_protocol_parameters = epoch_service.next_protocol_parameters()?.compute_hash();
+
+        Ok(next_protocol_parameters)
+    }
 }
 
 #[cfg(test)]
 mod tests {
 
-    use mithril_common::{entities::Epoch, test_utils::MithrilFixtureBuilder};
+    use mithril_common::{
+        entities::Epoch, entities::ProtocolParameters, test_utils::MithrilFixtureBuilder,
+    };
 
     use crate::{
         services::{mock_epoch_service::MockEpochServiceImpl, MockSingleSigner},
@@ -127,5 +139,38 @@ mod tests {
             next_aggregate_verification_key,
             expected_next_aggregate_verification_key
         );
+    }
+
+    #[tokio::test]
+    async fn test_compute_next_protocol_parameters_protocol_message_value() {
+        const NEXT_PROTOCOL_PARAMETERS: ProtocolParameters = ProtocolParameters {
+            k: 10,
+            m: 10,
+            phi_f: 1.0,
+        };
+        let expected_next_protocol_parameters = NEXT_PROTOCOL_PARAMETERS.compute_hash();
+        let mock_epoch_service = MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
+            mock_epoch_service
+                .expect_next_protocol_parameters()
+                .return_once(|| Ok(&NEXT_PROTOCOL_PARAMETERS))
+                .once();
+        });
+        let mock_single_signer = MockSingleSigner::new();
+        let mock_protocol_initializer_store = MockProtocolInitializerStorer::new();
+        let epoch_service = Arc::new(RwLock::new(mock_epoch_service));
+        let single_signer = Arc::new(mock_single_signer);
+        let protocol_initializer_store = Arc::new(mock_protocol_initializer_store);
+        let signable_seed_builder = SignerSignableSeedBuilder::new(
+            epoch_service,
+            single_signer,
+            protocol_initializer_store,
+        );
+
+        let next_protocol_parameters = signable_seed_builder
+            .compute_next_protocol_parameters_protocol_message_part_value()
+            .await
+            .unwrap();
+
+        assert_eq!(next_protocol_parameters, expected_next_protocol_parameters);
     }
 }
