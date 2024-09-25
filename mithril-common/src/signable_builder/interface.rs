@@ -38,4 +38,9 @@ pub trait SignableSeedBuilder: Send + Sync {
     async fn compute_next_aggregate_verification_key_protocol_message_part_value(
         &self,
     ) -> StdResult<ProtocolMessagePartValue>;
+
+    /// Compute next protocol parameters protocol message part value
+    async fn compute_next_protocol_parameters_protocol_message_part_value(
+        &self,
+    ) -> StdResult<ProtocolMessagePartValue>;
 }
