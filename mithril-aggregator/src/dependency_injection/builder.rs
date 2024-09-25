@@ -64,6 +64,7 @@ use crate::{
         OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
         SignerStore, SingleSignatureRepository, StakePoolStore,
     },
+    entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
@@ -1206,8 +1207,16 @@ impl DependenciesBuilder {
         let verification_key_store = self.get_verification_key_store().await?;
         let epoch_settings_storer = self.get_epoch_settings_storer().await?;
 
+        let epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: self.configuration.protocol_parameters.clone(),
+            // TODO : complete the final structure
+            // cardano_transactions_signing_config: self
+            //     .get_signed_entity_config()?
+            //     .cardano_transactions_signing_config,
+        };
+
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
-            self.configuration.protocol_parameters.clone(),
+            epoch_settings,
             epoch_settings_storer,
             verification_key_store,
         )));

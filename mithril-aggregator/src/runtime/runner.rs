@@ -68,8 +68,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
 
-    /// Ask the EpochService to update the protocol parameters.
-    async fn update_protocol_parameters(&self) -> StdResult<()>;
+    /// Ask the EpochService to update the epoch settings.
+    async fn update_epoch_settings(&self) -> StdResult<()>;
 
     /// Compute the protocol message
     async fn compute_protocol_message(
@@ -270,12 +270,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
     }
 
-    async fn update_protocol_parameters(&self) -> StdResult<()> {
+    async fn update_epoch_settings(&self) -> StdResult<()> {
         self.dependencies
             .epoch_service
             .write()
             .await
-            .update_protocol_parameters()
+            .update_epoch_settings()
             .await
     }
 
@@ -490,6 +490,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::entities::AggregatorEpochSettings;
     use crate::services::{FakeEpochService, MockUpkeepService};
     use crate::{
         entities::OpenMessage,
@@ -921,7 +922,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_protocol_parameters() {
+    async fn test_update_epoch_settings() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_inform_epoch()
@@ -931,24 +932,26 @@ pub mod tests {
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
         let epoch_settings_storer = deps.epoch_settings_storer.clone();
-        let expected_protocol_parameters = deps.config.protocol_parameters.clone();
+        let expected_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: deps.config.protocol_parameters.clone(),
+        };
         let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
-        let insert_epoch = current_epoch.offset_to_protocol_parameters_recording_epoch();
+        let insert_epoch = current_epoch.offset_to_epoch_settings_recording_epoch();
 
         let runner = build_runner_with_fixture_data(deps).await;
         runner.inform_new_epoch(current_epoch).await.unwrap();
         runner
-            .update_protocol_parameters()
+            .update_epoch_settings()
             .await
-            .expect("update_protocol_parameters should not fail");
+            .expect("update_epoch_settings should not fail");
 
-        let saved_protocol_parameters = epoch_settings_storer
-            .get_protocol_parameters(insert_epoch)
+        let saved_epoch_settings = epoch_settings_storer
+            .get_epoch_settings(insert_epoch)
             .await
             .unwrap()
-            .unwrap_or_else(|| panic!("should have protocol parameters for epoch {insert_epoch}",));
+            .unwrap_or_else(|| panic!("should have epoch settings for epoch {insert_epoch}",));
 
-        assert_eq!(expected_protocol_parameters, saved_protocol_parameters);
+        assert_eq!(expected_epoch_settings, saved_epoch_settings);
     }
 
     #[tokio::test]

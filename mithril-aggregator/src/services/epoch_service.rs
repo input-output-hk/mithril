@@ -37,10 +37,10 @@ pub trait EpochService: Sync + Send {
     /// internal state for the new epoch.
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()>;
 
-    /// Insert future protocol parameters in the store based on this service current epoch.
+    /// Insert future epoch settings in the store based on this service current epoch.
     ///
     /// Note: must be called after `inform_epoch`.
-    async fn update_protocol_parameters(&mut self) -> StdResult<()>;
+    async fn update_epoch_settings(&mut self) -> StdResult<()>;
 
     /// Inform the service that it can precompute data for its current epoch.
     ///
@@ -104,8 +104,8 @@ struct ComputedEpochData {
 
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
-    /// Protocol parameters that will be inserted when inform_epoch is called
-    future_protocol_parameters: ProtocolParameters,
+    /// Epoch settings that will be inserted when inform_epoch is called
+    future_epoch_settings: AggregatorEpochSettings,
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
@@ -115,12 +115,12 @@ pub struct MithrilEpochService {
 impl MithrilEpochService {
     /// Create a new service instance
     pub fn new(
-        future_protocol_parameters: ProtocolParameters,
+        future_epoch_settings: AggregatorEpochSettings,
         epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Self {
         Self {
-            future_protocol_parameters,
+            future_epoch_settings,
             epoch_data: None,
             computed_epoch_data: None,
             epoch_settings_storer,
@@ -158,24 +158,22 @@ impl MithrilEpochService {
         })
     }
 
-    async fn insert_future_protocol_parameters(&self, actual_epoch: Epoch) -> StdResult<()> {
-        let recording_epoch = actual_epoch.offset_to_protocol_parameters_recording_epoch();
+    async fn insert_future_epoch_settings(&self, actual_epoch: Epoch) -> StdResult<()> {
+        let recording_epoch = actual_epoch.offset_to_epoch_settings_recording_epoch();
 
         debug!(
-            "EpochService: inserting protocol parameters in epoch {}",
+            "EpochService: inserting epoch settings in epoch {}",
             recording_epoch;
-            "protocol_parameters" => ?self.future_protocol_parameters
+            "epoch_settings" => ?self.future_epoch_settings
         );
 
         self.epoch_settings_storer
             .save_epoch_settings(
                 recording_epoch,
-                AggregatorEpochSettings {
-                    protocol_parameters: self.future_protocol_parameters.clone(),
-                },
+                self.future_epoch_settings.clone(),
             )
             .await
-            .with_context(|| format!("Epoch service failed to insert future_protocol_parameters to epoch {recording_epoch}"))
+            .with_context(|| format!("Epoch service failed to insert future_epoch_settings to epoch {recording_epoch}"))
             .map(|_| ())
     }
 
@@ -244,14 +242,14 @@ impl EpochService for MithrilEpochService {
         Ok(())
     }
 
-    async fn update_protocol_parameters(&mut self) -> StdResult<()> {
-        debug!("EpochService::update_protocol_parameters");
+    async fn update_epoch_settings(&mut self) -> StdResult<()> {
+        debug!("EpochService::update_epoch_settings");
 
         let data = self.unwrap_data().with_context(|| {
-            "can't update protocol parameters if inform_epoch has not been called first"
+            "can't update epoch settings if inform_epoch has not been called first"
         })?;
 
-        self.insert_future_protocol_parameters(data.epoch).await
+        self.insert_future_epoch_settings(data.epoch).await
     }
 
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
@@ -343,7 +341,7 @@ pub struct FakeEpochService {
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
     inform_epoch_error: bool,
-    update_protocol_parameters_error: bool,
+    update_epoch_settings_error: bool,
     precompute_epoch_data_error: bool,
 }
 
@@ -403,7 +401,7 @@ impl FakeEpochService {
                 next_protocol_multi_signer,
             }),
             inform_epoch_error: false,
-            update_protocol_parameters_error: false,
+            update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
         }
     }
@@ -429,7 +427,7 @@ impl FakeEpochService {
             epoch_data: None,
             computed_epoch_data: None,
             inform_epoch_error: false,
-            update_protocol_parameters_error: false,
+            update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
         }
     }
@@ -441,7 +439,7 @@ impl FakeEpochService {
         precompute_epoch: bool,
     ) {
         self.inform_epoch_error = inform_epoch;
-        self.update_protocol_parameters_error = update_protocol_parameters;
+        self.update_epoch_settings_error = update_protocol_parameters;
         self.precompute_epoch_data_error = precompute_epoch;
     }
 
@@ -470,9 +468,9 @@ impl EpochService for FakeEpochService {
         Ok(())
     }
 
-    async fn update_protocol_parameters(&mut self) -> StdResult<()> {
-        if self.update_protocol_parameters_error {
-            anyhow::bail!("update_protocol_parameters fake error");
+    async fn update_epoch_settings(&mut self) -> StdResult<()> {
+        if self.update_epoch_settings_error {
+            anyhow::bail!("update_epoch_settings fake error");
         }
         Ok(())
     }
@@ -669,7 +667,9 @@ mod tests {
         ));
 
         MithrilEpochService::new(
-            future_protocol_parameters,
+            AggregatorEpochSettings {
+                protocol_parameters: future_protocol_parameters,
+            },
             Arc::new(epoch_settings_storer),
             Arc::new(vkey_store),
         )
@@ -796,8 +796,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_protocol_parameters_insert_future_protocol_parameters_in_the_store() {
+    async fn update_epoch_settings_insert_future_epoch_settings_in_the_store() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+        // TODO use epoch_settings
         let future_protocol_parameters = ProtocolParameters::new(6, 89, 0.124);
         let epoch = Epoch(4);
         let mut service = build_service(
@@ -814,18 +815,19 @@ mod tests {
             .await
             .expect("inform_epoch should not fail");
         service
-            .update_protocol_parameters()
+            .update_epoch_settings()
             .await
-            .expect("update_protocol_parameters should not fail");
+            .expect("update_epoch_settings should not fail");
 
+        // TODO use epoch_settings
         let inserted_protocol_parameters = service
             .epoch_settings_storer
-            .get_protocol_parameters(epoch.offset_to_protocol_parameters_recording_epoch())
+            .get_protocol_parameters(epoch.offset_to_epoch_settings_recording_epoch())
             .await
             .unwrap_or_else(|_| {
                 panic!(
-                    "protocol parameters should have been inserted for epoch {}",
-                    epoch.offset_to_protocol_parameters_recording_epoch()
+                    "epoch settings should have been inserted for epoch {}",
+                    epoch.offset_to_epoch_settings_recording_epoch()
                 )
             });
 
