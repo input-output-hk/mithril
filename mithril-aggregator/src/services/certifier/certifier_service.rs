@@ -382,7 +382,7 @@ mod tests {
     };
     use chrono::{DateTime, Days};
     use mithril_common::{
-        entities::{CardanoDbBeacon, ProtocolMessagePartKey},
+        entities::{CardanoDbBeacon, CardanoTransactionsSigningConfig, ProtocolMessagePartKey},
         test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder},
     };
     use tokio::sync::RwLock;
@@ -442,7 +442,11 @@ mod tests {
             .await
             .unwrap();
         dependency_manager
-            .init_state_from_fixture(fixture, epochs_with_signers)
+            .init_state_from_fixture(
+                fixture,
+                &CardanoTransactionsSigningConfig::dummy(),
+                epochs_with_signers,
+            )
             .await;
 
         MithrilCertifierService::from_deps(network, dependency_builder).await

@@ -501,7 +501,9 @@ pub mod tests {
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
-    use mithril_common::entities::{ChainPoint, SignedEntityTypeDiscriminants};
+    use mithril_common::entities::{
+        CardanoTransactionsSigningConfig, ChainPoint, SignedEntityTypeDiscriminants,
+    };
     use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
     use mithril_common::{
         chain_observer::FakeObserver,
@@ -544,6 +546,7 @@ pub mod tests {
             .unwrap();
         deps.init_state_from_fixture(
             &fixture,
+            &CardanoTransactionsSigningConfig::dummy(),
             &[
                 current_epoch.offset_to_signer_retrieval_epoch().unwrap(),
                 current_epoch,
@@ -798,6 +801,7 @@ pub mod tests {
             current_signers.clone(),
             next_signers.clone(),
             &protocol_parameters.clone(),
+            &CardanoTransactionsSigningConfig::dummy(),
         )
         .await;
         runner.inform_new_epoch(time_point.epoch).await.unwrap();
@@ -934,6 +938,10 @@ pub mod tests {
         let epoch_settings_storer = deps.epoch_settings_storer.clone();
         let expected_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: deps.config.protocol_parameters.clone(),
+            cardano_transactions_signing_config: deps
+                .signed_entity_config
+                .cardano_transactions_signing_config
+                .clone(),
         };
         let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
         let insert_epoch = current_epoch.offset_to_epoch_settings_recording_epoch();

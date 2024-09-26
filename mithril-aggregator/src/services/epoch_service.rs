@@ -146,16 +146,14 @@ impl MithrilEpochService {
         epoch: Epoch,
         name: &str,
     ) -> StdResult<AggregatorEpochSettings> {
-        let protocol_parameters = self
+        let epoch_settings = self
             .epoch_settings_storer
-            .get_protocol_parameters(epoch)
+            .get_epoch_settings(epoch)
             .await
             .with_context(|| format!("Epoch service failed to obtain {name}"))?
             .ok_or(EpochServiceError::UnavailableData(epoch, name.to_string()))?;
 
-        Ok(AggregatorEpochSettings {
-            protocol_parameters,
-        })
+        Ok(epoch_settings)
     }
 
     async fn insert_future_epoch_settings(&self, actual_epoch: Epoch) -> StdResult<()> {
@@ -357,6 +355,8 @@ impl FakeEpochService {
         current_signers_with_stake: &[SignerWithStake],
         next_signers_with_stake: &[SignerWithStake],
     ) -> Self {
+        use mithril_common::entities::CardanoTransactionsSigningConfig;
+
         let protocol_multi_signer =
             SignerBuilder::new(current_signers_with_stake, protocol_parameters)
                 .with_context(|| "Could not build protocol_multi_signer for epoch service")
@@ -374,12 +374,15 @@ impl FakeEpochService {
         let next_signers = Signer::vec_from(next_signers_with_stake.clone());
         let epoch_settings = AggregatorEpochSettings {
             protocol_parameters: protocol_parameters.clone(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
         };
         let next_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: next_protocol_parameters.clone(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
         };
         let upcoming_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: upcoming_protocol_parameters.clone(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
         };
         Self {
             epoch_data: Some(EpochData {
@@ -536,7 +539,7 @@ impl EpochService for FakeEpochService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::PartyId;
+    use mithril_common::entities::{CardanoTransactionsSigningConfig, PartyId};
     use mithril_common::test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder};
     use mithril_persistence::store::adapter::MemoryAdapter;
     use std::collections::{BTreeSet, HashMap};
@@ -643,18 +646,21 @@ mod tests {
                 signer_retrieval_epoch,
                 AggregatorEpochSettings {
                     protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
             ),
             (
                 next_signer_retrieval_epoch,
                 AggregatorEpochSettings {
                     protocol_parameters: next_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
             ),
             (
                 next_signer_retrieval_epoch.next(),
                 AggregatorEpochSettings {
                     protocol_parameters: upcoming_protocol_parameters.clone(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
             ),
         ]);
@@ -675,6 +681,7 @@ mod tests {
         MithrilEpochService::new(
             AggregatorEpochSettings {
                 protocol_parameters: future_protocol_parameters,
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
             },
             Arc::new(epoch_settings_storer),
             Arc::new(vkey_store),

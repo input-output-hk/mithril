@@ -25,27 +25,21 @@ pub trait EpochSettingsStorer: Sync + Send {
     /// Get the saved `AggregatorEpochSettings` for the given [Epoch] if any.
     async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>>;
 
-    /// Handle discrepancies at startup in the protocol parameters store.
+    /// Handle discrepancies at startup in the epoch settings store.
     /// In case an aggregator has been launched after some epochs of not being up or at initial startup,
-    /// the discrepancies in the protocol parameters store needs to be fixed.
-    /// The protocol parameters needs to be recorded for the working epoch and the next 2 epochs.
-    // TODO: Should we pass a AggegatorEpochSettings instead of ProtocolParameters?
+    /// the discrepancies in the epoch settings store needs to be fixed.
+    /// The epoch settings needs to be recorded for the working epoch and the next 2 epochs.
     async fn handle_discrepancies_at_startup(
         &self,
         current_epoch: Epoch,
-        configuration_protocol_parameters: &ProtocolParameters,
+        epoch_settings_configuration: &AggregatorEpochSettings,
     ) -> StdResult<()> {
         for epoch_offset in 0..=2 {
             let epoch = current_epoch + epoch_offset;
-            if self.get_protocol_parameters(epoch).await?.is_none() {
-                debug!("Handle discrepancies at startup of protocol parameters store, will record protocol parameters from the configuration for epoch {epoch}: {configuration_protocol_parameters:?}");
-                self.save_epoch_settings(
-                    epoch,
-                    AggregatorEpochSettings {
-                        protocol_parameters: configuration_protocol_parameters.clone(),
-                    },
-                )
-                .await?;
+            if self.get_epoch_settings(epoch).await?.is_none() {
+                debug!("Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {epoch}: {epoch_settings_configuration:?}");
+                self.save_epoch_settings(epoch, epoch_settings_configuration.clone())
+                    .await?;
             }
         }
 
@@ -93,12 +87,12 @@ impl EpochSettingsStorer for FakeEpochSettingsStorer {
 #[cfg(test)]
 mod tests {
 
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::entities::CardanoTransactionsSigningConfig;
 
     use super::*;
 
     #[tokio::test]
-    async fn test_save_epoch_settings_do_not_exist_yet() {
+    async fn test_save_epoch_settings_do_not_exist_yet_return_none() {
         let epoch_settings = AggregatorEpochSettings::dummy();
         let epoch = Epoch(1);
         let store = FakeEpochSettingsStorer::new(vec![]);
@@ -111,7 +105,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_save_epoch_settings_already_exist() {
+    async fn test_save_epoch_settings_already_exist_return_previous_epoch_settings_stored() {
         let epoch_settings = AggregatorEpochSettings::dummy();
         let epoch = Epoch(1);
         let store = FakeEpochSettingsStorer::new(vec![(epoch, epoch_settings.clone())]);
@@ -124,6 +118,7 @@ mod tests {
                 epoch,
                 AggregatorEpochSettings {
                     protocol_parameters: protocol_parameters_new.clone(),
+                    ..epoch_settings.clone()
                 },
             )
             .await
@@ -154,44 +149,38 @@ mod tests {
 
     #[tokio::test]
     async fn test_handle_discrepancies_at_startup_should_complete_at_least_two_epochs() {
-        let protocol_parameters = fake_data::protocol_parameters();
-        let protocol_parameters_new = ProtocolParameters {
-            k: protocol_parameters.k + 1,
-            ..protocol_parameters
-        };
-        let aggregator_epoch_settings = AggregatorEpochSettings {
-            protocol_parameters: protocol_parameters.clone(),
+        let epoch_settings = AggregatorEpochSettings::dummy();
+        let epoch_settings_new = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters {
+                k: epoch_settings.protocol_parameters.k + 1,
+                ..epoch_settings.protocol_parameters
+            },
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
+                step: epoch_settings.cardano_transactions_signing_config.step + 1,
+                ..epoch_settings.cardano_transactions_signing_config
+            },
         };
         let epoch = Epoch(1);
         let store = FakeEpochSettingsStorer::new(vec![
-            (epoch, aggregator_epoch_settings.clone()),
-            (epoch + 1, aggregator_epoch_settings.clone()),
+            (epoch, epoch_settings.clone()),
+            (epoch + 1, epoch_settings.clone()),
         ]);
 
         store
-            .handle_discrepancies_at_startup(epoch, &protocol_parameters_new)
+            .handle_discrepancies_at_startup(epoch, &epoch_settings_new)
             .await
             .unwrap();
 
-        let protocol_parameters_stored = store.get_protocol_parameters(epoch).await.unwrap();
-        assert_eq!(
-            Some(protocol_parameters.clone()),
-            protocol_parameters_stored
-        );
+        let epoch_settings_stored = store.get_epoch_settings(epoch).await.unwrap();
+        assert_eq!(Some(epoch_settings.clone()), epoch_settings_stored);
 
-        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 1).await.unwrap();
-        assert_eq!(
-            Some(protocol_parameters.clone()),
-            protocol_parameters_stored
-        );
+        let epoch_settings_stored = store.get_epoch_settings(epoch + 1).await.unwrap();
+        assert_eq!(Some(epoch_settings.clone()), epoch_settings_stored);
 
-        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 2).await.unwrap();
-        assert_eq!(
-            Some(protocol_parameters_new.clone()),
-            protocol_parameters_stored
-        );
+        let epoch_settings_stored = store.get_epoch_settings(epoch + 2).await.unwrap();
+        assert_eq!(Some(epoch_settings_new.clone()), epoch_settings_stored);
 
-        let protocol_parameters_stored = store.get_protocol_parameters(epoch + 3).await.unwrap();
-        assert!(protocol_parameters_stored.is_none());
+        let epoch_settings_stored = store.get_epoch_settings(epoch + 3).await.unwrap();
+        assert!(epoch_settings_stored.is_none());
     }
 }

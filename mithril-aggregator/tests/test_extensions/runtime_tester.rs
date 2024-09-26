@@ -9,6 +9,7 @@ use mithril_aggregator::{
     AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter,
     SignerRegistrationError,
 };
+use mithril_common::entities::CardanoTransactionsSigningConfig;
 use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
@@ -190,7 +191,11 @@ impl RuntimeTester {
         // Init the stores needed for a genesis certificate
         let genesis_epochs = self.dependencies.get_genesis_epochs().await;
         self.dependencies
-            .init_state_from_fixture(fixture, &[genesis_epochs.0, genesis_epochs.1])
+            .init_state_from_fixture(
+                fixture,
+                &CardanoTransactionsSigningConfig::dummy(),
+                &[genesis_epochs.0, genesis_epochs.1],
+            )
             .await;
         Ok(())
     }

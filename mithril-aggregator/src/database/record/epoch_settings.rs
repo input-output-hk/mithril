@@ -1,7 +1,7 @@
-use mithril_common::entities::{
-    BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
-};
+use mithril_common::entities::{CardanoTransactionsSigningConfig, Epoch, ProtocolParameters};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
+
+use crate::entities::AggregatorEpochSettings;
 
 /// Settings for an epoch, including the protocol parameters.
 #[derive(Debug, PartialEq)]
@@ -14,6 +14,15 @@ pub struct EpochSettingsRecord {
 
     /// Cardano transactions signing configuration.
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+}
+
+impl From<EpochSettingsRecord> for AggregatorEpochSettings {
+    fn from(other: EpochSettingsRecord) -> Self {
+        Self {
+            protocol_parameters: other.protocol_parameters,
+            cardano_transactions_signing_config: other.cardano_transactions_signing_config,
+        }
+    }
 }
 
 impl SqLiteEntity for EpochSettingsRecord {

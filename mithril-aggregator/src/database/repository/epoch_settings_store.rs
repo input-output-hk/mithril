@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use mithril_common::entities::{
-    BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
-};
+use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
@@ -43,15 +41,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
     ) -> StdResult<Option<AggregatorEpochSettings>> {
         let epoch_settings_record = self
             .connection
-            .fetch_first(UpdateEpochSettingsQuery::one(
-                epoch,
-                epoch_settings.protocol_parameters,
-                // TODO retrieve from the AggregatorEpochSettings
-                CardanoTransactionsSigningConfig {
-                    security_parameter: BlockNumber(0),
-                    step: BlockNumber(0),
-                },
-            ))
+            .fetch_first(UpdateEpochSettingsQuery::one(epoch, epoch_settings))
             .map_err(|e| AdapterError::GeneralError(e.context("persist epoch settings failure")))?
             .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
 
@@ -66,9 +56,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
                 .count();
         }
 
-        Ok(Some(AggregatorEpochSettings {
-            protocol_parameters: epoch_settings_record.protocol_parameters,
-        }))
+        Ok(Some(AggregatorEpochSettings::from(epoch_settings_record)))
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
@@ -85,10 +73,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
             .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch settings")))?;
 
         if let Some(epoch_settings_record) = cursor.next() {
-            // TODO create an adapter ?
-            return Ok(Some(AggregatorEpochSettings {
-                protocol_parameters: epoch_settings_record.protocol_parameters,
-            }));
+            return Ok(Some(AggregatorEpochSettings::from(epoch_settings_record)));
         }
         Ok(None)
     }

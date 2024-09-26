@@ -1,5 +1,5 @@
 use anyhow::Context;
-use mithril_common::entities::{CardanoTransactionsSigningConfig, Epoch};
+use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 use sqlite::Value;
@@ -42,9 +42,8 @@ impl Query for GetEpochSettingsQuery {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{
-        entities::{BlockNumber, ProtocolParameters},
-        signable_builder::CardanoTransactionsSignableBuilder,
+    use mithril_common::entities::{
+        BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters,
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 

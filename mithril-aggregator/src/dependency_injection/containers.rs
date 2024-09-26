@@ -9,7 +9,10 @@ use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
-    entities::{Epoch, ProtocolParameters, SignedEntityConfig, SignerWithStake, StakeDistribution},
+    entities::{
+        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
+        SignerWithStake, StakeDistribution,
+    },
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     signed_entity_type_lock::SignedEntityTypeLock,
@@ -191,13 +194,20 @@ impl DependencyContainer {
     ///
     /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator state
     /// using the data from a precomputed fixture.
-    pub async fn init_state_from_fixture(&self, fixture: &MithrilFixture, target_epochs: &[Epoch]) {
+    pub async fn init_state_from_fixture(
+        &self,
+        fixture: &MithrilFixture,
+        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
+        target_epochs: &[Epoch],
+    ) {
         for epoch in target_epochs {
             self.epoch_settings_storer
                 .save_epoch_settings(
                     *epoch,
                     AggregatorEpochSettings {
                         protocol_parameters: fixture.protocol_parameters(),
+                        cardano_transactions_signing_config: cardano_transactions_signing_config
+                            .clone(),
                     },
                 )
                 .await
@@ -222,9 +232,13 @@ impl DependencyContainer {
         genesis_signers: Vec<SignerWithStake>,
         second_epoch_signers: Vec<SignerWithStake>,
         genesis_protocol_parameters: &ProtocolParameters,
+        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
     ) {
-        self.init_protocol_parameter_store(genesis_protocol_parameters)
-            .await;
+        self.init_protocol_parameter_store(
+            genesis_protocol_parameters,
+            cardano_transactions_signing_config,
+        )
+        .await;
 
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         for (epoch, signers) in [
@@ -239,7 +253,11 @@ impl DependencyContainer {
     /// `TEST METHOD ONLY`
     ///
     /// Fill up to the first three epochs of the [ProtocolParametersStore] with the given value.
-    pub async fn init_protocol_parameter_store(&self, protocol_parameters: &ProtocolParameters) {
+    pub async fn init_protocol_parameter_store(
+        &self,
+        protocol_parameters: &ProtocolParameters,
+        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
+    ) {
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         let mut epochs_to_save = Vec::new();
         epochs_to_save.push(work_epoch);
@@ -251,6 +269,8 @@ impl DependencyContainer {
                     epoch,
                     AggregatorEpochSettings {
                         protocol_parameters: protocol_parameters.clone(),
+                        cardano_transactions_signing_config: cardano_transactions_signing_config
+                            .clone(),
                     },
                 )
                 .await
