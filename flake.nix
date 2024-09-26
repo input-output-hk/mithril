@@ -4,9 +4,7 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
-    # Latest compatible version of crane with this flake is v0.18.0 with a version of rust of 1.80.0
-    # TODO: Remove the `?ref=...` and adapt this flake to work with the latest version of crane
-    crane.url = "github:ipetkov/crane?ref=v0.18.0";
+    crane.url = "github:ipetkov/crane";
     crane.inputs.nixpkgs.follows = "nixpkgs";
   };
 
