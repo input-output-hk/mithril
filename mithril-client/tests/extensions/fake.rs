@@ -91,16 +91,15 @@ impl FakeAggregator {
         ])
         .unwrap();
 
-        let message = MessageBuilder::new()
-            .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
-            .expect("Computing msd message should not fail");
-
-        let certificate_json = serde_json::to_string(&MithrilCertificate {
+        let mut certificate = MithrilCertificate {
             hash: certificate_hash.to_string(),
-            signed_message: message.compute_hash(),
             ..MithrilCertificate::dummy()
-        })
-        .unwrap();
+        };
+        let message = MessageBuilder::new()
+            .compute_mithril_stake_distribution_message(&certificate, &mithril_stake_distribution)
+            .expect("Computing msd message should not fail");
+        certificate.signed_message = message.compute_hash();
+        let certificate_json = serde_json::to_string(&certificate).unwrap();
 
         test_http_server(
             routes::mithril_stake_distribution::routes(

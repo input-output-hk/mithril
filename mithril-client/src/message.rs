@@ -16,7 +16,6 @@ use std::sync::Arc;
 use crate::common::{ProtocolMessage, ProtocolMessagePartKey};
 #[cfg(feature = "unstable")]
 use crate::CardanoStakeDistribution;
-#[cfg(any(feature = "fs", feature = "unstable"))]
 use crate::MithrilCertificate;
 #[cfg(feature = "unstable")]
 use crate::VerifiedCardanoTransactions;
@@ -106,6 +105,7 @@ impl MessageBuilder {
     /// Compute message for a Mithril stake distribution.
     pub fn compute_mithril_stake_distribution_message(
         &self,
+        certificate: &MithrilCertificate,
         mithril_stake_distribution: &MithrilStakeDistribution,
     ) -> MithrilResult<ProtocolMessage> {
         let signers =
@@ -125,7 +125,7 @@ impl MessageBuilder {
                 "Could not compute message: aggregate verification key encoding failed"
             })?;
 
-        let mut message = ProtocolMessage::new();
+        let mut message = certificate.protocol_message.clone();
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         Ok(message)
