@@ -82,7 +82,7 @@ async fn main() -> MithrilResult<()> {
     );
 
     let message = MessageBuilder::new()
-        .compute_mithril_stake_distribution_message(&mithril_stake_distribution)?;
+        .compute_mithril_stake_distribution_message(&certificate, &mithril_stake_distribution)?;
 
     if certificate.match_message(&message) {
         info!(
