@@ -26,10 +26,8 @@ mod tests {
     use slog::info;
 
     struct TestStruct;
-    #[allow(
-        dead_code,
-        reason = "A field is needed to add the lifetime but is unused"
-    )]
+    // The `allow(dead_code)` is used because a field is needed to add the lifetime but is unused.
+    #[allow(dead_code)]
     struct TestStructWithLifetime<'a>(&'a str);
     enum TestEnum {}
 
