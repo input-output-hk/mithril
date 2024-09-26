@@ -154,11 +154,14 @@ impl MithrilClient {
     pub async fn compute_mithril_stake_distribution_message(
         &self,
         stake_distribution: JsValue,
+        certificate: JsValue,
     ) -> WasmResult {
+        let certificate: MithrilCertificate =
+            serde_wasm_bindgen::from_value(certificate).map_err(|err| format!("{err:?}"))?;
         let stake_distribution =
             serde_wasm_bindgen::from_value(stake_distribution).map_err(|err| format!("{err:?}"))?;
         let result = MessageBuilder::new()
-            .compute_mithril_stake_distribution_message(&stake_distribution)
+            .compute_mithril_stake_distribution_message(&certificate, &stake_distribution)
             .map_err(|err| format!("{err:?}"))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
@@ -609,9 +612,15 @@ mod tests {
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
             .unwrap();
+        let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value.clone())
+            .unwrap();
+        let certificate_js_value = client
+            .get_mithril_certificate(&msd.certificate_hash)
+            .await
+            .unwrap();
 
         let message_js_value = client
-            .compute_mithril_stake_distribution_message(msd_js_value)
+            .compute_mithril_stake_distribution_message(msd_js_value, certificate_js_value)
             .await
             .expect("compute_mithril_stake_distribution_message should not fail");
         serde_wasm_bindgen::from_value::<ProtocolMessage>(message_js_value)
@@ -649,7 +658,10 @@ mod tests {
             .await
             .unwrap();
         let message_js_value = client
-            .compute_mithril_stake_distribution_message(msd_js_value)
+            .compute_mithril_stake_distribution_message(
+                msd_js_value,
+                last_certificate_js_value.clone(),
+            )
             .await
             .unwrap();
 
