@@ -35,12 +35,14 @@ use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteCon
 use mithril_persistence::store::adapter::SQLiteAdapter;
 use mithril_persistence::store::StakeStore;
 
+use crate::database::repository::SignedBeaconRepository;
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
-    SignerSignableSeedBuilder, SignerUpkeepService, TransactionsImporterByChunk,
-    TransactionsImporterWithPruner, TransactionsImporterWithVacuum,
+    SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+    SignerUpkeepService, TransactionsImporterByChunk, TransactionsImporterWithPruner,
+    TransactionsImporterWithVacuum,
 };
 use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore};
 use crate::{
@@ -351,6 +353,15 @@ impl<'a> DependenciesBuilder<'a> {
             signed_entity_type_lock.clone(),
             slog_scope::logger(),
         ));
+        let certifier = Arc::new(SignerCertifierService::new(
+            ticker_service.clone(),
+            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone())),
+            Arc::new(SignerSignedEntityConfigProvider::new(
+                network,
+                epoch_service.clone(),
+            )),
+            signed_entity_type_lock.clone(),
+        ));
 
         let services = SignerDependencyContainer {
             ticker_service,
@@ -369,6 +380,7 @@ impl<'a> DependenciesBuilder<'a> {
             cardano_transactions_preloader,
             upkeep_service,
             epoch_service,
+            certifier,
         };
 
         Ok(services)

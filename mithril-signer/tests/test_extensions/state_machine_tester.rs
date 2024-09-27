@@ -1,5 +1,12 @@
 #![allow(dead_code)]
 use anyhow::anyhow;
+use prometheus_parse::Value;
+use slog::Drain;
+use slog_scope::debug;
+use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Duration};
+use thiserror::Error;
+use tokio::sync::RwLock;
+
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
@@ -21,28 +28,24 @@ use mithril_common::{
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdError, TickerService,
 };
-use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::store::adapter::SQLiteAdapter;
 use mithril_persistence::{
+    database::repository::CardanoTransactionRepository,
     sqlite::SqliteConnectionPool,
-    store::{StakeStore, StakeStorer},
+    store::{adapter::SQLiteAdapter, StakeStore, StakeStorer},
 };
+
 use mithril_signer::{
+    database::repository::SignedBeaconRepository,
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     metrics::*,
     services::{
         AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
-        SignerSignableSeedBuilder, SignerUpkeepService,
+        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer},
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
 };
-use prometheus_parse::Value;
-use slog::Drain;
-use slog_scope::debug;
-use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Duration};
-use thiserror::Error;
-use tokio::sync::RwLock;
 
 use super::FakeAggregator;
 
@@ -238,6 +241,15 @@ impl StateMachineTester {
             signed_entity_type_lock.clone(),
             slog_scope::logger(),
         ));
+        let certifier = Arc::new(SignerCertifierService::new(
+            ticker_service.clone(),
+            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone())),
+            Arc::new(SignerSignedEntityConfigProvider::new(
+                network,
+                epoch_service.clone(),
+            )),
+            signed_entity_type_lock.clone(),
+        ));
 
         let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
@@ -256,6 +268,7 @@ impl StateMachineTester {
             cardano_transactions_preloader,
             upkeep_service,
             epoch_service,
+            certifier,
         };
         // set up stake distribution
         chain_observer

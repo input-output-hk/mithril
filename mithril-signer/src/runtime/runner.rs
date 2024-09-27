@@ -459,11 +459,14 @@ mod tests {
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_persistence::store::{StakeStore, StakeStorer};
 
+    use crate::database::repository::SignedBeaconRepository;
+    use crate::database::test_helper::main_db_connection;
     use crate::metrics::MetricsService;
     use crate::services::{
         CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
         MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
-        SignerSignableSeedBuilder, SingleSigner,
+        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        SingleSigner,
     };
     use crate::store::ProtocolInitializerStore;
 
@@ -569,6 +572,7 @@ mod tests {
     }
 
     async fn init_services() -> SignerDependencyContainer {
+        let sqlite_connection = Arc::new(main_db_connection().unwrap());
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
@@ -647,6 +651,15 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
+        let certifier = Arc::new(SignerCertifierService::new(
+            ticker_service.clone(),
+            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone())),
+            Arc::new(SignerSignedEntityConfigProvider::new(
+                network,
+                epoch_service.clone(),
+            )),
+            signed_entity_type_lock.clone(),
+        ));
 
         SignerDependencyContainer {
             stake_store,
@@ -665,6 +678,7 @@ mod tests {
             cardano_transactions_preloader,
             upkeep_service,
             epoch_service,
+            certifier,
         }
     }
 
