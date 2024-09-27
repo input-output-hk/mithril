@@ -14,7 +14,7 @@ use mithril_persistence::store::StakeStorer;
 
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::entities::SignerEpochSettings;
-use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
+use crate::services::{BeaconToSign, EpochService, MithrilProtocolInitializerBuilder};
 use crate::Configuration;
 
 /// This trait is mainly intended for mocking.
@@ -25,6 +25,9 @@ pub trait Runner: Send + Sync {
 
     /// Fetch the current pending certificate if any.
     async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
+
+    /// Fetch the beacon to sign if any.
+    async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>>;
 
     /// Fetch the current time point from the Cardano node.
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
@@ -64,6 +67,9 @@ pub trait Runner: Send + Sync {
         maybe_signature: Option<SingleSignatures>,
         signed_message: &ProtocolMessage,
     ) -> StdResult<()>;
+
+    /// Mark the beacon as signed.
+    async fn mark_beacon_as_signed(&self, beacon: &BeaconToSign) -> StdResult<()>;
 
     /// Read the current era and update the EraChecker.
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()>;
@@ -134,6 +140,12 @@ impl Runner for SignerRunner {
             .retrieve_pending_certificate()
             .await
             .map_err(|e| e.into())
+    }
+
+    async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>> {
+        debug!("RUNNER: get_beacon_to_sign");
+
+        self.services.certifier.get_beacon_to_sign().await
     }
 
     async fn get_current_time_point(&self) -> StdResult<TimePoint> {
@@ -385,6 +397,12 @@ impl Runner for SignerRunner {
 
             Ok(())
         }
+    }
+
+    async fn mark_beacon_as_signed(&self, beacon: &BeaconToSign) -> StdResult<()> {
+        debug!("RUNNER: mark_beacon_as_signed"; "beacon" => ?beacon);
+
+        self.services.certifier.mark_beacon_as_signed(beacon).await
     }
 
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()> {

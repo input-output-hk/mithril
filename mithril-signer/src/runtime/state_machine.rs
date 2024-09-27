@@ -4,9 +4,10 @@ use tokio::{sync::Mutex, time::sleep};
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
-    entities::{CertificatePending, Epoch, SignedEntityType, TimePoint},
+    entities::{Epoch, SignedEntityType, TimePoint},
 };
 
+use crate::services::BeaconToSign;
 use crate::{entities::SignerEpochSettings, MetricsService};
 
 use super::{Runner, RuntimeError};
@@ -87,10 +88,10 @@ pub struct StateMachine {
 }
 
 enum ReadyToSignTransition {
-    ToReadyToSign(CertificatePending),
+    ToReadyToSign(BeaconToSign),
     NoTransitionAlreadySigned,
-    NoTransitionCannotSignPendingCertificate,
-    NoTransitionNoPendingCertificate,
+    NoTransitionCannotSignBeacon,
+    NoTransitionNoBeaconToSign,
 }
 
 impl StateMachine {
@@ -207,25 +208,21 @@ impl StateMachine {
                         .await?;
                 }
                 None => {
-                    let pending_certificate =
-                        self.runner.get_pending_certificate().await.map_err(|e| {
-                            RuntimeError::KeepState {
-                                message: "could not fetch the pending certificate".to_string(),
-                                nested_error: Some(e),
-                            }
-                        })?;
-                    if let ReadyToSignTransition::ToReadyToSign(certificate) = self
+                    let beacon_to_sign = self.runner.get_beacon_to_sign().await.map_err(|e| {
+                        RuntimeError::KeepState {
+                            message: "could not fetch the beacon to sign".to_string(),
+                            nested_error: Some(e),
+                        }
+                    })?;
+                    if let ReadyToSignTransition::ToReadyToSign(beacon) = self
                         .ready_to_sign_certificate_next_transition(
-                            pending_certificate,
+                            beacon_to_sign,
                             last_signed_entity_type,
                         )
                         .await
                     {
                         *state = self
-                            .transition_from_ready_to_sign_to_ready_to_sign(
-                                *epoch,
-                                &certificate.signed_entity_type,
-                            )
+                            .transition_from_ready_to_sign_to_ready_to_sign(*epoch, beacon)
                             .await?;
                     }
                 }
@@ -240,47 +237,45 @@ impl StateMachine {
 
     async fn ready_to_sign_certificate_next_transition(
         &self,
-        certificate_pending: Option<CertificatePending>,
+        beacon_to_sign: Option<BeaconToSign>,
         last_signed_entity: &Option<SignedEntityType>,
     ) -> ReadyToSignTransition {
+        // Todo: remove those two checks are they are already done by the certifier
         fn is_same_signed_entity_type(
             signed_entity_type: &Option<SignedEntityType>,
-            certificate: &CertificatePending,
+            beacon_to_sign: &BeaconToSign,
         ) -> bool {
-            Some(&certificate.signed_entity_type) == signed_entity_type.as_ref()
+            Some(&beacon_to_sign.signed_entity_type) == signed_entity_type.as_ref()
         }
 
-        async fn can_sign_signed_entity_type(
-            s: &StateMachine,
-            certificate: &CertificatePending,
-        ) -> bool {
+        async fn can_sign_signed_entity_type(s: &StateMachine, beacon: &BeaconToSign) -> bool {
             s.runner
-                .can_sign_signed_entity_type(&certificate.signed_entity_type)
+                .can_sign_signed_entity_type(&beacon.signed_entity_type)
                 .await
         }
 
-        match certificate_pending {
-            Some(certificate) if is_same_signed_entity_type(last_signed_entity, &certificate) => {
-                info!(" ⋅ same entity type, already signed the pending certificate, waiting…");
+        match beacon_to_sign {
+            Some(beacon) if is_same_signed_entity_type(last_signed_entity, &beacon) => {
+                info!(" ⋅ same entity type, already signed, waiting…");
                 ReadyToSignTransition::NoTransitionAlreadySigned
             }
-            Some(certificate) if can_sign_signed_entity_type(self, &certificate).await => {
+            Some(beacon) if can_sign_signed_entity_type(self, &beacon).await => {
                 info!(
-                    " ⋅ Epoch has NOT changed we can sign this certificate, transiting to ReadyToSign";
-                    "pending_certificate" => ?certificate,
+                    " ⋅ Epoch has NOT changed we can sign this beacon, transiting to ReadyToSign";
+                    "beacon_to_sign" => ?beacon,
                 );
-                ReadyToSignTransition::ToReadyToSign(certificate)
+                ReadyToSignTransition::ToReadyToSign(beacon)
             }
-            Some(certificate) => {
+            Some(beacon) => {
                 info!(
-                    " ⋅ Epoch has NOT changed but cannot sign this pending certificate, waiting…";
-                    "pending_certificate" => ?certificate
+                    " ⋅ Epoch has NOT changed but cannot sign this beacon, waiting…";
+                    "beacon_to_sign" => ?beacon
                 );
-                ReadyToSignTransition::NoTransitionCannotSignPendingCertificate
+                ReadyToSignTransition::NoTransitionCannotSignBeacon
             }
             None => {
-                info!(" ⋅ no pending certificate, waiting…");
-                ReadyToSignTransition::NoTransitionNoPendingCertificate
+                info!(" ⋅ no beacon to sign, waiting…");
+                ReadyToSignTransition::NoTransitionNoBeaconToSign
             }
         }
     }
@@ -410,7 +405,7 @@ impl StateMachine {
     async fn transition_from_ready_to_sign_to_ready_to_sign(
         &self,
         current_epoch: Epoch,
-        signed_entity_type: &SignedEntityType,
+        beacon_to_sign: BeaconToSign,
     ) -> Result<SignerState, RuntimeError> {
         let (retrieval_epoch, next_retrieval_epoch) = (
             current_epoch.offset_to_signer_retrieval_epoch()?,
@@ -429,7 +424,7 @@ impl StateMachine {
 
         let message = self
             .runner
-            .compute_message(signed_entity_type)
+            .compute_message(&beacon_to_sign.signed_entity_type)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute message during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
@@ -444,9 +439,14 @@ impl StateMachine {
                 message: format!("Could not compute single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
-        self.runner.send_single_signature(signed_entity_type, single_signatures, &message).await
+        self.runner.send_single_signature(&beacon_to_sign.signed_entity_type, single_signatures, &message).await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not send single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
+                nested_error: Some(e)
+            })?;
+        self.runner.mark_beacon_as_signed(&beacon_to_sign).await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not mark beacon as signed during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
@@ -457,7 +457,7 @@ impl StateMachine {
 
         Ok(SignerState::ReadyToSign {
             epoch: current_epoch,
-            last_signed_entity_type: Some(signed_entity_type.to_owned()),
+            last_signed_entity_type: Some(beacon_to_sign.signed_entity_type),
         })
     }
 
@@ -491,11 +491,14 @@ impl StateMachine {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage};
-    use mithril_common::test_utils::fake_data;
+    use chrono::DateTime;
     use mockall::predicate;
 
+    use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage};
+    use mithril_common::test_utils::fake_data;
+
     use crate::runtime::runner::MockSignerRunner;
+    use crate::services::BeaconToSign;
 
     use super::*;
 
@@ -775,9 +778,10 @@ mod tests {
             last_signed_entity_type: None,
         };
 
-        let certificate_pending = CertificatePending {
+        let beacon_to_sign = BeaconToSign {
             epoch: time_point.epoch,
-            ..fake_data::certificate_pending()
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
+            initiated_at: DateTime::default(),
         };
         let time_point_clone = time_point.clone();
         let mut runner = MockSignerRunner::new();
@@ -786,9 +790,9 @@ mod tests {
             .once()
             .returning(move || Ok(time_point_clone.to_owned()));
         runner
-            .expect_get_pending_certificate()
+            .expect_get_beacon_to_sign()
             .once()
-            .returning(move || Ok(Some(certificate_pending.to_owned())));
+            .returning(move || Ok(Some(beacon_to_sign.to_owned())));
         runner
             .expect_can_sign_signed_entity_type()
             .once()
@@ -814,14 +818,15 @@ mod tests {
     #[tokio::test]
     async fn ready_to_sign_to_ready_to_sign_when_same_signed_entity_type() {
         let time_point = TimePoint::dummy();
-        let certificate_pending = CertificatePending {
-            epoch: time_point.clone().epoch,
-            ..fake_data::certificate_pending()
+        let beacon_to_sign = BeaconToSign {
+            epoch: time_point.epoch,
+            signed_entity_type: SignedEntityType::CardanoStakeDistribution(time_point.epoch),
+            initiated_at: DateTime::default(),
         };
-        let certificate_pending_clone = certificate_pending.clone();
+        let beacon_to_sign_clone = beacon_to_sign.clone();
         let state = SignerState::ReadyToSign {
             epoch: time_point.epoch,
-            last_signed_entity_type: Some(certificate_pending.signed_entity_type.clone()),
+            last_signed_entity_type: Some(beacon_to_sign.signed_entity_type.clone()),
         };
         let time_point_clone = time_point.clone();
         let mut runner = MockSignerRunner::new();
@@ -829,9 +834,9 @@ mod tests {
             .expect_get_current_time_point()
             .returning(move || Ok(time_point_clone.to_owned()));
         runner
-            .expect_get_pending_certificate()
+            .expect_get_beacon_to_sign()
             .times(1)
-            .returning(move || Ok(Some(certificate_pending.clone())));
+            .returning(move || Ok(Some(beacon_to_sign.clone())));
         runner
             .expect_can_sign_signed_entity_type()
             .returning(move |_| true);
@@ -845,7 +850,7 @@ mod tests {
         assert_eq!(
             SignerState::ReadyToSign {
                 epoch: time_point.epoch,
-                last_signed_entity_type: Some(certificate_pending_clone.signed_entity_type)
+                last_signed_entity_type: Some(beacon_to_sign_clone.signed_entity_type)
             },
             state_machine.get_state().await,
             "state machine did not return a ReadyToSign state but {:?}",
@@ -860,14 +865,14 @@ mod tests {
             epoch: time_point.epoch,
             last_signed_entity_type: None,
         };
-        let certificate_pending = CertificatePending {
+        let beacon_to_sign = BeaconToSign {
             epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            ..fake_data::certificate_pending()
+            initiated_at: Default::default(),
         };
         assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
             state,
-            certificate_pending,
+            beacon_to_sign,
         )
         .await
     }
@@ -881,15 +886,15 @@ mod tests {
                 time_point.epoch,
             )),
         };
-        let certificate_pending = CertificatePending {
+        let beacon_to_sign = BeaconToSign {
             epoch: time_point.epoch,
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            ..fake_data::certificate_pending()
+            initiated_at: Default::default(),
         };
 
         assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
             state,
-            certificate_pending,
+            beacon_to_sign,
         )
         .await
     }
@@ -904,22 +909,22 @@ mod tests {
                 time_point.epoch,
             )),
         };
-        let certificate_pending = CertificatePending {
+        let beacon_to_sign = BeaconToSign {
             epoch: time_point.epoch + 10, // Check that the epoch
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            ..fake_data::certificate_pending()
+            initiated_at: Default::default(),
         };
 
         assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
             state,
-            certificate_pending,
+            beacon_to_sign,
         )
         .await
     }
 
     async fn assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
         initial_state: SignerState,
-        certificate_pending: CertificatePending,
+        beacon_to_sign: BeaconToSign,
     ) {
         let initial_state_epoch = match initial_state.clone() {
             SignerState::ReadyToSign {
@@ -933,16 +938,16 @@ mod tests {
             ..TimePoint::dummy()
         };
 
-        let certificate_pending_clone = certificate_pending.clone();
+        let beacon_to_sign_clone = beacon_to_sign.clone();
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_time_point()
             .once()
             .returning(move || Ok(time_point.to_owned()));
         runner
-            .expect_get_pending_certificate()
+            .expect_get_beacon_to_sign()
             .once()
-            .returning(move || Ok(Some(certificate_pending.clone())));
+            .returning(move || Ok(Some(beacon_to_sign.clone())));
         runner
             .expect_compute_single_signature()
             .once()
@@ -955,6 +960,10 @@ mod tests {
             .expect_send_single_signature()
             .once()
             .returning(|_, _, _| Ok(()));
+        runner
+            .expect_mark_beacon_as_signed()
+            .once()
+            .returning(|_| Ok(()));
         runner
             .expect_can_sign_signed_entity_type()
             .once()
@@ -969,7 +978,7 @@ mod tests {
         assert_eq!(
             SignerState::ReadyToSign {
                 epoch: initial_state_epoch,
-                last_signed_entity_type: Some(certificate_pending_clone.signed_entity_type)
+                last_signed_entity_type: Some(beacon_to_sign_clone.signed_entity_type)
             },
             state_machine.get_state().await,
             "state machine did not return a ReadyToSign state but {:?}",
