@@ -9,7 +9,7 @@ use mithril_common::entities::{Epoch, ProtocolParameters};
 
 use crate::entities::AggregatorEpochSettings;
 
-/// Store and get [protocol parameters][ProtocolParameters] for given epoch.
+/// Store and get [aggregator epoch settings][AggregatorEpochSettings] for given epoch.
 #[async_trait]
 pub trait EpochSettingsStorer: Sync + Send {
     /// Save the given `AggregatorEpochSettings` for the given [Epoch].

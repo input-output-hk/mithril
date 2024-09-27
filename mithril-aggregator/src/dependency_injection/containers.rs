@@ -211,7 +211,7 @@ impl DependencyContainer {
                     },
                 )
                 .await
-                .expect("save_protocol_parameters should not fail");
+                .expect("save_epoch_settings should not fail");
             self.fill_verification_key_store(*epoch, &fixture.signers_with_stake())
                 .await;
             self.fill_stakes_store(*epoch, fixture.signers_with_stake())
