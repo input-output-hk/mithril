@@ -1,14 +1,10 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, Epoch, SignedEntityConfig, SignedEntityType,
-    SignedEntityTypeDiscriminants, TimePoint,
-};
+use mithril_common::entities::{Epoch, SignedEntityConfig, SignedEntityType, TimePoint};
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
-use mithril_common::{CardanoNetwork, StdResult, TickerService};
+use mithril_common::{StdResult, TickerService};
 
 /// Beacon to sign
 #[derive(Debug, Clone, PartialEq)]
@@ -38,15 +34,11 @@ pub trait CertifierService: Sync + Send {
     async fn mark_beacon_as_signed(&self, signed_beacon: &BeaconToSign) -> StdResult<()>;
 }
 
-/// Trait to provide the part of current signed entity signing configuration that can change over time.
+/// Trait to provide the current signed entity configuration that can change over time.
 #[cfg_attr(test, mockall::automock)]
-pub trait SignedEntityConfigDataProvider: Sync + Send {
-    /// Get the current Cardano transactions signing configuration.
-    fn get_cardano_transaction_signing_config(&self)
-        -> StdResult<CardanoTransactionsSigningConfig>;
-
-    /// Get the list of signed entity types that are allowed to sign.
-    fn get_allowed_discriminants(&self) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>>;
+pub trait SignedEntityConfigProvider: Sync + Send {
+    /// Get the current signed entity configuration.
+    fn get(&self) -> StdResult<SignedEntityConfig>;
 }
 
 /// Trait to store beacons that have been signed in order to avoid signing them twice.
@@ -65,44 +57,26 @@ pub trait SignedBeaconStore: Sync + Send {
 
 /// Implementation of the [Certifier Service][CertifierService] for the Mithril Signer.
 pub struct SignerCertifierService {
-    network: CardanoNetwork,
     ticker_service: Arc<dyn TickerService>,
     signed_beacon_store: Arc<dyn SignedBeaconStore>,
-    cardano_transactions_signing_config_provider: Arc<dyn SignedEntityConfigDataProvider>,
+    signed_entity_config_provider: Arc<dyn SignedEntityConfigProvider>,
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
 }
 
 impl SignerCertifierService {
     /// Create a new `SignerCertifierService` instance.
     pub fn new(
-        network: CardanoNetwork,
         ticker_service: Arc<dyn TickerService>,
         signed_beacon_store: Arc<dyn SignedBeaconStore>,
-        cardano_transactions_signing_config_provider: Arc<dyn SignedEntityConfigDataProvider>,
+        signed_entity_config_provider: Arc<dyn SignedEntityConfigProvider>,
         signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     ) -> Self {
         Self {
-            network,
             ticker_service,
             signed_beacon_store,
-            cardano_transactions_signing_config_provider,
+            signed_entity_config_provider,
             signed_entity_type_lock,
         }
-    }
-
-    async fn compute_signing_config(&self) -> StdResult<SignedEntityConfig> {
-        let allowed_discriminants = self
-            .cardano_transactions_signing_config_provider
-            .get_allowed_discriminants()?;
-        let cardano_transactions_signing_config = self
-            .cardano_transactions_signing_config_provider
-            .get_cardano_transaction_signing_config()?;
-
-        Ok(SignedEntityConfig {
-            allowed_discriminants,
-            network: self.network,
-            cardano_transactions_signing_config,
-        })
     }
 
     async fn list_available_signed_entity_types(
@@ -110,8 +84,8 @@ impl SignerCertifierService {
         time_point: &TimePoint,
     ) -> StdResult<Vec<SignedEntityType>> {
         let signed_entity_types = self
-            .compute_signing_config()
-            .await?
+            .signed_entity_config_provider
+            .get()?
             .list_allowed_signed_entity_types(time_point)?;
         let unlocked_signed_entities = self
             .signed_entity_type_lock
@@ -157,7 +131,9 @@ impl CertifierService for SignerCertifierService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::ChainPoint;
+    use mithril_common::entities::{
+        CardanoTransactionsSigningConfig, ChainPoint, SignedEntityTypeDiscriminants,
+    };
 
     use super::{tests::tests_tooling::*, *};
 
@@ -168,10 +144,9 @@ mod tests {
             locker.lock(signed_entity_type).await;
         }
         let certifier_service = SignerCertifierService::new(
-            CardanoNetwork::TestNet(42),
             Arc::new(DumbTickerService::new(TimePoint::dummy())),
             Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigDataProvider::new(
+            Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
@@ -190,10 +165,9 @@ mod tests {
             locker.lock(signed_entity_type).await;
         }
         let certifier_service = SignerCertifierService::new(
-            CardanoNetwork::TestNet(42),
             Arc::new(ticker_service),
             Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigDataProvider::new(
+            Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
@@ -209,10 +183,9 @@ mod tests {
     async fn mark_beacon_as_signed_update_the_store() {
         let signed_beacons_store = Arc::new(DumbSignedBeaconStore::default());
         let certifier_service = SignerCertifierService::new(
-            CardanoNetwork::TestNet(42),
             Arc::new(DumbTickerService::new(TimePoint::dummy())),
             signed_beacons_store.clone(),
-            Arc::new(DumbSignedEntityConfigDataProvider::new(
+            Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
@@ -239,10 +212,9 @@ mod tests {
     async fn if_already_signed_a_beacon_is_not_returned_anymore() {
         let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
         let certifier_service = SignerCertifierService::new(
-            CardanoNetwork::TestNet(42),
             Arc::new(ticker_service),
             Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigDataProvider::new(
+            Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
@@ -275,10 +247,9 @@ mod tests {
     ) {
         let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
         let certifier_service = SignerCertifierService::new(
-            CardanoNetwork::TestNet(42),
             Arc::new(ticker_service),
             Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigDataProvider::new(
+            Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
@@ -320,7 +291,10 @@ mod tests {
     }
 
     pub mod tests_tooling {
+        use std::collections::BTreeSet;
         use tokio::sync::RwLock;
+
+        use mithril_common::CardanoNetwork;
 
         use super::*;
 
@@ -341,34 +315,28 @@ mod tests {
             }
         }
 
-        pub struct DumbSignedEntityConfigDataProvider {
-            config: CardanoTransactionsSigningConfig,
-            allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        pub struct DumbSignedEntityConfigProvider {
+            config: SignedEntityConfig,
         }
 
-        impl DumbSignedEntityConfigDataProvider {
+        impl DumbSignedEntityConfigProvider {
             pub fn new(
                 config: CardanoTransactionsSigningConfig,
                 allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
             ) -> Self {
                 Self {
-                    config,
-                    allowed_discriminants,
+                    config: SignedEntityConfig {
+                        cardano_transactions_signing_config: config,
+                        network: CardanoNetwork::TestNet(42),
+                        allowed_discriminants,
+                    },
                 }
             }
         }
 
-        impl SignedEntityConfigDataProvider for DumbSignedEntityConfigDataProvider {
-            fn get_cardano_transaction_signing_config(
-                &self,
-            ) -> StdResult<CardanoTransactionsSigningConfig> {
+        impl SignedEntityConfigProvider for DumbSignedEntityConfigProvider {
+            fn get(&self) -> StdResult<SignedEntityConfig> {
                 Ok(self.config.clone())
-            }
-
-            fn get_allowed_discriminants(
-                &self,
-            ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
-                Ok(self.allowed_discriminants.clone())
             }
         }
 

@@ -7,16 +7,16 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, Epoch, PartyId, ProtocolParameters,
+    CardanoTransactionsSigningConfig, Epoch, PartyId, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants, Signer,
 };
 use mithril_persistence::store::StakeStorer;
 
 use mithril_common::entities::SignerWithStake;
-use mithril_common::StdResult;
+use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::entities::SignerEpochSettings;
-use crate::services::SignedEntityConfigDataProvider;
+use crate::services::SignedEntityConfigProvider;
 use crate::RunnerError;
 
 /// Errors dedicated to the EpochService.
@@ -91,14 +91,16 @@ struct EpochData {
 pub struct MithrilEpochService {
     stake_storer: Arc<dyn StakeStorer>,
     epoch_data: Option<EpochData>,
+    cardano_network: CardanoNetwork,
 }
 
 impl MithrilEpochService {
     /// Create a new service instance
-    pub fn new(stake_storer: Arc<dyn StakeStorer>) -> Self {
+    pub fn new(stake_storer: Arc<dyn StakeStorer>, cardano_network: CardanoNetwork) -> Self {
         Self {
             stake_storer,
             epoch_data: None,
+            cardano_network,
         }
     }
 
@@ -235,18 +237,19 @@ impl EpochService for MithrilEpochService {
     }
 }
 
-impl SignedEntityConfigDataProvider for MithrilEpochService {
-    fn get_cardano_transaction_signing_config(
-        &self,
-    ) -> StdResult<CardanoTransactionsSigningConfig> {
-        match self.cardano_transactions_signing_config()? {
-            Some(config) => Ok(config.clone()),
-            None => Err(anyhow!("No cardano transaction signing config available")),
-        }
-    }
+impl SignedEntityConfigProvider for MithrilEpochService {
+    fn get(&self) -> StdResult<SignedEntityConfig> {
+        let cardano_transactions_signing_config =
+            match self.cardano_transactions_signing_config()? {
+                Some(config) => Ok(config.clone()),
+                None => Err(anyhow!("No cardano transaction signing config available")),
+            }?;
 
-    fn get_allowed_discriminants(&self) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
-        self.allowed_discriminants().cloned()
+        Ok(SignedEntityConfig {
+            allowed_discriminants: self.allowed_discriminants()?.clone(),
+            network: self.cardano_network,
+            cardano_transactions_signing_config,
+        })
     }
 }
 
@@ -325,22 +328,15 @@ pub mod mock_epoch_service {
 mod tests {
     use std::sync::Arc;
 
+    use mithril_common::entities::{Epoch, StakeDistribution};
+    use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
+    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
+    use mithril_persistence::store::{StakeStore, StakeStorer};
+
     use crate::entities::SignerEpochSettings;
     use crate::services::MithrilProtocolInitializerBuilder;
 
     use super::*;
-
-    use mithril_common::{
-        entities::{Epoch, StakeDistribution},
-        test_utils::{
-            fake_data::{self},
-            MithrilFixtureBuilder,
-        },
-    };
-    use mithril_persistence::store::{
-        adapter::{DumbStoreAdapter, MemoryAdapter},
-        StakeStore, StakeStorer,
-    };
 
     #[test]
     fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set(
@@ -354,7 +350,7 @@ mod tests {
         )
         .unwrap();
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        let service = MithrilEpochService::new(stake_store);
+        let service = MithrilEpochService::new(stake_store, fake_data::network());
 
         service
             .is_signer_included_in_current_stake_distribution(party_id, protocol_initializer)
@@ -377,7 +373,7 @@ mod tests {
             ..SignerEpochSettings::dummy().clone()
         };
 
-        let mut service = MithrilEpochService::new(stake_store);
+        let mut service = MithrilEpochService::new(stake_store, fake_data::network());
         service
             .inform_epoch_settings(epoch_settings.clone(), BTreeSet::new())
             .unwrap();
@@ -428,7 +424,7 @@ mod tests {
             .expect("save_stakes should not fail");
 
         // Build service and register epoch settings
-        let service = MithrilEpochService::new(stake_store);
+        let service = MithrilEpochService::new(stake_store, fake_data::network());
         assert!(service.epoch_of_current_data().is_err());
         assert!(service.next_protocol_parameters().is_err());
         assert!(service.current_signers().is_err());
@@ -457,7 +453,7 @@ mod tests {
         };
 
         // Build service and register epoch settings
-        let mut service = MithrilEpochService::new(stake_store);
+        let mut service = MithrilEpochService::new(stake_store, fake_data::network());
 
         service
             .inform_epoch_settings(
@@ -550,7 +546,7 @@ mod tests {
         };
 
         // Build service and register epoch settings
-        let mut service = MithrilEpochService::new(stake_store);
+        let mut service = MithrilEpochService::new(stake_store, fake_data::network());
         service
             .inform_epoch_settings(epoch_settings.clone(), BTreeSet::new())
             .unwrap();
@@ -575,6 +571,66 @@ mod tests {
                 let expected_stake = next_stake_distribution.get(&signer.party_id).unwrap();
                 assert_eq!(expected_stake, &signer.stake);
             }
+        }
+    }
+
+    #[test]
+    fn is_source_of_signed_entity_config() {
+        let stake_store = Arc::new(StakeStore::new(
+            Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
+            None,
+        ));
+        let mut service = MithrilEpochService::new(stake_store, fake_data::network());
+
+        // Fail before the first `inform_epoch_settings`
+        {
+            SignedEntityConfigProvider::get(&service).expect_err(
+                "Should fail since sources data are not set before the first inform_epoch_settings",
+            );
+        }
+        // Fail after `inform_epoch_settings` if `cardano_transactions_signing_config` is not set
+        {
+            let allowed_discriminants =
+                BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]);
+            service
+                .inform_epoch_settings(
+                    SignerEpochSettings {
+                        cardano_transactions_signing_config: None,
+                        ..SignerEpochSettings::dummy()
+                    },
+                    allowed_discriminants.clone(),
+                )
+                .unwrap();
+
+            SignedEntityConfigProvider::get(&service)
+                .expect_err("Should fail since cardano_transactions_signing_config is not set");
+        }
+        // Success after `inform_epoch_settings` if `cardano_transactions_signing_config` is set
+        {
+            let allowed_discriminants =
+                BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]);
+            service
+                .inform_epoch_settings(
+                    SignerEpochSettings {
+                        cardano_transactions_signing_config: Some(
+                            CardanoTransactionsSigningConfig::dummy(),
+                        ),
+                        ..SignerEpochSettings::dummy()
+                    },
+                    allowed_discriminants.clone(),
+                )
+                .unwrap();
+
+            let config = SignedEntityConfigProvider::get(&service).unwrap();
+
+            assert_eq!(
+                SignedEntityConfig {
+                    allowed_discriminants,
+                    network: fake_data::network(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                },
+                config
+            );
         }
     }
 }

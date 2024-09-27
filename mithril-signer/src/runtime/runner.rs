@@ -572,6 +572,7 @@ mod tests {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
+        let network = fake_data::network();
         let fake_observer = FakeObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
@@ -617,7 +618,10 @@ mod tests {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            stake_store.clone(),
+            network,
+        )));
         let single_signer = Arc::new(MithrilSingleSigner::new(party_id));
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerStore::new(Box::new(adapter), None));

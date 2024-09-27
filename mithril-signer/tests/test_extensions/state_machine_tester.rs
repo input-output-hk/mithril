@@ -97,6 +97,7 @@ impl StateMachineTester {
         })?;
         let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
         let config = Configuration::new_sample(&selected_signer_party_id);
+        let network = config.get_network()?;
 
         let dependencies_builder = DependenciesBuilder::new(&config);
         let sqlite_connection = Arc::new(
@@ -140,7 +141,7 @@ impl StateMachineTester {
         let certificate_handler = Arc::new(FakeAggregator::new(
             SignedEntityConfig {
                 allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-                network: config.get_network().unwrap(),
+                network,
                 cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
             },
             ticker_service.clone(),
@@ -205,7 +206,10 @@ impl StateMachineTester {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            stake_store.clone(),
+            network,
+        )));
         let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
             single_signer.clone(),
