@@ -96,7 +96,7 @@ impl MithrilSignableBuilderService {
         let mut protocol_message = protocol_message;
         let next_aggregate_verification_key = self
             .seed_signable_builder
-            .compute_next_aggregate_verification_key_protocol_message_part_value()
+            .compute_next_aggregate_verification_key()
             .await?;
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
@@ -106,7 +106,7 @@ impl MithrilSignableBuilderService {
         if matches!(self.era_checker.current_era(), SupportedEra::Pythagoras) {
             let next_protocol_parameters = self
                 .seed_signable_builder
-                .compute_next_protocol_parameters_protocol_message_part_value()
+                .compute_next_protocol_parameters()
                 .await?;
             protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextProtocolParameters,
@@ -114,7 +114,7 @@ impl MithrilSignableBuilderService {
             );
             let current_epoch = self
                 .seed_signable_builder
-                .compute_current_epoch_protocol_message_part_value()
+                .compute_current_epoch()
                 .await?;
             protocol_message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, current_epoch);
         }
@@ -210,17 +210,17 @@ mod tests {
             let mut mock_container = MockDependencyInjector::new(current_era);
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
+                .expect_compute_next_aggregate_verification_key()
                 .once()
                 .return_once(move || Ok("next-avk-123".to_string()));
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_protocol_parameters_protocol_message_part_value()
+                .expect_compute_next_protocol_parameters()
                 .once()
                 .return_once(move || Ok("protocol-params-hash-123".to_string()));
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_current_epoch_protocol_message_part_value()
+                .expect_compute_current_epoch()
                 .once()
                 .return_once(move || Ok("epoch-123".to_string()));
             mock_container
@@ -245,17 +245,17 @@ mod tests {
             let mut mock_container = MockDependencyInjector::new(current_era);
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
+                .expect_compute_next_aggregate_verification_key()
                 .once()
                 .return_once(move || Ok("next-avk-123".to_string()));
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_protocol_parameters_protocol_message_part_value()
+                .expect_compute_next_protocol_parameters()
                 .once()
                 .return_once(move || Ok("protocol-params-hash-123".to_string()));
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_current_epoch_protocol_message_part_value()
+                .expect_compute_current_epoch()
                 .once()
                 .return_once(move || Ok("epoch-123".to_string()));
             mock_container
@@ -281,17 +281,17 @@ mod tests {
             let mut mock_container = MockDependencyInjector::new(current_era);
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
+                .expect_compute_next_aggregate_verification_key()
                 .once()
                 .return_once(move || Ok("next-avk-123".to_string()));
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_protocol_parameters_protocol_message_part_value()
+                .expect_compute_next_protocol_parameters()
                 .once()
                 .return_once(move || Ok("protocol-params-hash-123".to_string()));
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_current_epoch_protocol_message_part_value()
+                .expect_compute_current_epoch()
                 .once()
                 .return_once(move || Ok("epoch-123".to_string()));
             mock_container
@@ -318,17 +318,17 @@ mod tests {
             let mut mock_container = MockDependencyInjector::new(current_era);
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
+                .expect_compute_next_aggregate_verification_key()
                 .once()
                 .return_once(move || Ok("next-avk-123".to_string()));
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_protocol_parameters_protocol_message_part_value()
+                .expect_compute_next_protocol_parameters()
                 .once()
                 .return_once(move || Ok("protocol-params-hash-123".to_string()));
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_current_epoch_protocol_message_part_value()
+                .expect_compute_current_epoch()
                 .once()
                 .return_once(move || Ok("epoch-123".to_string()));
             mock_container
@@ -358,7 +358,7 @@ mod tests {
             let mut mock_container = MockDependencyInjector::new(current_era);
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
+                .expect_compute_next_aggregate_verification_key()
                 .once()
                 .return_once(move || Ok("next-avk-123".to_string()));
             mock_container
@@ -383,7 +383,7 @@ mod tests {
             let mut mock_container = MockDependencyInjector::new(current_era);
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
+                .expect_compute_next_aggregate_verification_key()
                 .once()
                 .return_once(move || Ok("next-avk-123".to_string()));
             mock_container
@@ -409,7 +409,7 @@ mod tests {
             let mut mock_container = MockDependencyInjector::new(current_era);
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
+                .expect_compute_next_aggregate_verification_key()
                 .once()
                 .return_once(move || Ok("next-avk-123".to_string()));
             mock_container
@@ -436,7 +436,7 @@ mod tests {
             let mut mock_container = MockDependencyInjector::new(current_era);
             mock_container
                 .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key_protocol_message_part_value()
+                .expect_compute_next_aggregate_verification_key()
                 .once()
                 .return_once(move || Ok("next-avk-123".to_string()));
             mock_container

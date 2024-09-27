@@ -43,9 +43,7 @@ impl SignerSignableSeedBuilder {
 
 #[async_trait]
 impl SignableSeedBuilder for SignerSignableSeedBuilder {
-    async fn compute_next_aggregate_verification_key_protocol_message_part_value(
-        &self,
-    ) -> StdResult<ProtocolMessagePartValue> {
+    async fn compute_next_aggregate_verification_key(&self) -> StdResult<ProtocolMessagePartValue> {
         let epoch_service = self.epoch_service.read().await;
         let epoch = (*epoch_service).epoch_of_current_data()?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
@@ -68,9 +66,7 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
         Ok(next_aggregate_verification_key)
     }
 
-    async fn compute_next_protocol_parameters_protocol_message_part_value(
-        &self,
-    ) -> StdResult<ProtocolMessagePartValue> {
+    async fn compute_next_protocol_parameters(&self) -> StdResult<ProtocolMessagePartValue> {
         let epoch_service = self.epoch_service.read().await;
         let epoch = (*epoch_service).epoch_of_current_data()?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
@@ -87,9 +83,7 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
         Ok(next_protocol_parameters.compute_hash())
     }
 
-    async fn compute_current_epoch_protocol_message_part_value(
-        &self,
-    ) -> StdResult<ProtocolMessagePartValue> {
+    async fn compute_current_epoch(&self) -> StdResult<ProtocolMessagePartValue> {
         let epoch_service = self.epoch_service.read().await;
         let current_epoch = epoch_service.epoch_of_current_data()?.to_string();
 
@@ -154,7 +148,7 @@ mod tests {
                     .once();
                 mock_epoch_service
                     .expect_next_signers_with_stake()
-                    .return_once(move || Ok(Vec::new()))
+                    .return_once(|| Ok(Vec::new()))
                     .once();
             });
         mock_container
@@ -170,7 +164,7 @@ mod tests {
         let signable_seed_builder = mock_container.build_signable_builder_service();
 
         let next_aggregate_verification_key = signable_seed_builder
-            .compute_next_aggregate_verification_key_protocol_message_part_value()
+            .compute_next_aggregate_verification_key()
             .await
             .unwrap();
 
@@ -206,7 +200,7 @@ mod tests {
         let signable_seed_builder = mock_container.build_signable_builder_service();
 
         let next_protocol_parameters = signable_seed_builder
-            .compute_next_protocol_parameters_protocol_message_part_value()
+            .compute_next_protocol_parameters()
             .await
             .unwrap();
 
@@ -227,10 +221,7 @@ mod tests {
             });
         let signable_seed_builder = mock_container.build_signable_builder_service();
 
-        let current_epoch = signable_seed_builder
-            .compute_current_epoch_protocol_message_part_value()
-            .await
-            .unwrap();
+        let current_epoch = signable_seed_builder.compute_current_epoch().await.unwrap();
 
         assert_eq!(current_epoch, expected_current_epoch);
     }
