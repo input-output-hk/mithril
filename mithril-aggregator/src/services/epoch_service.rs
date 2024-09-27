@@ -349,47 +349,38 @@ impl FakeEpochService {
     /// parameters and signers.
     pub fn with_data(
         epoch: Epoch,
-        protocol_parameters: &ProtocolParameters,
-        next_protocol_parameters: &ProtocolParameters,
-        upcoming_protocol_parameters: &ProtocolParameters,
+        epoch_settings: &AggregatorEpochSettings,
+        next_epoch_settings: &AggregatorEpochSettings,
+        upcoming_epoch_settings: &AggregatorEpochSettings,
         current_signers_with_stake: &[SignerWithStake],
         next_signers_with_stake: &[SignerWithStake],
     ) -> Self {
-        use mithril_common::entities::CardanoTransactionsSigningConfig;
-
-        let protocol_multi_signer =
-            SignerBuilder::new(current_signers_with_stake, protocol_parameters)
-                .with_context(|| "Could not build protocol_multi_signer for epoch service")
-                .unwrap()
-                .build_multi_signer();
-        let next_protocol_multi_signer =
-            SignerBuilder::new(next_signers_with_stake, next_protocol_parameters)
-                .with_context(|| "Could not build protocol_multi_signer for epoch service")
-                .unwrap()
-                .build_multi_signer();
+        let protocol_multi_signer = SignerBuilder::new(
+            current_signers_with_stake,
+            &epoch_settings.protocol_parameters,
+        )
+        .with_context(|| "Could not build protocol_multi_signer for epoch service")
+        .unwrap()
+        .build_multi_signer();
+        let next_protocol_multi_signer = SignerBuilder::new(
+            next_signers_with_stake,
+            &next_epoch_settings.protocol_parameters,
+        )
+        .with_context(|| "Could not build protocol_multi_signer for epoch service")
+        .unwrap()
+        .build_multi_signer();
 
         let current_signers_with_stake = current_signers_with_stake.to_vec();
         let next_signers_with_stake = next_signers_with_stake.to_vec();
         let current_signers = Signer::vec_from(current_signers_with_stake.clone());
         let next_signers = Signer::vec_from(next_signers_with_stake.clone());
-        let epoch_settings = AggregatorEpochSettings {
-            protocol_parameters: protocol_parameters.clone(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-        };
-        let next_epoch_settings = AggregatorEpochSettings {
-            protocol_parameters: next_protocol_parameters.clone(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-        };
-        let upcoming_epoch_settings = AggregatorEpochSettings {
-            protocol_parameters: upcoming_protocol_parameters.clone(),
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-        };
+
         Self {
             epoch_data: Some(EpochData {
                 epoch,
-                epoch_settings,
-                next_epoch_settings,
-                upcoming_epoch_settings,
+                epoch_settings: epoch_settings.clone(),
+                next_epoch_settings: next_epoch_settings.clone(),
+                upcoming_epoch_settings: upcoming_epoch_settings.clone(),
                 current_signers_with_stake,
                 next_signers_with_stake,
                 current_signers,
@@ -413,11 +404,25 @@ impl FakeEpochService {
         epoch: Epoch,
         fixture: &mithril_common::test_utils::MithrilFixture,
     ) -> Self {
+        use mithril_common::entities::CardanoTransactionsSigningConfig;
+
+        let epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: fixture.protocol_parameters(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+        };
+        let next_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: fixture.protocol_parameters(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+        };
+        let upcoming_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: fixture.protocol_parameters(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+        };
         Self::with_data(
             epoch,
-            &fixture.protocol_parameters(),
-            &fixture.protocol_parameters(),
-            &fixture.protocol_parameters(),
+            &epoch_settings,
+            &next_epoch_settings,
+            &upcoming_epoch_settings,
             &fixture.signers_with_stake(),
             &fixture.signers_with_stake(),
         )

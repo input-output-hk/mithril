@@ -98,15 +98,15 @@ mod tests {
 
     use mithril_common::{
         entities::{
-            BlockNumber, CardanoTransactionsSigningConfig, Epoch, SignedEntityConfig,
-            SignedEntityTypeDiscriminants,
+            BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
+            SignedEntityConfig, SignedEntityTypeDiscriminants,
         },
-        test_utils::{apispec::APISpec, MithrilFixtureBuilder},
+        test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
     };
 
-    use crate::http_server::SERVER_BASE_PATH;
     use crate::initialize_dependencies;
     use crate::services::FakeEpochService;
+    use crate::{entities::AggregatorEpochSettings, http_server::SERVER_BASE_PATH};
 
     use super::*;
 
@@ -177,6 +177,49 @@ mod tests {
 
         assert_eq!(message.cardano_transactions_signing_config, None);
         assert_eq!(message.next_cardano_transactions_signing_config, None);
+    }
+
+    #[tokio::test]
+    async fn get_epoch_settings_message_retrieves_protocol_parameters_from_epoch_service() {
+        let current_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(101, 10, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let next_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(102, 20, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let upcoming_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(103, 30, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+
+        let epoch_service = FakeEpochService::with_data(
+            Epoch(1),
+            &current_epoch_settings,
+            &next_epoch_settings,
+            &upcoming_epoch_settings,
+            &fake_data::signers_with_stakes(5),
+            &fake_data::signers_with_stakes(3),
+        );
+
+        let message = get_epoch_settings_message(
+            Arc::new(RwLock::new(epoch_service)),
+            SignedEntityConfig::dummy(),
+        )
+        .await
+        .unwrap();
+
+        // TODO: What we expect  ? see #1963 Discrepancy of protocol parameters in epoch settings and pending certificates routes
+        // https://github.com/input-output-hk/mithril/issues/1963
+        assert_eq!(
+            message.protocol_parameters,
+            next_epoch_settings.protocol_parameters
+        );
+        assert_eq!(
+            message.next_protocol_parameters,
+            upcoming_epoch_settings.protocol_parameters
+        );
     }
 
     #[tokio::test]
