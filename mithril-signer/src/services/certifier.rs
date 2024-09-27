@@ -36,9 +36,10 @@ pub trait CertifierService: Sync + Send {
 
 /// Trait to provide the current signed entity configuration that can change over time.
 #[cfg_attr(test, mockall::automock)]
+#[async_trait]
 pub trait SignedEntityConfigProvider: Sync + Send {
     /// Get the current signed entity configuration.
-    fn get(&self) -> StdResult<SignedEntityConfig>;
+    async fn get(&self) -> StdResult<SignedEntityConfig>;
 }
 
 /// Trait to store beacons that have been signed in order to avoid signing them twice.
@@ -85,7 +86,8 @@ impl SignerCertifierService {
     ) -> StdResult<Vec<SignedEntityType>> {
         let signed_entity_types = self
             .signed_entity_config_provider
-            .get()?
+            .get()
+            .await?
             .list_allowed_signed_entity_types(time_point)?;
         let unlocked_signed_entities = self
             .signed_entity_type_lock
@@ -334,8 +336,9 @@ mod tests {
             }
         }
 
+        #[async_trait]
         impl SignedEntityConfigProvider for DumbSignedEntityConfigProvider {
-            fn get(&self) -> StdResult<SignedEntityConfig> {
+            async fn get(&self) -> StdResult<SignedEntityConfig> {
                 Ok(self.config.clone())
             }
         }

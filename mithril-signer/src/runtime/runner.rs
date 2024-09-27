@@ -618,10 +618,7 @@ mod tests {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
-            stake_store.clone(),
-            network,
-        )));
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
         let single_signer = Arc::new(MithrilSingleSigner::new(party_id));
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerStore::new(Box::new(adapter), None));
