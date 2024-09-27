@@ -181,9 +181,9 @@ mod tests {
         let protocol_initializer = next_fixture.signers_fixture()[0]
             .protocol_initializer
             .clone();
-        let expected_next_protocol_parameters =
-            Into::<ProtocolParameters>::into(protocol_initializer.get_protocol_parameters())
-                .compute_hash();
+        let protocol_parameters: ProtocolParameters =
+            protocol_initializer.get_protocol_parameters().into();
+        let expected_next_protocol_parameters = protocol_parameters.compute_hash();
         let mut mock_container = MockDependencyInjector::new();
         mock_container.mock_epoch_service =
             MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
