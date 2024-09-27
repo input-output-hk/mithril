@@ -24,7 +24,7 @@
         ...
       }: let
         inherit (inputs.nixpkgs) lib;
-        craneLib = inputs.crane.lib.${system};
+        craneLib = inputs.crane.mkLib pkgs;
 
         clean = root:
           lib.cleanSourceWith {
