@@ -40,11 +40,18 @@ async fn get_epoch_settings_message(
     let current_signers = epoch_service.current_signers()?;
     let next_signers = epoch_service.next_signers()?;
 
-    let cardano_transactions_signing_config = signed_entity_config
-        .list_allowed_signed_entity_types_discriminants()
-        .contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
-        .then_some(signed_entity_config.cardano_transactions_signing_config);
-    let next_cardano_transactions_signing_config = cardano_transactions_signing_config.clone();
+    let allowed_types = signed_entity_config.list_allowed_signed_entity_types_discriminants();
+    let cardano_transactions_discriminant =
+        allowed_types.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
+
+    let cardano_transactions_signing_config = cardano_transactions_discriminant
+        .map(|_| epoch_service.current_cardano_transactions_signing_config())
+        .transpose()?
+        .cloned();
+    let next_cardano_transactions_signing_config = cardano_transactions_discriminant
+        .map(|_| epoch_service.next_cardano_transactions_signing_config())
+        .transpose()?
+        .cloned();
 
     let epoch_settings_message = EpochSettingsMessage {
         epoch,
@@ -145,14 +152,8 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(
-            message.cardano_transactions_signing_config,
-            Some(cardano_transactions_signing_config.clone())
-        );
-        assert_eq!(
-            message.next_cardano_transactions_signing_config,
-            Some(cardano_transactions_signing_config)
-        );
+        assert!(message.cardano_transactions_signing_config.is_some());
+        assert!(message.next_cardano_transactions_signing_config.is_some(),);
     }
 
     #[tokio::test]
@@ -219,6 +220,52 @@ mod tests {
         assert_eq!(
             message.next_protocol_parameters,
             upcoming_epoch_settings.protocol_parameters
+        );
+    }
+
+    #[tokio::test]
+    async fn get_epoch_settings_message_retrieves_signing_configuration_from_epoch_service() {
+        let current_epoch_settings = AggregatorEpochSettings {
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
+                BlockNumber(100),
+                BlockNumber(15),
+            ),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let next_epoch_settings = AggregatorEpochSettings {
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
+                BlockNumber(200),
+                BlockNumber(15),
+            ),
+            ..AggregatorEpochSettings::dummy()
+        };
+
+        let epoch_service = FakeEpochService::with_data(
+            Epoch(1),
+            &current_epoch_settings,
+            &next_epoch_settings,
+            &AggregatorEpochSettings::dummy(),
+            &fake_data::signers_with_stakes(5),
+            &fake_data::signers_with_stakes(3),
+        );
+
+        let message = get_epoch_settings_message(
+            Arc::new(RwLock::new(epoch_service)),
+            SignedEntityConfig::dummy(),
+        )
+        .await
+        .unwrap();
+
+        // TODO: What we expect  ? see #1963 Discrepancy of protocol parameters in epoch settings and pending certificates routes
+        // https://github.com/input-output-hk/mithril/issues/1963
+        // TODO if they need to be aligned with protocol parameters, we may assert in the same test
+        assert_eq!(
+            message.cardano_transactions_signing_config,
+            Some(current_epoch_settings.cardano_transactions_signing_config),
+        );
+        assert_eq!(
+            message.next_cardano_transactions_signing_config,
+            Some(next_epoch_settings.cardano_transactions_signing_config),
         );
     }
 
