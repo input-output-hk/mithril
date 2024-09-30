@@ -28,9 +28,7 @@ impl AggregatorSignableSeedBuilder {
 
 #[async_trait]
 impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
-    async fn compute_next_aggregate_verification_key_protocol_message_part_value(
-        &self,
-    ) -> StdResult<ProtocolMessagePartValue> {
+    async fn compute_next_aggregate_verification_key(&self) -> StdResult<ProtocolMessagePartValue> {
         let epoch_service = self.epoch_service.read().await;
         let next_aggregate_verification_key = (*epoch_service)
             .next_aggregate_verification_key()?
@@ -40,22 +38,38 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
 
         Ok(next_aggregate_verification_key)
     }
+
+    async fn compute_next_protocol_parameters(&self) -> StdResult<ProtocolMessagePartValue> {
+        let epoch_service = self.epoch_service.read().await;
+        let next_protocol_parameters = epoch_service.next_protocol_parameters()?.compute_hash();
+
+        Ok(next_protocol_parameters)
+    }
+
+    async fn compute_current_epoch(&self) -> StdResult<ProtocolMessagePartValue> {
+        let epoch_service = self.epoch_service.read().await;
+        let current_epoch = epoch_service.epoch_of_current_data()?.to_string();
+
+        Ok(current_epoch)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{entities::Epoch, test_utils::MithrilFixtureBuilder};
+    use mithril_common::{
+        entities::Epoch,
+        test_utils::{MithrilFixture, MithrilFixtureBuilder},
+    };
 
     use crate::services::FakeEpochService;
 
     use super::*;
 
-    #[tokio::test]
-    async fn test_compute_next_aggregate_verification_key_protocol_message_value() {
-        let epoch = Epoch(5);
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
-        let expected_next_aggregate_verification_key = next_fixture.compute_and_encode_avk();
+    fn build_signable_builder_service(
+        epoch: Epoch,
+        fixture: &MithrilFixture,
+        next_fixture: &MithrilFixture,
+    ) -> AggregatorSignableSeedBuilder {
         let epoch_service = Arc::new(RwLock::new(FakeEpochService::with_data(
             epoch,
             &fixture.protocol_parameters(),
@@ -64,10 +78,20 @@ mod tests {
             &fixture.signers_with_stake(),
             &next_fixture.signers_with_stake(),
         )));
-        let signable_seed_builder = AggregatorSignableSeedBuilder::new(epoch_service);
+
+        AggregatorSignableSeedBuilder::new(epoch_service)
+    }
+
+    #[tokio::test]
+    async fn test_compute_next_aggregate_verification_key_protocol_message_value() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let signable_seed_builder = build_signable_builder_service(epoch, &fixture, &next_fixture);
+        let expected_next_aggregate_verification_key = next_fixture.compute_and_encode_avk();
 
         let next_aggregate_verification_key = signable_seed_builder
-            .compute_next_aggregate_verification_key_protocol_message_part_value()
+            .compute_next_aggregate_verification_key()
             .await
             .unwrap();
 
@@ -75,5 +99,34 @@ mod tests {
             next_aggregate_verification_key,
             expected_next_aggregate_verification_key
         );
+    }
+
+    #[tokio::test]
+    async fn test_compute_next_protocol_parameters_protocol_message_value() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let signable_seed_builder = build_signable_builder_service(epoch, &fixture, &next_fixture);
+        let expected_next_protocol_parameters = next_fixture.protocol_parameters().compute_hash();
+
+        let next_protocol_parameters = signable_seed_builder
+            .compute_next_protocol_parameters()
+            .await
+            .unwrap();
+
+        assert_eq!(next_protocol_parameters, expected_next_protocol_parameters);
+    }
+
+    #[tokio::test]
+    async fn test_compute_current_epoch_protocol_message_value() {
+        let epoch = Epoch(5);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
+        let signable_seed_builder = build_signable_builder_service(epoch, &fixture, &next_fixture);
+        let expected_current_epoch = epoch.to_string();
+
+        let current_epoch = signable_seed_builder.compute_current_epoch().await.unwrap();
+
+        assert_eq!(current_epoch, expected_current_epoch);
     }
 }

@@ -113,7 +113,7 @@ impl MithrilStakeDistributionDownloadCommand {
             "Verify that the Mithril stake distribution is signed in the associated certificate",
         )?;
         let message = MessageBuilder::new()
-            .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
+            .compute_mithril_stake_distribution_message(&certificate, &mithril_stake_distribution)
             .with_context(|| {
                 "Can not compute the message for the given Mithril stake distribution"
             })?;

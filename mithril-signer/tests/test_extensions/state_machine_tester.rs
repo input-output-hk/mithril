@@ -212,6 +212,7 @@ impl StateMachineTester {
             protocol_initializer_store.clone(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker.clone(),
             signable_seed_builder_service,
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,

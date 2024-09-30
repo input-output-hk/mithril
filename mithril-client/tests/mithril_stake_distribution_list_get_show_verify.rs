@@ -67,7 +67,7 @@ async fn mithril_stake_distribution_list_get_show_verify() {
     );
 
     let message = MessageBuilder::new()
-        .compute_mithril_stake_distribution_message(&mithril_stake_distribution)
+        .compute_mithril_stake_distribution_message(&certificate, &mithril_stake_distribution)
         .expect("Computing msd message should not fail");
 
     assert!(

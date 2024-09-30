@@ -19,7 +19,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for signing the protocol parameters in the Genesis certificate.
 
-- Refactor the builder of the protocol messages to be signed.
+- Refactor the builder of the protocol messages, and add support for protocol parameters and epoch parts.
 
 - Crates versions:
 

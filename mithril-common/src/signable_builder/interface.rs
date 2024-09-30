@@ -35,7 +35,11 @@ where
 #[async_trait]
 pub trait SignableSeedBuilder: Send + Sync {
     /// Compute next aggregate verification key protocol message part value
-    async fn compute_next_aggregate_verification_key_protocol_message_part_value(
-        &self,
-    ) -> StdResult<ProtocolMessagePartValue>;
+    async fn compute_next_aggregate_verification_key(&self) -> StdResult<ProtocolMessagePartValue>;
+
+    /// Compute next protocol parameters protocol message part value
+    async fn compute_next_protocol_parameters(&self) -> StdResult<ProtocolMessagePartValue>;
+
+    /// Compute current epoch protocol message part value
+    async fn compute_current_epoch(&self) -> StdResult<ProtocolMessagePartValue>;
 }
