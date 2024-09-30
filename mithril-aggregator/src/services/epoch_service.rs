@@ -887,7 +887,6 @@ mod tests {
     #[tokio::test]
     async fn update_epoch_settings_insert_future_epoch_settings_in_the_store() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        // TODO use epoch_settings
         let future_protocol_parameters = ProtocolParameters::new(6, 89, 0.124);
         let epoch = Epoch(4);
         let mut service = build_service(
@@ -908,21 +907,21 @@ mod tests {
             .await
             .expect("update_epoch_settings should not fail");
 
-        // TODO use epoch_settings
-        let inserted_protocol_parameters = service
+        let inserted_epoch_settings = service
             .epoch_settings_storer
-            .get_protocol_parameters(epoch.offset_to_epoch_settings_recording_epoch())
+            .get_epoch_settings(epoch.offset_to_epoch_settings_recording_epoch())
             .await
             .unwrap_or_else(|_| {
                 panic!(
                     "epoch settings should have been inserted for epoch {}",
                     epoch.offset_to_epoch_settings_recording_epoch()
                 )
-            });
+            })
+            .unwrap();
 
         assert_eq!(
-            inserted_protocol_parameters,
-            Some(future_protocol_parameters)
+            inserted_epoch_settings.protocol_parameters,
+            future_protocol_parameters
         );
     }
 
