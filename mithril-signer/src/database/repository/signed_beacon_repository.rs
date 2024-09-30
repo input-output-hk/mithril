@@ -19,6 +19,11 @@ impl SignedBeaconRepository {
     pub fn new(connection: Arc<SqliteConnection>) -> Self {
         Self { connection }
     }
+
+    /// Get the last signed beacon.
+    pub fn get_last(&self) -> StdResult<Option<SignedBeaconRecord>> {
+        self.connection.fetch_first(GetSignedBeaconQuery::all())
+    }
 }
 
 #[async_trait]
@@ -75,6 +80,55 @@ mod tests {
             ..SignedEntityConfig::dummy()
         };
         config.list_allowed_signed_entity_types(time_point).unwrap()
+    }
+
+    #[test]
+    fn get_last_stored_signed_beacon() {
+        let connection = Arc::new(main_db_connection().unwrap());
+        let repository = SignedBeaconRepository::new(connection.clone());
+
+        let last_signed_beacon = repository.get_last().unwrap();
+        assert_eq!(None, last_signed_beacon);
+
+        insert_signed_beacons(
+            &connection,
+            vec![SignedBeaconRecord::fake(
+                Epoch(1941),
+                SignedEntityType::MithrilStakeDistribution(Epoch(1941)),
+            )],
+        );
+
+        let last_signed_beacon = repository.get_last().unwrap();
+        assert_eq!(
+            Some(SignedBeaconRecord::fake(
+                Epoch(1941),
+                SignedEntityType::MithrilStakeDistribution(Epoch(1941)),
+            )),
+            last_signed_beacon
+        );
+
+        insert_signed_beacons(
+            &connection,
+            SignedBeaconRecord::fakes(&[
+                (
+                    Epoch(1942),
+                    vec![SignedEntityType::MithrilStakeDistribution(Epoch(1942))],
+                ),
+                (
+                    Epoch(1943),
+                    vec![SignedEntityType::MithrilStakeDistribution(Epoch(1943))],
+                ),
+            ]),
+        );
+
+        let last_signed_beacon = repository.get_last().unwrap();
+        assert_eq!(
+            Some(SignedBeaconRecord::fake(
+                Epoch(1943),
+                SignedEntityType::MithrilStakeDistribution(Epoch(1943)),
+            )),
+            last_signed_beacon
+        );
     }
 
     #[tokio::test]

@@ -12,8 +12,8 @@ pub struct GetSignedBeaconQuery {
 }
 
 impl GetSignedBeaconQuery {
-    #[cfg(test)]
-    pub(crate) fn all() -> Self {
+    /// Get all signed beacons.
+    pub fn all() -> Self {
         Self {
             condition: WhereCondition::default(),
         }
