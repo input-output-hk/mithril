@@ -841,6 +841,7 @@ jobs:
         with:
           output: out/
           spec-file: ./openapi.yaml
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish OpenAPI UI build
         uses: actions/upload-artifact@v4
