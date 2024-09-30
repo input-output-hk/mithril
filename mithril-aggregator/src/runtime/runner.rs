@@ -326,16 +326,15 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         let signers = epoch_service.current_signers_with_stake()?;
         let next_signers = epoch_service.next_signers_with_stake()?;
 
-        let protocol_parameters =
-            epoch_service
-                .current_protocol_parameters()
-                .with_context(|| {
-                    format!("no current protocol parameters found for time point {time_point:?}")
-                })?;
+        let protocol_parameters = epoch_service.next_protocol_parameters().with_context(|| {
+            format!("no current protocol parameters found for time point {time_point:?}")
+        })?;
         let next_protocol_parameters =
-            epoch_service.next_protocol_parameters().with_context(|| {
-                format!("no next protocol parameters found for time point {time_point:?}")
-            })?;
+            epoch_service
+                .upcoming_protocol_parameters()
+                .with_context(|| {
+                    format!("no next protocol parameters found for time point {time_point:?}")
+                })?;
 
         let pending_certificate = CertificatePending::new(
             time_point.epoch,
