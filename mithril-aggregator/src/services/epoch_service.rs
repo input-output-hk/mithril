@@ -39,7 +39,7 @@ pub trait EpochService: Sync + Send {
     /// internal state for the new epoch.
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()>;
 
-    /// Insert future epoch settings in the store based on this service current epoch.
+    /// Insert future epoch settings in the store based on this service current epoch (epoch offset +2).
     ///
     /// Note: must be called after `inform_epoch`.
     async fn update_epoch_settings(&mut self) -> StdResult<()>;
@@ -61,18 +61,13 @@ pub trait EpochService: Sync + Send {
     /// Get upcoming protocol parameters used in next epoch (associated with the next epoch)
     fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
 
-    /// Get cardano transactions signing configuration used in current epoch (associated with the previous epoch)
+    /// Get cardano transactions signing configuration used in current epoch
     fn current_cardano_transactions_signing_config(
         &self,
     ) -> StdResult<&CardanoTransactionsSigningConfig>;
 
-    /// Get next cardano transactions signing configuration used in next epoch (associated with the actual epoch)
+    /// Get next cardano transactions signing configuration used in next epoch
     fn next_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig>;
-
-    /// Get upcoming cardano transactions signing configuration used in next epoch (associated with the next epoch)
-    fn upcoming_cardano_transactions_signing_config(
         &self,
     ) -> StdResult<&CardanoTransactionsSigningConfig>;
 
@@ -336,15 +331,6 @@ impl EpochService for MithrilEpochService {
             .cardano_transactions_signing_config)
     }
 
-    fn upcoming_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig> {
-        Ok(&self
-            .unwrap_data()?
-            .upcoming_epoch_settings
-            .cardano_transactions_signing_config)
-    }
-
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
         Ok(&self.unwrap_computed_data()?.aggregate_verification_key)
     }
@@ -568,15 +554,6 @@ impl EpochService for FakeEpochService {
         Ok(&self
             .unwrap_data()?
             .next_epoch_settings
-            .cardano_transactions_signing_config)
-    }
-
-    fn upcoming_cardano_transactions_signing_config(
-        &self,
-    ) -> StdResult<&CardanoTransactionsSigningConfig> {
-        Ok(&self
-            .unwrap_data()?
-            .upcoming_epoch_settings
             .cardano_transactions_signing_config)
     }
 

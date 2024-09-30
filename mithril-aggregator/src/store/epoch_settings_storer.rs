@@ -80,6 +80,7 @@ impl EpochSettingsStorer for FakeEpochSettingsStorer {
 
     async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>> {
         let epoch_settings = self.epoch_settings.read().await;
+
         Ok(epoch_settings.get(&epoch).cloned())
     }
 }

@@ -234,10 +234,10 @@ impl DependencyContainer {
         genesis_protocol_parameters: &ProtocolParameters,
         cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
     ) {
-        self.init_protocol_parameter_store(
-            genesis_protocol_parameters,
-            cardano_transactions_signing_config,
-        )
+        self.init_epoch_settings_storer(&AggregatorEpochSettings {
+            protocol_parameters: genesis_protocol_parameters.clone(),
+            cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
+        })
         .await;
 
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
@@ -252,12 +252,8 @@ impl DependencyContainer {
 
     /// `TEST METHOD ONLY`
     ///
-    /// Fill up to the first three epochs of the [ProtocolParametersStore] with the given value.
-    pub async fn init_protocol_parameter_store(
-        &self,
-        protocol_parameters: &ProtocolParameters,
-        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
-    ) {
+    /// Fill up to the first three epochs of the [EpochSettingsStorer] with the given value.
+    pub async fn init_epoch_settings_storer(&self, epoch_settings: &AggregatorEpochSettings) {
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         let mut epochs_to_save = Vec::new();
         epochs_to_save.push(work_epoch);
@@ -265,14 +261,7 @@ impl DependencyContainer {
         epochs_to_save.push(epoch_to_sign.next());
         for epoch in epochs_to_save {
             self.epoch_settings_storer
-                .save_epoch_settings(
-                    epoch,
-                    AggregatorEpochSettings {
-                        protocol_parameters: protocol_parameters.clone(),
-                        cardano_transactions_signing_config: cardano_transactions_signing_config
-                            .clone(),
-                    },
-                )
+                .save_epoch_settings(epoch, epoch_settings.clone())
                 .await
                 .expect("save_epoch_settings should not fail");
         }

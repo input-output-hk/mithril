@@ -56,7 +56,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
                 .count();
         }
 
-        Ok(Some(AggregatorEpochSettings::from(epoch_settings_record)))
+        Ok(Some(epoch_settings_record.into()))
     }
 
     async fn get_protocol_parameters(&self, epoch: Epoch) -> StdResult<Option<ProtocolParameters>> {
@@ -73,7 +73,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
             .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch settings")))?;
 
         if let Some(epoch_settings_record) = cursor.next() {
-            return Ok(Some(AggregatorEpochSettings::from(epoch_settings_record)));
+            return Ok(Some(epoch_settings_record.into()));
         }
         Ok(None)
     }

@@ -211,8 +211,6 @@ mod tests {
         .await
         .unwrap();
 
-        // TODO: What we expect  ? see #1963 Discrepancy of protocol parameters in epoch settings and pending certificates routes
-        // https://github.com/input-output-hk/mithril/issues/1963
         assert_eq!(
             message.protocol_parameters,
             next_epoch_settings.protocol_parameters
@@ -256,9 +254,6 @@ mod tests {
         .await
         .unwrap();
 
-        // TODO: What we expect  ? see #1963 Discrepancy of protocol parameters in epoch settings and pending certificates routes
-        // https://github.com/input-output-hk/mithril/issues/1963
-        // TODO if they need to be aligned with protocol parameters, we may assert in the same test
         assert_eq!(
             message.cardano_transactions_signing_config,
             Some(current_epoch_settings.cardano_transactions_signing_config),
