@@ -141,7 +141,11 @@ impl CertificateRecord {
             immutable_file_number,
             signed_entity_type,
             protocol_version: "protocol_version".to_string(),
-            protocol_parameters: Default::default(),
+            protocol_parameters: ProtocolParameters {
+                k: 0,
+                m: 0,
+                phi_f: 0.0,
+            },
             protocol_message: Default::default(),
             signers: vec![],
             initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")

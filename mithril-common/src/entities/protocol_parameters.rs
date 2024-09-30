@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Protocol cryptographic parameters
-// TODO: `Default` should be removed. There is no functional sense in having a default value for this struct.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ProtocolParameters {
     /// Quorum parameter
     pub k: u64,
