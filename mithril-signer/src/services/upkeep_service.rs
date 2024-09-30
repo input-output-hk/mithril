@@ -11,6 +11,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use slog::{info, Logger};
 
+use mithril_common::entities::Epoch;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
@@ -22,7 +23,7 @@ use mithril_persistence::sqlite::{
 #[async_trait]
 pub trait UpkeepService: Send + Sync {
     /// Run the upkeep service.
-    async fn run(&self) -> StdResult<()>;
+    async fn run(&self, current_epoch: Epoch) -> StdResult<()>;
 }
 
 /// Implementation of the upkeep service for the signer.
@@ -97,7 +98,7 @@ impl SignerUpkeepService {
 
 #[async_trait]
 impl UpkeepService for SignerUpkeepService {
-    async fn run(&self) -> StdResult<()> {
+    async fn run(&self, _current_epoch: Epoch) -> StdResult<()> {
         info!(self.logger, "UpkeepService::start");
 
         self.upkeep_all_databases()
@@ -147,7 +148,7 @@ mod tests {
                 TestLogger::file(&log_path),
             );
 
-            service.run().await.expect("Upkeep service failed");
+            service.run(Epoch(13)).await.expect("Upkeep service failed");
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -188,7 +189,7 @@ mod tests {
                 TestLogger::file(&log_path),
             );
 
-            service.run().await.expect("Upkeep service failed");
+            service.run(Epoch(13)).await.expect("Upkeep service failed");
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();

@@ -75,7 +75,7 @@ pub trait Runner: Send + Sync {
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()>;
 
     /// Perform the upkeep tasks.
-    async fn upkeep(&self) -> StdResult<()>;
+    async fn upkeep(&self, current_epoch: Epoch) -> StdResult<()>;
 }
 
 /// This type represents the errors thrown from the Runner.
@@ -432,9 +432,9 @@ impl Runner for SignerRunner {
         Ok(())
     }
 
-    async fn upkeep(&self) -> StdResult<()> {
+    async fn upkeep(&self, current_epoch: Epoch) -> StdResult<()> {
         debug!("RUNNER: upkeep");
-        self.services.upkeep_service.run().await?;
+        self.services.upkeep_service.run(current_epoch).await?;
         Ok(())
     }
 }
@@ -442,6 +442,7 @@ impl Runner for SignerRunner {
 #[cfg(test)]
 mod tests {
     use mockall::mock;
+    use mockall::predicate::eq;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
     use std::collections::BTreeSet;
@@ -1121,11 +1122,18 @@ mod tests {
     async fn test_upkeep() {
         let mut services = init_services().await;
         let mut upkeep_service_mock = MockUpkeepService::new();
-        upkeep_service_mock.expect_run().returning(|| Ok(())).once();
+        upkeep_service_mock
+            .expect_run()
+            .with(eq(Epoch(17)))
+            .returning(|_| Ok(()))
+            .once();
         services.upkeep_service = Arc::new(upkeep_service_mock);
 
         let runner = init_runner(Some(services), None).await;
-        runner.upkeep().await.expect("upkeep should not fail");
+        runner
+            .upkeep(Epoch(17))
+            .await
+            .expect("upkeep should not fail");
     }
 
     #[tokio::test]

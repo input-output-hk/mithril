@@ -361,7 +361,7 @@ impl StateMachine {
             .signer_registration_success_last_epoch_gauge_set(epoch);
 
         self.runner
-            .upkeep()
+            .upkeep(epoch)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
@@ -581,7 +581,7 @@ mod tests {
     #[tokio::test]
     async fn unregistered_to_registered_not_able_to_sign() {
         let mut runner = MockSignerRunner::new();
-        runner.expect_upkeep().returning(|| Ok(())).once();
+        runner.expect_upkeep().returning(|_| Ok(())).once();
         runner
             .expect_get_epoch_settings()
             .once()
@@ -635,7 +635,7 @@ mod tests {
     #[tokio::test]
     async fn unregistered_to_ready_to_sign() {
         let mut runner = MockSignerRunner::new();
-        runner.expect_upkeep().returning(|| Ok(())).once();
+        runner.expect_upkeep().returning(|_| Ok(())).once();
         runner
             .expect_get_epoch_settings()
             .once()
