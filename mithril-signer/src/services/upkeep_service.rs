@@ -26,6 +26,17 @@ pub trait UpkeepService: Send + Sync {
     async fn run(&self, current_epoch: Epoch) -> StdResult<()>;
 }
 
+/// Define the task responsible for pruning a datasource below a certain epoch threshold.
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait EpochPruningTask: Send + Sync {
+    /// Get the name of the data that will be pruned.
+    fn pruned_data(&self) -> &'static str;
+
+    /// Prune the datasource below the given epoch threshold.
+    async fn prune_below_epoch_threshold(&self, epoch_threshold: Epoch) -> StdResult<()>;
+}
+
 /// Implementation of the upkeep service for the signer.
 ///
 /// To ensure that connections are cleaned up properly, it creates new connections itself
@@ -34,6 +45,8 @@ pub struct SignerUpkeepService {
     main_db_connection: Arc<SqliteConnection>,
     cardano_tx_connection_pool: Arc<SqliteConnectionPool>,
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+    pruning_tasks: Vec<Arc<dyn EpochPruningTask>>,
+    store_retention_limit: Option<u64>,
     logger: Logger,
 }
 
@@ -43,13 +56,37 @@ impl SignerUpkeepService {
         main_db_connection: Arc<SqliteConnection>,
         cardano_tx_connection_pool: Arc<SqliteConnectionPool>,
         signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+        pruning_tasks: Vec<Arc<dyn EpochPruningTask>>,
+        store_retention_limit: Option<u64>,
         logger: Logger,
     ) -> Self {
         Self {
             main_db_connection,
             cardano_tx_connection_pool,
             signed_entity_type_lock,
+            pruning_tasks,
+            store_retention_limit,
             logger,
+        }
+    }
+
+    async fn execute_pruning_tasks(&self, current_epoch: Epoch) -> StdResult<()> {
+        match self
+            .store_retention_limit
+            .map(|limit| current_epoch - limit)
+        {
+            Some(threshold) if *threshold > 0 => {
+                for task in &self.pruning_tasks {
+                    info!(
+                        self.logger, "UpkeepService::Pruning stale data";
+                        "pruned_data" => task.pruned_data(), "below_epoch_threshold" => ?threshold
+                    );
+
+                    task.prune_below_epoch_threshold(threshold).await?;
+                }
+                Ok(())
+            }
+            _ => Ok(()),
         }
     }
 
@@ -98,8 +135,12 @@ impl SignerUpkeepService {
 
 #[async_trait]
 impl UpkeepService for SignerUpkeepService {
-    async fn run(&self, _current_epoch: Epoch) -> StdResult<()> {
+    async fn run(&self, current_epoch: Epoch) -> StdResult<()> {
         info!(self.logger, "UpkeepService::start");
+
+        self.execute_pruning_tasks(current_epoch)
+            .await
+            .with_context(|| "Pruning tasks failed")?;
 
         self.upkeep_all_databases()
             .await
@@ -112,6 +153,8 @@ impl UpkeepService for SignerUpkeepService {
 
 #[cfg(test)]
 mod tests {
+    use mockall::predicate::eq;
+
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::test_utils::TempDir;
 
@@ -122,6 +165,15 @@ mod tests {
     use crate::test_tools::TestLogger;
 
     use super::*;
+
+    fn mock_epoch_pruning_task(
+        mock_config: impl FnOnce(&mut MockEpochPruningTask),
+    ) -> Arc<dyn EpochPruningTask> {
+        let mut task_mock = MockEpochPruningTask::new();
+        task_mock.expect_pruned_data().return_const("mock_data");
+        mock_config(&mut task_mock);
+        Arc::new(task_mock)
+    }
 
     #[tokio::test]
     async fn test_cleanup_database() {
@@ -145,6 +197,8 @@ mod tests {
                     cardano_tx_connection,
                 )),
                 Arc::new(SignedEntityTypeLock::default()),
+                vec![],
+                None,
                 TestLogger::file(&log_path),
             );
 
@@ -186,6 +240,8 @@ mod tests {
                 Arc::new(main_db_connection().unwrap()),
                 Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
                 signed_entity_type_lock.clone(),
+                vec![],
+                None,
                 TestLogger::file(&log_path),
             );
 
@@ -204,5 +260,74 @@ mod tests {
                 .count(),
             0,
         );
+    }
+
+    #[tokio::test]
+    async fn test_execute_all_pruning_tasks() {
+        let task1 = mock_epoch_pruning_task(|mock| {
+            mock.expect_prune_below_epoch_threshold()
+                .once()
+                .with(eq(Epoch(4)))
+                .returning(|_| Ok(()));
+        });
+        let task2 = mock_epoch_pruning_task(|mock| {
+            mock.expect_prune_below_epoch_threshold()
+                .once()
+                .with(eq(Epoch(4)))
+                .returning(|_| Ok(()));
+        });
+
+        let service = SignerUpkeepService::new(
+            Arc::new(main_db_connection().unwrap()),
+            Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
+            Arc::new(SignedEntityTypeLock::default()),
+            vec![task1, task2],
+            Some(10),
+            TestLogger::stdout(),
+        );
+
+        service.run(Epoch(14)).await.expect("Upkeep service failed");
+    }
+
+    #[tokio::test]
+    async fn test_dont_execute_pruning_tasks_if_current_epoch_minus_retention_limit_is_0() {
+        let task = mock_epoch_pruning_task(|mock| {
+            mock.expect_prune_below_epoch_threshold()
+                .never()
+                .returning(|_| Ok(()));
+        });
+
+        let service = SignerUpkeepService::new(
+            Arc::new(main_db_connection().unwrap()),
+            Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
+            Arc::new(SignedEntityTypeLock::default()),
+            vec![task],
+            Some(17),
+            TestLogger::stdout(),
+        );
+
+        service.run(Epoch(1)).await.expect("Upkeep service failed");
+        service.run(Epoch(16)).await.expect("Upkeep service failed");
+        service.run(Epoch(17)).await.expect("Upkeep service failed");
+    }
+
+    #[tokio::test]
+    async fn test_dont_execute_pruning_tasks_if_no_retention_limit_set() {
+        let task = mock_epoch_pruning_task(|mock| {
+            mock.expect_prune_below_epoch_threshold()
+                .never()
+                .returning(|_| Ok(()));
+        });
+
+        let service = SignerUpkeepService::new(
+            Arc::new(main_db_connection().unwrap()),
+            Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
+            Arc::new(SignedEntityTypeLock::default()),
+            vec![task],
+            None,
+            TestLogger::stdout(),
+        );
+
+        service.run(Epoch(29)).await.expect("Upkeep service failed");
     }
 }

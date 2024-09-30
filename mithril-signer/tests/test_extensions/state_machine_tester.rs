@@ -246,6 +246,8 @@ impl StateMachineTester {
             sqlite_connection.clone(),
             sqlite_connection_cardano_transaction_pool,
             signed_entity_type_lock.clone(),
+            vec![],
+            None,
             slog_scope::logger(),
         ));
         let signed_beacon_repository =

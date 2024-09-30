@@ -1,13 +1,15 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use mithril_common::entities::SignedEntityType;
+use mithril_common::entities::{Epoch, SignedEntityType};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 
-use crate::database::query::{GetSignedBeaconQuery, InsertSignedBeaconRecordQuery};
+use crate::database::query::{
+    DeleteSignedBeaconRecordQuery, GetSignedBeaconQuery, InsertSignedBeaconRecordQuery,
+};
 use crate::database::record::SignedBeaconRecord;
-use crate::services::{BeaconToSign, SignedBeaconStore};
+use crate::services::{BeaconToSign, EpochPruningTask, SignedBeaconStore};
 
 /// A [SignedBeaconStore] implementation using SQLite.
 pub struct SignedBeaconRepository {
@@ -23,6 +25,14 @@ impl SignedBeaconRepository {
     /// Get the last signed beacon.
     pub fn get_last(&self) -> StdResult<Option<SignedBeaconRecord>> {
         self.connection.fetch_first(GetSignedBeaconQuery::all())
+    }
+
+    /// Prune all signed beacons that have an epoch below the given threshold.
+    pub fn prune_below_epoch(&self, epoch: Epoch) -> StdResult<()> {
+        let _ = self
+            .connection
+            .fetch_first(DeleteSignedBeaconRecordQuery::below_epoch_threshold(epoch))?;
+        Ok(())
     }
 }
 
@@ -59,12 +69,23 @@ impl SignedBeaconStore for SignedBeaconRepository {
     }
 }
 
+#[async_trait]
+impl EpochPruningTask for SignedBeaconRepository {
+    fn pruned_data(&self) -> &'static str {
+        "Signed Beacon"
+    }
+
+    async fn prune_below_epoch_threshold(&self, epoch_threshold: Epoch) -> StdResult<()> {
+        self.prune_below_epoch(epoch_threshold)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use chrono::Utc;
 
     use mithril_common::entities::{
-        Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants, TimePoint,
+        BlockNumber, Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants, TimePoint,
     };
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -251,5 +272,40 @@ mod tests {
             .unwrap()
             .expect("A signed beacon should have been inserted");
         assert_eq!(beacon_to_sign, signed_beacon);
+    }
+
+    #[test]
+    fn test_prune() {
+        let connection = Arc::new(main_db_connection().unwrap());
+        let repository = SignedBeaconRepository::new(connection.clone());
+        insert_signed_beacons(
+            &connection,
+            SignedBeaconRecord::fakes(&[
+                (
+                    Epoch(7),
+                    vec![
+                        SignedEntityType::MithrilStakeDistribution(Epoch(7)),
+                        SignedEntityType::CardanoTransactions(Epoch(7), BlockNumber(12)),
+                    ],
+                ),
+                (
+                    Epoch(8),
+                    vec![SignedEntityType::MithrilStakeDistribution(Epoch(8))],
+                ),
+            ]),
+        );
+
+        repository.prune_below_epoch(Epoch(8)).unwrap();
+
+        let signed_beacons: Vec<SignedBeaconRecord> = connection
+            .fetch_collect(GetSignedBeaconQuery::all())
+            .unwrap();
+        assert_eq!(
+            vec![SignedBeaconRecord::fake(
+                Epoch(8),
+                SignedEntityType::MithrilStakeDistribution(Epoch(8))
+            )],
+            signed_beacons
+        );
     }
 }

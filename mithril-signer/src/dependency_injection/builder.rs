@@ -347,15 +347,19 @@ impl<'a> DependenciesBuilder<'a> {
             slog_scope::logger(),
             Arc::new(preloader_activation),
         ));
+        let signed_beacon_repository =
+            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone()));
         let upkeep_service = Arc::new(SignerUpkeepService::new(
             sqlite_connection.clone(),
             sqlite_connection_cardano_transaction_pool,
             signed_entity_type_lock.clone(),
+            vec![signed_beacon_repository.clone()],
+            self.config.store_retention_limit.map(|limit| limit as u64),
             slog_scope::logger(),
         ));
         let certifier = Arc::new(SignerCertifierService::new(
             ticker_service.clone(),
-            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone())),
+            signed_beacon_repository,
             Arc::new(SignerSignedEntityConfigProvider::new(
                 network,
                 epoch_service.clone(),
