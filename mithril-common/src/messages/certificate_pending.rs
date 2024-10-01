@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use serde::{Deserialize, Serialize};
 
 use crate::entities::{CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType};
@@ -5,6 +6,10 @@ use crate::messages::SignerMessagePart;
 
 /// Structure to transport [crate::entities::CertificatePending] data.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[deprecated(
+    since = "0.4.63",
+    note = "Exists only for backward-compatibility, will be removed in the future"
+)]
 pub struct CertificatePendingMessage {
     /// Current Epoch
     pub epoch: Epoch,

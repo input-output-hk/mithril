@@ -39,6 +39,7 @@ pub use certificate::CertificateMessage;
 pub use certificate_list::{
     CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateListMessage,
 };
+#[allow(deprecated)]
 pub use certificate_pending::CertificatePendingMessage;
 pub use epoch_settings::EpochSettingsMessage;
 pub use interface::*;
