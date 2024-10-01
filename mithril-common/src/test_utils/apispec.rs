@@ -333,7 +333,7 @@ mod tests {
 
     use super::*;
     use crate::entities;
-    use crate::messages::{CertificatePendingMessage, SignerMessagePart};
+    use crate::messages::{AggregatorFeaturesMessage, SignerMessagePart};
     use crate::test_utils::{fake_data, TempDir};
 
     fn build_empty_response(status_code: u16) -> Response<Bytes> {
@@ -420,9 +420,19 @@ components:
 
     #[test]
     fn test_validate_a_response_without_body() {
-        APISpec::from_file(&APISpec::get_default_spec_file())
+        let file = get_temp_openapi_filename("validate_a_response_without_body", line!());
+        let paths = r#"
+        /empty-route:
+            get:
+                responses:
+                    "204":
+                        description: no pending certificate available
+        "#;
+        write_minimal_open_api_file("1.0.0", &file, paths, "");
+
+        APISpec::from_file(file.to_str().unwrap())
             .method(Method::GET.as_str())
-            .path("/certificate-pending")
+            .path("/empty-route")
             .validate_request(&Null)
             .unwrap()
             .validate_response(&build_empty_response(204))
@@ -433,12 +443,12 @@ components:
     fn test_validate_ok_when_request_without_body_and_expects_response() {
         APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
-            .path("/certificate-pending")
+            .path("/")
             .validate_request(&Null)
             .unwrap()
             .validate_response(&build_json_response(
                 200,
-                CertificatePendingMessage::dummy(),
+                AggregatorFeaturesMessage::dummy(),
             ))
             .unwrap();
     }
@@ -480,7 +490,7 @@ components:
         let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         let result = api_spec
             .method(Method::GET.as_str())
-            .path("/certificate-pending")
+            .path("/")
             .validate_request(&Null)
             .unwrap()
             .validate_status(&response, &StatusCode::OK);
@@ -505,7 +515,7 @@ components:
 
         APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
-            .path("/certificate-pending")
+            .path("/")
             .validate_request(&Null)
             .unwrap()
             .validate_status(&response, &StatusCode::INTERNAL_SERVER_ERROR)
@@ -532,13 +542,13 @@ components:
         let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         let result = api_spec
             .method(Method::OPTIONS.as_str())
-            .path("/certificate-pending")
+            .path("/certificates")
             .validate_response(&build_response(200, b"abcdefgh"));
 
         assert!(result.is_err());
         assert_eq!(
             result.err(),
-            Some("Unmatched path and method: /certificate-pending OPTIONS".to_string())
+            Some("Unmatched path and method: /certificates OPTIONS".to_string())
         );
     }
     #[test]
@@ -546,7 +556,7 @@ components:
         let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         let result = api_spec
             .method(Method::GET.as_str())
-            .path("/certificate-pending")
+            .path("/certificates")
             .validate_response(&build_empty_response(200));
 
         assert!(result.is_err());
@@ -588,7 +598,7 @@ components:
         let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         let result = api_spec
             .method(Method::GET.as_str())
-            .path("/certificate-pending")
+            .path("/certificates")
             .validate_request(&Null)
             .unwrap()
             .validate_response(&build_response(200, b"not a json"));
@@ -602,7 +612,7 @@ components:
     fn test_validate_returns_errors_when_route_exists_but_does_not_expect_request_body() {
         assert!(APISpec::from_file(&APISpec::get_default_spec_file())
             .method(Method::GET.as_str())
-            .path("/certificate-pending")
+            .path("/certificates")
             .validate_request(&fake_data::beacon())
             .is_err());
     }
@@ -620,7 +630,7 @@ components:
         let mut api_spec = APISpec::from_file(&APISpec::get_default_spec_file());
         let result = api_spec
             .method(Method::GET.as_str())
-            .path("/certificate-pending")
+            .path("/certificates")
             .content_type("whatever")
             .validate_request(&Null)
             .unwrap()
@@ -629,7 +639,7 @@ components:
         assert!(result.is_err());
         assert_eq!(
             result.err().unwrap().to_string(),
-            "Expected content type 'whatever' but spec is '{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/CertificatePendingMessage\"}}}'",
+            "Expected content type 'whatever' but spec is '{\"application/json\":{\"schema\":{\"$ref\":\"#/components/schemas/CertificateListMessage\"}}}'",
         );
     }
 
@@ -707,10 +717,10 @@ components:
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             Method::GET.as_str(),
-            "/certificate-pending",
+            "/",
             "application/json",
             &Null,
-            &build_json_response(200, CertificatePendingMessage::dummy()),
+            &build_json_response(200, AggregatorFeaturesMessage::dummy()),
             &StatusCode::OK,
         )
         .unwrap()
@@ -718,13 +728,13 @@ components:
 
     #[test]
     fn test_verify_conformity_with_non_expected_status_returns_error() {
-        let response = build_json_response(200, CertificatePendingMessage::dummy());
+        let response = build_json_response(200, AggregatorFeaturesMessage::dummy());
 
         let spec_file = APISpec::get_default_spec_file();
         let result = APISpec::verify_conformity(
             vec![spec_file.clone()],
             Method::GET.as_str(),
-            "/certificate-pending",
+            "/",
             "application/json",
             &Null,
             &response,
@@ -737,7 +747,7 @@ components:
             StatusCode::OK.as_u16()
         );
         let error_message = format!(
-            "OpenAPI invalid response in {spec_file} on route /certificate-pending, reason: {error_reason}\nresponse: {response:#?}"
+            "OpenAPI invalid response in {spec_file} on route /, reason: {error_reason}\nresponse: {response:#?}"
         );
         assert!(result.is_err());
         assert_eq!(result.err().unwrap().to_string(), error_message);
@@ -748,10 +758,10 @@ components:
         let result = APISpec::verify_conformity(
             vec![],
             Method::GET.as_str(),
-            "/certificate-pending",
+            "/",
             "application/json",
             &Null,
-            &build_json_response(200, CertificatePendingMessage::dummy()),
+            &build_json_response(200, AggregatorFeaturesMessage::dummy()),
             &StatusCode::OK,
         );
 
