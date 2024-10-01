@@ -95,16 +95,19 @@ function send_funds_to_era_address {
         --tx-file node-pool${N}/tx/tx${N}-era-funds.tx \\
         --testnet-magic ${NETWORK_MAGIC}
 
+    ## Compute the submitted transaction id
+    TX_ID_SUBMITTED=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction txid --tx-file node-pool${N}/tx/tx${N}-era-funds.tx)
+
     ## Wait at least for 10 blocks so that the transaction is confirmed
     wait_for_elapsed_blocks 10
 
-    ## Wait for all pool nodes to see the new funds
+    ## Wait for all pool nodes to see the new transaction
     for (( i=1; i<=${NUM_POOL_NODES}; i++ )); do
-        AMOUNT_RETRIEVED=\$(CARDANO_NODE_SOCKET_PATH=node-pool\${i}/ipc/node.sock $CARDANO_CLI query utxo \\
+        TOTAL_UTXOS_FOR_TX_ID=\$(CARDANO_NODE_SOCKET_PATH=node-pool\${i}/ipc/node.sock $CARDANO_CLI query utxo \\
         --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
-        | jq '. [] | select(.value.lovelace | . != null and . != "") | .value.lovelace')
+        | jq '. | with_entries(select(.key | startswith("${TX_ID_SUBMITTED}"))) | length')
         echo ">>>>>> Era address funds retrieved on node-pool\${i}: \${AMOUNT_RETRIEVED}"
-        if [ "\${AMOUNT_RETRIEVED}" != "${AMOUNT_TRANSFERRED}" ]; then
+        if [ "\${TOTAL_UTXOS_FOR_TX_ID}" == "0" ]; then
             touch ${MITHRIL_ERA_ERROR_FILE}
             break
         fi
