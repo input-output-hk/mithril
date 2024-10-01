@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use mithril_common::entities::{Epoch, ProtocolParameters};
+use mithril_common::entities::{CardanoTransactionsSigningConfig, Epoch, ProtocolParameters};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
 use mithril_persistence::store::adapter::AdapterError;
+use sqlite::Value;
 
 use crate::database::query::{
     DeleteEpochSettingsQuery, GetEpochSettingsQuery, UpdateEpochSettingsQuery,
@@ -29,6 +30,28 @@ impl EpochSettingsStore {
             connection,
             retention_limit,
         }
+    }
+
+    #[deprecated(since = "0.5.72", note = "temporary fix, should be removed")]
+    /// Replace empty JSON values '{}' injected with Migration #28
+    pub fn replace_cardano_signing_config_empty_values(
+        &self,
+        cardano_signing_config: CardanoTransactionsSigningConfig,
+    ) -> StdResult<()> {
+        let query = r#"
+            update epoch_setting 
+            set cardano_transactions_signing_config = ?
+            where cardano_transactions_signing_config == '{}'"#;
+
+        let mut statement = self.connection.prepare(query)?;
+        statement.bind::<&[(_, Value)]>(&[(
+            1,
+            serde_json::to_string(&cardano_signing_config)?.into(),
+        )])?;
+
+        statement.next()?;
+
+        Ok(())
     }
 }
 
@@ -81,9 +104,72 @@ impl EpochSettingsStorer for EpochSettingsStore {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::BlockNumber;
+
     use crate::database::test_helper::{insert_epoch_settings, main_db_connection};
 
     use super::*;
+
+    #[tokio::test]
+    async fn replace_cardano_signing_config_empty_values_updates_only_empty_values() {
+        let connection = main_db_connection().unwrap();
+        connection.execute(
+            r#"insert into epoch_setting (epoch_setting_id, protocol_parameters, cardano_transactions_signing_config) 
+            values (
+                1, 
+                '{"k": 5, "m": 100, "phi_f": 0.65}', 
+                '{"security_parameter": 70, "step": 20}'
+            )"#,
+        ).unwrap();
+        connection.execute(
+            r#"insert into epoch_setting (epoch_setting_id, protocol_parameters, cardano_transactions_signing_config) 
+            values (
+                2,
+                '{"k": 73, "m": 100, "phi_f": 0.65}', 
+                '{}'
+            )"#,
+        ).unwrap();
+
+        let store = EpochSettingsStore::new(Arc::new(connection), None);
+
+        let epoch_settings = store.get_epoch_settings(Epoch(1)).await.unwrap().unwrap();
+        assert_eq!(
+            CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(70),
+                step: BlockNumber(20),
+            },
+            epoch_settings.cardano_transactions_signing_config
+        );
+
+        #[allow(deprecated)]
+        store
+            .replace_cardano_signing_config_empty_values(CardanoTransactionsSigningConfig {
+                security_parameter: BlockNumber(50),
+                step: BlockNumber(10),
+            })
+            .unwrap();
+
+        {
+            let epoch_settings = store.get_epoch_settings(Epoch(1)).await.unwrap().unwrap();
+            assert_eq!(
+                CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(70),
+                    step: BlockNumber(20),
+                },
+                epoch_settings.cardano_transactions_signing_config
+            );
+        }
+        {
+            let epoch_settings = store.get_epoch_settings(Epoch(2)).await.unwrap().unwrap();
+            assert_eq!(
+                CardanoTransactionsSigningConfig {
+                    security_parameter: BlockNumber(50),
+                    step: BlockNumber(10),
+                },
+                epoch_settings.cardano_transactions_signing_config
+            );
+        }
+    }
 
     #[tokio::test]
     async fn save_epoch_settings_prune_older_epoch_settings() {
