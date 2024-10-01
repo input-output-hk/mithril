@@ -78,6 +78,7 @@ paths:
   /certificate-pending:
     get:
       summary: Get current pending certificate information
+      deprecated: true
       description: |
         Returns the information related to the current pending certificate:
           * protocol parameters, for current and next epoch (to setup cryptography)
