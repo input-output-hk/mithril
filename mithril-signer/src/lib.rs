@@ -18,9 +18,7 @@ pub mod store;
 
 pub use configuration::{Configuration, DefaultConfiguration};
 pub use entities::SignerEpochSettings;
-pub use message_adapters::{
-    FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
-};
+pub use message_adapters::{FromEpochSettingsAdapter, ToRegisterSignerMessageAdapter};
 pub use metrics::*;
 pub use runtime::*;
 
