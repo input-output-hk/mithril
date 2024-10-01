@@ -579,6 +579,18 @@ impl DependenciesBuilder {
                 message: "cannot build aggregator runner: no epoch returned.".to_string(),
                 error: None,
             })?;
+
+        {
+            // Temporary fix, should be removed
+            // Replace empty JSON values '{}' injected with Migration #28
+            let cardano_signing_config = self
+                .get_signed_entity_config()?
+                .cardano_transactions_signing_config;
+            #[allow(deprecated)]
+            epoch_settings_store
+                .replace_cardano_signing_config_empty_values(cardano_signing_config)?;
+        }
+
         epoch_settings_store
             .handle_discrepancies_at_startup(
                 current_epoch,
