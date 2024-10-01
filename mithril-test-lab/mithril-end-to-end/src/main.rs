@@ -72,6 +72,11 @@ pub struct Args {
     #[clap(long, default_value = "thales")]
     mithril_era: String,
 
+    /// Mithril next era to run
+    #[clap(long)]
+    mithril_next_era: Option<String>,
+
+
     /// Mithril era reader adapter
     #[clap(long, default_value = "cardano-chain")]
     mithril_era_reader_adapter: String,
@@ -190,6 +195,7 @@ async fn main() -> StdResult<()> {
         cardano_node_version: args.cardano_node_version,
         mithril_run_interval: args.mithril_run_interval,
         mithril_era: args.mithril_era,
+        mithril_next_era: args.mithril_next_era,
         mithril_era_reader_adapter: args.mithril_era_reader_adapter,
         signed_entity_types: args.signed_entity_types,
         run_only_mode,

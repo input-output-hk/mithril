@@ -1,6 +1,6 @@
 use crate::assertions;
 use crate::MithrilInfrastructure;
-use mithril_common::StdResult;
+use mithril_common::{entities::Epoch, StdResult};
 
 pub struct Spec<'a> {
     pub infrastructure: &'a mut MithrilInfrastructure,
@@ -71,6 +71,30 @@ impl<'a> Spec<'a> {
         )
         .await?;
 
+        // Verify that artifacts are produced and signed correctly
+        self.verify_artifacts_production(target_epoch).await?;
+
+        // Verify that artifacts are produced and signed correctly after era switch
+        if self.infrastructure.can_switch_to_next_era() {
+            // Switch to next era
+            self.infrastructure.switch_to_next_era().await?;
+            target_epoch += 2;
+            assertions::wait_for_target_epoch(
+                self.infrastructure.chain_observer(),
+                target_epoch,
+                "epoch after which the era switch will have triggered".to_string(),
+            )
+            .await?;
+
+            // Verify that artifacts are produced and signed correctly
+            self.verify_artifacts_production(target_epoch).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn verify_artifacts_production(&self, target_epoch: Epoch) -> StdResult<Epoch> {
+        let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
         let expected_epoch_min = target_epoch - 3;
         // Verify that mithril stake distribution artifacts are produced and signed correctly
         {
@@ -173,6 +197,6 @@ impl<'a> Spec<'a> {
             }
         }
 
-        Ok(())
+        Ok(target_epoch)
     }
 }

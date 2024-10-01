@@ -7,6 +7,7 @@ use mithril_common::entities::{PartyId, ProtocolParameters, SignedEntityTypeDisc
 use mithril_common::{CardanoNetwork, StdResult};
 use slog_scope::info;
 use std::borrow::BorrowMut;
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -22,6 +23,7 @@ pub struct MithrilInfrastructureConfig {
     pub cardano_node_version: String,
     pub mithril_run_interval: u32,
     pub mithril_era: String,
+    pub mithril_next_era: Option<String>,
     pub mithril_era_reader_adapter: String,
     pub signed_entity_types: Vec<String>,
     pub run_only_mode: bool,
@@ -42,6 +44,9 @@ pub struct MithrilInfrastructure {
     run_only_mode: bool,
     is_signing_cardano_transactions: bool,
     is_signing_cardano_stake_distribution: bool,
+    current_era: String,
+    next_era: Option<String>,
+    era_reader_adapter: String,
 }
 
 impl MithrilInfrastructure {
@@ -96,7 +101,33 @@ impl MithrilInfrastructure {
                     .as_ref()
                     .to_string(),
             ),
-        })
+            current_era: config.mithril_era.clone(),
+            next_era: config.mithril_next_era.clone(),
+            era_reader_adapter: config.mithril_era_reader_adapter.clone(),
+    async fn activate_era(
+        aggregator: &mut Aggregator,
+        config: &MithrilInfrastructureConfig,
+    ) -> StdResult<()> {
+        if config.mithril_era_reader_adapter == "cardano-chain" {
+            assertions::register_era_marker(aggregator, &config.devnet, &config.mithril_era)
+                .await?;
+            sleep(Duration::from_secs(5)).await;
+        }
+
+        Ok(())
+    }
+
+    pub async fn switch_to_next_era(&mut self) -> StdResult<()> {
+        if let Some(next_era) = &self.next_era {
+            if self.era_reader_adapter == "cardano-chain" {
+                assertions::register_era_marker(&mut self.aggregator, &self.devnet, next_era)
+                    .await?;
+            }
+            self.current_era = next_era.to_owned();
+            self.next_era = None;
+        }
+
+        Ok(())
     }
 
     async fn start_aggregator(
@@ -124,11 +155,9 @@ impl MithrilInfrastructure {
             m: 105,
             phi_f: 0.95,
         });
-        if config.mithril_era_reader_adapter == "cardano-chain" {
-            assertions::register_era_marker(&mut aggregator, &config.devnet, &config.mithril_era)
-                .await?;
-            sleep(Duration::from_secs(5)).await;
-        }
+
+        Self::activate_era(&mut aggregator, config).await?;
+
         aggregator.serve()?;
 
         Ok(aggregator)
@@ -280,7 +309,11 @@ impl MithrilInfrastructure {
     }
 
     pub fn build_client(&self) -> StdResult<Client> {
-        Client::new(self.aggregator.endpoint(), &self.work_dir, &self.bin_dir)
+        let era_work_dir = self.work_dir.join(format!("era.{}", self.current_era));
+        if !era_work_dir.exists() {
+            fs::create_dir(&era_work_dir)?;
+        }
+        Client::new(self.aggregator.endpoint(), &era_work_dir, &self.bin_dir)
     }
 
     pub fn run_only_mode(&self) -> bool {
@@ -293,6 +326,10 @@ impl MithrilInfrastructure {
 
     pub fn is_signing_cardano_stake_distribution(&self) -> bool {
         self.is_signing_cardano_stake_distribution
+    }
+
+    pub fn can_switch_to_next_era(&self) -> bool {
+        self.next_era.is_some()
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
