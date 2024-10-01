@@ -49,11 +49,11 @@ pub struct Args {
     number_of_pool_nodes: u8,
 
     /// Length of a Cardano slot in the devnet (in s)
-    #[clap(long, default_value_t = 0.08)]
+    #[clap(long, default_value_t = 0.10)]
     cardano_slot_length: f64,
 
     /// Length of a Cardano epoch in the devnet (in s)
-    #[clap(long, default_value_t = 35.0)]
+    #[clap(long, default_value_t = 30.0)]
     cardano_epoch_length: f64,
 
     /// Cardano node version
