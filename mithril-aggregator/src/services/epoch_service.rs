@@ -7,8 +7,8 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
-    Signer, SignerWithStake,
+    BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
+    SignedEntityTypeDiscriminants, Signer, SignerWithStake,
 };
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::{CardanoNetwork, StdResult};
@@ -96,6 +96,9 @@ pub trait EpochService: Sync + Send {
 
     /// Get the [protocol multi signer][ProtocolMultiSigner] for the next epoch
     fn next_protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner>;
+
+    /// Get the [SignedEntityConfig] for the current epoch.
+    fn signed_entity_config(&self) -> StdResult<&SignedEntityConfig>;
 }
 
 struct EpochData {
@@ -107,6 +110,7 @@ struct EpochData {
     next_signers_with_stake: Vec<SignerWithStake>,
     current_signers: Vec<Signer>,
     next_signers: Vec<Signer>,
+    signed_entity_config: SignedEntityConfig,
 }
 
 struct ComputedEpochData {
@@ -245,6 +249,14 @@ impl EpochService for MithrilEpochService {
         let current_signers = Signer::vec_from(current_signers_with_stake.clone());
         let next_signers = Signer::vec_from(next_signers_with_stake.clone());
 
+        let signed_entity_config = SignedEntityConfig {
+            allowed_discriminants: self.allowed_discriminants.clone(),
+            network: self.network,
+            cardano_transactions_signing_config: epoch_settings
+                .cardano_transactions_signing_config
+                .clone(),
+        };
+
         self.epoch_data = Some(EpochData {
             epoch,
             epoch_settings,
@@ -254,6 +266,7 @@ impl EpochService for MithrilEpochService {
             next_signers_with_stake,
             current_signers,
             next_signers,
+            signed_entity_config,
         });
         self.computed_epoch_data = None;
 
@@ -370,6 +383,10 @@ impl EpochService for MithrilEpochService {
     fn next_protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {
         Ok(&self.unwrap_computed_data()?.next_protocol_multi_signer)
     }
+
+    fn signed_entity_config(&self) -> StdResult<&SignedEntityConfig> {
+        Ok(&self.unwrap_data()?.signed_entity_config)
+    }
 }
 
 #[cfg(test)]
@@ -423,6 +440,7 @@ impl FakeEpochService {
                 next_signers_with_stake,
                 current_signers,
                 next_signers,
+                signed_entity_config: SignedEntityConfig::dummy(),
             }),
             computed_epoch_data: Some(ComputedEpochData {
                 aggregate_verification_key: protocol_multi_signer
@@ -596,17 +614,21 @@ impl EpochService for FakeEpochService {
     fn next_protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {
         Ok(&self.unwrap_computed_data()?.next_protocol_multi_signer)
     }
+
+    fn signed_entity_config(&self) -> StdResult<&SignedEntityConfig> {
+        Ok(&self.unwrap_data()?.signed_entity_config)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{CardanoTransactionsSigningConfig, PartyId};
+    use mithril_common::entities::{CardanoTransactionsSigningConfig, PartyId, SignedEntityType};
     use mithril_common::test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder};
     use mithril_persistence::store::adapter::MemoryAdapter;
     use std::collections::{BTreeSet, HashMap};
 
     use crate::services::epoch_service::tests::ServiceBuilderParameters::WithFutureProtocolParameters;
-    use crate::store::FakeEpochSettingsStorer;
+    use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
     use crate::VerificationKeyStore;
 
     use super::*;
@@ -623,6 +645,7 @@ mod tests {
         next_signers_with_stake: BTreeSet<SignerWithStake>,
         current_signers: BTreeSet<Signer>,
         next_signers: BTreeSet<Signer>,
+        signed_entity_config: SignedEntityConfig,
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -656,6 +679,7 @@ mod tests {
                     .collect(),
                 current_signers: service.current_signers()?.clone().into_iter().collect(),
                 next_signers: service.next_signers()?.clone().into_iter().collect(),
+                signed_entity_config: service.signed_entity_config()?.clone(),
             })
         }
     }
@@ -679,12 +703,97 @@ mod tests {
             .collect()
     }
 
+    struct EpochServiceBuilder {
+        cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+        future_protocol_parameters: ProtocolParameters,
+        network: CardanoNetwork,
+        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        signer_retrieval_epoch: Epoch,
+        next_signer_retrieval_epoch: Epoch,
+        signers_with_stake: Vec<SignerWithStake>,
+        next_signers_with_stake: Vec<SignerWithStake>,
+        stored_epoch_settings: AggregatorEpochSettings,
+        stored_next_epoch_settings: AggregatorEpochSettings,
+        stored_upcoming_epoch_settings: AggregatorEpochSettings,
+    }
+
+    impl EpochServiceBuilder {
+        fn new(epoch: Epoch, current_epoch_fixture: MithrilFixture) -> Self {
+            let next_epoch_fixture = current_epoch_fixture.clone();
+            Self {
+                // Aggregator configuration
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                future_protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                network: CardanoNetwork::TestNet(0),
+                allowed_discriminants: BTreeSet::new(),
+                // Epoch used for verification keys and database
+                signer_retrieval_epoch: epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                next_signer_retrieval_epoch: epoch.offset_to_next_signer_retrieval_epoch(),
+                // Signers in verification key store
+                signers_with_stake: current_epoch_fixture.signers_with_stake(),
+                next_signers_with_stake: next_epoch_fixture.signers_with_stake(),
+                // Database data
+                stored_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                },
+                stored_next_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                },
+                stored_upcoming_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                },
+            }
+        }
+
+        fn build(self) -> MithrilEpochService {
+            let epoch_settings_storer = FakeEpochSettingsStorer::new(vec![
+                (self.signer_retrieval_epoch, self.stored_epoch_settings),
+                (
+                    self.next_signer_retrieval_epoch,
+                    self.stored_next_epoch_settings.clone(),
+                ),
+                (
+                    self.next_signer_retrieval_epoch.next(),
+                    self.stored_upcoming_epoch_settings.clone(),
+                ),
+            ]);
+            let vkey_store = VerificationKeyStore::new(Box::new(
+                MemoryAdapter::new(Some(vec![
+                    (
+                        self.signer_retrieval_epoch,
+                        map_signers_for_vkey_store(&self.signers_with_stake),
+                    ),
+                    (
+                        self.next_signer_retrieval_epoch,
+                        map_signers_for_vkey_store(&self.next_signers_with_stake),
+                    ),
+                ]))
+                .unwrap(),
+            ));
+            MithrilEpochService::new(
+                AggregatorEpochSettings {
+                    protocol_parameters: self.future_protocol_parameters,
+                    cardano_transactions_signing_config: self.cardano_transactions_signing_config,
+                },
+                Arc::new(epoch_settings_storer),
+                Arc::new(vkey_store),
+                self.network,
+                self.allowed_discriminants,
+            )
+        }
+    }
+
+    // TODO: Use EpochServiceBuilder and remove ServiceBuilderParameters
     enum ServiceBuilderParameters {
         DifferentFixtureForSecondEpoch(MithrilFixture),
         UpcomingProtocolParameters(ProtocolParameters),
         WithFutureProtocolParameters(ProtocolParameters),
     }
 
+    // TODO: Use EpochServiceBuilder and remove build_service
     /// By default will copy data from the given fixture for all epochs, can be fined tuned
     /// with the [ServiceBuilderParameters].
     async fn build_service(
@@ -692,71 +801,31 @@ mod tests {
         current_epoch_fixture: &MithrilFixture,
         additional_params: &[ServiceBuilderParameters],
     ) -> MithrilEpochService {
-        let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch().unwrap();
-        let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
-        let mut next_epoch_fixture = current_epoch_fixture;
-        let mut upcoming_protocol_parameters = current_epoch_fixture.protocol_parameters();
-        let mut future_protocol_parameters = current_epoch_fixture.protocol_parameters();
-
+        let mut builder = EpochServiceBuilder::new(epoch, current_epoch_fixture.clone());
         for params in additional_params {
             match params {
                 ServiceBuilderParameters::DifferentFixtureForSecondEpoch(fixture) => {
-                    next_epoch_fixture = fixture
+                    builder.stored_next_epoch_settings = AggregatorEpochSettings {
+                        protocol_parameters: fixture.protocol_parameters(),
+                        cardano_transactions_signing_config:
+                            CardanoTransactionsSigningConfig::dummy(),
+                    };
+                    builder.next_signers_with_stake = fixture.signers_with_stake().clone();
                 }
                 ServiceBuilderParameters::UpcomingProtocolParameters(params) => {
-                    upcoming_protocol_parameters = params.clone()
+                    builder.stored_upcoming_epoch_settings = AggregatorEpochSettings {
+                        protocol_parameters: params.clone(),
+                        cardano_transactions_signing_config:
+                            CardanoTransactionsSigningConfig::dummy(),
+                    };
                 }
-                WithFutureProtocolParameters(params) => future_protocol_parameters = params.clone(),
+                ServiceBuilderParameters::WithFutureProtocolParameters(params) => {
+                    builder.future_protocol_parameters = params.clone();
+                }
             }
         }
 
-        let epoch_settings_storer = FakeEpochSettingsStorer::new(vec![
-            (
-                signer_retrieval_epoch,
-                AggregatorEpochSettings {
-                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-                },
-            ),
-            (
-                next_signer_retrieval_epoch,
-                AggregatorEpochSettings {
-                    protocol_parameters: next_epoch_fixture.protocol_parameters(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-                },
-            ),
-            (
-                next_signer_retrieval_epoch.next(),
-                AggregatorEpochSettings {
-                    protocol_parameters: upcoming_protocol_parameters.clone(),
-                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-                },
-            ),
-        ]);
-        let vkey_store = VerificationKeyStore::new(Box::new(
-            MemoryAdapter::new(Some(vec![
-                (
-                    signer_retrieval_epoch,
-                    map_signers_for_vkey_store(&current_epoch_fixture.signers_with_stake()),
-                ),
-                (
-                    next_signer_retrieval_epoch,
-                    map_signers_for_vkey_store(&next_epoch_fixture.signers_with_stake()),
-                ),
-            ]))
-            .unwrap(),
-        ));
-
-        MithrilEpochService::new(
-            AggregatorEpochSettings {
-                protocol_parameters: future_protocol_parameters,
-                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-            },
-            Arc::new(epoch_settings_storer),
-            Arc::new(vkey_store),
-            CardanoNetwork::TestNet(27),
-            BTreeSet::new(),
-        )
+        builder.build()
     }
 
     #[tokio::test]
@@ -769,19 +838,22 @@ mod tests {
         let upcoming_protocol_parameters = fake_data::protocol_parameters();
 
         let epoch = Epoch(5);
-        let mut service = build_service(
-            epoch,
-            &current_epoch_fixture,
-            &[
-                ServiceBuilderParameters::DifferentFixtureForSecondEpoch(
-                    next_epoch_fixture.clone(),
-                ),
-                ServiceBuilderParameters::UpcomingProtocolParameters(
-                    upcoming_protocol_parameters.clone(),
-                ),
-            ],
-        )
-        .await;
+        let builder = EpochServiceBuilder {
+            next_signers_with_stake: next_epoch_fixture.signers_with_stake(),
+            stored_next_epoch_settings: AggregatorEpochSettings {
+                protocol_parameters: next_epoch_fixture.protocol_parameters(),
+                ..AggregatorEpochSettings::dummy()
+            },
+            stored_upcoming_epoch_settings: AggregatorEpochSettings {
+                protocol_parameters: upcoming_protocol_parameters.clone(),
+                ..AggregatorEpochSettings::dummy()
+            },
+            network: SignedEntityConfig::dummy().network,
+            allowed_discriminants: SignedEntityConfig::dummy().allowed_discriminants,
+            ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
+        };
+
+        let mut service = builder.build();
 
         service
             .inform_epoch(epoch)
@@ -793,7 +865,7 @@ mod tests {
             .expect("extracting data from service should not fail");
 
         assert_eq!(
-            data,
+            data.clone(),
             ExpectedEpochData {
                 epoch,
                 protocol_parameters: current_epoch_fixture.protocol_parameters(),
@@ -811,6 +883,50 @@ mod tests {
                     .collect(),
                 current_signers: current_epoch_fixture.signers().into_iter().collect(),
                 next_signers: next_epoch_fixture.signers().into_iter().collect(),
+                signed_entity_config: SignedEntityConfig::dummy(),
+            }
+        );
+    }
+
+    #[tokio::test]
+    async fn inform_epoch_get_signed_entity_config_from_its_dependencies_and_store() {
+        let epoch = Epoch(5);
+
+        let cardano_transactions_signing_config =
+            CardanoTransactionsSigningConfig::new(BlockNumber(29), BlockNumber(986));
+        let network = CardanoNetwork::TestNet(27);
+        let allowed_discriminants = BTreeSet::from([
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+        ]);
+
+        let builder = EpochServiceBuilder {
+            network,
+            allowed_discriminants: allowed_discriminants.clone(),
+            stored_epoch_settings: AggregatorEpochSettings {
+                cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
+                ..AggregatorEpochSettings::dummy()
+            },
+            ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
+        };
+
+        let mut service = builder.build();
+
+        service
+            .inform_epoch(epoch)
+            .await
+            .expect("inform_epoch should not fail");
+
+        let signed_entity_config = service
+            .signed_entity_config()
+            .expect("extracting data from service should not fail");
+
+        assert_eq!(
+            signed_entity_config.clone(),
+            SignedEntityConfig {
+                allowed_discriminants,
+                network,
+                cardano_transactions_signing_config,
             }
         );
     }
@@ -978,6 +1094,7 @@ mod tests {
                 "next_protocol_multi_signer",
                 service.next_protocol_multi_signer().err(),
             ),
+            ("signed_entity_config", service.signed_entity_config().err()),
         ] {
             let error =
                 res.unwrap_or_else(|| panic!("getting {name} should have returned an error"));
@@ -1008,6 +1125,7 @@ mod tests {
         assert!(service.next_signers_with_stake().is_ok());
         assert!(service.current_signers().is_ok());
         assert!(service.next_signers().is_ok());
+        assert!(service.signed_entity_config().is_ok());
 
         for (name, res) in [
             (
