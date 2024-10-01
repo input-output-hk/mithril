@@ -3,7 +3,7 @@ use mithril_common::entities::{
 };
 
 /// SignerEpochSettings represents the settings of an epoch
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SignerEpochSettings {
     /// Current Epoch
     pub epoch: Epoch,

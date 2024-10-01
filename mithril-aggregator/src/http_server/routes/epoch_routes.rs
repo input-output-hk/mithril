@@ -40,11 +40,18 @@ async fn get_epoch_settings_message(
     let current_signers = epoch_service.current_signers()?;
     let next_signers = epoch_service.next_signers()?;
 
-    let cardano_transactions_signing_config = signed_entity_config
-        .list_allowed_signed_entity_types_discriminants()
-        .contains(&SignedEntityTypeDiscriminants::CardanoTransactions)
-        .then_some(signed_entity_config.cardano_transactions_signing_config);
-    let next_cardano_transactions_signing_config = cardano_transactions_signing_config.clone();
+    let allowed_types = signed_entity_config.list_allowed_signed_entity_types_discriminants();
+    let cardano_transactions_discriminant =
+        allowed_types.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
+
+    let cardano_transactions_signing_config = cardano_transactions_discriminant
+        .map(|_| epoch_service.current_cardano_transactions_signing_config())
+        .transpose()?
+        .cloned();
+    let next_cardano_transactions_signing_config = cardano_transactions_discriminant
+        .map(|_| epoch_service.next_cardano_transactions_signing_config())
+        .transpose()?
+        .cloned();
 
     let epoch_settings_message = EpochSettingsMessage {
         epoch,
@@ -98,15 +105,15 @@ mod tests {
 
     use mithril_common::{
         entities::{
-            BlockNumber, CardanoTransactionsSigningConfig, Epoch, SignedEntityConfig,
-            SignedEntityTypeDiscriminants,
+            BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
+            SignedEntityConfig, SignedEntityTypeDiscriminants,
         },
-        test_utils::{apispec::APISpec, MithrilFixtureBuilder},
+        test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
     };
 
-    use crate::http_server::SERVER_BASE_PATH;
     use crate::initialize_dependencies;
     use crate::services::FakeEpochService;
+    use crate::{entities::AggregatorEpochSettings, http_server::SERVER_BASE_PATH};
 
     use super::*;
 
@@ -145,14 +152,8 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(
-            message.cardano_transactions_signing_config,
-            Some(cardano_transactions_signing_config.clone())
-        );
-        assert_eq!(
-            message.next_cardano_transactions_signing_config,
-            Some(cardano_transactions_signing_config)
-        );
+        assert!(message.cardano_transactions_signing_config.is_some());
+        assert!(message.next_cardano_transactions_signing_config.is_some(),);
     }
 
     #[tokio::test]
@@ -177,6 +178,90 @@ mod tests {
 
         assert_eq!(message.cardano_transactions_signing_config, None);
         assert_eq!(message.next_cardano_transactions_signing_config, None);
+    }
+
+    #[tokio::test]
+    async fn get_epoch_settings_message_retrieves_protocol_parameters_from_epoch_service() {
+        let current_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(101, 10, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let next_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(102, 20, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let upcoming_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(103, 30, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+
+        let epoch_service = FakeEpochService::with_data(
+            Epoch(1),
+            &current_epoch_settings,
+            &next_epoch_settings,
+            &upcoming_epoch_settings,
+            &fake_data::signers_with_stakes(5),
+            &fake_data::signers_with_stakes(3),
+        );
+
+        let message = get_epoch_settings_message(
+            Arc::new(RwLock::new(epoch_service)),
+            SignedEntityConfig::dummy(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            message.protocol_parameters,
+            next_epoch_settings.protocol_parameters
+        );
+        assert_eq!(
+            message.next_protocol_parameters,
+            upcoming_epoch_settings.protocol_parameters
+        );
+    }
+
+    #[tokio::test]
+    async fn get_epoch_settings_message_retrieves_signing_configuration_from_epoch_service() {
+        let current_epoch_settings = AggregatorEpochSettings {
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
+                BlockNumber(100),
+                BlockNumber(15),
+            ),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let next_epoch_settings = AggregatorEpochSettings {
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
+                BlockNumber(200),
+                BlockNumber(15),
+            ),
+            ..AggregatorEpochSettings::dummy()
+        };
+
+        let epoch_service = FakeEpochService::with_data(
+            Epoch(1),
+            &current_epoch_settings,
+            &next_epoch_settings,
+            &AggregatorEpochSettings::dummy(),
+            &fake_data::signers_with_stakes(5),
+            &fake_data::signers_with_stakes(3),
+        );
+
+        let message = get_epoch_settings_message(
+            Arc::new(RwLock::new(epoch_service)),
+            SignedEntityConfig::dummy(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            message.cardano_transactions_signing_config,
+            Some(current_epoch_settings.cardano_transactions_signing_config),
+        );
+        assert_eq!(
+            message.next_cardano_transactions_signing_config,
+            Some(next_epoch_settings.cardano_transactions_signing_config),
+        );
     }
 
     #[tokio::test]

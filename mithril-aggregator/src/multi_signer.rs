@@ -142,6 +142,7 @@ mod tests {
     use mithril_common::protocol::ToMessage;
     use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
 
+    use crate::entities::AggregatorEpochSettings;
     use crate::services::FakeEpochService;
 
     use super::*;
@@ -174,9 +175,18 @@ mod tests {
         let multi_signer =
             MultiSignerImpl::new(Arc::new(RwLock::new(FakeEpochService::with_data(
                 epoch,
-                &fixture.protocol_parameters(),
-                &next_fixture.protocol_parameters(),
-                &next_fixture.protocol_parameters(),
+                &AggregatorEpochSettings {
+                    protocol_parameters: fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
+                &AggregatorEpochSettings {
+                    protocol_parameters: next_fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
+                &AggregatorEpochSettings {
+                    protocol_parameters: next_fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
                 &fixture.signers_with_stake(),
                 &next_fixture.signers_with_stake(),
             ))));

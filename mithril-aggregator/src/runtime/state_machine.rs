@@ -294,7 +294,7 @@ impl AggregatorRuntime {
             self.runner
                 .open_signer_registration_round(&new_time_point)
                 .await?;
-            self.runner.update_protocol_parameters().await?;
+            self.runner.update_epoch_settings().await?;
             self.runner.precompute_epoch_data().await?;
         }
 
@@ -463,7 +463,7 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_update_protocol_parameters()
+            .expect_update_epoch_settings()
             .once()
             .returning(|| Ok(()));
         runner
@@ -520,7 +520,7 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_update_protocol_parameters()
+            .expect_update_epoch_settings()
             .once()
             .returning(|| Ok(()));
         runner

@@ -249,7 +249,7 @@ impl Configuration {
             cardano_transactions_prover_cache_pool_size: 3,
             cardano_transactions_database_connection_pool_size: 5,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
-                security_parameter: BlockNumber(100),
+                security_parameter: BlockNumber(120),
                 step: BlockNumber(15),
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,

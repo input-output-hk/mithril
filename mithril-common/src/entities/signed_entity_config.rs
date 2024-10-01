@@ -117,6 +117,14 @@ pub struct CardanoTransactionsSigningConfig {
 
 impl CardanoTransactionsSigningConfig {
     cfg_test_tools! {
+        /// Create a new CardanoTransactionsSigningConfig
+        pub fn new(security_parameter: BlockNumber, step: BlockNumber) -> Self {
+            Self {
+                security_parameter,
+                step,
+            }
+        }
+
         /// Create a dummy config
         pub fn dummy() -> Self {
             Self {

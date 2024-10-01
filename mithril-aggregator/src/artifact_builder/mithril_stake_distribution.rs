@@ -44,18 +44,21 @@ mod tests {
 
     use super::*;
 
-    use crate::services::FakeEpochService;
+    use crate::{entities::AggregatorEpochSettings, services::FakeEpochService};
 
     #[tokio::test]
     async fn should_compute_valid_artifact() {
         let signers_with_stake = fake_data::signers_with_stakes(5);
         let certificate = fake_data::certificate("certificate-123".to_string());
-        let protocol_parameters = fake_data::protocol_parameters();
+        let epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: fake_data::protocol_parameters(),
+            ..AggregatorEpochSettings::dummy()
+        };
         let epoch_service = FakeEpochService::with_data(
             Epoch(1),
-            &protocol_parameters,
-            &protocol_parameters,
-            &protocol_parameters,
+            &epoch_settings,
+            &epoch_settings,
+            &epoch_settings,
             &signers_with_stake,
             &signers_with_stake,
         );
@@ -65,8 +68,11 @@ mod tests {
             .compute_artifact(Epoch(1), &certificate)
             .await
             .unwrap();
-        let artifact_expected =
-            MithrilStakeDistribution::new(Epoch(1), signers_with_stake, &protocol_parameters);
+        let artifact_expected = MithrilStakeDistribution::new(
+            Epoch(1),
+            signers_with_stake,
+            &epoch_settings.protocol_parameters,
+        );
         assert_eq!(artifact_expected, artifact);
     }
 

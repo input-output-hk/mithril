@@ -64,6 +64,7 @@ use crate::{
         OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
         SignerStore, SingleSignatureRepository, StakePoolStore,
     },
+    entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
@@ -578,9 +579,11 @@ impl DependenciesBuilder {
                 message: "cannot build aggregator runner: no epoch returned.".to_string(),
                 error: None,
             })?;
-
         epoch_settings_store
-            .handle_discrepancies_at_startup(current_epoch, &self.configuration.protocol_parameters)
+            .handle_discrepancies_at_startup(
+                current_epoch,
+                &self.get_epoch_settings_configuration()?,
+            )
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "can not create aggregator runner".to_string(),
@@ -1206,8 +1209,10 @@ impl DependenciesBuilder {
         let verification_key_store = self.get_verification_key_store().await?;
         let epoch_settings_storer = self.get_epoch_settings_storer().await?;
 
+        let epoch_settings = self.get_epoch_settings_configuration()?;
+
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
-            self.configuration.protocol_parameters.clone(),
+            epoch_settings,
             epoch_settings_storer,
             verification_key_store,
         )));
@@ -1310,6 +1315,16 @@ impl DependenciesBuilder {
         }
 
         Ok(self.single_signer_authenticator.as_ref().cloned().unwrap())
+    }
+
+    fn get_epoch_settings_configuration(&mut self) -> Result<AggregatorEpochSettings> {
+        let epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: self.configuration.protocol_parameters.clone(),
+            cardano_transactions_signing_config: self
+                .get_signed_entity_config()?
+                .cardano_transactions_signing_config,
+        };
+        Ok(epoch_settings)
     }
 
     /// Return an unconfigured [DependencyContainer]

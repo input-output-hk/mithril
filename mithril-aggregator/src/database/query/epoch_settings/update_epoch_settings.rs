@@ -1,9 +1,10 @@
 use sqlite::Value;
 
-use mithril_common::entities::{Epoch, ProtocolParameters};
+use mithril_common::entities::Epoch;
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::EpochSettingsRecord;
+use crate::entities::AggregatorEpochSettings;
 
 /// Query to update [EpochSettingsRecord] in the sqlite database
 pub struct UpdateEpochSettingsQuery {
@@ -11,15 +12,18 @@ pub struct UpdateEpochSettingsQuery {
 }
 
 impl UpdateEpochSettingsQuery {
-    pub fn one(epoch: Epoch, protocol_parameters: ProtocolParameters) -> Self {
+    pub fn one(epoch: Epoch, epoch_settings: AggregatorEpochSettings) -> Self {
         let epoch_settings_id: i64 = epoch.try_into().unwrap();
 
         Self {
             condition: WhereCondition::new(
-                "(epoch_setting_id, protocol_parameters) values (?1, ?2)",
+                "(epoch_setting_id, protocol_parameters, cardano_transactions_signing_config) values (?1, ?2, ?3)",
                 vec![
                     Value::Integer(epoch_settings_id),
-                    Value::String(serde_json::to_string(&protocol_parameters).unwrap()),
+                    Value::String(serde_json::to_string(&epoch_settings.protocol_parameters).unwrap()),
+                    Value::String(
+                        serde_json::to_string(&epoch_settings.cardano_transactions_signing_config).unwrap(),
+                    ),
                 ],
             ),
         }
@@ -45,6 +49,7 @@ impl Query for UpdateEpochSettingsQuery {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::{BlockNumber, CardanoTransactionsSigningConfig};
     use mithril_common::test_utils::fake_data;
     use mithril_persistence::sqlite::ConnectionExtensions;
 
@@ -56,20 +61,31 @@ mod tests {
     #[test]
     fn test_update_epoch_settings() {
         let connection = main_db_connection().unwrap();
-        insert_epoch_settings(&connection, &[3]).unwrap();
+        insert_epoch_settings(&connection, &[*Epoch(3)]).unwrap();
 
-        let epoch_settings_record = connection
+        let epoch_settings_send_to_update = AggregatorEpochSettings {
+            protocol_parameters: fake_data::protocol_parameters(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
+                BlockNumber(24),
+                BlockNumber(62),
+            ),
+        };
+        let record_returned_by_update_query = connection
             .fetch_first(UpdateEpochSettingsQuery::one(
                 Epoch(3),
-                fake_data::protocol_parameters(),
+                epoch_settings_send_to_update.clone(),
             ))
             .unwrap()
             .unwrap();
 
-        assert_eq!(Epoch(3), epoch_settings_record.epoch_settings_id);
+        assert_eq!(Epoch(3), record_returned_by_update_query.epoch_settings_id);
         assert_eq!(
-            fake_data::protocol_parameters(),
-            epoch_settings_record.protocol_parameters
+            epoch_settings_send_to_update.protocol_parameters,
+            record_returned_by_update_query.protocol_parameters
+        );
+        assert_eq!(
+            epoch_settings_send_to_update.cardano_transactions_signing_config,
+            record_returned_by_update_query.cardano_transactions_signing_config
         );
 
         let mut cursor = connection
@@ -79,11 +95,7 @@ mod tests {
             .next()
             .expect("Should have an epoch settings for epoch 3.");
 
-        assert_eq!(Epoch(3), epoch_settings_record.epoch_settings_id);
-        assert_eq!(
-            fake_data::protocol_parameters(),
-            epoch_settings_record.protocol_parameters
-        );
+        assert_eq!(record_returned_by_update_query, epoch_settings_record);
         assert_eq!(0, cursor.count());
     }
 }

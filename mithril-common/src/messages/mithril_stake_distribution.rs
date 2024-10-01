@@ -9,7 +9,7 @@ use crate::test_utils::fake_data;
 
 use super::SignerWithStakeMessagePart;
 /// Message structure of a Mithril Stake Distribution
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MithrilStakeDistributionMessage {
     /// Epoch at which the Mithril Stake Distribution is created
     pub epoch: Epoch,

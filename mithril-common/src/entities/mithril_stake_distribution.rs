@@ -115,7 +115,8 @@ mod tests {
             .signers_with_stake();
         let protocol_parameters = ProtocolParameters {
             k: 100,
-            ..Default::default()
+            m: 0,
+            phi_f: 0.0,
         };
         let stake_distribution =
             MithrilStakeDistribution::new(Epoch(1), signers, &protocol_parameters);

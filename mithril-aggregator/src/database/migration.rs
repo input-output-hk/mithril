@@ -777,5 +777,32 @@ create index buffered_single_signature_signed_entity_type_id on buffered_single_
 create index buffered_single_signature_party_id_index on buffered_single_signature(party_id);
 "#,
         ),
+        // Migration 28
+        // Add new column `cardano_transactions_signing_config` to `epoch_setting` table`
+        SqlMigration::new(
+            28,
+            r#"
+-- disable foreign keys since we will delete tables linked using them
+pragma foreign_keys=false;
+
+create table new_epoch_setting (
+    epoch_setting_id                    integer     not null,
+    protocol_parameters                 json        not null,
+    cardano_transactions_signing_config json        not null,
+    primary key (epoch_setting_id)
+);
+
+insert into new_epoch_setting (epoch_setting_id, protocol_parameters, cardano_transactions_signing_config)
+    select                     epoch_setting_id, protocol_parameters, json('{}')
+    from epoch_setting order by rowid asc;
+
+drop table epoch_setting;
+alter table new_epoch_setting rename to epoch_setting;
+
+-- reenable foreign keys
+pragma foreign_key_check;
+pragma foreign_keys=true;
+        "#,
+        ),
     ]
 }

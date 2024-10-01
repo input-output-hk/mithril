@@ -27,8 +27,8 @@ impl Epoch {
     /// The epoch offset used for signers stake distribution and verification keys recording.
     pub const SIGNER_RECORDING_OFFSET: u64 = 1;
 
-    /// The epoch offset used for aggregator protocol parameters recording.
-    pub const PROTOCOL_PARAMETERS_RECORDING_OFFSET: u64 = 2;
+    /// The epoch offset used for aggregator epoch settings recording.
+    pub const EPOCH_SETTINGS_RECORDING_OFFSET: u64 = 2;
 
     /// The epoch offset used to retrieve, given the epoch at which a signer registered, the epoch
     /// at which the signer can send single signatures.
@@ -64,9 +64,9 @@ impl Epoch {
         *self + Self::SIGNER_RECORDING_OFFSET
     }
 
-    /// Apply the [protocol parameters recording offset][Self::PROTOCOL_PARAMETERS_RECORDING_OFFSET] to this epoch
-    pub fn offset_to_protocol_parameters_recording_epoch(&self) -> Self {
-        *self + Self::PROTOCOL_PARAMETERS_RECORDING_OFFSET
+    /// Apply the [epoch settings recording offset][Self::EPOCH_SETTINGS_RECORDING_OFFSET] to this epoch
+    pub fn offset_to_epoch_settings_recording_epoch(&self) -> Self {
+        *self + Self::EPOCH_SETTINGS_RECORDING_OFFSET
     }
 
     /// Apply the [signer signing offset][Self::SIGNER_SIGNING_OFFSET] to this epoch

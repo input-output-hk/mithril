@@ -61,7 +61,7 @@ mod tests {
         test_utils::{MithrilFixture, MithrilFixtureBuilder},
     };
 
-    use crate::services::FakeEpochService;
+    use crate::{entities::AggregatorEpochSettings, services::FakeEpochService};
 
     use super::*;
 
@@ -72,9 +72,18 @@ mod tests {
     ) -> AggregatorSignableSeedBuilder {
         let epoch_service = Arc::new(RwLock::new(FakeEpochService::with_data(
             epoch,
-            &fixture.protocol_parameters(),
-            &next_fixture.protocol_parameters(),
-            &next_fixture.protocol_parameters(),
+            &AggregatorEpochSettings {
+                protocol_parameters: fixture.protocol_parameters(),
+                ..AggregatorEpochSettings::dummy()
+            },
+            &AggregatorEpochSettings {
+                protocol_parameters: next_fixture.protocol_parameters(),
+                ..AggregatorEpochSettings::dummy()
+            },
+            &AggregatorEpochSettings {
+                protocol_parameters: next_fixture.protocol_parameters(),
+                ..AggregatorEpochSettings::dummy()
+            },
             &fixture.signers_with_stake(),
             &next_fixture.signers_with_stake(),
         )));

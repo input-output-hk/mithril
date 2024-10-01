@@ -108,7 +108,10 @@ impl AggregatorClient for FakeAggregator {
                 epoch: time_point.epoch,
                 current_signers,
                 next_signers,
-                ..Default::default()
+                protocol_parameters: fake_data::protocol_parameters(),
+                next_protocol_parameters: fake_data::protocol_parameters(),
+                cardano_transactions_signing_config: None,
+                next_cardano_transactions_signing_config: None,
             }))
         }
     }

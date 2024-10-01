@@ -5,10 +5,13 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
-use mithril_common::entities::{Epoch, ProtocolParameters, Signer, SignerWithStake};
+use mithril_common::entities::{
+    CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, Signer, SignerWithStake,
+};
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::StdResult;
 
+use crate::entities::AggregatorEpochSettings;
 use crate::{EpochSettingsStorer, VerificationKeyStorer};
 
 /// Errors dedicated to the CertifierService.
@@ -36,10 +39,10 @@ pub trait EpochService: Sync + Send {
     /// internal state for the new epoch.
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()>;
 
-    /// Insert future protocol parameters in the store based on this service current epoch.
+    /// Insert future epoch settings in the store based on this service current epoch (epoch offset +2).
     ///
     /// Note: must be called after `inform_epoch`.
-    async fn update_protocol_parameters(&mut self) -> StdResult<()>;
+    async fn update_epoch_settings(&mut self) -> StdResult<()>;
 
     /// Inform the service that it can precompute data for its current epoch.
     ///
@@ -57,6 +60,16 @@ pub trait EpochService: Sync + Send {
 
     /// Get upcoming protocol parameters used in next epoch (associated with the next epoch)
     fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
+
+    /// Get cardano transactions signing configuration used in current epoch
+    fn current_cardano_transactions_signing_config(
+        &self,
+    ) -> StdResult<&CardanoTransactionsSigningConfig>;
+
+    /// Get next cardano transactions signing configuration used in next epoch
+    fn next_cardano_transactions_signing_config(
+        &self,
+    ) -> StdResult<&CardanoTransactionsSigningConfig>;
 
     /// Get aggregate verification key for current epoch
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey>;
@@ -85,9 +98,9 @@ pub trait EpochService: Sync + Send {
 
 struct EpochData {
     epoch: Epoch,
-    protocol_parameters: ProtocolParameters,
-    next_protocol_parameters: ProtocolParameters,
-    upcoming_protocol_parameters: ProtocolParameters,
+    epoch_settings: AggregatorEpochSettings,
+    next_epoch_settings: AggregatorEpochSettings,
+    upcoming_epoch_settings: AggregatorEpochSettings,
     current_signers_with_stake: Vec<SignerWithStake>,
     next_signers_with_stake: Vec<SignerWithStake>,
     current_signers: Vec<Signer>,
@@ -103,8 +116,8 @@ struct ComputedEpochData {
 
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
-    /// Protocol parameters that will be inserted when inform_epoch is called
-    future_protocol_parameters: ProtocolParameters,
+    /// Epoch settings that will be inserted when inform_epoch is called
+    future_epoch_settings: AggregatorEpochSettings,
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
@@ -114,12 +127,12 @@ pub struct MithrilEpochService {
 impl MithrilEpochService {
     /// Create a new service instance
     pub fn new(
-        future_protocol_parameters: ProtocolParameters,
+        future_epoch_settings: AggregatorEpochSettings,
         epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Self {
         Self {
-            future_protocol_parameters,
+            future_epoch_settings,
             epoch_data: None,
             computed_epoch_data: None,
             epoch_settings_storer,
@@ -140,37 +153,37 @@ impl MithrilEpochService {
         Ok(signers)
     }
 
-    async fn get_protocol_parameters(
+    async fn get_epoch_settings(
         &self,
         epoch: Epoch,
         name: &str,
-    ) -> StdResult<ProtocolParameters> {
-        let parameters = self
+    ) -> StdResult<AggregatorEpochSettings> {
+        let epoch_settings = self
             .epoch_settings_storer
-            .get_protocol_parameters(epoch)
+            .get_epoch_settings(epoch)
             .await
             .with_context(|| format!("Epoch service failed to obtain {name}"))?
             .ok_or(EpochServiceError::UnavailableData(epoch, name.to_string()))?;
 
-        Ok(parameters)
+        Ok(epoch_settings)
     }
 
-    async fn insert_future_protocol_parameters(&self, actual_epoch: Epoch) -> StdResult<()> {
-        let recording_epoch = actual_epoch.offset_to_protocol_parameters_recording_epoch();
+    async fn insert_future_epoch_settings(&self, actual_epoch: Epoch) -> StdResult<()> {
+        let recording_epoch = actual_epoch.offset_to_epoch_settings_recording_epoch();
 
         debug!(
-            "EpochService: inserting protocol parameters in epoch {}",
+            "EpochService: inserting epoch settings in epoch {}",
             recording_epoch;
-            "protocol_parameters" => ?self.future_protocol_parameters
+            "epoch_settings" => ?self.future_epoch_settings
         );
 
         self.epoch_settings_storer
-            .save_protocol_parameters(
+            .save_epoch_settings(
                 recording_epoch,
-                self.future_protocol_parameters.clone(),
+                self.future_epoch_settings.clone(),
             )
             .await
-            .with_context(|| format!("Epoch service failed to insert future_protocol_parameters to epoch {recording_epoch}"))
+            .with_context(|| format!("Epoch service failed to insert future_epoch_settings to epoch {recording_epoch}"))
             .map(|_| ())
     }
 
@@ -200,16 +213,18 @@ impl EpochService for MithrilEpochService {
             })?;
         let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
 
-        let current_protocol_parameters = self
-            .get_protocol_parameters(signer_retrieval_epoch, "current protocol parameters")
+        let epoch_settings = self
+            .get_epoch_settings(signer_retrieval_epoch, "current epoch settings")
             .await?;
-        let next_protocol_parameters = self
-            .get_protocol_parameters(next_signer_retrieval_epoch, "next protocol parameters")
+
+        let next_epoch_settings = self
+            .get_epoch_settings(next_signer_retrieval_epoch, "next epoch settings")
             .await?;
-        let upcoming_protocol_parameters = self
-            .get_protocol_parameters(
+
+        let upcoming_epoch_settings = self
+            .get_epoch_settings(
                 next_signer_retrieval_epoch.next(),
-                "upcoming protocol parameters",
+                "upcoming epoch settings",
             )
             .await?;
 
@@ -224,9 +239,9 @@ impl EpochService for MithrilEpochService {
 
         self.epoch_data = Some(EpochData {
             epoch,
-            protocol_parameters: current_protocol_parameters,
-            next_protocol_parameters,
-            upcoming_protocol_parameters,
+            epoch_settings,
+            next_epoch_settings,
+            upcoming_epoch_settings,
             current_signers_with_stake,
             next_signers_with_stake,
             current_signers,
@@ -237,14 +252,14 @@ impl EpochService for MithrilEpochService {
         Ok(())
     }
 
-    async fn update_protocol_parameters(&mut self) -> StdResult<()> {
-        debug!("EpochService::update_protocol_parameters");
+    async fn update_epoch_settings(&mut self) -> StdResult<()> {
+        debug!("EpochService::update_epoch_settings");
 
         let data = self.unwrap_data().with_context(|| {
-            "can't update protocol parameters if inform_epoch has not been called first"
+            "can't update epoch settings if inform_epoch has not been called first"
         })?;
 
-        self.insert_future_protocol_parameters(data.epoch).await
+        self.insert_future_epoch_settings(data.epoch).await
     }
 
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
@@ -254,14 +269,16 @@ impl EpochService for MithrilEpochService {
             "can't precompute epoch data if inform_epoch has not been called first"
         })?;
 
-        let protocol_multi_signer =
-            SignerBuilder::new(&data.current_signers_with_stake, &data.protocol_parameters)
-                .with_context(|| "Epoch service failed to build protocol multi signer")?
-                .build_multi_signer();
+        let protocol_multi_signer = SignerBuilder::new(
+            &data.current_signers_with_stake,
+            &data.epoch_settings.protocol_parameters,
+        )
+        .with_context(|| "Epoch service failed to build protocol multi signer")?
+        .build_multi_signer();
 
         let next_protocol_multi_signer = SignerBuilder::new(
             &data.next_signers_with_stake,
-            &data.next_protocol_parameters,
+            &data.next_epoch_settings.protocol_parameters,
         )
         .with_context(|| "Epoch service failed to build next protocol multi signer")?
         .build_multi_signer();
@@ -282,15 +299,36 @@ impl EpochService for MithrilEpochService {
     }
 
     fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.protocol_parameters)
+        Ok(&self.unwrap_data()?.epoch_settings.protocol_parameters)
     }
 
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.next_protocol_parameters)
+        Ok(&self.unwrap_data()?.next_epoch_settings.protocol_parameters)
     }
 
     fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.upcoming_protocol_parameters)
+        Ok(&self
+            .unwrap_data()?
+            .upcoming_epoch_settings
+            .protocol_parameters)
+    }
+
+    fn current_cardano_transactions_signing_config(
+        &self,
+    ) -> StdResult<&CardanoTransactionsSigningConfig> {
+        Ok(&self
+            .unwrap_data()?
+            .epoch_settings
+            .cardano_transactions_signing_config)
+    }
+
+    fn next_cardano_transactions_signing_config(
+        &self,
+    ) -> StdResult<&CardanoTransactionsSigningConfig> {
+        Ok(&self
+            .unwrap_data()?
+            .next_epoch_settings
+            .cardano_transactions_signing_config)
     }
 
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
@@ -331,7 +369,7 @@ pub struct FakeEpochService {
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
     inform_epoch_error: bool,
-    update_protocol_parameters_error: bool,
+    update_epoch_settings_error: bool,
     precompute_epoch_data_error: bool,
 }
 
@@ -341,22 +379,26 @@ impl FakeEpochService {
     /// parameters and signers.
     pub fn with_data(
         epoch: Epoch,
-        protocol_parameters: &ProtocolParameters,
-        next_protocol_parameters: &ProtocolParameters,
-        upcoming_protocol_parameters: &ProtocolParameters,
+        epoch_settings: &AggregatorEpochSettings,
+        next_epoch_settings: &AggregatorEpochSettings,
+        upcoming_epoch_settings: &AggregatorEpochSettings,
         current_signers_with_stake: &[SignerWithStake],
         next_signers_with_stake: &[SignerWithStake],
     ) -> Self {
-        let protocol_multi_signer =
-            SignerBuilder::new(current_signers_with_stake, protocol_parameters)
-                .with_context(|| "Could not build protocol_multi_signer for epoch service")
-                .unwrap()
-                .build_multi_signer();
-        let next_protocol_multi_signer =
-            SignerBuilder::new(next_signers_with_stake, next_protocol_parameters)
-                .with_context(|| "Could not build protocol_multi_signer for epoch service")
-                .unwrap()
-                .build_multi_signer();
+        let protocol_multi_signer = SignerBuilder::new(
+            current_signers_with_stake,
+            &epoch_settings.protocol_parameters,
+        )
+        .with_context(|| "Could not build protocol_multi_signer for epoch service")
+        .unwrap()
+        .build_multi_signer();
+        let next_protocol_multi_signer = SignerBuilder::new(
+            next_signers_with_stake,
+            &next_epoch_settings.protocol_parameters,
+        )
+        .with_context(|| "Could not build protocol_multi_signer for epoch service")
+        .unwrap()
+        .build_multi_signer();
 
         let current_signers_with_stake = current_signers_with_stake.to_vec();
         let next_signers_with_stake = next_signers_with_stake.to_vec();
@@ -366,9 +408,9 @@ impl FakeEpochService {
         Self {
             epoch_data: Some(EpochData {
                 epoch,
-                protocol_parameters: protocol_parameters.clone(),
-                next_protocol_parameters: next_protocol_parameters.clone(),
-                upcoming_protocol_parameters: upcoming_protocol_parameters.clone(),
+                epoch_settings: epoch_settings.clone(),
+                next_epoch_settings: next_epoch_settings.clone(),
+                upcoming_epoch_settings: upcoming_epoch_settings.clone(),
                 current_signers_with_stake,
                 next_signers_with_stake,
                 current_signers,
@@ -383,7 +425,7 @@ impl FakeEpochService {
                 next_protocol_multi_signer,
             }),
             inform_epoch_error: false,
-            update_protocol_parameters_error: false,
+            update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
         }
     }
@@ -392,11 +434,25 @@ impl FakeEpochService {
         epoch: Epoch,
         fixture: &mithril_common::test_utils::MithrilFixture,
     ) -> Self {
+        use mithril_common::entities::CardanoTransactionsSigningConfig;
+
+        let epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: fixture.protocol_parameters(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+        };
+        let next_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: fixture.protocol_parameters(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+        };
+        let upcoming_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: fixture.protocol_parameters(),
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+        };
         Self::with_data(
             epoch,
-            &fixture.protocol_parameters(),
-            &fixture.protocol_parameters(),
-            &fixture.protocol_parameters(),
+            &epoch_settings,
+            &next_epoch_settings,
+            &upcoming_epoch_settings,
             &fixture.signers_with_stake(),
             &fixture.signers_with_stake(),
         )
@@ -409,7 +465,7 @@ impl FakeEpochService {
             epoch_data: None,
             computed_epoch_data: None,
             inform_epoch_error: false,
-            update_protocol_parameters_error: false,
+            update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
         }
     }
@@ -421,7 +477,7 @@ impl FakeEpochService {
         precompute_epoch: bool,
     ) {
         self.inform_epoch_error = inform_epoch;
-        self.update_protocol_parameters_error = update_protocol_parameters;
+        self.update_epoch_settings_error = update_protocol_parameters;
         self.precompute_epoch_data_error = precompute_epoch;
     }
 
@@ -450,9 +506,9 @@ impl EpochService for FakeEpochService {
         Ok(())
     }
 
-    async fn update_protocol_parameters(&mut self) -> StdResult<()> {
-        if self.update_protocol_parameters_error {
-            anyhow::bail!("update_protocol_parameters fake error");
+    async fn update_epoch_settings(&mut self) -> StdResult<()> {
+        if self.update_epoch_settings_error {
+            anyhow::bail!("update_epoch_settings fake error");
         }
         Ok(())
     }
@@ -469,15 +525,36 @@ impl EpochService for FakeEpochService {
     }
 
     fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.protocol_parameters)
+        Ok(&self.unwrap_data()?.epoch_settings.protocol_parameters)
     }
 
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.next_protocol_parameters)
+        Ok(&self.unwrap_data()?.next_epoch_settings.protocol_parameters)
     }
 
     fn upcoming_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.upcoming_protocol_parameters)
+        Ok(&self
+            .unwrap_data()?
+            .upcoming_epoch_settings
+            .protocol_parameters)
+    }
+
+    fn current_cardano_transactions_signing_config(
+        &self,
+    ) -> StdResult<&CardanoTransactionsSigningConfig> {
+        Ok(&self
+            .unwrap_data()?
+            .epoch_settings
+            .cardano_transactions_signing_config)
+    }
+
+    fn next_cardano_transactions_signing_config(
+        &self,
+    ) -> StdResult<&CardanoTransactionsSigningConfig> {
+        Ok(&self
+            .unwrap_data()?
+            .next_epoch_settings
+            .cardano_transactions_signing_config)
     }
 
     fn current_aggregate_verification_key(&self) -> StdResult<&ProtocolAggregateVerificationKey> {
@@ -515,7 +592,7 @@ impl EpochService for FakeEpochService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::PartyId;
+    use mithril_common::entities::{CardanoTransactionsSigningConfig, PartyId};
     use mithril_common::test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder};
     use mithril_persistence::store::adapter::MemoryAdapter;
     use std::collections::{BTreeSet, HashMap};
@@ -531,6 +608,8 @@ mod tests {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
+        cardano_signing_config: CardanoTransactionsSigningConfig,
+        next_cardano_signing_config: CardanoTransactionsSigningConfig,
         upcoming_protocol_parameters: ProtocolParameters,
         current_signers_with_stake: BTreeSet<SignerWithStake>,
         next_signers_with_stake: BTreeSet<SignerWithStake>,
@@ -551,6 +630,12 @@ mod tests {
                 protocol_parameters: service.current_protocol_parameters()?.clone(),
                 next_protocol_parameters: service.next_protocol_parameters()?.clone(),
                 upcoming_protocol_parameters: service.upcoming_protocol_parameters()?.clone(),
+                cardano_signing_config: service
+                    .current_cardano_transactions_signing_config()?
+                    .clone(),
+                next_cardano_signing_config: service
+                    .next_cardano_transactions_signing_config()?
+                    .clone(),
                 current_signers_with_stake: service
                     .current_signers_with_stake()?
                     .clone()
@@ -620,15 +705,24 @@ mod tests {
         let epoch_settings_storer = FakeEpochSettingsStorer::new(vec![
             (
                 signer_retrieval_epoch,
-                current_epoch_fixture.protocol_parameters(),
+                AggregatorEpochSettings {
+                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                },
             ),
             (
                 next_signer_retrieval_epoch,
-                next_epoch_fixture.protocol_parameters(),
+                AggregatorEpochSettings {
+                    protocol_parameters: next_epoch_fixture.protocol_parameters(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                },
             ),
             (
                 next_signer_retrieval_epoch.next(),
-                upcoming_protocol_parameters.clone(),
+                AggregatorEpochSettings {
+                    protocol_parameters: upcoming_protocol_parameters.clone(),
+                    cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                },
             ),
         ]);
         let vkey_store = VerificationKeyStore::new(Box::new(
@@ -646,7 +740,10 @@ mod tests {
         ));
 
         MithrilEpochService::new(
-            future_protocol_parameters,
+            AggregatorEpochSettings {
+                protocol_parameters: future_protocol_parameters,
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            },
             Arc::new(epoch_settings_storer),
             Arc::new(vkey_store),
         )
@@ -692,6 +789,8 @@ mod tests {
                 protocol_parameters: current_epoch_fixture.protocol_parameters(),
                 next_protocol_parameters: next_epoch_fixture.protocol_parameters(),
                 upcoming_protocol_parameters,
+                cardano_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                next_cardano_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 current_signers_with_stake: current_epoch_fixture
                     .signers_with_stake()
                     .into_iter()
@@ -773,7 +872,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_protocol_parameters_insert_future_protocol_parameters_in_the_store() {
+    async fn update_epoch_settings_insert_future_epoch_settings_in_the_store() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let future_protocol_parameters = ProtocolParameters::new(6, 89, 0.124);
         let epoch = Epoch(4);
@@ -791,24 +890,25 @@ mod tests {
             .await
             .expect("inform_epoch should not fail");
         service
-            .update_protocol_parameters()
+            .update_epoch_settings()
             .await
-            .expect("update_protocol_parameters should not fail");
+            .expect("update_epoch_settings should not fail");
 
-        let inserted_protocol_parameters = service
+        let inserted_epoch_settings = service
             .epoch_settings_storer
-            .get_protocol_parameters(epoch.offset_to_protocol_parameters_recording_epoch())
+            .get_epoch_settings(epoch.offset_to_epoch_settings_recording_epoch())
             .await
             .unwrap_or_else(|_| {
                 panic!(
-                    "protocol parameters should have been inserted for epoch {}",
-                    epoch.offset_to_protocol_parameters_recording_epoch()
+                    "epoch settings should have been inserted for epoch {}",
+                    epoch.offset_to_epoch_settings_recording_epoch()
                 )
-            });
+            })
+            .unwrap();
 
         assert_eq!(
-            inserted_protocol_parameters,
-            Some(future_protocol_parameters)
+            inserted_epoch_settings.protocol_parameters,
+            future_protocol_parameters
         );
     }
 
@@ -833,6 +933,14 @@ mod tests {
             (
                 "upcoming_protocol_parameters",
                 service.upcoming_protocol_parameters().err(),
+            ),
+            (
+                "current_cardano_transactions_signing_config",
+                service.current_cardano_transactions_signing_config().err(),
+            ),
+            (
+                "next_cardano_transactions_signing_config",
+                service.next_cardano_transactions_signing_config().err(),
             ),
             (
                 "current_signers_with_stake",
@@ -882,6 +990,10 @@ mod tests {
         assert!(service.current_protocol_parameters().is_ok());
         assert!(service.next_protocol_parameters().is_ok());
         assert!(service.upcoming_protocol_parameters().is_ok());
+        assert!(service
+            .current_cardano_transactions_signing_config()
+            .is_ok());
+        assert!(service.next_cardano_transactions_signing_config().is_ok());
         assert!(service.current_signers_with_stake().is_ok());
         assert!(service.next_signers_with_stake().is_ok());
         assert!(service.current_signers().is_ok());
