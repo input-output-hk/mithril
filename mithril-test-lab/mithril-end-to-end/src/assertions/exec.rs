@@ -23,7 +23,7 @@ pub async fn register_era_marker(
     devnet: &Devnet,
     mithril_era: &str,
 ) -> StdResult<()> {
-    info!("Register era marker");
+    info!("Register '{mithril_era}' era marker");
 
     info!("> generating era marker tx datum...");
     let tx_datum_file_path = devnet
@@ -33,7 +33,7 @@ pub async fn register_era_marker(
         .era_generate_tx_datum(&tx_datum_file_path, mithril_era)
         .await?;
 
-    info!("> writing era marker on the Cardano chain...");
+    info!("> writing '{mithril_era}' era marker on the Cardano chain...");
     devnet.write_era_marker(&tx_datum_file_path).await?;
 
     Ok(())
