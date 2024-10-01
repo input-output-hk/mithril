@@ -5,7 +5,7 @@ use mithril_common::entities::{Epoch, SignedEntityType};
 use mithril_persistence::database::Hydrator;
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
-use crate::services::BeaconToSign;
+use crate::entities::BeaconToSign;
 
 /// Database record of a beacon signed by the signer
 #[derive(Debug, Clone, PartialEq)]

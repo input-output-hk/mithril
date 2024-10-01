@@ -9,7 +9,8 @@ use crate::database::query::{
     DeleteSignedBeaconRecordQuery, GetSignedBeaconQuery, InsertSignedBeaconRecordQuery,
 };
 use crate::database::record::SignedBeaconRecord;
-use crate::services::{BeaconToSign, EpochPruningTask, SignedBeaconStore};
+use crate::entities::BeaconToSign;
+use crate::services::{EpochPruningTask, SignedBeaconStore};
 
 /// A [SignedBeaconStore] implementation using SQLite.
 pub struct SignedBeaconRepository {

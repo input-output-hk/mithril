@@ -7,8 +7,8 @@ use mithril_common::{
     entities::{Epoch, SignedEntityType, TimePoint},
 };
 
-use crate::services::BeaconToSign;
-use crate::{entities::SignerEpochSettings, MetricsService};
+use crate::entities::{BeaconToSign, SignerEpochSettings};
+use crate::MetricsService;
 
 use super::{Runner, RuntimeError};
 
@@ -498,7 +498,6 @@ mod tests {
     use mithril_common::test_utils::fake_data;
 
     use crate::runtime::runner::MockSignerRunner;
-    use crate::services::BeaconToSign;
 
     use super::*;
 

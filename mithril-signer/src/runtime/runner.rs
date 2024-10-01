@@ -13,8 +13,8 @@ use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::dependency_injection::SignerDependencyContainer;
-use crate::entities::SignerEpochSettings;
-use crate::services::{BeaconToSign, EpochService, MithrilProtocolInitializerBuilder};
+use crate::entities::{BeaconToSign, SignerEpochSettings};
+use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 use crate::Configuration;
 
 /// This trait is mainly intended for mocking.

@@ -1,23 +1,12 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use std::sync::Arc;
 
-use mithril_common::entities::{Epoch, SignedEntityConfig, SignedEntityType, TimePoint};
+use mithril_common::entities::{SignedEntityConfig, SignedEntityType, TimePoint};
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::{StdResult, TickerService};
 
-/// Beacon to sign
-#[derive(Debug, Clone, PartialEq)]
-pub struct BeaconToSign {
-    /// The epoch when the beacon was issued
-    pub epoch: Epoch,
-
-    /// The signed entity type to sign
-    pub signed_entity_type: SignedEntityType,
-
-    /// Datetime when the beacon was initiated
-    pub initiated_at: DateTime<Utc>,
-}
+use crate::entities::BeaconToSign;
 
 /// Certifier Service
 ///
@@ -114,11 +103,8 @@ impl CertifierService for SignerCertifierService {
             Ok(None)
         } else {
             let signed_entity_type = available_signed_entity_types[0].clone();
-            let beacon_to_sign = BeaconToSign {
-                epoch: time_point.epoch,
-                signed_entity_type,
-                initiated_at: Utc::now(),
-            };
+            let beacon_to_sign =
+                BeaconToSign::new(time_point.epoch, signed_entity_type, Utc::now());
 
             Ok(Some(beacon_to_sign))
         }
@@ -134,7 +120,7 @@ impl CertifierService for SignerCertifierService {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, SignedEntityTypeDiscriminants,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityTypeDiscriminants,
     };
 
     use super::{tests::tests_tooling::*, *};
