@@ -925,6 +925,14 @@ mod tests {
                 service.upcoming_protocol_parameters().err(),
             ),
             (
+                "current_cardano_transactions_signing_config",
+                service.current_cardano_transactions_signing_config().err(),
+            ),
+            (
+                "next_cardano_transactions_signing_config",
+                service.next_cardano_transactions_signing_config().err(),
+            ),
+            (
                 "current_signers_with_stake",
                 service.current_signers_with_stake().err(),
             ),
