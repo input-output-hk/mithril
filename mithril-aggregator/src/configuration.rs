@@ -289,6 +289,7 @@ impl Configuration {
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
+    // TODO: Maybe remove this function, signing configuration in SignedEntityConfig is stored in DB
     /// Compute a [SignedEntityConfig] based on this configuration.
     pub fn compute_signed_entity_config(&self) -> StdResult<SignedEntityConfig> {
         let network = self.get_network()?;

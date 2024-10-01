@@ -1220,13 +1220,18 @@ impl DependenciesBuilder {
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
         let verification_key_store = self.get_verification_key_store().await?;
         let epoch_settings_storer = self.get_epoch_settings_storer().await?;
-
         let epoch_settings = self.get_epoch_settings_configuration()?;
+        let network = self.configuration.get_network()?;
+        let allowed_discriminants = self
+            .get_signed_entity_config()?
+            .list_allowed_signed_entity_types_discriminants();
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             epoch_settings,
             epoch_settings_storer,
             verification_key_store,
+            network,
+            allowed_discriminants,
         )));
 
         Ok(epoch_service)
