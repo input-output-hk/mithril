@@ -44,7 +44,7 @@ use mithril_common::{
         TransactionsImporter,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
-    MithrilTickerService, StdResult, TickerService,
+    MithrilTickerService, TickerService,
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
@@ -1317,7 +1317,7 @@ impl DependenciesBuilder {
         Ok(self.single_signer_authenticator.as_ref().cloned().unwrap())
     }
 
-    fn get_epoch_settings_configuration(&mut self) -> StdResult<AggregatorEpochSettings> {
+    fn get_epoch_settings_configuration(&mut self) -> Result<AggregatorEpochSettings> {
         let epoch_settings = AggregatorEpochSettings {
             protocol_parameters: self.configuration.protocol_parameters.clone(),
             cardano_transactions_signing_config: self
