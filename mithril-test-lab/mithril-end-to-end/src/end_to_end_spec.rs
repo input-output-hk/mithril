@@ -72,19 +72,32 @@ impl<'a> Spec<'a> {
         .await?;
 
         // Verify that artifacts are produced and signed correctly
-        self.verify_artifacts_production(target_epoch).await?;
+        let mut target_epoch = self.verify_artifacts_production(target_epoch).await?;
 
         // Verify that artifacts are produced and signed correctly after era switch
         if self.infrastructure.can_switch_to_next_era() {
             // Switch to next era
             self.infrastructure.switch_to_next_era().await?;
-            target_epoch += 2;
+            target_epoch += 5;
             assertions::wait_for_target_epoch(
                 self.infrastructure.chain_observer(),
                 target_epoch,
                 "epoch after which the era switch will have triggered".to_string(),
             )
             .await?;
+
+            // Proceed to a re-genesis of the certificate chain
+            if self.infrastructure.can_regenesis_on_era_switch() {
+                assertions::bootstrap_genesis_certificate(self.infrastructure.aggregator_mut())
+                    .await?;
+                target_epoch += 5;
+                assertions::wait_for_target_epoch(
+                    self.infrastructure.chain_observer(),
+                    target_epoch,
+                    "epoch after which the re-genesis on era switch will be completed".to_string(),
+                )
+                .await?;
+            }
 
             // Verify that artifacts are produced and signed correctly
             self.verify_artifacts_production(target_epoch).await?;

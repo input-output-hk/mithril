@@ -76,6 +76,9 @@ pub struct Args {
     #[clap(long)]
     mithril_next_era: Option<String>,
 
+    /// Mithril re-genesis on era switch (used only when 'mithril_next_era' is set)
+    #[clap(long, default_value_t = false)]
+    mithril_era_regenesis_on_switch: bool,
 
     /// Mithril era reader adapter
     #[clap(long, default_value = "cardano-chain")]
@@ -196,6 +199,7 @@ async fn main() -> StdResult<()> {
         mithril_run_interval: args.mithril_run_interval,
         mithril_era: args.mithril_era,
         mithril_next_era: args.mithril_next_era,
+        mithril_era_regenesis_on_switch: args.mithril_era_regenesis_on_switch,
         mithril_era_reader_adapter: args.mithril_era_reader_adapter,
         signed_entity_types: args.signed_entity_types,
         run_only_mode,
