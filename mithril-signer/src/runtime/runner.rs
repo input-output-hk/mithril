@@ -6,8 +6,8 @@ use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    CertificatePending, Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, SignerWithStake,
-    SingleSignatures, TimePoint,
+    Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, SignerWithStake, SingleSignatures,
+    TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -23,9 +23,6 @@ pub trait Runner: Send + Sync {
     /// Fetch the current epoch settings if any.
     async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>>;
 
-    /// Fetch the current pending certificate if any.
-    async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
-
     /// Fetch the beacon to sign if any.
     async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>>;
 
@@ -40,9 +37,6 @@ pub trait Runner: Send + Sync {
 
     /// Check if the signer can sign the current epoch.
     async fn can_sign_current_epoch(&self) -> StdResult<bool>;
-
-    /// Check if the signer can sign the given signed entity type.
-    async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool;
 
     /// Register epoch information
     async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
@@ -128,16 +122,6 @@ impl Runner for SignerRunner {
         self.services
             .certificate_handler
             .retrieve_epoch_settings()
-            .await
-            .map_err(|e| e.into())
-    }
-
-    async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>> {
-        debug!("RUNNER: get_pending_certificate");
-
-        self.services
-            .certificate_handler
-            .retrieve_pending_certificate()
             .await
             .map_err(|e| e.into())
     }
@@ -285,20 +269,6 @@ impl Runner for SignerRunner {
         }
 
         Ok(false)
-    }
-
-    async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool {
-        if self
-            .services
-            .signed_entity_type_lock
-            .is_locked(signed_entity_type)
-            .await
-        {
-            debug!(" > signed entity type is locked, can NOT sign");
-            false
-        } else {
-            true
-        }
     }
 
     async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
@@ -810,39 +780,6 @@ mod tests {
         assert!(
             maybe_protocol_initializer.is_some(),
             "A protocol initializer should have been registered at the 'Recording' epoch"
-        );
-    }
-
-    #[tokio::test]
-    async fn can_sign_signed_entity_type_when_signed_entity_type_is_locked() {
-        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(9));
-        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
-        signed_entity_type_lock.lock(&signed_entity_type).await;
-        let mut services = init_services().await;
-        services.signed_entity_type_lock = signed_entity_type_lock.clone();
-
-        let runner = init_runner(Some(services), None).await;
-
-        assert!(
-            !runner
-                .can_sign_signed_entity_type(&signed_entity_type)
-                .await
-        );
-    }
-
-    #[tokio::test]
-    async fn can_sign_signed_entity_type_when_signed_entity_type_is_not_locked() {
-        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(9));
-        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
-        let mut services = init_services().await;
-        services.signed_entity_type_lock = signed_entity_type_lock.clone();
-
-        let runner = init_runner(Some(services), None).await;
-
-        assert!(
-            runner
-                .can_sign_signed_entity_type(&signed_entity_type)
-                .await
         );
     }
 
