@@ -608,6 +608,8 @@ mod tests {
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
+        cardano_signing_config: CardanoTransactionsSigningConfig,
+        next_cardano_signing_config: CardanoTransactionsSigningConfig,
         upcoming_protocol_parameters: ProtocolParameters,
         current_signers_with_stake: BTreeSet<SignerWithStake>,
         next_signers_with_stake: BTreeSet<SignerWithStake>,
@@ -628,6 +630,12 @@ mod tests {
                 protocol_parameters: service.current_protocol_parameters()?.clone(),
                 next_protocol_parameters: service.next_protocol_parameters()?.clone(),
                 upcoming_protocol_parameters: service.upcoming_protocol_parameters()?.clone(),
+                cardano_signing_config: service
+                    .current_cardano_transactions_signing_config()?
+                    .clone(),
+                next_cardano_signing_config: service
+                    .next_cardano_transactions_signing_config()?
+                    .clone(),
                 current_signers_with_stake: service
                     .current_signers_with_stake()?
                     .clone()
@@ -781,6 +789,8 @@ mod tests {
                 protocol_parameters: current_epoch_fixture.protocol_parameters(),
                 next_protocol_parameters: next_epoch_fixture.protocol_parameters(),
                 upcoming_protocol_parameters,
+                cardano_signing_config: CardanoTransactionsSigningConfig::dummy(),
+                next_cardano_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 current_signers_with_stake: current_epoch_fixture
                     .signers_with_stake()
                     .into_iter()
@@ -980,6 +990,10 @@ mod tests {
         assert!(service.current_protocol_parameters().is_ok());
         assert!(service.next_protocol_parameters().is_ok());
         assert!(service.upcoming_protocol_parameters().is_ok());
+        assert!(service
+            .current_cardano_transactions_signing_config()
+            .is_ok());
+        assert!(service.next_cardano_transactions_signing_config().is_ok());
         assert!(service.current_signers_with_stake().is_ok());
         assert!(service.next_signers_with_stake().is_ok());
         assert!(service.current_signers().is_ok());
