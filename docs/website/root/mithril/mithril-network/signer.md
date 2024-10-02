@@ -40,7 +40,6 @@ Ultimately, any signer will have the potential to function as a Mithril aggregat
 
 The Mithril signer establishes a connection with the Mithril aggregator for the following purposes:
 
-- Determining when to sign a new snapshot (via the advertised beacon of the pending certificate)
 - Obtaining the presently used protocol parameters
 - Registering its verification keys (public keys)
 - Receiving the verification keys of all other declared signers, available for the upcoming message signing
