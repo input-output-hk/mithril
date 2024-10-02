@@ -34,13 +34,10 @@ impl GetSignedBeaconQuery {
         let condition = match signed_entity_types {
             [] => WhereCondition::new("false", vec![]),
             [first, rest @ ..] => {
-                let mut condition = signed_entity_condition(first)?;
-
-                for entity in rest {
-                    condition = condition.or_where(signed_entity_condition(entity)?);
-                }
-
-                condition
+                rest.iter()
+                    .try_fold(signed_entity_condition(first)?, |condition, entity| {
+                        StdResult::Ok(condition.or_where(signed_entity_condition(entity)?))
+                    })?
             }
         };
 
@@ -56,9 +53,9 @@ impl Query for GetSignedBeaconQuery {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        let aliases = SourceAlias::new(&[("{:signed_beacon:}", "b")]);
+        let aliases = SourceAlias::new(&[("{:signed_beacon:}", "signed_beacon")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-        format!("select {projection} from signed_beacon as b where {condition} order by ROWID desc")
+        format!("select {projection} from signed_beacon where {condition} order by rowid desc")
     }
 }
 

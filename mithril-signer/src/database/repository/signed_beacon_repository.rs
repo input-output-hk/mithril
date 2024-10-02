@@ -56,12 +56,7 @@ impl SignedBeaconStore for SignedBeaconRepository {
     }
 
     async fn mark_beacon_as_signed(&self, entity: &BeaconToSign) -> StdResult<()> {
-        let record = SignedBeaconRecord {
-            epoch: entity.epoch,
-            signed_entity_type: entity.signed_entity_type.clone(),
-            initiated_at: entity.initiated_at,
-            signed_at: chrono::Utc::now(),
-        };
+        let record = entity.clone().into();
         let _ = self
             .connection
             .fetch_first(InsertSignedBeaconRecordQuery::one(record)?)?;
