@@ -6,6 +6,7 @@ use crate::{
 use anyhow::{anyhow, Context};
 use mithril_common::era::SupportedEra;
 use mithril_common::{entities, StdResult};
+use std::cmp;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -173,15 +174,22 @@ impl Aggregator {
         &mut self,
         target_path: &Path,
         mithril_era: &str,
+        epoch: &entities::Epoch,
     ) -> StdResult<()> {
         let is_not_first_era =
             SupportedEra::eras().first().map(|e| e.to_string()) != Some(mithril_era.to_string());
+        let current_era_epoch = if is_not_first_era {
+            entities::Epoch(0)
+        } else {
+            *epoch
+        };
+        let next_era_epoch = entities::Epoch(cmp::max(**epoch, *current_era_epoch + 1));
 
         let mut args = vec![
             "era".to_string(),
             "generate-tx-datum".to_string(),
             "--current-era-epoch".to_string(),
-            "0".to_string(),
+            (*current_era_epoch).to_string(),
             "--era-markers-secret-key".to_string(),
             ERA_MARKERS_SECRET_KEY.to_string(),
             "--target-path".to_string(),
@@ -191,7 +199,7 @@ impl Aggregator {
         // If only the first available era is targeted we have no "next-era" to activate
         if is_not_first_era {
             args.push("--next-era-epoch".to_string());
-            args.push("1".to_string());
+            args.push(next_era_epoch.to_string());
         }
 
         let exit_status = self

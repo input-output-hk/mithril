@@ -77,7 +77,7 @@ impl<'a> Spec<'a> {
         // Verify that artifacts are produced and signed correctly after era switch
         if self.infrastructure.can_switch_to_next_era() {
             // Switch to next era
-            self.infrastructure.switch_to_next_era().await?;
+            self.infrastructure.register_switch_to_next_era().await?;
             target_epoch += 5;
             assertions::wait_for_target_epoch(
                 self.infrastructure.chain_observer(),

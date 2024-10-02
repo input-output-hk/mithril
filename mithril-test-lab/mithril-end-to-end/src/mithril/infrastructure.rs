@@ -3,7 +3,7 @@ use crate::{
     RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
 };
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
-use mithril_common::entities::{PartyId, ProtocolParameters, SignedEntityTypeDiscriminants};
+use mithril_common::entities::{Epoch, PartyId, ProtocolParameters, SignedEntityTypeDiscriminants};
 use mithril_common::{CardanoNetwork, StdResult};
 use slog_scope::info;
 use std::borrow::BorrowMut;
@@ -110,24 +110,41 @@ impl MithrilInfrastructure {
         })
     }
 
-    async fn activate_era(
+    async fn register_startup_era(
         aggregator: &mut Aggregator,
         config: &MithrilInfrastructureConfig,
     ) -> StdResult<()> {
+        let era_epoch = Epoch(0);
         if config.mithril_era_reader_adapter == "cardano-chain" {
-            assertions::register_era_marker(aggregator, &config.devnet, &config.mithril_era)
-                .await?;
+            assertions::register_era_marker(
+                aggregator,
+                &config.devnet,
+                &config.mithril_era,
+                &era_epoch,
+            )
+            .await?;
             sleep(Duration::from_secs(5)).await;
         }
 
         Ok(())
     }
 
-    pub async fn switch_to_next_era(&mut self) -> StdResult<()> {
+    pub async fn register_switch_to_next_era(&mut self) -> StdResult<()> {
         if let Some(next_era) = &self.next_era {
+            let next_era_epoch = self
+                .chain_observer()
+                .get_current_epoch()
+                .await?
+                .unwrap_or_default()
+                + 1;
             if self.era_reader_adapter == "cardano-chain" {
-                assertions::register_era_marker(&mut self.aggregator, &self.devnet, next_era)
-                    .await?;
+                assertions::register_era_marker(
+                    &mut self.aggregator,
+                    &self.devnet,
+                    next_era,
+                    &next_era_epoch,
+                )
+                .await?;
             }
             self.current_era = next_era.to_owned();
             self.next_era = None;
@@ -162,7 +179,7 @@ impl MithrilInfrastructure {
             phi_f: 0.95,
         });
 
-        Self::activate_era(&mut aggregator, config).await?;
+        Self::register_startup_era(&mut aggregator, config).await?;
 
         aggregator.serve()?;
 
