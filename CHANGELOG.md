@@ -21,6 +21,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Refactor the builder of the protocol messages, and add support for protocol parameters and epoch parts.
 
+- Signer compute what to sign independently of the aggregator.
+
 - Crates versions:
 
 | Crate | Version |
