@@ -142,20 +142,35 @@ function write_datums_for_era_address {
     # Remove if exists previous error file
     rm -f ${MITHRIL_ERA_ERROR_FILE}
 
-    # Write the era datum on chain
-    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query utxo \\
+    # Fetch transactions from UTxOs of the era address
+    TX_IN_DATUM=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query utxo \\
+        --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
+        | jq -r 'to_entries | map({utxo: .key} + .value) | . [] | select(.inlineDatum | . != null and . != "") | .utxo')
+    TX_IN_NO_DATUM=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query utxo \\
         --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
         | jq  -r 'to_entries | [last] | .[0].key')
 
     ## Build the transaction
-    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction build \\
-        --tx-in \${TX_IN} \\
-        --tx-out \$(cat addresses/${ADDR}.addr)+${SCRIPT_TX_VALUE} \\
-        --tx-out-inline-datum-file \${DATUM_FILE} \\
-        --change-address \$(cat addresses/${ADDR}.addr) \\
-        --testnet-magic ${NETWORK_MAGIC} \\
-        --invalid-hereafter 100000 \\
-        --out-file node-pool${N}/tx/tx${N}-era-datum.txbody
+    if [ "\${TX_IN_DATUM}" == "" ]; then
+        CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction build \\
+            --tx-in \${TX_IN_NO_DATUM} \\
+            --tx-out \$(cat addresses/${ADDR}.addr)+${SCRIPT_TX_VALUE} \\
+            --tx-out-inline-datum-file \${DATUM_FILE} \\
+            --change-address \$(cat addresses/${ADDR}.addr) \\
+            --testnet-magic ${NETWORK_MAGIC} \\
+            --invalid-hereafter 100000 \\
+            --out-file node-pool${N}/tx/tx${N}-era-datum.txbody
+    else
+        CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction build \\
+            --tx-in \${TX_IN_DATUM} \\
+            --tx-in \${TX_IN_NO_DATUM} \\
+            --tx-out \$(cat addresses/${ADDR}.addr)+${SCRIPT_TX_VALUE} \\
+            --tx-out-inline-datum-file \${DATUM_FILE} \\
+            --change-address \$(cat addresses/${ADDR}.addr) \\
+            --testnet-magic ${NETWORK_MAGIC} \\
+            --invalid-hereafter 100000 \\
+            --out-file node-pool${N}/tx/tx${N}-era-datum.txbody
+    fi
 
     ## Sign the transaction
     CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction sign \\
@@ -176,7 +191,7 @@ function write_datums_for_era_address {
     for (( i=1; i<=${NUM_POOL_NODES}; i++ )); do
         INLINE_DATUM=\$(CARDANO_NODE_SOCKET_PATH=node-pool\${i}/ipc/node.sock $CARDANO_CLI query utxo \\
         --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/${ADDR}.addr) --out-file /dev/stdout \\
-        | jq  -r '. [] | select(.inlineDatum | . != null and . != "") | .inlineDatum.fields[].bytes' | xxd -r -p)
+        | jq  -r '. [] | select(.inlineDatum | . != null and . != "") | .inlineDatum.fields[].bytes' | xxd -r -p | jq)
         echo ">>>>>> Era address inline datum retrieved on node-pool\${i}: \${INLINE_DATUM}"
         if [ "\${INLINE_DATUM}" == "" ]; then
             touch ${MITHRIL_ERA_ERROR_FILE}
