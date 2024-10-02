@@ -146,11 +146,11 @@ mod tests {
             let connection = main_db_connection().unwrap();
             let records = SignedBeaconRecord::fakes(&[
                 (
-                    Epoch(3),
+                    Epoch(974),
                     vec![SignedEntityType::MithrilStakeDistribution(Epoch(3))],
                 ),
                 (
-                    Epoch(4),
+                    Epoch(975),
                     vec![SignedEntityType::CardanoStakeDistribution(Epoch(4))],
                 ),
             ]);
@@ -167,7 +167,7 @@ mod tests {
 
             assert_eq!(
                 vec![SignedBeaconRecord::fake(
-                    Epoch(3),
+                    Epoch(974),
                     SignedEntityType::MithrilStakeDistribution(Epoch(3))
                 )],
                 stored_records
@@ -175,18 +175,18 @@ mod tests {
         }
 
         #[test]
-        fn with_multiple_matchings_over_several_epochs() {
+        fn with_multiple_matching_over_several_epochs() {
             let connection = main_db_connection().unwrap();
             let records = SignedBeaconRecord::fakes(&[
                 (
-                    Epoch(3),
+                    Epoch(329),
                     vec![
                         SignedEntityType::MithrilStakeDistribution(Epoch(3)),
                         SignedEntityType::CardanoStakeDistribution(Epoch(3)),
                     ],
                 ),
                 (
-                    Epoch(4),
+                    Epoch(330),
                     vec![
                         SignedEntityType::CardanoStakeDistribution(Epoch(4)),
                         SignedEntityType::MithrilStakeDistribution(Epoch(4)),
@@ -194,7 +194,7 @@ mod tests {
                     ],
                 ),
                 (
-                    Epoch(5),
+                    Epoch(331),
                     vec![
                         SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(124)),
                         SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(133)),
@@ -218,24 +218,52 @@ mod tests {
             assert_eq!(
                 SignedBeaconRecord::fakes(&[
                     (
-                        Epoch(5),
+                        Epoch(331),
                         vec![SignedEntityType::CardanoTransactions(
                             Epoch(5),
                             BlockNumber(133)
                         ),],
                     ),
                     (
-                        Epoch(4),
+                        Epoch(330),
                         vec![
                             SignedEntityType::CardanoTransactions(Epoch(4), BlockNumber(109)),
                             SignedEntityType::MithrilStakeDistribution(Epoch(4)),
                         ],
                     ),
                     (
-                        Epoch(3),
+                        Epoch(329),
                         vec![SignedEntityType::MithrilStakeDistribution(Epoch(3)),],
                     ),
                 ]),
+                stored_records
+            );
+        }
+
+        #[test]
+        fn duplicate_entities_in_parameter_should_not_yield_duplicate_matching() {
+            let connection = main_db_connection().unwrap();
+            let records = SignedBeaconRecord::fakes(&[(
+                Epoch(242),
+                vec![SignedEntityType::MithrilStakeDistribution(Epoch(3))],
+            )]);
+            insert_signed_beacons(&connection, records.clone());
+
+            let stored_records: Vec<SignedBeaconRecord> = connection
+                .fetch_collect(
+                    GetSignedBeaconQuery::by_signed_entities(&[
+                        SignedEntityType::MithrilStakeDistribution(Epoch(3)),
+                        SignedEntityType::MithrilStakeDistribution(Epoch(3)),
+                    ])
+                    .unwrap(),
+                )
+                .unwrap();
+
+            assert_eq!(
+                vec![SignedBeaconRecord::fake(
+                    Epoch(242),
+                    SignedEntityType::MithrilStakeDistribution(Epoch(3))
+                )],
                 stored_records
             );
         }

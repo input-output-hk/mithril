@@ -163,8 +163,13 @@ mod tests {
         );
 
         let beacon_to_sign = certifier_service.get_beacon_to_sign().await.unwrap();
+        let signed_discriminant: Option<SignedEntityTypeDiscriminants> =
+            beacon_to_sign.map(|b| b.signed_entity_type.into());
 
-        assert!(beacon_to_sign.is_some());
+        assert_eq!(
+            SignedEntityTypeDiscriminants::all().first().cloned(),
+            signed_discriminant
+        );
     }
 
     #[tokio::test]
@@ -231,8 +236,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn draining_out_all_beacon_to_signs_dont_repeat_value_and_use_signed_entity_discriminant_order(
-    ) {
+    async fn draining_out_all_beacons_to_sign_use_signed_entity_discriminant_order() {
         let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
         let certifier_service = SignerCertifierService::new(
             Arc::new(ticker_service),
@@ -249,7 +253,6 @@ mod tests {
             .await
             .unwrap()
             .expect("There should be a beacon to sign since nothing is locked or signed");
-        let mut all_signed_beacons = vec![previous_beacon_to_sign.clone()];
 
         loop {
             certifier_service
@@ -260,22 +263,51 @@ mod tests {
 
             if let Some(beacon) = next_beacon_to_sign {
                 assert!(
-                    !all_signed_beacons.contains(&beacon),
-                    "Beacon should not repeat"
-                );
-                assert!(
                     SignedEntityTypeDiscriminants::from(
                         &previous_beacon_to_sign.signed_entity_type
                     ) < SignedEntityTypeDiscriminants::from(&beacon.signed_entity_type),
                     "Beacon should follow SignedEntityTypeDiscriminants order"
                 );
 
-                all_signed_beacons.push(beacon.clone());
                 previous_beacon_to_sign = beacon;
             } else {
                 break;
             }
         }
+    }
+
+    #[tokio::test]
+    async fn draining_out_all_beacons_to_sign_doesnt_repeat_value() {
+        let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
+        let certifier_service = SignerCertifierService::new(
+            Arc::new(ticker_service),
+            Arc::new(DumbSignedBeaconStore::default()),
+            Arc::new(DumbSignedEntityConfigProvider::new(
+                CardanoTransactionsSigningConfig::dummy(),
+                SignedEntityTypeDiscriminants::all(),
+            )),
+            Arc::new(SignedEntityTypeLock::new()),
+        );
+
+        let mut all_signed_beacons = vec![];
+        while let Some(beacon_to_sign) = certifier_service.get_beacon_to_sign().await.unwrap() {
+            certifier_service
+                .mark_beacon_as_signed(&beacon_to_sign)
+                .await
+                .unwrap();
+            all_signed_beacons.push(beacon_to_sign);
+        }
+
+        let mut dedup_signed_beacons = all_signed_beacons.clone();
+        dedup_signed_beacons.dedup();
+        assert!(
+            !all_signed_beacons.is_empty(),
+            "There should be at least one beacon to sign"
+        );
+        assert_eq!(
+            all_signed_beacons, dedup_signed_beacons,
+            "Beacon should not repeat"
+        );
     }
 
     pub mod tests_tooling {

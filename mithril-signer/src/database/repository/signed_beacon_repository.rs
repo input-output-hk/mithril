@@ -233,18 +233,26 @@ mod tests {
                 .collect(),
         );
 
-        let to_filter = all_signed_entity_type_for(&time_point);
         let available_entities = repository
-            .filter_out_already_signed_entities(to_filter.clone())
+            .filter_out_already_signed_entities(vec![
+                SignedEntityType::MithrilStakeDistribution(time_point.epoch),
+                SignedEntityType::CardanoStakeDistribution(time_point.epoch),
+                SignedEntityType::CardanoTransactions(
+                    time_point.epoch,
+                    time_point.chain_point.block_number,
+                ),
+                SignedEntityType::CardanoStakeDistribution(time_point.epoch + 10),
+            ])
             .await
             .unwrap();
 
-        let expected: Vec<SignedEntityType> = to_filter
-            .iter()
-            .filter(|entity| !signed_beacons.contains(entity))
-            .cloned()
-            .collect();
-        assert_eq!(expected, available_entities);
+        assert_eq!(
+            vec![
+                SignedEntityType::CardanoStakeDistribution(time_point.epoch),
+                SignedEntityType::CardanoStakeDistribution(time_point.epoch + 10),
+            ],
+            available_entities
+        );
     }
 
     #[tokio::test]

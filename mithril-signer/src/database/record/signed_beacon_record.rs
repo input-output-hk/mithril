@@ -148,7 +148,24 @@ mod tests {
             signed_at: initiated_at + chrono::TimeDelta::minutes(2),
         };
 
+        // Check `impl PartialEq<BeaconToSign> for SignedBeaconRecord`
         assert_eq!(signed_beacon, beacon_to_sign);
+        assert_ne!(
+            signed_beacon,
+            BeaconToSign {
+                epoch: beacon_to_sign.epoch + 13,
+                ..beacon_to_sign.clone()
+            }
+        );
+
+        // Check `impl PartialEq<SignedBeaconRecord> for BeaconToSign`
         assert_eq!(beacon_to_sign, signed_beacon);
+        assert_ne!(
+            beacon_to_sign,
+            SignedBeaconRecord {
+                epoch: signed_beacon.epoch + 11,
+                ..signed_beacon.clone()
+            }
+        );
     }
 }
