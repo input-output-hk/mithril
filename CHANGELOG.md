@@ -23,6 +23,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Signer compute what to sign independently of the aggregator.
 
+- Deprecate aggregator `/certificate-pending` route as the signer does not need it anymore.
+
 - Crates versions:
 
 | Crate | Version |
