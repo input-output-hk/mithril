@@ -642,7 +642,7 @@ mod tests {
         let upkeep_service = Arc::new(MockUpkeepService::new());
         let certifier = Arc::new(SignerCertifierService::new(
             ticker_service.clone(),
-            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone())),
+            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None)),
             Arc::new(SignerSignedEntityConfigProvider::new(
                 network,
                 epoch_service.clone(),

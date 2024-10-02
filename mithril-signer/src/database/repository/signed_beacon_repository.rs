@@ -15,12 +15,16 @@ use crate::services::{EpochPruningTask, SignedBeaconStore};
 /// A [SignedBeaconStore] implementation using SQLite.
 pub struct SignedBeaconRepository {
     connection: Arc<SqliteConnection>,
+    store_retention_limit: Option<u64>,
 }
 
 impl SignedBeaconRepository {
     /// Create a new instance of the `SignedBeaconRepository`.
-    pub fn new(connection: Arc<SqliteConnection>) -> Self {
-        Self { connection }
+    pub fn new(connection: Arc<SqliteConnection>, store_retention_limit: Option<u64>) -> Self {
+        Self {
+            connection,
+            store_retention_limit,
+        }
     }
 
     /// Get the last signed beacon.
@@ -71,8 +75,14 @@ impl EpochPruningTask for SignedBeaconRepository {
         "Signed Beacon"
     }
 
-    async fn prune_below_epoch_threshold(&self, epoch_threshold: Epoch) -> StdResult<()> {
-        self.prune_below_epoch(epoch_threshold)
+    async fn prune(&self, current_epoch: Epoch) -> StdResult<()> {
+        match self
+            .store_retention_limit
+            .map(|limit| current_epoch - limit)
+        {
+            Some(threshold) if *threshold > 0 => self.prune_below_epoch(threshold),
+            _ => Ok(()),
+        }
     }
 }
 
@@ -102,7 +112,7 @@ mod tests {
     #[test]
     fn get_last_stored_signed_beacon() {
         let connection = Arc::new(main_db_connection().unwrap());
-        let repository = SignedBeaconRepository::new(connection.clone());
+        let repository = SignedBeaconRepository::new(connection.clone(), None);
 
         let last_signed_beacon = repository.get_last().unwrap();
         assert_eq!(None, last_signed_beacon);
@@ -151,7 +161,7 @@ mod tests {
     #[tokio::test]
     async fn filter_out_nothing_if_nothing_was_previously_signed() {
         let connection = Arc::new(main_db_connection().unwrap());
-        let repository = SignedBeaconRepository::new(connection.clone());
+        let repository = SignedBeaconRepository::new(connection.clone(), None);
 
         let to_filter = all_signed_entity_type_for(&TimePoint::dummy());
         let available_entities = repository
@@ -165,7 +175,7 @@ mod tests {
     #[tokio::test]
     async fn filter_out_nothing_if_previously_signed_entities_doesnt_match_passed_entities() {
         let connection = Arc::new(main_db_connection().unwrap());
-        let repository = SignedBeaconRepository::new(connection.clone());
+        let repository = SignedBeaconRepository::new(connection.clone(), None);
 
         let time_point = TimePoint::dummy();
         insert_signed_beacons(
@@ -189,7 +199,7 @@ mod tests {
     #[tokio::test]
     async fn filter_out_everything_if_previously_signed_entities_match_all_passed_entities() {
         let connection = Arc::new(main_db_connection().unwrap());
-        let repository = SignedBeaconRepository::new(connection.clone());
+        let repository = SignedBeaconRepository::new(connection.clone(), None);
 
         let to_filter = all_signed_entity_type_for(&TimePoint::dummy());
         insert_signed_beacons(
@@ -210,7 +220,7 @@ mod tests {
     #[tokio::test]
     async fn filter_out_partially_if_some_previously_signed_entities_match_passed_entities() {
         let connection = Arc::new(main_db_connection().unwrap());
-        let repository = SignedBeaconRepository::new(connection.clone());
+        let repository = SignedBeaconRepository::new(connection.clone(), None);
 
         let time_point = TimePoint::dummy();
         let signed_beacons = [
@@ -253,7 +263,7 @@ mod tests {
     #[tokio::test]
     async fn mark_beacon_as_signed() {
         let connection = Arc::new(main_db_connection().unwrap());
-        let repository = SignedBeaconRepository::new(connection.clone());
+        let repository = SignedBeaconRepository::new(connection.clone(), None);
 
         let beacon_to_sign = BeaconToSign {
             epoch: Epoch(13),
@@ -278,10 +288,50 @@ mod tests {
         assert_eq!(beacon_to_sign, signed_beacon);
     }
 
-    #[test]
-    fn test_prune() {
+    #[tokio::test]
+    async fn test_dont_execute_pruning_tasks_if_no_retention_limit_set() {
         let connection = Arc::new(main_db_connection().unwrap());
-        let repository = SignedBeaconRepository::new(connection.clone());
+        let repository = SignedBeaconRepository::new(connection.clone(), None);
+        insert_signed_beacons(
+            &connection,
+            SignedBeaconRecord::fakes(&[(
+                Epoch(8),
+                vec![SignedEntityType::MithrilStakeDistribution(Epoch(8))],
+            )]),
+        );
+
+        EpochPruningTask::prune(&repository, Epoch(1000))
+            .await
+            .unwrap();
+
+        let cursor = connection.fetch(GetSignedBeaconQuery::all()).unwrap();
+        assert_eq!(1, cursor.count(),);
+    }
+
+    #[tokio::test]
+    async fn test_dont_execute_pruning_tasks_if_current_epoch_minus_retention_limit_is_0() {
+        let connection = Arc::new(main_db_connection().unwrap());
+        let repository = SignedBeaconRepository::new(connection.clone(), Some(10));
+        insert_signed_beacons(
+            &connection,
+            SignedBeaconRecord::fakes(&[(
+                Epoch(8),
+                vec![SignedEntityType::MithrilStakeDistribution(Epoch(8))],
+            )]),
+        );
+
+        EpochPruningTask::prune(&repository, Epoch(9))
+            .await
+            .unwrap();
+
+        let cursor = connection.fetch(GetSignedBeaconQuery::all()).unwrap();
+        assert_eq!(1, cursor.count(),);
+    }
+
+    #[tokio::test]
+    async fn test_prune_task_substract_set_retention_limit_to_given_epoch() {
+        let connection = Arc::new(main_db_connection().unwrap());
+        let repository = SignedBeaconRepository::new(connection.clone(), Some(10));
         insert_signed_beacons(
             &connection,
             SignedBeaconRecord::fakes(&[
@@ -299,7 +349,9 @@ mod tests {
             ]),
         );
 
-        repository.prune_below_epoch(Epoch(8)).unwrap();
+        EpochPruningTask::prune(&repository, Epoch(18))
+            .await
+            .unwrap();
 
         let signed_beacons: Vec<SignedBeaconRecord> = connection
             .fetch_collect(GetSignedBeaconQuery::all())

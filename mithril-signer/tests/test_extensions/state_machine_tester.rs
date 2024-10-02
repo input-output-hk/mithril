@@ -247,11 +247,10 @@ impl StateMachineTester {
             sqlite_connection_cardano_transaction_pool,
             signed_entity_type_lock.clone(),
             vec![],
-            None,
             slog_scope::logger(),
         ));
         let signed_beacon_repository =
-            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone()));
+            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None));
         let certifier = Arc::new(SignerCertifierService::new(
             ticker_service.clone(),
             signed_beacon_repository.clone(),
