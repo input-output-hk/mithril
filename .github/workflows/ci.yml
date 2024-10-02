@@ -289,6 +289,7 @@ jobs:
       matrix:
         mode: ["std"]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
+        next_era: [""]
         cardano_node_version: ["9.0.0", "9.1.0", "9.1.1", "9.2.0", "9.2.1"]
         hard_fork_latest_era_at_epoch: [0]
         run_id: ["#1"]
@@ -298,10 +299,27 @@ jobs:
           # Include a test for the P2P mode
           - mode: "p2p"
             era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            next_era: [""]
             cardano_node_version: "9.1.1"
             hard_fork_latest_era_at_epoch: 0
             run_id: "#1"
             extra_args: "--use-p2p-network"
+          # Include a test for the era switch without regenesis
+          - mode: "p2p"
+            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
+            cardano_node_version: "9.1.1"
+            hard_fork_latest_era_at_epoch: 0
+            run_id: "#1"
+            extra_args: ""
+          # Include a test for the era switch with regenesis
+          - mode: "p2p"
+            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+            next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
+            cardano_node_version: "9.1.1"
+            hard_fork_latest_era_at_epoch: 0
+            run_id: "#1"
+            extra_args: "--mithril-era-regenesis-on-switch"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -328,13 +346,26 @@ jobs:
 
       - name: Test
         run: |
-          ./mithril-end-to-end -vvv \
-            --bin-directory ./bin \
-            --work-directory=./artifacts \
-            --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
-            --mithril-era=${{ matrix.era }} \
-            --cardano-node-version ${{ matrix.cardano_node_version }} \
-            --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }}
+          if [[ "${{ matrix.next_era }}" == "" ]]; then
+            # If there is no next era, we don't need to specify it with '--mithril-next-era'
+            ./mithril-end-to-end -vvv \
+              --bin-directory ./bin \
+              --work-directory=./artifacts \
+              --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
+              --mithril-era=${{ matrix.era }} \
+              --cardano-node-version ${{ matrix.cardano_node_version }} \
+              --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }}
+          else
+            # If there is a next era, we need to specify it with '--mithril-next-era'
+            ./mithril-end-to-end -vvv \
+              --bin-directory ./bin \
+              --work-directory=./artifacts \
+              --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
+              --mithril-era=${{ matrix.era }} \
+              --mithril-next-era=${{ matrix.next_era }} \
+              --cardano-node-version ${{ matrix.cardano_node_version }} \
+              --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }}
+          fi
 
       - name: Upload E2E Tests Artifacts
         if: ${{ failure() }}
