@@ -260,6 +260,10 @@ impl AggregatorClient for AggregatorHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
+                StatusCode::GONE => {
+                    debug!("Aggregator already certified that message"; "signed_entity_type" => ?signed_entity_type);
+                    Ok(())
+                }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::BAD_REQUEST => Err(AggregatorClientError::RemoteServerLogical(
                     anyhow!("bad request: {}", response.text().await.unwrap_or_default()),
@@ -530,7 +534,7 @@ mod tests {
     async fn test_epoch_settings_ok_200() {
         let (server, config, api_version_provider) = setup_test();
         let epoch_settings_expected = EpochSettingsMessage::dummy();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(200)
                 .body(json!(epoch_settings_expected).to_string());
@@ -552,7 +556,7 @@ mod tests {
     #[tokio::test]
     async fn test_epoch_settings_ko_412() {
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
@@ -574,7 +578,7 @@ mod tests {
     #[tokio::test]
     async fn test_epoch_settings_ko_500() {
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(500).body("an error occurred");
         });
@@ -598,7 +602,7 @@ mod tests {
     #[tokio::test]
     async fn test_epoch_settings_timeout() {
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.delay(Duration::from_millis(200));
         });
@@ -626,7 +630,7 @@ mod tests {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(201);
         });
@@ -646,7 +650,7 @@ mod tests {
     async fn test_register_signer_ko_412() {
         let epoch = Epoch(1);
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
@@ -673,7 +677,7 @@ mod tests {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(400).body(
                 serde_json::to_vec(&ClientError::new(
@@ -710,7 +714,7 @@ mod tests {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(500).body("an error occurred");
         });
@@ -737,7 +741,7 @@ mod tests {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.delay(Duration::from_millis(200));
         });
@@ -763,7 +767,7 @@ mod tests {
     async fn test_register_signatures_ok_201() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(201);
         });
@@ -786,7 +790,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ko_412() {
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
@@ -814,7 +818,7 @@ mod tests {
     async fn test_register_signatures_ko_400() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(400).body(
                 serde_json::to_vec(&ClientError::new(
@@ -845,10 +849,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_register_signatures_ok_410() {
+        let single_signatures = fake_data::single_signatures((1..5).collect());
+        let (server, config, api_version_provider) = setup_test();
+        let _server_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signatures");
+            then.status(410).body(
+                serde_json::to_vec(&ClientError::new(
+                    "already_aggregated".to_string(),
+                    "too late".to_string(),
+                ))
+                .unwrap(),
+            );
+        });
+        let certificate_handler = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            None,
+        );
+        certificate_handler
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
+            .await
+            .expect("Should not fail when status is 410 (GONE)");
+    }
+
+    #[tokio::test]
     async fn test_register_signatures_ko_409() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(409);
         });
@@ -876,7 +910,7 @@ mod tests {
     async fn test_register_signatures_ko_500() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(500).body("an error occurred");
         });
@@ -904,7 +938,7 @@ mod tests {
     async fn test_register_signatures_timeout() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
+        let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.delay(Duration::from_millis(200));
         });
