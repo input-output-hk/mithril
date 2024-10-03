@@ -222,34 +222,21 @@ impl AggregatorRuntime {
                     self.runner.get_time_point_from_chain().await.with_context(|| {
                         "AggregatorRuntime in the state SIGNING can not get current time point from chain"
                     })?;
-                let current_open_message = self
+
+                let is_outdated = self
                     .runner
-                    .get_current_open_message_for_signed_entity_type(
-                        &state.open_message.signed_entity_type,
+                    .is_outdated(
+                        state.open_message.signed_entity_type.clone(),
+                        &last_time_point,
                     )
-                    .await
-                    .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &state.open_message.signed_entity_type))?;
-                let is_expired_open_message = current_open_message
-                    .as_ref()
-                    .map(|om| om.is_expired)
-                    .unwrap_or(false);
-                let exists_newer_open_message = {
-                    let new_signed_entity_type = self
-                        .config
-                        .signed_entity_config
-                        .time_point_to_signed_entity(
-                            &state.open_message.signed_entity_type,
-                            &last_time_point,
-                        )?;
-                    new_signed_entity_type != state.open_message.signed_entity_type
-                };
+                    .await?;
 
                 if state.current_time_point.epoch < last_time_point.epoch {
                     // SIGNING > IDLE
                     info!("→ Epoch changed, transitioning to IDLE");
                     let new_state = self.transition_from_signing_to_idle(state).await?;
                     self.state = AggregatorState::Idle(new_state);
-                } else if exists_newer_open_message || is_expired_open_message {
+                } else if is_outdated {
                     // SIGNING > READY
                     info!("→ Open message changed, transitioning to READY");
                     let new_state = self
@@ -409,7 +396,7 @@ mod tests {
     use mockall::predicate;
     use std::time::Duration;
 
-    use mithril_common::entities::{Epoch, SignedEntityConfig, SignedEntityType};
+    use mithril_common::entities::SignedEntityConfig;
     use mithril_common::test_utils::fake_data;
 
     use super::super::runner::MockAggregatorRunner;
@@ -646,27 +633,20 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_get_current_open_message_for_signed_entity_type()
+            .expect_is_outdated()
             .once()
-            .returning(|_| {
-                Ok(Some(OpenMessage {
-                    signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-                    ..OpenMessage::dummy()
-                }))
-            });
+            .returning(|_, _| Ok(true));
         runner
             .expect_drop_pending_certificate()
             .once()
             .returning(|| Ok(Some(fake_data::certificate_pending())));
 
-        let state = SigningState {
+        let initial_state = AggregatorState::Signing(SigningState {
             current_time_point: TimePoint::dummy(),
-            open_message: OpenMessage {
-                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(2)),
-                ..OpenMessage::dummy()
-            },
-        };
-        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
+            open_message: OpenMessage::dummy(),
+        });
+
+        let mut runtime = init_runtime(Some(initial_state), runner).await;
         runtime.cycle().await.unwrap();
 
         assert_eq!("ready".to_string(), runtime.get_state());
@@ -680,9 +660,9 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_get_current_open_message_for_signed_entity_type()
+            .expect_is_outdated()
             .once()
-            .returning(|_| Ok(Some(OpenMessage::dummy())));
+            .returning(|_, _| Ok(false));
         runner
             .expect_create_certificate()
             .once()
@@ -713,9 +693,9 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_get_current_open_message_for_signed_entity_type()
+            .expect_is_outdated()
             .once()
-            .returning(|_| Ok(Some(OpenMessage::dummy())));
+            .returning(|_, _| Ok(false));
         runner
             .expect_create_certificate()
             .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
@@ -753,9 +733,9 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_get_current_open_message_for_signed_entity_type()
+            .expect_is_outdated()
             .once()
-            .returning(|_| Ok(Some(OpenMessage::dummy())));
+            .returning(|_, _| Ok(false));
         runner
             .expect_create_certificate()
             .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));

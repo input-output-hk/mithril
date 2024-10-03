@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 use mithril_common::entities::{
-    BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
+    CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants, Signer, SignerWithStake,
 };
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
@@ -622,13 +622,13 @@ impl EpochService for FakeEpochService {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{CardanoTransactionsSigningConfig, PartyId, SignedEntityType};
+    use mithril_common::entities::{BlockNumber, CardanoTransactionsSigningConfig, PartyId};
     use mithril_common::test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder};
     use mithril_persistence::store::adapter::MemoryAdapter;
     use std::collections::{BTreeSet, HashMap};
 
     use crate::services::epoch_service::tests::ServiceBuilderParameters::WithFutureProtocolParameters;
-    use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
+    use crate::store::FakeEpochSettingsStorer;
     use crate::VerificationKeyStore;
 
     use super::*;

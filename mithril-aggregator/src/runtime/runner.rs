@@ -130,6 +130,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage>;
+
+    /// Checks if the open message is considered outdated.
+    async fn is_outdated(
+        &self,
+        open_message_signed_entity_type: SignedEntityType,
+        last_time_point: &TimePoint,
+    ) -> StdResult<bool>;
 }
 
 /// The runner responsibility is to expose a code API for the state machine. It
@@ -486,6 +493,33 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .create_open_message(signed_entity_type, protocol_message)
             .await
     }
+
+    async fn is_outdated(
+        &self,
+        open_message_signed_entity_type: SignedEntityType,
+        last_time_point: &TimePoint,
+    ) -> StdResult<bool> {
+        let current_open_message = self
+            .get_current_open_message_for_signed_entity_type(
+                &open_message_signed_entity_type,
+            )
+            .await
+            .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &open_message_signed_entity_type))?;
+        let is_expired_open_message = current_open_message
+            .as_ref()
+            .map(|om| om.is_expired)
+            .unwrap_or(false);
+
+        let exists_newer_open_message = {
+            let new_signed_entity_type = self
+                .dependencies
+                .signed_entity_config
+                .time_point_to_signed_entity(&open_message_signed_entity_type, last_time_point)?;
+            new_signed_entity_type != open_message_signed_entity_type
+        };
+
+        Ok(exists_newer_open_message || is_expired_open_message)
+    }
 }
 
 #[cfg(test)]
@@ -502,7 +536,7 @@ pub mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, SignedEntityTypeDiscriminants,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityTypeDiscriminants,
     };
     use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
     use mithril_common::{
@@ -1235,5 +1269,73 @@ pub mod tests {
 
         assert!(!signed_entities.is_empty());
         assert!(!signed_entities.contains(&SignedEntityTypeDiscriminants::CardanoTransactions));
+    }
+
+    #[tokio::test]
+    async fn is_outdated_return_false_when_message_is_not_expired_and_has_same_signed_entity_type()
+    {
+        assert!(!is_outdated_returned_when(IsExpired::No, true).await);
+    }
+
+    #[tokio::test]
+    async fn is_outdated_return_true_when_message_is_expired_and_has_same_signed_entity_type() {
+        assert!(is_outdated_returned_when(IsExpired::Yes, true).await);
+    }
+
+    #[tokio::test]
+    async fn is_outdated_return_true_when_message_is_not_expired_and_has_not_the_same_signed_entity_type(
+    ) {
+        assert!(is_outdated_returned_when(IsExpired::No, false).await);
+    }
+
+    #[tokio::test]
+    async fn is_outdated_return_true_when_message_is_expired_and_has_not_the_same_signed_entity_type(
+    ) {
+        assert!(is_outdated_returned_when(IsExpired::Yes, false).await);
+    }
+
+    async fn is_outdated_returned_when(
+        is_expired: IsExpired,
+        same_signed_entity_type: bool,
+    ) -> bool {
+        let current_time_point = TimePoint {
+            epoch: Epoch(2),
+            immutable_file_number: 1,
+            ..TimePoint::dummy()
+        };
+
+        let message_epoch = if same_signed_entity_type {
+            current_time_point.epoch
+        } else {
+            current_time_point.epoch - 1
+        };
+        let open_message = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(message_epoch),
+            is_expired: is_expired == IsExpired::Yes,
+            ..OpenMessage::dummy()
+        };
+
+        let runner = {
+            let mut deps = initialize_dependencies().await;
+            let mut mock_certifier_service = MockCertifierService::new();
+
+            let open_message_cloned = open_message.clone();
+            mock_certifier_service
+                .expect_get_open_message()
+                .times(1)
+                .return_once(|_| Ok(Some(open_message_cloned)));
+            mock_certifier_service
+                .expect_mark_open_message_if_expired()
+                .returning(|_| Ok(None));
+
+            deps.certifier_service = Arc::new(mock_certifier_service);
+
+            build_runner_with_fixture_data(deps).await
+        };
+
+        runner
+            .is_outdated(open_message.signed_entity_type, &current_time_point)
+            .await
+            .unwrap()
     }
 }
