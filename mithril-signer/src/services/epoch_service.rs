@@ -16,6 +16,7 @@ use mithril_persistence::store::StakeStorer;
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::entities::SignerEpochSettings;
 use crate::services::SignedEntityConfigProvider;
+use crate::store::ProtocolInitializerStorer;
 use crate::RunnerError;
 
 /// Errors dedicated to the EpochService.
@@ -31,7 +32,7 @@ pub enum EpochServiceError {
 pub trait EpochService: Sync + Send {
     /// Inform the service a new epoch has been detected, telling it to update its
     /// internal state for the new epoch.
-    fn inform_epoch_settings(
+    async fn inform_epoch_settings(
         &mut self,
         epoch_settings: SignerEpochSettings,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
@@ -42,6 +43,11 @@ pub trait EpochService: Sync + Send {
 
     /// Get next protocol parameters used in next epoch (associated with the actual epoch)
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
+
+    /// Get the protocol initializer for the current epoch if any
+    ///
+    /// `None` if the signer can't sign for the current epoch.
+    fn protocol_initializer(&self) -> StdResult<&Option<ProtocolInitializer>>;
 
     /// Get signers for the current epoch
     fn current_signers(&self) -> StdResult<&Vec<Signer>>;
@@ -79,6 +85,7 @@ pub trait EpochService: Sync + Send {
 struct EpochData {
     epoch: Epoch,
     next_protocol_parameters: ProtocolParameters,
+    protocol_initializer: Option<ProtocolInitializer>,
     current_signers: Vec<Signer>,
     next_signers: Vec<Signer>,
     allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
@@ -89,14 +96,19 @@ struct EpochData {
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
     stake_storer: Arc<dyn StakeStorer>,
+    protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     epoch_data: Option<EpochData>,
 }
 
 impl MithrilEpochService {
     /// Create a new service instance
-    pub fn new(stake_storer: Arc<dyn StakeStorer>) -> Self {
+    pub fn new(
+        stake_storer: Arc<dyn StakeStorer>,
+        protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
+    ) -> Self {
         Self {
             stake_storer,
+            protocol_initializer_store,
             epoch_data: None,
         }
     }
@@ -148,7 +160,7 @@ impl MithrilEpochService {
 
 #[async_trait]
 impl EpochService for MithrilEpochService {
-    fn inform_epoch_settings(
+    async fn inform_epoch_settings(
         &mut self,
         epoch_settings: SignerEpochSettings,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
@@ -158,9 +170,16 @@ impl EpochService for MithrilEpochService {
             epoch_settings
         );
 
+        let epoch = epoch_settings.epoch;
+        let protocol_initializer = self
+            .protocol_initializer_store
+            .get_protocol_initializer(epoch.offset_to_signer_retrieval_epoch()?)
+            .await?;
+
         self.epoch_data = Some(EpochData {
-            epoch: epoch_settings.epoch,
+            epoch,
             next_protocol_parameters: epoch_settings.next_protocol_parameters,
+            protocol_initializer,
             current_signers: epoch_settings.current_signers,
             next_signers: epoch_settings.next_signers,
             allowed_discriminants,
@@ -178,6 +197,10 @@ impl EpochService for MithrilEpochService {
 
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
         Ok(&self.unwrap_data()?.next_protocol_parameters)
+    }
+
+    fn protocol_initializer(&self) -> StdResult<&Option<ProtocolInitializer>> {
+        Ok(&self.unwrap_data()?.protocol_initializer)
     }
 
     fn current_signers(&self) -> StdResult<&Vec<Signer>> {
@@ -284,7 +307,7 @@ pub mod mock_epoch_service {
         impl EpochService for EpochServiceImpl {
             /// Inform the service a new epoch has been detected, telling it to update its
             /// internal state for the new epoch.
-            fn inform_epoch_settings(
+            async fn inform_epoch_settings(
                 &mut self,
                 epoch_settings: SignerEpochSettings,
                 allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
@@ -295,6 +318,8 @@ pub mod mock_epoch_service {
 
             /// Get next protocol parameters used in next epoch (associated with the actual epoch)
             fn next_protocol_parameters(&self) -> StdResult<&'static ProtocolParameters>;
+
+            fn protocol_initializer(&self) -> StdResult<&'static Option<ProtocolInitializer>>;
 
             /// Get signers for the current epoch
             fn current_signers(&self) -> StdResult<&'static Vec<Signer>>;
@@ -354,6 +379,7 @@ mod tests {
 
     use crate::entities::SignerEpochSettings;
     use crate::services::MithrilProtocolInitializerBuilder;
+    use crate::store::ProtocolInitializerStore;
 
     use super::*;
 
@@ -369,15 +395,19 @@ mod tests {
         )
         .unwrap();
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        let service = MithrilEpochService::new(stake_store);
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+        let service = MithrilEpochService::new(stake_store, protocol_initializer_store);
 
         service
             .is_signer_included_in_current_stake_distribution(party_id, protocol_initializer)
             .expect_err("can_signer_sign should return error when epoch settings is not set");
     }
 
-    #[test]
-    fn test_is_signer_included_in_current_stake_distribution_returns_true_when_signer_verification_key_and_pool_id_found(
+    #[tokio::test]
+    async fn test_is_signer_included_in_current_stake_distribution_returns_true_when_signer_verification_key_and_pool_id_found(
     ) {
         let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
         let protocol_initializer = fixtures.signers_fixture()[0]
@@ -386,15 +416,21 @@ mod tests {
         let epoch = Epoch(12);
         let signers = fixtures.signers();
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+
         let epoch_settings = SignerEpochSettings {
             epoch,
             current_signers: signers[..5].to_vec(),
             ..SignerEpochSettings::dummy().clone()
         };
 
-        let mut service = MithrilEpochService::new(stake_store);
+        let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
         service
             .inform_epoch_settings(epoch_settings.clone(), BTreeSet::new())
+            .await
             .unwrap();
 
         let party_id = fixtures.signers_fixture()[0].party_id();
@@ -435,17 +471,22 @@ mod tests {
             .map(|(i, signer)| (signer.party_id.clone(), (i + 1) as u64 * 100))
             .collect();
 
-        // Init stake_store
+        // Init stores
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
         stake_store
             .save_stakes(epoch, stake_distribution.clone())
             .await
             .expect("save_stakes should not fail");
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
 
         // Build service and register epoch settings
-        let service = MithrilEpochService::new(stake_store);
+        let service = MithrilEpochService::new(stake_store, protocol_initializer_store);
         assert!(service.epoch_of_current_data().is_err());
         assert!(service.next_protocol_parameters().is_err());
+        assert!(service.protocol_initializer().is_err());
         assert!(service.current_signers().is_err());
         assert!(service.next_signers().is_err());
         assert!(service.current_signers_with_stake().await.is_err());
@@ -454,14 +495,18 @@ mod tests {
         assert!(service.next_cardano_transactions_signing_config().is_err());
     }
 
-    #[test]
-    fn test_data_are_available_after_register_epoch_settings_call() {
+    #[tokio::test]
+    async fn test_data_are_available_after_register_epoch_settings_call() {
         let epoch = Epoch(12);
         // Signers and stake distribution
         let signers = fake_data::signers(10);
 
-        // Init stake_store
+        // Init stores
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
 
         // Epoch settings
         let epoch_settings = SignerEpochSettings {
@@ -472,13 +517,14 @@ mod tests {
         };
 
         // Build service and register epoch settings
-        let mut service = MithrilEpochService::new(stake_store);
+        let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
 
         service
             .inform_epoch_settings(
                 epoch_settings.clone(),
                 BTreeSet::from([SignedEntityTypeDiscriminants::CardanoImmutableFilesFull]),
             )
+            .await
             .unwrap();
 
         // Check current_signers
@@ -502,6 +548,10 @@ mod tests {
         assert_eq!(
             epoch_settings.next_protocol_parameters,
             *service.next_protocol_parameters().unwrap()
+        );
+        assert!(
+            service.protocol_initializer().unwrap().is_none(),
+            "protocol_initializer should be None since nothing was in store"
         );
 
         // Check allowed_discriminants
@@ -555,6 +605,10 @@ mod tests {
             ),
             None,
         ));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
 
         // Epoch settings
         let epoch_settings = SignerEpochSettings {
@@ -565,9 +619,10 @@ mod tests {
         };
 
         // Build service and register epoch settings
-        let mut service = MithrilEpochService::new(stake_store);
+        let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
         service
             .inform_epoch_settings(epoch_settings.clone(), BTreeSet::new())
+            .await
             .unwrap();
 
         // Check current signers with stake
@@ -594,12 +649,52 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_protocol_initializer_is_available_after_register_epoch_settings_call_if_in_store()
+    {
+        let epoch = Epoch(12);
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(
+                MemoryAdapter::new(Some(vec![(
+                    epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                    fake_data::protocol_initializer("seed", 1245),
+                )]))
+                .unwrap(),
+            ),
+            None,
+        ));
+
+        let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+        let epoch_settings = SignerEpochSettings {
+            epoch,
+            ..SignerEpochSettings::dummy().clone()
+        };
+        service
+            .inform_epoch_settings(epoch_settings, BTreeSet::new())
+            .await
+            .unwrap();
+
+        let protocol_initializer = service.protocol_initializer().unwrap();
+        assert_eq!(
+            Some(1245),
+            protocol_initializer.as_ref().map(|p| p.get_stake()),
+        );
+    }
+
+    #[tokio::test]
     async fn is_source_of_signed_entity_config() {
         let stake_store = Arc::new(StakeStore::new(
             Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
             None,
         ));
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store)));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            stake_store,
+            protocol_initializer_store,
+        )));
         let config_provider = SignerSignedEntityConfigProvider {
             cardano_network: fake_data::network(),
             epoch_service: epoch_service.clone(),
@@ -626,6 +721,7 @@ mod tests {
                     },
                     allowed_discriminants.clone(),
                 )
+                .await
                 .unwrap();
 
             config_provider
@@ -649,6 +745,7 @@ mod tests {
                     },
                     allowed_discriminants.clone(),
                 )
+                .await
                 .unwrap();
 
             let config = config_provider.get().await.unwrap();

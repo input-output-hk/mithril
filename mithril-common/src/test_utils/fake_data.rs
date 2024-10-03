@@ -52,6 +52,33 @@ pub fn protocol_parameters() -> entities::ProtocolParameters {
     entities::ProtocolParameters::new(k, m, phi_f)
 }
 
+cfg_random! {
+    /// Fake ProtocolInitializer
+    pub fn protocol_initializer<S: Into<String>>(
+        seed: S,
+        stake: entities::Stake,
+    ) -> crypto_helper::ProtocolInitializer {
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
+
+        let protocol_parameters = protocol_parameters();
+        let seed: [u8; 32] = format!("{:<032}", seed.into()).as_bytes()[..32]
+            .try_into()
+            .unwrap();
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let kes_secret_key_path: Option<std::path::PathBuf> = None;
+        let kes_period = Some(0);
+
+        crypto_helper::ProtocolInitializer::setup(
+            protocol_parameters.into(),
+            kes_secret_key_path,
+            kes_period,
+            stake,
+            &mut rng,
+        ).unwrap()
+    }
+}
+
 /// Fake CertificatePending
 pub fn certificate_pending() -> entities::CertificatePending {
     // Epoch

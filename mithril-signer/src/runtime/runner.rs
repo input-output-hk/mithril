@@ -287,6 +287,7 @@ impl Runner for SignerRunner {
                 epoch_settings,
                 aggregator_features.capabilities.signed_entity_types,
             )
+            .await
     }
 
     async fn compute_message(
@@ -413,10 +414,8 @@ impl Runner for SignerRunner {
 mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
     use std::collections::BTreeSet;
-    use std::{path::Path, path::PathBuf, sync::Arc};
+    use std::{path::Path, sync::Arc};
     use tokio::sync::RwLock;
 
     use mithril_common::{
@@ -496,7 +495,7 @@ mod tests {
 
     #[async_trait]
     impl EpochService for FakeEpochServiceImpl {
-        fn inform_epoch_settings(
+        async fn inform_epoch_settings(
             &mut self,
             _epoch_settings: SignerEpochSettings,
             _allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
@@ -508,6 +507,9 @@ mod tests {
         }
         fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
             unimplemented!()
+        }
+        fn protocol_initializer(&self) -> StdResult<&Option<ProtocolInitializer>> {
+            Ok(&None)
         }
         fn current_signers(&self) -> StdResult<&Vec<Signer>> {
             unimplemented!()
@@ -550,14 +552,7 @@ mod tests {
     }
 
     fn dummy_protocol_initializer() -> ProtocolInitializer {
-        ProtocolInitializer::setup(
-            fake_data::protocol_parameters().into(),
-            None::<PathBuf>,
-            Some(0),
-            1234,
-            &mut ChaCha20Rng::from_seed([0; 32]),
-        )
-        .unwrap()
+        fake_data::protocol_initializer("party", 1234)
     }
 
     async fn init_services() -> SignerDependencyContainer {
@@ -611,10 +606,13 @@ mod tests {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
-        let single_signer = Arc::new(MithrilSingleSigner::new(party_id));
         let protocol_initializer_store =
             Arc::new(ProtocolInitializerStore::new(Box::new(adapter), None));
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            stake_store.clone(),
+            protocol_initializer_store.clone(),
+        )));
+        let single_signer = Arc::new(MithrilSingleSigner::new(party_id));
         let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
             single_signer.clone(),
