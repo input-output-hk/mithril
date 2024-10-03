@@ -7,20 +7,16 @@ use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    entities::{
-        CertificatePending, Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignatures,
-    },
+    entities::{Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignatures},
     messages::{
-        AggregatorFeaturesMessage, CertificatePendingMessage, EpochSettingsMessage,
-        TryFromMessageAdapter, TryToMessageAdapter,
+        AggregatorFeaturesMessage, EpochSettingsMessage, TryFromMessageAdapter, TryToMessageAdapter,
     },
     StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
 use crate::entities::SignerEpochSettings;
 use crate::message_adapters::{
-    FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter,
-    ToRegisterSignatureMessageAdapter, ToRegisterSignerMessageAdapter,
+    FromEpochSettingsAdapter, ToRegisterSignatureMessageAdapter, ToRegisterSignerMessageAdapter,
 };
 
 /// Error structure for the Aggregator Client.
@@ -79,11 +75,6 @@ pub trait AggregatorClient: Sync + Send {
     async fn retrieve_epoch_settings(
         &self,
     ) -> Result<Option<SignerEpochSettings>, AggregatorClientError>;
-
-    /// Retrieves a pending certificate from the aggregator
-    async fn retrieve_pending_certificate(
-        &self,
-    ) -> Result<Option<CertificatePending>, AggregatorClientError>;
 
     /// Registers signer with the aggregator.
     async fn register_signer(
@@ -214,36 +205,6 @@ impl AggregatorClient for AggregatorHTTPClient {
         }
     }
 
-    async fn retrieve_pending_certificate(
-        &self,
-    ) -> Result<Option<CertificatePending>, AggregatorClientError> {
-        debug!("Retrieve pending certificate");
-        let url = format!("{}/certificate-pending", self.aggregator_endpoint);
-        let response = self
-            .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
-            .send()
-            .await;
-
-        match response {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<CertificatePendingMessage>().await {
-                    Ok(message) => Ok(Some(
-                        FromPendingCertificateMessageAdapter::try_adapt(message)
-                            .map_err(|err| AggregatorClientError::JsonParseFailed(anyhow!(err)))?,
-                    )),
-                    Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
-                },
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                StatusCode::NO_CONTENT => Ok(None),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                    "{}",
-                    response.text().await.unwrap_or_default()
-                ))),
-            },
-            Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
-        }
-    }
-
     async fn register_signer(
         &self,
         epoch: Epoch,
@@ -344,16 +305,15 @@ impl AggregatorClient for AggregatorHTTPClient {
 
 #[cfg(test)]
 pub(crate) mod dumb {
-    use super::*;
-    use mithril_common::test_utils::fake_data;
     use tokio::sync::RwLock;
+
+    use super::*;
 
     /// This aggregator client is intended to be used by test services.
     /// It actually does not communicate with an aggregator host but mimics this behavior.
-    /// It is driven by a Tester that controls the CertificatePending it can return and it can return its internal state for testing.
+    /// It is driven by a Tester that controls the data it can return, and it can return its internal state for testing.
     pub struct DumbAggregatorClient {
         epoch_settings: RwLock<Option<SignerEpochSettings>>,
-        certificate_pending: RwLock<Option<CertificatePending>>,
         last_registered_signer: RwLock<Option<Signer>>,
         aggregator_features: RwLock<AggregatorFeaturesMessage>,
     }
@@ -363,7 +323,6 @@ pub(crate) mod dumb {
         pub fn new() -> Self {
             Self {
                 epoch_settings: RwLock::new(None),
-                certificate_pending: RwLock::new(None),
                 last_registered_signer: RwLock::new(None),
                 aggregator_features: RwLock::new(AggregatorFeaturesMessage::dummy()),
             }
@@ -373,18 +332,6 @@ pub(crate) mod dumb {
         pub async fn set_epoch_settings(&self, epoch_settings: Option<SignerEpochSettings>) {
             let mut epoch_settings_writer = self.epoch_settings.write().await;
             *epoch_settings_writer = epoch_settings;
-        }
-
-        /// this method pilots the certificate pending handler
-        /// calling this method unsets the last registered signer
-        pub async fn set_certificate_pending(
-            &self,
-            certificate_pending: Option<CertificatePending>,
-        ) {
-            let mut cert = self.certificate_pending.write().await;
-            *cert = certificate_pending;
-            let mut signer = self.last_registered_signer.write().await;
-            *signer = None;
         }
 
         /// Return the last signer that called with the `register` method.
@@ -405,7 +352,6 @@ pub(crate) mod dumb {
         fn default() -> Self {
             Self {
                 epoch_settings: RwLock::new(Some(SignerEpochSettings::dummy())),
-                certificate_pending: RwLock::new(Some(fake_data::certificate_pending())),
                 last_registered_signer: RwLock::new(None),
                 aggregator_features: RwLock::new(AggregatorFeaturesMessage::dummy()),
             }
@@ -420,14 +366,6 @@ pub(crate) mod dumb {
             let epoch_settings = self.epoch_settings.read().await.clone();
 
             Ok(epoch_settings)
-        }
-
-        async fn retrieve_pending_certificate(
-            &self,
-        ) -> Result<Option<CertificatePending>, AggregatorClientError> {
-            let cert = self.certificate_pending.read().await.clone();
-
-            Ok(cert)
         }
 
         /// Registers signer with the aggregator
@@ -675,118 +613,6 @@ mod tests {
             .retrieve_epoch_settings()
             .await
             .expect_err("retrieve_epoch_settings should fail");
-
-        assert!(
-            matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
-            "unexpected error type: {error:?}"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_ok_200() {
-        let (server, config, api_version_provider) = setup_test();
-        let pending_certificate_expected = CertificatePendingMessage::dummy();
-        let _snapshots_mock = server.mock(|when, then| {
-            when.path("/certificate-pending");
-            then.status(200)
-                .body(json!(pending_certificate_expected).to_string());
-        });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-        );
-        let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
-        pending_certificate.as_ref().expect("unexpected error");
-
-        assert_eq!(
-            FromPendingCertificateMessageAdapter::try_adapt(pending_certificate_expected).unwrap(),
-            pending_certificate.unwrap().unwrap()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_ko_412() {
-        let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
-            when.path("/certificate-pending");
-            then.status(412)
-                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
-        });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-        );
-        let error = certificate_handler
-            .retrieve_pending_certificate()
-            .await
-            .unwrap_err();
-
-        assert!(error.is_api_version_mismatch());
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_ok_204() {
-        let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
-            when.path("/certificate-pending");
-            then.status(204);
-        });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-        );
-        let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
-        assert!(pending_certificate.expect("unexpected error").is_none());
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_ko_500() {
-        let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
-            when.path("/certificate-pending");
-            then.status(500).body("an error occurred");
-        });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-        );
-
-        match certificate_handler
-            .retrieve_pending_certificate()
-            .await
-            .unwrap_err()
-        {
-            AggregatorClientError::RemoteServerTechnical(_) => (),
-            e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
-        };
-    }
-
-    #[tokio::test]
-    async fn test_pending_certificate_timeout() {
-        let (server, config, api_version_provider) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
-            when.path("/certificate-pending");
-            then.delay(Duration::from_millis(200));
-        });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            Some(Duration::from_millis(50)),
-        );
-
-        let error = certificate_handler
-            .retrieve_pending_certificate()
-            .await
-            .expect_err("retrieve_pending_certificate should fail");
 
         assert!(
             matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),

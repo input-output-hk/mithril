@@ -6,9 +6,8 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     entities::{
-        CardanoTransactionsSigningConfig, CertificatePending, Epoch, ProtocolMessage,
-        SignedEntityConfig, SignedEntityType, SignedEntityTypeDiscriminants, Signer,
-        SingleSignatures, TimePoint,
+        CardanoTransactionsSigningConfig, Epoch, ProtocolMessage, SignedEntityConfig,
+        SignedEntityType, SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
     },
     messages::AggregatorFeaturesMessage,
     test_utils::fake_data,
@@ -24,7 +23,6 @@ pub struct FakeAggregator {
     signed_entity_config: RwLock<SignedEntityConfig>,
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
     ticker_service: Arc<MithrilTickerService>,
-    current_certificate_pending_signed_entity: RwLock<SignedEntityTypeDiscriminants>,
     withhold_epoch_settings: RwLock<bool>,
 }
 
@@ -37,9 +35,6 @@ impl FakeAggregator {
             signed_entity_config: RwLock::new(signed_entity_config),
             registered_signers: RwLock::new(HashMap::new()),
             ticker_service,
-            current_certificate_pending_signed_entity: RwLock::new(
-                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            ),
             withhold_epoch_settings: RwLock::new(true),
         }
     }
@@ -133,32 +128,6 @@ impl AggregatorClient for FakeAggregator {
                 next_cardano_transactions_signing_config: None,
             }))
         }
-    }
-
-    async fn retrieve_pending_certificate(
-        &self,
-    ) -> Result<Option<CertificatePending>, AggregatorClientError> {
-        let store = self.registered_signers.read().await;
-
-        if store.is_empty() {
-            return Ok(None);
-        }
-
-        let current_signed_entity = *self.current_certificate_pending_signed_entity.read().await;
-        let signed_entity_config = self.signed_entity_config.read().await;
-        let time_point = self.get_time_point().await?;
-        let mut certificate_pending = CertificatePending {
-            epoch: time_point.epoch,
-            signed_entity_type: signed_entity_config
-                .time_point_to_signed_entity(current_signed_entity, &time_point)
-                .unwrap(),
-            ..fake_data::certificate_pending()
-        };
-
-        certificate_pending.signers = self.get_current_signers(&store).await?;
-        certificate_pending.next_signers = self.get_next_signers(&store).await?;
-
-        Ok(Some(certificate_pending))
     }
 
     /// Registers signer with the aggregator
@@ -315,69 +284,6 @@ mod tests {
 
         assert_eq!(2, epoch_settings.current_signers.len());
         assert_eq!(1, epoch_settings.next_signers.len());
-    }
-
-    #[tokio::test]
-    async fn retrieve_pending_certificate() {
-        let (chain_observer, fake_aggregator) = init().await;
-        let epoch = chain_observer.get_current_epoch().await.unwrap().unwrap();
-        let cert = fake_aggregator
-            .retrieve_pending_certificate()
-            .await
-            .expect("retrieving a certificate pending should not raise an error");
-
-        assert!(
-            cert.is_none(),
-            "aggregator client is empty => no pending certificate"
-        );
-
-        for signer in fake_data::signers(3) {
-            fake_aggregator
-                .register_signer(epoch.offset_to_recording_epoch(), &signer)
-                .await
-                .unwrap();
-        }
-
-        let cert = fake_aggregator
-            .retrieve_pending_certificate()
-            .await
-            .expect("retrieving a certificate pending should not raise an error")
-            .expect("we should get a pending certificate");
-
-        assert_eq!(0, cert.signers.len());
-        assert_eq!(0, cert.next_signers.len());
-        assert_eq!(1, cert.epoch);
-
-        let epoch = chain_observer.next_epoch().await.unwrap();
-
-        let cert = fake_aggregator
-            .retrieve_pending_certificate()
-            .await
-            .expect("retrieving a certificate pending should not raise an error")
-            .expect("we should get a pending certificate");
-
-        assert_eq!(0, cert.signers.len());
-        assert_eq!(3, cert.next_signers.len());
-        assert_eq!(2, cert.epoch);
-
-        for signer in fake_data::signers(2) {
-            fake_aggregator
-                .register_signer(epoch.offset_to_recording_epoch(), &signer)
-                .await
-                .unwrap();
-        }
-
-        chain_observer.next_epoch().await;
-
-        let cert = fake_aggregator
-            .retrieve_pending_certificate()
-            .await
-            .expect("retrieving a certificate pending should not raise an error")
-            .expect("we should get a pending certificate");
-
-        assert_eq!(3, cert.signers.len());
-        assert_eq!(2, cert.next_signers.len());
-        assert_eq!(3, cert.epoch);
     }
 
     #[tokio::test]

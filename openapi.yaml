@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.31
+  version: 0.1.32
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -78,6 +78,7 @@ paths:
   /certificate-pending:
     get:
       summary: Get current pending certificate information
+      deprecated: true
       description: |
         Returns the information related to the current pending certificate:
           * protocol parameters, for current and next epoch (to setup cryptography)
