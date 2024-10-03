@@ -65,11 +65,17 @@ impl SignerRelay {
         signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
     ) -> TestHttpServer {
         test_http_server_with_socket_address(
-            warp::path("register-signatures")
-                .and(warp::post())
-                .and(warp::body::json())
-                .and(middlewares::with_transmitter(signature_tx))
-                .and_then(handlers::register_signatures_handler)
+            warp::path::end()
+                .and(warp::get())
+                .and(middlewares::with_aggregator_endpoint(
+                    aggregator_endpoint.to_string(),
+                ))
+                .and_then(handlers::aggregator_features_handler)
+                .or(warp::path("register-signatures")
+                    .and(warp::post())
+                    .and(warp::body::json())
+                    .and(middlewares::with_transmitter(signature_tx))
+                    .and_then(handlers::register_signatures_handler))
                 .or(warp::path("register-signer")
                     .and(warp::post())
                     .and(warp::body::json())
@@ -188,6 +194,17 @@ mod handlers {
     use warp::http::StatusCode;
 
     use crate::repeater;
+
+    pub async fn aggregator_features_handler(
+        aggregator_endpoint: String,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("SignerRelay: serve HTTP route /");
+        let response = reqwest::Client::new()
+            .get(format!("{aggregator_endpoint}/"))
+            .send()
+            .await;
+        reply_response(response).await
+    }
 
     pub async fn register_signer_handler(
         register_signer_message: RegisterSignerMessage,

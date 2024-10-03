@@ -6,14 +6,14 @@ use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    CertificatePending, Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, SignerWithStake,
-    SingleSignatures, TimePoint,
+    Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, SignerWithStake, SingleSignatures,
+    TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::dependency_injection::SignerDependencyContainer;
-use crate::entities::SignerEpochSettings;
+use crate::entities::{BeaconToSign, SignerEpochSettings};
 use crate::services::{EpochService, MithrilProtocolInitializerBuilder};
 use crate::Configuration;
 
@@ -23,8 +23,8 @@ pub trait Runner: Send + Sync {
     /// Fetch the current epoch settings if any.
     async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>>;
 
-    /// Fetch the current pending certificate if any.
-    async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
+    /// Fetch the beacon to sign if any.
+    async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>>;
 
     /// Fetch the current time point from the Cardano node.
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
@@ -37,9 +37,6 @@ pub trait Runner: Send + Sync {
 
     /// Check if the signer can sign the current epoch.
     async fn can_sign_current_epoch(&self) -> StdResult<bool>;
-
-    /// Check if the signer can sign the given signed entity type.
-    async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool;
 
     /// Register epoch information
     async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()>;
@@ -65,11 +62,14 @@ pub trait Runner: Send + Sync {
         signed_message: &ProtocolMessage,
     ) -> StdResult<()>;
 
+    /// Mark the beacon as signed.
+    async fn mark_beacon_as_signed(&self, beacon: &BeaconToSign) -> StdResult<()>;
+
     /// Read the current era and update the EraChecker.
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()>;
 
     /// Perform the upkeep tasks.
-    async fn upkeep(&self) -> StdResult<()>;
+    async fn upkeep(&self, current_epoch: Epoch) -> StdResult<()>;
 }
 
 /// This type represents the errors thrown from the Runner.
@@ -126,14 +126,10 @@ impl Runner for SignerRunner {
             .map_err(|e| e.into())
     }
 
-    async fn get_pending_certificate(&self) -> StdResult<Option<CertificatePending>> {
-        debug!("RUNNER: get_pending_certificate");
+    async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>> {
+        debug!("RUNNER: get_beacon_to_sign");
 
-        self.services
-            .certificate_handler
-            .retrieve_pending_certificate()
-            .await
-            .map_err(|e| e.into())
+        self.services.certifier.get_beacon_to_sign().await
     }
 
     async fn get_current_time_point(&self) -> StdResult<TimePoint> {
@@ -275,27 +271,22 @@ impl Runner for SignerRunner {
         Ok(false)
     }
 
-    async fn can_sign_signed_entity_type(&self, signed_entity_type: &SignedEntityType) -> bool {
-        if self
-            .services
-            .signed_entity_type_lock
-            .is_locked(signed_entity_type)
-            .await
-        {
-            debug!(" > signed entity type is locked, can NOT sign");
-            false
-        } else {
-            true
-        }
-    }
-
     async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
         debug!("RUNNER: register_epoch");
+        let aggregator_features = self
+            .services
+            .certificate_handler
+            .retrieve_aggregator_features()
+            .await?;
+
         self.services
             .epoch_service
             .write()
             .await
-            .inform_epoch_settings(epoch_settings)
+            .inform_epoch_settings(
+                epoch_settings,
+                aggregator_features.capabilities.signed_entity_types,
+            )
     }
 
     async fn compute_message(
@@ -378,6 +369,12 @@ impl Runner for SignerRunner {
         }
     }
 
+    async fn mark_beacon_as_signed(&self, beacon: &BeaconToSign) -> StdResult<()> {
+        debug!("RUNNER: mark_beacon_as_signed"; "beacon" => ?beacon);
+
+        self.services.certifier.mark_beacon_as_signed(beacon).await
+    }
+
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()> {
         debug!("RUNNER: update_era_checker");
 
@@ -405,20 +402,20 @@ impl Runner for SignerRunner {
         Ok(())
     }
 
-    async fn upkeep(&self) -> StdResult<()> {
+    async fn upkeep(&self, current_epoch: Epoch) -> StdResult<()> {
         debug!("RUNNER: upkeep");
-        self.services.upkeep_service.run().await?;
+        self.services.upkeep_service.run(current_epoch).await?;
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use mockall::mock;
+    use mockall::predicate::eq;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
-
+    use std::collections::BTreeSet;
     use std::{path::Path, path::PathBuf, sync::Arc};
     use tokio::sync::RwLock;
 
@@ -435,9 +432,10 @@ mod tests {
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{
             BlockNumber, BlockRange, CardanoDbBeacon, CardanoTransactionsSigningConfig, Epoch,
-            ProtocolMessagePartKey, ProtocolParameters,
+            ProtocolMessagePartKey, ProtocolParameters, SignedEntityTypeDiscriminants,
         },
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
+        messages::{AggregatorCapabilities, AggregatorFeaturesMessage},
         signable_builder::{
             BlockRangeRootRetriever, CardanoImmutableFilesFullSignableBuilder,
             CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
@@ -450,15 +448,16 @@ mod tests {
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_persistence::store::{StakeStore, StakeStorer};
 
-    use crate::{
-        metrics::MetricsService,
-        services::{
-            CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
-            MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
-            SignerSignableSeedBuilder, SingleSigner,
-        },
-        store::ProtocolInitializerStore,
+    use crate::database::repository::SignedBeaconRepository;
+    use crate::database::test_helper::main_db_connection;
+    use crate::metrics::MetricsService;
+    use crate::services::{
+        CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
+        MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
+        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
+        SingleSigner,
     };
+    use crate::store::ProtocolInitializerStore;
 
     use super::*;
 
@@ -497,7 +496,11 @@ mod tests {
 
     #[async_trait]
     impl EpochService for FakeEpochServiceImpl {
-        fn inform_epoch_settings(&mut self, _epoch_settings: SignerEpochSettings) -> StdResult<()> {
+        fn inform_epoch_settings(
+            &mut self,
+            _epoch_settings: SignerEpochSettings,
+            _allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        ) -> StdResult<()> {
             Ok(())
         }
         fn epoch_of_current_data(&self) -> StdResult<Epoch> {
@@ -518,6 +521,11 @@ mod tests {
         async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
             Ok(vec![])
         }
+
+        fn allowed_discriminants(&self) -> StdResult<&BTreeSet<SignedEntityTypeDiscriminants>> {
+            unimplemented!()
+        }
+
         fn cardano_transactions_signing_config(
             &self,
         ) -> StdResult<&Option<CardanoTransactionsSigningConfig>> {
@@ -553,9 +561,11 @@ mod tests {
     }
 
     async fn init_services() -> SignerDependencyContainer {
+        let sqlite_connection = Arc::new(main_db_connection().unwrap());
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
+        let network = fake_data::network();
         let fake_observer = FakeObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
@@ -630,6 +640,15 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
+        let certifier = Arc::new(SignerCertifierService::new(
+            ticker_service.clone(),
+            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None)),
+            Arc::new(SignerSignedEntityConfigProvider::new(
+                network,
+                epoch_service.clone(),
+            )),
+            signed_entity_type_lock.clone(),
+        ));
 
         SignerDependencyContainer {
             stake_store,
@@ -648,6 +667,7 @@ mod tests {
             cardano_transactions_preloader,
             upkeep_service,
             epoch_service,
+            certifier,
         }
     }
 
@@ -760,39 +780,6 @@ mod tests {
         assert!(
             maybe_protocol_initializer.is_some(),
             "A protocol initializer should have been registered at the 'Recording' epoch"
-        );
-    }
-
-    #[tokio::test]
-    async fn can_sign_signed_entity_type_when_signed_entity_type_is_locked() {
-        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(9));
-        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
-        signed_entity_type_lock.lock(&signed_entity_type).await;
-        let mut services = init_services().await;
-        services.signed_entity_type_lock = signed_entity_type_lock.clone();
-
-        let runner = init_runner(Some(services), None).await;
-
-        assert!(
-            !runner
-                .can_sign_signed_entity_type(&signed_entity_type)
-                .await
-        );
-    }
-
-    #[tokio::test]
-    async fn can_sign_signed_entity_type_when_signed_entity_type_is_not_locked() {
-        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(9));
-        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::new());
-        let mut services = init_services().await;
-        services.signed_entity_type_lock = signed_entity_type_lock.clone();
-
-        let runner = init_runner(Some(services), None).await;
-
-        assert!(
-            runner
-                .can_sign_signed_entity_type(&signed_entity_type)
-                .await
         );
     }
 
@@ -1072,10 +1059,54 @@ mod tests {
     async fn test_upkeep() {
         let mut services = init_services().await;
         let mut upkeep_service_mock = MockUpkeepService::new();
-        upkeep_service_mock.expect_run().returning(|| Ok(())).once();
+        upkeep_service_mock
+            .expect_run()
+            .with(eq(Epoch(17)))
+            .returning(|_| Ok(()))
+            .once();
         services.upkeep_service = Arc::new(upkeep_service_mock);
 
         let runner = init_runner(Some(services), None).await;
-        runner.upkeep().await.expect("upkeep should not fail");
+        runner
+            .upkeep(Epoch(17))
+            .await
+            .expect("upkeep should not fail");
+    }
+
+    #[tokio::test]
+    async fn test_inform_epoch_setting_pass_allowed_discriminant_to_epoch_service() {
+        let mut services = init_services().await;
+        let certificate_handler = Arc::new(DumbAggregatorClient::default());
+        certificate_handler
+            .set_aggregator_features(AggregatorFeaturesMessage {
+                capabilities: AggregatorCapabilities {
+                    signed_entity_types: BTreeSet::from([
+                        SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                        SignedEntityTypeDiscriminants::CardanoTransactions,
+                    ]),
+                    ..AggregatorFeaturesMessage::dummy().capabilities
+                },
+                ..AggregatorFeaturesMessage::dummy()
+            })
+            .await;
+        services.certificate_handler = certificate_handler;
+        let runner = init_runner(Some(services), None).await;
+
+        let epoch_settings = SignerEpochSettings {
+            epoch: Epoch(1),
+            ..SignerEpochSettings::dummy()
+        };
+        runner.inform_epoch_settings(epoch_settings).await.unwrap();
+
+        let epoch_service = runner.services.epoch_service.read().await;
+        let recorded_allowed_discriminants = epoch_service.allowed_discriminants().unwrap();
+
+        assert_eq!(
+            &BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ]),
+            recorded_allowed_discriminants
+        );
     }
 }

@@ -355,6 +355,7 @@ pub(crate) mod dumb {
         epoch_settings: RwLock<Option<SignerEpochSettings>>,
         certificate_pending: RwLock<Option<CertificatePending>>,
         last_registered_signer: RwLock<Option<Signer>>,
+        aggregator_features: RwLock<AggregatorFeaturesMessage>,
     }
 
     impl DumbAggregatorClient {
@@ -364,6 +365,7 @@ pub(crate) mod dumb {
                 epoch_settings: RwLock::new(None),
                 certificate_pending: RwLock::new(None),
                 last_registered_signer: RwLock::new(None),
+                aggregator_features: RwLock::new(AggregatorFeaturesMessage::dummy()),
             }
         }
 
@@ -389,6 +391,14 @@ pub(crate) mod dumb {
         pub async fn get_last_registered_signer(&self) -> Option<Signer> {
             self.last_registered_signer.read().await.clone()
         }
+
+        pub async fn set_aggregator_features(
+            &self,
+            aggregator_features: AggregatorFeaturesMessage,
+        ) {
+            let mut aggregator_features_writer = self.aggregator_features.write().await;
+            *aggregator_features_writer = aggregator_features;
+        }
     }
 
     impl Default for DumbAggregatorClient {
@@ -397,6 +407,7 @@ pub(crate) mod dumb {
                 epoch_settings: RwLock::new(Some(SignerEpochSettings::dummy())),
                 certificate_pending: RwLock::new(Some(fake_data::certificate_pending())),
                 last_registered_signer: RwLock::new(None),
+                aggregator_features: RwLock::new(AggregatorFeaturesMessage::dummy()),
             }
         }
     }
@@ -445,7 +456,8 @@ pub(crate) mod dumb {
         async fn retrieve_aggregator_features(
             &self,
         ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
-            Ok(AggregatorFeaturesMessage::dummy())
+            let aggregator_features = self.aggregator_features.read().await;
+            Ok(aggregator_features.clone())
         }
     }
 }

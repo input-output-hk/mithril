@@ -1,22 +1,27 @@
-use std::{collections::HashMap, sync::Arc};
-
 use anyhow::anyhow;
 use async_trait::async_trait;
+use std::collections::BTreeSet;
+use std::{collections::HashMap, sync::Arc};
+use tokio::sync::RwLock;
+
 use mithril_common::{
     entities::{
-        CertificatePending, Epoch, ProtocolMessage, SignedEntityConfig, SignedEntityType,
-        SignedEntityTypeDiscriminants, Signer, SingleSignatures, TimePoint,
+        CardanoTransactionsSigningConfig, CertificatePending, Epoch, ProtocolMessage,
+        SignedEntityConfig, SignedEntityType, SignedEntityTypeDiscriminants, Signer,
+        SingleSignatures, TimePoint,
     },
     messages::AggregatorFeaturesMessage,
     test_utils::fake_data,
     MithrilTickerService, TickerService,
 };
-use mithril_signer::entities::SignerEpochSettings;
-use mithril_signer::services::{AggregatorClient, AggregatorClientError};
-use tokio::sync::RwLock;
+
+use mithril_signer::{
+    entities::SignerEpochSettings,
+    services::{AggregatorClient, AggregatorClientError},
+};
 
 pub struct FakeAggregator {
-    signed_entity_config: SignedEntityConfig,
+    signed_entity_config: RwLock<SignedEntityConfig>,
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
     ticker_service: Arc<MithrilTickerService>,
     current_certificate_pending_signed_entity: RwLock<SignedEntityTypeDiscriminants>,
@@ -29,7 +34,7 @@ impl FakeAggregator {
         ticker_service: Arc<MithrilTickerService>,
     ) -> Self {
         Self {
-            signed_entity_config,
+            signed_entity_config: RwLock::new(signed_entity_config),
             registered_signers: RwLock::new(HashMap::new()),
             ticker_service,
             current_certificate_pending_signed_entity: RwLock::new(
@@ -49,12 +54,21 @@ impl FakeAggregator {
         *settings = false;
     }
 
-    pub async fn change_certificate_pending_signed_entity(
+    pub async fn change_allowed_discriminants(
         &self,
-        discriminant: SignedEntityTypeDiscriminants,
+        discriminants: &BTreeSet<SignedEntityTypeDiscriminants>,
     ) {
-        let mut signed_entity = self.current_certificate_pending_signed_entity.write().await;
-        *signed_entity = discriminant;
+        let mut signed_entity_config = self.signed_entity_config.write().await;
+        signed_entity_config.allowed_discriminants = discriminants.clone();
+    }
+
+    pub async fn change_transaction_signing_config(
+        &self,
+        transaction_signing_config: &CardanoTransactionsSigningConfig,
+    ) {
+        let mut signed_entity_config = self.signed_entity_config.write().await;
+        signed_entity_config.cardano_transactions_signing_config =
+            transaction_signing_config.clone();
     }
 
     async fn get_time_point(&self) -> Result<TimePoint, AggregatorClientError> {
@@ -100,6 +114,7 @@ impl AggregatorClient for FakeAggregator {
             Ok(None)
         } else {
             let store = self.registered_signers.read().await;
+            let signed_entity_config = self.signed_entity_config.read().await;
             let time_point = self.get_time_point().await?;
             let current_signers = self.get_current_signers(&store).await?;
             let next_signers = self.get_next_signers(&store).await?;
@@ -110,7 +125,11 @@ impl AggregatorClient for FakeAggregator {
                 next_signers,
                 protocol_parameters: fake_data::protocol_parameters(),
                 next_protocol_parameters: fake_data::protocol_parameters(),
-                cardano_transactions_signing_config: None,
+                cardano_transactions_signing_config: Some(
+                    signed_entity_config
+                        .cardano_transactions_signing_config
+                        .clone(),
+                ),
                 next_cardano_transactions_signing_config: None,
             }))
         }
@@ -126,11 +145,11 @@ impl AggregatorClient for FakeAggregator {
         }
 
         let current_signed_entity = *self.current_certificate_pending_signed_entity.read().await;
+        let signed_entity_config = self.signed_entity_config.read().await;
         let time_point = self.get_time_point().await?;
         let mut certificate_pending = CertificatePending {
             epoch: time_point.epoch,
-            signed_entity_type: self
-                .signed_entity_config
+            signed_entity_type: signed_entity_config
                 .time_point_to_signed_entity(current_signed_entity, &time_point)
                 .unwrap(),
             ..fake_data::certificate_pending()
@@ -169,7 +188,18 @@ impl AggregatorClient for FakeAggregator {
     async fn retrieve_aggregator_features(
         &self,
     ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
-        Ok(AggregatorFeaturesMessage::dummy())
+        let signed_entity_config = self.signed_entity_config.read().await;
+
+        let mut message = AggregatorFeaturesMessage::dummy();
+        message.capabilities.signed_entity_types =
+            signed_entity_config.allowed_discriminants.clone();
+        message.capabilities.cardano_transactions_signing_config = Some(
+            signed_entity_config
+                .cardano_transactions_signing_config
+                .clone(),
+        );
+
+        Ok(message)
     }
 }
 
@@ -177,7 +207,7 @@ impl AggregatorClient for FakeAggregator {
 mod tests {
     use mithril_common::chain_observer::{ChainObserver, FakeObserver};
     use mithril_common::digesters::DumbImmutableFileObserver;
-    use mithril_common::entities::ChainPoint;
+    use mithril_common::entities::{BlockNumber, ChainPoint};
     use mithril_common::test_utils::fake_data;
 
     use super::*;
@@ -348,5 +378,57 @@ mod tests {
         assert_eq!(3, cert.signers.len());
         assert_eq!(2, cert.next_signers.len());
         assert_eq!(3, cert.epoch);
+    }
+
+    #[tokio::test]
+    async fn retrieve_aggregator_features() {
+        let (_chain_observer, fake_aggregator) = init().await;
+
+        {
+            let mut signing_config = fake_aggregator.signed_entity_config.write().await;
+            signing_config.allowed_discriminants = SignedEntityTypeDiscriminants::all();
+            signing_config.cardano_transactions_signing_config =
+                CardanoTransactionsSigningConfig::dummy();
+        }
+
+        let features = fake_aggregator
+            .retrieve_aggregator_features()
+            .await
+            .unwrap();
+        assert_eq!(
+            &SignedEntityTypeDiscriminants::all(),
+            &features.capabilities.signed_entity_types,
+        );
+
+        let new_discriminants = BTreeSet::from([
+            SignedEntityTypeDiscriminants::CardanoTransactions,
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+        ]);
+        let new_transaction_signing_config = CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(70),
+            step: BlockNumber(20),
+        };
+
+        fake_aggregator
+            .change_allowed_discriminants(&new_discriminants)
+            .await;
+        fake_aggregator
+            .change_transaction_signing_config(&new_transaction_signing_config)
+            .await;
+
+        let updated_features = fake_aggregator
+            .retrieve_aggregator_features()
+            .await
+            .unwrap();
+        assert_eq!(
+            &new_discriminants,
+            &updated_features.capabilities.signed_entity_types,
+        );
+        assert_eq!(
+            &Some(new_transaction_signing_config),
+            &updated_features
+                .capabilities
+                .cardano_transactions_signing_config,
+        );
     }
 }

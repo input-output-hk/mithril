@@ -55,6 +55,7 @@ impl Signer {
                 signer_config.pool_node.db_path.to_str().unwrap(),
             ),
             ("DATA_STORES_DIRECTORY", &data_stores_path),
+            ("STORE_RETENTION_LIMIT", "10"),
             ("NETWORK_MAGIC", &magic_id),
             (
                 "CARDANO_NODE_SOCKET_PATH",

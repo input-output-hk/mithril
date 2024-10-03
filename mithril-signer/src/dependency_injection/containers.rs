@@ -11,7 +11,9 @@ use mithril_common::TickerService;
 use mithril_persistence::store::StakeStore;
 use tokio::sync::RwLock;
 
-use crate::services::{AggregatorClient, EpochService, SingleSigner, UpkeepService};
+use crate::services::{
+    AggregatorClient, CertifierService, EpochService, SingleSigner, UpkeepService,
+};
 use crate::store::ProtocolInitializerStorer;
 use crate::MetricsService;
 
@@ -75,4 +77,7 @@ pub struct SignerDependencyContainer {
 
     /// Epoch service
     pub epoch_service: EpochServiceWrapper,
+
+    /// Certifier service
+    pub certifier: Arc<dyn CertifierService>,
 }
