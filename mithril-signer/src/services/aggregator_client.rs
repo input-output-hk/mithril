@@ -260,6 +260,10 @@ impl AggregatorClient for AggregatorHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
+                StatusCode::GONE => {
+                    debug!("Aggregator already certified that message"; "signed_entity_type" => ?signed_entity_type);
+                    Ok(())
+                }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::BAD_REQUEST => Err(AggregatorClientError::RemoteServerLogical(
                     anyhow!("bad request: {}", response.text().await.unwrap_or_default()),
@@ -842,6 +846,36 @@ mod tests {
             AggregatorClientError::RemoteServerLogical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerLogical error, got '{e:?}'."),
         };
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_ok_410() {
+        let single_signatures = fake_data::single_signatures((1..5).collect());
+        let (server, config, api_version_provider) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signatures");
+            then.status(410).body(
+                serde_json::to_vec(&ClientError::new(
+                    "already_aggregated".to_string(),
+                    "too late".to_string(),
+                ))
+                .unwrap(),
+            );
+        });
+        let certificate_handler = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            None,
+        );
+        certificate_handler
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
+            .await
+            .expect("Should not fail when status is 410 (GONE)");
     }
 
     #[tokio::test]
