@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use slog_scope::{debug, trace};
+use slog_scope::{debug, trace, warn};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
@@ -74,12 +74,8 @@ pub trait EpochService: Sync + Send {
         &self,
     ) -> StdResult<&Option<CardanoTransactionsSigningConfig>>;
 
-    /// Check if a signer is included in the current stake distribution
-    fn is_signer_included_in_current_stake_distribution(
-        &self,
-        party_id: PartyId,
-        protocol_initializer: ProtocolInitializer,
-    ) -> StdResult<bool>;
+    /// Check if the given signer can sign for the current epoch
+    fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool>;
 }
 
 struct EpochData {
@@ -149,6 +145,17 @@ impl MithrilEpochService {
         }
 
         Ok(signers_with_stake)
+    }
+
+    fn is_signer_included_in_current_stake_distribution(
+        &self,
+        party_id: PartyId,
+        protocol_initializer: &ProtocolInitializer,
+    ) -> StdResult<bool> {
+        Ok(self.current_signers()?.iter().any(|s| {
+            s.party_id == party_id
+                && s.verification_key == protocol_initializer.verification_key().into()
+        }))
     }
 
     fn unwrap_data(&self) -> Result<&EpochData, EpochServiceError> {
@@ -245,15 +252,22 @@ impl EpochService for MithrilEpochService {
         Ok(&self.unwrap_data()?.next_cardano_transactions_signing_config)
     }
 
-    fn is_signer_included_in_current_stake_distribution(
-        &self,
-        party_id: PartyId,
-        protocol_initializer: ProtocolInitializer,
-    ) -> StdResult<bool> {
-        Ok(self.current_signers()?.iter().any(|s| {
-            s.party_id == party_id
-                && s.verification_key == protocol_initializer.verification_key().into()
-        }))
+    fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool> {
+        let epoch = self.epoch_of_current_data()?;
+        if let Some(protocol_initializer) = self.protocol_initializer()? {
+            debug!(" > got protocol initializer for this epoch ({epoch})");
+            if self
+                .is_signer_included_in_current_stake_distribution(party_id, protocol_initializer)?
+            {
+                return Ok(true);
+            } else {
+                debug!(" > Signer not in current stake distribution. Can NOT sign");
+            }
+        } else {
+            warn!(" > NO protocol initializer found for this epoch ({epoch})",);
+        }
+
+        Ok(false)
     }
 }
 
@@ -346,12 +360,7 @@ pub mod mock_epoch_service {
                 &self,
             ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
 
-            /// Check if a signer is included in the current stake distribution
-            fn is_signer_included_in_current_stake_distribution(
-                &self,
-                party_id: PartyId,
-                protocol_initializer: ProtocolInitializer,
-            ) -> StdResult<bool>;
+            fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool>;
         }
     }
 
@@ -383,6 +392,19 @@ mod tests {
 
     use super::*;
 
+    fn empty_or_default_epoch_data(epoch: Epoch) -> EpochData {
+        EpochData {
+            epoch,
+            next_protocol_parameters: fake_data::protocol_parameters(),
+            protocol_initializer: None,
+            current_signers: vec![],
+            next_signers: vec![],
+            allowed_discriminants: BTreeSet::new(),
+            cardano_transactions_signing_config: None,
+            next_cardano_transactions_signing_config: None,
+        }
+    }
+
     #[test]
     fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set(
     ) {
@@ -402,7 +424,7 @@ mod tests {
         let service = MithrilEpochService::new(stake_store, protocol_initializer_store);
 
         service
-            .is_signer_included_in_current_stake_distribution(party_id, protocol_initializer)
+            .is_signer_included_in_current_stake_distribution(party_id, &protocol_initializer)
             .expect_err("can_signer_sign should return error when epoch settings is not set");
     }
 
@@ -437,7 +459,7 @@ mod tests {
         assert!(service
             .is_signer_included_in_current_stake_distribution(
                 party_id.clone(),
-                protocol_initializer.clone()
+                &protocol_initializer
             )
             .unwrap());
 
@@ -445,7 +467,7 @@ mod tests {
         assert!(!service
             .is_signer_included_in_current_stake_distribution(
                 party_id_not_included,
-                protocol_initializer
+                &protocol_initializer
             )
             .unwrap());
 
@@ -455,9 +477,119 @@ mod tests {
         assert!(!service
             .is_signer_included_in_current_stake_distribution(
                 party_id,
-                protocol_initializer_not_included
+                &protocol_initializer_not_included
             )
             .unwrap());
+    }
+
+    #[test]
+    fn signer_cant_sign_if_no_protocol_initializer_are_stored() {
+        let epoch = Epoch(12);
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+
+        let epoch_service = {
+            let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+            service.epoch_data = Some(EpochData {
+                protocol_initializer: None,
+                current_signers: fixtures.signers(),
+                ..empty_or_default_epoch_data(epoch)
+            });
+            service
+        };
+
+        let can_sign_current_epoch = epoch_service
+            .can_signer_sign_current_epoch(fixtures.signers()[0].party_id.clone())
+            .unwrap();
+        assert!(!can_sign_current_epoch);
+    }
+
+    #[test]
+    fn signer_cant_sign_if_it_dont_use_stored_protocol_initializer() {
+        let epoch = Epoch(12);
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+
+        let epoch_service = {
+            let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+            service.epoch_data = Some(EpochData {
+                protocol_initializer: Some(
+                    fixtures.signers_fixture()[2].protocol_initializer.clone(),
+                ),
+                current_signers: fixtures.signers(),
+                ..empty_or_default_epoch_data(epoch)
+            });
+            service
+        };
+
+        let can_sign_current_epoch = epoch_service
+            .can_signer_sign_current_epoch(fixtures.signers()[0].party_id.clone())
+            .unwrap();
+        assert!(!can_sign_current_epoch);
+    }
+
+    #[test]
+    fn signer_cant_sign_if_not_in_current_signers() {
+        let epoch = Epoch(12);
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+
+        let epoch_service = {
+            let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+            service.epoch_data = Some(EpochData {
+                protocol_initializer: Some(
+                    fixtures.signers_fixture()[0].protocol_initializer.clone(),
+                ),
+                current_signers: fixtures.signers()[2..].to_vec(),
+                ..empty_or_default_epoch_data(epoch)
+            });
+            service
+        };
+
+        let can_sign_current_epoch = epoch_service
+            .can_signer_sign_current_epoch(fixtures.signers()[0].party_id.clone())
+            .unwrap();
+        assert!(!can_sign_current_epoch);
+    }
+
+    #[test]
+    fn signer_can_sign_if_in_current_signers_and_use_the_stored_protocol_initializer() {
+        let epoch = Epoch(12);
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+
+        let epoch_service = {
+            let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+            service.epoch_data = Some(EpochData {
+                protocol_initializer: Some(
+                    fixtures.signers_fixture()[0].protocol_initializer.clone(),
+                ),
+                current_signers: fixtures.signers(),
+                ..empty_or_default_epoch_data(epoch)
+            });
+            service
+        };
+
+        let can_sign_current_epoch = epoch_service
+            .can_signer_sign_current_epoch(fixtures.signers()[0].party_id.clone())
+            .unwrap();
+        assert!(can_sign_current_epoch);
     }
 
     #[tokio::test]
