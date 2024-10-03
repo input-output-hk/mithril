@@ -21,9 +21,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Refactor the builder of the protocol messages, and add support for protocol parameters and epoch parts.
 
-- Signer compute what to sign independently of the aggregator.
+- Signer computes what to sign independently of the aggregator.
 
 - Deprecate aggregator `/certificate-pending` route as the signer does not need it anymore.
+
+- Support for `Cardano node` `9.2.1` in the signer and the aggregator.
 
 - Crates versions:
 

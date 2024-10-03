@@ -113,7 +113,7 @@ function send_funds_to_era_address {
 
 # Try to send funds to Mithril era address
 function try_send_funds_to_era_address {
-    SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS_MAX=3
+    SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS_MAX=10
     SEND_FUNDS_ERA_ADDRESS_WAIT_ROUNDS=1
     SEND_FUNDS_ERA_ADDRESS_WAIT_ROUND_DELAY=2
     while true
@@ -184,7 +184,7 @@ function write_datums_for_era_address {
 
 # Try to write datums for Mithril era address
 function try_write_datums_for_era_address {
-    WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS_MAX=3
+    WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS_MAX=10
     WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUNDS=1
     WRITE_DATUMS_ERA_ADDRESS_WAIT_ROUND_DELAY=2
     while true
