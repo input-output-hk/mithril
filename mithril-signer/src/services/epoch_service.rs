@@ -78,15 +78,15 @@ pub trait EpochService: Sync + Send {
     fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool>;
 }
 
-struct EpochData {
-    epoch: Epoch,
-    next_protocol_parameters: ProtocolParameters,
-    protocol_initializer: Option<ProtocolInitializer>,
-    current_signers: Vec<Signer>,
-    next_signers: Vec<Signer>,
-    allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-    cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
-    next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+pub(crate) struct EpochData {
+    pub epoch: Epoch,
+    pub next_protocol_parameters: ProtocolParameters,
+    pub protocol_initializer: Option<ProtocolInitializer>,
+    pub current_signers: Vec<Signer>,
+    pub next_signers: Vec<Signer>,
+    pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
+    pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
 }
 
 /// Implementation of the [epoch service][EpochService].
@@ -309,6 +309,51 @@ impl SignedEntityConfigProvider for SignerSignedEntityConfigProvider {
 }
 
 #[cfg(test)]
+impl MithrilEpochService {
+    /// `TEST ONLY` - Create a new instance of the service using dumb dependencies.
+    pub fn new_with_dumb_dependencies() -> Self {
+        use crate::store::ProtocolInitializerStore;
+        use mithril_persistence::store::adapter::DumbStoreAdapter;
+        use mithril_persistence::store::StakeStore;
+
+        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+
+        Self::new(stake_store, protocol_initializer_store)
+    }
+
+    /// `TEST ONLY` - Set all data to either default values, empty values, or fake values
+    /// if no default/empty can be set.
+    pub fn set_data_to_default_or_fake(mut self, epoch: Epoch) -> Self {
+        use mithril_common::test_utils::fake_data;
+
+        let epoch_data = EpochData {
+            epoch,
+            next_protocol_parameters: fake_data::protocol_parameters(),
+            protocol_initializer: None,
+            current_signers: vec![],
+            next_signers: vec![],
+            allowed_discriminants: BTreeSet::new(),
+            cardano_transactions_signing_config: None,
+            next_cardano_transactions_signing_config: None,
+        };
+        self.epoch_data = Some(epoch_data);
+        self
+    }
+
+    /// `TEST ONLY` - Alter the data stored in the service, won't do anything if no data is stored.
+    pub(crate) fn alter_data(mut self, data_config: impl FnOnce(&mut EpochData)) -> Self {
+        if let Some(data) = self.epoch_data.as_mut() {
+            data_config(data);
+        }
+        self
+    }
+}
+
+#[cfg(test)]
 pub mod mock_epoch_service {
     use mockall::mock;
 
@@ -391,19 +436,6 @@ mod tests {
     use crate::store::ProtocolInitializerStore;
 
     use super::*;
-
-    fn empty_or_default_epoch_data(epoch: Epoch) -> EpochData {
-        EpochData {
-            epoch,
-            next_protocol_parameters: fake_data::protocol_parameters(),
-            protocol_initializer: None,
-            current_signers: vec![],
-            next_signers: vec![],
-            allowed_discriminants: BTreeSet::new(),
-            cardano_transactions_signing_config: None,
-            next_cardano_transactions_signing_config: None,
-        }
-    }
 
     #[test]
     fn test_is_signer_included_in_current_stake_distribution_returns_error_when_epoch_settings_is_not_set(
@@ -492,15 +524,12 @@ mod tests {
             None,
         ));
 
-        let epoch_service = {
-            let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
-            service.epoch_data = Some(EpochData {
-                protocol_initializer: None,
-                current_signers: fixtures.signers(),
-                ..empty_or_default_epoch_data(epoch)
+        let epoch_service = MithrilEpochService::new(stake_store, protocol_initializer_store)
+            .set_data_to_default_or_fake(epoch)
+            .alter_data(|data| {
+                data.protocol_initializer = None;
+                data.current_signers = fixtures.signers();
             });
-            service
-        };
 
         let can_sign_current_epoch = epoch_service
             .can_signer_sign_current_epoch(fixtures.signers()[0].party_id.clone())
@@ -518,17 +547,13 @@ mod tests {
             None,
         ));
 
-        let epoch_service = {
-            let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
-            service.epoch_data = Some(EpochData {
-                protocol_initializer: Some(
-                    fixtures.signers_fixture()[2].protocol_initializer.clone(),
-                ),
-                current_signers: fixtures.signers(),
-                ..empty_or_default_epoch_data(epoch)
+        let epoch_service = MithrilEpochService::new(stake_store, protocol_initializer_store)
+            .set_data_to_default_or_fake(epoch)
+            .alter_data(|data| {
+                data.protocol_initializer =
+                    Some(fixtures.signers_fixture()[2].protocol_initializer.clone());
+                data.current_signers = fixtures.signers();
             });
-            service
-        };
 
         let can_sign_current_epoch = epoch_service
             .can_signer_sign_current_epoch(fixtures.signers()[0].party_id.clone())
@@ -546,17 +571,13 @@ mod tests {
             None,
         ));
 
-        let epoch_service = {
-            let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
-            service.epoch_data = Some(EpochData {
-                protocol_initializer: Some(
-                    fixtures.signers_fixture()[0].protocol_initializer.clone(),
-                ),
-                current_signers: fixtures.signers()[2..].to_vec(),
-                ..empty_or_default_epoch_data(epoch)
+        let epoch_service = MithrilEpochService::new(stake_store, protocol_initializer_store)
+            .set_data_to_default_or_fake(epoch)
+            .alter_data(|data| {
+                data.protocol_initializer =
+                    Some(fixtures.signers_fixture()[0].protocol_initializer.clone());
+                data.current_signers = fixtures.signers()[2..].to_vec();
             });
-            service
-        };
 
         let can_sign_current_epoch = epoch_service
             .can_signer_sign_current_epoch(fixtures.signers()[0].party_id.clone())
@@ -574,17 +595,13 @@ mod tests {
             None,
         ));
 
-        let epoch_service = {
-            let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
-            service.epoch_data = Some(EpochData {
-                protocol_initializer: Some(
-                    fixtures.signers_fixture()[0].protocol_initializer.clone(),
-                ),
-                current_signers: fixtures.signers(),
-                ..empty_or_default_epoch_data(epoch)
+        let epoch_service = MithrilEpochService::new(stake_store, protocol_initializer_store)
+            .set_data_to_default_or_fake(epoch)
+            .alter_data(|data| {
+                data.protocol_initializer =
+                    Some(fixtures.signers_fixture()[0].protocol_initializer.clone());
+                data.current_signers = fixtures.signers();
             });
-            service
-        };
 
         let can_sign_current_epoch = epoch_service
             .can_signer_sign_current_epoch(fixtures.signers()[0].party_id.clone())
