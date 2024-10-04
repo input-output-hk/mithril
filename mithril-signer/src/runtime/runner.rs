@@ -53,9 +53,6 @@ pub trait Runner: Send + Sync {
         message: &ProtocolMessage,
     ) -> StdResult<()>;
 
-    /// Mark the beacon as signed.
-    async fn mark_beacon_as_signed(&self, beacon: &BeaconToSign) -> StdResult<()>;
-
     /// Read the current era and update the EraChecker.
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()>;
 
@@ -280,12 +277,6 @@ impl Runner for SignerRunner {
             .certifier
             .compute_publish_single_signature(beacon_to_sign, message)
             .await
-    }
-
-    async fn mark_beacon_as_signed(&self, beacon: &BeaconToSign) -> StdResult<()> {
-        debug!("RUNNER: mark_beacon_as_signed"; "beacon" => ?beacon);
-
-        self.services.certifier.mark_beacon_as_signed(beacon).await
     }
 
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()> {

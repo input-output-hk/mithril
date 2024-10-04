@@ -381,11 +381,6 @@ impl StateMachine {
                 message: format!("Could not compute and publish single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
-        self.runner.mark_beacon_as_signed(&beacon_to_sign).await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not mark beacon as signed during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
-                nested_error: Some(e)
-            })?;
 
         self.metrics_service
             .signature_registration_success_since_startup_counter_increment();
@@ -723,11 +718,6 @@ mod tests {
             .expect_compute_publish_single_signature()
             .once()
             .returning(|_, _| Ok(()));
-        runner
-            .expect_mark_beacon_as_signed()
-            .once()
-            .with(predicate::eq(beacon_to_sign))
-            .returning(|_| Ok(()));
 
         let state_machine = init_state_machine(
             SignerState::ReadyToSign {

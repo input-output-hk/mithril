@@ -23,9 +23,6 @@ pub trait CertifierService: Sync + Send {
     /// If all available signed entity have already been signed, `None` is returned.
     async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>>;
 
-    /// Mark a beacon as signed so it won't be returned by `get_beacon_to_sign` anymore.
-    async fn mark_beacon_as_signed(&self, signed_beacon: &BeaconToSign) -> StdResult<()>;
-
     /// Compute and publish a single signature for a given protocol message.
     async fn compute_publish_single_signature(
         &self,
@@ -140,12 +137,6 @@ impl CertifierService for SignerCertifierService {
         }
     }
 
-    async fn mark_beacon_as_signed(&self, signed_beacon: &BeaconToSign) -> StdResult<()> {
-        self.signed_beacon_store
-            .mark_beacon_as_signed(signed_beacon)
-            .await
-    }
-
     async fn compute_publish_single_signature(
         &self,
         beacon_to_sign: &BeaconToSign,
@@ -165,8 +156,13 @@ impl CertifierService for SignerCertifierService {
                 )
                 .await?;
         } else {
-            debug!(" > NO single signature to send, doing nothing");
+            debug!(" > NO single signature to send");
         }
+
+        debug!(" > marking beacon as signed"; "beacon" => ?beacon_to_sign);
+        self.signed_beacon_store
+            .mark_beacon_as_signed(beacon_to_sign)
+            .await?;
 
         Ok(())
     }
@@ -231,37 +227,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mark_beacon_as_signed_update_the_store() {
-        let signed_beacons_store = Arc::new(DumbSignedBeaconStore::default());
-        let certifier_service = SignerCertifierService {
-            signed_beacon_store: signed_beacons_store.clone(),
-            signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
-                CardanoTransactionsSigningConfig::dummy(),
-                SignedEntityTypeDiscriminants::all(),
-            )),
-            ..SignerCertifierService::dumb_dependencies(TimePoint::dummy())
-        };
-
-        certifier_service
-            .mark_beacon_as_signed(&BeaconToSign {
-                epoch: Epoch(1),
-                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(4)),
-                initiated_at: Utc::now(),
-            })
-            .await
-            .unwrap();
-
-        let signed_beacons = signed_beacons_store.signed_beacons().await;
-        assert_eq!(
-            vec![SignedEntityType::MithrilStakeDistribution(Epoch(4))],
-            signed_beacons
-        );
-    }
-
-    #[tokio::test]
     async fn if_already_signed_a_beacon_is_not_returned_anymore() {
+        let signed_beacon_store = Arc::new(DumbSignedBeaconStore::default());
         let certifier_service = SignerCertifierService {
-            signed_beacon_store: Arc::new(DumbSignedBeaconStore::default()),
+            signed_beacon_store: signed_beacon_store.clone(),
             signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
@@ -274,7 +243,7 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        certifier_service
+        signed_beacon_store
             .mark_beacon_as_signed(&first_beacon_to_sign.clone())
             .await
             .unwrap();
@@ -292,7 +261,9 @@ mod tests {
 
     #[tokio::test]
     async fn draining_out_all_beacons_to_sign_use_signed_entity_discriminant_order() {
+        let signed_beacon_store = Arc::new(DumbSignedBeaconStore::default());
         let certifier_service = SignerCertifierService {
+            signed_beacon_store: signed_beacon_store.clone(),
             signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
@@ -307,7 +278,7 @@ mod tests {
             .expect("There should be a beacon to sign since nothing is locked or signed");
 
         loop {
-            certifier_service
+            signed_beacon_store
                 .mark_beacon_as_signed(&previous_beacon_to_sign)
                 .await
                 .unwrap();
@@ -330,7 +301,9 @@ mod tests {
 
     #[tokio::test]
     async fn draining_out_all_beacons_to_sign_doesnt_repeat_value() {
+        let signed_beacon_store = Arc::new(DumbSignedBeaconStore::default());
         let certifier_service = SignerCertifierService {
+            signed_beacon_store: signed_beacon_store.clone(),
             signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
@@ -340,7 +313,7 @@ mod tests {
 
         let mut all_signed_beacons = vec![];
         while let Some(beacon_to_sign) = certifier_service.get_beacon_to_sign().await.unwrap() {
-            certifier_service
+            signed_beacon_store
                 .mark_beacon_as_signed(&beacon_to_sign)
                 .await
                 .unwrap();
@@ -372,6 +345,7 @@ mod tests {
             Utc::now(),
         );
 
+        let signed_beacons_store = Arc::new(DumbSignedBeaconStore::default());
         let certifier_service = SignerCertifierService {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
@@ -393,6 +367,7 @@ mod tests {
                     .returning(|_, _, _| Ok(()));
                 Arc::new(signature_publisher)
             },
+            signed_beacon_store: signed_beacons_store.clone(),
             ..SignerCertifierService::dumb_dependencies(TimePoint::new(1, 14, ChainPoint::dummy()))
         };
 
@@ -400,6 +375,12 @@ mod tests {
             .compute_publish_single_signature(&beacon_to_sign, &protocol_message)
             .await
             .expect("Single signature should be computed and published");
+
+        let signed_beacons = signed_beacons_store.signed_beacons().await;
+        assert_eq!(
+            vec![beacon_to_sign.signed_entity_type.clone()],
+            signed_beacons
+        );
     }
 
     #[tokio::test]
@@ -416,6 +397,7 @@ mod tests {
             Utc::now(),
         );
 
+        let signed_beacons_store = Arc::new(DumbSignedBeaconStore::default());
         let certifier_service = SignerCertifierService {
             single_signer: {
                 let mut single_signer = MockSingleSigner::new();
@@ -430,6 +412,7 @@ mod tests {
                 signature_publisher.expect_publish().never();
                 Arc::new(signature_publisher)
             },
+            signed_beacon_store: signed_beacons_store.clone(),
             ..SignerCertifierService::dumb_dependencies(TimePoint::new(1, 14, ChainPoint::dummy()))
         };
 
@@ -437,6 +420,79 @@ mod tests {
             .compute_publish_single_signature(&beacon_to_sign, &protocol_message)
             .await
             .unwrap();
+
+        let signed_beacons = signed_beacons_store.signed_beacons().await;
+        assert_eq!(
+            vec![beacon_to_sign.signed_entity_type.clone()],
+            signed_beacons
+        );
+    }
+
+    #[tokio::test]
+    async fn beacon_isnt_mark_as_signed_if_computing_signature_fails() {
+        let beacon_to_sign = BeaconToSign::new(
+            Epoch(1),
+            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+            Utc::now(),
+        );
+
+        let signed_beacons_store = Arc::new(DumbSignedBeaconStore::default());
+        let certifier_service = SignerCertifierService {
+            single_signer: {
+                let mut single_signer = MockSingleSigner::new();
+                single_signer
+                    .expect_compute_single_signatures()
+                    .return_once(|_| Err(anyhow::anyhow!("error")));
+                Arc::new(single_signer)
+            },
+            signed_beacon_store: signed_beacons_store.clone(),
+            ..SignerCertifierService::dumb_dependencies(TimePoint::new(1, 14, ChainPoint::dummy()))
+        };
+
+        certifier_service
+            .compute_publish_single_signature(&beacon_to_sign, &ProtocolMessage::new())
+            .await
+            .unwrap_err();
+
+        let signed_beacons = signed_beacons_store.signed_beacons().await;
+        assert_eq!(Vec::<SignedEntityType>::new(), signed_beacons);
+    }
+
+    #[tokio::test]
+    async fn beacon_isnt_mark_as_signed_if_publishing_signature_fails() {
+        let beacon_to_sign = BeaconToSign::new(
+            Epoch(1),
+            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+            Utc::now(),
+        );
+
+        let signed_beacons_store = Arc::new(DumbSignedBeaconStore::default());
+        let certifier_service = SignerCertifierService {
+            single_signer: {
+                let mut single_signer = MockSingleSigner::new();
+                single_signer
+                    .expect_compute_single_signatures()
+                    .return_once(|_| Ok(Some(fake_data::single_signatures(vec![1, 5, 12]))));
+                Arc::new(single_signer)
+            },
+            signature_publisher: {
+                let mut signature_publisher = MockSignaturePublisher::new();
+                signature_publisher
+                    .expect_publish()
+                    .return_once(|_, _, _| Err(anyhow::anyhow!("error")));
+                Arc::new(signature_publisher)
+            },
+            signed_beacon_store: signed_beacons_store.clone(),
+            ..SignerCertifierService::dumb_dependencies(TimePoint::new(1, 14, ChainPoint::dummy()))
+        };
+
+        certifier_service
+            .compute_publish_single_signature(&beacon_to_sign, &ProtocolMessage::new())
+            .await
+            .unwrap_err();
+
+        let signed_beacons = signed_beacons_store.signed_beacons().await;
+        assert_eq!(Vec::<SignedEntityType>::new(), signed_beacons);
     }
 
     pub mod tests_tooling {
