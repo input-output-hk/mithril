@@ -328,7 +328,6 @@ impl<'a> DependenciesBuilder<'a> {
         )));
         let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
-            single_signer.clone(),
             protocol_initializer_store.clone(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(

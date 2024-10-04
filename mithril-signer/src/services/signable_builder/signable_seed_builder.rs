@@ -3,26 +3,24 @@
 //! This service is responsible for computing the seed protocol message
 //! that is used by the [SignableBuilder] to compute the final protocol message.
 //!
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::{
-    entities::{ProtocolMessagePartValue, ProtocolParameters},
+    crypto_helper::ProtocolInitializer,
+    entities::{ProtocolMessagePartValue, ProtocolParameters, SignerWithStake},
+    protocol::SignerBuilder,
     signable_builder::SignableSeedBuilder,
     StdResult,
 };
 
-use crate::{
-    services::{EpochService, SingleSigner},
-    store::ProtocolInitializerStorer,
-};
+use crate::{services::EpochService, store::ProtocolInitializerStorer};
 
 /// SignableSeedBuilder signer implementation
 pub struct SignerSignableSeedBuilder {
     epoch_service: Arc<RwLock<dyn EpochService>>,
-    single_signer: Arc<dyn SingleSigner>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
 }
 
@@ -30,14 +28,33 @@ impl SignerSignableSeedBuilder {
     /// SignerSignableSeedBuilder factory
     pub fn new(
         epoch_service: Arc<RwLock<dyn EpochService>>,
-        single_signer: Arc<dyn SingleSigner>,
         protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     ) -> Self {
         Self {
             epoch_service,
-            single_signer,
             protocol_initializer_store,
         }
+    }
+
+    fn compute_encode_avk(
+        &self,
+        protocol_initializer: ProtocolInitializer,
+        signers_with_stake: &[SignerWithStake],
+    ) -> StdResult<String> {
+        let signer_builder = SignerBuilder::new(
+            signers_with_stake,
+            &protocol_initializer.get_protocol_parameters().into(),
+        )
+        .with_context(|| "SignerSignableSeedBuilder can not compute aggregate verification key")?;
+
+        let encoded_avk = signer_builder
+            .compute_aggregate_verification_key()
+            .to_json_hex()
+            .with_context(|| {
+                "SignerSignableSeedBuilder can not serialize aggregate verification key"
+            })?;
+
+        Ok(encoded_avk)
     }
 }
 
@@ -55,13 +72,8 @@ impl SignableSeedBuilder for SignerSignableSeedBuilder {
                 anyhow!("can not get protocol_initializer at epoch {next_signer_retrieval_epoch}")
             })?;
         let next_signers_with_stake = epoch_service.next_signers_with_stake().await?;
-        let next_aggregate_verification_key = self
-            .single_signer
-            .compute_aggregate_verification_key(
-                &next_signers_with_stake,
-                &next_protocol_initializer,
-            )?
-            .ok_or_else(|| anyhow!("next_signers avk".to_string()))?;
+        let next_aggregate_verification_key =
+            self.compute_encode_avk(next_protocol_initializer, &next_signers_with_stake)?;
 
         Ok(next_aggregate_verification_key)
     }
@@ -99,15 +111,13 @@ mod tests {
     };
 
     use crate::{
-        services::{mock_epoch_service::MockEpochServiceImpl, MockSingleSigner},
-        store::MockProtocolInitializerStorer,
+        services::mock_epoch_service::MockEpochServiceImpl, store::MockProtocolInitializerStorer,
     };
 
     use super::*;
 
     struct MockDependencyInjector {
         mock_epoch_service: MockEpochServiceImpl,
-        mock_single_signer: MockSingleSigner,
         mock_protocol_initializer_store: MockProtocolInitializerStorer,
     }
 
@@ -115,7 +125,6 @@ mod tests {
         fn new() -> MockDependencyInjector {
             MockDependencyInjector {
                 mock_epoch_service: MockEpochServiceImpl::new(),
-                mock_single_signer: MockSingleSigner::new(),
                 mock_protocol_initializer_store: MockProtocolInitializerStorer::new(),
             }
         }
@@ -123,7 +132,6 @@ mod tests {
         fn build_signable_builder_service(self) -> SignerSignableSeedBuilder {
             SignerSignableSeedBuilder::new(
                 Arc::new(RwLock::new(self.mock_epoch_service)),
-                Arc::new(self.mock_single_signer),
                 Arc::new(self.mock_protocol_initializer_store),
             )
         }
@@ -136,9 +144,7 @@ mod tests {
         let protocol_initializer = next_fixture.signers_fixture()[0]
             .protocol_initializer
             .clone();
-        let expected_next_aggregate_verification_key = next_fixture.compute_and_encode_avk();
-        let expected_next_aggregate_verification_key_clone =
-            expected_next_aggregate_verification_key.clone();
+        let next_signers_with_stake = next_fixture.signers_with_stake();
         let mut mock_container = MockDependencyInjector::new();
         mock_container.mock_epoch_service =
             MockEpochServiceImpl::new_with_config(|mock_epoch_service| {
@@ -148,14 +154,9 @@ mod tests {
                     .once();
                 mock_epoch_service
                     .expect_next_signers_with_stake()
-                    .return_once(|| Ok(Vec::new()))
+                    .return_once(move || Ok(next_signers_with_stake))
                     .once();
             });
-        mock_container
-            .mock_single_signer
-            .expect_compute_aggregate_verification_key()
-            .return_once(move |_, _| Ok(Some(expected_next_aggregate_verification_key_clone)))
-            .once();
         mock_container
             .mock_protocol_initializer_store
             .expect_get_protocol_initializer()
@@ -170,7 +171,7 @@ mod tests {
 
         assert_eq!(
             next_aggregate_verification_key,
-            expected_next_aggregate_verification_key
+            next_fixture.compute_and_encode_avk()
         );
     }
 
