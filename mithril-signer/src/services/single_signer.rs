@@ -7,9 +7,9 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{KESPeriod, ProtocolInitializer};
 use mithril_common::entities::{
-    PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
+    PartyId, ProtocolMessage, ProtocolParameters, SingleSignatures, Stake,
 };
-use mithril_common::protocol::SignerBuilder;
+use mithril_common::protocol::{SignerBuilder, SingleSigner as ProtocolSingleSigner};
 use mithril_common::{StdError, StdResult};
 
 use crate::dependency_injection::EpochServiceWrapper;
@@ -46,7 +46,6 @@ pub trait SingleSigner: Sync + Send {
     async fn compute_single_signatures(
         &self,
         protocol_message: &ProtocolMessage,
-        signers_with_stake: &[SignerWithStake],
     ) -> StdResult<Option<SingleSignatures>>;
 
     /// Get party id
@@ -84,12 +83,35 @@ impl MithrilSingleSigner {
         }
     }
 
-    async fn get_protocol_initializer(&self) -> StdResult<ProtocolInitializer> {
+    async fn build_protocol_single_signer(&self) -> StdResult<ProtocolSingleSigner> {
         let epoch_service = self.epoch_service.read().await;
-        epoch_service.protocol_initializer()?.clone().ok_or(anyhow!(
-            "Can not Sign or Compute AVK, No protocol initializer found for party_id: '{}'",
-            self.party_id.clone()
-        ))
+        let protocol_initializer =
+            epoch_service
+                .protocol_initializer()?
+                .as_ref()
+                .ok_or(anyhow!(
+                    "Can not Sign or Compute AVK, No protocol initializer found for party_id: '{}'",
+                    self.party_id.clone()
+                ))?;
+
+        let builder = SignerBuilder::new(
+            &epoch_service.current_signers_with_stake().await?,
+            &protocol_initializer.get_protocol_parameters().into(),
+        )
+        .with_context(|| "Mithril Single Signer can not build signer")
+        .map_err(SingleSignerError::ProtocolSignerCreationFailure)?;
+
+        let single_signer = builder
+            .restore_signer_from_initializer(self.party_id.clone(), protocol_initializer.clone())
+            .with_context(|| {
+                format!(
+                    "Mithril Single Signer can not restore signer with party_id: '{}'",
+                    self.party_id.clone()
+                )
+            })
+            .map_err(SingleSignerError::ProtocolSignerCreationFailure)?;
+
+        Ok(single_signer)
     }
 }
 
@@ -98,25 +120,11 @@ impl SingleSigner for MithrilSingleSigner {
     async fn compute_single_signatures(
         &self,
         protocol_message: &ProtocolMessage,
-        signers_with_stake: &[SignerWithStake],
     ) -> StdResult<Option<SingleSignatures>> {
-        let protocol_initializer = self.get_protocol_initializer().await?;
-        let builder = SignerBuilder::new(
-            signers_with_stake,
-            &protocol_initializer.get_protocol_parameters().into(),
-        )
-        .with_context(|| "Mithril Single Signer can not build signer")
-        .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(anyhow!(e)))?;
+        let protocol_single_signer = self.build_protocol_single_signer().await?;
+
         info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "signed message" => protocol_message.compute_hash().encode_hex::<String>());
-        let signatures = builder
-            .restore_signer_from_initializer(self.party_id.clone(), protocol_initializer.clone())
-            .with_context(|| {
-                format!(
-                    "Mithril Single Signer can not restore signer with party_id: '{}'",
-                    self.party_id.clone()
-                )
-            })
-            .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(anyhow!(e)))?
+        let signatures = protocol_single_signer
             .sign(protocol_message)
             .with_context(|| {
                 format!(
@@ -156,8 +164,11 @@ mod tests {
     use mithril_common::crypto_helper::ProtocolClerk;
     use mithril_common::entities::{Epoch, ProtocolMessagePartKey};
     use mithril_common::test_utils::MithrilFixtureBuilder;
+    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
+    use mithril_persistence::store::StakeStore;
 
     use crate::services::MithrilEpochService;
+    use crate::store::ProtocolInitializerStore;
 
     use super::*;
 
@@ -165,17 +176,28 @@ mod tests {
     async fn compute_single_signature_success() {
         let snapshot_digest = "digest".to_string();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let signers_with_stake = fixture.signers_with_stake();
         let current_signer = &fixture.signers_fixture()[0];
         let clerk = ProtocolClerk::from_signer(&current_signer.protocol_signer);
         let avk = clerk.compute_avk();
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
-        let expected_message = protocol_message.compute_hash().as_bytes().to_vec();
-        let epoch_service = MithrilEpochService::new_with_dumb_dependencies()
+        let stake_store = Arc::new(StakeStore::new(
+            Box::new(
+                MemoryAdapter::new(Some(vec![(
+                    Epoch(10).offset_to_signer_retrieval_epoch().unwrap(),
+                    fixture.stake_distribution(),
+                )]))
+                .unwrap(),
+            ),
+            None,
+        ));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(DumbStoreAdapter::new()),
+            None,
+        ));
+        let epoch_service = MithrilEpochService::new(stake_store, protocol_initializer_store)
             .set_data_to_default_or_fake(Epoch(10))
             .alter_data(|data| {
-                data.protocol_initializer = Some(current_signer.protocol_initializer.clone())
+                data.protocol_initializer = Some(current_signer.protocol_initializer.clone());
+                data.current_signers = fixture.signers();
             });
 
         let single_signer = MithrilSingleSigner::new(
@@ -183,12 +205,15 @@ mod tests {
             Arc::new(RwLock::new(epoch_service)),
         );
 
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
         let sign_result = single_signer
-            .compute_single_signatures(&protocol_message, &signers_with_stake)
+            .compute_single_signatures(&protocol_message)
             .await
             .expect("single signer should not fail")
             .expect("single signer should produce a signature here");
 
+        let expected_message = protocol_message.compute_hash().as_bytes().to_vec();
         let decoded_sig = sign_result.to_protocol_signature();
         assert!(
             decoded_sig

@@ -6,8 +6,7 @@ use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, SignerWithStake, SingleSignatures,
-    TimePoint,
+    Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, SingleSignatures, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -98,13 +97,6 @@ impl SignerRunner {
     /// Create a new Runner instance.
     pub fn new(config: Configuration, services: SignerDependencyContainer) -> Self {
         Self { services, config }
-    }
-
-    /// Get the current signers with their stake.
-    async fn get_current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>> {
-        let epoch_service = self.epoch_service_read().await;
-
-        epoch_service.current_signers_with_stake().await
     }
 
     async fn epoch_service_read(&self) -> RwLockReadGuard<'_, dyn EpochService> {
@@ -291,15 +283,10 @@ impl Runner for SignerRunner {
     ) -> StdResult<Option<SingleSignatures>> {
         debug!("RUNNER: compute_single_signature");
 
-        let signers = self
-            .get_current_signers_with_stake()
-            .await
-            .with_context(|| "Runner can not not retrieve signers")?;
-
         let signature = self
             .services
             .single_signer
-            .compute_single_signatures(message, &signers)
+            .compute_single_signatures(message)
             .await?;
         info!(
             " > {}",
@@ -720,7 +707,6 @@ mod tests {
             .await
             .expect("save_stakes should not fail");
 
-        let signers_with_stake = &fixture.signers_with_stake()[0..3];
         let signers = &fixture.signers()[0..3];
 
         let mut message = ProtocolMessage::new();
@@ -745,7 +731,7 @@ mod tests {
         runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
         let expected = single_signer
-            .compute_single_signatures(&message, signers_with_stake)
+            .compute_single_signatures(&message)
             .await
             .expect("compute_single_signatures should not fail");
 
