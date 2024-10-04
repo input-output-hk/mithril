@@ -262,6 +262,8 @@ impl StateMachineTester {
                 epoch_service.clone(),
             )),
             signed_entity_type_lock.clone(),
+            single_signer.clone(),
+            certificate_handler.clone(),
         ));
 
         let services = SignerDependencyContainer {

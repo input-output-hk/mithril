@@ -1,12 +1,12 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog_scope::{debug, info, warn};
+use slog_scope::{debug, warn};
 use thiserror::Error;
 use tokio::sync::RwLockReadGuard;
 
 use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShelleyFileFormat};
 use mithril_common::entities::{
-    Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, SingleSignatures, TimePoint,
+    Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -47,17 +47,10 @@ pub trait Runner: Send + Sync {
     ) -> StdResult<ProtocolMessage>;
 
     /// Create the single signature.
-    async fn compute_single_signature(
+    async fn compute_publish_single_signature(
         &self,
+        beacon_to_sign: &BeaconToSign,
         message: &ProtocolMessage,
-    ) -> StdResult<Option<SingleSignatures>>;
-
-    /// Send the single signature to the aggregator in order to be aggregated.
-    async fn send_single_signature(
-        &self,
-        signed_entity_type: &SignedEntityType,
-        maybe_signature: Option<SingleSignatures>,
-        signed_message: &ProtocolMessage,
     ) -> StdResult<()>;
 
     /// Mark the beacon as signed.
@@ -277,51 +270,16 @@ impl Runner for SignerRunner {
         Ok(protocol_message)
     }
 
-    async fn compute_single_signature(
+    async fn compute_publish_single_signature(
         &self,
+        beacon_to_sign: &BeaconToSign,
         message: &ProtocolMessage,
-    ) -> StdResult<Option<SingleSignatures>> {
-        debug!("RUNNER: compute_single_signature");
-
-        let signature = self
-            .services
-            .single_signer
-            .compute_single_signatures(message)
-            .await?;
-        info!(
-            " > {}",
-            if signature.is_some() {
-                "could compute a single signature!"
-            } else {
-                "NO single signature was computed."
-            }
-        );
-
-        Ok(signature)
-    }
-
-    async fn send_single_signature(
-        &self,
-        signed_entity_type: &SignedEntityType,
-        maybe_signature: Option<SingleSignatures>,
-        protocol_message: &ProtocolMessage,
     ) -> StdResult<()> {
-        debug!("RUNNER: send_single_signature");
-
-        if let Some(single_signatures) = maybe_signature {
-            debug!(" > there is a single signature to send");
-
-            self.services
-                .certificate_handler
-                .register_signatures(signed_entity_type, &single_signatures, protocol_message)
-                .await?;
-
-            Ok(())
-        } else {
-            debug!(" > NO single signature to send, doing nothing");
-
-            Ok(())
-        }
+        debug!("RUNNER: compute_publish_single_signature");
+        self.services
+            .certifier
+            .compute_publish_single_signature(beacon_to_sign, message)
+            .await
     }
 
     async fn mark_beacon_as_signed(&self, beacon: &BeaconToSign) -> StdResult<()> {
@@ -383,9 +341,7 @@ mod tests {
             MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        entities::{
-            BlockNumber, BlockRange, Epoch, ProtocolMessagePartKey, SignedEntityTypeDiscriminants,
-        },
+        entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         messages::{AggregatorCapabilities, AggregatorFeaturesMessage},
         signable_builder::{
@@ -405,9 +361,8 @@ mod tests {
     use crate::metrics::MetricsService;
     use crate::services::{
         CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
-        MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
-        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-        SingleSigner,
+        MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignerCertifierService,
+        SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
     };
     use crate::store::ProtocolInitializerStore;
 
@@ -523,6 +478,7 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
+        let aggregator_client = Arc::new(DumbAggregatorClient::default());
         let certifier = Arc::new(SignerCertifierService::new(
             ticker_service.clone(),
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None)),
@@ -531,11 +487,13 @@ mod tests {
                 epoch_service.clone(),
             )),
             signed_entity_type_lock.clone(),
+            single_signer.clone(),
+            aggregator_client.clone(),
         ));
 
         SignerDependencyContainer {
             stake_store,
-            certificate_handler: Arc::new(DumbAggregatorClient::default()),
+            certificate_handler: aggregator_client,
             chain_observer,
             digester,
             single_signer,
@@ -664,103 +622,6 @@ mod tests {
             maybe_protocol_initializer.is_some(),
             "A protocol initializer should have been registered at the 'Recording' epoch"
         );
-    }
-
-    #[tokio::test]
-    async fn test_compute_single_signature() {
-        let mut services = init_services().await;
-        let current_time_point = services
-            .ticker_service
-            .get_current_time_point()
-            .await
-            .expect("get_current_time_point should not fail");
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
-        let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
-
-        let single_signer = Arc::new(MithrilSingleSigner::new(
-            signer_with_stake.party_id.to_string(),
-            services.epoch_service.clone(),
-        ));
-        services.single_signer = single_signer.clone();
-        services
-            .protocol_initializer_store
-            .save_protocol_initializer(
-                current_time_point
-                    .epoch
-                    .offset_to_signer_retrieval_epoch()
-                    .expect("offset_to_signer_retrieval_epoch should not fail"),
-                protocol_initializer.clone(),
-            )
-            .await
-            .expect("save_protocol_initializer should not fail");
-
-        services
-            .stake_store
-            .save_stakes(
-                current_time_point
-                    .epoch
-                    .offset_to_signer_retrieval_epoch()
-                    .expect("offset_to_signer_retrieval_epoch should not fail"),
-                fixture.stake_distribution(),
-            )
-            .await
-            .expect("save_stakes should not fail");
-
-        let signers = &fixture.signers()[0..3];
-
-        let mut message = ProtocolMessage::new();
-        message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "a message".to_string(),
-        );
-        message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "an avk".to_string(),
-        );
-
-        let runner = init_runner(Some(services), None).await;
-
-        // inform epoch settings
-        let epoch_settings = SignerEpochSettings {
-            epoch: current_time_point.epoch,
-            current_signers: signers.to_vec(),
-            next_signers: fixture.signers(),
-            ..SignerEpochSettings::dummy().clone()
-        };
-        runner.inform_epoch_settings(epoch_settings).await.unwrap();
-
-        let expected = single_signer
-            .compute_single_signatures(&message)
-            .await
-            .expect("compute_single_signatures should not fail");
-
-        let single_signature = runner
-            .compute_single_signature(&message)
-            .await
-            .expect("compute_message should not fail");
-        assert_eq!(expected, single_signature);
-    }
-
-    #[tokio::test]
-    async fn test_send_single_signature() {
-        let mut services = init_services().await;
-        let mut certificate_handler = MockAggregatorClient::new();
-        certificate_handler
-            .expect_register_signatures()
-            .once()
-            .returning(|_, _, _| Ok(()));
-        services.certificate_handler = Arc::new(certificate_handler);
-        let runner = init_runner(Some(services), None).await;
-
-        runner
-            .send_single_signature(
-                &SignedEntityType::dummy(),
-                Some(fake_data::single_signatures(vec![2, 5, 12])),
-                &ProtocolMessage::default(),
-            )
-            .await
-            .expect("send_single_signature should not fail");
     }
 
     #[tokio::test]

@@ -371,6 +371,8 @@ impl<'a> DependenciesBuilder<'a> {
                 epoch_service.clone(),
             )),
             signed_entity_type_lock.clone(),
+            single_signer.clone(),
+            aggregator_client.clone(),
         ));
 
         let services = SignerDependencyContainer {
