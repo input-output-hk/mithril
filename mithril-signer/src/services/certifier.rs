@@ -131,15 +131,14 @@ mod tests {
         for signed_entity_type in SignedEntityTypeDiscriminants::all() {
             locker.lock(signed_entity_type).await;
         }
-        let certifier_service = SignerCertifierService::new(
-            Arc::new(DumbTickerService::new(TimePoint::dummy())),
-            Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigProvider::new(
+        let certifier_service = SignerCertifierService {
+            signed_entity_type_lock: locker.clone(),
+            signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
-            locker,
-        );
+            ..SignerCertifierService::dumb_dependencies(TimePoint::new(1, 14, ChainPoint::dummy()))
+        };
 
         let beacon_to_sign = certifier_service.get_beacon_to_sign().await.unwrap();
         assert_eq!(beacon_to_sign, None);
@@ -147,20 +146,18 @@ mod tests {
 
     #[tokio::test]
     async fn only_one_unlocked_and_not_yet_signed_yield_a_beacon_to_sign() {
-        let ticker_service = DumbTickerService::new(TimePoint::new(3, 14, ChainPoint::dummy()));
         let locker = Arc::new(SignedEntityTypeLock::new());
         for signed_entity_type in SignedEntityTypeDiscriminants::all().into_iter().skip(1) {
             locker.lock(signed_entity_type).await;
         }
-        let certifier_service = SignerCertifierService::new(
-            Arc::new(ticker_service),
-            Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigProvider::new(
+        let certifier_service = SignerCertifierService {
+            signed_entity_type_lock: locker.clone(),
+            signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
-            Arc::new(SignedEntityTypeLock::new()),
-        );
+            ..SignerCertifierService::dumb_dependencies(TimePoint::new(3, 14, ChainPoint::dummy()))
+        };
 
         let beacon_to_sign = certifier_service.get_beacon_to_sign().await.unwrap();
         let signed_discriminant: Option<SignedEntityTypeDiscriminants> =
@@ -175,15 +172,14 @@ mod tests {
     #[tokio::test]
     async fn mark_beacon_as_signed_update_the_store() {
         let signed_beacons_store = Arc::new(DumbSignedBeaconStore::default());
-        let certifier_service = SignerCertifierService::new(
-            Arc::new(DumbTickerService::new(TimePoint::dummy())),
-            signed_beacons_store.clone(),
-            Arc::new(DumbSignedEntityConfigProvider::new(
+        let certifier_service = SignerCertifierService {
+            signed_beacon_store: signed_beacons_store.clone(),
+            signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
-            Arc::new(SignedEntityTypeLock::new()),
-        );
+            ..SignerCertifierService::dumb_dependencies(TimePoint::dummy())
+        };
 
         certifier_service
             .mark_beacon_as_signed(&BeaconToSign {
@@ -203,16 +199,14 @@ mod tests {
 
     #[tokio::test]
     async fn if_already_signed_a_beacon_is_not_returned_anymore() {
-        let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
-        let certifier_service = SignerCertifierService::new(
-            Arc::new(ticker_service),
-            Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigProvider::new(
+        let certifier_service = SignerCertifierService {
+            signed_beacon_store: Arc::new(DumbSignedBeaconStore::default()),
+            signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
-            Arc::new(SignedEntityTypeLock::new()),
-        );
+            ..SignerCertifierService::dumb_dependencies(TimePoint::new(1, 14, ChainPoint::dummy()))
+        };
 
         let first_beacon_to_sign = certifier_service
             .get_beacon_to_sign()
@@ -237,16 +231,13 @@ mod tests {
 
     #[tokio::test]
     async fn draining_out_all_beacons_to_sign_use_signed_entity_discriminant_order() {
-        let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
-        let certifier_service = SignerCertifierService::new(
-            Arc::new(ticker_service),
-            Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigProvider::new(
+        let certifier_service = SignerCertifierService {
+            signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
-            Arc::new(SignedEntityTypeLock::new()),
-        );
+            ..SignerCertifierService::dumb_dependencies(TimePoint::new(1, 14, ChainPoint::dummy()))
+        };
 
         let mut previous_beacon_to_sign = certifier_service
             .get_beacon_to_sign()
@@ -278,16 +269,13 @@ mod tests {
 
     #[tokio::test]
     async fn draining_out_all_beacons_to_sign_doesnt_repeat_value() {
-        let ticker_service = DumbTickerService::new(TimePoint::new(1, 14, ChainPoint::dummy()));
-        let certifier_service = SignerCertifierService::new(
-            Arc::new(ticker_service),
-            Arc::new(DumbSignedBeaconStore::default()),
-            Arc::new(DumbSignedEntityConfigProvider::new(
+        let certifier_service = SignerCertifierService {
+            signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
                 CardanoTransactionsSigningConfig::dummy(),
                 SignedEntityTypeDiscriminants::all(),
             )),
-            Arc::new(SignedEntityTypeLock::new()),
-        );
+            ..SignerCertifierService::dumb_dependencies(TimePoint::new(1, 14, ChainPoint::dummy()))
+        };
 
         let mut all_signed_beacons = vec![];
         while let Some(beacon_to_sign) = certifier_service.get_beacon_to_sign().await.unwrap() {
@@ -317,6 +305,20 @@ mod tests {
         use mithril_common::CardanoNetwork;
 
         use super::*;
+
+        impl SignerCertifierService {
+            pub fn dumb_dependencies(initial_time_point: TimePoint) -> Self {
+                Self {
+                    ticker_service: Arc::new(DumbTickerService::new(initial_time_point)),
+                    signed_beacon_store: Arc::new(DumbSignedBeaconStore::default()),
+                    signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(
+                        CardanoTransactionsSigningConfig::dummy(),
+                        SignedEntityTypeDiscriminants::all(),
+                    )),
+                    signed_entity_type_lock: Arc::new(SignedEntityTypeLock::new()),
+                }
+            }
+        }
 
         pub struct DumbTickerService {
             time_point: TimePoint,
