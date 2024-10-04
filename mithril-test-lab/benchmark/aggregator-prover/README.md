@@ -27,11 +27,11 @@ export AB_CONCURRENCY_MAX=50
 export AB_CONCURRENCY_STEP=50
 ```
 
-- or the `testing-mainnet` network
+- or the `dev-mainnet` network
 
 ```bash
 # Aggregator endpoint
-export AGGREGATOR_ENDPOINT=https://aggregator.testing-mainnet.api.mithril.network/aggregator
+export AGGREGATOR_ENDPOINT=https://aggregator.dev-mainnet.api.mithril.network/aggregator
 
 # Transactions file to prove
 export TRANSACTIONS_FILE=transactions-mainnet.txt
@@ -61,7 +61,7 @@ Which will output these type of results:
 ```bash
 MITHRIL AGGREGATOR PROVER ROUTE BENCHMARK
 
->> Aggregator endpoint: https://aggregator.testing-mainnet.api.mithril.network/aggregator
+>> Aggregator endpoint: https://aggregator.dev-mainnet.api.mithril.network/aggregator
 >> Aggregator route: /proof/cardano-transaction
 >> Transactions file: transactions-mainnet.txt
 >> Transactions available: [100]
