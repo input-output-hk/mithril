@@ -214,7 +214,6 @@ impl<'a> DependenciesBuilder<'a> {
             )?),
             self.config.store_retention_limit,
         ));
-        let single_signer = Arc::new(MithrilSingleSigner::new(self.compute_protocol_party_id()?));
         let digester = Arc::new(CardanoImmutableDigester::new(
             self.build_digester_cache_provider().await?,
             slog_scope::logger(),
@@ -326,6 +325,10 @@ impl<'a> DependenciesBuilder<'a> {
             stake_store.clone(),
             protocol_initializer_store.clone(),
         )));
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            self.compute_protocol_party_id()?,
+            epoch_service.clone(),
+        ));
         let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
             protocol_initializer_store.clone(),

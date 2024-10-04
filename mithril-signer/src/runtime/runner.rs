@@ -50,7 +50,6 @@ pub trait Runner: Send + Sync {
     /// Create the single signature.
     async fn compute_single_signature(
         &self,
-        epoch: Epoch,
         message: &ProtocolMessage,
     ) -> StdResult<Option<SingleSignatures>>;
 
@@ -288,7 +287,6 @@ impl Runner for SignerRunner {
 
     async fn compute_single_signature(
         &self,
-        epoch: Epoch,
         message: &ProtocolMessage,
     ) -> StdResult<Option<SingleSignatures>> {
         debug!("RUNNER: compute_single_signature");
@@ -298,22 +296,11 @@ impl Runner for SignerRunner {
             .await
             .with_context(|| "Runner can not not retrieve signers")?;
 
-        let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch()?;
-        let protocol_initializer = self
+        let signature = self
             .services
-            .protocol_initializer_store
-            .get_protocol_initializer(signer_retrieval_epoch)
-            .await?
-            .ok_or_else(|| {
-                RunnerError::NoValueError(format!(
-                    "protocol_initializer at epoch {signer_retrieval_epoch}"
-                ))
-            })?;
-        let signature = self.services.single_signer.compute_single_signatures(
-            message,
-            &signers,
-            &protocol_initializer,
-        )?;
+            .single_signer
+            .compute_single_signatures(message, &signers)
+            .await?;
         info!(
             " > {}",
             if signature.is_some() {
@@ -524,7 +511,7 @@ mod tests {
             stake_store.clone(),
             protocol_initializer_store.clone(),
         )));
-        let single_signer = Arc::new(MithrilSingleSigner::new(party_id));
+        let single_signer = Arc::new(MithrilSingleSigner::new(party_id, epoch_service.clone()));
         let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
             protocol_initializer_store.clone(),
@@ -703,8 +690,10 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
         let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
+
         let single_signer = Arc::new(MithrilSingleSigner::new(
             signer_with_stake.party_id.to_string(),
+            services.epoch_service.clone(),
         ));
         services.single_signer = single_signer.clone();
         services
@@ -744,10 +733,6 @@ mod tests {
             "an avk".to_string(),
         );
 
-        let expected = single_signer
-            .compute_single_signatures(&message, signers_with_stake, &protocol_initializer)
-            .expect("compute_single_signatures should not fail");
-
         let runner = init_runner(Some(services), None).await;
 
         // inform epoch settings
@@ -759,8 +744,13 @@ mod tests {
         };
         runner.inform_epoch_settings(epoch_settings).await.unwrap();
 
+        let expected = single_signer
+            .compute_single_signatures(&message, signers_with_stake)
+            .await
+            .expect("compute_single_signatures should not fail");
+
         let single_signature = runner
-            .compute_single_signature(current_time_point.epoch, &message)
+            .compute_single_signature(&message)
             .await
             .expect("compute_message should not fail");
         assert_eq!(expected, single_signature);

@@ -377,7 +377,7 @@ impl StateMachine {
 
         let single_signatures = self
             .runner
-            .compute_single_signature(current_epoch, &message)
+            .compute_single_signature(&message)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
@@ -725,7 +725,7 @@ mod tests {
         runner
             .expect_compute_single_signature()
             .once()
-            .returning(|_, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
+            .returning(|_| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
         runner
             .expect_compute_message()
             .once()
