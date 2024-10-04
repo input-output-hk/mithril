@@ -410,8 +410,7 @@ mod tests {
         },
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{
-            BlockNumber, BlockRange, CardanoDbBeacon, Epoch, ProtocolMessagePartKey,
-            SignedEntityTypeDiscriminants,
+            BlockNumber, BlockRange, Epoch, ProtocolMessagePartKey, SignedEntityTypeDiscriminants,
         },
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         messages::{AggregatorCapabilities, AggregatorFeaturesMessage},
@@ -691,82 +690,6 @@ mod tests {
             maybe_protocol_initializer.is_some(),
             "A protocol initializer should have been registered at the 'Recording' epoch"
         );
-    }
-
-    #[tokio::test]
-    async fn test_compute_message() {
-        let mut services = init_services().await;
-        let current_time_point = services
-            .ticker_service
-            .get_current_time_point()
-            .await
-            .expect("get_current_time_point should not fail");
-        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-            "whatever",
-            *current_time_point.epoch,
-            current_time_point.immutable_file_number,
-        ));
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
-        let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
-        let single_signer = Arc::new(MithrilSingleSigner::new(
-            signer_with_stake.party_id.to_owned(),
-        ));
-        services.single_signer = single_signer.clone();
-        services
-            .protocol_initializer_store
-            .save_protocol_initializer(
-                current_time_point
-                    .epoch
-                    .offset_to_next_signer_retrieval_epoch(),
-                protocol_initializer.clone(),
-            )
-            .await
-            .expect("save_protocol_initializer should not fail");
-
-        services
-            .stake_store
-            .save_stakes(
-                current_time_point
-                    .epoch
-                    .offset_to_next_signer_retrieval_epoch(),
-                fixture.stake_distribution(),
-            )
-            .await
-            .expect("save_stakes should not fail");
-
-        let next_signers_with_stake = &fixture.signers_with_stake()[3..5];
-        let next_signers = &fixture.signers()[3..5];
-
-        let mut expected = ProtocolMessage::new();
-        expected.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            DIGESTER_RESULT.to_string(),
-        );
-        let avk = services
-            .single_signer
-            .compute_aggregate_verification_key(next_signers_with_stake, &protocol_initializer)
-            .expect("compute_aggregate_verification_key should not fail")
-            .expect("an avk should have been computed");
-        expected.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
-
-        let runner = init_runner(Some(services), None).await;
-
-        // inform epoch settings
-        let epoch_settings = SignerEpochSettings {
-            epoch: current_time_point.epoch,
-            current_signers: fixture.signers(),
-            next_signers: next_signers.to_vec(),
-            ..SignerEpochSettings::dummy().clone()
-        };
-        runner.inform_epoch_settings(epoch_settings).await.unwrap();
-
-        let message = runner
-            .compute_message(&signed_entity_type)
-            .await
-            .expect("compute_message should not fail");
-
-        assert_eq!(expected, message);
     }
 
     #[tokio::test]

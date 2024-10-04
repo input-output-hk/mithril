@@ -49,13 +49,6 @@ pub trait SingleSigner: Sync + Send {
         protocol_initializer: &ProtocolInitializer,
     ) -> StdResult<Option<SingleSignatures>>;
 
-    /// Compute aggregate verification key from stake distribution
-    fn compute_aggregate_verification_key(
-        &self,
-        signers_with_stake: &[SignerWithStake],
-        protocol_initializer: &ProtocolInitializer,
-    ) -> StdResult<Option<String>>;
-
     /// Get party id
     fn get_party_id(&self) -> PartyId;
 }
@@ -136,29 +129,6 @@ impl SingleSigner for MithrilSingleSigner {
         Ok(signatures)
     }
 
-    /// Compute aggregate verification key from stake distribution
-    fn compute_aggregate_verification_key(
-        &self,
-        signers_with_stake: &[SignerWithStake],
-        protocol_initializer: &ProtocolInitializer,
-    ) -> StdResult<Option<String>> {
-        let signer_builder = SignerBuilder::new(
-            signers_with_stake,
-            &protocol_initializer.get_protocol_parameters().into(),
-        )
-        .with_context(|| "Mithril Single Signer can not compute aggregate verification key")
-        .map_err(SingleSignerError::AggregateVerificationKeyComputationFailed)?;
-
-        let encoded_avk = signer_builder
-            .compute_aggregate_verification_key()
-            .to_json_hex()
-            .with_context(|| {
-                "Mithril Single Signer can not serialize aggregate verification key"
-            })?;
-
-        Ok(Some(encoded_avk))
-    }
-
     /// Get party id
     fn get_party_id(&self) -> PartyId {
         self.party_id.clone()
@@ -209,22 +179,5 @@ mod tests {
                 .is_ok(),
             "produced single signature should be valid"
         );
-    }
-
-    #[test]
-    fn compute_aggregate_verification_key_success() {
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let signers_with_stake = fixture.signers_with_stake();
-        let current_signer = &fixture.signers_fixture()[0];
-        let single_signer =
-            MithrilSingleSigner::new(current_signer.signer_with_stake.party_id.to_owned());
-
-        single_signer
-            .compute_aggregate_verification_key(
-                &signers_with_stake,
-                &current_signer.protocol_initializer,
-            )
-            .expect("compute aggregate verification signature should not fail")
-            .expect("aggregate verification signature should not be empty");
     }
 }
