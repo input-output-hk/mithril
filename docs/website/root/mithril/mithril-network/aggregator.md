@@ -23,11 +23,9 @@ A **Mithril aggregator** is a trustless node responsible for coordinating the ac
 
 The primary objective of the Mithril aggregator is to coordinate and synchronize the production of Mithril multi-signatures:
 
-- When a new snapshot is ready to be produced (and certified), the Mithril aggregator generates and broadcasts a fresh **beacon** to inform Mithril signers of the specific time reference to employ in computing the message (or digest) for signing
+- It is responsible for broadcasting the **verification keys** (Mithril public keys) of all the registered Mithril signers
 
-- It is also responsible for advertising the **verification keys** (Mithril public keys) of all the registered Mithril signers
-
-- The beacon, the current protocol parameters, and the available verification keys are compiled and shared in a **pending certificate**
+- The current protocol parameters and the available verification keys are compiled and shared in an **epoch settings** data
 
 - Mithril signers can register with it to participate in the signature process later on.
 
