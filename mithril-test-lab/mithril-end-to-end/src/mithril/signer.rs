@@ -12,6 +12,7 @@ pub struct SignerConfig<'a> {
     pub aggregator_endpoint: String,
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
+    pub signature_network_node_socket: Option<&'a Path>,
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub mithril_run_interval: u32,
@@ -73,6 +74,14 @@ impl Signer {
             ("TRANSACTIONS_IMPORT_BLOCK_CHUNK_SIZE", "150"),
             ("PRELOADING_REFRESH_INTERVAL_IN_SECONDS", "10"),
         ]);
+
+        if let Some(socket_path) = signer_config.signature_network_node_socket {
+            env.insert(
+                "SIGNATURE_NETWORK_NODE_SOCKET_PATH",
+                socket_path.to_str().unwrap(),
+            );
+        }
+
         if signer_config.enable_certification {
             env.insert(
                 "KES_SECRET_KEY_PATH",

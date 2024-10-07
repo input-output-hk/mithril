@@ -179,6 +179,17 @@ impl ServeCommand {
             }
         }
 
+        if let Some(signature_consumer) = dependencies_builder
+            .create_signature_consumer()
+            .await
+            .with_context(|| "Dependencies Builder can not create signature consumer")?
+        {
+            join_set.spawn(async move {
+                signature_consumer.listen().await;
+                Ok(())
+            });
+        }
+
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
         dependencies_builder.vanish().await;
 

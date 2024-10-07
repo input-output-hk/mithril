@@ -16,6 +16,7 @@ pub struct AggregatorConfig<'a> {
     pub server_port: u64,
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
+    pub signature_network_node_socket: Option<&'a Path>,
     pub work_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub cardano_node_version: &'a str,
@@ -53,7 +54,7 @@ impl Aggregator {
             };
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
-        let env = HashMap::from([
+        let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
@@ -93,6 +94,14 @@ impl Aggregator {
             ),
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
         ]);
+
+        if let Some(socket_path) = aggregator_config.signature_network_node_socket {
+            env.insert(
+                "SIGNATURE_NETWORK_NODE_SOCKET_PATH",
+                socket_path.to_str().unwrap(),
+            );
+        }
+
         let args = vec![
             "--db-directory",
             aggregator_config.pool_node.db_path.to_str().unwrap(),

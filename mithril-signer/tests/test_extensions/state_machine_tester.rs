@@ -45,9 +45,9 @@ use mithril_signer::{
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     metrics::*,
     services::{
-        AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
-        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-        SignerUpkeepService,
+        AggregatorClient, AggregatorHttpSignaturePublisher, CardanoTransactionsImporter,
+        MithrilEpochService, MithrilSingleSigner, SignerCertifierService,
+        SignerSignableSeedBuilder, SignerSignedEntityConfigProvider, SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer},
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
@@ -263,6 +263,9 @@ impl StateMachineTester {
 
         let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
+            signature_publisher: Arc::new(AggregatorHttpSignaturePublisher::new(
+                certificate_handler.clone(),
+            )),
             ticker_service: ticker_service.clone(),
             chain_observer: chain_observer.clone(),
             digester: digester.clone(),

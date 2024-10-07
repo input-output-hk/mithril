@@ -22,6 +22,7 @@ members = [
   "mithril-stm",
   "mithril-test-lab/mithril-aggregator-fake",
   "mithril-test-lab/mithril-end-to-end",
+  "mithril-test-lab/signature-network-node",
 ]
 
 [workspace.package]

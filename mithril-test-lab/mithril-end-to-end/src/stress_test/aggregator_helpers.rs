@@ -22,6 +22,7 @@ pub async fn bootstrap_aggregator(
         server_port: args.server_port as u64,
         pool_node: &args.pool_node,
         cardano_cli_path: &args.cardano_cli_path,
+        signature_network_node_socket: None,
         work_dir: &args.work_dir,
         bin_dir: &args.bin_dir,
         cardano_node_version: "1.2.3",

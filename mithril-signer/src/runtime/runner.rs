@@ -357,8 +357,8 @@ impl Runner for SignerRunner {
             debug!(" > there is a single signature to send");
 
             self.services
-                .certificate_handler
-                .register_signatures(signed_entity_type, &single_signatures, protocol_message)
+                .signature_publisher
+                .publish(signed_entity_type, &single_signatures, protocol_message)
                 .await?;
 
             Ok(())
@@ -452,10 +452,10 @@ mod tests {
     use crate::database::test_helper::main_db_connection;
     use crate::metrics::MetricsService;
     use crate::services::{
-        CardanoTransactionsImporter, DumbAggregatorClient, MithrilEpochService,
-        MithrilSingleSigner, MockAggregatorClient, MockTransactionStore, MockUpkeepService,
-        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
-        SingleSigner,
+        AggregatorHttpSignaturePublisher, CardanoTransactionsImporter, DumbAggregatorClient,
+        MithrilEpochService, MithrilSingleSigner, MockSignaturePublisher, MockTransactionStore,
+        MockUpkeepService, SignerCertifierService, SignerSignableSeedBuilder,
+        SignerSignedEntityConfigProvider, SingleSigner,
     };
     use crate::store::ProtocolInitializerStore;
 
@@ -640,6 +640,7 @@ mod tests {
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
+        let certificate_handler = Arc::new(DumbAggregatorClient::default());
         let certifier = Arc::new(SignerCertifierService::new(
             ticker_service.clone(),
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None)),
@@ -652,7 +653,10 @@ mod tests {
 
         SignerDependencyContainer {
             stake_store,
-            certificate_handler: Arc::new(DumbAggregatorClient::default()),
+            signature_publisher: Arc::new(AggregatorHttpSignaturePublisher::new(
+                certificate_handler.clone(),
+            )),
+            certificate_handler,
             chain_observer,
             digester,
             single_signer,
@@ -1022,12 +1026,12 @@ mod tests {
     #[tokio::test]
     async fn test_send_single_signature() {
         let mut services = init_services().await;
-        let mut certificate_handler = MockAggregatorClient::new();
-        certificate_handler
-            .expect_register_signatures()
+        let mut signature_publisher = MockSignaturePublisher::new();
+        signature_publisher
+            .expect_publish()
             .once()
             .returning(|_, _, _| Ok(()));
-        services.certificate_handler = Arc::new(certificate_handler);
+        services.signature_publisher = Arc::new(signature_publisher);
         let runner = init_runner(Some(services), None).await;
 
         runner
