@@ -43,14 +43,6 @@ resource "null_resource" "mithril_signer" {
       "mkdir -p /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/mithril/snapshots",
       "echo -n ${local.mithril_signers_relay_cardano_port[each.key]} > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/port",
       <<-EOT
-# Setup cardano node block producer topology
-cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq 'del(.publicRoots[0].accessPoints[0:])' | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_relay_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-block-producer.json
-
-# Setup cardano node relay topology
-cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_block_producer_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
-EOT
-      ,
-      <<-EOT
 set -e
 # Setup cardano node configuration
 CARDANO_NODE_EXACT_VERSION="${var.cardano_image_id}"
@@ -58,10 +50,11 @@ CARDANO_NODE_MINOR_VERSION=$(echo $CARDANO_NODE_EXACT_VERSION | cut -d. -f1,2)
 CARDANO_NODE_VERSIONS="$CARDANO_NODE_EXACT_VERSION $CARDANO_NODE_MINOR_VERSION"
 SIGNER_TYPES="full relay block-producer"
 for SIGNER_TYPE in $SIGNER_TYPES; do
-  # Copy the cardano node configuration files to the signer (exact version, and fallback to minor version)
+  # Copy the cardano node configuration files to the signer and setup topology files (exact version, and fallback to minor version of the Cardano node)
   FOUND_CONFIGURATION=false
   for CARDANO_NODE_VERSION in $CARDANO_NODE_VERSIONS; do
     if [ -d "/home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}" ]; then 
+      # Copy the configuration files to the signer
       SIGNER_TYPE_CONFIG_DIRECTORY=/home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/config/$SIGNER_TYPE
       rm -rf $SIGNER_TYPE_CONFIG_DIRECTORY
       mkdir -p $SIGNER_TYPE_CONFIG_DIRECTORY
@@ -70,6 +63,13 @@ for SIGNER_TYPE in $SIGNER_TYPES; do
       cat $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json | jq ".hasPrometheus[0] |= \"cardano-node-$SIGNER_TYPE-signer-${each.key}\"" > $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new
       rm -f $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
       mv $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json.new $SIGNER_TYPE_CONFIG_DIRECTORY/${var.cardano_network}/cardano-node/config.json
+      
+      # Setup cardano node block producer topology
+      cat /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}/cardano-node/topology.json | jq 'del(.bootstrapPeers)' | jq 'del(.useLedgerAfterSlot)' | jq '.localRoots[0].accessPoints[0] |= . + { "address": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_relay_cardano_port[each.key]}}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-block-producer.json
+
+      # Setup cardano node relay topology
+      cat /home/curry/docker/cardano/config/$CARDANO_NODE_VERSION/${var.cardano_network}/cardano-node/topology.json > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
+
       FOUND_CONFIGURATION=true
       break
     fi
