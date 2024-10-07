@@ -32,7 +32,7 @@ pub fn generate_register_signer_message(
         .iter()
         .cloned()
         .map(|signer| RegisterSignerMessage {
-            epoch: Some(epoch),
+            epoch,
             party_id: signer.party_id,
             verification_key: signer.verification_key.to_json_hex().unwrap(),
             verification_key_signature: signer
