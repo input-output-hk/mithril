@@ -1,5 +1,4 @@
-use mithril_persistence::sqlite::SqliteConnectionPool;
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 use tokio::sync::RwLock;
 
 use mithril_common::{
@@ -10,7 +9,7 @@ use mithril_common::{
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
     entities::{
-        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
+        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
         SignerWithStake, StakeDistribution,
     },
     era::{EraChecker, EraReader},
@@ -19,7 +18,10 @@ use mithril_common::{
     test_utils::MithrilFixture,
     TickerService,
 };
-use mithril_persistence::{sqlite::SqliteConnection, store::StakeStorer};
+use mithril_persistence::{
+    sqlite::{SqliteConnection, SqliteConnectionPool},
+    store::StakeStorer,
+};
 
 use crate::{
     configuration::*,
@@ -48,8 +50,8 @@ pub struct DependencyContainer {
     /// Configuration structure.
     pub config: Configuration,
 
-    /// Signed entity configuration.
-    pub signed_entity_config: SignedEntityConfig,
+    /// List of signed entity discriminants that are allowed to be processed
+    pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
 
     /// SQLite database connection
     ///

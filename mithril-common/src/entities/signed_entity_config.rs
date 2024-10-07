@@ -40,6 +40,14 @@ impl SignedEntityConfig {
         SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
     ];
 
+    /// Append to the given list of allowed signed entity types discriminants the [Self::DEFAULT_ALLOWED_DISCRIMINANTS]
+    /// if not already present.
+    pub fn append_allowed_signed_entity_types_discriminants(
+        discriminants: &mut BTreeSet<SignedEntityTypeDiscriminants>,
+    ) {
+        discriminants.append(&mut BTreeSet::from(Self::DEFAULT_ALLOWED_DISCRIMINANTS));
+    }
+
     /// Create the deduplicated list of allowed signed entity types discriminants.
     ///
     /// The list is the aggregation of [Self::DEFAULT_ALLOWED_DISCRIMINANTS] and
@@ -47,8 +55,8 @@ impl SignedEntityConfig {
     pub fn list_allowed_signed_entity_types_discriminants(
         &self,
     ) -> BTreeSet<SignedEntityTypeDiscriminants> {
-        let mut discriminants = BTreeSet::from(Self::DEFAULT_ALLOWED_DISCRIMINANTS);
-        discriminants.append(&mut self.allowed_discriminants.clone());
+        let mut discriminants = self.allowed_discriminants.clone();
+        Self::append_allowed_signed_entity_types_discriminants(&mut discriminants);
         discriminants
     }
 

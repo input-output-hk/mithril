@@ -1,7 +1,7 @@
 use anyhow::Context;
 use semver::Version;
 use slog::Logger;
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -29,10 +29,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{
-        CertificatePending, CompressionAlgorithm, Epoch, SignedEntityConfig,
-        SignedEntityTypeDiscriminants,
-    },
+    entities::{CertificatePending, CompressionAlgorithm, Epoch, SignedEntityTypeDiscriminants},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -101,8 +98,8 @@ pub struct DependenciesBuilder {
     /// Configuration parameters
     pub configuration: Configuration,
 
-    /// Signed entity configuration
-    pub signed_entity_config: Option<SignedEntityConfig>,
+    /// List of signed entity discriminants that are allowed to be processed
+    pub allowed_discriminants: Option<BTreeSet<SignedEntityTypeDiscriminants>>,
 
     /// SQLite database connection
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
@@ -246,7 +243,7 @@ impl DependenciesBuilder {
     pub fn new(configuration: Configuration) -> Self {
         Self {
             configuration,
-            signed_entity_config: None,
+            allowed_discriminants: None,
             sqlite_connection: None,
             sqlite_connection_cardano_transaction_pool: None,
             stake_store: None,
@@ -294,13 +291,18 @@ impl DependenciesBuilder {
         }
     }
 
-    /// Get the signed entity configuration
-    pub fn get_signed_entity_config(&mut self) -> Result<SignedEntityConfig> {
-        if self.signed_entity_config.is_none() {
-            self.signed_entity_config = Some(self.configuration.compute_signed_entity_config()?);
+    /// Get the allowed signed entity types discriminants
+    pub fn get_allowed_signed_entity_types_discriminants(
+        &mut self,
+    ) -> Result<BTreeSet<SignedEntityTypeDiscriminants>> {
+        if self.allowed_discriminants.is_none() {
+            self.allowed_discriminants = Some(
+                self.configuration
+                    .compute_allowed_signed_entity_types_discriminants()?,
+            );
         }
 
-        Ok(self.signed_entity_config.clone().unwrap())
+        Ok(self.allowed_discriminants.clone().unwrap())
     }
 
     fn build_sqlite_connection(
@@ -584,8 +586,9 @@ impl DependenciesBuilder {
             // Temporary fix, should be removed
             // Replace empty JSON values '{}' injected with Migration #28
             let cardano_signing_config = self
-                .get_signed_entity_config()?
-                .cardano_transactions_signing_config;
+                .configuration
+                .cardano_transactions_signing_config
+                .clone();
             #[allow(deprecated)]
             epoch_settings_store
                 .replace_cardano_signing_config_empty_values(cardano_signing_config)?;
@@ -1222,9 +1225,7 @@ impl DependenciesBuilder {
         let epoch_settings_storer = self.get_epoch_settings_storer().await?;
         let epoch_settings = self.get_epoch_settings_configuration()?;
         let network = self.configuration.get_network()?;
-        let allowed_discriminants = self
-            .get_signed_entity_config()?
-            .list_allowed_signed_entity_types_discriminants();
+        let allowed_discriminants = self.get_allowed_signed_entity_types_discriminants()?;
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             epoch_settings,
@@ -1338,8 +1339,9 @@ impl DependenciesBuilder {
         let epoch_settings = AggregatorEpochSettings {
             protocol_parameters: self.configuration.protocol_parameters.clone(),
             cardano_transactions_signing_config: self
-                .get_signed_entity_config()?
-                .cardano_transactions_signing_config,
+                .configuration
+                .cardano_transactions_signing_config
+                .clone(),
         };
         Ok(epoch_settings)
     }
@@ -1348,7 +1350,7 @@ impl DependenciesBuilder {
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
-            signed_entity_config: self.get_signed_entity_config()?,
+            allowed_discriminants: self.get_allowed_signed_entity_types_discriminants()?,
             sqlite_connection: self.get_sqlite_connection().await?,
             sqlite_connection_cardano_transaction_pool: self
                 .get_sqlite_connection_cardano_transaction_pool()
@@ -1405,10 +1407,7 @@ impl DependenciesBuilder {
     pub async fn create_aggregator_runner(&mut self) -> Result<AggregatorRuntime> {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
-        let config = AggregatorConfig::new(
-            Duration::from_millis(self.configuration.run_interval),
-            self.get_signed_entity_config()?,
-        );
+        let config = AggregatorConfig::new(Duration::from_millis(self.configuration.run_interval));
         let runtime = AggregatorRuntime::new(
             config,
             None,
@@ -1437,8 +1436,7 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<Arc<CardanoTransactionsPreloader>> {
         let activation = self
-            .get_signed_entity_config()?
-            .list_allowed_signed_entity_types_discriminants()
+            .get_allowed_signed_entity_types_discriminants()?
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions);
         let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
             self.get_signed_entity_lock().await?,

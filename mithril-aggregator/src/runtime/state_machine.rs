@@ -396,7 +396,6 @@ mod tests {
     use mockall::predicate;
     use std::time::Duration;
 
-    use mithril_common::entities::SignedEntityConfig;
     use mithril_common::test_utils::fake_data;
 
     use super::super::runner::MockAggregatorRunner;
@@ -407,7 +406,7 @@ mod tests {
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
         AggregatorRuntime::new(
-            AggregatorConfig::new(Duration::from_millis(20), SignedEntityConfig::dummy()),
+            AggregatorConfig::new(Duration::from_millis(20)),
             init_state,
             Arc::new(runner),
         )

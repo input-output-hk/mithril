@@ -399,49 +399,66 @@ pub struct FakeEpochService {
 }
 
 #[cfg(test)]
+pub struct FakeEpochServiceData {
+    pub epoch: Epoch,
+    pub epoch_settings: AggregatorEpochSettings,
+    pub next_epoch_settings: AggregatorEpochSettings,
+    pub upcoming_epoch_settings: AggregatorEpochSettings,
+    pub current_signers_with_stake: Vec<SignerWithStake>,
+    pub next_signers_with_stake: Vec<SignerWithStake>,
+    pub signed_entity_config: SignedEntityConfig,
+}
+
+#[cfg(test)]
+impl FakeEpochServiceData {
+    pub fn dummy(epoch: Epoch) -> Self {
+        use mithril_common::test_utils::fake_data;
+        let signers = fake_data::signers_with_stakes(3);
+
+        Self {
+            epoch,
+            epoch_settings: AggregatorEpochSettings::dummy(),
+            next_epoch_settings: AggregatorEpochSettings::dummy(),
+            upcoming_epoch_settings: AggregatorEpochSettings::dummy(),
+            current_signers_with_stake: signers.clone(),
+            next_signers_with_stake: signers,
+            signed_entity_config: SignedEntityConfig::dummy(),
+        }
+    }
+}
+
+#[cfg(test)]
 impl FakeEpochService {
-    /// Note: protocol multi signers and current/next avk will be computed using the given protocol
-    /// parameters and signers.
-    pub fn with_data(
-        epoch: Epoch,
-        epoch_settings: &AggregatorEpochSettings,
-        next_epoch_settings: &AggregatorEpochSettings,
-        upcoming_epoch_settings: &AggregatorEpochSettings,
-        current_signers_with_stake: &[SignerWithStake],
-        next_signers_with_stake: &[SignerWithStake],
-        signed_entity_config: SignedEntityConfig,
-    ) -> Self {
+    pub fn new(data: FakeEpochServiceData) -> Self {
+        let current_signers = Signer::vec_from(data.current_signers_with_stake.clone());
+        let next_signers = Signer::vec_from(data.next_signers_with_stake.clone());
+
         let protocol_multi_signer = SignerBuilder::new(
-            current_signers_with_stake,
-            &epoch_settings.protocol_parameters,
+            &data.current_signers_with_stake,
+            &data.epoch_settings.protocol_parameters,
         )
         .with_context(|| "Could not build protocol_multi_signer for epoch service")
         .unwrap()
         .build_multi_signer();
         let next_protocol_multi_signer = SignerBuilder::new(
-            next_signers_with_stake,
-            &next_epoch_settings.protocol_parameters,
+            &data.next_signers_with_stake,
+            &data.next_epoch_settings.protocol_parameters,
         )
         .with_context(|| "Could not build protocol_multi_signer for epoch service")
         .unwrap()
         .build_multi_signer();
 
-        let current_signers_with_stake = current_signers_with_stake.to_vec();
-        let next_signers_with_stake = next_signers_with_stake.to_vec();
-        let current_signers = Signer::vec_from(current_signers_with_stake.clone());
-        let next_signers = Signer::vec_from(next_signers_with_stake.clone());
-
         Self {
             epoch_data: Some(EpochData {
-                epoch,
-                epoch_settings: epoch_settings.clone(),
-                next_epoch_settings: next_epoch_settings.clone(),
-                upcoming_epoch_settings: upcoming_epoch_settings.clone(),
-                current_signers_with_stake,
-                next_signers_with_stake,
+                epoch: data.epoch,
+                epoch_settings: data.epoch_settings,
+                next_epoch_settings: data.next_epoch_settings,
+                upcoming_epoch_settings: data.upcoming_epoch_settings,
+                current_signers_with_stake: data.current_signers_with_stake,
+                next_signers_with_stake: data.next_signers_with_stake,
                 current_signers,
                 next_signers,
-                signed_entity_config,
+                signed_entity_config: data.signed_entity_config,
             }),
             computed_epoch_data: Some(ComputedEpochData {
                 aggregate_verification_key: protocol_multi_signer
@@ -455,6 +472,28 @@ impl FakeEpochService {
             update_epoch_settings_error: false,
             precompute_epoch_data_error: false,
         }
+    }
+
+    /// Note: protocol multi signers and current/next avk will be computed using the given protocol
+    /// parameters and signers.
+    pub fn with_data(
+        epoch: Epoch,
+        epoch_settings: &AggregatorEpochSettings,
+        next_epoch_settings: &AggregatorEpochSettings,
+        upcoming_epoch_settings: &AggregatorEpochSettings,
+        current_signers_with_stake: &[SignerWithStake],
+        next_signers_with_stake: &[SignerWithStake],
+        signed_entity_config: SignedEntityConfig,
+    ) -> Self {
+        Self::new(FakeEpochServiceData {
+            epoch,
+            epoch_settings: epoch_settings.clone(),
+            next_epoch_settings: next_epoch_settings.clone(),
+            upcoming_epoch_settings: upcoming_epoch_settings.clone(),
+            current_signers_with_stake: current_signers_with_stake.to_vec(),
+            next_signers_with_stake: next_signers_with_stake.to_vec(),
+            signed_entity_config,
+        })
     }
 
     pub fn from_fixture(

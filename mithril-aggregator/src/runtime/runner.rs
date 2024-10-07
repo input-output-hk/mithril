@@ -5,8 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::entities::{
-    Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityConfig, SignedEntityType,
-    Signer, TimePoint,
+    Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -22,18 +21,12 @@ use mockall::automock;
 pub struct AggregatorConfig {
     /// Interval between each snapshot, in ms
     pub interval: Duration,
-
-    /// Signed entity configuration.
-    pub signed_entity_config: SignedEntityConfig,
 }
 
 impl AggregatorConfig {
     /// Create a new instance of AggregatorConfig.
-    pub fn new(interval: Duration, signed_entity_config: SignedEntityConfig) -> Self {
-        Self {
-            interval,
-            signed_entity_config,
-        }
+    pub fn new(interval: Duration) -> Self {
+        Self { interval }
     }
 }
 
@@ -157,7 +150,10 @@ impl AggregatorRunner {
     ) -> StdResult<Vec<SignedEntityType>> {
         let signed_entity_types = self
             .dependencies
-            .signed_entity_config
+            .epoch_service
+            .read()
+            .await
+            .signed_entity_config()?
             .list_allowed_signed_entity_types(time_point)?;
         let unlocked_signed_entities = self
             .dependencies
@@ -528,7 +524,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 #[cfg(test)]
 pub mod tests {
     use crate::entities::AggregatorEpochSettings;
-    use crate::services::{FakeEpochService, MockUpkeepService};
+    use crate::services::{FakeEpochService, FakeEpochServiceData, MockUpkeepService};
     use crate::{
         entities::OpenMessage,
         initialize_dependencies,
@@ -977,9 +973,13 @@ pub mod tests {
         let expected_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: deps.config.protocol_parameters.clone(),
             cardano_transactions_signing_config: deps
-                .signed_entity_config
+                .config
                 .cardano_transactions_signing_config
                 .clone(),
+            // cardano_transactions_signing_config: deps
+            //     .signed_entity_config
+            //     .cardano_transactions_signing_config
+            //     .clone(),
         };
         let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
         let insert_epoch = current_epoch.offset_to_epoch_settings_recording_epoch();
@@ -1224,8 +1224,14 @@ pub mod tests {
     async fn list_available_signed_entity_types_list_all_configured_entities_if_none_are_locked() {
         let runner = {
             let mut dependencies = initialize_dependencies().await;
-            dependencies.signed_entity_config.allowed_discriminants =
-                SignedEntityTypeDiscriminants::all();
+            let epoch_service = FakeEpochService::new(FakeEpochServiceData {
+                signed_entity_config: SignedEntityConfig {
+                    allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                    ..SignedEntityConfig::dummy()
+                },
+                ..FakeEpochServiceData::dummy(Epoch(32))
+            });
+            dependencies.epoch_service = Arc::new(RwLock::new(epoch_service));
             dependencies.signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
             AggregatorRunner::new(Arc::new(dependencies))
         };
@@ -1252,9 +1258,16 @@ pub mod tests {
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let runner = {
             let mut dependencies = initialize_dependencies().await;
-            dependencies.signed_entity_config.allowed_discriminants =
-                SignedEntityTypeDiscriminants::all();
             dependencies.signed_entity_type_lock = signed_entity_type_lock.clone();
+            let epoch_service = FakeEpochService::new(FakeEpochServiceData {
+                signed_entity_config: SignedEntityConfig {
+                    allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                    ..SignedEntityConfig::dummy()
+                },
+                ..FakeEpochServiceData::dummy(Epoch(32))
+            });
+            dependencies.epoch_service = Arc::new(RwLock::new(epoch_service));
+
             AggregatorRunner::new(Arc::new(dependencies))
         };
 

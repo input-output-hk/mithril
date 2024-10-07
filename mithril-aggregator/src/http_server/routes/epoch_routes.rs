@@ -1,8 +1,8 @@
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 use warp::Filter;
 
 use mithril_common::{
-    entities::{SignedEntityConfig, SignedEntityTypeDiscriminants},
+    entities::SignedEntityTypeDiscriminants,
     messages::{EpochSettingsMessage, SignerMessagePart},
     StdResult,
 };
@@ -24,13 +24,13 @@ fn epoch_settings(
     warp::path!("epoch-settings")
         .and(warp::get())
         .and(middlewares::with_epoch_service(dependency_manager.clone()))
-        .and(middlewares::with_signed_entity_config(dependency_manager))
+        .and(middlewares::with_allowed_discriminants(dependency_manager))
         .and_then(handlers::epoch_settings)
 }
 
 async fn get_epoch_settings_message(
     epoch_service: EpochServiceWrapper,
-    signed_entity_config: SignedEntityConfig,
+    allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
 ) -> StdResult<EpochSettingsMessage> {
     let epoch_service = epoch_service.read().await;
 
@@ -40,9 +40,8 @@ async fn get_epoch_settings_message(
     let current_signers = epoch_service.current_signers()?;
     let next_signers = epoch_service.next_signers()?;
 
-    let allowed_types = signed_entity_config.list_allowed_signed_entity_types_discriminants();
     let cardano_transactions_discriminant =
-        allowed_types.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
+        allowed_discriminants.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
 
     let cardano_transactions_signing_config = cardano_transactions_discriminant
         .map(|_| epoch_service.current_cardano_transactions_signing_config())
@@ -68,10 +67,11 @@ async fn get_epoch_settings_message(
 
 mod handlers {
     use slog_scope::debug;
+    use std::collections::BTreeSet;
     use std::convert::Infallible;
     use warp::http::StatusCode;
 
-    use mithril_common::entities::SignedEntityConfig;
+    use mithril_common::entities::SignedEntityTypeDiscriminants;
 
     use crate::dependency_injection::EpochServiceWrapper;
     use crate::http_server::routes::epoch_routes::get_epoch_settings_message;
@@ -80,11 +80,11 @@ mod handlers {
     /// Epoch Settings
     pub async fn epoch_settings(
         epoch_service: EpochServiceWrapper,
-        signed_entity_config: SignedEntityConfig,
+        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: epoch_settings");
         let epoch_settings_message =
-            get_epoch_settings_message(epoch_service, signed_entity_config).await;
+            get_epoch_settings_message(epoch_service, allowed_discriminants).await;
 
         match epoch_settings_message {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
@@ -135,20 +135,10 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let epoch_service = FakeEpochService::from_fixture(Epoch(4), &fixture);
         let epoch_service = Arc::new(RwLock::new(epoch_service));
+        let allowed_discriminants =
+            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]);
 
-        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(70),
-            step: BlockNumber(15),
-        };
-        let signed_entity_config = SignedEntityConfig {
-            cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
-            allowed_discriminants: BTreeSet::from([
-                SignedEntityTypeDiscriminants::CardanoTransactions,
-            ]),
-            ..SignedEntityConfig::dummy()
-        };
-
-        let message = get_epoch_settings_message(epoch_service, signed_entity_config)
+        let message = get_epoch_settings_message(epoch_service, allowed_discriminants)
             .await
             .unwrap();
 
@@ -162,17 +152,8 @@ mod tests {
         let epoch_service = FakeEpochService::from_fixture(Epoch(4), &fixture);
         let epoch_service = Arc::new(RwLock::new(epoch_service));
 
-        let cardano_transactions_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(70),
-            step: BlockNumber(15),
-        };
-        let signed_entity_config = SignedEntityConfig {
-            cardano_transactions_signing_config,
-            allowed_discriminants: BTreeSet::new(),
-            ..SignedEntityConfig::dummy()
-        };
-
-        let message = get_epoch_settings_message(epoch_service, signed_entity_config)
+        let allowed_discriminants = BTreeSet::new();
+        let message = get_epoch_settings_message(epoch_service, allowed_discriminants)
             .await
             .unwrap();
 
@@ -207,7 +188,7 @@ mod tests {
 
         let message = get_epoch_settings_message(
             Arc::new(RwLock::new(epoch_service)),
-            SignedEntityConfig::dummy(),
+            SignedEntityTypeDiscriminants::all(),
         )
         .await
         .unwrap();
@@ -251,7 +232,7 @@ mod tests {
 
         let message = get_epoch_settings_message(
             Arc::new(RwLock::new(epoch_service)),
-            SignedEntityConfig::dummy(),
+            SignedEntityTypeDiscriminants::all(),
         )
         .await
         .unwrap();

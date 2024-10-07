@@ -1,10 +1,11 @@
+use std::collections::BTreeSet;
 use std::convert::Infallible;
 use std::sync::Arc;
 
 use warp::Filter;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::entities::SignedEntityConfig;
+use mithril_common::entities::SignedEntityTypeDiscriminants;
 
 use crate::database::repository::SignerGetter;
 use crate::dependency_injection::EpochServiceWrapper;
@@ -43,11 +44,11 @@ pub fn with_config(
     warp::any().map(move || dependency_manager.config.clone())
 }
 
-/// With signed entity config middleware
-pub fn with_signed_entity_config(
+/// With allowed discriminants config middleware
+pub fn with_allowed_discriminants(
     dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (SignedEntityConfig,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.signed_entity_config.clone())
+) -> impl Filter<Extract = (BTreeSet<SignedEntityTypeDiscriminants>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.allowed_discriminants.clone())
 }
 
 /// With Event transmitter middleware

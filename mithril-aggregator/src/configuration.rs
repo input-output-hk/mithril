@@ -5,7 +5,7 @@ use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -289,23 +289,22 @@ impl Configuration {
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
-    // TODO: Maybe remove this function, signing configuration in SignedEntityConfig is stored in DB
-    /// Compute a [SignedEntityConfig] based on this configuration.
-    pub fn compute_signed_entity_config(&self) -> StdResult<SignedEntityConfig> {
-        let network = self.get_network()?;
-        let allowed_discriminants = self
+    /// Compute the list of signed entity discriminants that are allowed to be processed based in this configuration.
+    pub fn compute_allowed_signed_entity_types_discriminants(
+        &self,
+    ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
+        let mut allowed_discriminants = self
             .signed_entity_types
             .as_ref()
             .map(SignedEntityTypeDiscriminants::parse_list)
             .transpose()
             .with_context(|| "Invalid 'signed_entity_types' configuration")?
             .unwrap_or_default();
+        SignedEntityConfig::append_allowed_signed_entity_types_discriminants(
+            &mut allowed_discriminants,
+        );
 
-        Ok(SignedEntityConfig {
-            allowed_discriminants,
-            network,
-            cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
-        })
+        Ok(allowed_discriminants)
     }
 }
 
@@ -539,6 +538,21 @@ mod test {
         assert_eq!(
             target.cardano_transactions_signing_config,
             DefaultConfiguration::default().cardano_transactions_signing_config
+        );
+    }
+
+    #[test]
+    fn compute_allowed_signed_entity_types_discriminants_append_default_discriminants() {
+        let config = Configuration {
+            signed_entity_types: None,
+            ..Configuration::new_sample()
+        };
+
+        assert_eq!(
+            config
+                .compute_allowed_signed_entity_types_discriminants()
+                .unwrap(),
+            BTreeSet::from(SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS)
         );
     }
 }
