@@ -6,6 +6,11 @@
 # Import prelude
 . $(dirname -- "$0")/_prelude.sh
 
+if [ -z "${GENESIS_FILE}" ]; then
+    echo Missing environment variable: GENESIS_FILE
+    exit 1
+fi
+
 # Create keys and addresses
 ## Create payment keypair
 CARDANO_CLI_CMD address key-gen \
