@@ -202,6 +202,7 @@ mod tests {
             &upcoming_epoch_settings,
             &fake_data::signers_with_stakes(5),
             &fake_data::signers_with_stakes(3),
+            SignedEntityConfig::dummy(),
         );
 
         let message = get_epoch_settings_message(
@@ -245,6 +246,7 @@ mod tests {
             &AggregatorEpochSettings::dummy(),
             &fake_data::signers_with_stakes(5),
             &fake_data::signers_with_stakes(3),
+            SignedEntityConfig::dummy(),
         );
 
         let message = get_epoch_settings_message(

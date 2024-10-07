@@ -134,6 +134,7 @@ impl MultiSigner for MultiSignerImpl {
 
 #[cfg(test)]
 mod tests {
+    use entities::SignedEntityConfig;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
@@ -189,6 +190,7 @@ mod tests {
                 },
                 &fixture.signers_with_stake(),
                 &next_fixture.signers_with_stake(),
+                SignedEntityConfig::dummy(),
             ))));
 
         {

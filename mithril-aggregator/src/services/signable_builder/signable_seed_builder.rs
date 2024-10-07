@@ -57,7 +57,7 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::Epoch,
+        entities::{Epoch, SignedEntityConfig},
         test_utils::{MithrilFixture, MithrilFixtureBuilder},
     };
 
@@ -86,6 +86,7 @@ mod tests {
             },
             &fixture.signers_with_stake(),
             &next_fixture.signers_with_stake(),
+            SignedEntityConfig::dummy(),
         )));
 
         AggregatorSignableSeedBuilder::new(epoch_service)

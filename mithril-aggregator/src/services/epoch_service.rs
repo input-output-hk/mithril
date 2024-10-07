@@ -409,6 +409,7 @@ impl FakeEpochService {
         upcoming_epoch_settings: &AggregatorEpochSettings,
         current_signers_with_stake: &[SignerWithStake],
         next_signers_with_stake: &[SignerWithStake],
+        signed_entity_config: SignedEntityConfig,
     ) -> Self {
         let protocol_multi_signer = SignerBuilder::new(
             current_signers_with_stake,
@@ -440,7 +441,7 @@ impl FakeEpochService {
                 next_signers_with_stake,
                 current_signers,
                 next_signers,
-                signed_entity_config: SignedEntityConfig::dummy(),
+                signed_entity_config,
             }),
             computed_epoch_data: Some(ComputedEpochData {
                 aggregate_verification_key: protocol_multi_signer
@@ -481,6 +482,7 @@ impl FakeEpochService {
             &upcoming_epoch_settings,
             &fixture.signers_with_stake(),
             &fixture.signers_with_stake(),
+            SignedEntityConfig::dummy(),
         )
     }
 

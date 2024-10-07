@@ -38,7 +38,9 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{crypto_helper::ProtocolParameters, test_utils::fake_data};
+    use mithril_common::{
+        crypto_helper::ProtocolParameters, entities::SignedEntityConfig, test_utils::fake_data,
+    };
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
@@ -61,6 +63,7 @@ mod tests {
             &epoch_settings,
             &signers_with_stake,
             &signers_with_stake,
+            SignedEntityConfig::dummy(),
         );
         let mithril_stake_distribution_artifact_builder =
             MithrilStakeDistributionArtifactBuilder::new(Arc::new(RwLock::new(epoch_service)));

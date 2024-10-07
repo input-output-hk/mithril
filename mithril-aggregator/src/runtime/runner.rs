@@ -513,7 +513,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         let exists_newer_open_message = {
             let new_signed_entity_type = self
                 .dependencies
-                .signed_entity_config
+                .epoch_service
+                .read()
+                .await
+                .signed_entity_config()?
                 .time_point_to_signed_entity(&open_message_signed_entity_type, last_time_point)?;
             new_signed_entity_type != open_message_signed_entity_type
         };
@@ -536,9 +539,11 @@ pub mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityTypeDiscriminants,
+        CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
+        SignedEntityTypeDiscriminants,
     };
     use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
+    use mithril_common::CardanoNetwork;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -580,7 +585,6 @@ pub mod tests {
             .unwrap();
         deps.init_state_from_fixture(
             &fixture,
-            &CardanoTransactionsSigningConfig::dummy(),
             &[
                 current_epoch.offset_to_signer_retrieval_epoch().unwrap(),
                 current_epoch,
@@ -1300,17 +1304,28 @@ pub mod tests {
     ) -> bool {
         let current_time_point = TimePoint {
             epoch: Epoch(2),
-            immutable_file_number: 1,
+            immutable_file_number: 12,
             ..TimePoint::dummy()
         };
 
-        let message_epoch = if same_signed_entity_type {
-            current_time_point.epoch
+        let message_network = CardanoNetwork::MainNet;
+        let epoch_service_network = if same_signed_entity_type {
+            message_network
         } else {
-            current_time_point.epoch - 1
+            CardanoNetwork::DevNet(412)
+        };
+
+        let epoch_service_signed_entity_config = SignedEntityConfig {
+            network: epoch_service_network,
+            ..SignedEntityConfig::dummy()
+        };
+        let cardano_db_beacon = CardanoDbBeacon {
+            network: message_network.to_string(),
+            epoch: current_time_point.epoch,
+            immutable_file_number: current_time_point.immutable_file_number,
         };
         let open_message = OpenMessage {
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(message_epoch),
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(cardano_db_beacon),
             is_expired: is_expired == IsExpired::Yes,
             ..OpenMessage::dummy()
         };
@@ -1329,6 +1344,18 @@ pub mod tests {
                 .returning(|_| Ok(None));
 
             deps.certifier_service = Arc::new(mock_certifier_service);
+
+            let epoch_settings = AggregatorEpochSettings::dummy();
+            let epoch_service = FakeEpochService::with_data(
+                current_time_point.epoch,
+                &epoch_settings,
+                &epoch_settings,
+                &epoch_settings,
+                &fake_data::signers_with_stakes(1),
+                &fake_data::signers_with_stakes(1),
+                epoch_service_signed_entity_config,
+            );
+            deps.epoch_service = Arc::new(RwLock::new(epoch_service));
 
             build_runner_with_fixture_data(deps).await
         };
