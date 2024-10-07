@@ -6,6 +6,11 @@
 # Import prelude
 . $(dirname -- "$0")/_prelude.sh
 
+if [ -z "${GENESIS_FILE}" ]; then
+    echo Missing environment variable: GENESIS_FILE
+    exit 1
+fi
+
 # Check if all env vars are set
 if [ -z "${TX_IN}" ]; then
     echo Missing environment variable: TX_IN
