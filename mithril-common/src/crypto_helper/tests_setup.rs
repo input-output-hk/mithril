@@ -179,7 +179,8 @@ pub fn setup_certificate_chain(
     let genesis_verifier = genesis_signer.create_genesis_verifier();
     let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
     let protocol_parameters = setup_protocol_parameters();
-    let mut epochs = (1..total_certificates + 2)
+    let genesis_epoch = Epoch(1);
+    let mut epochs = (genesis_epoch.0..total_certificates + 2)
         .map(|i| match certificates_per_epoch {
             0 => panic!("expected at least 1 certificate per epoch"),
             1 => Epoch(i),
@@ -250,6 +251,7 @@ pub fn setup_certificate_chain(
                         CertificateGenesisProducer::create_genesis_protocol_message(
                             next_protocol_parameters,
                             &next_avk,
+                            &genesis_epoch,
                         )
                         .unwrap();
                     let genesis_signature = genesis_producer

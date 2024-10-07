@@ -183,6 +183,7 @@ impl MithrilFixture {
         let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &self.protocol_parameters,
             &genesis_avk,
+            &epoch,
         )
         .unwrap();
         let genesis_signature = genesis_producer
