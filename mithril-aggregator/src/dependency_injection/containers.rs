@@ -194,19 +194,16 @@ impl DependencyContainer {
     ///
     /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator state
     /// using the data from a precomputed fixture.
-    pub async fn init_state_from_fixture(
-        &self,
-        fixture: &MithrilFixture,
-        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
-        target_epochs: &[Epoch],
-    ) {
+    pub async fn init_state_from_fixture(&self, fixture: &MithrilFixture, target_epochs: &[Epoch]) {
         for epoch in target_epochs {
             self.epoch_settings_storer
                 .save_epoch_settings(
                     *epoch,
                     AggregatorEpochSettings {
                         protocol_parameters: fixture.protocol_parameters(),
-                        cardano_transactions_signing_config: cardano_transactions_signing_config
+                        cardano_transactions_signing_config: self
+                            .config
+                            .cardano_transactions_signing_config
                             .clone(),
                     },
                 )
