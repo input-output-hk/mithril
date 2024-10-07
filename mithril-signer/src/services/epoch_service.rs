@@ -364,43 +364,32 @@ pub mod mock_epoch_service {
 
         #[async_trait]
         impl EpochService for EpochServiceImpl {
-            /// Inform the service a new epoch has been detected, telling it to update its
-            /// internal state for the new epoch.
             async fn inform_epoch_settings(
                 &mut self,
                 epoch_settings: SignerEpochSettings,
                 allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
             ) -> StdResult<()>;
 
-            /// Get the current epoch for which the data stored in this service are computed.
             fn epoch_of_current_data(&self) -> StdResult<Epoch>;
 
-            /// Get next protocol parameters used in next epoch (associated with the actual epoch)
             fn next_protocol_parameters(&self) -> StdResult<&'static ProtocolParameters>;
 
             fn protocol_initializer(&self) -> StdResult<&'static Option<ProtocolInitializer>>;
 
-            /// Get signers for the current epoch
             fn current_signers(&self) -> StdResult<&'static Vec<Signer>>;
 
-            /// Get signers for the next epoch
             fn next_signers(&self) -> StdResult<&'static Vec<Signer>>;
 
-            /// Get the list of signed entity types that are allowed to sign for the current epoch
-            fn allowed_discriminants(&self) -> StdResult<&'static BTreeSet<SignedEntityTypeDiscriminants>>;
-
-            /// Get signers with stake for the current epoch
             async fn current_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
 
-            /// Get signers with stake for the next epoch
             async fn next_signers_with_stake(&self) -> StdResult<Vec<SignerWithStake>>;
 
-            /// Get the cardano transactions signing configuration for the current epoch
+            fn allowed_discriminants(&self) -> StdResult<&'static BTreeSet<SignedEntityTypeDiscriminants>>;
+
             fn cardano_transactions_signing_config(
                 &self,
             ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
 
-            /// Get the cardano transactions signing configuration for the next epoch
             fn next_cardano_transactions_signing_config(
                 &self,
             ) -> StdResult<&'static Option<CardanoTransactionsSigningConfig>>;
