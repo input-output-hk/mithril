@@ -103,7 +103,7 @@ impl Args {
 }
 
 fn build_logger(min_level: Level) -> Logger {
-    let drain = slog_bunyan::new(std::io::stdout())
+    let drain = slog_bunyan::with_name("mithril-signer", std::io::stdout())
         .set_pretty(false)
         .build()
         .fuse();
