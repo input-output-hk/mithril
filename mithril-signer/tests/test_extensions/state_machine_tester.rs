@@ -163,9 +163,6 @@ impl StateMachineTester {
             ),
             config.store_retention_limit,
         ));
-        let single_signer = Arc::new(MithrilSingleSigner::new(
-            config.party_id.to_owned().unwrap_or_default(),
-        ));
         let stake_store = Arc::new(StakeStore::new(
             Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone()).unwrap()),
             config.store_retention_limit,
@@ -216,10 +213,16 @@ impl StateMachineTester {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            stake_store.clone(),
+            protocol_initializer_store.clone(),
+        )));
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            config.party_id.to_owned().unwrap_or_default(),
+            epoch_service.clone(),
+        ));
         let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
-            single_signer.clone(),
             protocol_initializer_store.clone(),
         ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
@@ -259,6 +262,8 @@ impl StateMachineTester {
                 epoch_service.clone(),
             )),
             signed_entity_type_lock.clone(),
+            single_signer.clone(),
+            certificate_handler.clone(),
         ));
 
         let services = SignerDependencyContainer {

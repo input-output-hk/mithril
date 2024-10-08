@@ -375,22 +375,10 @@ impl StateMachine {
                 nested_error: Some(e)
             })?;
 
-        let single_signatures = self
-            .runner
-            .compute_single_signature(current_epoch, &message)
+        self.runner.compute_publish_single_signature(&beacon_to_sign, &message)
             .await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not compute single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-        self.runner.send_single_signature(&beacon_to_sign.signed_entity_type, single_signatures, &message).await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not send single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-        self.runner.mark_beacon_as_signed(&beacon_to_sign).await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not mark beacon as signed during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
+                message: format!("Could not compute and publish single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
@@ -723,22 +711,13 @@ mod tests {
             .once()
             .returning(move || Ok(Some(beacon_to_sign_clone.clone())));
         runner
-            .expect_compute_single_signature()
-            .once()
-            .returning(|_, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
-        runner
             .expect_compute_message()
             .once()
             .returning(|_| Ok(ProtocolMessage::new()));
         runner
-            .expect_send_single_signature()
+            .expect_compute_publish_single_signature()
             .once()
-            .returning(|_, _, _| Ok(()));
-        runner
-            .expect_mark_beacon_as_signed()
-            .once()
-            .with(predicate::eq(beacon_to_sign))
-            .returning(|_| Ok(()));
+            .returning(|_, _| Ok(()));
 
         let state_machine = init_state_machine(
             SignerState::ReadyToSign {

@@ -11,13 +11,14 @@ use mithril_common::{
     messages::{
         AggregatorFeaturesMessage, EpochSettingsMessage, TryFromMessageAdapter, TryToMessageAdapter,
     },
-    StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
+    StdError, StdResult, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
 use crate::entities::SignerEpochSettings;
 use crate::message_adapters::{
     FromEpochSettingsAdapter, ToRegisterSignatureMessageAdapter, ToRegisterSignerMessageAdapter,
 };
+use crate::services::SignaturePublisher;
 
 /// Error structure for the Aggregator Client.
 #[derive(Error, Debug)]
@@ -95,6 +96,20 @@ pub trait AggregatorClient: Sync + Send {
     async fn retrieve_aggregator_features(
         &self,
     ) -> Result<AggregatorFeaturesMessage, AggregatorClientError>;
+}
+
+#[async_trait]
+impl<T: AggregatorClient> SignaturePublisher for T {
+    async fn publish(
+        &self,
+        signed_entity_type: &SignedEntityType,
+        signatures: &SingleSignatures,
+        protocol_message: &ProtocolMessage,
+    ) -> StdResult<()> {
+        self.register_signatures(signed_entity_type, signatures, protocol_message)
+            .await?;
+        Ok(())
+    }
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
