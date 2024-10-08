@@ -12,6 +12,7 @@ use async_trait::async_trait;
 use slog::{info, Logger};
 
 use mithril_common::entities::Epoch;
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
@@ -63,7 +64,7 @@ impl SignerUpkeepService {
             cardano_tx_connection_pool,
             signed_entity_type_lock,
             pruning_tasks,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 

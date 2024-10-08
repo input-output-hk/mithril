@@ -12,6 +12,7 @@ use mithril_common::crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory};
 use mithril_common::entities::{
     BlockNumber, BlockRange, CardanoTransaction, ChainPoint, SlotNumber,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 
@@ -68,7 +69,7 @@ impl CardanoTransactionsImporter {
         Self {
             block_scanner,
             transaction_store,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 

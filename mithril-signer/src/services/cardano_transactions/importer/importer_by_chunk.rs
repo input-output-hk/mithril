@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use mithril_common::entities::BlockNumber;
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 
@@ -35,7 +36,7 @@ impl TransactionsImporterByChunk {
             highest_transaction_block_number_getter,
             wrapped_importer,
             chunk_size,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 }

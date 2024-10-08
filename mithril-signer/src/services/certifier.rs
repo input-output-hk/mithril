@@ -1,11 +1,12 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::sync::Arc;
 
 use mithril_common::entities::{
     ProtocolMessage, SignedEntityConfig, SignedEntityType, SingleSignatures, TimePoint,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::{StdResult, TickerService};
 
@@ -74,6 +75,7 @@ pub struct SignerCertifierService {
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     single_signer: Arc<dyn SingleSigner>,
     signature_publisher: Arc<dyn SignaturePublisher>,
+    logger: Logger,
 }
 
 impl SignerCertifierService {
@@ -85,6 +87,7 @@ impl SignerCertifierService {
         signed_entity_type_lock: Arc<SignedEntityTypeLock>,
         single_signer: Arc<dyn SingleSigner>,
         signature_publisher: Arc<dyn SignaturePublisher>,
+        logger: Logger,
     ) -> Self {
         Self {
             ticker_service,
@@ -93,6 +96,7 @@ impl SignerCertifierService {
             signed_entity_type_lock,
             single_signer,
             signature_publisher,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -147,7 +151,7 @@ impl CertifierService for SignerCertifierService {
             .compute_single_signatures(protocol_message)
             .await?
         {
-            debug!(" > there is a single signature to send");
+            debug!(self.logger, " > there is a single signature to send");
             self.signature_publisher
                 .publish(
                     &beacon_to_sign.signed_entity_type,
@@ -156,10 +160,10 @@ impl CertifierService for SignerCertifierService {
                 )
                 .await?;
         } else {
-            debug!(" > NO single signature to send");
+            debug!(self.logger, " > NO single signature to send");
         }
 
-        debug!(" > marking beacon as signed"; "beacon" => ?beacon_to_sign);
+        debug!(self.logger, " > marking beacon as signed"; "beacon" => ?beacon_to_sign);
         self.signed_beacon_store
             .mark_beacon_as_signed(beacon_to_sign)
             .await?;
@@ -501,6 +505,8 @@ mod tests {
 
         use mithril_common::CardanoNetwork;
 
+        use crate::test_tools::TestLogger;
+
         use super::*;
 
         impl SignerCertifierService {
@@ -515,6 +521,7 @@ mod tests {
                     signed_entity_type_lock: Arc::new(SignedEntityTypeLock::new()),
                     single_signer: Arc::new(MockSingleSigner::new()),
                     signature_publisher: Arc::new(MockSignaturePublisher::new()),
+                    logger: TestLogger::stdout(),
                 }
             }
         }

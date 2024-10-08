@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use slog_scope::{debug, trace, warn};
+use slog::{debug, trace, warn, Logger};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
@@ -10,6 +10,7 @@ use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, PartyId, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants, Signer, SignerWithStake,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_persistence::store::StakeStorer;
 
@@ -94,6 +95,7 @@ pub struct MithrilEpochService {
     stake_storer: Arc<dyn StakeStorer>,
     protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     epoch_data: Option<EpochData>,
+    logger: Logger,
 }
 
 impl MithrilEpochService {
@@ -101,11 +103,13 @@ impl MithrilEpochService {
     pub fn new(
         stake_storer: Arc<dyn StakeStorer>,
         protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
+        logger: Logger,
     ) -> Self {
         Self {
             stake_storer,
             protocol_initializer_store,
             epoch_data: None,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -114,7 +118,7 @@ impl MithrilEpochService {
         epoch: Epoch,
         signers: &[Signer],
     ) -> StdResult<Vec<SignerWithStake>> {
-        debug!("EpochService: associate_signers_with_stake");
+        debug!(self.logger, "EpochService: associate_signers_with_stake");
 
         let stakes = self
             .stake_storer
@@ -138,6 +142,7 @@ impl MithrilEpochService {
                 *stake,
             ));
             trace!(
+                self.logger,
                 " > associating signer_id {} with stake {}",
                 signer.party_id,
                 *stake
@@ -173,8 +178,8 @@ impl EpochService for MithrilEpochService {
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> StdResult<()> {
         debug!(
-            "EpochService: register_epoch_settings: {:?}",
-            epoch_settings
+            self.logger,
+            "EpochService: register_epoch_settings: {:?}", epoch_settings
         );
 
         let epoch = epoch_settings.epoch;
@@ -255,16 +260,25 @@ impl EpochService for MithrilEpochService {
     fn can_signer_sign_current_epoch(&self, party_id: PartyId) -> StdResult<bool> {
         let epoch = self.epoch_of_current_data()?;
         if let Some(protocol_initializer) = self.protocol_initializer()? {
-            debug!(" > got protocol initializer for this epoch ({epoch})");
+            debug!(
+                self.logger,
+                " > got protocol initializer for this epoch ({epoch})"
+            );
             if self
                 .is_signer_included_in_current_stake_distribution(party_id, protocol_initializer)?
             {
                 return Ok(true);
             } else {
-                debug!(" > Signer not in current stake distribution. Can NOT sign");
+                debug!(
+                    self.logger,
+                    " > Signer not in current stake distribution. Can NOT sign"
+                );
             }
         } else {
-            warn!(" > NO protocol initializer found for this epoch ({epoch})",);
+            warn!(
+                self.logger,
+                " > NO protocol initializer found for this epoch ({epoch})",
+            );
         }
 
         Ok(false)
@@ -313,6 +327,7 @@ impl MithrilEpochService {
     /// `TEST ONLY` - Create a new instance of the service using dumb dependencies.
     pub fn new_with_dumb_dependencies() -> Self {
         use crate::store::ProtocolInitializerStore;
+        use crate::test_tools::TestLogger;
         use mithril_persistence::store::adapter::DumbStoreAdapter;
         use mithril_persistence::store::StakeStore;
 
@@ -322,7 +337,11 @@ impl MithrilEpochService {
             None,
         ));
 
-        Self::new(stake_store, protocol_initializer_store)
+        Self::new(
+            stake_store,
+            protocol_initializer_store,
+            TestLogger::stdout(),
+        )
     }
 
     /// `TEST ONLY` - Set all data to either default values, empty values, or fake values
@@ -423,6 +442,7 @@ mod tests {
     use crate::entities::SignerEpochSettings;
     use crate::services::MithrilProtocolInitializerBuilder;
     use crate::store::ProtocolInitializerStore;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -442,7 +462,11 @@ mod tests {
             Box::new(DumbStoreAdapter::new()),
             None,
         ));
-        let service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+        let service = MithrilEpochService::new(
+            stake_store,
+            protocol_initializer_store,
+            TestLogger::stdout(),
+        );
 
         service
             .is_signer_included_in_current_stake_distribution(party_id, &protocol_initializer)
@@ -470,7 +494,11 @@ mod tests {
             ..SignerEpochSettings::dummy().clone()
         };
 
-        let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+        let mut service = MithrilEpochService::new(
+            stake_store,
+            protocol_initializer_store,
+            TestLogger::stdout(),
+        );
         service
             .inform_epoch_settings(epoch_settings.clone(), BTreeSet::new())
             .await
@@ -605,7 +633,11 @@ mod tests {
         ));
 
         // Build service and register epoch settings
-        let service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+        let service = MithrilEpochService::new(
+            stake_store,
+            protocol_initializer_store,
+            TestLogger::stdout(),
+        );
         assert!(service.epoch_of_current_data().is_err());
         assert!(service.next_protocol_parameters().is_err());
         assert!(service.protocol_initializer().is_err());
@@ -639,7 +671,11 @@ mod tests {
         };
 
         // Build service and register epoch settings
-        let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+        let mut service = MithrilEpochService::new(
+            stake_store,
+            protocol_initializer_store,
+            TestLogger::stdout(),
+        );
 
         service
             .inform_epoch_settings(
@@ -741,7 +777,11 @@ mod tests {
         };
 
         // Build service and register epoch settings
-        let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+        let mut service = MithrilEpochService::new(
+            stake_store,
+            protocol_initializer_store,
+            TestLogger::stdout(),
+        );
         service
             .inform_epoch_settings(epoch_settings.clone(), BTreeSet::new())
             .await
@@ -786,7 +826,11 @@ mod tests {
             None,
         ));
 
-        let mut service = MithrilEpochService::new(stake_store, protocol_initializer_store);
+        let mut service = MithrilEpochService::new(
+            stake_store,
+            protocol_initializer_store,
+            TestLogger::stdout(),
+        );
         let epoch_settings = SignerEpochSettings {
             epoch,
             ..SignerEpochSettings::dummy().clone()
@@ -816,6 +860,7 @@ mod tests {
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             stake_store,
             protocol_initializer_store,
+            TestLogger::stdout(),
         )));
         let config_provider = SignerSignedEntityConfigProvider {
             cardano_network: fake_data::network(),

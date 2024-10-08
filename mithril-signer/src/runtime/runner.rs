@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog_scope::{debug, warn};
+use slog::{debug, warn, Logger};
 use thiserror::Error;
 use tokio::sync::RwLockReadGuard;
 
@@ -8,6 +8,7 @@ use mithril_common::crypto_helper::{KESPeriod, OpCert, ProtocolOpCert, SerDeShel
 use mithril_common::entities::{
     Epoch, PartyId, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
@@ -81,12 +82,17 @@ pub enum RunnerError {
 pub struct SignerRunner {
     config: Configuration,
     services: SignerDependencyContainer,
+    logger: Logger,
 }
 
 impl SignerRunner {
     /// Create a new Runner instance.
-    pub fn new(config: Configuration, services: SignerDependencyContainer) -> Self {
-        Self { services, config }
+    pub fn new(config: Configuration, services: SignerDependencyContainer, logger: Logger) -> Self {
+        Self {
+            services,
+            config,
+            logger: logger.new_with_component_name::<Self>(),
+        }
     }
 
     async fn epoch_service_read(&self) -> RwLockReadGuard<'_, dyn EpochService> {
@@ -98,7 +104,7 @@ impl SignerRunner {
 #[async_trait]
 impl Runner for SignerRunner {
     async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
-        debug!("RUNNER: get_epoch_settings");
+        debug!(self.logger, "RUNNER: get_epoch_settings");
 
         self.services
             .certificate_handler
@@ -108,13 +114,13 @@ impl Runner for SignerRunner {
     }
 
     async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>> {
-        debug!("RUNNER: get_beacon_to_sign");
+        debug!(self.logger, "RUNNER: get_beacon_to_sign");
 
         self.services.certifier.get_beacon_to_sign().await
     }
 
     async fn get_current_time_point(&self) -> StdResult<TimePoint> {
-        debug!("RUNNER: get_current_time_point");
+        debug!(self.logger, "RUNNER: get_current_time_point");
 
         self.services
             .ticker_service
@@ -124,7 +130,7 @@ impl Runner for SignerRunner {
     }
 
     async fn register_signer_to_aggregator(&self) -> StdResult<()> {
-        debug!("RUNNER: register_signer_to_aggregator");
+        debug!(self.logger, "RUNNER: register_signer_to_aggregator");
 
         let (epoch, protocol_parameters) = {
             let epoch_service = self.services.epoch_service.read().await;
@@ -200,7 +206,7 @@ impl Runner for SignerRunner {
     }
 
     async fn update_stake_distribution(&self, epoch: Epoch) -> StdResult<()> {
-        debug!("RUNNER: update_stake_distribution");
+        debug!(self.logger, "RUNNER: update_stake_distribution");
 
         let exists_stake_distribution = !self
             .services
@@ -233,7 +239,7 @@ impl Runner for SignerRunner {
     }
 
     async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
-        debug!("RUNNER: register_epoch");
+        debug!(self.logger, "RUNNER: register_epoch");
         let aggregator_features = self
             .services
             .certificate_handler
@@ -255,7 +261,7 @@ impl Runner for SignerRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
-        debug!("RUNNER: compute_message");
+        debug!(self.logger, "RUNNER: compute_message");
 
         let protocol_message = self
             .services
@@ -272,7 +278,7 @@ impl Runner for SignerRunner {
         beacon_to_sign: &BeaconToSign,
         message: &ProtocolMessage,
     ) -> StdResult<()> {
-        debug!("RUNNER: compute_publish_single_signature");
+        debug!(self.logger, "RUNNER: compute_publish_single_signature");
         self.services
             .certifier
             .compute_publish_single_signature(beacon_to_sign, message)
@@ -280,7 +286,7 @@ impl Runner for SignerRunner {
     }
 
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()> {
-        debug!("RUNNER: update_era_checker");
+        debug!(self.logger, "RUNNER: update_era_checker");
 
         let era_token = self
             .services
@@ -293,6 +299,7 @@ impl Runner for SignerRunner {
             .era_checker
             .change_era(current_era, era_token.get_current_epoch());
         debug!(
+            self.logger,
             "Current Era is {} (Epoch {}).",
             current_era,
             era_token.get_current_epoch()
@@ -300,14 +307,14 @@ impl Runner for SignerRunner {
 
         if era_token.get_next_supported_era().is_err() {
             let era_name = &era_token.get_next_era_marker().unwrap().name;
-            warn!("Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
+            warn!(self.logger, "Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
         }
 
         Ok(())
     }
 
     async fn upkeep(&self, current_epoch: Epoch) -> StdResult<()> {
-        debug!("RUNNER: upkeep");
+        debug!(self.logger, "RUNNER: upkeep");
         self.services.upkeep_service.run(current_epoch).await?;
         Ok(())
     }
@@ -356,6 +363,7 @@ mod tests {
         SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
     };
     use crate::store::ProtocolInitializerStore;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -388,6 +396,7 @@ mod tests {
     }
 
     async fn init_services() -> SignerDependencyContainer {
+        let logger = TestLogger::stdout();
         let sqlite_connection = Arc::new(main_db_connection().unwrap());
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
@@ -416,7 +425,7 @@ mod tests {
             Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
                 digester.clone(),
                 Path::new(""),
-                slog_scope::logger(),
+                logger.clone(),
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
@@ -425,14 +434,14 @@ mod tests {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             transaction_parser.clone(),
             transaction_store.clone(),
-            slog_scope::logger(),
+            logger.clone(),
         ));
         let block_range_root_retriever =
             Arc::new(MockBlockRangeRootRetrieverImpl::<MKTreeStoreInMemory>::new());
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transactions_importer.clone(),
             block_range_root_retriever,
-            slog_scope::logger(),
+            logger.clone(),
         ));
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
         let cardano_stake_distribution_builder = Arc::new(
@@ -443,8 +452,13 @@ mod tests {
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             stake_store.clone(),
             protocol_initializer_store.clone(),
+            logger.clone(),
         )));
-        let single_signer = Arc::new(MithrilSingleSigner::new(party_id, epoch_service.clone()));
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            party_id,
+            epoch_service.clone(),
+            logger.clone(),
+        ));
         let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
             epoch_service.clone(),
             protocol_initializer_store.clone(),
@@ -457,7 +471,7 @@ mod tests {
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
         ));
-        let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let security_parameter = BlockNumber(0);
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
@@ -465,7 +479,7 @@ mod tests {
             transactions_importer.clone(),
             security_parameter,
             chain_observer.clone(),
-            slog_scope::logger(),
+            logger.clone(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(MockUpkeepService::new());
@@ -480,6 +494,7 @@ mod tests {
             signed_entity_type_lock.clone(),
             single_signer.clone(),
             aggregator_client.clone(),
+            logger.clone(),
         ));
 
         SignerDependencyContainer {
@@ -510,6 +525,7 @@ mod tests {
         SignerRunner::new(
             maybe_config.unwrap_or(Configuration::new_sample("1")),
             maybe_services.unwrap_or(init_services().await),
+            TestLogger::stdout(),
         )
     }
 

@@ -1,13 +1,14 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
     entities::{Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignatures},
+    logging::LoggerExtensions,
     messages::{
         AggregatorFeaturesMessage, EpochSettingsMessage, TryFromMessageAdapter, TryToMessageAdapter,
     },
@@ -118,6 +119,7 @@ pub struct AggregatorHTTPClient {
     relay_endpoint: Option<String>,
     api_version_provider: Arc<APIVersionProvider>,
     timeout_duration: Option<Duration>,
+    logger: Logger,
 }
 
 impl AggregatorHTTPClient {
@@ -127,13 +129,16 @@ impl AggregatorHTTPClient {
         relay_endpoint: Option<String>,
         api_version_provider: Arc<APIVersionProvider>,
         timeout_duration: Option<Duration>,
+        logger: Logger,
     ) -> Self {
-        debug!("New AggregatorHTTPClient created");
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New AggregatorHTTPClient created");
         Self {
             aggregator_endpoint,
             relay_endpoint,
             api_version_provider,
             timeout_duration,
+            logger,
         }
     }
 
@@ -193,7 +198,7 @@ impl AggregatorClient for AggregatorHTTPClient {
     async fn retrieve_epoch_settings(
         &self,
     ) -> Result<Option<SignerEpochSettings>, AggregatorClientError> {
-        debug!("Retrieve epoch settings");
+        debug!(self.logger, "Retrieve epoch settings");
         let url = format!("{}/epoch-settings", self.aggregator_endpoint);
         let response = self
             .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
@@ -225,7 +230,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         epoch: Epoch,
         signer: &Signer,
     ) -> Result<(), AggregatorClientError> {
-        debug!("Register signer");
+        debug!(self.logger, "Register signer");
         let url = format!("{}/register-signer", self.aggregator_endpoint);
         let register_signer_message =
             ToRegisterSignerMessageAdapter::try_adapt((epoch, signer.to_owned()))
@@ -258,7 +263,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         signatures: &SingleSignatures,
         protocol_message: &ProtocolMessage,
     ) -> Result<(), AggregatorClientError> {
-        debug!("Register signatures");
+        debug!(self.logger, "Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
         let register_single_signature_message = ToRegisterSignatureMessageAdapter::try_adapt((
             signed_entity_type.to_owned(),
@@ -276,7 +281,7 @@ impl AggregatorClient for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::GONE => {
-                    debug!("Aggregator already certified that message"; "signed_entity_type" => ?signed_entity_type);
+                    debug!(self.logger, "Aggregator already certified that message"; "signed_entity_type" => ?signed_entity_type);
                     Ok(())
                 }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
@@ -298,7 +303,7 @@ impl AggregatorClient for AggregatorHTTPClient {
     async fn retrieve_aggregator_features(
         &self,
     ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
-        debug!("Retrieve aggregator features message");
+        debug!(self.logger, "Retrieve aggregator features message");
         let url = format!("{}/", self.aggregator_endpoint);
         let response = self
             .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
@@ -430,6 +435,7 @@ mod tests {
     use mithril_common::test_utils::fake_data;
 
     use crate::configuration::Configuration;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -464,6 +470,7 @@ mod tests {
                 config.relay_endpoint,
                 Arc::new(api_version_provider),
                 None,
+                TestLogger::stdout(),
             ),
         )
     }
@@ -559,6 +566,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
@@ -581,6 +589,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let epoch_settings = certificate_handler
             .retrieve_epoch_settings()
@@ -602,6 +611,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
 
         match certificate_handler
@@ -626,6 +636,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             Some(Duration::from_millis(50)),
+            TestLogger::stdout(),
         );
 
         let error = certificate_handler
@@ -654,6 +665,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let register_signer = certificate_handler
             .register_signer(epoch, single_signer)
@@ -677,6 +689,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let error = certificate_handler
             .register_signer(epoch, single_signer)
@@ -707,6 +720,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
 
         match certificate_handler
@@ -738,6 +752,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
 
         match certificate_handler
@@ -765,6 +780,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             Some(Duration::from_millis(50)),
+            TestLogger::stdout(),
         );
 
         let error = certificate_handler
@@ -791,6 +807,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let register_signatures = certificate_handler
             .register_signatures(
@@ -816,6 +833,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let error = certificate_handler
             .register_signatures(
@@ -848,6 +866,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         match certificate_handler
             .register_signatures(
@@ -882,6 +901,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         certificate_handler
             .register_signatures(
@@ -906,6 +926,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         match certificate_handler
             .register_signatures(
@@ -934,6 +955,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         match certificate_handler
             .register_signatures(
@@ -962,6 +984,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             Some(Duration::from_millis(50)),
+            TestLogger::stdout(),
         );
 
         let error = certificate_handler
