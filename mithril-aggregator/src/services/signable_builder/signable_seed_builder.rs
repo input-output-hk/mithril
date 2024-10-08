@@ -57,11 +57,11 @@ impl SignableSeedBuilder for AggregatorSignableSeedBuilder {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::{Epoch, SignedEntityConfig},
+        entities::Epoch,
         test_utils::{MithrilFixture, MithrilFixtureBuilder},
     };
 
-    use crate::{entities::AggregatorEpochSettings, services::FakeEpochService};
+    use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};
 
     use super::*;
 
@@ -70,24 +70,26 @@ mod tests {
         fixture: &MithrilFixture,
         next_fixture: &MithrilFixture,
     ) -> AggregatorSignableSeedBuilder {
-        let epoch_service = Arc::new(RwLock::new(FakeEpochService::with_data(
-            epoch,
-            &AggregatorEpochSettings {
-                protocol_parameters: fixture.protocol_parameters(),
-                ..AggregatorEpochSettings::dummy()
-            },
-            &AggregatorEpochSettings {
-                protocol_parameters: next_fixture.protocol_parameters(),
-                ..AggregatorEpochSettings::dummy()
-            },
-            &AggregatorEpochSettings {
-                protocol_parameters: next_fixture.protocol_parameters(),
-                ..AggregatorEpochSettings::dummy()
-            },
-            &fixture.signers_with_stake(),
-            &next_fixture.signers_with_stake(),
-            SignedEntityConfig::dummy(),
-        )));
+        let epoch_service = Arc::new(RwLock::new(
+            FakeEpochServiceBuilder {
+                epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
+                next_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: next_fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
+                upcoming_epoch_settings: AggregatorEpochSettings {
+                    protocol_parameters: next_fixture.protocol_parameters(),
+                    ..AggregatorEpochSettings::dummy()
+                },
+                current_signers_with_stake: fixture.signers_with_stake(),
+                next_signers_with_stake: next_fixture.signers_with_stake(),
+                ..FakeEpochServiceBuilder::dummy(epoch)
+            }
+            .build(),
+        ));
 
         AggregatorSignableSeedBuilder::new(epoch_service)
     }

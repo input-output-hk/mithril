@@ -38,15 +38,13 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{
-        crypto_helper::ProtocolParameters, entities::SignedEntityConfig, test_utils::fake_data,
-    };
+    use mithril_common::{crypto_helper::ProtocolParameters, test_utils::fake_data};
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
     use super::*;
 
-    use crate::{entities::AggregatorEpochSettings, services::FakeEpochService};
+    use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};
 
     #[tokio::test]
     async fn should_compute_valid_artifact() {
@@ -56,15 +54,13 @@ mod tests {
             protocol_parameters: fake_data::protocol_parameters(),
             ..AggregatorEpochSettings::dummy()
         };
-        let epoch_service = FakeEpochService::with_data(
-            Epoch(1),
-            &epoch_settings,
-            &epoch_settings,
-            &epoch_settings,
-            &signers_with_stake,
-            &signers_with_stake,
-            SignedEntityConfig::dummy(),
-        );
+        let epoch_service = FakeEpochServiceBuilder {
+            epoch_settings: epoch_settings.clone(),
+            current_signers_with_stake: signers_with_stake.clone(),
+            next_signers_with_stake: signers_with_stake.clone(),
+            ..FakeEpochServiceBuilder::dummy(Epoch(1))
+        }
+        .build();
         let mithril_stake_distribution_artifact_builder =
             MithrilStakeDistributionArtifactBuilder::new(Arc::new(RwLock::new(epoch_service)));
         let artifact = mithril_stake_distribution_artifact_builder

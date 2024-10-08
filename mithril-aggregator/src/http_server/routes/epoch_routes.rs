@@ -106,14 +106,14 @@ mod tests {
     use mithril_common::{
         entities::{
             BlockNumber, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters,
-            SignedEntityConfig, SignedEntityTypeDiscriminants,
+            SignedEntityTypeDiscriminants,
         },
         test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
     };
 
-    use crate::initialize_dependencies;
     use crate::services::FakeEpochService;
     use crate::{entities::AggregatorEpochSettings, http_server::SERVER_BASE_PATH};
+    use crate::{initialize_dependencies, services::FakeEpochServiceBuilder};
 
     use super::*;
 
@@ -176,15 +176,15 @@ mod tests {
             ..AggregatorEpochSettings::dummy()
         };
 
-        let epoch_service = FakeEpochService::with_data(
-            Epoch(1),
-            &current_epoch_settings,
-            &next_epoch_settings,
-            &upcoming_epoch_settings,
-            &fake_data::signers_with_stakes(5),
-            &fake_data::signers_with_stakes(3),
-            SignedEntityConfig::dummy(),
-        );
+        let epoch_service = FakeEpochServiceBuilder {
+            epoch_settings: current_epoch_settings,
+            next_epoch_settings: next_epoch_settings.clone(),
+            upcoming_epoch_settings: upcoming_epoch_settings.clone(),
+            current_signers_with_stake: fake_data::signers_with_stakes(5),
+            next_signers_with_stake: fake_data::signers_with_stakes(3),
+            ..FakeEpochServiceBuilder::dummy(Epoch(1))
+        }
+        .build();
 
         let message = get_epoch_settings_message(
             Arc::new(RwLock::new(epoch_service)),
@@ -220,15 +220,15 @@ mod tests {
             ..AggregatorEpochSettings::dummy()
         };
 
-        let epoch_service = FakeEpochService::with_data(
-            Epoch(1),
-            &current_epoch_settings,
-            &next_epoch_settings,
-            &AggregatorEpochSettings::dummy(),
-            &fake_data::signers_with_stakes(5),
-            &fake_data::signers_with_stakes(3),
-            SignedEntityConfig::dummy(),
-        );
+        let epoch_service = FakeEpochServiceBuilder {
+            epoch_settings: current_epoch_settings.clone(),
+            next_epoch_settings: next_epoch_settings.clone(),
+            upcoming_epoch_settings: AggregatorEpochSettings::dummy(),
+            current_signers_with_stake: fake_data::signers_with_stakes(5),
+            next_signers_with_stake: fake_data::signers_with_stakes(3),
+            ..FakeEpochServiceBuilder::dummy(Epoch(1))
+        }
+        .build();
 
         let message = get_epoch_settings_message(
             Arc::new(RwLock::new(epoch_service)),

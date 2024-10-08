@@ -289,7 +289,7 @@ impl Configuration {
             .map(|limit| if limit > 3 { limit as u64 } else { 3 })
     }
 
-    /// Compute the list of signed entity discriminants that are allowed to be processed based in this configuration.
+    /// Compute the list of signed entity discriminants that are allowed to be processed based on this configuration.
     pub fn compute_allowed_signed_entity_types_discriminants(
         &self,
     ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {

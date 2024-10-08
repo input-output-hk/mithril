@@ -524,7 +524,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 #[cfg(test)]
 pub mod tests {
     use crate::entities::AggregatorEpochSettings;
-    use crate::services::{FakeEpochService, FakeEpochServiceData, MockUpkeepService};
+    use crate::services::{FakeEpochService, FakeEpochServiceBuilder, MockUpkeepService};
     use crate::{
         entities::OpenMessage,
         initialize_dependencies,
@@ -976,10 +976,6 @@ pub mod tests {
                 .config
                 .cardano_transactions_signing_config
                 .clone(),
-            // cardano_transactions_signing_config: deps
-            //     .signed_entity_config
-            //     .cardano_transactions_signing_config
-            //     .clone(),
         };
         let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
         let insert_epoch = current_epoch.offset_to_epoch_settings_recording_epoch();
@@ -1224,13 +1220,14 @@ pub mod tests {
     async fn list_available_signed_entity_types_list_all_configured_entities_if_none_are_locked() {
         let runner = {
             let mut dependencies = initialize_dependencies().await;
-            let epoch_service = FakeEpochService::new(FakeEpochServiceData {
+            let epoch_service = FakeEpochServiceBuilder {
                 signed_entity_config: SignedEntityConfig {
                     allowed_discriminants: SignedEntityTypeDiscriminants::all(),
                     ..SignedEntityConfig::dummy()
                 },
-                ..FakeEpochServiceData::dummy(Epoch(32))
-            });
+                ..FakeEpochServiceBuilder::dummy(Epoch(32))
+            }
+            .build();
             dependencies.epoch_service = Arc::new(RwLock::new(epoch_service));
             dependencies.signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
             AggregatorRunner::new(Arc::new(dependencies))
@@ -1259,13 +1256,14 @@ pub mod tests {
         let runner = {
             let mut dependencies = initialize_dependencies().await;
             dependencies.signed_entity_type_lock = signed_entity_type_lock.clone();
-            let epoch_service = FakeEpochService::new(FakeEpochServiceData {
+            let epoch_service = FakeEpochServiceBuilder {
                 signed_entity_config: SignedEntityConfig {
                     allowed_discriminants: SignedEntityTypeDiscriminants::all(),
                     ..SignedEntityConfig::dummy()
                 },
-                ..FakeEpochServiceData::dummy(Epoch(32))
-            });
+                ..FakeEpochServiceBuilder::dummy(Epoch(32))
+            }
+            .build();
             dependencies.epoch_service = Arc::new(RwLock::new(epoch_service));
 
             AggregatorRunner::new(Arc::new(dependencies))
@@ -1311,6 +1309,10 @@ pub mod tests {
         assert!(is_outdated_returned_when(IsExpired::Yes, false).await);
     }
 
+    // The network field in the signed entity configuration is modified to test the scenario
+    // where the computed signed entity type differs from the one specified in the open message.
+    // This is the simplest attribute to manipulate, compared to the protocol parameters,
+    // even though it may not be a real use case.
     async fn is_outdated_returned_when(
         is_expired: IsExpired,
         same_signed_entity_type: bool,
@@ -1358,16 +1360,11 @@ pub mod tests {
 
             deps.certifier_service = Arc::new(mock_certifier_service);
 
-            let epoch_settings = AggregatorEpochSettings::dummy();
-            let epoch_service = FakeEpochService::with_data(
-                current_time_point.epoch,
-                &epoch_settings,
-                &epoch_settings,
-                &epoch_settings,
-                &fake_data::signers_with_stakes(1),
-                &fake_data::signers_with_stakes(1),
-                epoch_service_signed_entity_config,
-            );
+            let epoch_service = FakeEpochServiceBuilder {
+                signed_entity_config: epoch_service_signed_entity_config,
+                ..FakeEpochServiceBuilder::dummy(current_time_point.epoch)
+            }
+            .build();
             deps.epoch_service = Arc::new(RwLock::new(epoch_service));
 
             build_runner_with_fixture_data(deps).await

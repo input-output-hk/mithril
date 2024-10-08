@@ -141,14 +141,6 @@ mod tests {
         let mut builder = DependenciesBuilder::new(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
 
-        // let mut dependency_manager = initialize_dependencies().await;
-        // dependency_manager
-        //     .signed_entity_config
-        //     .allowed_discriminants = BTreeSet::from([
-        //     SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-        //     SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-        //     SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-        // ]);
         let expected_open_api_version = dependency_manager
             .api_version_provider
             .clone()
@@ -212,12 +204,6 @@ mod tests {
         };
         let mut builder = DependenciesBuilder::new(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
-
-        // let mut dependency_manager = initialize_dependencies().await;
-        // dependency_manager
-        //     .signed_entity_config
-        //     .allowed_discriminants =
-        //     BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]);
         dependency_manager
             .config
             .cardano_transactions_prover_max_hashes_allowed_by_request = 99;
