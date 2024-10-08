@@ -118,7 +118,7 @@ impl MithrilEpochService {
         epoch: Epoch,
         signers: &[Signer],
     ) -> StdResult<Vec<SignerWithStake>> {
-        debug!(self.logger, "EpochService: associate_signers_with_stake");
+        debug!(self.logger, "associate_signers_with_stake");
 
         let stakes = self
             .stake_storer
@@ -177,10 +177,7 @@ impl EpochService for MithrilEpochService {
         epoch_settings: SignerEpochSettings,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> StdResult<()> {
-        debug!(
-            self.logger,
-            "EpochService: register_epoch_settings: {:?}", epoch_settings
-        );
+        debug!(self.logger, "register_epoch_settings: {:?}", epoch_settings);
 
         let epoch = epoch_settings.epoch;
         let protocol_initializer = self

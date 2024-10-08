@@ -71,7 +71,7 @@ impl MetricsServer {
     pub async fn start(&self, shutdown_rx: Receiver<()>) -> StdResult<()> {
         info!(
             self.logger,
-            "MetricsServer: starting HTTP server for metrics on port {}", self.server_port
+            "starting HTTP server for metrics on port {}", self.server_port
         );
 
         let router_state = Arc::new(RouterState {
@@ -83,7 +83,7 @@ impl MetricsServer {
                 "/metrics",
                 get(|State(state): State<Arc<RouterState>>| async move {
                     state.metrics_service.export_metrics().map_err(|e| {
-                        error!(state.logger, "MetricsServer: error exporting metrics"; "error" => ?e);
+                        error!(state.logger, "error exporting metrics"; "error" => ?e);
                         MetricsServerError::Internal(e)
                     })
                 }),
@@ -99,7 +99,7 @@ impl MetricsServer {
                 shutdown_rx.await.ok();
                 warn!(
                     serve_logger,
-                    "MetricsServer: shutting down HTTP server after receiving signal"
+                    "shutting down HTTP server after receiving signal"
                 );
             })
             .await?;

@@ -87,14 +87,16 @@ impl CardanoTransactionsImporter {
         if from.as_ref().is_some_and(|f| f.block_number >= until) {
             debug!(
                 self.logger,
-                "TransactionsImporter does not need to retrieve Cardano transactions, the database is up to date for block_number '{until}'",
+                "Does not need to retrieve Cardano transactions, the database is up to date for block_number '{until}'",
             );
             return Ok(());
         }
         debug!(
             self.logger,
-            "TransactionsImporter will retrieve Cardano transactions between block_number '{}' and '{until}'",
-            from.as_ref().map(|c|c.block_number).unwrap_or(BlockNumber(0))
+            "Will retrieve Cardano transactions between block_number '{}' and '{until}'",
+            from.as_ref()
+                .map(|c| c.block_number)
+                .unwrap_or(BlockNumber(0))
         );
 
         let mut streamer = self.block_scanner.scan(from, until).await?;
@@ -138,7 +140,7 @@ impl CardanoTransactionsImporter {
         };
 
         debug!(
-            self.logger, "TransactionsImporter - computing Block Range Roots";
+            self.logger, "Computing Block Range Roots";
             "start_block" => *block_ranges.start(), "end_block" => *block_ranges.end(),
         );
 

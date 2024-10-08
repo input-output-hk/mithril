@@ -54,7 +54,7 @@ impl TransactionsImporter for TransactionsImporterByChunk {
             let next_up_to = (intermediate_up_to + self.chunk_size).min(up_to_beacon);
             debug!(
                 self.logger,
-                "Running Transactions importer between block '{intermediate_up_to}' and '{next_up_to}'";
+                "Running Transactions import between block '{intermediate_up_to}' and '{next_up_to}'";
             );
             self.wrapped_importer.import(next_up_to).await?;
             intermediate_up_to = next_up_to;

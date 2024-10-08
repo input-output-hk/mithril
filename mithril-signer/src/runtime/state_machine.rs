@@ -109,7 +109,7 @@ impl StateMachine {
 
     /// Launch the state machine until an error occurs or it is interrupted.
     pub async fn run(&self) -> Result<(), RuntimeError> {
-        info!(self.logger, "STATE MACHINE: launching");
+        info!(self.logger, "launching");
 
         loop {
             if let Err(e) = self.cycle().await {
@@ -138,7 +138,7 @@ impl StateMachine {
             self.logger,
             "================================================================================"
         );
-        info!(self.logger, "STATE MACHINE: new cycle: {}", *state);
+        info!(self.logger, "new cycle: {}", *state);
 
         self.metrics_service
             .runtime_cycle_total_since_startup_counter_increment();

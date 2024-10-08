@@ -145,7 +145,7 @@ impl MetricsService {
     pub fn signer_registration_success_since_startup_counter_increment(&self) {
         debug!(
             self.logger,
-            "MetricsService: incrementing 'signer_registration_success_since_startup' counter"
+            "incrementing 'signer_registration_success_since_startup' counter"
         );
         self.signer_registration_success_since_startup_counter.inc();
     }
@@ -161,7 +161,7 @@ impl MetricsService {
     pub fn signer_registration_total_since_startup_counter_increment(&self) {
         debug!(
             self.logger,
-            "MetricsService: incrementing 'signer_registration_total_since_startup' counter"
+            "incrementing 'signer_registration_total_since_startup' counter"
         );
         self.signer_registration_total_since_startup_counter.inc();
     }
@@ -175,7 +175,10 @@ impl MetricsService {
 
     /// Set the `signer_registration_success_last_epoch` gauge value.
     pub fn signer_registration_success_last_epoch_gauge_set(&self, value: Epoch) {
-        debug!(self.logger, "MetricsService: set 'signer_registration_success_last_epoch_set' gauge value to {value}");
+        debug!(
+            self.logger,
+            "set 'signer_registration_success_last_epoch_set' gauge value to {value}"
+        );
         self.signer_registration_success_last_epoch_gauge
             .set(value.0 as f64);
     }
@@ -193,7 +196,7 @@ impl MetricsService {
     pub fn signature_registration_success_since_startup_counter_increment(&self) {
         debug!(
             self.logger,
-            "MetricsService: incrementing 'signature_registration_success_since_startup' counter"
+            "incrementing 'signature_registration_success_since_startup' counter"
         );
         self.signature_registration_success_since_startup_counter
             .inc();
@@ -210,7 +213,7 @@ impl MetricsService {
     pub fn signature_registration_total_since_startup_counter_increment(&self) {
         debug!(
             self.logger,
-            "MetricsService: incrementing 'signature_registration_total_since_startup' counter"
+            "incrementing 'signature_registration_total_since_startup' counter"
         );
         self.signature_registration_total_since_startup_counter
             .inc();
@@ -225,7 +228,10 @@ impl MetricsService {
 
     /// Set the `signature_registration_success_last_epoch` gauge value.
     pub fn signature_registration_success_last_epoch_gauge_set(&self, value: Epoch) {
-        debug!(self.logger, "MetricsService: set 'signature_registration_success_last_epoch_set' gauge value to {value}");
+        debug!(
+            self.logger,
+            "set 'signature_registration_success_last_epoch_set' gauge value to {value}"
+        );
         self.signature_registration_success_last_epoch_gauge
             .set(value.0 as f64);
     }
@@ -243,7 +249,7 @@ impl MetricsService {
     pub fn runtime_cycle_total_since_startup_counter_increment(&self) {
         debug!(
             self.logger,
-            "MetricsService: incrementing 'runtime_cycle_total_since_startup' counter"
+            "incrementing 'runtime_cycle_total_since_startup' counter"
         );
         self.runtime_cycle_total_since_startup_counter.inc();
     }
@@ -257,7 +263,7 @@ impl MetricsService {
     pub fn runtime_cycle_success_since_startup_counter_increment(&self) {
         debug!(
             self.logger,
-            "MetricsService: incrementing 'runtime_cycle_success_since_startup' counter"
+            "incrementing 'runtime_cycle_success_since_startup' counter"
         );
         self.runtime_cycle_success_since_startup_counter.inc();
     }

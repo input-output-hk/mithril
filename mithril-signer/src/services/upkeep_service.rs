@@ -71,7 +71,7 @@ impl SignerUpkeepService {
     async fn execute_pruning_tasks(&self, current_epoch: Epoch) -> StdResult<()> {
         for task in &self.pruning_tasks {
             info!(
-                self.logger, "UpkeepService::Pruning stale data";
+                self.logger, "Pruning stale data";
                 "pruned_data" => task.pruned_data(), "current_epoch" => ?current_epoch
             );
             task.prune(current_epoch).await?;
@@ -84,7 +84,7 @@ impl SignerUpkeepService {
         if self.signed_entity_type_lock.has_locked_entities().await {
             info!(
                 self.logger,
-                "UpkeepService::Some entities are locked - Skipping database upkeep"
+                "Some entities are locked - Skipping database upkeep"
             );
             return Ok(());
         }
@@ -95,7 +95,7 @@ impl SignerUpkeepService {
 
         // Run the database upkeep tasks in another thread to avoid blocking the tokio runtime
         let db_upkeep_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
-            info!(db_upkeep_logger, "UpkeepService::Cleaning main database");
+            info!(db_upkeep_logger, "Cleaning main database");
             SqliteCleaner::new(&main_db_connection)
                 .with_logger(db_upkeep_logger.clone())
                 .with_tasks(&[
@@ -104,10 +104,7 @@ impl SignerUpkeepService {
                 ])
                 .run()?;
 
-            info!(
-                db_upkeep_logger,
-                "UpkeepService::Cleaning cardano transactions database"
-            );
+            info!(db_upkeep_logger, "Cleaning cardano transactions database");
             let cardano_tx_db_connection = cardano_tx_db_connection_pool.connection()?;
             SqliteCleaner::new(&cardano_tx_db_connection)
                 .with_logger(db_upkeep_logger.clone())
@@ -126,7 +123,7 @@ impl SignerUpkeepService {
 #[async_trait]
 impl UpkeepService for SignerUpkeepService {
     async fn run(&self, current_epoch: Epoch) -> StdResult<()> {
-        info!(self.logger, "UpkeepService::start");
+        info!(self.logger, "start upkeep of the application");
 
         self.execute_pruning_tasks(current_epoch)
             .await
@@ -136,7 +133,7 @@ impl UpkeepService for SignerUpkeepService {
             .await
             .with_context(|| "Database upkeep failed")?;
 
-        info!(self.logger, "UpkeepService::end");
+        info!(self.logger, "upkeep finished");
         Ok(())
     }
 }
