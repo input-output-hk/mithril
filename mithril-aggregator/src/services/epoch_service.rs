@@ -668,7 +668,6 @@ mod tests {
     use mithril_persistence::store::adapter::MemoryAdapter;
     use std::collections::{BTreeSet, HashMap};
 
-    use crate::services::epoch_service::tests::ServiceBuilderParameters::WithFutureProtocolParameters;
     use crate::store::FakeEpochSettingsStorer;
     use crate::VerificationKeyStore;
 
@@ -827,48 +826,6 @@ mod tests {
         }
     }
 
-    // TODO: Use EpochServiceBuilder and remove ServiceBuilderParameters
-    enum ServiceBuilderParameters {
-        DifferentFixtureForSecondEpoch(MithrilFixture),
-        UpcomingProtocolParameters(ProtocolParameters),
-        WithFutureProtocolParameters(ProtocolParameters),
-    }
-
-    // TODO: Use EpochServiceBuilder and remove build_service
-    /// By default will copy data from the given fixture for all epochs, can be fined tuned
-    /// with the [ServiceBuilderParameters].
-    async fn build_service(
-        epoch: Epoch,
-        current_epoch_fixture: &MithrilFixture,
-        additional_params: &[ServiceBuilderParameters],
-    ) -> MithrilEpochService {
-        let mut builder = EpochServiceBuilder::new(epoch, current_epoch_fixture.clone());
-        for params in additional_params {
-            match params {
-                ServiceBuilderParameters::DifferentFixtureForSecondEpoch(fixture) => {
-                    builder.stored_next_epoch_settings = AggregatorEpochSettings {
-                        protocol_parameters: fixture.protocol_parameters(),
-                        cardano_transactions_signing_config:
-                            CardanoTransactionsSigningConfig::dummy(),
-                    };
-                    builder.next_signers_with_stake = fixture.signers_with_stake().clone();
-                }
-                ServiceBuilderParameters::UpcomingProtocolParameters(params) => {
-                    builder.stored_upcoming_epoch_settings = AggregatorEpochSettings {
-                        protocol_parameters: params.clone(),
-                        cardano_transactions_signing_config:
-                            CardanoTransactionsSigningConfig::dummy(),
-                    };
-                }
-                ServiceBuilderParameters::WithFutureProtocolParameters(params) => {
-                    builder.future_protocol_parameters = params.clone();
-                }
-            }
-        }
-
-        builder.build()
-    }
-
     #[tokio::test]
     async fn inform_epoch_get_data_from_its_dependencies() {
         let current_epoch_fixture = MithrilFixtureBuilder::default().with_signers(3).build();
@@ -941,7 +898,7 @@ mod tests {
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
         ]);
 
-        let builder = EpochServiceBuilder {
+        let mut service = EpochServiceBuilder {
             network,
             allowed_discriminants: allowed_discriminants.clone(),
             stored_epoch_settings: AggregatorEpochSettings {
@@ -949,9 +906,8 @@ mod tests {
                 ..AggregatorEpochSettings::dummy()
             },
             ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
-        };
-
-        let mut service = builder.build();
+        }
+        .build();
 
         service
             .inform_epoch(epoch)
@@ -981,14 +937,15 @@ mod tests {
             .build();
 
         let epoch = Epoch(5);
-        let mut service = build_service(
-            epoch,
-            &current_epoch_fixture,
-            &[ServiceBuilderParameters::DifferentFixtureForSecondEpoch(
-                next_epoch_fixture.clone(),
-            )],
-        )
-        .await;
+        let mut service = EpochServiceBuilder {
+            stored_next_epoch_settings: AggregatorEpochSettings {
+                protocol_parameters: next_epoch_fixture.protocol_parameters(),
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            },
+            next_signers_with_stake: next_epoch_fixture.signers_with_stake().clone(),
+            ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
+        }
+        .build();
 
         service
             .inform_epoch(epoch)
@@ -1017,7 +974,7 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let avk = fixture.compute_avk();
         let epoch = Epoch(4);
-        let mut service = build_service(epoch, &fixture, &[]).await;
+        let mut service = EpochServiceBuilder::new(epoch, fixture.clone()).build();
         let signer_builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
@@ -1040,17 +997,13 @@ mod tests {
 
     #[tokio::test]
     async fn update_epoch_settings_insert_future_epoch_settings_in_the_store() {
-        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let future_protocol_parameters = ProtocolParameters::new(6, 89, 0.124);
         let epoch = Epoch(4);
-        let mut service = build_service(
-            epoch,
-            &fixture,
-            &[WithFutureProtocolParameters(
-                future_protocol_parameters.clone(),
-            )],
-        )
-        .await;
+        let mut service = EpochServiceBuilder {
+            future_protocol_parameters: future_protocol_parameters.clone(),
+            ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
+        }
+        .build();
 
         service
             .inform_epoch(epoch)
@@ -1082,7 +1035,7 @@ mod tests {
     #[tokio::test]
     async fn cant_get_data_if_inform_epoch_has_not_been_called() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let service = build_service(Epoch(4), &fixture, &[]).await;
+        let service = EpochServiceBuilder::new(Epoch(4), fixture.clone()).build();
 
         for (name, res) in [
             (
@@ -1151,7 +1104,7 @@ mod tests {
     async fn can_only_get_non_computed_data_if_inform_epoch_has_been_called_but_not_precompute_epoch_data(
     ) {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let mut service = build_service(Epoch(4), &fixture, &[]).await;
+        let mut service = EpochServiceBuilder::new(Epoch(4), fixture.clone()).build();
         service.inform_epoch(Epoch(4)).await.unwrap();
 
         assert!(service.epoch_of_current_data().is_ok());
