@@ -43,6 +43,7 @@ impl CertificateGenesisProducer {
     pub fn create_genesis_protocol_message(
         genesis_protocol_parameters: &ProtocolParameters,
         genesis_avk: &ProtocolAggregateVerificationKey,
+        genesis_epoch: &Epoch,
     ) -> StdResult<ProtocolMessage> {
         let genesis_avk = genesis_avk.to_json_hex()?;
         let mut protocol_message = ProtocolMessage::new();
@@ -53,6 +54,10 @@ impl CertificateGenesisProducer {
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
             genesis_protocol_parameters.compute_hash(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::CurrentEpoch,
+            genesis_epoch.to_string(),
         );
         Ok(protocol_message)
     }
@@ -94,7 +99,7 @@ impl CertificateGenesisProducer {
         );
         let previous_hash = "".to_string();
         let genesis_protocol_message =
-            Self::create_genesis_protocol_message(&protocol_parameters, &genesis_avk)?;
+            Self::create_genesis_protocol_message(&protocol_parameters, &genesis_avk, &epoch)?;
         Ok(Certificate::new(
             previous_hash,
             epoch,
@@ -117,9 +122,11 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let genesis_protocol_parameters = fixture.protocol_parameters();
         let genesis_avk = fixture.compute_avk();
+        let genesis_epoch = Epoch(123);
         let protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &genesis_protocol_parameters,
             &genesis_avk,
+            &genesis_epoch,
         )
         .unwrap();
 
@@ -134,6 +141,12 @@ mod tests {
         assert_eq!(
             protocol_message.get_message_part(&ProtocolMessagePartKey::NextProtocolParameters),
             Some(&expected_genesis_protocol_parameters_value)
+        );
+
+        let expected_genesis_epoch = genesis_epoch.to_string();
+        assert_eq!(
+            protocol_message.get_message_part(&ProtocolMessagePartKey::CurrentEpoch),
+            Some(&expected_genesis_epoch)
         );
     }
 }

@@ -110,6 +110,7 @@ impl GenesisTools {
         let protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &self.genesis_protocol_parameters,
             &self.genesis_avk,
+            &self.time_point.epoch,
         )?;
         target_file.write_all(protocol_message.compute_hash().as_bytes())?;
         Ok(())
@@ -135,6 +136,7 @@ impl GenesisTools {
         let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &self.genesis_protocol_parameters,
             &self.genesis_avk,
+            &self.time_point.epoch,
         )?;
         let genesis_signature =
             genesis_producer.sign_genesis_protocol_message(genesis_protocol_message)?;
