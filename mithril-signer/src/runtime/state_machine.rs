@@ -1,4 +1,4 @@
-use slog::{crit, debug, error, info, Logger};
+use slog::{debug, info, Logger};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
 
@@ -113,12 +113,9 @@ impl StateMachine {
 
         loop {
             if let Err(e) = self.cycle().await {
+                e.write_to_log(&self.logger);
                 if e.is_critical() {
-                    crit!(self.logger, "{e}");
-
                     return Err(e);
-                } else {
-                    error!(self.logger, "{e}");
                 }
             }
 

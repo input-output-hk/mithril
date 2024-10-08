@@ -211,10 +211,7 @@ async fn main() -> StdResult<()> {
         loop {
             interval.tick().await;
             if let Err(err) = cardano_transaction_preloader.preload().await {
-                crit!(
-                    preload_logger,
-                    "🔥 Cardano transactions preloader failed: {err:?}"
-                );
+                crit!(preload_logger, "🔥 Cardano transactions preloader failed"; "error" => ?err);
             }
             info!(
                 preload_logger,
@@ -267,7 +264,7 @@ async fn main() -> StdResult<()> {
 
     let shutdown_reason = match join_set.join_next().await {
         Some(Err(e)) => {
-            crit!(root_logger, "A critical error occurred: {e:?}");
+            crit!(root_logger, "A critical error occurred"; "error" => ?e);
             None
         }
         Some(Ok(res)) => res?,
