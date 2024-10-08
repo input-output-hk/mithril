@@ -27,6 +27,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for `Cardano node` `9.2.1` in the signer and the aggregator.
 
+- Support for stable Cardano transaction client library, CLI and WASM.
+
 - Crates versions:
 
 | Crate | Version |
