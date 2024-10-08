@@ -91,17 +91,7 @@ mod handlers {
             "complete_message" => #?register_signer_message
         );
 
-        let registration_epoch = match register_signer_message.epoch {
-            Some(epoch) => epoch,
-            None => match signer_registerer.get_current_round().await {
-                Some(round) => round.epoch,
-                None => {
-                    let err = SignerRegistrationError::RegistrationRoundNotYetOpened;
-                    warn!("register_signer::error"; "error" => ?err);
-                    return Ok(reply::service_unavailable(err.to_string()));
-                }
-            },
-        };
+        let registration_epoch = register_signer_message.epoch;
 
         let signer = match FromRegisterSignerAdapter::try_adapt(register_signer_message) {
             Ok(signer) => signer,
@@ -292,9 +282,6 @@ mod tests {
         mock_signer_registerer
             .expect_register_signer()
             .return_once(|_, _| Ok(signer_with_stake));
-        mock_signer_registerer
-            .expect_get_current_round()
-            .return_once(|| None);
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -333,9 +320,6 @@ mod tests {
                     signer_with_stake,
                 )))
             });
-        mock_signer_registerer
-            .expect_get_current_round()
-            .return_once(|| None);
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -373,9 +357,6 @@ mod tests {
                     ProtocolRegistrationError::OpCertInvalid
                 )))
             });
-        mock_signer_registerer
-            .expect_get_current_round()
-            .return_once(|| None);
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -413,9 +394,6 @@ mod tests {
                     "an error occurred".to_string(),
                 ))
             });
-        mock_signer_registerer
-            .expect_get_current_round()
-            .return_once(|| None);
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -448,9 +426,6 @@ mod tests {
         mock_signer_registerer
             .expect_register_signer()
             .return_once(|_, _| Err(SignerRegistrationError::RegistrationRoundNotYetOpened));
-        mock_signer_registerer
-            .expect_get_current_round()
-            .return_once(|| None);
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
