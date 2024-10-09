@@ -336,7 +336,7 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::CREATED => Ok(()),
+                StatusCode::CREATED | StatusCode::ACCEPTED => Ok(()),
                 StatusCode::GONE => {
                     debug!(self.logger, "Aggregator already certified that message"; "signed_entity_type" => ?signed_entity_type);
                     Ok(())
@@ -878,6 +878,31 @@ mod tests {
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(201);
+        });
+        let certificate_handler = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            None,
+            TestLogger::stdout(),
+        );
+        let register_signatures = certificate_handler
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
+            .await;
+        register_signatures.expect("unexpected error");
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_ok_202() {
+        let single_signatures = fake_data::single_signatures((1..5).collect());
+        let (server, config, api_version_provider) = setup_test();
+        let _server_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signatures");
+            then.status(202);
         });
         let certificate_handler = AggregatorHTTPClient::new(
             config.aggregator_endpoint,
