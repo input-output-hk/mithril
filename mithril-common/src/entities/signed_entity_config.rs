@@ -43,9 +43,11 @@ impl SignedEntityConfig {
     /// Append to the given list of allowed signed entity types discriminants the [Self::DEFAULT_ALLOWED_DISCRIMINANTS]
     /// if not already present.
     pub fn append_allowed_signed_entity_types_discriminants(
-        discriminants: &mut BTreeSet<SignedEntityTypeDiscriminants>,
-    ) {
+        discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> BTreeSet<SignedEntityTypeDiscriminants> {
+        let mut discriminants = discriminants;
         discriminants.append(&mut BTreeSet::from(Self::DEFAULT_ALLOWED_DISCRIMINANTS));
+        discriminants
     }
 
     /// Create the deduplicated list of allowed signed entity types discriminants.
@@ -55,9 +57,8 @@ impl SignedEntityConfig {
     pub fn list_allowed_signed_entity_types_discriminants(
         &self,
     ) -> BTreeSet<SignedEntityTypeDiscriminants> {
-        let mut discriminants = self.allowed_discriminants.clone();
-        Self::append_allowed_signed_entity_types_discriminants(&mut discriminants);
-        discriminants
+        let discriminants = self.allowed_discriminants.clone();
+        Self::append_allowed_signed_entity_types_discriminants(discriminants)
     }
 
     /// Convert this time point to a signed entity type based on the given discriminant.

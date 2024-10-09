@@ -293,16 +293,17 @@ impl Configuration {
     pub fn compute_allowed_signed_entity_types_discriminants(
         &self,
     ) -> StdResult<BTreeSet<SignedEntityTypeDiscriminants>> {
-        let mut allowed_discriminants = self
+        let allowed_discriminants = self
             .signed_entity_types
             .as_ref()
             .map(SignedEntityTypeDiscriminants::parse_list)
             .transpose()
             .with_context(|| "Invalid 'signed_entity_types' configuration")?
             .unwrap_or_default();
-        SignedEntityConfig::append_allowed_signed_entity_types_discriminants(
-            &mut allowed_discriminants,
-        );
+        let allowed_discriminants =
+            SignedEntityConfig::append_allowed_signed_entity_types_discriminants(
+                allowed_discriminants,
+            );
 
         Ok(allowed_discriminants)
     }
