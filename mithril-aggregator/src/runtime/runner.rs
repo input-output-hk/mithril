@@ -535,11 +535,10 @@ pub mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
     use mithril_common::entities::{
-        CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
         SignedEntityTypeDiscriminants,
     };
     use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
-    use mithril_common::CardanoNetwork;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -1287,54 +1286,42 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn is_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message() {
+    async fn is_open_message_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message(
+    ) {
         assert!(!is_outdated_returned_when(IsExpired::No, false).await);
     }
 
     #[tokio::test]
-    async fn is_outdated_return_true_when_message_is_expired_and_no_newer_open_message() {
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_no_newer_open_message(
+    ) {
         assert!(is_outdated_returned_when(IsExpired::Yes, false).await);
     }
 
     #[tokio::test]
-    async fn is_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message() {
+    async fn is_open_message_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message(
+    ) {
         assert!(is_outdated_returned_when(IsExpired::No, true).await);
     }
 
     #[tokio::test]
-    async fn is_outdated_return_true_when_message_is_expired_and_exists_newer_open_message() {
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_exists_newer_open_message(
+    ) {
         assert!(is_outdated_returned_when(IsExpired::Yes, true).await);
     }
 
-    // The network field in the signed entity configuration is modified to test the scenario
-    // where the computed signed entity type differs from the one specified in the open message.
-    // This is the simplest attribute to manipulate, compared to the protocol parameters,
-    // even though it may not be a real use case.
     async fn is_outdated_returned_when(is_expired: IsExpired, newer_open_message: bool) -> bool {
         let current_time_point = TimePoint {
             epoch: Epoch(2),
-            immutable_file_number: 12,
             ..TimePoint::dummy()
         };
 
-        let message_network = CardanoNetwork::MainNet;
-        let epoch_service_network = if newer_open_message {
-            CardanoNetwork::DevNet(412)
+        let message_epoch = if newer_open_message {
+            current_time_point.epoch + 54
         } else {
-            message_network
+            current_time_point.epoch
         };
-
-        let epoch_service_signed_entity_config = SignedEntityConfig {
-            network: epoch_service_network,
-            ..SignedEntityConfig::dummy()
-        };
-        let cardano_db_beacon = CardanoDbBeacon {
-            network: message_network.to_string(),
-            epoch: current_time_point.epoch,
-            immutable_file_number: current_time_point.immutable_file_number,
-        };
-        let open_message = OpenMessage {
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(cardano_db_beacon),
+        let open_message_to_verify = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(message_epoch),
             is_expired: is_expired == IsExpired::Yes,
             ..OpenMessage::dummy()
         };
@@ -1343,29 +1330,28 @@ pub mod tests {
             let mut deps = initialize_dependencies().await;
             let mut mock_certifier_service = MockCertifierService::new();
 
-            let open_message_cloned = open_message.clone();
+            let open_message_current = open_message_to_verify.clone();
             mock_certifier_service
                 .expect_get_open_message()
                 .times(1)
-                .return_once(|_| Ok(Some(open_message_cloned)));
+                .return_once(|_| Ok(Some(open_message_current)));
             mock_certifier_service
                 .expect_mark_open_message_if_expired()
                 .returning(|_| Ok(None));
 
             deps.certifier_service = Arc::new(mock_certifier_service);
 
-            let epoch_service = FakeEpochServiceBuilder {
-                signed_entity_config: epoch_service_signed_entity_config,
-                ..FakeEpochServiceBuilder::dummy(current_time_point.epoch)
-            }
-            .build();
+            let epoch_service = FakeEpochServiceBuilder::dummy(current_time_point.epoch).build();
             deps.epoch_service = Arc::new(RwLock::new(epoch_service));
 
             build_runner_with_fixture_data(deps).await
         };
 
         runner
-            .is_open_message_outdated(open_message.signed_entity_type, &current_time_point)
+            .is_open_message_outdated(
+                open_message_to_verify.signed_entity_type,
+                &current_time_point,
+            )
             .await
             .unwrap()
     }
