@@ -129,7 +129,7 @@ pub struct MithrilEpochService {
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     verification_key_store: Arc<dyn VerificationKeyStorer>,
     network: CardanoNetwork,
-    allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    allowed_signed_entity_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
 }
 
 impl MithrilEpochService {
@@ -148,7 +148,7 @@ impl MithrilEpochService {
             epoch_settings_storer,
             verification_key_store,
             network,
-            allowed_discriminants,
+            allowed_signed_entity_discriminants: allowed_discriminants,
         }
     }
 
@@ -250,7 +250,7 @@ impl EpochService for MithrilEpochService {
         let next_signers = Signer::vec_from(next_signers_with_stake.clone());
 
         let signed_entity_config = SignedEntityConfig {
-            allowed_discriminants: self.allowed_discriminants.clone(),
+            allowed_discriminants: self.allowed_signed_entity_discriminants.clone(),
             network: self.network,
             cardano_transactions_signing_config: epoch_settings
                 .cardano_transactions_signing_config
@@ -740,18 +740,14 @@ mod tests {
         fn new(epoch: Epoch, current_epoch_fixture: MithrilFixture) -> Self {
             let next_epoch_fixture = current_epoch_fixture.clone();
             Self {
-                // Aggregator configuration
                 cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 future_protocol_parameters: current_epoch_fixture.protocol_parameters(),
                 network: CardanoNetwork::TestNet(0),
                 allowed_discriminants: BTreeSet::new(),
-                // Epoch used for verification keys and database
                 signer_retrieval_epoch: epoch.offset_to_signer_retrieval_epoch().unwrap(),
                 next_signer_retrieval_epoch: epoch.offset_to_next_signer_retrieval_epoch(),
-                // Signers in verification key store
                 signers_with_stake: current_epoch_fixture.signers_with_stake(),
                 next_signers_with_stake: next_epoch_fixture.signers_with_stake(),
-                // Database data
                 stored_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: current_epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),

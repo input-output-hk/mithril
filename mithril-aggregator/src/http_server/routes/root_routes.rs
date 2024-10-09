@@ -18,7 +18,7 @@ fn root(
         .and(middlewares::with_api_version_provider(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_allowed_discriminants(
+        .and(middlewares::with_allowed_signed_entity_type_discriminants(
             dependency_manager.clone(),
         ))
         .and(middlewares::with_config(dependency_manager))
@@ -44,7 +44,7 @@ mod handlers {
     /// Root
     pub async fn root(
         api_version_provider: Arc<APIVersionProvider>,
-        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         configuration: Configuration,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: root");
@@ -55,7 +55,7 @@ mod handlers {
         );
 
         let mut capabilities = AggregatorCapabilities {
-            signed_entity_types: allowed_discriminants,
+            signed_entity_types: allowed_signed_entity_type_discriminants,
             cardano_transactions_prover: None,
             cardano_transactions_signing_config: None,
         };

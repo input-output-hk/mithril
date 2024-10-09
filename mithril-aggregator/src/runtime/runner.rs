@@ -125,7 +125,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> StdResult<OpenMessage>;
 
     /// Checks if the open message is considered outdated.
-    async fn is_outdated(
+    async fn is_open_message_outdated(
         &self,
         open_message_signed_entity_type: SignedEntityType,
         last_time_point: &TimePoint,
@@ -490,7 +490,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
     }
 
-    async fn is_outdated(
+    async fn is_open_message_outdated(
         &self,
         open_message_signed_entity_type: SignedEntityType,
         last_time_point: &TimePoint,
@@ -1287,36 +1287,30 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn is_outdated_return_false_when_message_is_not_expired_and_has_same_signed_entity_type()
-    {
-        assert!(!is_outdated_returned_when(IsExpired::No, true).await);
+    async fn is_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message() {
+        assert!(!is_outdated_returned_when(IsExpired::No, false).await);
     }
 
     #[tokio::test]
-    async fn is_outdated_return_true_when_message_is_expired_and_has_same_signed_entity_type() {
-        assert!(is_outdated_returned_when(IsExpired::Yes, true).await);
-    }
-
-    #[tokio::test]
-    async fn is_outdated_return_true_when_message_is_not_expired_and_has_not_the_same_signed_entity_type(
-    ) {
-        assert!(is_outdated_returned_when(IsExpired::No, false).await);
-    }
-
-    #[tokio::test]
-    async fn is_outdated_return_true_when_message_is_expired_and_has_not_the_same_signed_entity_type(
-    ) {
+    async fn is_outdated_return_true_when_message_is_expired_and_no_newer_open_message() {
         assert!(is_outdated_returned_when(IsExpired::Yes, false).await);
+    }
+
+    #[tokio::test]
+    async fn is_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message() {
+        assert!(is_outdated_returned_when(IsExpired::No, true).await);
+    }
+
+    #[tokio::test]
+    async fn is_outdated_return_true_when_message_is_expired_and_exists_newer_open_message() {
+        assert!(is_outdated_returned_when(IsExpired::Yes, true).await);
     }
 
     // The network field in the signed entity configuration is modified to test the scenario
     // where the computed signed entity type differs from the one specified in the open message.
     // This is the simplest attribute to manipulate, compared to the protocol parameters,
     // even though it may not be a real use case.
-    async fn is_outdated_returned_when(
-        is_expired: IsExpired,
-        same_signed_entity_type: bool,
-    ) -> bool {
+    async fn is_outdated_returned_when(is_expired: IsExpired, newer_open_message: bool) -> bool {
         let current_time_point = TimePoint {
             epoch: Epoch(2),
             immutable_file_number: 12,
@@ -1324,10 +1318,10 @@ pub mod tests {
         };
 
         let message_network = CardanoNetwork::MainNet;
-        let epoch_service_network = if same_signed_entity_type {
-            message_network
-        } else {
+        let epoch_service_network = if newer_open_message {
             CardanoNetwork::DevNet(412)
+        } else {
+            message_network
         };
 
         let epoch_service_signed_entity_config = SignedEntityConfig {
@@ -1371,7 +1365,7 @@ pub mod tests {
         };
 
         runner
-            .is_outdated(open_message.signed_entity_type, &current_time_point)
+            .is_open_message_outdated(open_message.signed_entity_type, &current_time_point)
             .await
             .unwrap()
     }

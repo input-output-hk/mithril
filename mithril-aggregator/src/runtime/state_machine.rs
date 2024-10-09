@@ -225,7 +225,7 @@ impl AggregatorRuntime {
 
                 let is_outdated = self
                     .runner
-                    .is_outdated(
+                    .is_open_message_outdated(
                         state.open_message.signed_entity_type.clone(),
                         &last_time_point,
                     )
@@ -632,7 +632,7 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_is_outdated()
+            .expect_is_open_message_outdated()
             .once()
             .returning(|_, _| Ok(true));
         runner
@@ -659,7 +659,7 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_is_outdated()
+            .expect_is_open_message_outdated()
             .once()
             .returning(|_, _| Ok(false));
         runner
@@ -692,7 +692,7 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_is_outdated()
+            .expect_is_open_message_outdated()
             .once()
             .returning(|_, _| Ok(false));
         runner
@@ -732,7 +732,7 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_is_outdated()
+            .expect_is_open_message_outdated()
             .once()
             .returning(|_, _| Ok(false));
         runner

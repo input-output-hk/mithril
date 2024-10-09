@@ -24,7 +24,9 @@ fn epoch_settings(
     warp::path!("epoch-settings")
         .and(warp::get())
         .and(middlewares::with_epoch_service(dependency_manager.clone()))
-        .and(middlewares::with_allowed_discriminants(dependency_manager))
+        .and(middlewares::with_allowed_signed_entity_type_discriminants(
+            dependency_manager,
+        ))
         .and_then(handlers::epoch_settings)
 }
 

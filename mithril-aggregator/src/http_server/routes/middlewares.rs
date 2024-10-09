@@ -44,8 +44,8 @@ pub fn with_config(
     warp::any().map(move || dependency_manager.config.clone())
 }
 
-/// With allowed discriminants config middleware
-pub fn with_allowed_discriminants(
+/// With allowed signed entity discriminants middleware
+pub fn with_allowed_signed_entity_type_discriminants(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (BTreeSet<SignedEntityTypeDiscriminants>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.allowed_discriminants.clone())
