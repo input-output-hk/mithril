@@ -3710,6 +3710,7 @@ dependencies = [
  "config",
  "criterion",
  "hex",
+ "http 1.1.0",
  "httpmock",
  "mithril-common",
  "mithril-doc",
