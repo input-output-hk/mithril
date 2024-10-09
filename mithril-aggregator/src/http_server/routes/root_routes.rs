@@ -125,17 +125,12 @@ mod tests {
         let method = Method::GET.as_str();
         let path = "/";
         let config = Configuration {
-            signed_entity_types: Some(
-                BTreeSet::from([
-                    SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-                    SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                    SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-                ])
-                .iter()
-                .map(SignedEntityTypeDiscriminants::to_string)
-                .collect::<Vec<_>>()
-                .join(","),
-            ),
+            signed_entity_types: Some(format!(
+                "{}, {}, {}",
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            )),
             ..Configuration::new_sample()
         };
         let mut builder = DependenciesBuilder::new(config);
@@ -193,13 +188,10 @@ mod tests {
         let method = Method::GET.as_str();
         let path = "/";
         let config = Configuration {
-            signed_entity_types: Some(
-                BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions])
-                    .iter()
-                    .map(SignedEntityTypeDiscriminants::to_string)
-                    .collect::<Vec<_>>()
-                    .join(","),
-            ),
+            signed_entity_types: Some(format!(
+                "{}",
+                SignedEntityTypeDiscriminants::CardanoTransactions
+            )),
             ..Configuration::new_sample()
         };
         let mut builder = DependenciesBuilder::new(config);
