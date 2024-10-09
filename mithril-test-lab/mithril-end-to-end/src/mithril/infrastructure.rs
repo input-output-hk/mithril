@@ -10,8 +10,6 @@ use std::borrow::BorrowMut;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::time::sleep;
 
 use super::signer::SignerConfig;
 
@@ -123,7 +121,6 @@ impl MithrilInfrastructure {
                 &era_epoch,
             )
             .await?;
-            sleep(Duration::from_secs(5)).await;
         }
 
         Ok(())
