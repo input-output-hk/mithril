@@ -98,9 +98,6 @@ pub struct DependenciesBuilder {
     /// Configuration parameters
     pub configuration: Configuration,
 
-    /// List of signed entity discriminants that are allowed to be processed
-    pub allowed_discriminants: Option<BTreeSet<SignedEntityTypeDiscriminants>>,
-
     /// SQLite database connection
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
 
@@ -243,7 +240,6 @@ impl DependenciesBuilder {
     pub fn new(configuration: Configuration) -> Self {
         Self {
             configuration,
-            allowed_discriminants: None,
             sqlite_connection: None,
             sqlite_connection_cardano_transaction_pool: None,
             stake_store: None,
@@ -292,17 +288,14 @@ impl DependenciesBuilder {
     }
 
     /// Get the allowed signed entity types discriminants
-    pub fn get_allowed_signed_entity_types_discriminants(
-        &mut self,
+    fn get_allowed_signed_entity_types_discriminants(
+        &self,
     ) -> Result<BTreeSet<SignedEntityTypeDiscriminants>> {
-        if self.allowed_discriminants.is_none() {
-            self.allowed_discriminants = Some(
-                self.configuration
-                    .compute_allowed_signed_entity_types_discriminants()?,
-            );
-        }
+        let allowed_discriminants = self
+            .configuration
+            .compute_allowed_signed_entity_types_discriminants()?;
 
-        Ok(self.allowed_discriminants.clone().unwrap())
+        Ok(allowed_discriminants)
     }
 
     fn build_sqlite_connection(
