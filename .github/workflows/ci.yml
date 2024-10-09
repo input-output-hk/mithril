@@ -346,26 +346,24 @@ jobs:
 
       - name: Test
         run: |
-          if [[ "${{ matrix.next_era }}" == "" ]]; then
-            # If there is no next era, we don't need to specify it with '--mithril-next-era'
-            ./mithril-end-to-end -vvv \
-              --bin-directory ./bin \
-              --work-directory=./artifacts \
-              --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
-              --mithril-era=${{ matrix.era }} \
-              --cardano-node-version ${{ matrix.cardano_node_version }} \
-              --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }}
-          else
-            # If there is a next era, we need to specify it with '--mithril-next-era'
-            ./mithril-end-to-end -vvv \
-              --bin-directory ./bin \
-              --work-directory=./artifacts \
-              --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
-              --mithril-era=${{ matrix.era }} \
-              --mithril-next-era=${{ matrix.next_era }} \
-              --cardano-node-version ${{ matrix.cardano_node_version }} \
-              --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }}
+          cat > ./mithril-end-to-end.sh << EOF
+          #!/bin/bash
+          set -x
+          ./mithril-end-to-end -vvv \\
+                  --bin-directory ./bin \\
+                  --work-directory=./artifacts \\
+                  --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
+                  --mithril-era=${{ matrix.era }} \\
+                  --cardano-node-version ${{ matrix.cardano_node_version }} \\
+                  --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }} \\
+          EOF
+          # If there is a next era, we need to specify it with '--mithril-next-era'
+          if [[ "${{ matrix.next_era }}" != "" ]]; then
+            echo "  --mithril-next-era=${{ matrix.next_era }}" >> ./mithril-end-to-end.sh
           fi
+          chmod u+x ./mithril-end-to-end.sh
+          ./mithril-end-to-end.sh
+          rm ./mithril-end-to-end.sh
 
       - name: Upload E2E Tests Artifacts
         if: ${{ failure() }}
