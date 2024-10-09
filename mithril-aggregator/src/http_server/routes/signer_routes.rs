@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
+use slog_scope::warn;
 use warp::Filter;
 
+use crate::dependency_injection::EpochServiceWrapper;
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
 
@@ -31,7 +33,7 @@ fn register_signer(
         .and(middlewares::with_event_transmitter(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_ticker_service(dependency_manager))
+        .and(middlewares::with_epoch_service(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
@@ -56,19 +58,30 @@ fn registered_signers(
         .and_then(handlers::registered_signers)
 }
 
+async fn fetch_epoch_header_value(epoch_service: EpochServiceWrapper) -> String {
+    match epoch_service.read().await.epoch_of_current_data() {
+        Ok(epoch) => format!("{epoch}"),
+        Err(e) => {
+            warn!("Could not fetch epoch header value from Epoch service: {e}");
+            String::new()
+        }
+    }
+}
+
 mod handlers {
     use crate::database::repository::SignerGetter;
+    use crate::dependency_injection::EpochServiceWrapper;
     use crate::entities::{
         SignerRegistrationsMessage, SignerTickerListItemMessage, SignersTickersMessage,
     };
     use crate::event_store::{EventMessage, TransmitterService};
+    use crate::http_server::routes::signer_routes::fetch_epoch_header_value;
     use crate::{
         http_server::routes::reply, Configuration, SignerRegisterer, SignerRegistrationError,
     };
     use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
-    use mithril_common::TickerService;
     use slog_scope::{debug, trace, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -80,7 +93,7 @@ mod handlers {
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
-        ticker_service: Arc<dyn TickerService>,
+        epoch_service: EpochServiceWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",
@@ -109,13 +122,7 @@ mod handlers {
             None => Vec::new(),
         };
 
-        let epoch_str = match ticker_service.get_current_epoch().await {
-            Ok(epoch) => format!("{epoch}"),
-            Err(e) => {
-                warn!("Could not read epoch to add in event: {e}");
-                String::new()
-            }
-        };
+        let epoch_str = fetch_epoch_header_value(epoch_service).await;
         if !epoch_str.is_empty() {
             headers.push(("epoch", epoch_str.as_str()));
         }
@@ -238,15 +245,17 @@ mod tests {
     use anyhow::anyhow;
     use mockall::predicate::eq;
     use serde_json::Value::Null;
+    use tokio::sync::RwLock;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
 
-    use mithril_common::entities::Epoch;
     use mithril_common::{
         crypto_helper::ProtocolRegistrationError,
+        entities::Epoch,
         messages::RegisterSignerMessage,
+        test_utils::MithrilFixtureBuilder,
         test_utils::{apispec::APISpec, fake_data},
     };
     use mithril_persistence::store::adapter::AdapterError;
@@ -255,6 +264,7 @@ mod tests {
         database::{record::SignerRecord, repository::MockSignerGetter},
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
+        services::FakeEpochService,
         signer_registerer::MockSignerRegisterer,
         store::MockVerificationKeyStorer,
         SignerRegistrationError,
@@ -649,5 +659,27 @@ mod tests {
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_fetch_epoch_header_value_when_epoch_service_return_epoch() {
+        let fixture = MithrilFixtureBuilder::default().build();
+        let epoch_service = Arc::new(RwLock::new(FakeEpochService::from_fixture(
+            Epoch(84),
+            &fixture,
+        )));
+
+        let epoch_str = fetch_epoch_header_value(epoch_service).await;
+
+        assert_eq!(epoch_str, "84".to_string());
+    }
+
+    #[tokio::test]
+    async fn test_fetch_epoch_header_value_when_epoch_service_error_return_empty_string() {
+        let epoch_service = Arc::new(RwLock::new(FakeEpochService::without_data()));
+
+        let epoch_str = fetch_epoch_header_value(epoch_service).await;
+
+        assert_eq!(epoch_str, "".to_string());
     }
 }
