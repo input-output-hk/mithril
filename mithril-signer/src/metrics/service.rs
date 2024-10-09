@@ -40,6 +40,49 @@ pub struct MetricsService {
     signature_registration_success_last_epoch_gauge: Box<Gauge>,
     runtime_cycle_success_since_startup_counter: Box<Counter>,
     runtime_cycle_total_since_startup_counter: Box<Counter>,
+
+    signer_registration_success_since_startup_counter_struct: MetricCounter,
+    signer_registration_success_last_epoch_gauge_struct: MetricGauge,
+}
+
+pub struct MetricCounter {
+    counter: Counter,
+}
+
+impl MetricCounter {
+    fn record(&self) -> () {
+        self.counter.inc();
+    }
+
+    fn get(&self) -> CounterValue {
+        self.counter.get().round() as CounterValue
+    }
+
+    fn new(name: &str, help: &str) -> Self {
+        Self {
+            counter: MetricsService::create_metric_counter(name, help).unwrap(),
+        }
+    }
+}
+
+pub struct MetricGauge {
+    gauge: Gauge,
+}
+
+impl MetricGauge {
+    fn record(&self, epoch: Epoch) -> () {
+        self.gauge.set(epoch.0 as f64);
+    }
+
+    fn get(&self) -> Epoch {
+        Epoch(self.gauge.get().round() as u64)
+    }
+
+    fn new(name: &str, help: &str) -> Self {
+        Self {
+            gauge: MetricsService::create_metric_gauge(name, help).unwrap(),
+        }
+    }
 }
 
 impl MetricsService {
@@ -48,6 +91,11 @@ impl MetricsService {
         let registry = Registry::new();
 
         // Signer registration metrics
+        let signer_registration_success_since_startup_counter_struct = MetricCounter::new(
+            SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME,
+            SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_HELP,
+        );
+
         let signer_registration_success_since_startup_counter =
             Box::new(Self::create_metric_counter(
                 SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME,
@@ -62,6 +110,10 @@ impl MetricsService {
             )?);
         registry.register(signer_registration_total_since_startup_counter.clone())?;
 
+        let signer_registration_success_last_epoch_gauge_struct = MetricGauge::new(
+            SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME,
+            SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_HELP,
+        );
         let signer_registration_success_last_epoch_gauge = Box::new(Self::create_metric_gauge(
             SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME,
             SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_HELP,
@@ -113,6 +165,8 @@ impl MetricsService {
             signature_registration_success_last_epoch_gauge,
             runtime_cycle_success_since_startup_counter,
             runtime_cycle_total_since_startup_counter,
+            signer_registration_success_since_startup_counter_struct,
+            signer_registration_success_last_epoch_gauge_struct,
         })
     }
 
@@ -458,4 +512,54 @@ mod tests {
             metrics_service.runtime_cycle_total_since_startup_counter_get(),
         );
     }
+
+    ////
+
+    #[test]
+    fn test_signature_registration_success_last_epoch_gauge_set_struct() {
+        let metrics_service = MetricsService::new().unwrap();
+        assert_eq!(
+            Epoch(0),
+            metrics_service
+                .signer_registration_success_last_epoch_gauge_struct
+                .get(),
+        );
+
+        metrics_service
+            .signer_registration_success_last_epoch_gauge_struct
+            .record(Epoch(123));
+        assert_eq!(
+            Epoch(123),
+            metrics_service
+                .signer_registration_success_last_epoch_gauge_struct
+                .get(),
+        );
+    }
+
+    #[test]
+    fn test_runtime_cycle_success_since_startup_counter_increment_struct() {
+        let metrics_service = MetricsService::new().unwrap();
+        assert_eq!(
+            0,
+            metrics_service
+                .signer_registration_success_since_startup_counter_struct
+                .get(),
+        );
+
+        metrics_service
+            .signer_registration_success_since_startup_counter_struct
+            .record();
+        assert_eq!(
+            1,
+            metrics_service
+                .signer_registration_success_since_startup_counter_struct
+                .get(),
+        );
+    }
+
+    // Structs
+    // + Pas besoin de redéfinir des méthodes pour chaque compteur
+    // +/- ? L'appelant accède à un attribut puis .get() ou .record()
+    // + Possibilité de passer/retourner les types adaptés au compteur
+    // - Pas d'énumeration des métriques
 }
