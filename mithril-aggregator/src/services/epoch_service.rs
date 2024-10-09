@@ -727,8 +727,7 @@ mod tests {
         future_protocol_parameters: ProtocolParameters,
         network: CardanoNetwork,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-        signer_retrieval_epoch: Epoch,
-        next_signer_retrieval_epoch: Epoch,
+        current_epoch: Epoch,
         signers_with_stake: Vec<SignerWithStake>,
         next_signers_with_stake: Vec<SignerWithStake>,
         stored_epoch_settings: AggregatorEpochSettings,
@@ -737,52 +736,57 @@ mod tests {
     }
 
     impl EpochServiceBuilder {
-        fn new(epoch: Epoch, current_epoch_fixture: MithrilFixture) -> Self {
-            let next_epoch_fixture = current_epoch_fixture.clone();
+        fn new(epoch: Epoch, epoch_fixture: MithrilFixture) -> Self {
             Self {
                 cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
-                future_protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                future_protocol_parameters: epoch_fixture.protocol_parameters(),
                 network: CardanoNetwork::TestNet(0),
                 allowed_discriminants: BTreeSet::new(),
-                signer_retrieval_epoch: epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                next_signer_retrieval_epoch: epoch.offset_to_next_signer_retrieval_epoch(),
-                signers_with_stake: current_epoch_fixture.signers_with_stake(),
-                next_signers_with_stake: next_epoch_fixture.signers_with_stake(),
+                current_epoch: epoch,
+                signers_with_stake: epoch_fixture.signers_with_stake(),
+                next_signers_with_stake: epoch_fixture.signers_with_stake(),
                 stored_epoch_settings: AggregatorEpochSettings {
-                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                    protocol_parameters: epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
                 stored_next_epoch_settings: AggregatorEpochSettings {
-                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                    protocol_parameters: epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
                 stored_upcoming_epoch_settings: AggregatorEpochSettings {
-                    protocol_parameters: current_epoch_fixture.protocol_parameters(),
+                    protocol_parameters: epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
             }
         }
 
         fn build(self) -> MithrilEpochService {
+            let signer_retrieval_epoch = self
+                .current_epoch
+                .offset_to_signer_retrieval_epoch()
+                .unwrap();
+            let next_signer_retrieval_epoch =
+                self.current_epoch.offset_to_next_signer_retrieval_epoch();
+
             let epoch_settings_storer = FakeEpochSettingsStorer::new(vec![
-                (self.signer_retrieval_epoch, self.stored_epoch_settings),
+                (signer_retrieval_epoch, self.stored_epoch_settings),
                 (
-                    self.next_signer_retrieval_epoch,
+                    next_signer_retrieval_epoch,
                     self.stored_next_epoch_settings.clone(),
                 ),
                 (
-                    self.next_signer_retrieval_epoch.next(),
+                    next_signer_retrieval_epoch.next(),
                     self.stored_upcoming_epoch_settings.clone(),
                 ),
             ]);
             let vkey_store = VerificationKeyStore::new(Box::new(
                 MemoryAdapter::new(Some(vec![
                     (
-                        self.signer_retrieval_epoch,
+                        signer_retrieval_epoch,
                         map_signers_for_vkey_store(&self.signers_with_stake),
                     ),
                     (
-                        self.next_signer_retrieval_epoch,
+                        next_signer_retrieval_epoch,
                         map_signers_for_vkey_store(&self.next_signers_with_stake),
                     ),
                 ]))
