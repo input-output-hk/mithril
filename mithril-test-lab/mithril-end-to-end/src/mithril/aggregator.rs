@@ -147,7 +147,8 @@ impl Aggregator {
     pub async fn bootstrap_genesis(&mut self) -> StdResult<()> {
         // Clone the command so we can alter it without affecting the original
         let mut command = self.command.clone();
-        command.set_log_name("mithril-aggregator-genesis-bootstrap");
+        let process_name = "mithril-aggregator-genesis-bootstrap";
+        command.set_log_name(process_name);
 
         let exit_status = command
             .start(&["genesis".to_string(), "bootstrap".to_string()])?
@@ -158,6 +159,8 @@ impl Aggregator {
         if exit_status.success() {
             Ok(())
         } else {
+            self.command.tail_logs(Some(process_name), 40).await?;
+
             Err(match exit_status.code() {
                 Some(c) => {
                     anyhow!("`mithril-aggregator genesis bootstrap` exited with code: {c}")

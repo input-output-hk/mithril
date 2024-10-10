@@ -1451,6 +1451,9 @@ impl DependenciesBuilder {
             "Dependencies Builder can not get Cardano network while building genesis container"
         })?;
 
+        // Disable store pruning for genesis commands
+        self.configuration.store_retention_limit = None;
+
         let dependencies = GenesisToolsDependency {
             network,
             ticker_service: self.get_ticker_service().await?,
