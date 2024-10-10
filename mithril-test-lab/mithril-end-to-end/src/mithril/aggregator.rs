@@ -174,16 +174,16 @@ impl Aggregator {
         &mut self,
         target_path: &Path,
         mithril_era: &str,
-        epoch: &entities::Epoch,
+        next_era_activation_epoch: entities::Epoch,
     ) -> StdResult<()> {
         let is_not_first_era =
             SupportedEra::eras().first().map(|e| e.to_string()) != Some(mithril_era.to_string());
         let current_era_epoch = if is_not_first_era {
             entities::Epoch(0)
         } else {
-            *epoch
+            next_era_activation_epoch
         };
-        let next_era_epoch = entities::Epoch(cmp::max(**epoch, *current_era_epoch + 1));
+        let next_era_epoch = entities::Epoch(cmp::max(*next_era_activation_epoch, 1));
 
         let mut args = vec![
             "era".to_string(),

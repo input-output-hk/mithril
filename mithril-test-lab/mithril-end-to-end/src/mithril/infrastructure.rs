@@ -118,7 +118,7 @@ impl MithrilInfrastructure {
                 aggregator,
                 &config.devnet,
                 &config.mithril_era,
-                &era_epoch,
+                era_epoch,
             )
             .await?;
         }
@@ -139,7 +139,7 @@ impl MithrilInfrastructure {
                     &mut self.aggregator,
                     &self.devnet,
                     next_era,
-                    &next_era_epoch,
+                    next_era_epoch,
                 )
                 .await?;
             }

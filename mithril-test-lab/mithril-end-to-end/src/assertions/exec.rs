@@ -22,7 +22,7 @@ pub async fn register_era_marker(
     aggregator: &mut Aggregator,
     devnet: &Devnet,
     mithril_era: &str,
-    era_epoch: &Epoch,
+    era_epoch: Epoch,
 ) -> StdResult<()> {
     info!("Register '{mithril_era}' era marker");
 
