@@ -11,7 +11,6 @@ use std::{
     fs,
     path::{Path, PathBuf},
     sync::Arc,
-    thread::sleep,
     time::Duration,
 };
 use tokio_util::sync::CancellationToken;
@@ -174,6 +173,11 @@ async fn main() -> StdResult<()> {
             work_dir.canonicalize().unwrap()
         }
     };
+    let artifacts_dir = {
+        let path = work_dir.join("artifacts");
+        fs::create_dir(&path).expect("Artifacts dir creation failure");
+        path
+    };
     let run_only_mode = args.run_only;
     let use_p2p_network_mode = args.use_p2p_network;
     let use_p2p_passive_relays = args.use_p2p_passive_relays;
@@ -193,6 +197,7 @@ async fn main() -> StdResult<()> {
     let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
         server_port,
         devnet: devnet.clone(),
+        artifacts_dir,
         work_dir,
         bin_dir: args.bin_directory,
         cardano_node_version: args.cardano_node_version,
@@ -224,14 +229,16 @@ async fn main() -> StdResult<()> {
     };
 
     match runner {
-        Ok(_) if run_only_mode => run_until_cancelled(devnet).await,
+        Ok(_) if run_only_mode => run_until_cancelled(infrastructure, devnet).await,
         Ok(_) => {
+            infrastructure.stop_nodes().await?;
             devnet.stop().await?;
             Ok(())
         }
         Err(error) => {
             let has_written_logs = infrastructure.tail_logs(40).await;
             error!("Mithril End to End test in failed: {}", error);
+            infrastructure.stop_nodes().await?;
             devnet.stop().await?;
             has_written_logs?;
             Err(error)
@@ -239,7 +246,10 @@ async fn main() -> StdResult<()> {
     }
 }
 
-async fn run_until_cancelled(devnet: Devnet) -> StdResult<()> {
+async fn run_until_cancelled(
+    mut mithril_infrastructure: MithrilInfrastructure,
+    devnet: Devnet,
+) -> StdResult<()> {
     let cancellation_token = CancellationToken::new();
     let cloned_token = cancellation_token.clone();
 
@@ -247,10 +257,11 @@ async fn run_until_cancelled(devnet: Devnet) -> StdResult<()> {
         _ = tokio::spawn(async move {
             while !cloned_token.is_cancelled() {
                 info!("Mithril end to end is running and will remain active until manually stopped...");
-                sleep(Duration::from_secs(5));
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
         }) => {}
         _ = tokio::signal::ctrl_c() => {
+            mithril_infrastructure.stop_nodes().await?;
             cancellation_token.cancel();
             devnet.stop().await?;
         }

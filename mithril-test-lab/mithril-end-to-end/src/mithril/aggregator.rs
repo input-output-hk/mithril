@@ -6,6 +6,7 @@ use crate::{
 use anyhow::{anyhow, Context};
 use mithril_common::era::SupportedEra;
 use mithril_common::{entities, StdResult};
+use slog_scope::info;
 use std::cmp;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -18,6 +19,7 @@ pub struct AggregatorConfig<'a> {
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
+    pub artifacts_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub cardano_node_version: &'a str,
     pub mithril_run_interval: u32,
@@ -62,6 +64,10 @@ impl Aggregator {
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
+            (
+                "SNAPSHOT_DIRECTORY",
+                aggregator_config.artifacts_dir.to_str().unwrap(),
+            ),
             ("NETWORK_MAGIC", &magic_id),
             ("DATA_STORES_DIRECTORY", "./stores/aggregator"),
             (
@@ -139,8 +145,11 @@ impl Aggregator {
     }
 
     pub async fn bootstrap_genesis(&mut self) -> StdResult<()> {
-        let exit_status = self
-            .command
+        // Clone the command so we can alter it without affecting the original
+        let mut command = self.command.clone();
+        command.set_log_name("mithril-aggregator-genesis-bootstrap");
+
+        let exit_status = command
             .start(&["genesis".to_string(), "bootstrap".to_string()])?
             .wait()
             .await
@@ -162,10 +171,12 @@ impl Aggregator {
 
     pub async fn stop(&mut self) -> StdResult<()> {
         if let Some(process) = self.process.as_mut() {
+            info!("Stopping aggregator");
             process
                 .kill()
                 .await
                 .with_context(|| "Could not kill aggregator")?;
+            self.process = None;
         }
         Ok(())
     }

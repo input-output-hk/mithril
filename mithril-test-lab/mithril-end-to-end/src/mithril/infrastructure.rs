@@ -1,7 +1,4 @@
-use crate::{
-    assertions, Aggregator, AggregatorConfig, Client, Devnet, PoolNode, RelayAggregator,
-    RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
-};
+use anyhow::Context;
 use mithril_common::chain_observer::{ChainObserver, PallasChainObserver};
 use mithril_common::entities::{Epoch, PartyId, ProtocolParameters};
 use mithril_common::{CardanoNetwork, StdResult};
@@ -11,12 +8,18 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::{
+    assertions, Aggregator, AggregatorConfig, Client, Devnet, PoolNode, RelayAggregator,
+    RelayPassive, RelaySigner, Signer, DEVNET_MAGIC_ID,
+};
+
 use super::signer::SignerConfig;
 
 pub struct MithrilInfrastructureConfig {
     pub server_port: u64,
     pub devnet: Devnet,
     pub work_dir: PathBuf,
+    pub artifacts_dir: PathBuf,
     pub bin_dir: PathBuf,
     pub cardano_node_version: String,
     pub mithril_run_interval: u32,
@@ -30,7 +33,7 @@ pub struct MithrilInfrastructureConfig {
 }
 
 pub struct MithrilInfrastructure {
-    work_dir: PathBuf,
+    artifacts_dir: PathBuf,
     bin_dir: PathBuf,
     devnet: Devnet,
     aggregator: Aggregator,
@@ -77,8 +80,8 @@ impl MithrilInfrastructure {
         ));
 
         Ok(Self {
-            work_dir: config.work_dir.to_path_buf(),
             bin_dir: config.bin_dir.to_path_buf(),
+            artifacts_dir: config.artifacts_dir.to_path_buf(),
             devnet: config.devnet.clone(),
             aggregator,
             signers,
@@ -137,11 +140,22 @@ impl MithrilInfrastructure {
         pool_node: &PoolNode,
         chain_observer_type: &str,
     ) -> StdResult<Aggregator> {
+        let aggregator_artifacts_directory = config.artifacts_dir.join("mithril-aggregator");
+        if !aggregator_artifacts_directory.exists() {
+            fs::create_dir_all(&aggregator_artifacts_directory).with_context(|| {
+                format!(
+                    "Could not create artifacts directory '{}'",
+                    aggregator_artifacts_directory.display()
+                )
+            })?;
+        }
+
         let mut aggregator = Aggregator::new(&AggregatorConfig {
             server_port: config.server_port,
             pool_node,
             cardano_cli_path: &config.devnet.cardano_cli_path(),
             work_dir: &config.work_dir,
+            artifacts_dir: &aggregator_artifacts_directory,
             bin_dir: &config.bin_dir,
             cardano_node_version: &config.cardano_node_version,
             mithril_run_interval: config.mithril_run_interval,
@@ -275,6 +289,18 @@ impl MithrilInfrastructure {
         Ok(signers)
     }
 
+    pub async fn stop_nodes(&mut self) -> StdResult<()> {
+        // Note: The aggregator should be stopped *last* since signers depends on it
+        info!("Stopping Mithril infrastructure");
+        for signer in self.signers.as_mut_slice() {
+            signer.stop().await?;
+        }
+
+        self.aggregator.stop().await?;
+
+        Ok(())
+    }
+
     pub fn devnet(&self) -> &Devnet {
         &self.devnet
     }
@@ -312,15 +338,16 @@ impl MithrilInfrastructure {
     }
 
     pub fn build_client(&self) -> StdResult<Client> {
-        let work_dir = if self.use_era_specific_work_dir {
-            let era_work_dir = self.work_dir.join(format!("era.{}", self.current_era));
-            if !era_work_dir.exists() {
-                fs::create_dir(&era_work_dir)?;
+        let work_dir = {
+            let mut artifacts_dir = self.artifacts_dir.join("mithril-client");
+            if self.use_era_specific_work_dir {
+                artifacts_dir = artifacts_dir.join(format!("era.{}", self.current_era));
+            }
+            if !artifacts_dir.exists() {
+                fs::create_dir_all(&artifacts_dir)?;
             }
 
-            era_work_dir
-        } else {
-            self.work_dir.clone()
+            artifacts_dir
         };
 
         Client::new(self.aggregator.endpoint(), &work_dir, &self.bin_dir)
