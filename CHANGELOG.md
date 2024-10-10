@@ -29,6 +29,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for stable Cardano transaction client library, CLI and WASM.
 
+- Support for Mithril era switch in end to end test.
+
 - Crates versions:
 
 | Crate | Version |
