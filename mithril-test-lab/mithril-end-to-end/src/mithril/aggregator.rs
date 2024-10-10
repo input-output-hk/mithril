@@ -145,8 +145,11 @@ impl Aggregator {
     }
 
     pub async fn bootstrap_genesis(&mut self) -> StdResult<()> {
-        let exit_status = self
-            .command
+        // Clone the command so we can alter it without affecting the original
+        let mut command = self.command.clone();
+        command.set_log_name("mithril-aggregator-genesis-bootstrap");
+
+        let exit_status = command
             .start(&["genesis".to_string(), "bootstrap".to_string()])?
             .wait()
             .await
