@@ -1,0 +1,110 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Top-level API for Mithril Stake-based Threshold Multisignature scheme. See figure 6 of the paper for most of the protocol."><title>mithril_stm::stm - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mithril_stm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../mithril_stm/index.html">mithril_stm</a><span class="version">0.3.29</span></h2></div><h2 class="location"><a href="#">Module stm</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#types">Type Aliases</a></li></ul></section><h2><a href="../index.html">In crate mithril_stm</a></h2></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">mithril_stm</a>::<wbr><a class="mod" href="#">stm</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../../src/mithril_stm/stm.rs.html#1-1648">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Top-level API for Mithril Stake-based Threshold Multisignature scheme.
+See figure 6 of <a href="https://eprint.iacr.org/2021/916">the paper</a> for most of the
+protocol.</p>
+<p>What follows is a simple example showing the usage of STM.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>blake2::{Blake2b, digest::consts::U32};
+<span class="kw">use </span>mithril_stm::key_reg::KeyReg; <span class="comment">// Import key registration functionality
+</span><span class="kw">use </span>mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+<span class="kw">use </span>mithril_stm::AggregationError;
+<span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>; <span class="comment">// We use par_iter to speed things up
+
+</span><span class="kw">use </span>rand_chacha::ChaCha20Rng;
+<span class="kw">use </span>rand_core::{RngCore, SeedableRng};
+
+<span class="kw">let </span>nparties = <span class="number">4</span>; <span class="comment">// Use a small number of parties for this example
+</span><span class="kw">type </span>D = Blake2b&lt;U32&gt;; <span class="comment">// Setting the hash function for convenience
+
+</span><span class="kw">let </span><span class="kw-2">mut </span>rng = ChaCha20Rng::from_seed([<span class="number">0u8</span>; <span class="number">32</span>]); <span class="comment">// create and initialize rng
+</span><span class="kw">let </span><span class="kw-2">mut </span>msg = [<span class="number">0u8</span>; <span class="number">16</span>]; <span class="comment">// setting an arbitrary message
+</span>rng.fill_bytes(<span class="kw-2">&amp;mut </span>msg);
+
+<span class="comment">// In the following, we will have 4 parties try to sign `msg`, then aggregate and
+// verify those signatures.
+
+//////////////////////////
+// initialization phase //
+//////////////////////////
+
+// Set low parameters for testing
+// XXX: not for production
+</span><span class="kw">let </span>params = StmParameters {
+    m: <span class="number">100</span>, <span class="comment">// Security parameter XXX: not for production
+    </span>k: <span class="number">2</span>, <span class="comment">// Quorum parameter XXX: not for production
+    </span>phi_f: <span class="number">0.2</span>, <span class="comment">// Lottery parameter XXX: not for production
+</span>};
+
+<span class="comment">// Generate some arbitrary stake for each party
+// Stake is an integer.
+// Total stake of all parties is total stake in the system.
+</span><span class="kw">let </span>stakes = (<span class="number">0</span>..nparties)
+    .into_iter()
+    .map(|<span class="kw">_</span>| <span class="number">1 </span>+ (rng.next_u64() % <span class="number">9999</span>))
+    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+<span class="comment">// Create a new key registry from the parties and their stake
+</span><span class="kw">let </span><span class="kw-2">mut </span>key_reg = KeyReg::init();
+
+<span class="comment">// For each party, crate a StmInitializer.
+// This struct can create keys for the party.
+</span><span class="kw">let </span><span class="kw-2">mut </span>ps: Vec&lt;StmInitializer&gt; = Vec::with_capacity(nparties);
+<span class="kw">for </span>stake <span class="kw">in </span>stakes {
+    <span class="comment">// Create keys for this party
+    </span><span class="kw">let </span>p = StmInitializer::setup(params, stake, <span class="kw-2">&amp;mut </span>rng);
+    <span class="comment">// Register keys with the KeyReg service
+    </span>key_reg
+        .register(p.stake, p.verification_key())
+        .unwrap();
+    ps.push(p);
+}
+
+<span class="comment">// Close the key registration.
+</span><span class="kw">let </span>closed_reg = key_reg.close();
+
+<span class="comment">// Finalize the StmInitializer and turn it into a StmSigner, which can execute the
+// rest of the protocol.
+</span><span class="kw">let </span>ps = ps
+    .into_par_iter()
+    .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+    .collect::&lt;Vec&lt;StmSigner&lt;D&gt;&gt;&gt;();
+
+<span class="comment">/////////////////////
+// operation phase //
+/////////////////////
+
+// Next, each party tries to sign the message for each index available.
+// We collect the successful signatures into a vec.
+</span><span class="kw">let </span>sigs = ps
+    .par_iter()
+    .filter_map(|p| {
+        <span class="kw">return </span>p.sign(<span class="kw-2">&amp;</span>msg);
+    })
+    .collect::&lt;Vec&lt;StmSig&gt;&gt;();
+
+<span class="comment">// StmClerk can aggregate and verify signatures.
+</span><span class="kw">let </span>clerk = StmClerk::from_signer(<span class="kw-2">&amp;</span>ps[<span class="number">0</span>]);
+
+<span class="comment">// Aggregate and verify the signatures
+</span><span class="kw">let </span>msig = clerk.aggregate(<span class="kw-2">&amp;</span>sigs, <span class="kw-2">&amp;</span>msg);
+<span class="kw">match </span>msig {
+    <span class="prelude-val">Ok</span>(aggr) =&gt; {
+        <span class="macro">println!</span>(<span class="string">"Aggregate ok"</span>);
+        <span class="macro">assert!</span>(aggr
+            .verify(<span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>clerk.compute_avk(), <span class="kw-2">&amp;</span>params)
+            .is_ok());
+    }
+    <span class="prelude-val">Err</span>(AggregationError::NotEnoughSignatures(n, k)) =&gt; {
+        <span class="macro">println!</span>(<span class="string">"Not enough signatures"</span>);
+        <span class="macro">assert!</span>(n &lt; params.k &amp;&amp; k == params.k)
+    }
+    <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(),
+}</code></pre></div>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.CoreVerifier.html" title="struct mithril_stm::stm::CoreVerifier">CoreVerifier</a></div><div class="desc docblock-short">Full node verifier including the list of eligible signers and the total stake of the system.</div></li><li><div class="item-name"><a class="struct" href="struct.StmAggrSig.html" title="struct mithril_stm::stm::StmAggrSig">StmAggrSig</a></div><div class="desc docblock-short"><code>StmMultiSig</code> uses the “concatenation” proving system (as described in Section 4.3 of the original paper.)
+This means that the aggregated signature contains a vector with all individual signatures.
+BatchPath is also a part of the aggregate signature which covers path for all signatures.</div></li><li><div class="item-name"><a class="struct" href="struct.StmAggrVerificationKey.html" title="struct mithril_stm::stm::StmAggrVerificationKey">StmAggrVerificationKey</a></div><div class="desc docblock-short">Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
+Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.</div></li><li><div class="item-name"><a class="struct" href="struct.StmClerk.html" title="struct mithril_stm::stm::StmClerk">StmClerk</a></div><div class="desc docblock-short"><code>StmClerk</code> can verify and aggregate <code>StmSig</code>s and verify <code>StmMultiSig</code>s.
+Clerks can only be generated with the registration closed.
+This avoids that a Merkle Tree is computed before all parties have registered.</div></li><li><div class="item-name"><a class="struct" href="struct.StmInitializer.html" title="struct mithril_stm::stm::StmInitializer">StmInitializer</a></div><div class="desc docblock-short">Initializer for <code>StmSigner</code>.
+This is the data that is used during the key registration procedure.
+Once the latter is finished, this instance is consumed into an <code>StmSigner</code>.</div></li><li><div class="item-name"><a class="struct" href="struct.StmParameters.html" title="struct mithril_stm::stm::StmParameters">StmParameters</a></div><div class="desc docblock-short">Used to set protocol parameters.</div></li><li><div class="item-name"><a class="struct" href="struct.StmSig.html" title="struct mithril_stm::stm::StmSig">StmSig</a></div><div class="desc docblock-short">Signature created by a single party who has won the lottery.</div></li><li><div class="item-name"><a class="struct" href="struct.StmSigRegParty.html" title="struct mithril_stm::stm::StmSigRegParty">StmSigRegParty</a></div><div class="desc docblock-short">Signature with its registered party.</div></li><li><div class="item-name"><a class="struct" href="struct.StmSigner.html" title="struct mithril_stm::stm::StmSigner">StmSigner</a></div><div class="desc docblock-short">Participant in the protocol can sign messages.</div></li></ul><h2 id="types" class="section-header">Type Aliases<a href="#types" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="type" href="type.Index.html" title="type mithril_stm::stm::Index">Index</a></div><div class="desc docblock-short">Quorum index for signatures.
+An aggregate signature (<code>StmMultiSig</code>) must have at least <code>k</code> unique indices.</div></li><li><div class="item-name"><a class="type" href="type.Stake.html" title="type mithril_stm::stm::Stake">Stake</a></div><div class="desc docblock-short">The quantity of stake held by a party, represented as a <code>u64</code>.</div></li><li><div class="item-name"><a class="type" href="type.StmVerificationKey.html" title="type mithril_stm::stm::StmVerificationKey">StmVerificationKey</a></div><div class="desc docblock-short">Wrapper of the MultiSignature Verification key</div></li><li><div class="item-name"><a class="type" href="type.StmVerificationKeyPoP.html" title="type mithril_stm::stm::StmVerificationKeyPoP">StmVerificationKeyPoP</a></div><div class="desc docblock-short">Wrapper of the MultiSignature Verification key with proof of possession</div></li></ul></section></div></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["AggregatorEpochSettings","OpenMessage","SignerRegistrationsListItemMessage","SignerRegistrationsMessage","SignerTickerListItemMessage","SignersTickersMessage"]};
