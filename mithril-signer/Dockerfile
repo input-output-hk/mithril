@@ -13,8 +13,11 @@ WORKDIR /app
 COPY . .
 
 # Build the app using a dummy main in order to cache dependencies
-RUN mv /app/mithril-signer /app/mithril-signer.1 && mkdir -p /app/mithril-signer/src
+RUN mv /app/mithril-signer /app/mithril-signer.1 \
+    && mkdir -p /app/mithril-signer/src \
+    && mkdir -p /app/mithril-signer/benches
 COPY mithril-signer/Cargo.toml /app/mithril-signer/
+COPY mithril-signer/benches/* /app/mithril-signer/benches/
 RUN echo "fn  main () {}" > /app/mithril-signer/src/main.rs
 RUN cargo build --release -p mithril-signer --manifest-path /app/mithril-signer/Cargo.toml
 
