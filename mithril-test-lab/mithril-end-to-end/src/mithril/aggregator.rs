@@ -6,6 +6,7 @@ use crate::{
 use anyhow::{anyhow, Context};
 use mithril_common::era::SupportedEra;
 use mithril_common::{entities, StdResult};
+use slog_scope::info;
 use std::cmp;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -167,10 +168,12 @@ impl Aggregator {
 
     pub async fn stop(&mut self) -> StdResult<()> {
         if let Some(process) = self.process.as_mut() {
+            info!("Stopping aggregator");
             process
                 .kill()
                 .await
                 .with_context(|| "Could not kill aggregator")?;
+            self.process = None;
         }
         Ok(())
     }

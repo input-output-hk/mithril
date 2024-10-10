@@ -289,6 +289,18 @@ impl MithrilInfrastructure {
         Ok(signers)
     }
 
+    pub async fn stop_nodes(&mut self) -> StdResult<()> {
+        // Note: The aggregator should be stopped *last* since signers depends on it
+        info!("Stopping Mithril infrastructure");
+        for signer in self.signers.as_mut_slice() {
+            signer.stop().await?;
+        }
+
+        self.aggregator.stop().await?;
+
+        Ok(())
+    }
+
     pub fn devnet(&self) -> &Devnet {
         &self.devnet
     }
