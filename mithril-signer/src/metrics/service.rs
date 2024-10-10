@@ -6,24 +6,6 @@ use mithril_common::{entities::Epoch, StdResult};
 
 use crate::metrics::commons::{CounterValue, MetricCounter, MetricGauge, MithrilMetric};
 
-use super::{
-    RUNTIME_CYCLE_SUCCESS_SINCE_STARTUP_METRIC_HELP,
-    RUNTIME_CYCLE_SUCCESS_SINCE_STARTUP_METRIC_NAME, RUNTIME_CYCLE_TOTAL_SINCE_STARTUP_METRIC_HELP,
-    RUNTIME_CYCLE_TOTAL_SINCE_STARTUP_METRIC_NAME,
-    SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_HELP,
-    SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME,
-    SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_HELP,
-    SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME,
-    SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_HELP,
-    SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME,
-    SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_HELP,
-    SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME,
-    SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_HELP,
-    SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME,
-    SIGNER_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_HELP,
-    SIGNER_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME,
-};
-
 /// Metrics service which is responsible for recording and exposing metrics.
 pub struct MetricsService {
     registry: Registry,
@@ -53,8 +35,8 @@ impl MetricsService {
             &registry,
             MetricCounter::new(
                 logger.clone(),
-                SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME,
-                SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_HELP,
+                "mithril_signer_signer_registration_success_since_startup",
+                "Number of successful signer registrations since startup on a Mithril signer node",
             )?,
         )?;
 
@@ -62,8 +44,8 @@ impl MetricsService {
             &registry,
             MetricCounter::new(
                 logger.clone(),
-                SIGNER_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME,
-                SIGNER_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_HELP,
+                "mithril_signer_signer_registration_total_since_startup",
+                "Number of signer registrations since startup on a Mithril signer node",
             )?,
         )?;
 
@@ -71,8 +53,8 @@ impl MetricsService {
             &registry,
             MetricGauge::new(
                 logger.clone(),
-                SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME,
-                SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_HELP,
+                "mithril_signer_signer_registration_success_last_epoch",
+                "Latest epoch at which signer successfully registered on a Mithril signer node",
             )?,
         )?;
         // Signature registration metrics
@@ -81,8 +63,8 @@ impl MetricsService {
             &registry,
             MetricCounter::new(
                 logger.clone(),
-                SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME,
-                SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_HELP,
+                "mithril_signer_signature_registration_success_since_startup",
+                "Number of successful signature registrations since startup on a Mithril signer node",
             )?,
         )?;
 
@@ -90,8 +72,8 @@ impl MetricsService {
             &registry,
             MetricCounter::new(
                 logger.clone(),
-                SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME,
-                SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_HELP,
+                "mithril_signer_signature_registration_total_since_startup",
+                "Number of signature registrations since startup on a Mithril signer node",
             )?,
         )?;
 
@@ -99,8 +81,8 @@ impl MetricsService {
             &registry,
             MetricGauge::new(
                 logger.clone(),
-                SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME,
-                SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_HELP,
+                "mithril_signer_signature_registration_success_last_epoch",
+                "Latest epoch at which signature successfully registered on a Mithril signer node",
             )?,
         )?;
 
@@ -109,16 +91,16 @@ impl MetricsService {
             &registry,
             MetricCounter::new(
                 logger.clone(),
-                RUNTIME_CYCLE_SUCCESS_SINCE_STARTUP_METRIC_NAME,
-                RUNTIME_CYCLE_SUCCESS_SINCE_STARTUP_METRIC_HELP,
+                "mithril_signer_runtime_cycle_success_since_startup",
+                "Number of successful runtime cycles since startup on a Mithril signer node",
             )?,
         )?;
         let runtime_cycle_total_since_startup_counter = register(
             &registry,
             MetricCounter::new(
                 logger.clone(),
-                RUNTIME_CYCLE_TOTAL_SINCE_STARTUP_METRIC_NAME,
-                RUNTIME_CYCLE_TOTAL_SINCE_STARTUP_METRIC_HELP,
+                "mithril_signer_runtime_cycle_total_since_startup",
+                "Number of runtime cycles since startup on a Mithril signer node",
             )?,
         )?;
 
@@ -233,6 +215,46 @@ impl MetricsService {
     pub fn runtime_cycle_success_since_startup_counter_get(&self) -> CounterValue {
         self.runtime_cycle_success_since_startup_counter.get()
     }
+
+    /// Get the `signer_registration_success_since_startup_counter` counter.
+    pub fn get_signer_registration_success_since_startup_counter(&self) -> &MetricCounter {
+        &self.signer_registration_success_since_startup_counter
+    }
+
+    /// Get the `signer_registration_total_since_startup_counter` counter.
+    pub fn get_signer_registration_total_since_startup_counter(&self) -> &MetricCounter {
+        &self.signer_registration_total_since_startup_counter
+    }
+
+    /// Get the `signer_registration_success_last_epoch_gauge` counter.
+    pub fn get_signer_registration_success_last_epoch_gauge(&self) -> &MetricGauge {
+        &self.signer_registration_success_last_epoch_gauge
+    }
+
+    /// Get the `signature_registration_success_since_startup_counter` counter.
+    pub fn get_signature_registration_success_since_startup_counter(&self) -> &MetricCounter {
+        &self.signature_registration_success_since_startup_counter
+    }
+
+    /// Get the `signature_registration_total_since_startup_counter` counter.
+    pub fn get_signature_registration_total_since_startup_counter(&self) -> &MetricCounter {
+        &self.signature_registration_total_since_startup_counter
+    }
+
+    /// Get the `signature_registration_success_last_epoch_gauge` counter.
+    pub fn get_signature_registration_success_last_epoch_gauge(&self) -> &MetricGauge {
+        &self.signature_registration_success_last_epoch_gauge
+    }
+
+    /// Get the `runtime_cycle_success_since_startup_counter` counter.
+    pub fn get_runtime_cycle_success_since_startup_counter(&self) -> &MetricCounter {
+        &self.runtime_cycle_success_since_startup_counter
+    }
+
+    /// Get the `runtime_cycle_total_since_startup_counter` counter.
+    pub fn get_runtime_cycle_total_since_startup_counter(&self) -> &MetricCounter {
+        &self.runtime_cycle_total_since_startup_counter
+    }
 }
 
 #[cfg(test)]
@@ -263,53 +285,55 @@ mod tests {
 
         let parsed_metrics_expected = BTreeMap::from([
             (
-                RUNTIME_CYCLE_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
+                metrics_service
+                    .get_runtime_cycle_success_since_startup_counter()
+                    .name(),
                 Value::Counter(0.0),
             ),
             (
-                RUNTIME_CYCLE_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
+                metrics_service
+                    .get_runtime_cycle_total_since_startup_counter()
+                    .name(),
                 Value::Counter(0.0),
             ),
             (
-                SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME.to_string(),
+                metrics_service
+                    .get_signature_registration_success_last_epoch_gauge()
+                    .name(),
                 Value::Gauge(0.0),
             ),
             (
-                SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
+                metrics_service
+                    .get_signature_registration_success_since_startup_counter()
+                    .name(),
                 Value::Counter(0.0),
             ),
             (
-                SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
+                metrics_service
+                    .get_signature_registration_total_since_startup_counter()
+                    .name(),
                 Value::Counter(0.0),
             ),
             (
-                SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME.to_string(),
+                metrics_service
+                    .get_signer_registration_success_last_epoch_gauge()
+                    .name(),
                 Value::Gauge(0.0),
             ),
             (
-                SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
+                metrics_service
+                    .get_signer_registration_success_since_startup_counter()
+                    .name(),
                 Value::Counter(0.0),
             ),
             (
-                SIGNER_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
+                metrics_service
+                    .get_signer_registration_total_since_startup_counter()
+                    .name(),
                 Value::Counter(0.0),
             ),
         ]);
         assert_eq!(parsed_metrics_expected, parsed_metrics);
-    }
-
-    #[test]
-    fn test_retrieve_metric_by_name() {
-        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
-        let name = metrics_service
-            .runtime_cycle_success_since_startup_counter
-            .name();
-        assert_eq!(name, RUNTIME_CYCLE_SUCCESS_SINCE_STARTUP_METRIC_NAME);
-
-        let name = metrics_service
-            .signature_registration_success_last_epoch_gauge
-            .name();
-        assert_eq!(name, SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME);
     }
 
     #[test]
