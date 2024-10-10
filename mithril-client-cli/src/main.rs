@@ -79,7 +79,7 @@ pub struct Args {
     #[example = "`./mithril-client.log`"]
     log_output: Option<String>,
 
-    /// Enable unstable commands (such as Cardano Transactions)
+    /// Enable unstable commands (such as Cardano Stake Distribution)
     #[clap(long)]
     unstable: bool,
 }
@@ -207,16 +207,7 @@ impl ArtifactCommands {
         match self {
             Self::CardanoDb(cmd) => cmd.execute(config_builder).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
-            Self::CardanoTransaction(cmd) => {
-                if !unstable_enabled {
-                    Err(anyhow!(Self::unstable_flag_missing_message(
-                        "cardano-transaction",
-                        "snapshot list"
-                    )))
-                } else {
-                    cmd.execute(config_builder).await
-                }
-            }
+            Self::CardanoTransaction(cmd) => cmd.execute(config_builder).await,
             Self::CardanoStakeDistribution(cmd) => {
                 if !unstable_enabled {
                     Err(anyhow!(Self::unstable_flag_missing_message(
@@ -262,22 +253,6 @@ async fn main() -> MithrilResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[tokio::test]
-    async fn fail_if_cardano_tx_command_is_used_without_unstable_flag() {
-        let args =
-            Args::try_parse_from(["mithril-client", "cardano-transaction", "snapshot", "list"])
-                .unwrap();
-
-        let error = args
-            .execute()
-            .await
-            .expect_err("Should fail if unstable flag missing");
-
-        assert!(error
-            .to_string()
-            .contains("subcommand is only accepted using the --unstable flag."));
-    }
 
     #[tokio::test]
     async fn fail_if_cardano_stake_distribution_command_is_used_without_unstable_flag() {

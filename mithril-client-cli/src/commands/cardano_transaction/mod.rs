@@ -14,7 +14,7 @@ use mithril_client::MithrilResult;
 
 /// Cardano transactions management
 #[derive(Subcommand, Debug, Clone)]
-#[command(about = "[unstable] Cardano transactions management (alias: ctx)")]
+#[command(about = "Cardano transactions management (alias: ctx)")]
 pub enum CardanoTransactionCommands {
     /// Cardano transaction snapshot commands
     #[clap(subcommand)]

@@ -10,7 +10,6 @@ use mithril_common::api_version::APIVersionProvider;
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
-#[cfg(feature = "unstable")]
 use crate::cardano_transaction_client::CardanoTransactionClient;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
@@ -56,7 +55,6 @@ impl ClientOptions {
 /// Use the [ClientBuilder] to instantiate it easily.
 #[derive(Clone)]
 pub struct Client {
-    #[cfg(feature = "unstable")]
     cardano_transaction_client: Arc<CardanoTransactionClient>,
     #[cfg(feature = "unstable")]
     cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
@@ -67,7 +65,6 @@ pub struct Client {
 
 impl Client {
     /// Get the client that fetches and verifies Mithril Cardano transaction proof.
-    #[cfg(feature = "unstable")]
     pub fn cardano_transaction(&self) -> Arc<CardanoTransactionClient> {
         self.cardano_transaction_client.clone()
     }
@@ -185,7 +182,6 @@ impl ClientBuilder {
             Some(snapshot_downloader) => snapshot_downloader,
         };
 
-        #[cfg(feature = "unstable")]
         let cardano_transaction_client =
             Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
 
@@ -225,7 +221,6 @@ impl ClientBuilder {
             Arc::new(CardanoStakeDistributionClient::new(aggregator_client));
 
         Ok(Client {
-            #[cfg(feature = "unstable")]
             cardano_transaction_client,
             #[cfg(feature = "unstable")]
             cardano_stake_distribution_client,

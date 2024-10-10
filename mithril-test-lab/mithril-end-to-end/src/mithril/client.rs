@@ -165,11 +165,9 @@ impl ClientCommand {
                 cmd.cli_arg(),
             ]
             .concat(),
-            ClientCommand::CardanoTransaction(cmd) => [
-                vec!["--unstable".to_string(), "cardano-transaction".to_string()],
-                cmd.cli_arg(),
-            ]
-            .concat(),
+            ClientCommand::CardanoTransaction(cmd) => {
+                [vec!["cardano-transaction".to_string()], cmd.cli_arg()].concat()
+            }
             ClientCommand::CardanoStakeDistribution(cmd) => [
                 vec![
                     "--unstable".to_string(),

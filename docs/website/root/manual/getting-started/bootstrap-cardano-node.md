@@ -115,10 +115,10 @@ This program shows, downloads and verifies certified blockchain artifacts.
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
-  snapshot                    Deprecated, use `cardano-db` instead
   cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
-  cardano-transaction         [unstable] Cardano transactions management (alias: ctx)
+  cardano-transaction         Cardano transactions management (alias: ctx)
+  cardano-stake-distribution  [unstable] Cardano stake distribution management (alias: csd)
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -135,7 +135,7 @@ Options:
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
       --unstable
-          Enable unstable commands (such as Cardano Transactions)
+          Enable unstable commands (such as Cardano Stake Distribution)
   -h, --help
           Print help
   -V, --version

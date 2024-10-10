@@ -141,20 +141,20 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable cardano-transaction snapshot list
-          echo "CTX_SNAPSHOT_HASH=$(./mithril-client --unstable cardano-transaction snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-transaction snapshot list
+          echo "CTX_SNAPSHOT_HASH=$(./mithril-client cardano-transaction snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano transaction / show snapshot
         if: steps.aggregator_capability_unix.outputs.ctx_enabled == 'true' || steps.aggregator_capability_windows.outputs.ctx_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client --unstable cardano-transaction snapshot show $CTX_SNAPSHOT_HASH
+        run: ./mithril-client cardano-transaction snapshot show $CTX_SNAPSHOT_HASH
 
       - name: Cardano transaction certify
         if: steps.aggregator_capability_unix.outputs.ctx_enabled == 'true' || steps.aggregator_capability_windows.outputs.ctx_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
 
       - name: Cardano Stake Distribution / list and get last epoch and hash
         if: steps.aggregator_capability_unix.outputs.csd_enabled == 'true' || steps.aggregator_capability_windows.outputs.csd_enabled == 'true'
@@ -242,18 +242,18 @@ jobs:
         if: steps.aggregator_capability.outputs.ctx_enabled == 'true'
         shell: bash
         run: |
-          ${{ steps.command.outputs.mithril_client }} --unstable cardano-transaction snapshot list
-          echo "CTX_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --unstable cardano-transaction snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+          ${{ steps.command.outputs.mithril_client }} cardano-transaction snapshot list
+          echo "CTX_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} cardano-transaction snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano transaction / show snapshot
         if: steps.aggregator_capability.outputs.ctx_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} --unstable cardano-transaction snapshot show $CTX_SNAPSHOT_HASH
+        run: ${{ steps.command.outputs.mithril_client }} cardano-transaction snapshot show $CTX_SNAPSHOT_HASH
 
       - name: Cardano transaction certify
         if: steps.aggregator_capability.outputs.ctx_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} --unstable ${{ steps.prepare.outputs.debug_level }} cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} cardano-transaction certify $TRANSACTIONS_HASHES_TO_CERTIFY
 
       - name: Cardano Stake Distribution / list and get last epoch and hash
         if: steps.aggregator_capability.outputs.csd_enabled == 'true'
