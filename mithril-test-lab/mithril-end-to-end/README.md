@@ -75,6 +75,20 @@ to your PATH from your bashrc like:
 
 Once saved, you need to reload your shell profile. Execute source $HOME/.bashrc or source $HOME/.zshrc (depending on the shell application you use).
 
+#### Troubleshoot Cardano node timeout errors on macOS
+
+Sometimes, the default parameter values used to run the end to end test may not be suitable for macOS environments, causing the following error:
+
+```bash
+>>>> Timeout: node-pool1 has not enough immutable files within 100 attempts
+```
+
+The default value of the **Cardano slot length** parameter can prevent the Cardano nodes to work properly in the `devnet`. Increasing the value helps improve the stability: you can add `--cardano-slot-length 0.25` to the run command:
+
+```bash
+./mithril-end-to-end -vvv --work-directory db/ --bin-directory ../../target/release --devnet-scripts-directory=../mithril-devnet --cardano-slot-length 0.25
+```
+
 ### Use your own cardano binaries
 
 You can use your own compiled cardano binaries to run the end to end test:
