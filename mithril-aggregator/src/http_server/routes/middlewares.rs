@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use warp::Filter;
 
+use mithril_common::api_version::APIVersionProvider;
 use mithril_common::entities::SignedEntityConfig;
-use mithril_common::{api_version::APIVersionProvider, TickerService};
 
 use crate::database::repository::SignerGetter;
 use crate::dependency_injection::EpochServiceWrapper;
@@ -62,13 +62,6 @@ pub fn with_certifier_service(
     dependency_manager: Arc<DependencyContainer>,
 ) -> impl Filter<Extract = (Arc<dyn CertifierService>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.certifier_service.clone())
-}
-
-/// With ticker service middleware
-pub fn with_ticker_service(
-    dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (Arc<dyn TickerService>,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.ticker_service.clone())
 }
 
 /// With epoch service middleware
