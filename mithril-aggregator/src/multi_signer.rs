@@ -143,7 +143,7 @@ mod tests {
     use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
 
     use crate::entities::AggregatorEpochSettings;
-    use crate::services::FakeEpochService;
+    use crate::services::{FakeEpochService, FakeEpochServiceBuilder};
 
     use super::*;
 
@@ -172,24 +172,26 @@ mod tests {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
-        let multi_signer =
-            MultiSignerImpl::new(Arc::new(RwLock::new(FakeEpochService::with_data(
-                epoch,
-                &AggregatorEpochSettings {
+        let multi_signer = MultiSignerImpl::new(Arc::new(RwLock::new(
+            FakeEpochServiceBuilder {
+                epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: fixture.protocol_parameters(),
                     ..AggregatorEpochSettings::dummy()
                 },
-                &AggregatorEpochSettings {
+                next_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: next_fixture.protocol_parameters(),
                     ..AggregatorEpochSettings::dummy()
                 },
-                &AggregatorEpochSettings {
+                upcoming_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: next_fixture.protocol_parameters(),
                     ..AggregatorEpochSettings::dummy()
                 },
-                &fixture.signers_with_stake(),
-                &next_fixture.signers_with_stake(),
-            ))));
+                current_signers_with_stake: fixture.signers_with_stake(),
+                next_signers_with_stake: next_fixture.signers_with_stake(),
+                ..FakeEpochServiceBuilder::dummy(epoch)
+            }
+            .build(),
+        )));
 
         {
             let message = setup_message();

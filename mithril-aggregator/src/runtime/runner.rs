@@ -5,8 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::entities::{
-    Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityConfig, SignedEntityType,
-    Signer, TimePoint,
+    Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -22,18 +21,12 @@ use mockall::automock;
 pub struct AggregatorConfig {
     /// Interval between each snapshot, in ms
     pub interval: Duration,
-
-    /// Signed entity configuration.
-    pub signed_entity_config: SignedEntityConfig,
 }
 
 impl AggregatorConfig {
     /// Create a new instance of AggregatorConfig.
-    pub fn new(interval: Duration, signed_entity_config: SignedEntityConfig) -> Self {
-        Self {
-            interval,
-            signed_entity_config,
-        }
+    pub fn new(interval: Duration) -> Self {
+        Self { interval }
     }
 }
 
@@ -130,6 +123,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage>;
+
+    /// Checks if the open message is considered outdated.
+    async fn is_open_message_outdated(
+        &self,
+        open_message_signed_entity_type: SignedEntityType,
+        last_time_point: &TimePoint,
+    ) -> StdResult<bool>;
 }
 
 /// The runner responsibility is to expose a code API for the state machine. It
@@ -150,7 +150,10 @@ impl AggregatorRunner {
     ) -> StdResult<Vec<SignedEntityType>> {
         let signed_entity_types = self
             .dependencies
-            .signed_entity_config
+            .epoch_service
+            .read()
+            .await
+            .signed_entity_config()?
             .list_allowed_signed_entity_types(time_point)?;
         let unlocked_signed_entities = self
             .dependencies
@@ -486,12 +489,42 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .create_open_message(signed_entity_type, protocol_message)
             .await
     }
+
+    async fn is_open_message_outdated(
+        &self,
+        open_message_signed_entity_type: SignedEntityType,
+        last_time_point: &TimePoint,
+    ) -> StdResult<bool> {
+        let current_open_message = self
+            .get_current_open_message_for_signed_entity_type(
+                &open_message_signed_entity_type,
+            )
+            .await
+            .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &open_message_signed_entity_type))?;
+        let is_expired_open_message = current_open_message
+            .as_ref()
+            .map(|om| om.is_expired)
+            .unwrap_or(false);
+
+        let exists_newer_open_message = {
+            let new_signed_entity_type = self
+                .dependencies
+                .epoch_service
+                .read()
+                .await
+                .signed_entity_config()?
+                .time_point_to_signed_entity(&open_message_signed_entity_type, last_time_point)?;
+            new_signed_entity_type != open_message_signed_entity_type
+        };
+
+        Ok(exists_newer_open_message || is_expired_open_message)
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
     use crate::entities::AggregatorEpochSettings;
-    use crate::services::{FakeEpochService, MockUpkeepService};
+    use crate::services::{FakeEpochService, FakeEpochServiceBuilder, MockUpkeepService};
     use crate::{
         entities::OpenMessage,
         initialize_dependencies,
@@ -502,7 +535,8 @@ pub mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, SignedEntityTypeDiscriminants,
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
+        SignedEntityTypeDiscriminants,
     };
     use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
     use mithril_common::{
@@ -546,7 +580,6 @@ pub mod tests {
             .unwrap();
         deps.init_state_from_fixture(
             &fixture,
-            &CardanoTransactionsSigningConfig::dummy(),
             &[
                 current_epoch.offset_to_signer_retrieval_epoch().unwrap(),
                 current_epoch,
@@ -939,7 +972,7 @@ pub mod tests {
         let expected_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: deps.config.protocol_parameters.clone(),
             cardano_transactions_signing_config: deps
-                .signed_entity_config
+                .config
                 .cardano_transactions_signing_config
                 .clone(),
         };
@@ -1186,8 +1219,15 @@ pub mod tests {
     async fn list_available_signed_entity_types_list_all_configured_entities_if_none_are_locked() {
         let runner = {
             let mut dependencies = initialize_dependencies().await;
-            dependencies.signed_entity_config.allowed_discriminants =
-                SignedEntityTypeDiscriminants::all();
+            let epoch_service = FakeEpochServiceBuilder {
+                signed_entity_config: SignedEntityConfig {
+                    allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                    ..SignedEntityConfig::dummy()
+                },
+                ..FakeEpochServiceBuilder::dummy(Epoch(32))
+            }
+            .build();
+            dependencies.epoch_service = Arc::new(RwLock::new(epoch_service));
             dependencies.signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
             AggregatorRunner::new(Arc::new(dependencies))
         };
@@ -1214,9 +1254,17 @@ pub mod tests {
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let runner = {
             let mut dependencies = initialize_dependencies().await;
-            dependencies.signed_entity_config.allowed_discriminants =
-                SignedEntityTypeDiscriminants::all();
             dependencies.signed_entity_type_lock = signed_entity_type_lock.clone();
+            let epoch_service = FakeEpochServiceBuilder {
+                signed_entity_config: SignedEntityConfig {
+                    allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                    ..SignedEntityConfig::dummy()
+                },
+                ..FakeEpochServiceBuilder::dummy(Epoch(32))
+            }
+            .build();
+            dependencies.epoch_service = Arc::new(RwLock::new(epoch_service));
+
             AggregatorRunner::new(Arc::new(dependencies))
         };
 
@@ -1235,5 +1283,76 @@ pub mod tests {
 
         assert!(!signed_entities.is_empty());
         assert!(!signed_entities.contains(&SignedEntityTypeDiscriminants::CardanoTransactions));
+    }
+
+    #[tokio::test]
+    async fn is_open_message_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message(
+    ) {
+        assert!(!is_outdated_returned_when(IsExpired::No, false).await);
+    }
+
+    #[tokio::test]
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_no_newer_open_message(
+    ) {
+        assert!(is_outdated_returned_when(IsExpired::Yes, false).await);
+    }
+
+    #[tokio::test]
+    async fn is_open_message_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message(
+    ) {
+        assert!(is_outdated_returned_when(IsExpired::No, true).await);
+    }
+
+    #[tokio::test]
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_exists_newer_open_message(
+    ) {
+        assert!(is_outdated_returned_when(IsExpired::Yes, true).await);
+    }
+
+    async fn is_outdated_returned_when(is_expired: IsExpired, newer_open_message: bool) -> bool {
+        let current_time_point = TimePoint {
+            epoch: Epoch(2),
+            ..TimePoint::dummy()
+        };
+
+        let message_epoch = if newer_open_message {
+            current_time_point.epoch + 54
+        } else {
+            current_time_point.epoch
+        };
+        let open_message_to_verify = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(message_epoch),
+            is_expired: is_expired == IsExpired::Yes,
+            ..OpenMessage::dummy()
+        };
+
+        let runner = {
+            let mut deps = initialize_dependencies().await;
+            let mut mock_certifier_service = MockCertifierService::new();
+
+            let open_message_current = open_message_to_verify.clone();
+            mock_certifier_service
+                .expect_get_open_message()
+                .times(1)
+                .return_once(|_| Ok(Some(open_message_current)));
+            mock_certifier_service
+                .expect_mark_open_message_if_expired()
+                .returning(|_| Ok(None));
+
+            deps.certifier_service = Arc::new(mock_certifier_service);
+
+            let epoch_service = FakeEpochServiceBuilder::dummy(current_time_point.epoch).build();
+            deps.epoch_service = Arc::new(RwLock::new(epoch_service));
+
+            build_runner_with_fixture_data(deps).await
+        };
+
+        runner
+            .is_open_message_outdated(
+                open_message_to_verify.signed_entity_type,
+                &current_time_point,
+            )
+            .await
+            .unwrap()
     }
 }

@@ -18,7 +18,7 @@ fn root(
         .and(middlewares::with_api_version_provider(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_signed_entity_config(
+        .and(middlewares::with_allowed_signed_entity_type_discriminants(
             dependency_manager.clone(),
         ))
         .and(middlewares::with_config(dependency_manager))
@@ -26,13 +26,14 @@ fn root(
 }
 
 mod handlers {
+    use std::collections::BTreeSet;
     use std::{convert::Infallible, sync::Arc};
 
     use slog_scope::{debug, warn};
     use warp::http::StatusCode;
 
     use mithril_common::api_version::APIVersionProvider;
-    use mithril_common::entities::{SignedEntityConfig, SignedEntityTypeDiscriminants};
+    use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
@@ -43,7 +44,7 @@ mod handlers {
     /// Root
     pub async fn root(
         api_version_provider: Arc<APIVersionProvider>,
-        signed_entity_config: SignedEntityConfig,
+        allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         configuration: Configuration,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: root");
@@ -54,8 +55,7 @@ mod handlers {
         );
 
         let mut capabilities = AggregatorCapabilities {
-            signed_entity_types: signed_entity_config
-                .list_allowed_signed_entity_types_discriminants(),
+            signed_entity_types: allowed_signed_entity_type_discriminants,
             cardano_transactions_prover: None,
             cardano_transactions_signing_config: None,
         };
@@ -87,8 +87,9 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use crate::dependency_injection::DependenciesBuilder;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::{initialize_dependencies, DependencyContainer};
+    use crate::{Configuration, DependencyContainer};
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
     };
@@ -123,14 +124,18 @@ mod tests {
     async fn test_root_route_ok() {
         let method = Method::GET.as_str();
         let path = "/";
-        let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager
-            .signed_entity_config
-            .allowed_discriminants = BTreeSet::from([
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            SignedEntityTypeDiscriminants::CardanoStakeDistribution,
-        ]);
+        let config = Configuration {
+            signed_entity_types: Some(format!(
+                "{}, {}, {}",
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            )),
+            ..Configuration::new_sample()
+        };
+        let mut builder = DependenciesBuilder::new(config);
+        let dependency_manager = builder.build_dependency_container().await.unwrap();
+
         let expected_open_api_version = dependency_manager
             .api_version_provider
             .clone()
@@ -182,11 +187,15 @@ mod tests {
     async fn test_root_route_ok_with_cardano_transactions_enabled() {
         let method = Method::GET.as_str();
         let path = "/";
-        let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager
-            .signed_entity_config
-            .allowed_discriminants =
-            BTreeSet::from([SignedEntityTypeDiscriminants::CardanoTransactions]);
+        let config = Configuration {
+            signed_entity_types: Some(format!(
+                "{}",
+                SignedEntityTypeDiscriminants::CardanoTransactions
+            )),
+            ..Configuration::new_sample()
+        };
+        let mut builder = DependenciesBuilder::new(config);
+        let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         dependency_manager
             .config
             .cardano_transactions_prover_max_hashes_allowed_by_request = 99;
