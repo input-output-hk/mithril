@@ -1,6 +1,8 @@
-use mithril_common::{entities::Epoch, StdResult};
 use prometheus::{Counter, Encoder, Gauge, Opts, Registry, TextEncoder};
-use slog_scope::debug;
+use slog::{debug, Logger};
+
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::{entities::Epoch, StdResult};
 
 use super::{
     RUNTIME_CYCLE_SUCCESS_SINCE_STARTUP_METRIC_HELP,
@@ -29,6 +31,7 @@ type CounterValue = u32;
 /// Metrics service which is responsible for recording and exposing metrics.
 pub struct MetricsService {
     registry: Registry,
+    logger: Logger,
     signer_registration_success_since_startup_counter: Box<Counter>,
     signer_registration_total_since_startup_counter: Box<Counter>,
     signer_registration_success_last_epoch_gauge: Box<Gauge>,
@@ -41,7 +44,7 @@ pub struct MetricsService {
 
 impl MetricsService {
     /// Create a new `MetricsService` instance.
-    pub fn new() -> StdResult<Self> {
+    pub fn new(logger: Logger) -> StdResult<Self> {
         let registry = Registry::new();
 
         // Signer registration metrics
@@ -101,6 +104,7 @@ impl MetricsService {
 
         Ok(Self {
             registry,
+            logger: logger.new_with_component_name::<Self>(),
             signer_registration_success_since_startup_counter,
             signer_registration_total_since_startup_counter,
             signer_registration_success_last_epoch_gauge,
@@ -127,19 +131,22 @@ impl MetricsService {
     }
 
     /// Export the metrics as a string with the Open Metrics standard format.
-    /// These metrics can be exposed on a HTTP server.
+    /// These metrics can be exposed on an HTTP server.
     pub fn export_metrics(&self) -> StdResult<String> {
         let mut buffer = vec![];
         let encoder = TextEncoder::new();
         let metric_families = self.registry.gather();
-        encoder.encode(&metric_families, &mut buffer).unwrap();
+        encoder.encode(&metric_families, &mut buffer)?;
 
         Ok(String::from_utf8(buffer)?)
     }
 
     /// Increment the `signer_registration_success_since_startup` counter.
     pub fn signer_registration_success_since_startup_counter_increment(&self) {
-        debug!("MetricsService: incrementing 'signer_registration_success_since_startup' counter");
+        debug!(
+            self.logger,
+            "incrementing 'signer_registration_success_since_startup' counter"
+        );
         self.signer_registration_success_since_startup_counter.inc();
     }
 
@@ -152,7 +159,10 @@ impl MetricsService {
 
     /// Increment the `signer_registration_total_since_startup` counter.
     pub fn signer_registration_total_since_startup_counter_increment(&self) {
-        debug!("MetricsService: incrementing 'signer_registration_total_since_startup' counter");
+        debug!(
+            self.logger,
+            "incrementing 'signer_registration_total_since_startup' counter"
+        );
         self.signer_registration_total_since_startup_counter.inc();
     }
 
@@ -165,7 +175,10 @@ impl MetricsService {
 
     /// Set the `signer_registration_success_last_epoch` gauge value.
     pub fn signer_registration_success_last_epoch_gauge_set(&self, value: Epoch) {
-        debug!("MetricsService: set 'signer_registration_success_last_epoch_set' gauge value to {value}");
+        debug!(
+            self.logger,
+            "set 'signer_registration_success_last_epoch_set' gauge value to {value}"
+        );
         self.signer_registration_success_last_epoch_gauge
             .set(value.0 as f64);
     }
@@ -182,7 +195,8 @@ impl MetricsService {
     /// Increment the `signature_registration_success_since_startup` counter.
     pub fn signature_registration_success_since_startup_counter_increment(&self) {
         debug!(
-            "MetricsService: incrementing 'signature_registration_success_since_startup' counter"
+            self.logger,
+            "incrementing 'signature_registration_success_since_startup' counter"
         );
         self.signature_registration_success_since_startup_counter
             .inc();
@@ -197,7 +211,10 @@ impl MetricsService {
 
     /// Increment the `signature_registration_total_since_startup` counter.
     pub fn signature_registration_total_since_startup_counter_increment(&self) {
-        debug!("MetricsService: incrementing 'signature_registration_total_since_startup' counter");
+        debug!(
+            self.logger,
+            "incrementing 'signature_registration_total_since_startup' counter"
+        );
         self.signature_registration_total_since_startup_counter
             .inc();
     }
@@ -211,7 +228,10 @@ impl MetricsService {
 
     /// Set the `signature_registration_success_last_epoch` gauge value.
     pub fn signature_registration_success_last_epoch_gauge_set(&self, value: Epoch) {
-        debug!("MetricsService: set 'signature_registration_success_last_epoch_set' gauge value to {value}");
+        debug!(
+            self.logger,
+            "set 'signature_registration_success_last_epoch_set' gauge value to {value}"
+        );
         self.signature_registration_success_last_epoch_gauge
             .set(value.0 as f64);
     }
@@ -227,7 +247,10 @@ impl MetricsService {
 
     /// Increment the `runtime_cycle_total_since_startup` counter.
     pub fn runtime_cycle_total_since_startup_counter_increment(&self) {
-        debug!("MetricsService: incrementing 'runtime_cycle_total_since_startup' counter");
+        debug!(
+            self.logger,
+            "incrementing 'runtime_cycle_total_since_startup' counter"
+        );
         self.runtime_cycle_total_since_startup_counter.inc();
     }
 
@@ -238,7 +261,10 @@ impl MetricsService {
 
     /// Increment the `runtime_cycle_success_since_startup` counter.
     pub fn runtime_cycle_success_since_startup_counter_increment(&self) {
-        debug!("MetricsService: incrementing 'runtime_cycle_success_since_startup' counter");
+        debug!(
+            self.logger,
+            "incrementing 'runtime_cycle_success_since_startup' counter"
+        );
         self.runtime_cycle_success_since_startup_counter.inc();
     }
 
@@ -255,6 +281,8 @@ mod tests {
     use prometheus_parse::Value;
     use std::collections::BTreeMap;
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     fn parse_metrics(raw_metrics: &str) -> StdResult<BTreeMap<String, Value>> {
@@ -269,7 +297,7 @@ mod tests {
 
     #[test]
     fn test_export_metrics() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         let exported_metrics = metrics_service.export_metrics().unwrap();
 
         let parsed_metrics = parse_metrics(&exported_metrics).unwrap();
@@ -313,7 +341,7 @@ mod tests {
 
     #[test]
     fn test_signer_registration_success_since_startup_counter_increment() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         assert_eq!(
             0,
             metrics_service.signer_registration_success_since_startup_counter_get(),
@@ -328,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_signer_registration_total_since_startup_counter_increment() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         assert_eq!(
             0,
             metrics_service.signer_registration_total_since_startup_counter_get(),
@@ -343,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_signer_registration_success_last_epoch_gauge_set() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         assert_eq!(
             Epoch(0),
             metrics_service.signer_registration_success_last_epoch_gauge_get(),
@@ -358,7 +386,7 @@ mod tests {
 
     #[test]
     fn test_signature_registration_success_since_startup_counter_increment() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         assert_eq!(
             0,
             metrics_service.signature_registration_success_since_startup_counter_get(),
@@ -373,7 +401,7 @@ mod tests {
 
     #[test]
     fn test_signature_registration_total_since_startup_counter_increment() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         assert_eq!(
             0,
             metrics_service.signature_registration_total_since_startup_counter_get(),
@@ -388,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_signature_registration_success_last_epoch_gauge_set() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         assert_eq!(
             Epoch(0),
             metrics_service.signature_registration_success_last_epoch_gauge_get(),
@@ -403,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_runtime_cycle_success_since_startup_counter_increment() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         assert_eq!(
             0,
             metrics_service.runtime_cycle_success_since_startup_counter_get(),
@@ -418,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_runtime_cycle_total_since_startup_counter_increment() {
-        let metrics_service = MetricsService::new().unwrap();
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
         assert_eq!(
             0,
             metrics_service.runtime_cycle_total_since_startup_counter_get(),

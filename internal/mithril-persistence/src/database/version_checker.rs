@@ -1,8 +1,10 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
-use mithril_common::StdResult;
 use slog::{debug, error, info, Logger};
 use std::{cmp::Ordering, collections::BTreeSet};
+
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
 
 use super::{
     ApplicationNodeType, DatabaseVersion, DbVersion, GetDatabaseVersionQuery,
@@ -38,7 +40,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
         Self {
             connection,
             application_type,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
             migrations,
         }
     }
@@ -203,6 +205,10 @@ mod tests {
 
     use super::*;
 
+    fn discard_logger() -> Logger {
+        Logger::root(slog::Discard, slog::o!())
+    }
+
     fn check_database_version(connection: &SqliteConnection, db_version: DbVersion) {
         let version = connection
             .fetch_first(GetDatabaseVersionQuery::get_application_version(
@@ -243,7 +249,7 @@ mod tests {
         let (_filepath, connection) =
             create_sqlite_file("test_upgrade_with_migration.sqlite3").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
-            slog_scope::logger(),
+            discard_logger(),
             ApplicationNodeType::Aggregator,
             &connection,
         );
@@ -302,7 +308,7 @@ mod tests {
     fn starting_with_migration() {
         let (_filepath, connection) = create_sqlite_file("starting_with_migration").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
-            slog_scope::logger(),
+            discard_logger(),
             ApplicationNodeType::Aggregator,
             &connection,
         );
@@ -325,7 +331,7 @@ mod tests {
     fn test_failing_migration() {
         let (_filepath, connection) = create_sqlite_file("test_failing_migration").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
-            slog_scope::logger(),
+            discard_logger(),
             ApplicationNodeType::Aggregator,
             &connection,
         );
@@ -356,7 +362,7 @@ mod tests {
     fn test_fail_downgrading() {
         let (_filepath, connection) = create_sqlite_file("test_fail_downgrading").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
-            slog_scope::logger(),
+            discard_logger(),
             ApplicationNodeType::Aggregator,
             &connection,
         );
@@ -371,7 +377,7 @@ mod tests {
 
         // re instantiate a new checker with no migration registered (version 0).
         let db_checker = DatabaseVersionChecker::new(
-            slog_scope::logger(),
+            discard_logger(),
             ApplicationNodeType::Aggregator,
             &connection,
         );

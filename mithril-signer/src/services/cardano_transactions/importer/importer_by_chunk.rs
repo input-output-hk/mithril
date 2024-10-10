@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use mithril_common::entities::BlockNumber;
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 
@@ -35,7 +36,7 @@ impl TransactionsImporterByChunk {
             highest_transaction_block_number_getter,
             wrapped_importer,
             chunk_size,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 }
@@ -53,7 +54,7 @@ impl TransactionsImporter for TransactionsImporterByChunk {
             let next_up_to = (intermediate_up_to + self.chunk_size).min(up_to_beacon);
             debug!(
                 self.logger,
-                "Running Transactions importer between block '{intermediate_up_to}' and '{next_up_to}'";
+                "Running Transactions import between block '{intermediate_up_to}' and '{next_up_to}'";
             );
             self.wrapped_importer.import(next_up_to).await?;
             intermediate_up_to = next_up_to;

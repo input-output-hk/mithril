@@ -1,13 +1,18 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
+use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    entities::{Epoch, ProtocolMessage, SignedEntityType, Signer, SingleSignatures},
+    entities::{
+        ClientError, Epoch, ProtocolMessage, ServerError, SignedEntityType, Signer,
+        SingleSignatures,
+    },
+    logging::LoggerExtensions,
     messages::{
         AggregatorFeaturesMessage, EpochSettingsMessage, TryFromMessageAdapter, TryToMessageAdapter,
     },
@@ -19,6 +24,8 @@ use crate::message_adapters::{
     FromEpochSettingsAdapter, ToRegisterSignatureMessageAdapter, ToRegisterSignerMessageAdapter,
 };
 use crate::services::SignaturePublisher;
+
+const JSON_CONTENT_TYPE: HeaderValue = HeaderValue::from_static("application/json");
 
 /// Error structure for the Aggregator Client.
 #[derive(Error, Debug)]
@@ -34,6 +41,10 @@ pub enum AggregatorClientError {
     /// Could not reach aggregator.
     #[error("remote server unreachable")]
     RemoteServerUnreachable(#[source] StdError),
+
+    /// Unhandled status code
+    #[error("unhandled status code: {0}, response text: {1}")]
+    UnhandledStatusCode(StatusCode, String),
 
     /// Could not parse response.
     #[error("json parsing failed")]
@@ -65,6 +76,62 @@ pub enum AggregatorClientError {
 impl AggregatorClientError {
     pub fn is_api_version_mismatch(&self) -> bool {
         matches!(self, Self::ApiVersionMismatch(_))
+    }
+}
+
+impl AggregatorClientError {
+    /// Create an `AggregatorClientError` from a response.
+    ///
+    /// This method is meant to be used after handling domain-specific cases leaving only
+    /// 4xx or 5xx status codes.
+    /// Otherwise, it will return an `UnhandledStatusCode` error.
+    pub async fn from_response(response: Response) -> Self {
+        let error_code = response.status();
+
+        if error_code.is_client_error() {
+            let root_cause = Self::get_root_cause(response).await;
+            Self::RemoteServerLogical(anyhow!(root_cause))
+        } else if error_code.is_server_error() {
+            let root_cause = Self::get_root_cause(response).await;
+            Self::RemoteServerTechnical(anyhow!(root_cause))
+        } else {
+            let response_text = response.text().await.unwrap_or_default();
+            Self::UnhandledStatusCode(error_code, response_text)
+        }
+    }
+
+    async fn get_root_cause(response: Response) -> String {
+        let error_code = response.status();
+        let canonical_reason = error_code
+            .canonical_reason()
+            .unwrap_or_default()
+            .to_lowercase();
+        let is_json = response
+            .headers()
+            .get(header::CONTENT_TYPE)
+            .is_some_and(|ct| JSON_CONTENT_TYPE == ct);
+
+        if is_json {
+            let json_value: serde_json::Value = response.json().await.unwrap_or_default();
+
+            if let Ok(client_error) = serde_json::from_value::<ClientError>(json_value.clone()) {
+                format!(
+                    "{}: {}: {}",
+                    canonical_reason, client_error.label, client_error.message
+                )
+            } else if let Ok(server_error) =
+                serde_json::from_value::<ServerError>(json_value.clone())
+            {
+                format!("{}: {}", canonical_reason, server_error.message)
+            } else if json_value.is_null() {
+                canonical_reason.to_string()
+            } else {
+                format!("{}: {}", canonical_reason, json_value)
+            }
+        } else {
+            let response_text = response.text().await.unwrap_or_default();
+            format!("{}: {}", canonical_reason, response_text)
+        }
     }
 }
 
@@ -118,6 +185,7 @@ pub struct AggregatorHTTPClient {
     relay_endpoint: Option<String>,
     api_version_provider: Arc<APIVersionProvider>,
     timeout_duration: Option<Duration>,
+    logger: Logger,
 }
 
 impl AggregatorHTTPClient {
@@ -127,13 +195,16 @@ impl AggregatorHTTPClient {
         relay_endpoint: Option<String>,
         api_version_provider: Arc<APIVersionProvider>,
         timeout_duration: Option<Duration>,
+        logger: Logger,
     ) -> Self {
-        debug!("New AggregatorHTTPClient created");
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New AggregatorHTTPClient created");
         Self {
             aggregator_endpoint,
             relay_endpoint,
             api_version_provider,
             timeout_duration,
+            logger,
         }
     }
 
@@ -193,7 +264,7 @@ impl AggregatorClient for AggregatorHTTPClient {
     async fn retrieve_epoch_settings(
         &self,
     ) -> Result<Option<SignerEpochSettings>, AggregatorClientError> {
-        debug!("Retrieve epoch settings");
+        debug!(self.logger, "Retrieve epoch settings");
         let url = format!("{}/epoch-settings", self.aggregator_endpoint);
         let response = self
             .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
@@ -211,10 +282,7 @@ impl AggregatorClient for AggregatorHTTPClient {
                     Err(err) => Err(AggregatorClientError::JsonParseFailed(anyhow!(err))),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                    "{}",
-                    response.text().await.unwrap_or_default()
-                ))),
+                _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
@@ -225,7 +293,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         epoch: Epoch,
         signer: &Signer,
     ) -> Result<(), AggregatorClientError> {
-        debug!("Register signer");
+        debug!(self.logger, "Register signer");
         let url = format!("{}/register-signer", self.aggregator_endpoint);
         let register_signer_message =
             ToRegisterSignerMessageAdapter::try_adapt((epoch, signer.to_owned()))
@@ -240,13 +308,7 @@ impl AggregatorClient for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                StatusCode::BAD_REQUEST => Err(AggregatorClientError::RemoteServerLogical(
-                    anyhow!("bad request: {}", response.text().await.unwrap_or_default()),
-                )),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                    "{}",
-                    response.text().await.unwrap_or_default()
-                ))),
+                _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
@@ -258,7 +320,7 @@ impl AggregatorClient for AggregatorHTTPClient {
         signatures: &SingleSignatures,
         protocol_message: &ProtocolMessage,
     ) -> Result<(), AggregatorClientError> {
-        debug!("Register signatures");
+        debug!(self.logger, "Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
         let register_single_signature_message = ToRegisterSignatureMessageAdapter::try_adapt((
             signed_entity_type.to_owned(),
@@ -274,22 +336,16 @@ impl AggregatorClient for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::CREATED => Ok(()),
+                StatusCode::CREATED | StatusCode::ACCEPTED => Ok(()),
                 StatusCode::GONE => {
-                    debug!("Aggregator already certified that message"; "signed_entity_type" => ?signed_entity_type);
+                    debug!(self.logger, "Aggregator already certified that message"; "signed_entity_type" => ?signed_entity_type);
                     Ok(())
                 }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                StatusCode::BAD_REQUEST => Err(AggregatorClientError::RemoteServerLogical(
-                    anyhow!("bad request: {}", response.text().await.unwrap_or_default()),
-                )),
                 StatusCode::CONFLICT => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
                     "already registered single signatures"
                 ))),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                    "{}",
-                    response.text().await.unwrap_or_default()
-                ))),
+                _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
@@ -298,7 +354,7 @@ impl AggregatorClient for AggregatorHTTPClient {
     async fn retrieve_aggregator_features(
         &self,
     ) -> Result<AggregatorFeaturesMessage, AggregatorClientError> {
-        debug!("Retrieve aggregator features message");
+        debug!(self.logger, "Retrieve aggregator features message");
         let url = format!("{}/", self.aggregator_endpoint);
         let response = self
             .prepare_request_builder(self.prepare_http_client()?.get(url.clone()))
@@ -312,10 +368,7 @@ impl AggregatorClient for AggregatorHTTPClient {
                     .await
                     .map_err(|e| AggregatorClientError::JsonParseFailed(anyhow!(e)))?),
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                _ => Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                    "{}",
-                    response.text().await.unwrap_or_default()
-                ))),
+                _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
         }
@@ -421,15 +474,17 @@ pub(crate) mod dumb {
 
 #[cfg(test)]
 mod tests {
+    use http::response::Builder as HttpResponseBuilder;
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use mithril_common::entities::{ClientError, Epoch};
+    use mithril_common::entities::Epoch;
     use mithril_common::era::{EraChecker, SupportedEra};
     use mithril_common::messages::TryFromMessageAdapter;
     use mithril_common::test_utils::fake_data;
 
     use crate::configuration::Configuration;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -464,6 +519,7 @@ mod tests {
                 config.relay_endpoint,
                 Arc::new(api_version_provider),
                 None,
+                TestLogger::stdout(),
             ),
         )
     }
@@ -485,6 +541,34 @@ mod tests {
         server.mock(|_, then| {
             then.status(200).body("this is not a json");
         });
+    }
+
+    fn build_text_response<T: Into<String>>(status_code: StatusCode, body: T) -> Response {
+        HttpResponseBuilder::new()
+            .status(status_code)
+            .body(body.into())
+            .unwrap()
+            .into()
+    }
+
+    fn build_json_response<T: serde::Serialize>(status_code: StatusCode, body: &T) -> Response {
+        HttpResponseBuilder::new()
+            .status(status_code)
+            .header(header::CONTENT_TYPE, JSON_CONTENT_TYPE)
+            .body(serde_json::to_string(&body).unwrap())
+            .unwrap()
+            .into()
+    }
+
+    macro_rules! assert_error_text_contains {
+        ($error: expr, $expect_contains: expr) => {
+            let error = &$error;
+            assert!(
+                error.contains($expect_contains),
+                "Expected error message to contain '{}'\ngot '{error:?}'",
+                $expect_contains,
+            );
+        };
     }
 
     #[tokio::test]
@@ -559,6 +643,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
@@ -581,6 +666,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let epoch_settings = certificate_handler
             .retrieve_epoch_settings()
@@ -602,6 +688,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
 
         match certificate_handler
@@ -626,6 +713,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             Some(Duration::from_millis(50)),
+            TestLogger::stdout(),
         );
 
         let error = certificate_handler
@@ -654,6 +742,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let register_signer = certificate_handler
             .register_signer(epoch, single_signer)
@@ -677,6 +766,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let error = certificate_handler
             .register_signer(epoch, single_signer)
@@ -707,6 +797,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
 
         match certificate_handler
@@ -738,6 +829,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
 
         match certificate_handler
@@ -765,6 +857,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             Some(Duration::from_millis(50)),
+            TestLogger::stdout(),
         );
 
         let error = certificate_handler
@@ -791,6 +884,32 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
+        );
+        let register_signatures = certificate_handler
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &single_signatures,
+                &ProtocolMessage::default(),
+            )
+            .await;
+        register_signatures.expect("unexpected error");
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_ok_202() {
+        let single_signatures = fake_data::single_signatures((1..5).collect());
+        let (server, config, api_version_provider) = setup_test();
+        let _server_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signatures");
+            then.status(202);
+        });
+        let certificate_handler = AggregatorHTTPClient::new(
+            config.aggregator_endpoint,
+            config.relay_endpoint,
+            Arc::new(api_version_provider),
+            None,
+            TestLogger::stdout(),
         );
         let register_signatures = certificate_handler
             .register_signatures(
@@ -816,6 +935,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         let error = certificate_handler
             .register_signatures(
@@ -848,6 +968,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         match certificate_handler
             .register_signatures(
@@ -882,6 +1003,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         certificate_handler
             .register_signatures(
@@ -906,6 +1028,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         match certificate_handler
             .register_signatures(
@@ -934,6 +1057,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             None,
+            TestLogger::stdout(),
         );
         match certificate_handler
             .register_signatures(
@@ -962,6 +1086,7 @@ mod tests {
             config.relay_endpoint,
             Arc::new(api_version_provider),
             Some(Duration::from_millis(50)),
+            TestLogger::stdout(),
         );
 
         let error = certificate_handler
@@ -976,6 +1101,115 @@ mod tests {
         assert!(
             matches!(error, AggregatorClientError::RemoteServerUnreachable(_)),
             "unexpected error type: {error:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_4xx_errors_are_handled_as_remote_server_logical() {
+        let response = build_text_response(StatusCode::BAD_REQUEST, "error text");
+        let handled_error = AggregatorClientError::from_response(response).await;
+
+        assert!(
+            matches!(
+                handled_error,
+                AggregatorClientError::RemoteServerLogical(..)
+            ),
+            "Expected error to be RemoteServerLogical\ngot '{handled_error:?}'",
+        );
+    }
+
+    #[tokio::test]
+    async fn test_5xx_errors_are_handled_as_remote_server_technical() {
+        let response = build_text_response(StatusCode::INTERNAL_SERVER_ERROR, "error text");
+        let handled_error = AggregatorClientError::from_response(response).await;
+
+        assert!(
+            matches!(
+                handled_error,
+                AggregatorClientError::RemoteServerTechnical(..)
+            ),
+            "Expected error to be RemoteServerLogical\ngot '{handled_error:?}'",
+        );
+    }
+
+    #[tokio::test]
+    async fn test_non_4xx_or_5xx_errors_are_handled_as_unhandled_status_code_and_contains_response_text(
+    ) {
+        let response = build_text_response(StatusCode::OK, "ok text");
+        let handled_error = AggregatorClientError::from_response(response).await;
+
+        assert!(
+            matches!(
+                handled_error,
+                AggregatorClientError::UnhandledStatusCode(..) if format!("{handled_error:?}").contains("ok text")
+            ),
+            "Expected error to be UnhandledStatusCode with 'ok text' in error text\ngot '{handled_error:?}'",
+        );
+    }
+
+    #[tokio::test]
+    async fn test_root_cause_of_non_json_response_contains_response_plain_text() {
+        let error_text = "An error occurred; please try again later.";
+        let response = build_text_response(StatusCode::EXPECTATION_FAILED, error_text);
+
+        assert_error_text_contains!(
+            AggregatorClientError::get_root_cause(response).await,
+            "expectation failed: An error occurred; please try again later."
+        );
+    }
+
+    #[tokio::test]
+    async fn test_root_cause_of_json_formatted_client_error_response_contains_error_label_and_message(
+    ) {
+        let client_error = ClientError::new("label", "message");
+        let response = build_json_response(StatusCode::BAD_REQUEST, &client_error);
+
+        assert_error_text_contains!(
+            AggregatorClientError::get_root_cause(response).await,
+            "bad request: label: message"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_root_cause_of_json_formatted_server_error_response_contains_error_label_and_message(
+    ) {
+        let server_error = ServerError::new("message");
+        let response = build_json_response(StatusCode::BAD_REQUEST, &server_error);
+
+        assert_error_text_contains!(
+            AggregatorClientError::get_root_cause(response).await,
+            "bad request: message"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_root_cause_of_unknown_formatted_json_response_contains_json_key_value_pairs() {
+        let response = build_json_response(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            &json!({ "second": "unknown", "first": "foreign" }),
+        );
+
+        assert_error_text_contains!(
+            AggregatorClientError::get_root_cause(response).await,
+            r#"internal server error: {"first":"foreign","second":"unknown"}"#
+        );
+    }
+
+    #[tokio::test]
+    async fn test_root_cause_with_invalid_json_response_still_contains_response_status_name() {
+        let response = HttpResponseBuilder::new()
+            .status(StatusCode::BAD_REQUEST)
+            .header(header::CONTENT_TYPE, JSON_CONTENT_TYPE)
+            .body(r#"{"invalid":"unexpected dot", "key": "value".}"#)
+            .unwrap()
+            .into();
+
+        let root_cause = AggregatorClientError::get_root_cause(response).await;
+
+        assert_error_text_contains!(root_cause, "bad request");
+        assert!(
+            !root_cause.contains("bad request: "),
+            "Expected error message should not contain additional information \ngot '{root_cause:?}'"
         );
     }
 }

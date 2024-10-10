@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use hex::ToHex;
-use slog_scope::{info, trace, warn};
+use slog::{info, trace, warn, Logger};
 use std::path::PathBuf;
 use thiserror::Error;
 
@@ -9,6 +9,7 @@ use mithril_common::crypto_helper::{KESPeriod, ProtocolInitializer};
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SingleSignatures, Stake,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{SignerBuilder, SingleSigner as ProtocolSingleSigner};
 use mithril_common::{StdError, StdResult};
 
@@ -72,14 +73,16 @@ pub enum SingleSignerError {
 pub struct MithrilSingleSigner {
     party_id: PartyId,
     epoch_service: EpochServiceWrapper,
+    logger: Logger,
 }
 
 impl MithrilSingleSigner {
     /// Create a new instance of the MithrilSingleSigner.
-    pub fn new(party_id: PartyId, epoch_service: EpochServiceWrapper) -> Self {
+    pub fn new(party_id: PartyId, epoch_service: EpochServiceWrapper, logger: Logger) -> Self {
         Self {
             party_id,
             epoch_service,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -123,7 +126,11 @@ impl SingleSigner for MithrilSingleSigner {
     ) -> StdResult<Option<SingleSignatures>> {
         let protocol_single_signer = self.build_protocol_single_signer().await?;
 
-        info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "signed message" => protocol_message.compute_hash().encode_hex::<String>());
+        info!(
+            self.logger, "Signing protocol message";
+            "protocol_message" =>  #?protocol_message,
+            "signed message" => protocol_message.compute_hash().encode_hex::<String>()
+        );
         let signatures = protocol_single_signer
             .sign(protocol_message)
             .with_context(|| {
@@ -137,13 +144,17 @@ impl SingleSigner for MithrilSingleSigner {
         match &signatures {
             Some(signature) => {
                 trace!(
+                    self.logger,
                     "Party #{}: lottery #{:?} won",
                     signature.party_id,
                     &signature.won_indexes
                 );
             }
             None => {
-                warn!("no signature computed, all lotteries were lost");
+                warn!(
+                    self.logger,
+                    "no signature computed, all lotteries were lost"
+                );
             }
         };
 
@@ -169,6 +180,7 @@ mod tests {
 
     use crate::services::MithrilEpochService;
     use crate::store::ProtocolInitializerStore;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -179,6 +191,7 @@ mod tests {
         let current_signer = &fixture.signers_fixture()[0];
         let clerk = ProtocolClerk::from_signer(&current_signer.protocol_signer);
         let avk = clerk.compute_avk();
+        let logger = TestLogger::stdout();
         let stake_store = Arc::new(StakeStore::new(
             Box::new(
                 MemoryAdapter::new(Some(vec![(
@@ -193,16 +206,18 @@ mod tests {
             Box::new(DumbStoreAdapter::new()),
             None,
         ));
-        let epoch_service = MithrilEpochService::new(stake_store, protocol_initializer_store)
-            .set_data_to_default_or_fake(Epoch(10))
-            .alter_data(|data| {
-                data.protocol_initializer = Some(current_signer.protocol_initializer.clone());
-                data.current_signers = fixture.signers();
-            });
+        let epoch_service =
+            MithrilEpochService::new(stake_store, protocol_initializer_store, logger.clone())
+                .set_data_to_default_or_fake(Epoch(10))
+                .alter_data(|data| {
+                    data.protocol_initializer = Some(current_signer.protocol_initializer.clone());
+                    data.current_signers = fixture.signers();
+                });
 
         let single_signer = MithrilSingleSigner::new(
             current_signer.party_id(),
             Arc::new(RwLock::new(epoch_service)),
+            logger,
         );
 
         let mut protocol_message = ProtocolMessage::new();

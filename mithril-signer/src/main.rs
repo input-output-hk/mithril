@@ -2,8 +2,7 @@ use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{Map, Value};
 
-use slog::{o, Drain, Level, Logger};
-use slog_scope::{crit, debug, info};
+use slog::{crit, debug, info, o, Drain, Level, Logger};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -104,7 +103,7 @@ impl Args {
 }
 
 fn build_logger(min_level: Level) -> Logger {
-    let drain = slog_bunyan::new(std::io::stdout())
+    let drain = slog_bunyan::with_name("mithril-signer", std::io::stdout())
         .set_pretty(false)
         .build()
         .fuse();
@@ -124,7 +123,7 @@ enum SignerCommands {
 async fn main() -> StdResult<()> {
     // Load args
     let args = Args::parse();
-    let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
+    let root_logger = build_logger(args.log_level());
 
     if let Some(SignerCommands::GenerateDoc(cmd)) = &args.command {
         let config_infos = vec![
@@ -140,7 +139,7 @@ async fn main() -> StdResult<()> {
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();
 
-    debug!("Starting"; "node_version" => env!("CARGO_PKG_VERSION"));
+    debug!(root_logger, "Starting"; "node_version" => env!("CARGO_PKG_VERSION"));
 
     // Load config
     let config: Configuration = config::Config::builder()
@@ -174,7 +173,7 @@ async fn main() -> StdResult<()> {
         .try_deserialize()
         .with_context(|| "configuration deserialize error")?;
 
-    let services = DependenciesBuilder::new(&config)
+    let services = DependenciesBuilder::new(&config, root_logger.clone())
         .build()
         .await
         .with_context(|| "services initialization error")?;
@@ -182,13 +181,18 @@ async fn main() -> StdResult<()> {
     let metrics_service = services.metrics_service.clone();
     let cardano_transaction_preloader = services.cardano_transactions_preloader.clone();
 
-    debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
+    debug!(root_logger, "Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
 
     let state_machine = StateMachine::new(
         SignerState::Init,
-        Box::new(SignerRunner::new(config.clone(), services)),
+        Box::new(SignerRunner::new(
+            config.clone(),
+            services,
+            root_logger.clone(),
+        )),
         Duration::from_millis(config.run_interval),
         metrics_service.clone(),
+        root_logger.clone(),
     );
 
     let mut join_set = JoinSet::new();
@@ -200,25 +204,31 @@ async fn main() -> StdResult<()> {
             .map(|_| None)
     });
 
+    let preload_logger = root_logger.clone();
     join_set.spawn(async move {
         let refresh_interval = config.preloading_refresh_interval_in_seconds;
         let mut interval = tokio::time::interval(Duration::from_secs(refresh_interval));
         loop {
             interval.tick().await;
             if let Err(err) = cardano_transaction_preloader.preload().await {
-                crit!("🔥 Cardano transactions preloader failed: {err:?}");
+                crit!(preload_logger, "🔥 Cardano transactions preloader failed"; "error" => ?err);
             }
-            info!("⟳ Next Preload Cardano Transactions will start in {refresh_interval} s",);
+            info!(
+                preload_logger,
+                "⟳ Next Preload Cardano Transactions will start in {refresh_interval} s",
+            );
         }
     });
 
     let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
     if config.enable_metrics_server {
+        let metrics_logger = root_logger.clone();
         join_set.spawn(async move {
             MetricsServer::new(
                 &config.metrics_server_ip,
                 config.metrics_server_port,
                 metrics_service,
+                metrics_logger.clone(),
             )
             .start(metrics_server_shutdown_rx)
             .await
@@ -254,7 +264,7 @@ async fn main() -> StdResult<()> {
 
     let shutdown_reason = match join_set.join_next().await {
         Some(Err(e)) => {
-            crit!("A critical error occurred: {e:?}");
+            crit!(root_logger, "A critical error occurred"; "error" => ?e);
             None
         }
         Some(Ok(res)) => res?,
@@ -267,7 +277,7 @@ async fn main() -> StdResult<()> {
 
     join_set.shutdown().await;
 
-    debug!("Stopping"; "shutdown_reason" => shutdown_reason);
+    debug!(root_logger, "Stopping"; "shutdown_reason" => shutdown_reason);
 
     Ok(())
 }

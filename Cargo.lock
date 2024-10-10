@@ -3656,7 +3656,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.27"
+version = "0.2.28"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3669,9 +3669,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "slog",
- "slog-async",
- "slog-scope",
- "slog-term",
  "sqlite",
  "thiserror",
  "tokio",
@@ -3703,7 +3700,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.195"
+version = "0.2.196"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3713,6 +3710,7 @@ dependencies = [
  "config",
  "criterion",
  "hex",
+ "http 1.1.0",
  "httpmock",
  "mithril-common",
  "mithril-doc",

@@ -1,5 +1,6 @@
 use slog::{debug, Logger};
 
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::sqlite::SqliteConnection;
@@ -24,9 +25,9 @@ impl SqliteCleaningTask {
     /// Get the log message for the task.
     pub fn log_message(self: SqliteCleaningTask) -> &'static str {
         match self {
-            SqliteCleaningTask::Vacuum => "SqliteCleaner::Running `vacuum` on the database",
+            SqliteCleaningTask::Vacuum => "Running `vacuum` on the SQLite database",
             SqliteCleaningTask::WalCheckpointTruncate => {
-                "SqliteCleaner::Running `wal_checkpoint(TRUNCATE)` on the database"
+                "Running `wal_checkpoint(TRUNCATE)` on the SQLite database"
             }
         }
     }
@@ -52,7 +53,7 @@ impl<'a> SqliteCleaner<'a> {
 
     /// Set the logger to be used by the cleaner.
     pub fn with_logger(mut self, logger: Logger) -> Self {
-        self.logger = logger;
+        self.logger = logger.new_with_component_name::<Self>();
         self
     }
 

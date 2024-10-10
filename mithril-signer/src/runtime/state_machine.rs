@@ -1,10 +1,11 @@
-use slog_scope::{crit, debug, error, info};
+use slog::{debug, info, Logger};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
     entities::{Epoch, TimePoint},
+    logging::LoggerExtensions,
 };
 
 use crate::entities::{BeaconToSign, SignerEpochSettings};
@@ -80,6 +81,7 @@ pub struct StateMachine {
     runner: Box<dyn Runner>,
     state_sleep: Duration,
     metrics_service: Arc<MetricsService>,
+    logger: Logger,
 }
 
 impl StateMachine {
@@ -89,12 +91,14 @@ impl StateMachine {
         runner: Box<dyn Runner>,
         state_sleep: Duration,
         metrics_service: Arc<MetricsService>,
+        logger: Logger,
     ) -> Self {
         Self {
             state: Mutex::new(starting_state),
             runner,
             state_sleep,
             metrics_service,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -105,20 +109,18 @@ impl StateMachine {
 
     /// Launch the state machine until an error occurs or it is interrupted.
     pub async fn run(&self) -> Result<(), RuntimeError> {
-        info!("STATE MACHINE: launching");
+        info!(self.logger, "launching");
 
         loop {
             if let Err(e) = self.cycle().await {
+                e.write_to_log(&self.logger);
                 if e.is_critical() {
-                    crit!("{e}");
-
                     return Err(e);
-                } else {
-                    error!("{e}");
                 }
             }
 
             info!(
+                self.logger,
                 "… Cycle finished, Sleeping for {} ms",
                 self.state_sleep.as_millis()
             );
@@ -129,8 +131,11 @@ impl StateMachine {
     /// Perform a cycle of the state machine.
     pub async fn cycle(&self) -> Result<(), RuntimeError> {
         let mut state = self.state.lock().await;
-        info!("================================================================================");
-        info!("STATE MACHINE: new cycle: {}", *state);
+        info!(
+            self.logger,
+            "================================================================================"
+        );
+        info!(self.logger, "new cycle: {}", *state);
 
         self.metrics_service
             .runtime_cycle_total_since_startup_counter_increment();
@@ -141,7 +146,10 @@ impl StateMachine {
             }
             SignerState::Unregistered { epoch } => {
                 if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
-                    info!("→ Epoch has changed, transiting to Unregistered");
+                    info!(
+                        self.logger,
+                        "→ Epoch has changed, transiting to Unregistered"
+                    );
                     *state = self
                         .transition_from_unregistered_to_unregistered(new_epoch)
                         .await?;
@@ -154,10 +162,10 @@ impl StateMachine {
                         nested_error: Some(e),
                     })?
                 {
-                    info!("→ Epoch settings found");
+                    info!(self.logger, "→ Epoch settings found");
                     if epoch_settings.epoch >= *epoch {
-                        info!("new Epoch found");
-                        info!(" ⋅ transiting to Registered");
+                        info!(self.logger, "new Epoch found");
+                        info!(self.logger, " ⋅ transiting to Registered");
                         *state = self
                             .transition_from_unregistered_to_one_of_registered_states(
                                 epoch_settings,
@@ -165,29 +173,36 @@ impl StateMachine {
                             .await?;
                     } else {
                         info!(
+                            self.logger,
                             " ⋅ Epoch settings found, but its epoch is behind the known epoch, waiting…";
                             "epoch_settings" => ?epoch_settings,
                             "known_epoch" => ?epoch,
                         );
                     }
                 } else {
-                    info!("→ No epoch settings found yet, waiting…");
+                    info!(self.logger, "→ No epoch settings found yet, waiting…");
                 }
             }
             SignerState::RegisteredNotAbleToSign { epoch } => {
                 if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
-                    info!(" → new Epoch detected, transiting to Unregistered");
+                    info!(
+                        self.logger,
+                        " → new Epoch detected, transiting to Unregistered"
+                    );
                     *state = self
                         .transition_from_registered_not_able_to_sign_to_unregistered(new_epoch)
                         .await?;
                 } else {
-                    info!(" ⋅ Epoch has NOT changed, waiting…");
+                    info!(self.logger, " ⋅ Epoch has NOT changed, waiting…");
                 }
             }
 
             SignerState::ReadyToSign { epoch } => match self.has_epoch_changed(*epoch).await? {
                 Some(new_epoch) => {
-                    info!("→ Epoch has changed, transiting to Unregistered");
+                    info!(
+                        self.logger,
+                        "→ Epoch has changed, transiting to Unregistered"
+                    );
                     *state = self
                         .transition_from_ready_to_sign_to_unregistered(new_epoch)
                         .await?;
@@ -203,6 +218,7 @@ impl StateMachine {
                     match beacon_to_sign {
                         Some(beacon) => {
                             info!(
+                                self.logger,
                                 "→ Epoch has NOT changed we can sign this beacon, transiting to ReadyToSign";
                                 "beacon_to_sign" => ?beacon,
                             );
@@ -211,7 +227,7 @@ impl StateMachine {
                                 .await?;
                         }
                         None => {
-                            info!(" ⋅ no beacon to sign, waiting…");
+                            info!(self.logger, " ⋅ no beacon to sign, waiting…");
                         }
                     }
                 }
@@ -357,6 +373,7 @@ impl StateMachine {
         );
 
         debug!(
+            self.logger,
             " > transition_from_ready_to_sign_to_ready_to_sign";
             "current_epoch" => ?current_epoch,
             "retrieval_epoch" => ?retrieval_epoch,
@@ -429,16 +446,19 @@ mod tests {
     use mithril_common::test_utils::fake_data;
 
     use crate::runtime::runner::MockSignerRunner;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
     fn init_state_machine(init_state: SignerState, runner: MockSignerRunner) -> StateMachine {
-        let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let logger = TestLogger::stdout();
+        let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
         StateMachine {
             state: init_state.into(),
             runner: Box::new(runner),
             state_sleep: Duration::from_millis(100),
             metrics_service,
+            logger,
         }
     }
 
