@@ -255,6 +255,7 @@ impl MithrilInfrastructure {
             };
 
             let mut signer = Signer::new(&SignerConfig {
+                signer_number: index + 1,
                 aggregator_endpoint,
                 pool_node,
                 cardano_cli_path: &config.devnet.cardano_cli_path(),

@@ -9,6 +9,7 @@ use tokio::process::Child;
 
 #[derive(Debug)]
 pub struct SignerConfig<'a> {
+    pub signer_number: usize,
     pub aggregator_endpoint: String,
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
@@ -102,7 +103,9 @@ impl Signer {
             env,
             &args,
         )?;
-        command.set_log_name(format!("mithril-signer-{party_id}").as_str());
+        command.set_log_name(
+            format!("mithril-signer-{}-{party_id}", signer_config.signer_number).as_str(),
+        );
 
         Ok(Self {
             party_id,
