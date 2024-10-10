@@ -18,6 +18,7 @@ pub struct AggregatorConfig<'a> {
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
     pub work_dir: &'a Path,
+    pub artifacts_dir: &'a Path,
     pub bin_dir: &'a Path,
     pub cardano_node_version: &'a str,
     pub mithril_run_interval: u32,
@@ -62,6 +63,10 @@ impl Aggregator {
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
+            (
+                "SNAPSHOT_DIRECTORY",
+                aggregator_config.artifacts_dir.to_str().unwrap(),
+            ),
             ("NETWORK_MAGIC", &magic_id),
             ("DATA_STORES_DIRECTORY", "./stores/aggregator"),
             (

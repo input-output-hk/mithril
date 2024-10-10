@@ -174,6 +174,11 @@ async fn main() -> StdResult<()> {
             work_dir.canonicalize().unwrap()
         }
     };
+    let artifacts_dir = {
+        let path = work_dir.join("artifacts");
+        fs::create_dir(&path).expect("Artifacts dir creation failure");
+        path
+    };
     let run_only_mode = args.run_only;
     let use_p2p_network_mode = args.use_p2p_network;
     let use_p2p_passive_relays = args.use_p2p_passive_relays;
@@ -193,6 +198,7 @@ async fn main() -> StdResult<()> {
     let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
         server_port,
         devnet: devnet.clone(),
+        artifacts_dir,
         work_dir,
         bin_dir: args.bin_directory,
         cardano_node_version: args.cardano_node_version,
