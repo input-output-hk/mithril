@@ -1,14 +1,40 @@
 use crate::assertions;
 use crate::MithrilInfrastructure;
-use mithril_common::{entities::Epoch, StdResult};
+use mithril_common::{
+    entities::{Epoch, SignedEntityTypeDiscriminants},
+    StdResult,
+};
 
 pub struct Spec<'a> {
     pub infrastructure: &'a mut MithrilInfrastructure,
+    is_signing_cardano_transactions: bool,
+    is_signing_cardano_stake_distribution: bool,
+    next_era: Option<String>,
+    regenesis_on_era_switch: bool,
 }
 
 impl<'a> Spec<'a> {
-    pub fn new(infrastructure: &'a mut MithrilInfrastructure) -> Self {
-        Self { infrastructure }
+    pub fn new(
+        infrastructure: &'a mut MithrilInfrastructure,
+        signed_entity_types: Vec<String>,
+        next_era: Option<String>,
+        regenesis_on_era_switch: bool,
+    ) -> Self {
+        Self {
+            infrastructure,
+            is_signing_cardano_transactions: signed_entity_types.contains(
+                &SignedEntityTypeDiscriminants::CardanoTransactions
+                    .as_ref()
+                    .to_string(),
+            ),
+            is_signing_cardano_stake_distribution: signed_entity_types.contains(
+                &SignedEntityTypeDiscriminants::CardanoStakeDistribution
+                    .as_ref()
+                    .to_string(),
+            ),
+            next_era,
+            regenesis_on_era_switch,
+        }
     }
 
     pub async fn run(&mut self) -> StdResult<()> {
@@ -75,9 +101,11 @@ impl<'a> Spec<'a> {
         let mut target_epoch = self.verify_artifacts_production(target_epoch).await?;
 
         // Verify that artifacts are produced and signed correctly after era switch
-        if self.infrastructure.can_switch_to_next_era() {
+        if let Some(next_era) = &self.next_era {
             // Switch to next era
-            self.infrastructure.register_switch_to_next_era().await?;
+            self.infrastructure
+                .register_switch_to_next_era(next_era)
+                .await?;
             target_epoch += 5;
             assertions::wait_for_target_epoch(
                 self.infrastructure.chain_observer(),
@@ -87,7 +115,7 @@ impl<'a> Spec<'a> {
             .await?;
 
             // Proceed to a re-genesis of the certificate chain
-            if self.infrastructure.can_regenesis_on_era_switch() {
+            if self.regenesis_on_era_switch {
                 assertions::bootstrap_genesis_certificate(self.infrastructure.aggregator_mut())
                     .await?;
                 target_epoch += 5;
@@ -153,7 +181,7 @@ impl<'a> Spec<'a> {
         }
 
         // Verify that Cardano transactions artifacts are produced and signed correctly
-        if self.infrastructure.is_signing_cardano_transactions() {
+        if self.is_signing_cardano_transactions {
             let hash = assertions::assert_node_producing_cardano_transactions(&aggregator_endpoint)
                 .await?;
             let certificate_hash = assertions::assert_signer_is_signing_cardano_transactions(
@@ -180,7 +208,7 @@ impl<'a> Spec<'a> {
         }
 
         // Verify that Cardano stake distribution artifacts are produced and signed correctly
-        if self.infrastructure.is_signing_cardano_stake_distribution() {
+        if self.is_signing_cardano_stake_distribution {
             {
                 let (hash, epoch) = assertions::assert_node_producing_cardano_stake_distribution(
                     &aggregator_endpoint,

@@ -198,13 +198,12 @@ async fn main() -> StdResult<()> {
         cardano_node_version: args.cardano_node_version,
         mithril_run_interval: args.mithril_run_interval,
         mithril_era: args.mithril_era,
-        mithril_next_era: args.mithril_next_era,
-        mithril_era_regenesis_on_switch: args.mithril_era_regenesis_on_switch,
         mithril_era_reader_adapter: args.mithril_era_reader_adapter,
-        signed_entity_types: args.signed_entity_types,
+        signed_entity_types: args.signed_entity_types.clone(),
         run_only_mode,
         use_p2p_network_mode,
         use_p2p_passive_relays,
+        use_era_specific_work_dir: args.mithril_next_era.is_some(),
     })
     .await?;
 
@@ -214,7 +213,12 @@ async fn main() -> StdResult<()> {
             run_only.start().await
         }
         false => {
-            let mut spec = Spec::new(&mut infrastructure);
+            let mut spec = Spec::new(
+                &mut infrastructure,
+                args.signed_entity_types,
+                args.mithril_next_era,
+                args.mithril_era_regenesis_on_switch,
+            );
             spec.run().await
         }
     };
