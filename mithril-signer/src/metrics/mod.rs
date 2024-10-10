@@ -1,12 +1,13 @@
 //! metrics module.
 //! This module contains the signer metrics service and metrics server.
 
+mod commons;
 mod server;
 mod service;
 
+pub use commons::MithrilMetric;
 pub use server::MetricsServer;
 pub use service::MetricsService;
-pub use service::MithrilMetric;
 
 /// 'signer_registration_success_since_startup' metric name
 pub const SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME: &str =
