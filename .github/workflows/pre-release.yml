@@ -86,215 +86,215 @@ jobs:
           body_path: ./release-notes-addon.txt
           append_body: true
 
-  build-push-docker:
-    runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        project: [mithril-aggregator, mithril-client-cli, mithril-signer]
+  # build-push-docker:
+  #   runs-on: ubuntu-22.04
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       project: [mithril-aggregator, mithril-client-cli, mithril-signer]
 
-        include:
-          - project: mithril-client-cli
-            package: mithril-client
+  #       include:
+  #         - project: mithril-client-cli
+  #           package: mithril-client
 
-    permissions:
-      contents: read
-      packages: write
+  #   permissions:
+  #     contents: read
+  #     packages: write
 
-    env:
-      REGISTRY: ghcr.io
-      PACKAGE: ${{ github.repository_owner }}/${{ matrix.package != '' && matrix.package || matrix.project }}
-      DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
-      CONTEXT: .
-      GITHUB_REF: ${{ github.ref}}
+  #   env:
+  #     REGISTRY: ghcr.io
+  #     PACKAGE: ${{ github.repository_owner }}/${{ matrix.package != '' && matrix.package || matrix.project }}
+  #     DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
+  #     CONTEXT: .
+  #     GITHUB_REF: ${{ github.ref}}
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Log in to the Container registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ${{ env.REGISTRY }}
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
-          tags: |
-            pre-release
-            type=raw,value=${{ github.ref_name }}-{{sha}}
+  #     - name: Extract metadata (tags, labels) for Docker
+  #       id: meta
+  #       uses: docker/metadata-action@v5
+  #       with:
+  #         images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
+  #         tags: |
+  #           pre-release
+  #           type=raw,value=${{ github.ref_name }}-{{sha}}
 
-      - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          name: mithril-distribution-Linux-X64
-          path: ${{ matrix.project }}
-          commit: ${{ github.sha }}
-          workflow: ci.yml
-          workflow_conclusion: success
+  #     - name: Download built artifacts (Linux-x64)
+  #       uses: dawidd6/action-download-artifact@v3
+  #       with:
+  #         name: mithril-distribution-Linux-X64
+  #         path: ${{ matrix.project }}
+  #         commit: ${{ github.sha }}
+  #         workflow: ci.yml
+  #         workflow_conclusion: success
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ env.CONTEXT }}
-          file: ${{ env.DOCKER_FILE }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+  #     - name: Build and push Docker image
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: ${{ env.CONTEXT }}
+  #         file: ${{ env.DOCKER_FILE }}
+  #         push: true
+  #         tags: ${{ steps.meta.outputs.tags }}
 
-  deploy-pre-release:
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: [pre-release-preview]
-        include:
-          - environment: pre-release-preview
-            environment_prefix: pre-release
-            cardano_network: preview
-            mithril_api_domain: api.mithril.network
-            mithril_protocol_parameters: |
-              {
-                k     = 5
-                m     = 100
-                phi_f = 0.65
-              }
-            mithril_signers: |
-              {
-                "2" = {
-                  type    = "verified",
-                  pool_id = "",
-                },
-              }
-            terraform_backend_bucket: hydra-terraform-admin
-            google_region: europe-west1
-            google_zone: europe-west1-b
-            google_machine_type: e2-highmem-2
-            google_compute_instance_boot_disk_size: 200
-            google_compute_instance_boot_disk_type: pd-standard
-            google_compute_instance_data_disk_size: 250
-            google_compute_instance_data_disk_type: pd-standard
-    environment: ${{ matrix.environment }}
-    runs-on: ubuntu-22.04
-    needs:
-      - build-push-docker
-    defaults:
-      run:
-        working-directory: mithril-infra
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  # deploy-pre-release:
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       environment: [pre-release-preview]
+  #       include:
+  #         - environment: pre-release-preview
+  #           environment_prefix: pre-release
+  #           cardano_network: preview
+  #           mithril_api_domain: api.mithril.network
+  #           mithril_protocol_parameters: |
+  #             {
+  #               k     = 5
+  #               m     = 100
+  #               phi_f = 0.65
+  #             }
+  #           mithril_signers: |
+  #             {
+  #               "2" = {
+  #                 type    = "verified",
+  #                 pool_id = "",
+  #               },
+  #             }
+  #           terraform_backend_bucket: hydra-terraform-admin
+  #           google_region: europe-west1
+  #           google_zone: europe-west1-b
+  #           google_machine_type: e2-highmem-2
+  #           google_compute_instance_boot_disk_size: 200
+  #           google_compute_instance_boot_disk_type: pd-standard
+  #           google_compute_instance_data_disk_size: 250
+  #           google_compute_instance_data_disk_type: pd-standard
+  #   environment: ${{ matrix.environment }}
+  #   runs-on: ubuntu-22.04
+  #   needs:
+  #     - build-push-docker
+  #   defaults:
+  #     run:
+  #       working-directory: mithril-infra
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Get Docker image id
-        run: echo "DOCKER_IMAGE_ID=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+  #     - name: Get Docker image id
+  #       run: echo "DOCKER_IMAGE_ID=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
-      - name: Deploy terraform infrastructure
-        uses: ./.github/workflows/actions/deploy-terraform-infrastructure
-        with:
-          dry_run: "false"
-          terraform_backend_bucket: ${{ matrix.terraform_backend_bucket }}
-          environment_prefix: ${{ matrix.environment_prefix }}
-          environment: ${{ matrix.environment }}
-          cardano_network: ${{ matrix.cardano_network }}
-          cardano_node_version: ${{ vars.CARDANO_NODE_VERSION }}
-          cardano_node_docker_registry: ${{ vars.CARDANO_NODE_DOCKER_REGISTRY }}
-          google_region: ${{ matrix.google_region }}
-          google_zone: ${{ matrix.google_zone }}
-          google_machine_type: ${{ matrix.google_machine_type }}
-          google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
-          google_compute_instance_boot_disk_type: ${{ matrix.google_compute_instance_boot_disk_type }}
-          google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
-          google_compute_instance_data_disk_type: ${{ matrix.google_compute_instance_data_disk_type }}
-          google_compute_instance_data_disk_snapshot: ${{ vars.GOOGLE_COMPUTE_INSTANCE_DATA_DISK_SNAPSHOT }}
-          google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-          mithril_api_domain: ${{ matrix.mithril_api_domain }}
-          mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
-          mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
-          mithril_signers: ${{ toJSON(matrix.mithril_signers) }}
-          mithril_genesis_secret_key: ${{ secrets.GENESIS_SECRET_KEY }}
-          mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
-          mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
-          mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
-          mithril_era_reader_secret_key: ${{ secrets.ERA_READER_SECRET_KEY }}
-          mithril_aggregator_signed_entity_types: ${{ vars.AGGREGATOR_SIGNED_ENTITY_TYPES }}
-          mithril_aggregator_cdn_cname: ${{ vars.AGGREGATOR_CDN_CNAME }}
-          mithril_aggregator_snapshot_use_cdn_domain: ${{ vars.AGGREGATOR_USE_CDN_DOMAIN }}
-          mithril_aggregator_snapshot_compression_algorithm: ${{ vars.AGGREGATOR_SNAPSHOT_COMPRESSION_ALGORITHM }}
-          mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
-          mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
-          mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
-          mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
-          mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
-          mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
-          mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
-          prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
-          prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
-          prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
-          prometheus_ingest_username: ${{ secrets.PROMETHEUS_INGEST_USERNAME }}
-          prometheus_ingest_password: ${{ secrets.PROMETHEUS_INGEST_PASSWORD }}
-          loki_auth_username: ${{ secrets.LOKI_AUTH_USERNAME }}
-          loki_auth_password: ${{ secrets.LOKI_AUTH_PASSWORD }}
-          loki_ingest_host: ${{ vars.LOKI_INGEST_HOST }}
-          loki_ingest_username: ${{ secrets.LOKI_INGEST_USERNAME }}
-          loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
+  #     - name: Deploy terraform infrastructure
+  #       uses: ./.github/workflows/actions/deploy-terraform-infrastructure
+  #       with:
+  #         dry_run: "false"
+  #         terraform_backend_bucket: ${{ matrix.terraform_backend_bucket }}
+  #         environment_prefix: ${{ matrix.environment_prefix }}
+  #         environment: ${{ matrix.environment }}
+  #         cardano_network: ${{ matrix.cardano_network }}
+  #         cardano_node_version: ${{ vars.CARDANO_NODE_VERSION }}
+  #         cardano_node_docker_registry: ${{ vars.CARDANO_NODE_DOCKER_REGISTRY }}
+  #         google_region: ${{ matrix.google_region }}
+  #         google_zone: ${{ matrix.google_zone }}
+  #         google_machine_type: ${{ matrix.google_machine_type }}
+  #         google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
+  #         google_compute_instance_boot_disk_type: ${{ matrix.google_compute_instance_boot_disk_type }}
+  #         google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
+  #         google_compute_instance_data_disk_type: ${{ matrix.google_compute_instance_data_disk_type }}
+  #         google_compute_instance_data_disk_snapshot: ${{ vars.GOOGLE_COMPUTE_INSTANCE_DATA_DISK_SNAPSHOT }}
+  #         google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+  #         mithril_api_domain: ${{ matrix.mithril_api_domain }}
+  #         mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
+  #         mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
+  #         mithril_signers: ${{ toJSON(matrix.mithril_signers) }}
+  #         mithril_genesis_secret_key: ${{ secrets.GENESIS_SECRET_KEY }}
+  #         mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
+  #         mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
+  #         mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
+  #         mithril_era_reader_secret_key: ${{ secrets.ERA_READER_SECRET_KEY }}
+  #         mithril_aggregator_signed_entity_types: ${{ vars.AGGREGATOR_SIGNED_ENTITY_TYPES }}
+  #         mithril_aggregator_cdn_cname: ${{ vars.AGGREGATOR_CDN_CNAME }}
+  #         mithril_aggregator_snapshot_use_cdn_domain: ${{ vars.AGGREGATOR_USE_CDN_DOMAIN }}
+  #         mithril_aggregator_snapshot_compression_algorithm: ${{ vars.AGGREGATOR_SNAPSHOT_COMPRESSION_ALGORITHM }}
+  #         mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
+  #         mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
+  #         mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
+  #         mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
+  #         mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
+  #         mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
+  #         mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
+  #         prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
+  #         prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
+  #         prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
+  #         prometheus_ingest_username: ${{ secrets.PROMETHEUS_INGEST_USERNAME }}
+  #         prometheus_ingest_password: ${{ secrets.PROMETHEUS_INGEST_PASSWORD }}
+  #         loki_auth_username: ${{ secrets.LOKI_AUTH_USERNAME }}
+  #         loki_auth_password: ${{ secrets.LOKI_AUTH_PASSWORD }}
+  #         loki_ingest_host: ${{ vars.LOKI_INGEST_HOST }}
+  #         loki_ingest_username: ${{ secrets.LOKI_INGEST_USERNAME }}
+  #         loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
 
-  publish-crate-test:
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        package:
-          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
+  # publish-crate-test:
+  #   strategy:
+  #     fail-fast: false
+  #     max-parallel: 1
+  #     matrix:
+  #       package:
+  #         [mithril-stm, mithril-build-script, mithril-common, mithril-client]
 
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+  #     - name: Install stable toolchain
+  #       uses: dtolnay/rust-toolchain@master
+  #       with:
+  #         toolchain: stable
 
-      - name: Publish package to crates.io
-        uses: ./.github/workflows/actions/publish-crate-package
-        with:
-          dry_run: "true"
-          package: ${{ matrix.package }}
+  #     - name: Publish package to crates.io
+  #       uses: ./.github/workflows/actions/publish-crate-package
+  #       with:
+  #         dry_run: "true"
+  #         package: ${{ matrix.package }}
 
-  publish-wasm-test:
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        package: [mithril-client-wasm]
-        include:
-          - package: mithril-client-wasm
-            scope: mithril-dev
-            tag: next
-            access: public
-            api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
+  # publish-wasm-test:
+  #   strategy:
+  #     fail-fast: false
+  #     max-parallel: 1
+  #     matrix:
+  #       package: [mithril-client-wasm]
+  #       include:
+  #         - package: mithril-client-wasm
+  #           scope: mithril-dev
+  #           tag: next
+  #           access: public
+  #           api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
 
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Install stable toolchain, tools, and restore cache
-        uses: ./.github/workflows/actions/toolchain-and-cache
-        with:
-          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
-          cargo-tools: wasm-pack
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Install stable toolchain, tools, and restore cache
+  #       uses: ./.github/workflows/actions/toolchain-and-cache
+  #       with:
+  #         cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+  #         cargo-tools: wasm-pack
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish package to npm
-        uses: ./.github/workflows/actions/publish-npm-package
-        with:
-          dry_run: "false"
-          package: ${{ matrix.package }}
-          scope: ${{ matrix.scope }}
-          tag: next
-          access: ${{ matrix.access }}
-          api_token: ${{ secrets[matrix.api_token_secret_name] }}
+  #     - name: Publish package to npm
+  #       uses: ./.github/workflows/actions/publish-npm-package
+  #       with:
+  #         dry_run: "false"
+  #         package: ${{ matrix.package }}
+  #         scope: ${{ matrix.scope }}
+  #         tag: next
+  #         access: ${{ matrix.access }}
+  #         api_token: ${{ secrets[matrix.api_token_secret_name] }}
