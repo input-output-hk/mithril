@@ -11,12 +11,12 @@ use crate::{
 use crate::entities::CertificateMetadata;
 use std::{cmp::min, collections::HashMap, sync::Arc};
 
-/// Genesis certificate post builder function type. For tests only.
-pub type GenesisCertificatePostBuilderFunc =
+/// Genesis certificate processor function type. For tests only.
+pub type GenesisCertificateProcessorFunc =
     dyn Fn(Certificate, &CertificateChainBuilderContext, &ProtocolGenesisSigner) -> Certificate;
 
-/// Standard certificate post builder function type. For tests only.
-pub type StandardCertificatePostBuilderFunc =
+/// Standard certificate processor function type. For tests only.
+pub type StandardCertificateProcessorFunc =
     dyn Fn(Certificate, &CertificateChainBuilderContext) -> Certificate;
 
 /// Context used while building a certificate chain. For tests only.
@@ -59,7 +59,7 @@ pub struct CertificateChainBuilderContext<'a> {
 ///             m: 100,
 ///             k: 5,
 ///             phi_f: 0.65,
-///         }).with_standard_certificate_post_builder(&|certificate, context| {
+///         }).with_standard_certificate_processor(&|certificate, context| {
 ///             let mut certificate = certificate;
 ///             // Tamper the epoch of the last certificate
 ///             if context.index_certificate == context.total_certificates - 1 {
@@ -75,8 +75,8 @@ pub struct CertificateChainBuilder<'a> {
     total_certificates: u64,
     certificates_per_epoch: u64,
     protocol_parameters: ProtocolParameters,
-    genesis_certificate_post_builder: Option<&'a GenesisCertificatePostBuilderFunc>,
-    standard_certificate_post_builder: Option<&'a StandardCertificatePostBuilderFunc>,
+    genesis_certificate_processor: &'a GenesisCertificateProcessorFunc,
+    standard_certificate_processor: &'a StandardCertificateProcessorFunc,
 }
 
 impl<'a> CertificateChainBuilder<'a> {
@@ -91,8 +91,8 @@ impl<'a> CertificateChainBuilder<'a> {
             total_certificates: 5,
             certificates_per_epoch: 1,
             protocol_parameters,
-            genesis_certificate_post_builder: None,
-            standard_certificate_post_builder: None,
+            genesis_certificate_processor: &|certificate, _, _| certificate,
+            standard_certificate_processor: &|certificate, _| certificate,
         }
     }
 
@@ -117,22 +117,22 @@ impl<'a> CertificateChainBuilder<'a> {
         self
     }
 
-    /// Set the genesis certificate post builder.
-    pub fn with_genesis_certificate_post_builder(
+    /// Set the genesis certificate processor.
+    pub fn with_genesis_certificate_processor(
         mut self,
-        genesis_certificate_post_builder: &'a GenesisCertificatePostBuilderFunc,
+        genesis_certificate_processor: &'a GenesisCertificateProcessorFunc,
     ) -> Self {
-        self.genesis_certificate_post_builder = Some(genesis_certificate_post_builder);
+        self.genesis_certificate_processor = genesis_certificate_processor;
 
         self
     }
 
-    /// Set the standard certificate post builder.
-    pub fn with_standard_certificate_post_builder(
+    /// Set the standard certificate processor.
+    pub fn with_standard_certificate_processor(
         mut self,
-        standard_certificate_post_builder: &'a StandardCertificatePostBuilderFunc,
+        standard_certificate_processor: &'a StandardCertificateProcessorFunc,
     ) -> Self {
-        self.standard_certificate_post_builder = Some(standard_certificate_post_builder);
+        self.standard_certificate_processor = standard_certificate_processor;
 
         self
     }
@@ -143,6 +143,8 @@ impl<'a> CertificateChainBuilder<'a> {
         let epochs = Self::setup_epochs(self.total_certificates, self.certificates_per_epoch);
         let fixtures_per_epoch =
             Self::setup_fixtures_for_epochs(&epochs, &self.protocol_parameters);
+        let genesis_certificate_processor = self.genesis_certificate_processor;
+        let standard_certificate_processor = self.standard_certificate_processor;
         let certificate_chain_length = epochs.len() - 1;
         let certificates = epochs
             .iter()
@@ -160,29 +162,15 @@ impl<'a> CertificateChainBuilder<'a> {
                 };
                 match i {
                     0 => {
-                        let mut certificate =
+                        let certificate =
                             Self::create_genesis_certificate(&context, &genesis_signer);
-                        if let Some(genesis_certificate_post_builder) =
-                            self.genesis_certificate_post_builder
-                        {
-                            certificate = genesis_certificate_post_builder(
-                                certificate,
-                                &context,
-                                &genesis_signer,
-                            );
-                        }
 
-                        certificate
+                        genesis_certificate_processor(certificate, &context, &genesis_signer)
                     }
                     _ => {
-                        let mut certificate = Self::create_standard_certificate(&context);
-                        if let Some(standard_certificate_post_builder) =
-                            self.standard_certificate_post_builder
-                        {
-                            certificate = standard_certificate_post_builder(certificate, &context);
-                        }
+                        let certificate = Self::create_standard_certificate(&context);
 
-                        certificate
+                        standard_certificate_processor(certificate, &context)
                     }
                 }
             })
@@ -244,11 +232,11 @@ impl<'a> CertificateChainBuilder<'a> {
     }
 
     fn create_base_certificate(context: &CertificateChainBuilderContext) -> Certificate {
-        let index = context.index_certificate;
+        let index_certificate = context.index_certificate;
         let epoch = context.epoch;
-        let immutable_file_number = index as u64 * 10;
-        let digest = format!("digest{index}");
-        let certificate_hash = format!("certificate_hash-{index}");
+        let immutable_file_number = index_certificate as u64 * 10;
+        let digest = format!("digest{index_certificate}");
+        let certificate_hash = format!("certificate_hash-{index_certificate}");
         let avk = Self::compute_avk_for_signers(&context.fixture.signers_fixture());
         let next_avk = Self::compute_avk_for_signers(&context.next_fixture.signers_fixture());
         let next_protocol_parameters = &context.next_fixture.protocol_parameters();
@@ -362,5 +350,20 @@ impl<'a> CertificateChainBuilder<'a> {
 impl<'a> Default for CertificateChainBuilder<'a> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn certificate_chain_has_correct_length() {
+        let (certificate_chain, _) = CertificateChainBuilder::new()
+            .with_total_certificates(5)
+            .with_certificates_per_epoch(2)
+            .build();
+
+        assert_eq!(5, certificate_chain.len());
     }
 }
