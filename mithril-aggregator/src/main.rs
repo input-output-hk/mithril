@@ -28,10 +28,10 @@ pub fn build_logger(args: &MainOpts) -> Logger {
 async fn main() -> StdResult<()> {
     // Load args
     let args = MainOpts::parse();
-    let _guard = slog_scope::set_global_logger(build_logger(&args));
+    let root_logger = build_logger(&args);
 
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();
 
-    args.execute().await
+    args.execute(root_logger).await
 }

@@ -8,7 +8,7 @@ use mithril_common::{
     entities::{Epoch, HexEncodedEraMarkersSecretKey},
     StdResult,
 };
-use slog_scope::debug;
+use slog::{debug, Logger};
 
 use crate::tools::EraTools;
 
@@ -21,8 +21,14 @@ pub struct EraCommand {
 }
 
 impl EraCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        self.era_subcommand.execute(config_builder).await
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
+        self.era_subcommand
+            .execute(root_logger, config_builder)
+            .await
     }
 }
 
@@ -37,10 +43,14 @@ pub enum EraSubCommand {
 }
 
 impl EraSubCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         match self {
-            Self::List(cmd) => cmd.execute(config_builder).await,
-            Self::GenerateTxDatum(cmd) => cmd.execute(config_builder).await,
+            Self::List(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::GenerateTxDatum(cmd) => cmd.execute(root_logger, config_builder).await,
         }
     }
 }
@@ -54,8 +64,12 @@ pub struct ListEraSubCommand {
 }
 
 impl ListEraSubCommand {
-    pub async fn execute(&self, _config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        debug!("LIST ERA command");
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        _config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
+        debug!(root_logger, "LIST ERA command");
         let era_tools = EraTools::new();
         let eras = era_tools.get_supported_eras_list()?;
 
@@ -91,8 +105,12 @@ pub struct GenerateTxDatumEraSubCommand {
 }
 
 impl GenerateTxDatumEraSubCommand {
-    pub async fn execute(&self, _config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        debug!("GENERATETXDATUM ERA command");
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        _config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
+        debug!(root_logger, "GENERATETXDATUM ERA command");
         let era_tools = EraTools::new();
 
         let era_markers_secret_key =

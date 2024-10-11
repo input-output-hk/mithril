@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask};
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::sync::Arc;
 
 use crate::{
@@ -22,8 +22,14 @@ pub struct ToolsCommand {
 }
 
 impl ToolsCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        self.genesis_subcommand.execute(config_builder).await
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
+        self.genesis_subcommand
+            .execute(root_logger, config_builder)
+            .await
     }
 }
 
@@ -39,9 +45,13 @@ pub enum ToolsSubCommand {
 }
 
 impl ToolsSubCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         match self {
-            Self::RecomputeCertificatesHash(cmd) => cmd.execute(config_builder).await,
+            Self::RecomputeCertificatesHash(cmd) => cmd.execute(root_logger, config_builder).await,
         }
     }
 }
@@ -51,13 +61,17 @@ impl ToolsSubCommand {
 pub struct RecomputeCertificatesHashCommand {}
 
 impl RecomputeCertificatesHashCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         let config: Configuration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
-        debug!("RECOMPUTE CERTIFICATES HASH command"; "config" => format!("{config:?}"));
+        debug!(root_logger, "RECOMPUTE CERTIFICATES HASH command"; "config" => format!("{config:?}"));
         println!("Recomputing all certificate hash",);
         let mut dependencies_builder = DependenciesBuilder::new(config.clone());
         let connection = dependencies_builder
@@ -67,7 +81,7 @@ impl RecomputeCertificatesHashCommand {
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(connection.clone()),
             Arc::new(SignedEntityStore::new(connection.clone())),
-            dependencies_builder.get_logger()?,
+            root_logger,
         );
 
         migrator
