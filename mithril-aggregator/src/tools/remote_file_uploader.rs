@@ -4,10 +4,13 @@ use cloud_storage::{
     bucket::Entity, bucket_access_control::Role, object_access_control::NewObjectAccessControl,
     Client,
 };
-use mithril_common::StdResult;
+use slog::Logger;
 use slog_scope::info;
 use std::{env, path::Path};
 use tokio_util::{codec::BytesCodec, codec::FramedRead};
+
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
 
 /// RemoteFileUploader represents a remote file uploader interactor
 #[cfg_attr(test, mockall::automock)]
@@ -20,12 +23,16 @@ pub trait RemoteFileUploader: Sync + Send {
 /// GcpFileUploader represents a Google Cloud Platform file uploader interactor
 pub struct GcpFileUploader {
     bucket: String,
+    logger: Logger,
 }
 
 impl GcpFileUploader {
     /// GcpFileUploader factory
-    pub fn new(bucket: String) -> Self {
-        Self { bucket }
+    pub fn new(bucket: String, logger: Logger) -> Self {
+        Self {
+            bucket,
+            logger: logger.new_with_component_name::<Self>(),
+        }
     }
 }
 

@@ -1,3 +1,4 @@
+use slog::Logger;
 use std::{collections::BTreeSet, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -52,6 +53,9 @@ pub struct DependencyContainer {
 
     /// List of signed entity discriminants that are allowed to be processed
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+
+    /// Application root logger
+    pub root_logger: Logger,
 
     /// SQLite database connection
     ///

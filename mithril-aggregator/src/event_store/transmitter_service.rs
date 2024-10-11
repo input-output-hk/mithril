@@ -1,8 +1,10 @@
-use std::fmt::Debug;
-
 use serde::Serialize;
+use slog::Logger;
 use slog_scope::warn;
+use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
+
+use mithril_common::logging::LoggerExtensions;
 
 use super::EventMessage;
 
@@ -13,6 +15,7 @@ where
     MSG: Debug + Sync + Send,
 {
     transmitter: UnboundedSender<MSG>,
+    logger: Logger,
 }
 
 impl<MSG> TransmitterService<MSG>
@@ -20,8 +23,11 @@ where
     MSG: Debug + Sync + Send,
 {
     /// Instantiate a new Service by passing a MPSC transmitter.
-    pub fn new(transmitter: UnboundedSender<MSG>) -> Self {
-        Self { transmitter }
+    pub fn new(transmitter: UnboundedSender<MSG>, logger: Logger) -> Self {
+        Self {
+            transmitter,
+            logger: logger.new_with_component_name::<Self>(),
+        }
     }
 
     /// Clone the internal transmitter and return it.

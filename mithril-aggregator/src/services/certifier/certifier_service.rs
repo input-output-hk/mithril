@@ -11,6 +11,7 @@ use mithril_common::entities::{
     Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
     SignedEntityType, SingleSignatures, StakeDistributionParty,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::ToMessage;
 use mithril_common::{CardanoNetwork, StdResult, TickerService};
 
@@ -35,7 +36,7 @@ pub struct MithrilCertifierService {
     // todo: should be removed after removing immutable file number from the certificate metadata
     ticker_service: Arc<dyn TickerService>,
     epoch_service: EpochServiceWrapper,
-    _logger: Logger,
+    logger: Logger,
 }
 
 impl MithrilCertifierService {
@@ -63,7 +64,7 @@ impl MithrilCertifierService {
             genesis_verifier,
             ticker_service,
             epoch_service,
-            _logger: logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -378,7 +379,7 @@ impl CertifierService for MithrilCertifierService {
 mod tests {
     use crate::{
         dependency_injection::DependenciesBuilder, multi_signer::MockMultiSigner,
-        services::FakeEpochService, Configuration,
+        services::FakeEpochService, test_tools::TestLogger, Configuration,
     };
     use chrono::{DateTime, Days};
     use mithril_common::{
@@ -404,7 +405,6 @@ mod tests {
             let multi_signer = dependency_builder.get_multi_signer().await.unwrap();
             let ticker_service = dependency_builder.get_ticker_service().await.unwrap();
             let epoch_service = dependency_builder.get_epoch_service().await.unwrap();
-            let logger = dependency_builder.get_logger().unwrap();
 
             Self::new(
                 network,
@@ -416,7 +416,7 @@ mod tests {
                 multi_signer,
                 ticker_service,
                 epoch_service,
-                logger,
+                TestLogger::stdout(),
             )
         }
     }

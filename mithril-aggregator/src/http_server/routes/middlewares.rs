@@ -1,7 +1,7 @@
+use slog::Logger;
 use std::collections::BTreeSet;
 use std::convert::Infallible;
 use std::sync::Arc;
-
 use warp::Filter;
 
 use mithril_common::api_version::APIVersionProvider;
@@ -10,11 +10,20 @@ use mithril_common::entities::SignedEntityTypeDiscriminants;
 use crate::database::repository::SignerGetter;
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::event_store::{EventMessage, TransmitterService};
+use crate::http_server::routes::http_server_child_logger;
 use crate::services::{CertifierService, MessageService, ProverService, SignedEntityService};
 use crate::{
     CertificatePendingStore, Configuration, DependencyContainer, SignerRegisterer,
     SingleSignatureAuthenticator, VerificationKeyStorer,
 };
+
+/// With logger middleware
+pub(crate) fn with_logger(
+    dependency_manager: &DependencyContainer,
+) -> impl Filter<Extract = (Logger,), Error = Infallible> + Clone {
+    let logger = http_server_child_logger(&dependency_manager.root_logger);
+    warp::any().map(move || logger.clone())
+}
 
 /// With certificate pending store
 pub(crate) fn with_certificate_pending_store(

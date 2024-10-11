@@ -1,22 +1,27 @@
 use anyhow::Context;
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
+use slog::Logger;
 use slog_scope::{debug, info};
 use sqlite::Connection;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::mpsc::UnboundedReceiver;
-
-use mithril_common::StdResult;
 
 use super::{EventMessage, EventPersister};
 
 /// EventMessage receiver service.
 pub struct EventStore {
     receiver: UnboundedReceiver<EventMessage>,
+    logger: Logger,
 }
 
 impl EventStore {
     /// Instantiate the EventMessage receiver service.
-    pub fn new(receiver: UnboundedReceiver<EventMessage>) -> Self {
-        Self { receiver }
+    pub fn new(receiver: UnboundedReceiver<EventMessage>, logger: Logger) -> Self {
+        Self {
+            receiver,
+            logger: logger.new_with_component_name::<Self>(),
+        }
     }
 
     /// Launch the service. It runs until all the transmitters are gone and all

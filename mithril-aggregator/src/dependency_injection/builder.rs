@@ -417,6 +417,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
+        let logger = self.get_logger()?;
         if self.configuration.environment == ExecutionEnvironment::Production {
             match self.configuration.snapshot_uploader_type {
                 SnapshotUploaderType::Gcp => {
@@ -431,14 +432,16 @@ impl DependenciesBuilder {
                         })?;
 
                     Ok(Arc::new(RemoteSnapshotUploader::new(
-                        Box::new(GcpFileUploader::new(bucket.clone())),
+                        Box::new(GcpFileUploader::new(bucket.clone(), logger.clone())),
                         bucket,
                         self.configuration.snapshot_use_cdn_domain,
+                        logger,
                     )))
                 }
                 SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
                     self.configuration.get_server_url(),
                     &self.configuration.snapshot_directory,
+                    logger,
                 ))),
             }
         } else {
@@ -456,7 +459,8 @@ impl DependenciesBuilder {
     }
 
     async fn build_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
-        let multi_signer = MultiSignerImpl::new(self.get_epoch_service().await?);
+        let multi_signer =
+            MultiSignerImpl::new(self.get_epoch_service().await?, self.get_logger()?);
 
         Ok(Arc::new(multi_signer))
     }
@@ -823,6 +827,7 @@ impl DependenciesBuilder {
                     self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
                     algorithm,
+                    self.get_logger()?,
                 )?)
             }
             _ => Arc::new(DumbSnapshotter::new()),
@@ -1025,7 +1030,7 @@ impl DependenciesBuilder {
 
     async fn build_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
         let sender = self.get_event_transmitter_sender().await?;
-        let event_transmitter = Arc::new(TransmitterService::new(sender));
+        let event_transmitter = Arc::new(TransmitterService::new(sender, self.get_logger()?));
 
         Ok(event_transmitter)
     }
@@ -1157,6 +1162,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
+        let logger = self.get_logger()?;
         let signed_entity_storer = self.build_signed_entity_storer().await?;
         let epoch_service = self.get_epoch_service().await?;
         let mithril_stake_distribution_artifact_builder = Arc::new(
@@ -1172,6 +1178,7 @@ impl DependenciesBuilder {
                 snapshotter,
                 snapshot_uploader,
                 self.configuration.snapshot_compression_algorithm,
+                logger.clone(),
             ));
         let prover_service = self.get_prover_service().await?;
         let cardano_transactions_artifact_builder = Arc::new(
@@ -1187,6 +1194,7 @@ impl DependenciesBuilder {
             cardano_transactions_artifact_builder,
             self.get_signed_entity_lock().await?,
             cardano_stake_distribution_artifact_builder,
+            logger,
         ));
 
         // Compute the cache pool for prover service
@@ -1226,6 +1234,7 @@ impl DependenciesBuilder {
             verification_key_store,
             network,
             allowed_discriminants,
+            self.get_logger()?,
         )));
 
         Ok(epoch_service)
@@ -1344,6 +1353,7 @@ impl DependenciesBuilder {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
             allowed_discriminants: self.get_allowed_signed_entity_types_discriminants()?,
+            root_logger: self.get_logger()?,
             sqlite_connection: self.get_sqlite_connection().await?,
             sqlite_connection_cardano_transaction_pool: self
                 .get_sqlite_connection_cardano_transaction_pool()
@@ -1391,7 +1401,10 @@ impl DependenciesBuilder {
 
     /// Create dependencies for the [EventStore] task.
     pub async fn create_event_store(&mut self) -> Result<EventStore> {
-        let event_store = EventStore::new(self.get_event_transmitter_receiver().await?);
+        let event_store = EventStore::new(
+            self.get_event_transmitter_receiver().await?,
+            self.get_logger()?,
+        );
 
         Ok(event_store)
     }
@@ -1405,6 +1418,7 @@ impl DependenciesBuilder {
             config,
             None,
             Arc::new(AggregatorRunner::new(dependency_container)),
+            self.get_logger()?,
         )
         .await
         .map_err(|e| DependenciesBuilderError::Initialization {
@@ -1472,11 +1486,18 @@ impl DependenciesBuilder {
         &mut self,
         cexplorer_pools_url: &str,
     ) -> Result<SignersImporter> {
-        let retriever =
-            CExplorerSignerRetriever::new(cexplorer_pools_url, Some(Duration::from_secs(30)))?;
+        let retriever = CExplorerSignerRetriever::new(
+            cexplorer_pools_url,
+            Some(Duration::from_secs(30)),
+            self.get_logger()?,
+        )?;
         let persister = self.get_signer_store().await?;
 
-        Ok(SignersImporter::new(Arc::new(retriever), persister))
+        Ok(SignersImporter::new(
+            Arc::new(retriever),
+            persister,
+            self.get_logger()?,
+        ))
     }
 
     /// Create [TickerService] instance.

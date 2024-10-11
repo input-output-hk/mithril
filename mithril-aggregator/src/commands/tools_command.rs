@@ -67,6 +67,7 @@ impl RecomputeCertificatesHashCommand {
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(connection.clone()),
             Arc::new(SignedEntityStore::new(connection.clone())),
+            dependencies_builder.get_logger()?,
         );
 
         migrator

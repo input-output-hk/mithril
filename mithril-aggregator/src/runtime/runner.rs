@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use slog::Logger;
 use slog_scope::{debug, warn};
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,6 +8,7 @@ use std::time::Duration;
 use mithril_common::entities::{
     Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
@@ -133,12 +135,17 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 /// holds services and configuration.
 pub struct AggregatorRunner {
     dependencies: Arc<DependencyContainer>,
+    logger: Logger,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggregator Runner.
     pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
-        Self { dependencies }
+        let logger = dependencies.root_logger.new_with_component_name::<Self>();
+        Self {
+            dependencies,
+            logger,
+        }
     }
 
     async fn list_available_signed_entity_types(

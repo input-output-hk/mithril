@@ -5,6 +5,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::Utc;
+use slog::Logger;
 use slog_scope::info;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
@@ -15,6 +16,7 @@ use mithril_common::{
         Certificate, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType,
         SignedEntityTypeDiscriminants, Snapshot,
     },
+    logging::LoggerExtensions,
     signable_builder::Artifact,
     signed_entity_type_lock::SignedEntityTypeLock,
     StdResult,
@@ -87,6 +89,7 @@ pub struct MithrilSignedEntityService {
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
+    logger: Logger,
 }
 
 impl MithrilSignedEntityService {
@@ -106,6 +109,7 @@ impl MithrilSignedEntityService {
         cardano_stake_distribution_artifact_builder: Arc<
             dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>,
         >,
+        logger: Logger,
     ) -> Self {
         Self {
             signed_entity_storer,
@@ -114,6 +118,7 @@ impl MithrilSignedEntityService {
             cardano_transactions_artifact_builder,
             signed_entity_type_lock,
             cardano_stake_distribution_artifact_builder,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -397,6 +402,7 @@ mod tests {
 
     use crate::artifact_builder::MockArtifactBuilder;
     use crate::database::repository::MockSignedEntityStorer;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -470,6 +476,7 @@ mod tests {
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
                 Arc::new(SignedEntityTypeLock::default()),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
+                TestLogger::stdout(),
             )
         }
 
@@ -521,6 +528,7 @@ mod tests {
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
                 Arc::new(SignedEntityTypeLock::default()),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
+                TestLogger::stdout(),
             )
         }
 

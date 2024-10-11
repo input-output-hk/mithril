@@ -1,8 +1,10 @@
 use std::{collections::HashMap, sync::Arc};
 
 use anyhow::{anyhow, Context};
+use slog::Logger;
 use slog_scope::{debug, info, trace};
 
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::{entities::Certificate, StdResult};
 
 use crate::database::repository::{CertificateRepository, SignedEntityStorer};
@@ -11,6 +13,7 @@ use crate::database::repository::{CertificateRepository, SignedEntityStorer};
 pub struct CertificatesHashMigrator {
     certificate_repository: CertificateRepository,
     signed_entity_storer: Arc<dyn SignedEntityStorer>,
+    logger: Logger,
 }
 
 impl CertificatesHashMigrator {
@@ -18,10 +21,12 @@ impl CertificatesHashMigrator {
     pub fn new(
         certificate_repository: CertificateRepository,
         signed_entity_storer: Arc<dyn SignedEntityStorer>,
+        logger: Logger,
     ) -> Self {
         Self {
             certificate_repository,
             signed_entity_storer,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -198,6 +203,7 @@ mod test {
 
     use crate::database::record::{CertificateRecord, SignedEntityRecord};
     use crate::database::repository::SignedEntityStore;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -449,6 +455,7 @@ mod test {
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(sqlite_connection.clone()),
             Arc::new(SignedEntityStore::new(sqlite_connection.clone())),
+            TestLogger::stdout(),
         );
         migrator
             .migrate()
@@ -613,6 +620,7 @@ mod test {
         let migrator = CertificatesHashMigrator::new(
             CertificateRepository::new(connection.clone()),
             Arc::new(SignedEntityStore::new(connection.clone())),
+            TestLogger::stdout(),
         );
         migrator
             .migrate()

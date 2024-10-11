@@ -12,6 +12,7 @@ use mithril_common::{
     entities::{
         BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
     },
+    logging::LoggerExtensions,
     resource_pool::ResourcePool,
     signable_builder::BlockRangeRootRetriever,
     StdResult,
@@ -70,7 +71,7 @@ impl<S: MKTreeStorer> MithrilProverService<S> {
             transaction_retriever,
             block_range_root_retriever,
             mk_map_pool: ResourcePool::new(mk_map_pool_size, vec![]),
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -219,6 +220,8 @@ mod tests {
     use mockall::mock;
     use mockall::predicate::eq;
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     mock! {
@@ -366,13 +369,12 @@ mod tests {
         let mut block_range_root_retriever = MockBlockRangeRootRetrieverImpl::new();
         block_range_root_retriever_mock_config(&mut block_range_root_retriever);
         let mk_map_pool_size = 1;
-        let logger = slog_scope::logger();
 
         MithrilProverService::new(
             Arc::new(transaction_retriever),
             Arc::new(block_range_root_retriever),
             mk_map_pool_size,
-            logger,
+            TestLogger::stdout(),
         )
     }
 

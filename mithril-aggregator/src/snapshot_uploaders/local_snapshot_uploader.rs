@@ -1,8 +1,11 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use mithril_common::StdResult;
+use slog::Logger;
 use slog_scope::debug;
 use std::path::{Path, PathBuf};
+
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
 
 use crate::http_server;
 use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
@@ -15,15 +18,18 @@ pub struct LocalSnapshotUploader {
 
     /// Target folder where to store snapshots archive
     target_location: PathBuf,
+
+    logger: Logger,
 }
 
 impl LocalSnapshotUploader {
     /// LocalSnapshotUploader factory
-    pub(crate) fn new(snapshot_server_url: String, target_location: &Path) -> Self {
+    pub(crate) fn new(snapshot_server_url: String, target_location: &Path, logger: Logger) -> Self {
         debug!("New LocalSnapshotUploader created"; "snapshot_server_url" => &snapshot_server_url);
         Self {
             snapshot_server_url,
             target_location: target_location.to_path_buf(),
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 }
@@ -51,13 +57,16 @@ impl SnapshotUploader for LocalSnapshotUploader {
 
 #[cfg(test)]
 mod tests {
-    use super::LocalSnapshotUploader;
-    use crate::http_server;
-    use crate::snapshot_uploaders::SnapshotUploader;
     use std::fs::File;
     use std::io::Write;
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
+
+    use crate::http_server;
+    use crate::snapshot_uploaders::SnapshotUploader;
+    use crate::test_tools::TestLogger;
+
+    use super::LocalSnapshotUploader;
 
     fn create_fake_archive(dir: &Path, digest: &str) -> PathBuf {
         let file_path = dir.join(format!("test.{digest}.tar.gz"));
@@ -84,7 +93,7 @@ mod tests {
             http_server::SERVER_BASE_PATH,
             &digest
         );
-        let uploader = LocalSnapshotUploader::new(url, target_dir.path());
+        let uploader = LocalSnapshotUploader::new(url, target_dir.path(), TestLogger::stdout());
 
         let location = uploader
             .upload_snapshot(&archive)
@@ -100,8 +109,11 @@ mod tests {
         let target_dir = tempdir().unwrap();
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let archive = create_fake_archive(source_dir.path(), digest);
-        let uploader =
-            LocalSnapshotUploader::new("http://test.com:8080/".to_string(), target_dir.path());
+        let uploader = LocalSnapshotUploader::new(
+            "http://test.com:8080/".to_string(),
+            target_dir.path(),
+            TestLogger::stdout(),
+        );
         uploader.upload_snapshot(&archive).await.unwrap();
 
         assert!(target_dir

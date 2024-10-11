@@ -1,5 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
+use slog::Logger;
 use slog_scope::debug;
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -10,6 +11,7 @@ use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants, Signer, SignerWithStake,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -130,6 +132,7 @@ pub struct MithrilEpochService {
     verification_key_store: Arc<dyn VerificationKeyStorer>,
     network: CardanoNetwork,
     allowed_signed_entity_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    logger: Logger,
 }
 
 impl MithrilEpochService {
@@ -140,6 +143,7 @@ impl MithrilEpochService {
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         network: CardanoNetwork,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        logger: Logger,
     ) -> Self {
         Self {
             future_epoch_settings,
@@ -149,6 +153,7 @@ impl MithrilEpochService {
             verification_key_store,
             network,
             allowed_signed_entity_discriminants: allowed_discriminants,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -648,6 +653,7 @@ mod tests {
     use std::collections::{BTreeSet, HashMap};
 
     use crate::store::FakeEpochSettingsStorer;
+    use crate::test_tools::TestLogger;
     use crate::VerificationKeyStore;
 
     use super::*;
@@ -801,6 +807,7 @@ mod tests {
                 Arc::new(vkey_store),
                 self.network,
                 self.allowed_discriminants,
+                TestLogger::stdout(),
             )
         }
     }

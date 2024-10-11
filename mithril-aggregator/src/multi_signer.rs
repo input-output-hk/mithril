@@ -1,10 +1,12 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use slog::Logger;
 use slog_scope::{debug, warn};
 
 use mithril_common::{
     crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
     entities::{self},
+    logging::LoggerExtensions,
     protocol::MultiSigner as ProtocolMultiSigner,
     StdResult,
 };
@@ -40,13 +42,17 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     epoch_service: EpochServiceWrapper,
+    logger: Logger,
 }
 
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
-    pub fn new(epoch_service: EpochServiceWrapper) -> Self {
+    pub fn new(epoch_service: EpochServiceWrapper, logger: Logger) -> Self {
         debug!("New MultiSignerImpl created");
-        Self { epoch_service }
+        Self {
+            epoch_service,
+            logger: logger.new_with_component_name::<Self>(),
+        }
     }
 
     fn run_verify_single_signature(
@@ -141,6 +147,7 @@ mod tests {
 
     use crate::entities::AggregatorEpochSettings;
     use crate::services::{FakeEpochService, FakeEpochServiceBuilder};
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -169,26 +176,29 @@ mod tests {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
-        let multi_signer = MultiSignerImpl::new(Arc::new(RwLock::new(
-            FakeEpochServiceBuilder {
-                epoch_settings: AggregatorEpochSettings {
-                    protocol_parameters: fixture.protocol_parameters(),
-                    ..AggregatorEpochSettings::dummy()
-                },
-                next_epoch_settings: AggregatorEpochSettings {
-                    protocol_parameters: next_fixture.protocol_parameters(),
-                    ..AggregatorEpochSettings::dummy()
-                },
-                upcoming_epoch_settings: AggregatorEpochSettings {
-                    protocol_parameters: next_fixture.protocol_parameters(),
-                    ..AggregatorEpochSettings::dummy()
-                },
-                current_signers_with_stake: fixture.signers_with_stake(),
-                next_signers_with_stake: next_fixture.signers_with_stake(),
-                ..FakeEpochServiceBuilder::dummy(epoch)
-            }
-            .build(),
-        )));
+        let multi_signer = MultiSignerImpl::new(
+            Arc::new(RwLock::new(
+                FakeEpochServiceBuilder {
+                    epoch_settings: AggregatorEpochSettings {
+                        protocol_parameters: fixture.protocol_parameters(),
+                        ..AggregatorEpochSettings::dummy()
+                    },
+                    next_epoch_settings: AggregatorEpochSettings {
+                        protocol_parameters: next_fixture.protocol_parameters(),
+                        ..AggregatorEpochSettings::dummy()
+                    },
+                    upcoming_epoch_settings: AggregatorEpochSettings {
+                        protocol_parameters: next_fixture.protocol_parameters(),
+                        ..AggregatorEpochSettings::dummy()
+                    },
+                    current_signers_with_stake: fixture.signers_with_stake(),
+                    next_signers_with_stake: next_fixture.signers_with_stake(),
+                    ..FakeEpochServiceBuilder::dummy(epoch)
+                }
+                .build(),
+            )),
+            TestLogger::stdout(),
+        );
 
         {
             let message = setup_message();
@@ -226,9 +236,10 @@ mod tests {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let protocol_parameters = fixture.protocol_parameters();
-        let multi_signer = MultiSignerImpl::new(Arc::new(RwLock::new(
-            FakeEpochService::from_fixture(epoch, &fixture),
-        )));
+        let multi_signer = MultiSignerImpl::new(
+            Arc::new(RwLock::new(FakeEpochService::from_fixture(epoch, &fixture))),
+            TestLogger::stdout(),
+        );
 
         let message = setup_message();
 

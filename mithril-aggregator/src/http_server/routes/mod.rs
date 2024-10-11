@@ -26,3 +26,8 @@ macro_rules! unwrap_to_internal_server_error {
         }
     };
 }
+
+pub(crate) fn http_server_child_logger(logger: &slog::Logger) -> slog::Logger {
+    use mithril_common::logging::LoggerExtensions;
+    logger.new_with_name("http_server")
+}

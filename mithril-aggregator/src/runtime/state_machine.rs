@@ -6,6 +6,8 @@ use crate::{
 
 use anyhow::Context;
 use mithril_common::entities::TimePoint;
+use mithril_common::logging::LoggerExtensions;
+use slog::Logger;
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -57,14 +59,10 @@ impl Display for AggregatorState {
 /// [documentation](https://mithril.network/doc/mithril/mithril-network/aggregator#under-the-hood)
 /// for more explanations about the Aggregator state machine.
 pub struct AggregatorRuntime {
-    /// Configuration
     config: AggregatorConfig,
-
-    /// the internal state of the automate
     state: AggregatorState,
-
-    /// specific runner for this state machine
     runner: Arc<dyn AggregatorRunnerTrait>,
+    logger: Logger,
 }
 
 impl AggregatorRuntime {
@@ -73,7 +71,9 @@ impl AggregatorRuntime {
         aggregator_config: AggregatorConfig,
         init_state: Option<AggregatorState>,
         runner: Arc<dyn AggregatorRunnerTrait>,
+        logger: Logger,
     ) -> Result<Self, RuntimeError> {
+        let logger = logger.new_with_component_name::<Self>();
         info!("initializing runtime");
 
         let state = if let Some(init_state) = init_state {
@@ -90,6 +90,7 @@ impl AggregatorRuntime {
             config: aggregator_config,
             state,
             runner,
+            logger,
         })
     }
 
@@ -398,6 +399,8 @@ mod tests {
 
     use mithril_common::test_utils::fake_data;
 
+    use crate::test_tools::TestLogger;
+
     use super::super::runner::MockAggregatorRunner;
     use super::*;
 
@@ -409,6 +412,7 @@ mod tests {
             AggregatorConfig::new(Duration::from_millis(20)),
             init_state,
             Arc::new(runner),
+            TestLogger::stdout(),
         )
         .await
         .unwrap()
