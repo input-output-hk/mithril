@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use slog_scope::warn;
 use warp::Filter;
 
@@ -10,16 +8,16 @@ use crate::DependencyContainer;
 const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    register_signer(dependency_manager.clone())
-        .or(registered_signers(dependency_manager.clone()))
+    register_signer(dependency_manager)
+        .or(registered_signers(dependency_manager))
         .or(signers_tickers(dependency_manager))
 }
 
 /// POST /register-signer
 fn register_signer(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signer")
         .and(warp::post())
@@ -27,30 +25,26 @@ fn register_signer(
             MITHRIL_SIGNER_VERSION_HEADER,
         ))
         .and(warp::body::json())
-        .and(middlewares::with_signer_registerer(
-            dependency_manager.clone(),
-        ))
-        .and(middlewares::with_event_transmitter(
-            dependency_manager.clone(),
-        ))
+        .and(middlewares::with_signer_registerer(dependency_manager))
+        .and(middlewares::with_event_transmitter(dependency_manager))
         .and(middlewares::with_epoch_service(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
 /// Get /signers/tickers
 fn signers_tickers(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "tickers")
         .and(warp::get())
-        .and(middlewares::with_config(dependency_manager.clone()))
+        .and(middlewares::with_config(dependency_manager))
         .and(middlewares::with_signer_getter(dependency_manager))
         .and_then(handlers::signers_tickers)
 }
 
 /// Get /signers/registered/:epoch
 fn registered_signers(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "registered" / String)
         .and(warp::get())
@@ -245,6 +239,7 @@ mod tests {
     use anyhow::anyhow;
     use mockall::predicate::eq;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use tokio::sync::RwLock;
     use warp::{
         http::{Method, StatusCode},
@@ -282,7 +277,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

@@ -1,18 +1,17 @@
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    artifact_cardano_transactions(dependency_manager.clone())
+    artifact_cardano_transactions(dependency_manager)
         .or(artifact_cardano_transaction_by_id(dependency_manager))
 }
 
 /// GET /artifact/cardano-transactions
 fn artifact_cardano_transactions(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-transactions")
         .and(warp::get())
@@ -22,7 +21,7 @@ fn artifact_cardano_transactions(
 
 /// GET /artifact/cardano-transaction/:id
 fn artifact_cardano_transaction_by_id(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-transaction" / String)
         .and(warp::get())
@@ -102,6 +101,7 @@ pub mod tests {
     };
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -119,7 +119,7 @@ pub mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

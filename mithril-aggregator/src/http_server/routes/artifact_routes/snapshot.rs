@@ -1,18 +1,17 @@
 use crate::http_server::routes::middlewares;
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::hyper::Uri;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    artifact_cardano_full_immutable_snapshots(dependency_manager.clone())
+    artifact_cardano_full_immutable_snapshots(dependency_manager)
         .or(artifact_cardano_full_immutable_snapshot_by_id(
-            dependency_manager.clone(),
+            dependency_manager,
         ))
-        .or(serve_snapshots_dir(dependency_manager.clone()))
+        .or(serve_snapshots_dir(dependency_manager))
         .or(snapshot_download(dependency_manager))
         .or(artifact_cardano_full_immutable_snapshots_legacy())
         .or(artifact_cardano_full_immutable_snapshot_by_id_legacy())
@@ -20,7 +19,7 @@ pub fn routes(
 
 /// GET /artifact/snapshots
 fn artifact_cardano_full_immutable_snapshots(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
@@ -30,7 +29,7 @@ fn artifact_cardano_full_immutable_snapshots(
 
 /// GET /artifact/snapshot/:id
 fn artifact_cardano_full_immutable_snapshot_by_id(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
@@ -40,17 +39,17 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
 
 /// GET /artifact/snapshots/{digest}/download
 fn snapshot_download(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get().or(warp::head()).unify())
-        .and(middlewares::with_config(dependency_manager.clone()))
+        .and(middlewares::with_config(dependency_manager))
         .and(middlewares::with_signed_entity_service(dependency_manager))
         .and_then(handlers::snapshot_download)
 }
 
 fn serve_snapshots_dir(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let config = dependency_manager.config.clone();
 
@@ -234,6 +233,7 @@ mod tests {
     };
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -251,7 +251,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

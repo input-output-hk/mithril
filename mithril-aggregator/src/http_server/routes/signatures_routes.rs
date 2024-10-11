@@ -1,24 +1,21 @@
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     register_signatures(dependency_manager)
 }
 
 /// POST /register-signatures
 fn register_signatures(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signatures")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_certifier_service(
-            dependency_manager.clone(),
-        ))
+        .and(middlewares::with_certifier_service(dependency_manager))
         .and(middlewares::with_single_signature_authenticator(
             dependency_manager,
         ))
@@ -108,6 +105,7 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use std::sync::Arc;
     use warp::http::{Method, StatusCode};
     use warp::test::request;
 
@@ -135,7 +133,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]
