@@ -13,9 +13,6 @@ use mithril_persistence::store::StakeStorer;
 use crate::entities::OpenMessage;
 use crate::DependencyContainer;
 
-#[cfg(test)]
-use mockall::automock;
-
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
 pub struct AggregatorConfig {
@@ -165,7 +162,7 @@ impl AggregatorRunner {
     }
 }
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current time point from the chain

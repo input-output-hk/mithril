@@ -18,9 +18,6 @@ use mithril_common::{
 
 use crate::database::repository::{CertificateRepository, SignedEntityStorer};
 
-#[cfg(test)]
-use mockall::automock;
-
 /// Error related to the [MessageService]
 #[derive(Debug, Error)]
 pub enum MessageServiceError {
@@ -29,7 +26,7 @@ pub enum MessageServiceError {
     PendingCertificateDoesNotExist,
 }
 /// HTTP Message service trait.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait MessageService: Sync + Send {
     /// Return the message representation of a certificate if it exists.

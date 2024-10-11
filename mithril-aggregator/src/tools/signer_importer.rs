@@ -10,8 +10,6 @@ use std::time::Duration;
 
 use crate::database::repository::SignerStore;
 
-#[cfg(test)]
-use mockall::automock;
 use slog_scope::{info, warn};
 
 pub type PoolTicker = String;
@@ -66,7 +64,7 @@ impl SignersImporter {
 }
 
 /// Trait that define how a [SignersImporter] retrieve the signers to import.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignersImporterRetriever: Sync + Send {
     /// Retrieve the signers list.
@@ -74,7 +72,7 @@ pub trait SignersImporterRetriever: Sync + Send {
 }
 
 /// Trait that define how a [SignersImporter] persist the retrieved signers.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignersImporterPersister: Sync + Send {
     /// Persist the given list of signers.

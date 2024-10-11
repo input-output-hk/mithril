@@ -25,11 +25,8 @@ use crate::{
     database::{record::SignedEntityRecord, repository::SignedEntityStorer},
 };
 
-#[cfg(test)]
-use mockall::automock;
-
 /// ArtifactBuilder Service trait
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignedEntityService: Send + Sync {
     /// Create artifact for a signed entity type and a certificate

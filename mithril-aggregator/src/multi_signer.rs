@@ -12,11 +12,8 @@ use mithril_common::{
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::entities::OpenMessage;
 
-#[cfg(test)]
-use mockall::automock;
-
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
     /// Verify a single signature

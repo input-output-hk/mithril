@@ -9,11 +9,8 @@ use slog_scope::info;
 use std::{env, path::Path};
 use tokio_util::{codec::BytesCodec, codec::FramedRead};
 
-#[cfg(test)]
-use mockall::automock;
-
 /// RemoteFileUploader represents a remote file uploader interactor
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait RemoteFileUploader: Sync + Send {
     /// Upload a snapshot

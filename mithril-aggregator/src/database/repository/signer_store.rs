@@ -3,8 +3,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Utc;
-#[cfg(test)]
-use mockall::automock;
 
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
@@ -16,7 +14,7 @@ use crate::database::record::SignerRecord;
 use crate::SignerRecorder;
 
 /// Service to get [SignerRecord].
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignerGetter: Sync + Send {
     /// Return all stored records.
