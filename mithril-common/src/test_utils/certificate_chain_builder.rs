@@ -388,15 +388,237 @@ impl<'a> Default for CertificateChainBuilder<'a> {
 
 #[cfg(test)]
 mod test {
+    use std::collections::BTreeMap;
+
+    use crate::entities::{self, ProtocolMessage};
+
     use super::*;
 
     #[test]
-    fn certificate_chain_has_correct_length() {
+    fn builds_certificate_chain_with_correct_length() {
         let (certificate_chain, _) = CertificateChainBuilder::new()
             .with_total_certificates(5)
             .with_certificates_per_epoch(2)
             .build();
 
         assert_eq!(5, certificate_chain.len());
+    }
+
+    #[test]
+    fn builds_valid_epochs() {
+        let expected_epochs = vec![Epoch(1), Epoch(2), Epoch(2), Epoch(3), Epoch(3), Epoch(4)];
+
+        let epochs = CertificateChainBuilder::default()
+            .with_total_certificates(5)
+            .with_certificates_per_epoch(2)
+            .build_epochs();
+
+        assert_eq!(expected_epochs, epochs);
+    }
+
+    #[test]
+    fn builds_valid_fixtures_per_epochs() {
+        let expected_total_signers = (1..=6).collect::<Vec<_>>();
+        let certificate_chain_builder = CertificateChainBuilder::default()
+            .with_total_certificates(5)
+            .with_certificates_per_epoch(1)
+            .with_total_signers_per_epoch_processor(&|epoch| *epoch as usize);
+        let epochs = certificate_chain_builder.build_epochs();
+
+        let epoch_fixtures =
+            BTreeMap::from_iter(certificate_chain_builder.build_fixtures_for_epochs(&epochs));
+
+        let total_signers = epoch_fixtures
+            .into_values()
+            .map(|fixture| fixture.signers().len())
+            .collect::<Vec<_>>();
+        assert_eq!(expected_total_signers, total_signers);
+    }
+
+    #[test]
+    fn builds_valid_genesis_certificate() {
+        let expected_protocol_parameters = ProtocolParameters {
+            m: 123,
+            k: 45,
+            phi_f: 0.67,
+        };
+        let fixture = MithrilFixtureBuilder::default()
+            .with_protocol_parameters(expected_protocol_parameters.into())
+            .with_signers(2)
+            .build();
+        let next_fixture = MithrilFixtureBuilder::default()
+            .with_protocol_parameters(expected_protocol_parameters.into())
+            .with_signers(3)
+            .build();
+        let next_avk = next_fixture.compute_and_encode_avk();
+        let context = CertificateChainBuilderContext {
+            index_certificate: 0,
+            total_certificates: 5,
+            epoch: Epoch(1),
+            fixture: &fixture,
+            next_fixture: &next_fixture,
+        };
+        let mut expected_protocol_message = ProtocolMessage::new();
+        expected_protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            next_avk,
+        );
+        expected_protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            Into::<entities::ProtocolParameters>::into(expected_protocol_parameters).compute_hash(),
+        );
+        expected_protocol_message
+            .set_message_part(ProtocolMessagePartKey::CurrentEpoch, "1".to_string());
+        let expected_signed_message = expected_protocol_message.compute_hash();
+        let (protocol_genesis_signer, _) = CertificateChainBuilder::setup_genesis();
+
+        let genesis_certificate = CertificateChainBuilder::default()
+            .with_protocol_parameters(expected_protocol_parameters)
+            .build_genesis_certificate(&context, &protocol_genesis_signer);
+
+        assert!(genesis_certificate.is_genesis());
+        assert_eq!(Epoch(1), genesis_certificate.epoch);
+        assert_eq!(
+            expected_protocol_parameters,
+            genesis_certificate.metadata.protocol_parameters.into()
+        );
+        assert_eq!(0, genesis_certificate.metadata.signers.len());
+        assert_eq!(
+            expected_protocol_message,
+            genesis_certificate.protocol_message
+        );
+        assert_eq!(expected_signed_message, genesis_certificate.signed_message);
+    }
+
+    #[test]
+    fn builds_valid_standard_certificate() {
+        let expected_protocol_parameters = ProtocolParameters {
+            m: 123,
+            k: 45,
+            phi_f: 0.67,
+        };
+        let fixture = MithrilFixtureBuilder::default()
+            .with_protocol_parameters(expected_protocol_parameters.into())
+            .with_signers(2)
+            .build();
+        let next_fixture = MithrilFixtureBuilder::default()
+            .with_protocol_parameters(expected_protocol_parameters.into())
+            .with_signers(3)
+            .build();
+        let avk = fixture.compute_and_encode_avk();
+        let next_avk = next_fixture.compute_and_encode_avk();
+        let context = CertificateChainBuilderContext {
+            index_certificate: 0,
+            total_certificates: 5,
+            epoch: Epoch(1),
+            fixture: &fixture,
+            next_fixture: &next_fixture,
+        };
+        let mut expected_protocol_message = ProtocolMessage::new();
+        expected_protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "digest0".to_string(),
+        );
+        expected_protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            next_avk,
+        );
+        expected_protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            Into::<entities::ProtocolParameters>::into(expected_protocol_parameters).compute_hash(),
+        );
+        expected_protocol_message
+            .set_message_part(ProtocolMessagePartKey::CurrentEpoch, "1".to_string());
+        let expected_signed_message = expected_protocol_message.compute_hash();
+
+        let standard_certificate = CertificateChainBuilder::default()
+            .with_protocol_parameters(expected_protocol_parameters)
+            .build_standard_certificate(&context);
+
+        assert!(!standard_certificate.is_genesis());
+        assert_eq!(Epoch(1), standard_certificate.epoch);
+        assert_eq!(
+            expected_protocol_parameters,
+            standard_certificate.metadata.protocol_parameters.into()
+        );
+        assert_eq!(2, standard_certificate.metadata.signers.len());
+        assert_eq!(
+            expected_protocol_message,
+            standard_certificate.protocol_message
+        );
+        assert_eq!(expected_signed_message, standard_certificate.signed_message);
+        assert_eq!(
+            avk,
+            standard_certificate
+                .aggregate_verification_key
+                .to_json_hex()
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn builds_certificate_chain_correctly_chained() {
+        let certificates = vec![
+            fake_data::certificate("cert-1".to_string()),
+            fake_data::certificate("cert-2".to_string()),
+            fake_data::certificate("cert-3".to_string()),
+        ];
+
+        let certificates_chained =
+            CertificateChainBuilder::default().compute_chained_certificates(certificates);
+
+        assert_eq!("", certificates_chained[2].previous_hash);
+        assert_eq!(
+            certificates_chained[2].hash,
+            certificates_chained[1].previous_hash
+        );
+        assert_eq!(
+            certificates_chained[1].hash,
+            certificates_chained[0].previous_hash
+        );
+    }
+
+    #[test]
+    fn builds_certificate_chain_with_alteration_on_genesis_certificate() {
+        let (certificates, _) = CertificateChainBuilder::new()
+            .with_total_certificates(5)
+            .with_genesis_certificate_processor(&|certificate, _, _| {
+                let mut certificate = certificate;
+                certificate.signed_message = "altered_msg".to_string();
+
+                certificate
+            })
+            .build();
+
+        assert_eq!(
+            "altered_msg".to_string(),
+            certificates.last().unwrap().signed_message
+        );
+    }
+
+    #[test]
+    fn builds_certificate_chain_with_alteration_on_standard_certificates() {
+        let total_certificates = 5;
+        let expected_signed_messages = (1..total_certificates)
+            .rev()
+            .map(|i| format!("altered-msg-{}", i))
+            .collect::<Vec<_>>();
+
+        let (certificates, _) = CertificateChainBuilder::new()
+            .with_total_certificates(total_certificates)
+            .with_standard_certificate_processor(&|certificate, context| {
+                let mut certificate = certificate;
+                certificate.signed_message = format!("altered-msg-{}", context.index_certificate);
+
+                certificate
+            })
+            .build();
+
+        let signed_message = certificates
+            .into_iter()
+            .take(total_certificates as usize - 1)
+            .map(|certificate| certificate.signed_message)
+            .collect::<Vec<_>>();
+        assert_eq!(expected_signed_messages, signed_message);
     }
 }
