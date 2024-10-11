@@ -1,16 +1,23 @@
-use std::{cmp::min, collections::HashMap, sync::Arc};
-
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
         ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolGenesisSigner,
         ProtocolGenesisVerifier, ProtocolParameters,
     },
-    entities::{
-        Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessagePartKey,
-    },
+    entities::{Certificate, CertificateSignature, Epoch, ProtocolMessagePartKey},
     test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder, SignerFixture},
 };
+
+use crate::entities::CertificateMetadata;
+use std::{cmp::min, collections::HashMap, sync::Arc};
+
+/// Genesis certificate post builder function type. For tests only.
+pub type GenesisCertificatePostBuilderFunc =
+    dyn Fn(Certificate, &CertificateChainBuilderContext, &ProtocolGenesisSigner) -> Certificate;
+
+/// Standard certificate post builder function type. For tests only.
+pub type StandardCertificatePostBuilderFunc =
+    dyn Fn(Certificate, &CertificateChainBuilderContext) -> Certificate;
 
 /// Context used while building a certificate chain. For tests only.
 pub struct CertificateChainBuilderContext<'a> {
@@ -24,9 +31,24 @@ pub struct CertificateChainBuilderContext<'a> {
 
 /// A builder for creating a certificate chain. For tests only.
 ///
-/// # Example usage
+/// # Example usage for building a fully valid certificate chain
 ///
 /// ```
+///     use mithril_common::crypto_helper::ProtocolParameters;
+///     use mithril_common::test_utils::CertificateChainBuilder;
+///
+///     let (certificate_chain, _protocol_genesis_verifier) = CertificateChainBuilder::new()
+///         .with_total_certificates(5)
+///         .with_certificates_per_epoch(2)
+///         .build();
+///
+///     assert_eq!(5, certificate_chain.len());
+/// ```
+///
+/// # Example usage for building an adversarial certificate chain
+///
+/// ```
+///     use mithril_common::entities::Epoch;
 ///     use mithril_common::crypto_helper::ProtocolParameters;
 ///     use mithril_common::test_utils::CertificateChainBuilder;
 ///
@@ -37,17 +59,27 @@ pub struct CertificateChainBuilderContext<'a> {
 ///             m: 100,
 ///             k: 5,
 ///             phi_f: 0.65,
-///         }).build();
+///         }).with_standard_certificate_post_builder(&|certificate, context| {
+///             let mut certificate = certificate;
+///             // Tamper the epoch of the last certificate
+///             if context.index_certificate == context.total_certificates - 1 {
+///                 certificate.epoch = Epoch(123);
+///             }
+///
+///             certificate
+///        }).build();
 ///
 ///     assert_eq!(5, certificate_chain.len());
 /// ```
-pub struct CertificateChainBuilder {
+pub struct CertificateChainBuilder<'a> {
     total_certificates: u64,
     certificates_per_epoch: u64,
     protocol_parameters: ProtocolParameters,
+    genesis_certificate_post_builder: Option<&'a GenesisCertificatePostBuilderFunc>,
+    standard_certificate_post_builder: Option<&'a StandardCertificatePostBuilderFunc>,
 }
 
-impl CertificateChainBuilder {
+impl<'a> CertificateChainBuilder<'a> {
     /// Create a new [CertificateChainBuilder] instance.
     pub fn new() -> Self {
         let protocol_parameters = ProtocolParameters {
@@ -59,6 +91,8 @@ impl CertificateChainBuilder {
             total_certificates: 5,
             certificates_per_epoch: 1,
             protocol_parameters,
+            genesis_certificate_post_builder: None,
+            standard_certificate_post_builder: None,
         }
     }
 
@@ -79,6 +113,26 @@ impl CertificateChainBuilder {
     /// Set the protocol parameters.
     pub fn with_protocol_parameters(mut self, protocol_parameters: ProtocolParameters) -> Self {
         self.protocol_parameters = protocol_parameters;
+
+        self
+    }
+
+    /// Set the genesis certificate post builder.
+    pub fn with_genesis_certificate_post_builder(
+        mut self,
+        genesis_certificate_post_builder: &'a GenesisCertificatePostBuilderFunc,
+    ) -> Self {
+        self.genesis_certificate_post_builder = Some(genesis_certificate_post_builder);
+
+        self
+    }
+
+    /// Set the standard certificate post builder.
+    pub fn with_standard_certificate_post_builder(
+        mut self,
+        standard_certificate_post_builder: &'a StandardCertificatePostBuilderFunc,
+    ) -> Self {
+        self.standard_certificate_post_builder = Some(standard_certificate_post_builder);
 
         self
     }
@@ -105,8 +159,31 @@ impl CertificateChainBuilder {
                     next_fixture,
                 };
                 match i {
-                    0 => Self::create_genesis_certificate(&context, &genesis_signer),
-                    _ => Self::create_standard_certificate(&context),
+                    0 => {
+                        let mut certificate =
+                            Self::create_genesis_certificate(&context, &genesis_signer);
+                        if let Some(genesis_certificate_post_builder) =
+                            self.genesis_certificate_post_builder
+                        {
+                            certificate = genesis_certificate_post_builder(
+                                certificate,
+                                &context,
+                                &genesis_signer,
+                            );
+                        }
+
+                        certificate
+                    }
+                    _ => {
+                        let mut certificate = Self::create_standard_certificate(&context);
+                        if let Some(standard_certificate_post_builder) =
+                            self.standard_certificate_post_builder
+                        {
+                            certificate = standard_certificate_post_builder(certificate, &context);
+                        }
+
+                        certificate
+                    }
                 }
             })
             .collect::<Vec<Certificate>>();
@@ -282,7 +359,7 @@ impl CertificateChainBuilder {
     }
 }
 
-impl Default for CertificateChainBuilder {
+impl<'a> Default for CertificateChainBuilder<'a> {
     fn default() -> Self {
         Self::new()
     }
