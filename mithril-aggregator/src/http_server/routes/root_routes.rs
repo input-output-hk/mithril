@@ -132,7 +132,7 @@ mod tests {
             )),
             ..Configuration::new_sample()
         };
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
 
         let expected_open_api_version = dependency_manager
@@ -193,7 +193,7 @@ mod tests {
             )),
             ..Configuration::new_sample()
         };
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         dependency_manager
             .config

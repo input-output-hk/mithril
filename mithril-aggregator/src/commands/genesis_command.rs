@@ -86,7 +86,8 @@ impl ExportGenesisSubCommand {
             "Genesis export payload to sign to {}",
             self.target_path.display()
         );
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
@@ -127,7 +128,8 @@ impl ImportGenesisSubCommand {
             "Genesis import signed payload from {}",
             self.signed_payload_path.to_string_lossy()
         );
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
@@ -205,7 +207,8 @@ impl BootstrapGenesisSubCommand {
             .with_context(|| "configuration deserialize error")?;
         debug!(root_logger, "BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await

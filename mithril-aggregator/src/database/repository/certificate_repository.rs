@@ -239,7 +239,7 @@ mod tests {
     async fn repository_get_certificate() {
         let (certificates, _) = setup_certificate_chain(5, 2);
         let expected_hash = certificates[0].hash.clone();
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         insert_certificate_records(&connection, certificates.clone());
 
@@ -262,7 +262,7 @@ mod tests {
     #[tokio::test]
     async fn repository_get_latest_certificates() {
         let (certificates, _) = setup_certificate_chain(5, 2);
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         insert_certificate_records(&connection, certificates.clone());
 
@@ -278,7 +278,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_master_certificate_no_certificate_recorded_returns_none() {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
 
         let repository: CertificateRepository = CertificateRepository::new(connection);
@@ -292,7 +292,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_master_certificate_one_cert_in_current_epoch_recorded_returns_that_one() {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificate = CertificateRecord::dummy_genesis("1", Epoch(1), 1);
         let expected_certificate: Certificate = certificate.clone().into();
@@ -311,7 +311,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_multiple_cert_in_current_epoch_returns_first_of_current_epoch()
     {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
@@ -334,7 +334,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_multiple_cert_in_previous_epoch_none_in_the_current_returns_first_of_previous_epoch(
     ) {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
@@ -357,7 +357,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_multiple_cert_in_previous_one_cert_in_current_epoch_returns_one_in_current_epoch(
     ) {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
@@ -381,7 +381,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_multiple_cert_in_previous_multiple_in_current_epoch_returns_first_of_current_epoch(
     ) {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
@@ -406,7 +406,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_multiple_cert_in_penultimate_epoch_none_in_previous_returns_none(
     ) {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
@@ -427,7 +427,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_second_genesis_after_multiple_cert_in_current_epoch_returns_last_genesis(
     ) {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
@@ -451,7 +451,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_second_genesis_after_multiple_cert_in_multiple_epochs_returns_last_genesis(
     ) {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
@@ -477,7 +477,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_new_genesis_after_multiple_cert_in_previous_epoch_returns_last_genesis(
     ) {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let certificates = vec![
             CertificateRecord::dummy_genesis("1", Epoch(1), 1),
@@ -503,7 +503,7 @@ mod tests {
         let (certificates, _) = setup_certificate_chain(3, 1);
         let expected_certificate_id = &certificates[2].hash;
         let epoch = &certificates[2].epoch;
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         insert_certificate_records(&connection, certificates.clone());
 
@@ -520,7 +520,7 @@ mod tests {
     #[tokio::test]
     async fn save_certificate() {
         let (certificates, _) = setup_certificate_chain(5, 3);
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let repository: CertificateRepository = CertificateRepository::new(connection);
         let certificate = repository
@@ -544,7 +544,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_only_given_certificates() {
-        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let mut deps = DependenciesBuilder::new_for_test(Configuration::new_sample());
         let connection = deps.get_sqlite_connection().await.unwrap();
         let repository = CertificateRepository::new(connection.clone());
         let records = vec![

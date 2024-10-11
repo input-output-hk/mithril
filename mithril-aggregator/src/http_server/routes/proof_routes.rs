@@ -198,7 +198,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_ok() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
@@ -240,7 +240,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_not_found() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
 
         let method = Method::GET.as_str();
@@ -271,7 +271,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_ko() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
@@ -307,7 +307,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_return_bad_request_with_invalid_hashes() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
 
         let method = Method::GET.as_str();
@@ -337,7 +337,7 @@ mod tests {
     async fn proof_cardano_transaction_route_deduplicate_hashes() {
         let tx = fake_data::transaction_hashes()[0].to_string();
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service

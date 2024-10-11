@@ -80,7 +80,7 @@ mod tests {
     #[tokio::test]
     async fn post_statistics_ok() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut rx = builder.get_event_transmitter_receiver().await.unwrap();
         let dependency_manager = builder.build_dependency_container().await.unwrap();
         let snapshot_download_message = SnapshotDownloadMessage::dummy();

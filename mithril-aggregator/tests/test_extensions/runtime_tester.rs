@@ -81,19 +81,20 @@ pub struct RuntimeTester {
     pub observer: Arc<AggregatorObserver>,
     pub open_message_repository: Arc<OpenMessageRepository>,
     pub block_scanner: Arc<DumbBlockScanner>,
-    _logs_guard: slog_scope::GlobalLoggerGuard,
+    _global_logger_guard: slog_scope::GlobalLoggerGuard,
 }
 
-fn build_logger() -> slog_scope::GlobalLoggerGuard {
+fn build_logger() -> slog::Logger {
     let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
     let drain = slog_term::CompactFormat::new(decorator).build().fuse();
     let drain = slog_async::Async::new(drain).build().fuse();
-    slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()))
+    slog::Logger::root(Arc::new(drain), slog::o!())
 }
 
 impl RuntimeTester {
     pub async fn build(start_time_point: TimePoint, configuration: Configuration) -> Self {
         let logger = build_logger();
+        let global_logger = slog_scope::set_global_logger(logger.clone());
         let network = configuration.network.clone();
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
@@ -110,7 +111,7 @@ impl RuntimeTester {
                 Some(Epoch(0)),
             )]));
         let block_scanner = Arc::new(DumbBlockScanner::new());
-        let mut deps_builder = DependenciesBuilder::new(configuration);
+        let mut deps_builder = DependenciesBuilder::new(logger.clone(), configuration);
         deps_builder.snapshot_uploader = Some(snapshot_uploader.clone());
         deps_builder.chain_observer = Some(chain_observer.clone());
         deps_builder.immutable_file_observer = Some(immutable_file_observer.clone());
@@ -140,7 +141,7 @@ impl RuntimeTester {
             observer,
             open_message_repository,
             block_scanner,
-            _logs_guard: logger,
+            _global_logger_guard: global_logger,
         }
     }
 

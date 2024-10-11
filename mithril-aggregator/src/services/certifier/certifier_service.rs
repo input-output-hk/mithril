@@ -442,7 +442,7 @@ mod tests {
         current_epoch: Option<Epoch>,
     ) -> MithrilCertifierService {
         let configuration = Configuration::new_sample();
-        let mut dependency_builder = DependenciesBuilder::new(configuration);
+        let mut dependency_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
 
         if let Some(epoch) = current_epoch {
             dependency_builder.epoch_service = Some(Arc::new(RwLock::new(

@@ -304,7 +304,7 @@ pub mod tests {
 
     pub async fn initialize_dependencies() -> DependencyContainer {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
 
         builder.build_dependency_container().await.unwrap()
     }

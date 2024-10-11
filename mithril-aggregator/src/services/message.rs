@@ -267,7 +267,7 @@ mod tests {
     async fn get_no_certificate() {
         // setup
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let service = dep_builder.get_message_service().await.unwrap();
 
         // test
@@ -283,7 +283,7 @@ mod tests {
     async fn get_certificate() {
         // setup
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let repository = dep_builder.get_certificate_repository().await.unwrap();
         let service = dep_builder.get_message_service().await.unwrap();
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
@@ -305,7 +305,7 @@ mod tests {
     #[tokio::test]
     async fn get_last_certificates() {
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let repository = dep_builder.get_certificate_repository().await.unwrap();
         let service = dep_builder.get_message_service().await.unwrap();
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
@@ -330,7 +330,7 @@ mod tests {
     #[tokio::test]
     async fn get_snapshot_not_exist() {
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let service = dep_builder.get_message_service().await.unwrap();
         let snapshot = service.get_snapshot_message("whatever").await.unwrap();
 
@@ -351,7 +351,7 @@ mod tests {
 
         // setup
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_signed_entity()
@@ -383,7 +383,7 @@ mod tests {
 
         // setup
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_last_signed_entities_by_type()
@@ -408,7 +408,7 @@ mod tests {
         };
         let message = ToMithrilStakeDistributionMessageAdapter::adapt(entity);
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_signed_entity()
@@ -428,7 +428,7 @@ mod tests {
     #[tokio::test]
     async fn get_mithril_stake_distribution_not_exist() {
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_signed_entity()
@@ -456,7 +456,7 @@ mod tests {
         }];
         let message = ToMithrilStakeDistributionListMessageAdapter::adapt(vec![entity]);
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_last_signed_entities_by_type()
@@ -487,7 +487,7 @@ mod tests {
         };
         let message = ToCardanoTransactionMessageAdapter::adapt(entity);
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_signed_entity()
@@ -507,7 +507,7 @@ mod tests {
     #[tokio::test]
     async fn get_cardano_transaction_not_exist() {
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_signed_entity()
@@ -538,7 +538,7 @@ mod tests {
         }];
         let message = ToCardanoTransactionListMessageAdapter::adapt(vec![entity]);
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_last_signed_entities_by_type()
@@ -566,7 +566,7 @@ mod tests {
         };
         let message = ToCardanoStakeDistributionMessageAdapter::adapt(entity);
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_signed_entity()
@@ -586,7 +586,7 @@ mod tests {
     #[tokio::test]
     async fn get_cardano_stake_distribution_not_exist() {
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_signed_entity()
@@ -614,7 +614,7 @@ mod tests {
         };
         let message = ToCardanoStakeDistributionMessageAdapter::adapt(entity.clone());
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_cardano_stake_distribution_signed_entity_by_epoch()
@@ -634,7 +634,7 @@ mod tests {
     #[tokio::test]
     async fn get_cardano_stake_distribution_by_epoch_not_exist() {
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_cardano_stake_distribution_signed_entity_by_epoch()
@@ -662,7 +662,7 @@ mod tests {
         }];
         let message = ToCardanoStakeDistributionListMessageAdapter::adapt(vec![entity]);
         let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
         let mut storer = MockSignedEntityStorer::new();
         storer
             .expect_get_last_signed_entities_by_type()

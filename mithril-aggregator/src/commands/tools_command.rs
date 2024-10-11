@@ -73,7 +73,8 @@ impl RecomputeCertificatesHashCommand {
             .with_context(|| "configuration deserialize error")?;
         debug!(root_logger, "RECOMPUTE CERTIFICATES HASH command"; "config" => format!("{config:?}"));
         println!("Recomputing all certificate hash",);
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
         let connection = dependencies_builder
             .get_sqlite_connection()
             .await
