@@ -51,6 +51,7 @@ impl SnapshotUploader for LocalSnapshotUploader {
             digest.unwrap()
         );
 
+        debug!(self.logger, "Snapshot 'uploaded' to local storage"; "location" => &location);
         Ok(location)
     }
 }

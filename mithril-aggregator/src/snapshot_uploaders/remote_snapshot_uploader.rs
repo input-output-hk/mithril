@@ -48,7 +48,9 @@ impl SnapshotUploader for RemoteSnapshotUploader {
             )
         };
 
+        debug!(self.logger, "Uploading snapshot to remote storage"; "location" => &location);
         self.file_uploader.upload_file(snapshot_filepath).await?;
+        debug!(self.logger, "Snapshot upload to remote storage completed"; "location" => &location);
 
         Ok(location)
     }
