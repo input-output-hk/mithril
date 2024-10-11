@@ -140,42 +140,39 @@ impl<'a> CertificateChainBuilder<'a> {
     /// Build the certificate chain.
     pub fn build(self) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
         let (genesis_signer, genesis_verifier) = CertificateChainBuilder::setup_genesis();
-        let epochs = Self::setup_epochs(self.total_certificates, self.certificates_per_epoch);
-        let fixtures_per_epoch =
-            Self::setup_fixtures_for_epochs(&epochs, &self.protocol_parameters);
+        let epochs = self.build_epochs();
+        let fixtures_per_epoch = self.build_fixtures_for_epochs(&epochs);
         let genesis_certificate_processor = self.genesis_certificate_processor;
         let standard_certificate_processor = self.standard_certificate_processor;
         let certificate_chain_length = epochs.len() - 1;
         let certificates = epochs
-            .iter()
+            .into_iter()
             .take(certificate_chain_length)
             .enumerate()
             .map(|(i, epoch)| {
-                let fixture = fixtures_per_epoch.get(epoch).unwrap();
-                let next_fixture = fixtures_per_epoch.get(&(*epoch + 1)).unwrap();
+                let fixture = fixtures_per_epoch.get(&epoch).unwrap();
+                let next_fixture = fixtures_per_epoch.get(&epoch.next()).unwrap();
                 let context = CertificateChainBuilderContext {
                     index_certificate: i,
                     total_certificates: certificate_chain_length,
-                    epoch: *epoch,
+                    epoch,
                     fixture,
                     next_fixture,
                 };
                 match i {
-                    0 => {
-                        let certificate =
-                            Self::create_genesis_certificate(&context, &genesis_signer);
-
-                        genesis_certificate_processor(certificate, &context, &genesis_signer)
-                    }
-                    _ => {
-                        let certificate = Self::create_standard_certificate(&context);
-
-                        standard_certificate_processor(certificate, &context)
-                    }
+                    0 => genesis_certificate_processor(
+                        self.build_genesis_certificate(&context, &genesis_signer),
+                        &context,
+                        &genesis_signer,
+                    ),
+                    _ => standard_certificate_processor(
+                        self.build_standard_certificate(&context),
+                        &context,
+                    ),
                 }
             })
             .collect::<Vec<Certificate>>();
-        let certificates_chained = Self::compute_chained_certificates(certificates);
+        let certificates_chained = self.compute_chained_certificates(certificates);
 
         (certificates_chained, genesis_verifier)
     }
@@ -199,7 +196,9 @@ impl<'a> CertificateChainBuilder<'a> {
         (genesis_signer, genesis_verifier)
     }
 
-    fn setup_epochs(total_certificates: u64, certificates_per_epoch: u64) -> Vec<Epoch> {
+    fn build_epochs(&self) -> Vec<Epoch> {
+        let total_certificates = self.total_certificates;
+        let certificates_per_epoch = self.certificates_per_epoch;
         (1..total_certificates + 2)
             .map(|i| match certificates_per_epoch {
                 0 => panic!("expected at least 1 certificate per epoch"),
@@ -209,19 +208,17 @@ impl<'a> CertificateChainBuilder<'a> {
             .collect::<Vec<_>>()
     }
 
-    fn setup_fixtures_for_epochs(
-        epochs: &[Epoch],
-        protocol_parameters: &ProtocolParameters,
-    ) -> HashMap<Epoch, MithrilFixture> {
+    fn build_fixtures_for_epochs(&self, epochs: &[Epoch]) -> HashMap<Epoch, MithrilFixture> {
         let fixtures_per_epoch = epochs
             .iter()
             .map(|epoch| {
                 // TODO: set that in the builder configuration?
                 let total_signers = min(2 + **epoch as usize, 5);
+                let protocol_parameters = self.protocol_parameters.to_owned().into();
                 (
                     *epoch,
                     MithrilFixtureBuilder::default()
-                        .with_protocol_parameters(protocol_parameters.to_owned().into())
+                        .with_protocol_parameters(protocol_parameters)
                         .with_signers(total_signers)
                         .build(),
                 )
@@ -231,7 +228,7 @@ impl<'a> CertificateChainBuilder<'a> {
         fixtures_per_epoch
     }
 
-    fn create_base_certificate(context: &CertificateChainBuilderContext) -> Certificate {
+    fn build_base_certificate(&self, context: &CertificateChainBuilderContext) -> Certificate {
         let index_certificate = context.index_certificate;
         let epoch = context.epoch;
         let immutable_file_number = index_certificate as u64 * 10;
@@ -239,43 +236,45 @@ impl<'a> CertificateChainBuilder<'a> {
         let certificate_hash = format!("certificate_hash-{index_certificate}");
         let avk = Self::compute_avk_for_signers(&context.fixture.signers_fixture());
         let next_avk = Self::compute_avk_for_signers(&context.next_fixture.signers_fixture());
+        let protocol_parameters = context.fixture.protocol_parameters().to_owned();
         let next_protocol_parameters = &context.next_fixture.protocol_parameters();
-        let mut base_certificate = fake_data::certificate(certificate_hash);
-        base_certificate
-            .protocol_message
-            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
-        base_certificate.protocol_message.set_message_part(
+        let base_certificate = fake_data::certificate(certificate_hash);
+        let mut protocol_message = base_certificate.protocol_message;
+        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+        protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             next_avk.to_json_hex().unwrap(),
         );
-        base_certificate.protocol_message.set_message_part(
+        protocol_message.set_message_part(
             ProtocolMessagePartKey::NextProtocolParameters,
             next_protocol_parameters.compute_hash(),
         );
-        base_certificate
-            .protocol_message
-            .set_message_part(ProtocolMessagePartKey::CurrentEpoch, epoch.to_string());
+        protocol_message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, epoch.to_string());
+        let signed_message = protocol_message.compute_hash();
 
         Certificate {
             epoch,
             aggregate_verification_key: avk.to_owned(),
             previous_hash: "".to_string(),
-            signed_message: base_certificate.protocol_message.compute_hash(),
+            protocol_message,
+            signed_message,
             #[allow(deprecated)]
             metadata: CertificateMetadata {
                 immutable_file_number,
+                protocol_parameters,
                 ..base_certificate.metadata
             },
             ..base_certificate
         }
     }
 
-    fn create_genesis_certificate(
+    fn build_genesis_certificate(
+        &self,
         context: &CertificateChainBuilderContext,
         genesis_signer: &ProtocolGenesisSigner,
     ) -> Certificate {
         let epoch = context.epoch;
-        let certificate = Self::create_base_certificate(context);
+        let certificate = self.build_base_certificate(context);
         let next_avk = Self::compute_avk_for_signers(&context.next_fixture.signers_fixture());
         let next_protocol_parameters = &context.next_fixture.protocol_parameters();
         let genesis_producer =
@@ -302,9 +301,9 @@ impl<'a> CertificateChainBuilder<'a> {
         .unwrap()
     }
 
-    fn create_standard_certificate(context: &CertificateChainBuilderContext) -> Certificate {
+    fn build_standard_certificate(&self, context: &CertificateChainBuilderContext) -> Certificate {
         let fixture = context.fixture;
-        let mut certificate = Self::create_base_certificate(context);
+        let mut certificate = self.build_base_certificate(context);
         certificate.metadata.signers = fixture.stake_distribution_parties();
         let single_signatures = fixture
             .signers_fixture()
@@ -326,7 +325,7 @@ impl<'a> CertificateChainBuilder<'a> {
         certificate
     }
 
-    fn compute_chained_certificates(certificates: Vec<Certificate>) -> Vec<Certificate> {
+    fn compute_chained_certificates(&self, certificates: Vec<Certificate>) -> Vec<Certificate> {
         let mut certificates_chained: Vec<Certificate> = Vec::new();
         certificates
             .iter()
@@ -337,6 +336,8 @@ impl<'a> CertificateChainBuilder<'a> {
                     if let Some(previous_certificate) = certificates_chained.get(i - 1) {
                         certificate_new.previous_hash = previous_certificate.compute_hash();
                     }
+                } else {
+                    certificate_new.previous_hash = "".to_string();
                 }
                 certificate_new.hash = certificate_new.compute_hash();
                 certificates_chained.push(certificate_new);
