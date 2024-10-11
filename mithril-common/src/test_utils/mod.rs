@@ -14,6 +14,7 @@ pub mod fake_data;
 pub mod fake_keys;
 
 mod cardano_transactions_builder;
+mod certificate_chain_builder;
 mod fixture_builder;
 mod mithril_fixture;
 
@@ -24,6 +25,7 @@ mod temp_dir;
 pub mod test_http_server;
 
 pub use cardano_transactions_builder::CardanoTransactionsBuilder;
+pub use certificate_chain_builder::CertificateChainBuilder;
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
