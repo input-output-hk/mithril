@@ -15,6 +15,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 anyhow = "1.0.86"
 axum = "0.7.5"
 mithril-common = { path = "../../mithril-common", features = ["full"] }
+paste = "1.0.15"
 prometheus = "0.13.4"
 reqwest = { version = "0.12.7", features = ["json", "stream"] }
 slog = { version = "2.7.0", features = [

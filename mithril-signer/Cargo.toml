@@ -27,6 +27,7 @@ mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
 openssl = { version = "0.10.66", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
+paste = "1.0.15"
 prometheus = "0.13.4"
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
