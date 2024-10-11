@@ -15,6 +15,7 @@ fn artifact_cardano_transactions(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-transactions")
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::list_artifacts)
 }
@@ -25,6 +26,7 @@ fn artifact_cardano_transaction_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-transaction" / String)
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
@@ -33,7 +35,7 @@ pub mod handlers {
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
 
-    use slog_scope::{debug, warn};
+    use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -42,9 +44,10 @@ pub mod handlers {
 
     /// List Cardano Transactions set artifacts
     pub async fn list_artifacts(
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: artifacts");
+        debug!(logger, "⇄ HTTP SERVER: artifacts");
 
         match http_message_service
             .get_cardano_transaction_list_message(LIST_MAX_ITEMS)
@@ -52,7 +55,7 @@ pub mod handlers {
         {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
-                warn!("list_artifacts_cardano_transactions"; "error" => ?err);
+                warn!(logger, "list_artifacts_cardano_transactions"; "error" => ?err);
 
                 Ok(reply::server_error(err))
             }
@@ -62,9 +65,10 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
+        debug!(logger, "⇄ HTTP SERVER: artifact/{signed_entity_id}");
 
         match http_message_service
             .get_cardano_transaction_message(&signed_entity_id)
@@ -72,11 +76,11 @@ pub mod handlers {
         {
             Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
             Ok(None) => {
-                warn!("get_cardano_transaction_details::not_found");
+                warn!(logger, "get_cardano_transaction_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!("get_cardano_transaction_details::error"; "error" => ?err);
+                warn!(logger, "get_cardano_transaction_details::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }

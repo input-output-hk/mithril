@@ -38,6 +38,7 @@ fn proof_cardano_transaction(
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
         .and(warp::query::<CardanoTransactionProofQueryParams>())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_signed_entity_service(dependency_manager))
         .and(middlewares::validators::with_prover_transactions_hash_validator(dependency_manager))
         .and(middlewares::with_prover_service(dependency_manager))
@@ -50,7 +51,7 @@ mod handlers {
         messages::CardanoTransactionsProofsMessage,
         StdResult,
     };
-    use slog_scope::{debug, warn};
+    use slog::{debug, warn, Logger};
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
@@ -65,18 +66,20 @@ mod handlers {
 
     pub async fn proof_cardano_transaction(
         transaction_parameters: CardanoTransactionProofQueryParams,
+        logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
         validator: ProverTransactionsHashValidator,
         prover_service: Arc<dyn ProverService>,
     ) -> Result<impl warp::Reply, Infallible> {
         let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
+            logger,
             "⇄ HTTP SERVER: proof_cardano_transaction?transaction_hashes={}",
             transaction_parameters.transaction_hashes
         );
 
         if let Err(error) = validator.validate(&transaction_hashes) {
-            warn!("proof_cardano_transaction::bad_request");
+            warn!(logger, "proof_cardano_transaction::bad_request");
             return Ok(reply::bad_request(error.label, error.message));
         }
 
@@ -86,17 +89,17 @@ mod handlers {
             signed_entity_service
                 .get_last_cardano_transaction_snapshot()
                 .await,
-            "proof_cardano_transaction::error"
+            logger => "proof_cardano_transaction::error"
         ) {
             Some(signed_entity) => {
                 let message = unwrap_to_internal_server_error!(
                     build_response_message(prover_service, signed_entity, sanitized_hashes).await,
-                    "proof_cardano_transaction"
+                    logger => "proof_cardano_transaction"
                 );
                 Ok(reply::json(&message, StatusCode::OK))
             }
             None => {
-                warn!("proof_cardano_transaction::not_found");
+                warn!(logger, "proof_cardano_transaction::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
         }

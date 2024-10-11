@@ -23,6 +23,7 @@ fn epoch_settings(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("epoch-settings")
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_epoch_service(dependency_manager))
         .and(middlewares::with_allowed_signed_entity_type_discriminants(
             dependency_manager,
@@ -68,7 +69,7 @@ async fn get_epoch_settings_message(
 }
 
 mod handlers {
-    use slog_scope::debug;
+    use slog::{debug, Logger};
     use std::collections::BTreeSet;
     use std::convert::Infallible;
     use warp::http::StatusCode;
@@ -81,10 +82,11 @@ mod handlers {
 
     /// Epoch Settings
     pub async fn epoch_settings(
+        logger: Logger,
         epoch_service: EpochServiceWrapper,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: epoch_settings");
+        debug!(logger, "⇄ HTTP SERVER: epoch_settings");
         let epoch_settings_message =
             get_epoch_settings_message(epoch_service, allowed_discriminants).await;
 

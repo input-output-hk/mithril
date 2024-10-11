@@ -14,11 +14,11 @@ mod statistics_routes;
 /// if it was an Error. Else return the unwrapped value.
 #[macro_export]
 macro_rules! unwrap_to_internal_server_error {
-    ($code:expr, $($warn_comment:tt)*) => {
+    ($code:expr, $logger:expr => $($warn_comment:tt)*) => {
         match $code {
             Ok(res) => res,
             Err(err) => {
-                warn!($($warn_comment)*; "error" => ?err);
+                slog::warn!($logger, $($warn_comment)*; "error" => ?err);
                 return Ok($crate::http_server::routes::reply::server_error(
                     err,
                 ));

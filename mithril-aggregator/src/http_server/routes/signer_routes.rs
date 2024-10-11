@@ -1,4 +1,4 @@
-use slog_scope::warn;
+use slog::warn;
 use warp::Filter;
 
 use crate::dependency_injection::EpochServiceWrapper;
@@ -25,6 +25,7 @@ fn register_signer(
             MITHRIL_SIGNER_VERSION_HEADER,
         ))
         .and(warp::body::json())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_signer_registerer(dependency_manager))
         .and(middlewares::with_event_transmitter(dependency_manager))
         .and(middlewares::with_epoch_service(dependency_manager))
@@ -37,6 +38,7 @@ fn signers_tickers(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "tickers")
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_config(dependency_manager))
         .and(middlewares::with_signer_getter(dependency_manager))
         .and_then(handlers::signers_tickers)
@@ -48,15 +50,22 @@ fn registered_signers(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "registered" / String)
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_verification_key_store(dependency_manager))
         .and_then(handlers::registered_signers)
 }
 
-async fn fetch_epoch_header_value(epoch_service: EpochServiceWrapper) -> String {
+async fn fetch_epoch_header_value(
+    epoch_service: EpochServiceWrapper,
+    logger: &slog::Logger,
+) -> String {
     match epoch_service.read().await.epoch_of_current_data() {
         Ok(epoch) => format!("{epoch}"),
         Err(e) => {
-            warn!("Could not fetch epoch header value from Epoch service: {e}");
+            warn!(
+                logger,
+                "Could not fetch epoch header value from Epoch service: {e}"
+            );
             String::new()
         }
     }
@@ -76,7 +85,7 @@ mod handlers {
     use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
-    use slog_scope::{debug, trace, warn};
+    use slog::{debug, trace, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -85,15 +94,16 @@ mod handlers {
     pub async fn register_signer(
         signer_node_version: Option<String>,
         register_signer_message: RegisterSignerMessage,
+        logger: Logger,
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         epoch_service: EpochServiceWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
-            "⇄ HTTP SERVER: register_signer/{:?}",
-            register_signer_message
+            logger,
+            "⇄ HTTP SERVER: register_signer/{register_signer_message:?}"
         );
-        trace!(
+        trace!(logger,
             "⇄ HTTP SERVER: register_signer";
             "complete_message" => #?register_signer_message
         );
@@ -103,7 +113,7 @@ mod handlers {
         let signer = match FromRegisterSignerAdapter::try_adapt(register_signer_message) {
             Ok(signer) => signer,
             Err(err) => {
-                warn!("register_signer::payload decoding error"; "error" => ?err);
+                warn!(logger,"register_signer::payload decoding error"; "error" => ?err);
                 return Ok(reply::bad_request(
                     "Could not decode signer payload".to_string(),
                     err.to_string(),
@@ -116,7 +126,7 @@ mod handlers {
             None => Vec::new(),
         };
 
-        let epoch_str = fetch_epoch_header_value(epoch_service).await;
+        let epoch_str = fetch_epoch_header_value(epoch_service, &logger).await;
         if !epoch_str.is_empty() {
             headers.push(("epoch", epoch_str.as_str()));
         }
@@ -136,7 +146,7 @@ mod handlers {
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::ExistingSigner(signer_with_stake)) => {
-                debug!("register_signer::already_registered");
+                debug!(logger, "register_signer::already_registered");
                 let _ = event_transmitter.send_event_message(
                     "HTTP::signer_register",
                     "register_signer",
@@ -146,20 +156,20 @@ mod handlers {
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::FailedSignerRegistration(err)) => {
-                warn!("register_signer::failed_signer_registration"; "error" => ?err);
+                warn!(logger,"register_signer::failed_signer_registration"; "error" => ?err);
                 Ok(reply::bad_request(
                     "failed_signer_registration".to_string(),
                     err.to_string(),
                 ))
             }
             Err(SignerRegistrationError::RegistrationRoundNotYetOpened) => {
-                warn!("register_signer::registration_round_not_yed_opened");
+                warn!(logger, "register_signer::registration_round_not_yed_opened");
                 Ok(reply::service_unavailable(
                     SignerRegistrationError::RegistrationRoundNotYetOpened.to_string(),
                 ))
             }
             Err(err) => {
-                warn!("register_signer::error"; "error" => ?err);
+                warn!(logger,"register_signer::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -168,14 +178,18 @@ mod handlers {
     /// Get Registered Signers for a given epoch
     pub async fn registered_signers(
         registered_at: String,
+        logger: Logger,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: signers/registered/{:?}", registered_at);
+        debug!(
+            logger,
+            "⇄ HTTP SERVER: signers/registered/{:?}", registered_at
+        );
 
         let registered_at = match registered_at.parse::<u64>() {
             Ok(epoch) => Epoch(epoch),
             Err(err) => {
-                warn!("registered_signers::invalid_epoch"; "error" => ?err);
+                warn!(logger,"registered_signers::invalid_epoch"; "error" => ?err);
                 return Ok(reply::bad_request(
                     "invalid_epoch".to_string(),
                     err.to_string(),
@@ -194,21 +208,22 @@ mod handlers {
                 Ok(reply::json(&message, StatusCode::OK))
             }
             Ok(None) => {
-                warn!("registered_signers::not_found");
+                warn!(logger, "registered_signers::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!("registered_signers::error"; "error" => ?err);
+                warn!(logger,"registered_signers::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
     }
 
     pub async fn signers_tickers(
+        logger: Logger,
         configuration: Configuration,
         signer_getter: Arc<dyn SignerGetter>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: signers/tickers");
+        debug!(logger, "⇄ HTTP SERVER: signers/tickers");
         let network = configuration.network;
 
         match signer_getter.get_all().await {
@@ -227,7 +242,7 @@ mod handlers {
                 ))
             }
             Err(err) => {
-                warn!("registered_signers::error"; "error" => ?err);
+                warn!(logger,"registered_signers::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -262,6 +277,7 @@ mod tests {
         services::FakeEpochService,
         signer_registerer::MockSignerRegisterer,
         store::MockVerificationKeyStorer,
+        test_tools::TestLogger,
         SignerRegistrationError,
     };
 
@@ -664,7 +680,7 @@ mod tests {
             &fixture,
         )));
 
-        let epoch_str = fetch_epoch_header_value(epoch_service).await;
+        let epoch_str = fetch_epoch_header_value(epoch_service, &TestLogger::stdout()).await;
 
         assert_eq!(epoch_str, "84".to_string());
     }
@@ -673,7 +689,7 @@ mod tests {
     async fn test_fetch_epoch_header_value_when_epoch_service_error_return_empty_string() {
         let epoch_service = Arc::new(RwLock::new(FakeEpochService::without_data()));
 
-        let epoch_str = fetch_epoch_header_value(epoch_service).await;
+        let epoch_str = fetch_epoch_header_value(epoch_service, &TestLogger::stdout()).await;
 
         assert_eq!(epoch_str, "".to_string());
     }
