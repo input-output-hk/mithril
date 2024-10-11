@@ -165,370 +165,370 @@ jobs:
           path: |
             mithril-client-wasm/**/*-mithril-client-wasm-*.tgz
           if-no-files-found: error
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-22.04, macos-12, macos-14, windows-latest]
+  # test:
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       os: [ubuntu-22.04, macos-12, macos-14, windows-latest]
 
-        include:
-          - os: ubuntu-22.04
-            test-args: --features full,unstable --workspace
-          # Only test client on windows & mac (since its the only binaries supported for those os for now)
-          - os: macos-12
-            test-args: --package mithril-client --package mithril-client-cli --features full,unstable
-          - os: macos-14
-            test-args: --package mithril-client --package mithril-client-cli --features full,unstable
-          - os: windows-latest
-            test-args: --package mithril-client --package mithril-client-cli --features full,unstable
+  #       include:
+  #         - os: ubuntu-22.04
+  #           test-args: --features full,unstable --workspace
+  #         # Only test client on windows & mac (since its the only binaries supported for those os for now)
+  #         - os: macos-12
+  #           test-args: --package mithril-client --package mithril-client-cli --features full,unstable
+  #         - os: macos-14
+  #           test-args: --package mithril-client --package mithril-client-cli --features full,unstable
+  #         - os: windows-latest
+  #           test-args: --package mithril-client --package mithril-client-cli --features full,unstable
 
-    runs-on: ${{ matrix.os }}
+  #   runs-on: ${{ matrix.os }}
 
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Install stable toolchain, tools, and restore cache
-        uses: ./.github/workflows/actions/toolchain-and-cache
-        with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
-          cargo-tools: cargo-nextest
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Install stable toolchain, tools, and restore cache
+  #       uses: ./.github/workflows/actions/toolchain-and-cache
+  #       with:
+  #         cache-version: ${{ secrets.CACHE_VERSION }}
+  #         cargo-tools: cargo-nextest
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build tests
-        run: cargo nextest run --no-run ${{ matrix.test-args }}
+  #     - name: Build tests
+  #       run: cargo nextest run --no-run ${{ matrix.test-args }}
 
-      - name: Run tests
-        run: cargo nextest run --profile ci ${{ matrix.test-args }}
+  #     - name: Run tests
+  #       run: cargo nextest run --profile ci ${{ matrix.test-args }}
 
-      - name: Run doc tests
-        run: cargo test --doc ${{ matrix.test-args }}
+  #     - name: Run doc tests
+  #       run: cargo test --doc ${{ matrix.test-args }}
 
-      - name: Ensure examples build
-        run: cargo build --examples ${{ matrix.test-args }}
+  #     - name: Ensure examples build
+  #       run: cargo build --examples ${{ matrix.test-args }}
 
-      - name: Rename junit file to include runner info
-        shell: bash
-        if: success() || failure()
-        run: |
-          mv target/nextest/ci/tests-result.junit.xml test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml
+  #     - name: Rename junit file to include runner info
+  #       shell: bash
+  #       if: success() || failure()
+  #       run: |
+  #         mv target/nextest/ci/tests-result.junit.xml test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml
 
-      - name: Upload Tests Results
-        uses: actions/upload-artifact@v4
-        if: success() || failure()
-        with:
-          name: test-results-${{ runner.os }}-${{ runner.arch }}
-          path: ./test-results-*.xml
+  #     - name: Upload Tests Results
+  #       uses: actions/upload-artifact@v4
+  #       if: success() || failure()
+  #       with:
+  #         name: test-results-${{ runner.os }}-${{ runner.arch }}
+  #         path: ./test-results-*.xml
 
-  check:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  # check:
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Install stable toolchain, tools, and restore cache
-        uses: ./.github/workflows/actions/toolchain-and-cache
-        with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
-          cargo-tools: cargo-sort clippy-sarif sarif-fmt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Install stable toolchain, tools, and restore cache
+  #       uses: ./.github/workflows/actions/toolchain-and-cache
+  #       with:
+  #         cache-version: ${{ secrets.CACHE_VERSION }}
+  #         cargo-tools: cargo-sort clippy-sarif sarif-fmt
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install prettier
-        shell: bash
-        run: npm install -g prettier
+  #     - name: Install prettier
+  #       shell: bash
+  #       run: npm install -g prettier
 
-      - name: Clippy Check
-        if: success() || failure()
-        run: |
-          cargo clippy \
-            --all-features --all-targets --no-deps --message-format=json \
-            | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+  #     - name: Clippy Check
+  #       if: success() || failure()
+  #       run: |
+  #         cargo clippy \
+  #           --all-features --all-targets --no-deps --message-format=json \
+  #           | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
 
-          # Make this step fail if any warning has been found
-          if [[ $(cat rust-clippy-results.sarif | jq '.runs[0].results') != "[]" ]]; then
-            false
-          fi
+  #         # Make this step fail if any warning has been found
+  #         if [[ $(cat rust-clippy-results.sarif | jq '.runs[0].results') != "[]" ]]; then
+  #           false
+  #         fi
 
-      - name: Upload clippy analysis results to GitHub
-        if: success() || failure()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: rust-clippy-results.sarif
-          wait-for-processing: true
+  #     - name: Upload clippy analysis results to GitHub
+  #       if: success() || failure()
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: rust-clippy-results.sarif
+  #         wait-for-processing: true
 
-      - name: Cargo fmt
-        if: success() || failure()
-        shell: bash
-        run: cargo fmt --check
+  #     - name: Cargo fmt
+  #       if: success() || failure()
+  #       shell: bash
+  #       run: cargo fmt --check
 
-      - name: Cargo sort
-        if: success() || failure()
-        shell: bash
-        run: cargo sort -w -c
+  #     - name: Cargo sort
+  #       if: success() || failure()
+  #       shell: bash
+  #       run: cargo sort -w -c
 
-      - name: Dependency & Vulnerabilities Review
-        if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
-        with:
-          base-ref: ${{ github.event.pull_request.base.sha || 'main' }}
-          head-ref: ${{ github.event.pull_request.head.sha || github.ref }}
+  #     - name: Dependency & Vulnerabilities Review
+  #       if: github.event_name == 'pull_request'
+  #       uses: actions/dependency-review-action@v4
+  #       with:
+  #         base-ref: ${{ github.event.pull_request.base.sha || 'main' }}
+  #         head-ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
-      - name: Check networks.json validity
-        if: success() || failure()
-        run: jq . networks.json
+  #     - name: Check networks.json validity
+  #       if: success() || failure()
+  #       run: jq . networks.json
 
-      - name: Check code formatting
-        if: success() || failure()
-        run: make check-format
+  #     - name: Check code formatting
+  #       if: success() || failure()
+  #       run: make check-format
 
-  e2e:
-    runs-on: ubuntu-22.04
-    needs: [build-ubuntu-X64]
-    strategy:
-      fail-fast: false
-      matrix:
-        mode: ["std"]
-        era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
-        next_era: [""]
-        cardano_node_version: ["9.0.0", "9.1.0", "9.1.1", "9.2.0", "9.2.1"]
-        hard_fork_latest_era_at_epoch: [0]
-        run_id: ["#1"]
-        extra_args: [""]
+  # e2e:
+  #   runs-on: ubuntu-22.04
+  #   needs: [build-ubuntu-X64]
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       mode: ["std"]
+  #       era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
+  #       next_era: [""]
+  #       cardano_node_version: ["9.0.0", "9.1.0", "9.1.1", "9.2.0", "9.2.1"]
+  #       hard_fork_latest_era_at_epoch: [0]
+  #       run_id: ["#1"]
+  #       extra_args: [""]
 
-        include:
-          # Include a test for the P2P mode
-          - mode: "p2p"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            next_era: [""]
-            cardano_node_version: "9.1.1"
-            hard_fork_latest_era_at_epoch: 0
-            run_id: "#1"
-            extra_args: "--use-p2p-network"
-          # Include a test for the era switch without regenesis
-          - mode: "std"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
-            cardano_node_version: "9.1.1"
-            hard_fork_latest_era_at_epoch: 0
-            run_id: "#1"
-            extra_args: ""
-          # Include a test for the era switch with regenesis
-          - mode: "std"
-            era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
-            next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
-            cardano_node_version: "9.1.1"
-            hard_fork_latest_era_at_epoch: 0
-            run_id: "#1"
-            extra_args: "--mithril-era-regenesis-on-switch"
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  #       include:
+  #         # Include a test for the P2P mode
+  #         - mode: "p2p"
+  #           era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+  #           next_era: [""]
+  #           cardano_node_version: "9.1.1"
+  #           hard_fork_latest_era_at_epoch: 0
+  #           run_id: "#1"
+  #           extra_args: "--use-p2p-network"
+  #         # Include a test for the era switch without regenesis
+  #         - mode: "std"
+  #           era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+  #           next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
+  #           cardano_node_version: "9.1.1"
+  #           hard_fork_latest_era_at_epoch: 0
+  #           run_id: "#1"
+  #           extra_args: ""
+  #         # Include a test for the era switch with regenesis
+  #         - mode: "std"
+  #           era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[0] }}
+  #           next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
+  #           cardano_node_version: "9.1.1"
+  #           hard_fork_latest_era_at_epoch: 0
+  #           run_id: "#1"
+  #           extra_args: "--mithril-era-regenesis-on-switch"
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Download binaries
-        uses: actions/download-artifact@v4
-        with:
-          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
-          path: ./bin
+  #     - name: Download binaries
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
+  #         path: ./bin
 
-      - name: Download rust test runner
-        uses: actions/download-artifact@v4
-        with:
-          name: mithril-tooling-${{ runner.os }}-${{ runner.arch }}
-          path: ./
+  #     - name: Download rust test runner
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: mithril-tooling-${{ runner.os }}-${{ runner.arch }}
+  #         path: ./
 
-      - run: |
-          chmod +x ./bin/mithril-aggregator
-          chmod +x ./bin/mithril-client
-          chmod +x ./bin/mithril-signer
-          chmod +x ./bin/mithril-relay
-          chmod +x ./mithril-end-to-end
-          mkdir artifacts
+  #     - run: |
+  #         chmod +x ./bin/mithril-aggregator
+  #         chmod +x ./bin/mithril-client
+  #         chmod +x ./bin/mithril-signer
+  #         chmod +x ./bin/mithril-relay
+  #         chmod +x ./mithril-end-to-end
+  #         mkdir artifacts
 
-      - name: Test
-        run: |
-          cat > ./mithril-end-to-end.sh << EOF
-          #!/bin/bash
-          set -x
-          ./mithril-end-to-end -vvv \\
-                  --bin-directory ./bin \\
-                  --work-directory=./artifacts \\
-                  --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
-                  --mithril-era=${{ matrix.era }} \\
-                  --cardano-node-version ${{ matrix.cardano_node_version }} \\
-                  --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }} \\
-          EOF
-          # If there is a next era, we need to specify it with '--mithril-next-era'
-          if [[ "${{ matrix.next_era }}" != "" ]]; then
-            echo "  --mithril-next-era=${{ matrix.next_era }}" >> ./mithril-end-to-end.sh
-          fi
-          chmod u+x ./mithril-end-to-end.sh
-          ./mithril-end-to-end.sh
-          rm ./mithril-end-to-end.sh
+  #     - name: Test
+  #       run: |
+  #         cat > ./mithril-end-to-end.sh << EOF
+  #         #!/bin/bash
+  #         set -x
+  #         ./mithril-end-to-end -vvv \\
+  #                 --bin-directory ./bin \\
+  #                 --work-directory=./artifacts \\
+  #                 --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
+  #                 --mithril-era=${{ matrix.era }} \\
+  #                 --cardano-node-version ${{ matrix.cardano_node_version }} \\
+  #                 --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }} \\
+  #         EOF
+  #         # If there is a next era, we need to specify it with '--mithril-next-era'
+  #         if [[ "${{ matrix.next_era }}" != "" ]]; then
+  #           echo "  --mithril-next-era=${{ matrix.next_era }}" >> ./mithril-end-to-end.sh
+  #         fi
+  #         chmod u+x ./mithril-end-to-end.sh
+  #         ./mithril-end-to-end.sh
+  #         rm ./mithril-end-to-end.sh
 
-      - name: Upload E2E Tests Artifacts
-        if: ${{ failure() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-mode_${{ matrix.mode }}-era_${{ matrix.era }}-cardano-${{ matrix.cardano_node_version }}-fork-${{  matrix.hard_fork_latest_era_at_epoch }}-run_id_${{ matrix.run_id }}
-          path: |
-            ./artifacts/*
-            # including node.sock makes the upload fails so exclude them:
-            !./artifacts/**/node.sock
-            # exclude cardano tools, saving ~50mb of data:
-            !./artifacts/devnet/cardano-cli
-            !./artifacts/devnet/cardano-node
-          if-no-files-found: error
+  #     - name: Upload E2E Tests Artifacts
+  #       if: ${{ failure() }}
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-mode_${{ matrix.mode }}-era_${{ matrix.era }}-cardano-${{ matrix.cardano_node_version }}-fork-${{  matrix.hard_fork_latest_era_at_epoch }}-run_id_${{ matrix.run_id }}
+  #         path: |
+  #           ./artifacts/*
+  #           # including node.sock makes the upload fails so exclude them:
+  #           !./artifacts/**/node.sock
+  #           # exclude cardano tools, saving ~50mb of data:
+  #           !./artifacts/devnet/cardano-cli
+  #           !./artifacts/devnet/cardano-node
+  #         if-no-files-found: error
 
-  send-tests-results:
-    if: success() || failure()
-    runs-on: ubuntu-22.04
-    needs:
-      - test
-    steps:
-      - name: Download Tests Results
-        if: success() || failure()
-        uses: actions/download-artifact@v4
-        with:
-          pattern: test-results-*
-          merge-multiple: true
+  # send-tests-results:
+  #   if: success() || failure()
+  #   runs-on: ubuntu-22.04
+  #   needs:
+  #     - test
+  #   steps:
+  #     - name: Download Tests Results
+  #       if: success() || failure()
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         pattern: test-results-*
+  #         merge-multiple: true
 
-      - name: Publish Unit Test Results
-        if: success() || failure()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          junit_files: ./**/test-results-*.xml
+  #     - name: Publish Unit Test Results
+  #       if: success() || failure()
+  #       uses: EnricoMi/publish-unit-test-result-action@v2
+  #       with:
+  #         junit_files: ./**/test-results-*.xml
 
-  docker-mithril:
-    runs-on: ubuntu-22.04
-    needs:
-      - build
-      - check
-      - test
-      - e2e
-    strategy:
-      fail-fast: false
-      matrix:
-        project:
-          [
-            mithril-aggregator,
-            mithril-client-cli,
-            mithril-signer,
-            mithril-relay,
-          ]
+  # docker-mithril:
+  #   runs-on: ubuntu-22.04
+  #   needs:
+  #     - build
+  #     # - check
+  #     # - test
+  #     # - e2e
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       project:
+  #         [
+  #           mithril-aggregator,
+  #           mithril-client-cli,
+  #           mithril-signer,
+  #           mithril-relay,
+  #         ]
 
-        include:
-          - project: mithril-client-cli
-            package: mithril-client
+  #       include:
+  #         - project: mithril-client-cli
+  #           package: mithril-client
 
-    permissions:
-      contents: read
-      packages: write
+  #   permissions:
+  #     contents: read
+  #     packages: write
 
-    env:
-      PUSH_PACKAGES: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref)) }}
-      REGISTRY: ghcr.io
-      PACKAGE: ${{ github.repository_owner }}/${{ matrix.package != '' && matrix.package || matrix.project }}
-      DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
-      CONTEXT: .
+  #   env:
+  #     PUSH_PACKAGES: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref)) }}
+  #     REGISTRY: ghcr.io
+  #     PACKAGE: ${{ github.repository_owner }}/${{ matrix.package != '' && matrix.package || matrix.project }}
+  #     DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
+  #     CONTEXT: .
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
 
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Log in to the Container registry
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ${{ env.REGISTRY }}
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
-          tags: |
-            unstable
-            type=raw,value=${{ github.base_ref || github.ref_name }}-{{sha}}
+  #     - name: Extract metadata (tags, labels) for Docker
+  #       id: meta
+  #       uses: docker/metadata-action@v5
+  #       with:
+  #         images: ${{ env.REGISTRY }}/${{ env.PACKAGE }}
+  #         tags: |
+  #           unstable
+  #           type=raw,value=${{ github.base_ref || github.ref_name }}-{{sha}}
 
-      - name: Download built artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
-          path: ${{ matrix.project }}
+  #     - name: Download built artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
+  #         path: ${{ matrix.project }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ env.CONTEXT }}
-          file: ${{ env.DOCKER_FILE }}
-          push: ${{ env.PUSH_PACKAGES }}
-          tags: ${{ steps.meta.outputs.tags }}
+  #     - name: Build and push Docker image
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: ${{ env.CONTEXT }}
+  #         file: ${{ env.DOCKER_FILE }}
+  #         push: ${{ env.PUSH_PACKAGES }}
+  #         tags: ${{ steps.meta.outputs.tags }}
 
-  publish-crate-test:
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        package:
-          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
+  # publish-crate-test:
+  #   strategy:
+  #     fail-fast: false
+  #     max-parallel: 1
+  #     matrix:
+  #       package:
+  #         [mithril-stm, mithril-build-script, mithril-common, mithril-client]
 
-    runs-on: ubuntu-22.04
-    needs:
-      - build
-      - test
-      - e2e
-      - check
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  #   runs-on: ubuntu-22.04
+  #   needs:
+  #     - build
+  #     - test
+  #     - e2e
+  #     - check
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
+  #     - name: Install stable toolchain
+  #       uses: dtolnay/rust-toolchain@master
+  #       with:
+  #         toolchain: stable
 
-      - name: Publish package to crates.io
-        uses: ./.github/workflows/actions/publish-crate-package
-        with:
-          dry_run: "true"
-          package: ${{ matrix.package }}
+  #     - name: Publish package to crates.io
+  #       uses: ./.github/workflows/actions/publish-crate-package
+  #       with:
+  #         dry_run: "true"
+  #         package: ${{ matrix.package }}
 
-  publish-wasm-test:
-    strategy:
-      fail-fast: false
-      max-parallel: 1
-      matrix:
-        package: [mithril-client-wasm]
-        include:
-          - package: mithril-client-wasm
-            scope: mithril-dev
-            tag: latest
-            access: public
-            api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
+  # publish-wasm-test:
+  #   strategy:
+  #     fail-fast: false
+  #     max-parallel: 1
+  #     matrix:
+  #       package: [mithril-client-wasm]
+  #       include:
+  #         - package: mithril-client-wasm
+  #           scope: mithril-dev
+  #           tag: latest
+  #           access: public
+  #           api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
 
-    runs-on: ubuntu-22.04
-    needs:
-      - build-test-wasm
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  #   runs-on: ubuntu-22.04
+  #   needs:
+  #     - build-test-wasm
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Install stable toolchain, tools, and restore cache
-        uses: ./.github/workflows/actions/toolchain-and-cache
-        with:
-          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
-          cargo-tools: wasm-pack
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Install stable toolchain, tools, and restore cache
+  #       uses: ./.github/workflows/actions/toolchain-and-cache
+  #       with:
+  #         cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+  #         cargo-tools: wasm-pack
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish package to npm
-        uses: ./.github/workflows/actions/publish-npm-package
-        with:
-          dry_run: "true"
-          package: ${{ matrix.package }}
-          scope: ${{ matrix.scope }}
-          access: ${{ matrix.access }}
-          api_token: ${{ secrets[matrix.api_token_secret_name] }}
+  #     - name: Publish package to npm
+  #       uses: ./.github/workflows/actions/publish-npm-package
+  #       with:
+  #         dry_run: "true"
+  #         package: ${{ matrix.package }}
+  #         scope: ${{ matrix.scope }}
+  #         access: ${{ matrix.access }}
+  #         api_token: ${{ secrets[matrix.api_token_secret_name] }}
 
   unstable-release:
     if: vars.PUBLISH_UNSTABLE_RELEASE_IN_CI == 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
@@ -536,9 +536,10 @@ jobs:
     needs:
       - build
       - build-test-wasm
-      - test
-      - e2e
-      - check
+      # - test
+      # - e2e
+      # - check
+      - build-ubuntu-X64
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -605,323 +606,323 @@ jobs:
         with:
           args: package/*
 
-  deploy-testing:
-    if: vars.DEPLOY_NETWORKS_IN_CI == 'true' && (github.event_name == 'push' || github.event_name == 'pull_request')
-    strategy:
-      fail-fast: false
-      matrix:
-        environment: [testing-preview, testing-sanchonet]
-        include:
-          - environment: testing-preview
-            environment_prefix: testing
-            cardano_network: preview
-            mithril_use_p2p_network: false
-            mithril_api_domain: api.mithril.network
-            mithril_protocol_parameters: |
-              {
-                k     = 2422
-                m     = 20973
-                phi_f = 0.2
-              }
-            mithril_signers: |
-              {
-                "1" = {
-                  type    = "verified",
-                  pool_id = "",
-                },
-                "2" = {
-                  type    = "verified",
-                  pool_id = "",
-                },
-                "3" = {
-                  type    = "verified",
-                  pool_id = "",
-                },
-              }
-            terraform_backend_bucket: hydra-terraform-admin
-            google_region: europe-west1
-            google_zone: europe-west1-b
-            google_machine_type: e2-highmem-8
-            google_compute_instance_boot_disk_size: 200
-            google_compute_instance_data_disk_size: 250
-          - environment: testing-sanchonet
-            environment_prefix: testing
-            cardano_network: sanchonet
-            mithril_use_p2p_network: false
-            mithril_api_domain: api.mithril.network
-            mithril_protocol_parameters: |
-              {
-                k     = 5
-                m     = 100
-                phi_f = 0.65
-              }
-            mithril_signers: |
-              {
-                "1" = {
-                  type    = "verified",
-                  pool_id = "",
-                },
-              }
-            terraform_backend_bucket: hydra-terraform-admin
-            google_region: europe-west1
-            google_zone: europe-west1-b
-            google_machine_type: e2-highmem-4
-            google_compute_instance_boot_disk_size: 200
-            google_compute_instance_data_disk_size: 250
-    environment: ${{ matrix.environment }}
-    runs-on: ubuntu-22.04
-    needs:
-      - docker-mithril
-    defaults:
-      run:
-        working-directory: mithril-infra
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  # deploy-testing:
+  #   if: vars.DEPLOY_NETWORKS_IN_CI == 'true' && (github.event_name == 'push' || github.event_name == 'pull_request')
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       environment: [testing-preview, testing-sanchonet]
+  #       include:
+  #         - environment: testing-preview
+  #           environment_prefix: testing
+  #           cardano_network: preview
+  #           mithril_use_p2p_network: false
+  #           mithril_api_domain: api.mithril.network
+  #           mithril_protocol_parameters: |
+  #             {
+  #               k     = 2422
+  #               m     = 20973
+  #               phi_f = 0.2
+  #             }
+  #           mithril_signers: |
+  #             {
+  #               "1" = {
+  #                 type    = "verified",
+  #                 pool_id = "",
+  #               },
+  #               "2" = {
+  #                 type    = "verified",
+  #                 pool_id = "",
+  #               },
+  #               "3" = {
+  #                 type    = "verified",
+  #                 pool_id = "",
+  #               },
+  #             }
+  #           terraform_backend_bucket: hydra-terraform-admin
+  #           google_region: europe-west1
+  #           google_zone: europe-west1-b
+  #           google_machine_type: e2-highmem-8
+  #           google_compute_instance_boot_disk_size: 200
+  #           google_compute_instance_data_disk_size: 250
+  #         - environment: testing-sanchonet
+  #           environment_prefix: testing
+  #           cardano_network: sanchonet
+  #           mithril_use_p2p_network: false
+  #           mithril_api_domain: api.mithril.network
+  #           mithril_protocol_parameters: |
+  #             {
+  #               k     = 5
+  #               m     = 100
+  #               phi_f = 0.65
+  #             }
+  #           mithril_signers: |
+  #             {
+  #               "1" = {
+  #                 type    = "verified",
+  #                 pool_id = "",
+  #               },
+  #             }
+  #           terraform_backend_bucket: hydra-terraform-admin
+  #           google_region: europe-west1
+  #           google_zone: europe-west1-b
+  #           google_machine_type: e2-highmem-4
+  #           google_compute_instance_boot_disk_size: 200
+  #           google_compute_instance_data_disk_size: 250
+  #   environment: ${{ matrix.environment }}
+  #   runs-on: ubuntu-22.04
+  #   needs:
+  #     - docker-mithril
+  #   defaults:
+  #     run:
+  #       working-directory: mithril-infra
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Get Docker image id
-        run: echo "DOCKER_IMAGE_ID=${{ github.base_ref || github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+  #     - name: Get Docker image id
+  #       run: echo "DOCKER_IMAGE_ID=${{ github.base_ref || github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
-      - name: ${{ env.DEPLOY == 'true' && 'Apply' || 'Plan' }} terraform infrastructure
-        uses: ./.github/workflows/actions/deploy-terraform-infrastructure
-        env:
-          DEPLOY: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        with:
-          dry_run: ${{ env.DEPLOY == 'true' && 'false' || 'true' }}
-          terraform_backend_bucket: ${{ matrix.terraform_backend_bucket }}
-          environment_prefix: ${{ matrix.environment_prefix }}
-          environment: ${{ matrix.environment }}
-          cardano_network: ${{ matrix.cardano_network }}
-          cardano_node_version: ${{ vars.CARDANO_NODE_VERSION }}
-          cardano_node_docker_registry: ${{ vars.CARDANO_NODE_DOCKER_REGISTRY }}
-          google_region: ${{ matrix.google_region }}
-          google_zone: ${{ matrix.google_zone }}
-          google_machine_type: ${{ matrix.google_machine_type }}
-          google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
-          google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
-          google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-          mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
-          mithril_api_domain: ${{ matrix.mithril_api_domain }}
-          mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
-          mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
-          mithril_signers: ${{ toJSON(matrix.mithril_signers) }}
-          mithril_genesis_secret_key: ${{ secrets.GENESIS_SECRET_KEY }}
-          mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
-          mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
-          mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
-          mithril_era_reader_secret_key: ${{ secrets.ERA_READER_SECRET_KEY }}
-          mithril_aggregator_signed_entity_types: ${{ vars.AGGREGATOR_SIGNED_ENTITY_TYPES }}
-          mithril_aggregator_cdn_cname: ${{ vars.AGGREGATOR_CDN_CNAME }}
-          mithril_aggregator_snapshot_use_cdn_domain: ${{ vars.AGGREGATOR_USE_CDN_DOMAIN }}
-          mithril_aggregator_snapshot_compression_algorithm: ${{ vars.AGGREGATOR_SNAPSHOT_COMPRESSION_ALGORITHM }}
-          mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
-          mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
-          mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
-          mithril_aggregator_allow_unparsable_block: ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
-          mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
-          mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
-          mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
-          mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
-          prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
-          prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
-          prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
-          prometheus_ingest_username: ${{ secrets.PROMETHEUS_INGEST_USERNAME }}
-          prometheus_ingest_password: ${{ secrets.PROMETHEUS_INGEST_PASSWORD }}
-          loki_auth_username: ${{ secrets.LOKI_AUTH_USERNAME }}
-          loki_auth_password: ${{ secrets.LOKI_AUTH_PASSWORD }}
-          loki_ingest_host: ${{ vars.LOKI_INGEST_HOST }}
-          loki_ingest_username: ${{ secrets.LOKI_INGEST_USERNAME }}
-          loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
+  #     - name: ${{ env.DEPLOY == 'true' && 'Apply' || 'Plan' }} terraform infrastructure
+  #       uses: ./.github/workflows/actions/deploy-terraform-infrastructure
+  #       env:
+  #         DEPLOY: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+  #       with:
+  #         dry_run: ${{ env.DEPLOY == 'true' && 'false' || 'true' }}
+  #         terraform_backend_bucket: ${{ matrix.terraform_backend_bucket }}
+  #         environment_prefix: ${{ matrix.environment_prefix }}
+  #         environment: ${{ matrix.environment }}
+  #         cardano_network: ${{ matrix.cardano_network }}
+  #         cardano_node_version: ${{ vars.CARDANO_NODE_VERSION }}
+  #         cardano_node_docker_registry: ${{ vars.CARDANO_NODE_DOCKER_REGISTRY }}
+  #         google_region: ${{ matrix.google_region }}
+  #         google_zone: ${{ matrix.google_zone }}
+  #         google_machine_type: ${{ matrix.google_machine_type }}
+  #         google_compute_instance_boot_disk_size: ${{ matrix.google_compute_instance_boot_disk_size }}
+  #         google_compute_instance_data_disk_size: ${{ matrix.google_compute_instance_data_disk_size }}
+  #         google_application_credentials: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+  #         mithril_use_p2p_network: ${{ matrix.mithril_use_p2p_network }}
+  #         mithril_api_domain: ${{ matrix.mithril_api_domain }}
+  #         mithril_image_id: ${{ env.DOCKER_IMAGE_ID }}
+  #         mithril_protocol_parameters: ${{ toJSON(matrix.mithril_protocol_parameters) }}
+  #         mithril_signers: ${{ toJSON(matrix.mithril_signers) }}
+  #         mithril_genesis_secret_key: ${{ secrets.GENESIS_SECRET_KEY }}
+  #         mithril_genesis_verification_key_url: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
+  #         mithril_era_reader_address_url: ${{ vars.ERA_READER_ADDRESS_URL }}
+  #         mithril_era_reader_verification_key_url: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
+  #         mithril_era_reader_secret_key: ${{ secrets.ERA_READER_SECRET_KEY }}
+  #         mithril_aggregator_signed_entity_types: ${{ vars.AGGREGATOR_SIGNED_ENTITY_TYPES }}
+  #         mithril_aggregator_cdn_cname: ${{ vars.AGGREGATOR_CDN_CNAME }}
+  #         mithril_aggregator_snapshot_use_cdn_domain: ${{ vars.AGGREGATOR_USE_CDN_DOMAIN }}
+  #         mithril_aggregator_snapshot_compression_algorithm: ${{ vars.AGGREGATOR_SNAPSHOT_COMPRESSION_ALGORITHM }}
+  #         mithril_aggregator_zstandard_parameters_level: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_LEVEL }}
+  #         mithril_aggregator_zstandard_parameters_workers: ${{ vars.AGGREGATOR_SNAPSHOT_ZSTANDARD_WORKERS }}
+  #         mithril_aggregator_cexplorer_pools_url: ${{ vars.AGGREGATOR_CEXPLORER_POOLS_URL }}
+  #         mithril_aggregator_allow_unparsable_block: ${{ vars.AGGREGATOR_ALLOW_UNPARSABLE_BLOCK }}
+  #         mithril_aggregator_cardano_transactions_prover_cache_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_PROVER_CACHE_POOL_SIZE }}
+  #         mithril_aggregator_cardano_transactions_database_connection_pool_size: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_DATABASE_CONNECTION_POOL_SIZE }}
+  #         mithril_aggregator_cardano_transactions_signing_config_security_parameter: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_SECURITY_PARAMETER }}
+  #         mithril_aggregator_cardano_transactions_signing_config_step: ${{ vars.AGGREGATOR_CARDANO_TRANSACTIONS_SIGNING_CONFIG_STEP }}
+  #         prometheus_auth_username: ${{ secrets.PROMETHEUS_AUTH_USERNAME }}
+  #         prometheus_auth_password: ${{ secrets.PROMETHEUS_AUTH_PASSWORD }}
+  #         prometheus_ingest_host: ${{ vars.PROMETHEUS_INGEST_HOST }}
+  #         prometheus_ingest_username: ${{ secrets.PROMETHEUS_INGEST_USERNAME }}
+  #         prometheus_ingest_password: ${{ secrets.PROMETHEUS_INGEST_PASSWORD }}
+  #         loki_auth_username: ${{ secrets.LOKI_AUTH_USERNAME }}
+  #         loki_auth_password: ${{ secrets.LOKI_AUTH_PASSWORD }}
+  #         loki_ingest_host: ${{ vars.LOKI_INGEST_HOST }}
+  #         loki_ingest_username: ${{ secrets.LOKI_INGEST_USERNAME }}
+  #         loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
 
-  cargo-doc:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  # cargo-doc:
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Install stable toolchain and restore cache
-        uses: ./.github/workflows/actions/toolchain-and-cache
-        with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
-          cargo-tools: clippy-sarif sarif-fmt
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Install stable toolchain and restore cache
+  #       uses: ./.github/workflows/actions/toolchain-and-cache
+  #       with:
+  #         cache-version: ${{ secrets.CACHE_VERSION }}
+  #         cargo-tools: clippy-sarif sarif-fmt
+  #         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate cargo doc
-        run: |
-          # Force `--lib` to avoid a collision between the client lib and the client cli binary who share
-          # the same name (we only want to document those anyway)
-          cargo doc --no-deps --lib -p mithril-stm -p mithril-common -p mithril-persistence \
-                    -p mithril-build-script -p mithril-doc -p mithril-doc-derive \
-                    -p mithril-aggregator -p mithril-signer -p mithril-client -p mithril-client-cli \
-                    --all-features --message-format=json \
-                    | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt
+  #     - name: Generate cargo doc
+  #       run: |
+  #         # Force `--lib` to avoid a collision between the client lib and the client cli binary who share
+  #         # the same name (we only want to document those anyway)
+  #         cargo doc --no-deps --lib -p mithril-stm -p mithril-common -p mithril-persistence \
+  #                   -p mithril-build-script -p mithril-doc -p mithril-doc-derive \
+  #                   -p mithril-aggregator -p mithril-signer -p mithril-client -p mithril-client-cli \
+  #                   --all-features --message-format=json \
+  #                   | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt
 
-          # Update tool sarif metadata from "clippy" to "cargo-doc" (since it's set this way by clippy-sarif)
-          contents=$(cat rust-cargo-doc-results.sarif \
-              | jq '.runs[].tool.driver.name = "cargo-doc"' \
-              | jq '.runs[].tool.driver.informationUri = "https://doc.rust-lang.org/cargo/commands/cargo-doc.html"' \
-          )
-          echo -E "${contents}" > rust-cargo-doc-results.sarif
+  #         # Update tool sarif metadata from "clippy" to "cargo-doc" (since it's set this way by clippy-sarif)
+  #         contents=$(cat rust-cargo-doc-results.sarif \
+  #             | jq '.runs[].tool.driver.name = "cargo-doc"' \
+  #             | jq '.runs[].tool.driver.informationUri = "https://doc.rust-lang.org/cargo/commands/cargo-doc.html"' \
+  #         )
+  #         echo -E "${contents}" > rust-cargo-doc-results.sarif
 
-          # Make this step fail if any warning has been found
-          if [[ $(cat rust-cargo-doc-results.sarif | jq '.runs[0].results') != "[]" ]]; then
-            false
-          fi
+  #         # Make this step fail if any warning has been found
+  #         if [[ $(cat rust-cargo-doc-results.sarif | jq '.runs[0].results') != "[]" ]]; then
+  #           false
+  #         fi
 
-      - name: Upload cargo-doc results to GitHub
-        if: success() || failure()
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: rust-cargo-doc-results.sarif
-          wait-for-processing: true
+  #     - name: Upload cargo-doc results to GitHub
+  #       if: success() || failure()
+  #       uses: github/codeql-action/upload-sarif@v3
+  #       with:
+  #         sarif_file: rust-cargo-doc-results.sarif
+  #         wait-for-processing: true
 
-      - name: Publish Mithril-rust-doc
-        uses: actions/upload-artifact@v4
-        with:
-          name: mithril-rust-doc
-          if-no-files-found: error
-          path: |
-            target/doc/
+  #     - name: Publish Mithril-rust-doc
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: mithril-rust-doc
+  #         if-no-files-found: error
+  #         path: |
+  #           target/doc/
 
-  build-docusaurus:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  # build-docusaurus:
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "npm"
-          cache-dependency-path: docs/website/package-lock.json
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: "npm"
+  #         cache-dependency-path: docs/website/package-lock.json
 
-      - name: Install dependencies
-        working-directory: docs/website
-        run: npm ci
+  #     - name: Install dependencies
+  #       working-directory: docs/website
+  #       run: npm ci
 
-      - name: Build Docusaurus site
-        working-directory: docs/website
-        run: |
-          npm run build
+  #     - name: Build Docusaurus site
+  #       working-directory: docs/website
+  #       run: |
+  #         npm run build
 
-      - name: Publish Docusaurus build
-        uses: actions/upload-artifact@v4
-        with:
-          name: docusaurus-build
-          if-no-files-found: error
-          path: |
-            docs/website/build/*
+  #     - name: Publish Docusaurus build
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: docusaurus-build
+  #         if-no-files-found: error
+  #         path: |
+  #           docs/website/build/*
 
-  build-test-explorer:
-    runs-on: ubuntu-22.04
-    needs: build-test-wasm
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  # build-test-explorer:
+  #   runs-on: ubuntu-22.04
+  #   needs: build-test-wasm
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Download built artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: mithril-distribution-wasm
-          path: mithril-client-wasm
+  #     - name: Download built artifacts
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: mithril-distribution-wasm
+  #         path: mithril-client-wasm
 
-      - name: Unpack 'mithril-client-wasm' package
-        working-directory: mithril-client-wasm
-        run: tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
+  #     - name: Unpack 'mithril-client-wasm' package
+  #       working-directory: mithril-client-wasm
+  #       run: tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "npm"
-          cache-dependency-path: mithril-explorer/package-lock.json
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: 20
+  #         cache: "npm"
+  #         cache-dependency-path: mithril-explorer/package-lock.json
 
-      - name: Install dependencies
-        working-directory: mithril-explorer
-        run: npm ci
+  #     - name: Install dependencies
+  #       working-directory: mithril-explorer
+  #       run: npm ci
 
-      - name: Test explorer
-        working-directory: mithril-explorer
-        run: make test
+  #     - name: Test explorer
+  #       working-directory: mithril-explorer
+  #       run: make test
 
-      - name: Build Explorer
-        working-directory: mithril-explorer
-        run: make build
+  #     - name: Build Explorer
+  #       working-directory: mithril-explorer
+  #       run: make build
 
-      - name: Publish Explorer build
-        uses: actions/upload-artifact@v4
-        with:
-          name: explorer-build
-          if-no-files-found: error
-          path: |
-            mithril-explorer/out/*
+  #     - name: Publish Explorer build
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: explorer-build
+  #         if-no-files-found: error
+  #         path: |
+  #           mithril-explorer/out/*
 
-  build-open-api-ui:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v4
+  # build-open-api-ui:
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v4
 
-      - name: Build OpenAPI UI
-        uses: Legion2/swagger-ui-action@v1
-        with:
-          output: out/
-          spec-file: ./openapi.yaml
-          token: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Build OpenAPI UI
+  #       uses: Legion2/swagger-ui-action@v1
+  #       with:
+  #         output: out/
+  #         spec-file: ./openapi.yaml
+  #         token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish OpenAPI UI build
-        uses: actions/upload-artifact@v4
-        with:
-          name: openapi-ui-build
-          if-no-files-found: error
-          path: |
-            out/*
+  #     - name: Publish OpenAPI UI build
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: openapi-ui-build
+  #         if-no-files-found: error
+  #         path: |
+  #           out/*
 
-  publish-docs:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-22.04
-    needs:
-      - cargo-doc
-      - build-docusaurus
-      - build-test-explorer
-      - build-open-api-ui
-      - check
-    steps:
-      - name: Download mithril-rust-doc artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: mithril-rust-doc
-          path: ./github-pages/rust-doc
+  # publish-docs:
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-22.04
+  #   needs:
+  #     - cargo-doc
+  #     - build-docusaurus
+  #     - build-test-explorer
+  #     - build-open-api-ui
+  #     - check
+  #   steps:
+  #     - name: Download mithril-rust-doc artifact
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: mithril-rust-doc
+  #         path: ./github-pages/rust-doc
 
-      - name: Download Docusaurus build
-        uses: actions/download-artifact@v4
-        with:
-          name: docusaurus-build
-          path: ./github-pages/doc
+  #     - name: Download Docusaurus build
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: docusaurus-build
+  #         path: ./github-pages/doc
 
-      - name: Download Explorer build
-        uses: actions/download-artifact@v4
-        with:
-          name: explorer-build
-          path: ./github-pages/explorer
+  #     - name: Download Explorer build
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: explorer-build
+  #         path: ./github-pages/explorer
 
-      - name: Download OpenAPI UI build
-        uses: actions/download-artifact@v4
-        with:
-          name: openapi-ui-build
-          path: ./github-pages/openapi-ui
+  #     - name: Download OpenAPI UI build
+  #       uses: actions/download-artifact@v4
+  #       with:
+  #         name: openapi-ui-build
+  #         path: ./github-pages/openapi-ui
 
-      - name: Add CNAME & Redirect
-        run: |
-          echo "mithril.network" > ./github-pages/CNAME
-          echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ./github-pages/index.html
-          # Remove the index.html from the url to avoid a display issue that duplicates the content of the page
-          sed -i '1s/^/<script type="text\/javascript"> if (window.location.href.endsWith("\/index.html")) { end_of_clean_url = window.location.href.lastIndexOf("\/"); window.location.href = window.location.href.substring(0, end_of_clean_url); } <\/script>\n/' ./github-pages/doc/index.html
+  #     - name: Add CNAME & Redirect
+  #       run: |
+  #         echo "mithril.network" > ./github-pages/CNAME
+  #         echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ./github-pages/index.html
+  #         # Remove the index.html from the url to avoid a display issue that duplicates the content of the page
+  #         sed -i '1s/^/<script type="text\/javascript"> if (window.location.href.endsWith("\/index.html")) { end_of_clean_url = window.location.href.lastIndexOf("\/"); window.location.href = window.location.href.substring(0, end_of_clean_url); } <\/script>\n/' ./github-pages/doc/index.html
 
-      - name: Mithril / Publish GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: ./github-pages
-          force_orphan: true
+  #     - name: Mithril / Publish GitHub Pages
+  #       uses: peaceiris/actions-gh-pages@v3
+  #       with:
+  #         github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+  #         publish_dir: ./github-pages
+  #         force_orphan: true

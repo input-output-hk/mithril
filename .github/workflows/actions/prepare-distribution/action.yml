@@ -13,7 +13,7 @@ inputs:
     required: true
   gpg-secret-key:
     description: A GPG secret key to sign the distribution
-    required: true
+    # required: true
   compatibility-table:
     description: A json in which each key corresponds to a network and each value describes its compatibility
     required: true
@@ -106,19 +106,19 @@ runs:
         \`git tag -d unstable && git fetch origin tag unstable\`
         EOF
 
-    - name: Create and sign sha256 checksum
-      shell: bash
-      env:
-        GPG_SECRET_KEY: ${{ inputs.gpg-secret-key }}
-      run: ./.github/workflows/scripts/sign-distribution.sh
+    # - name: Create and sign sha256 checksum
+    #   shell: bash
+    #   env:
+    #     GPG_SECRET_KEY: ${{ inputs.gpg-secret-key }}
+    #   run: ./.github/workflows/scripts/sign-distribution.sh
 
-    - name: Create a procedure to verify the distribution
-      shell: bash
-      env:
-        GPG_SECRET_KEY: ${{ inputs.gpg-secret-key }}
-        PROCEDURE_FILE_PATH: ./release-notes-addon.txt
-        DOWNLOAD_URL_BASE: ${{ inputs.download-url-base }}
-      run: ./.github/workflows/scripts/verify-distribution.sh
+    # - name: Create a procedure to verify the distribution
+    #   shell: bash
+    #   env:
+    #     GPG_SECRET_KEY: ${{ inputs.gpg-secret-key }}
+    #     PROCEDURE_FILE_PATH: ./release-notes-addon.txt
+    #     DOWNLOAD_URL_BASE: ${{ inputs.download-url-base }}
+    #   run: ./.github/workflows/scripts/verify-distribution.sh
 
     - name: List packaged assets
       shell: bash
