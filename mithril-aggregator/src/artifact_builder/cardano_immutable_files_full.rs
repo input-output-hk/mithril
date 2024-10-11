@@ -1,8 +1,7 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use semver::Version;
-use slog::Logger;
-use slog_scope::{debug, warn};
+use slog::{debug, warn, Logger};
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -61,7 +60,10 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         beacon: &CardanoDbBeacon,
         snapshot_digest: &str,
     ) -> StdResult<OngoingSnapshot> {
-        debug!("CardanoImmutableFilesFullArtifactBuilder: create snapshot archive");
+        debug!(
+            self.logger,
+            "CardanoImmutableFilesFullArtifactBuilder: create snapshot archive"
+        );
 
         let snapshotter = self.snapshotter.clone();
         let snapshot_name = format!(
@@ -79,7 +81,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             })
             .await??;
 
-        debug!(" > snapshot created: '{:?}'", ongoing_snapshot);
+        debug!(self.logger, " > snapshot created: '{ongoing_snapshot:?}'");
 
         Ok(ongoing_snapshot)
     }
@@ -88,7 +90,10 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         &self,
         ongoing_snapshot: &OngoingSnapshot,
     ) -> StdResult<Vec<SnapshotLocation>> {
-        debug!("CardanoImmutableFilesFullArtifactBuilder: upload snapshot archive");
+        debug!(
+            self.logger,
+            "CardanoImmutableFilesFullArtifactBuilder: upload snapshot archive"
+        );
         let location = self
             .snapshot_uploader
             .upload_snapshot(ongoing_snapshot.get_file_path())
@@ -96,8 +101,8 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
         if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
             warn!(
-                " > Post upload ongoing snapshot file removal failure: {}",
-                error
+                self.logger,
+                " > Post upload ongoing snapshot file removal failure: {error}"
             );
         }
 
@@ -111,7 +116,10 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         snapshot_digest: String,
         remote_locations: Vec<String>,
     ) -> StdResult<Snapshot> {
-        debug!("CardanoImmutableFilesFullArtifactBuilder: create snapshot");
+        debug!(
+            self.logger,
+            "CardanoImmutableFilesFullArtifactBuilder: create snapshot"
+        );
 
         let snapshot = Snapshot::new(
             snapshot_digest,

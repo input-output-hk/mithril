@@ -1,7 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::Logger;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
@@ -189,8 +188,7 @@ impl MithrilEpochService {
         let recording_epoch = actual_epoch.offset_to_epoch_settings_recording_epoch();
 
         debug!(
-            "EpochService: inserting epoch settings in epoch {}",
-            recording_epoch;
+            self.logger, "EpochService: inserting epoch settings in epoch {recording_epoch}";
             "epoch_settings" => ?self.future_epoch_settings
         );
 
@@ -222,7 +220,7 @@ impl MithrilEpochService {
 #[async_trait]
 impl EpochService for MithrilEpochService {
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
-        debug!("EpochService::inform_epoch(epoch: {epoch:?})");
+        debug!(self.logger, "EpochService::inform_epoch(epoch: {epoch:?})");
 
         let signer_retrieval_epoch =
             epoch.offset_to_signer_retrieval_epoch().with_context(|| {
@@ -279,7 +277,7 @@ impl EpochService for MithrilEpochService {
     }
 
     async fn update_epoch_settings(&mut self) -> StdResult<()> {
-        debug!("EpochService::update_epoch_settings");
+        debug!(self.logger, "EpochService::update_epoch_settings");
 
         let data = self.unwrap_data().with_context(|| {
             "can't update epoch settings if inform_epoch has not been called first"
@@ -289,7 +287,7 @@ impl EpochService for MithrilEpochService {
     }
 
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
-        debug!("EpochService::precompute_epoch_data");
+        debug!(self.logger, "EpochService::precompute_epoch_data");
 
         let data = self.unwrap_data().with_context(|| {
             "can't precompute epoch data if inform_epoch has not been called first"

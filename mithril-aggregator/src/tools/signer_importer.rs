@@ -2,8 +2,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use reqwest::{IntoUrl, Url};
 use serde::{Deserialize, Serialize};
-use slog::Logger;
-use slog_scope::{info, warn};
+use slog::{info, warn, Logger};
 use std::collections::HashMap;
 use std::ops::Not;
 use std::sync::Arc;
@@ -39,12 +38,17 @@ impl SignersImporter {
 
     /// Import and persist the signers
     pub async fn run(&self) -> StdResult<()> {
-        info!("🔧 Signer Importer: starting");
+        info!(self.logger, "🔧 Signer Importer: starting");
         let items = self
             .retriever
             .retrieve()
             .await
             .with_context(|| "Failed to retrieve signers from remote service")?;
+
+        info!(self.logger,
+            "🔧 Signer Importer: persisting retrieved data in the database";
+            "number_of_signer_to_insert" => items.len()
+        );
         self.persister
             .persist(items)
             .await
@@ -58,9 +62,13 @@ impl SignersImporter {
         loop {
             interval.tick().await;
             if let Err(error) = self.run().await {
-                warn!("Signer retriever failed: Error: «{:?}».", error);
+                warn!(
+                    self.logger,
+                    "Signer retriever failed: Error: «{:?}».", error
+                );
             }
             info!(
+                self.logger,
                 "🔧 Signer Importer: Cycle finished, Sleeping for {} min",
                 run_interval.as_secs() / 60
             );
@@ -87,10 +95,6 @@ pub trait SignersImporterPersister: Sync + Send {
 #[async_trait]
 impl SignersImporterPersister for SignerStore {
     async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()> {
-        info!(
-            "🔧 Signer Importer: persisting retrieved data in the database";
-            "number_of_signer_to_insert" => signers.len()
-        );
         self.import_many_signers(signers).await?;
 
         Ok(())
@@ -135,7 +139,7 @@ impl CExplorerSignerRetriever {
 impl SignersImporterRetriever for CExplorerSignerRetriever {
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>> {
         info!(
-            "🔧 Signer Importer: retrieving data from source";
+            self.logger, "🔧 Signer Importer: retrieving data from source";
             "source_url" => &self.source_url.as_str()
         );
         let response = self

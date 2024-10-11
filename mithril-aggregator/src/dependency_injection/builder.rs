@@ -1,6 +1,6 @@
 use anyhow::Context;
 use semver::Version;
-use slog::Logger;
+use slog::{debug, Logger};
 use std::{collections::BTreeSet, sync::Arc};
 use tokio::{
     sync::{
@@ -560,6 +560,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_epoch_settings_storer(&mut self) -> Result<Arc<dyn EpochSettingsStorer>> {
+        let logger = self.get_logger()?;
         let epoch_settings_store = EpochSettingsStore::new(
             self.get_sqlite_connection().await?,
             self.configuration.safe_epoch_retention_limit(),
@@ -591,11 +592,13 @@ impl DependenciesBuilder {
                 .replace_cardano_signing_config_empty_values(cardano_signing_config)?;
         }
 
+        let epoch_settings_configuration = self.get_epoch_settings_configuration()?;
+        debug!(
+            logger,
+            "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {current_epoch}: {epoch_settings_configuration:?}"
+        );
         epoch_settings_store
-            .handle_discrepancies_at_startup(
-                current_epoch,
-                &self.get_epoch_settings_configuration()?,
-            )
+            .handle_discrepancies_at_startup(current_epoch, &epoch_settings_configuration)
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "can not create aggregator runner".to_string(),

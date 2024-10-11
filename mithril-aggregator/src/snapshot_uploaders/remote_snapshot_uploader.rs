@@ -1,6 +1,5 @@
 use async_trait::async_trait;
-use slog::Logger;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::path::Path;
 
 use mithril_common::logging::LoggerExtensions;
@@ -25,12 +24,13 @@ impl RemoteSnapshotUploader {
         use_cdn_domain: bool,
         logger: Logger,
     ) -> Self {
-        debug!("New GCPSnapshotUploader created");
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New GCPSnapshotUploader created");
         Self {
             bucket,
             file_uploader,
             use_cdn_domain,
-            logger: logger.new_with_component_name::<Self>(),
+            logger,
         }
     }
 }

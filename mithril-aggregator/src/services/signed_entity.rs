@@ -5,8 +5,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::Logger;
-use slog_scope::info;
+use slog::{info, Logger};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
@@ -128,7 +127,7 @@ impl MithrilSignedEntityService {
         certificate: &Certificate,
     ) -> StdResult<()> {
         info!(
-            "MithrilSignedEntityService::create_artifact";
+            self.logger, "MithrilSignedEntityService::create_artifact";
             "signed_entity_type" => ?signed_entity_type,
             "certificate_hash" => &certificate.hash
         );

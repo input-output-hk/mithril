@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog::Logger;
-use slog_scope::{debug, warn};
+use slog::{debug, warn, Logger};
 
 use mithril_common::{
     crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
@@ -48,10 +47,11 @@ pub struct MultiSignerImpl {
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
     pub fn new(epoch_service: EpochServiceWrapper, logger: Logger) -> Self {
-        debug!("New MultiSignerImpl created");
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New MultiSignerImpl created");
         Self {
             epoch_service,
-            logger: logger.new_with_component_name::<Self>(),
+            logger,
         }
     }
 
@@ -62,8 +62,11 @@ impl MultiSignerImpl {
         protocol_multi_signer: &ProtocolMultiSigner,
     ) -> StdResult<()> {
         debug!(
+            self.logger,
             "Verify single signature from {} at indexes {:?} for message {:?}",
-            single_signature.party_id, single_signature.won_indexes, message
+            single_signature.party_id,
+            single_signature.won_indexes,
+            message
         );
 
         protocol_multi_signer
@@ -111,7 +114,10 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         open_message: &OpenMessage,
     ) -> StdResult<Option<ProtocolMultiSignature>> {
-        debug!("MultiSigner:create_multi_signature({open_message:?})");
+        debug!(
+            self.logger,
+            "MultiSigner:create_multi_signature({open_message:?})"
+        );
 
         let epoch_service = self.epoch_service.read().await;
         let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
@@ -124,7 +130,10 @@ impl MultiSigner for MultiSignerImpl {
         ) {
             Ok(multi_signature) => Ok(Some(multi_signature)),
             Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
-                warn!("Could not compute multi-signature: Not enough signatures. Got only {} out of {}.", actual, expected);
+                warn!(
+                    self.logger,
+                    "Could not compute multi-signature: Not enough signatures. Got only {actual} out of {expected}."
+                );
                 Ok(None)
             }
             Err(err) => Err(anyhow!(err).context(format!(

@@ -1,7 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::Logger;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::path::{Path, PathBuf};
 
 use mithril_common::logging::LoggerExtensions;
@@ -25,11 +24,12 @@ pub struct LocalSnapshotUploader {
 impl LocalSnapshotUploader {
     /// LocalSnapshotUploader factory
     pub(crate) fn new(snapshot_server_url: String, target_location: &Path, logger: Logger) -> Self {
-        debug!("New LocalSnapshotUploader created"; "snapshot_server_url" => &snapshot_server_url);
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New LocalSnapshotUploader created"; "snapshot_server_url" => &snapshot_server_url);
         Self {
             snapshot_server_url,
             target_location: target_location.to_path_buf(),
-            logger: logger.new_with_component_name::<Self>(),
+            logger,
         }
     }
 }

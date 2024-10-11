@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Context};
 use flate2::Compression;
 use flate2::{read::GzDecoder, write::GzEncoder};
-use slog::Logger;
-use slog_scope::{info, warn};
+use slog::{info, warn, Logger};
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -102,7 +101,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         let filesize = self.create_and_verify_archive(&archive_path).inspect_err(|_err| {
             if archive_path.exists() {
                 if let Err(remove_error) = fs::remove_file(&archive_path) {
-                    warn!(
+                    warn!(self.logger,
                         " > Post snapshotter.snapshot failure, could not remove temporary archive at path: path:{}, err: {}",
                         archive_path.display(),
                         remove_error
@@ -162,6 +161,7 @@ impl CompressedArchiveSnapshotter {
 
     fn create_archive(&self, archive_path: &Path) -> StdResult<u64> {
         info!(
+            self.logger,
             "compressing {} into {}",
             self.db_directory.display(),
             archive_path.display()
@@ -247,7 +247,7 @@ impl CompressedArchiveSnapshotter {
 
     // Verify if an archive is corrupted (i.e. at least one entry is invalid)
     fn verify_archive(&self, archive_path: &Path) -> StdResult<()> {
-        info!("verifying archive: {}", archive_path.display());
+        info!(self.logger, "verifying archive: {}", archive_path.display());
 
         let mut snapshot_file_tar = File::open(archive_path)
             .map_err(|e| SnapshotError::InvalidArchiveError(e.to_string()))?;

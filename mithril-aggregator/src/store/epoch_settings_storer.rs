@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use mithril_common::StdResult;
-use slog_scope::debug;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
@@ -37,7 +36,6 @@ pub trait EpochSettingsStorer: Sync + Send {
         for epoch_offset in 0..=2 {
             let epoch = current_epoch + epoch_offset;
             if self.get_epoch_settings(epoch).await?.is_none() {
-                debug!("Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {epoch}: {epoch_settings_configuration:?}");
                 self.save_epoch_settings(epoch, epoch_settings_configuration.clone())
                     .await?;
             }
