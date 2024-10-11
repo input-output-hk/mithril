@@ -588,24 +588,22 @@ jobs:
           gpg-secret-key: ${{ secrets.GPG_SECRET_KEY }}
           compatibility-table: '{ "release-mainnet": "⛔", "release-preprod": "⛔", "pre-release-preview": "⛔", "testing-preview": "✔", "testing-sanchonet": "✔" }'
 
-      - name: Update unstable release
-        uses: marvinpinto/action-automatic-releases@latest
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: unstable
-          prerelease: true
-          title: Unstable Development Builds
-          files: package/*
+      - name: Prepare release notes
+        run: |
+          cp ./release-notes-addon.txt ./release-notes-addon.md
+          sed -i '1s/^/## [Unreleased]\n/' ./release-notes-addon.md
 
-      - name: Update unstable release body with release notes addon
-        # specific version since this action does not support giving only the major number
-        uses: tubone24/update_release@v1.3.1
+      - name: Update unstable release
+        uses: docker://antonyurchenko/git-release:v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: unstable
+          RELEASE_NAME: Unstable Development Builds
+          PRE_RELEASE: true
+          UNRELEASED_TAG: unstable
+          UNRELEASED: update
+          CHANGELOG_FILE: ./release-notes-addon.md
         with:
-          is_append_body: true
-          body_path: ./release-notes-addon.txt
+          args: package/*
 
   deploy-testing:
     if: vars.DEPLOY_NETWORKS_IN_CI == 'true' && (github.event_name == 'push' || github.event_name == 'pull_request')
