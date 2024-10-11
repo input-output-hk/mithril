@@ -1,14 +1,13 @@
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    artifact_cardano_stake_distributions(dependency_manager.clone())
+    artifact_cardano_stake_distributions(dependency_manager)
         .or(artifact_cardano_stake_distribution_by_id(
-            dependency_manager.clone(),
+            dependency_manager,
         ))
         .or(artifact_cardano_stake_distribution_by_epoch(
             dependency_manager,
@@ -17,7 +16,7 @@ pub fn routes(
 
 /// GET /artifact/cardano-stake-distributions
 fn artifact_cardano_stake_distributions(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distributions")
         .and(warp::get())
@@ -27,7 +26,7 @@ fn artifact_cardano_stake_distributions(
 
 /// GET /artifact/cardano-stake-distribution/:id
 fn artifact_cardano_stake_distribution_by_id(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distribution" / String)
         .and(warp::get())
@@ -37,7 +36,7 @@ fn artifact_cardano_stake_distribution_by_id(
 
 /// GET /artifact/cardano-stake-distribution/epoch/:epoch
 fn artifact_cardano_stake_distribution_by_epoch(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distribution" / "epoch" / String)
         .and(warp::get())
@@ -137,6 +136,7 @@ pub mod handlers {
 pub mod tests {
     use anyhow::anyhow;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -163,7 +163,7 @@ pub mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::collections::BTreeSet;
 use warp::Filter;
 
 use mithril_common::{
@@ -12,18 +12,18 @@ use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     epoch_settings(dependency_manager)
 }
 
 /// GET /epoch-settings
 fn epoch_settings(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("epoch-settings")
         .and(warp::get())
-        .and(middlewares::with_epoch_service(dependency_manager.clone()))
+        .and(middlewares::with_epoch_service(dependency_manager))
         .and(middlewares::with_allowed_signed_entity_type_discriminants(
             dependency_manager,
         ))
@@ -99,6 +99,7 @@ mod handlers {
 mod tests {
     use serde_json::Value::Null;
     use std::collections::BTreeSet;
+    use std::sync::Arc;
     use tokio::sync::RwLock;
     use warp::{
         http::{Method, StatusCode},
@@ -129,7 +130,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

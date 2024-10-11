@@ -42,29 +42,27 @@ pub fn routes(
         ))
         .and(warp::path(SERVER_BASE_PATH))
         .and(
-            certificate_routes::routes(dependency_manager.clone())
-                .or(artifact_routes::snapshot::routes(
-                    dependency_manager.clone(),
-                ))
+            certificate_routes::routes(&dependency_manager)
+                .or(artifact_routes::snapshot::routes(&dependency_manager))
                 .or(artifact_routes::mithril_stake_distribution::routes(
-                    dependency_manager.clone(),
+                    &dependency_manager,
                 ))
                 .or(artifact_routes::cardano_stake_distribution::routes(
-                    dependency_manager.clone(),
+                    &dependency_manager,
                 ))
                 .or(artifact_routes::cardano_transaction::routes(
-                    dependency_manager.clone(),
+                    &dependency_manager,
                 ))
-                .or(proof_routes::routes(dependency_manager.clone()))
-                .or(signer_routes::routes(dependency_manager.clone()))
-                .or(signatures_routes::routes(dependency_manager.clone()))
-                .or(epoch_routes::routes(dependency_manager.clone()))
-                .or(statistics_routes::routes(dependency_manager.clone()))
-                .or(root_routes::routes(dependency_manager.clone()))
+                .or(proof_routes::routes(&dependency_manager))
+                .or(signer_routes::routes(&dependency_manager))
+                .or(signatures_routes::routes(&dependency_manager))
+                .or(epoch_routes::routes(&dependency_manager))
+                .or(statistics_routes::routes(&dependency_manager))
+                .or(root_routes::routes(&dependency_manager))
                 .with(cors),
         )
         .recover(handle_custom)
-        .and(middlewares::with_api_version_provider(dependency_manager))
+        .and(middlewares::with_api_version_provider(&dependency_manager))
         .map(|reply, api_version_provider: Arc<APIVersionProvider>| {
             warp::reply::with_header(
                 reply,

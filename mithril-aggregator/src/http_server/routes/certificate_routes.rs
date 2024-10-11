@@ -1,19 +1,18 @@
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    certificate_pending(dependency_manager.clone())
-        .or(certificate_certificates(dependency_manager.clone()))
+    certificate_pending(dependency_manager)
+        .or(certificate_certificates(dependency_manager))
         .or(certificate_certificate_hash(dependency_manager))
 }
 
 /// GET /certificate-pending
 fn certificate_pending(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate-pending")
         .and(warp::get())
@@ -25,7 +24,7 @@ fn certificate_pending(
 
 /// GET /certificates
 fn certificate_certificates(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificates")
         .and(warp::get())
@@ -35,7 +34,7 @@ fn certificate_certificates(
 
 /// GET /certificate/{certificate_hash}
 fn certificate_certificate_hash(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate" / String)
         .and(warp::get())
@@ -126,6 +125,7 @@ mod tests {
     };
     use mithril_persistence::store::adapter::DumbStoreAdapter;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -148,7 +148,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

@@ -1,25 +1,22 @@
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::Filter;
 
 use super::middlewares;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     root(dependency_manager)
 }
 
 /// GET /
 fn root(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path::end()
-        .and(middlewares::with_api_version_provider(
-            dependency_manager.clone(),
-        ))
+        .and(middlewares::with_api_version_provider(dependency_manager))
         .and(middlewares::with_allowed_signed_entity_type_discriminants(
-            dependency_manager.clone(),
+            dependency_manager,
         ))
         .and(middlewares::with_config(dependency_manager))
         .and_then(handlers::root)
@@ -117,7 +114,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

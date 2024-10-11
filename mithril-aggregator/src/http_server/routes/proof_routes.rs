@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use warp::Filter;
 
 use crate::http_server::routes::middlewares;
@@ -27,26 +26,20 @@ impl CardanoTransactionProofQueryParams {
 }
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     proof_cardano_transaction(dependency_manager)
 }
 
 /// GET /proof/cardano-transaction
 fn proof_cardano_transaction(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
         .and(warp::query::<CardanoTransactionProofQueryParams>())
-        .and(middlewares::with_signed_entity_service(
-            dependency_manager.clone(),
-        ))
-        .and(
-            middlewares::validators::with_prover_transactions_hash_validator(
-                dependency_manager.clone(),
-            ),
-        )
+        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(middlewares::validators::with_prover_transactions_hash_validator(dependency_manager))
         .and(middlewares::with_prover_service(dependency_manager))
         .and_then(handlers::proof_cardano_transaction)
 }
@@ -134,6 +127,7 @@ mod handlers {
 mod tests {
     use anyhow::anyhow;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use std::vec;
     use warp::{
         http::{Method, StatusCode},
@@ -165,7 +159,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]
