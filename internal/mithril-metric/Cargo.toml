@@ -24,5 +24,6 @@ slog = { version = "2.7.0", features = [
 tokio = { version = "1.40.0", features = ["full"] }
 
 [dev-dependencies]
+prometheus-parse = "0.2.5"
 slog-async = "2.8.0"
 slog-term = "2.9.1"

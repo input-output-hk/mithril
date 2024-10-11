@@ -3811,6 +3811,7 @@ dependencies = [
  "axum",
  "mithril-common",
  "prometheus",
+ "prometheus-parse",
  "reqwest 0.12.7",
  "slog",
  "slog-async",

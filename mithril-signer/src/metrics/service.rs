@@ -1,10 +1,11 @@
 use mithril_metric::MetricsServiceTrait;
-use prometheus::{Encoder, Registry, TextEncoder};
+use prometheus::Registry;
 use slog::Logger;
 
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{entities::Epoch, StdResult};
 
+use mithril_metric::commons::metrics_tools;
 use mithril_metric::commons::{CounterValue, MetricCounter, MetricGauge, MithrilMetric};
 
 /// Metrics service which is responsible for recording and exposing metrics.
@@ -24,12 +25,7 @@ impl MetricsServiceTrait for MetricsService {
     /// Export the metrics as a string with the Open Metrics standard format.
     /// These metrics can be exposed on an HTTP server.
     fn export_metrics(&self) -> StdResult<String> {
-        let mut buffer = vec![];
-        let encoder = TextEncoder::new();
-        let metric_families = self.registry.gather();
-        encoder.encode(&metric_families, &mut buffer)?;
-
-        Ok(String::from_utf8(buffer)?)
+        metrics_tools::export_metrics(&self.registry)
     }
 }
 
