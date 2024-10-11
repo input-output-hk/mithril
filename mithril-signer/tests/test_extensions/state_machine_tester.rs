@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use anyhow::anyhow;
+use mithril_metric::{MetricsServiceTrait, MithrilMetric};
 use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
@@ -43,7 +44,6 @@ use mithril_persistence::{
 use mithril_signer::{
     database::repository::SignedBeaconRepository,
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
-    metrics::*,
     services::{
         AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
         SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,

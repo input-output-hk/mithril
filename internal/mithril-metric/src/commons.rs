@@ -104,3 +104,54 @@ impl MithrilMetric for MetricGauge {
         self.name.clone()
     }
 }
+
+#[cfg(test)]
+pub mod test_tools {
+    use std::{io, sync::Arc};
+
+    use slog::{Drain, Logger};
+    use slog_async::Async;
+    use slog_term::{CompactFormat, PlainDecorator};
+    pub struct TestLogger;
+
+    impl TestLogger {
+        fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
+            let decorator = PlainDecorator::new(writer);
+            let drain = CompactFormat::new(decorator).build().fuse();
+            let drain = Async::new(drain).build().fuse();
+            Logger::root(Arc::new(drain), slog::o!())
+        }
+
+        pub fn stdout() -> Logger {
+            Self::from_writer(slog_term::TestStdoutWriter)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use test_tools::TestLogger;
+
+    #[test]
+    fn test_metric_counter_can_be_incremented() {
+        let metric =
+            MetricCounter::new(TestLogger::stdout(), "test_counter", "test counter help").unwrap();
+        assert_eq!(metric.name(), "test_counter");
+        assert_eq!(metric.get(), 0);
+
+        metric.record();
+        assert_eq!(metric.get(), 1);
+    }
+
+    #[test]
+    fn test_metric_gauge_can_be_set() {
+        let metric =
+            MetricGauge::new(TestLogger::stdout(), "test_gauge", "test gauge help").unwrap();
+        assert_eq!(metric.name(), "test_gauge");
+        assert_eq!(metric.get(), Epoch(0));
+
+        metric.record(Epoch(12));
+        assert_eq!(metric.get(), Epoch(12));
+    }
+}

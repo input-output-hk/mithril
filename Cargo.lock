@@ -3804,6 +3804,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-metric"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "axum",
+ "mithril-common",
+ "prometheus",
+ "reqwest 0.12.7",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
 name = "mithril-persistence"
 version = "0.2.30"
 dependencies = [
@@ -3863,6 +3878,7 @@ dependencies = [
  "httpmock",
  "mithril-common",
  "mithril-doc",
+ "mithril-metric",
  "mithril-persistence",
  "mockall",
  "openssl",

@@ -1,10 +1,11 @@
+use mithril_metric::MetricsServiceTrait;
 use prometheus::{Encoder, Registry, TextEncoder};
 use slog::Logger;
 
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{entities::Epoch, StdResult};
 
-use crate::metrics::commons::{CounterValue, MetricCounter, MetricGauge, MithrilMetric};
+use mithril_metric::commons::{CounterValue, MetricCounter, MetricGauge, MithrilMetric};
 
 /// Metrics service which is responsible for recording and exposing metrics.
 pub struct MetricsService {
@@ -17,6 +18,19 @@ pub struct MetricsService {
     signature_registration_success_last_epoch_gauge: MetricGauge,
     runtime_cycle_success_since_startup_counter: MetricCounter,
     runtime_cycle_total_since_startup_counter: MetricCounter,
+}
+
+impl MetricsServiceTrait for MetricsService {
+    /// Export the metrics as a string with the Open Metrics standard format.
+    /// These metrics can be exposed on an HTTP server.
+    fn export_metrics(&self) -> StdResult<String> {
+        let mut buffer = vec![];
+        let encoder = TextEncoder::new();
+        let metric_families = self.registry.gather();
+        encoder.encode(&metric_families, &mut buffer)?;
+
+        Ok(String::from_utf8(buffer)?)
+    }
 }
 
 impl MetricsService {
@@ -115,17 +129,6 @@ impl MetricsService {
             runtime_cycle_success_since_startup_counter,
             runtime_cycle_total_since_startup_counter,
         })
-    }
-
-    /// Export the metrics as a string with the Open Metrics standard format.
-    /// These metrics can be exposed on an HTTP server.
-    pub fn export_metrics(&self) -> StdResult<String> {
-        let mut buffer = vec![];
-        let encoder = TextEncoder::new();
-        let metric_families = self.registry.gather();
-        encoder.encode(&metric_families, &mut buffer)?;
-
-        Ok(String::from_utf8(buffer)?)
     }
 
     /// Increment the `signer_registration_success_since_startup` counter.
