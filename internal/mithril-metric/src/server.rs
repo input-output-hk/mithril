@@ -13,7 +13,7 @@ use tokio::sync::oneshot::Receiver;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-pub trait MetricsServiceTrait {
+pub trait MetricsServiceExporter {
     fn export_metrics(&self) -> StdResult<String>;
 }
 
@@ -36,19 +36,19 @@ impl IntoResponse for MetricsServerError {
 }
 
 /// The MetricsServer is responsible for exposing the metrics of the signer.
-pub struct MetricsServer<T: MetricsServiceTrait + Send + Sync> {
+pub struct MetricsServer<T: MetricsServiceExporter + Send + Sync> {
     server_port: u16,
     server_ip: String,
     metrics_service: Arc<T>,
     logger: Logger,
 }
 
-struct RouterState<T: MetricsServiceTrait + Send + Sync> {
+struct RouterState<T: MetricsServiceExporter + Send + Sync> {
     metrics_service: Arc<T>,
     logger: Logger,
 }
 
-impl<T: MetricsServiceTrait + Send + Sync + 'static> MetricsServer<T> {
+impl<T: MetricsServiceExporter + Send + Sync + 'static> MetricsServer<T> {
     /// Create a new MetricsServer instance.
     pub fn new(server_ip: &str, server_port: u16, metrics_service: Arc<T>, logger: Logger) -> Self {
         Self {
@@ -123,7 +123,7 @@ mod tests {
         }
     }
 
-    impl MetricsServiceTrait for PseudoMetricsService {
+    impl MetricsServiceExporter for PseudoMetricsService {
         fn export_metrics(&self) -> StdResult<String> {
             Ok("pseudo metrics".to_string())
         }

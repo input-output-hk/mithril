@@ -109,7 +109,7 @@ macro_rules! build_metrics_service {
                 )*
             }
 
-            impl MetricsServiceTrait for $service {
+            impl MetricsServiceExporter for $service {
                 fn export_metrics(&self) -> StdResult<String> {
                     metrics_tools::export_metrics(&self.registry)
                 }
@@ -261,7 +261,7 @@ pub mod test_tools {
 mod tests {
     use std::collections::BTreeMap;
 
-    use crate::MetricsServiceTrait;
+    use crate::MetricsServiceExporter;
 
     use super::*;
     use prometheus::Registry;
@@ -373,7 +373,7 @@ mod tests {
         }
     }
 
-    impl MetricsServiceTrait for MetricsServiceExample {
+    impl MetricsServiceExporter for MetricsServiceExample {
         fn export_metrics(&self) -> StdResult<String> {
             metrics_tools::export_metrics(&self.registry)
         }

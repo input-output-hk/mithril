@@ -6,4 +6,4 @@ mod server;
 
 pub use commons::*;
 pub use server::MetricsServer;
-pub use server::MetricsServiceTrait;
+pub use server::MetricsServiceExporter;
