@@ -19,6 +19,9 @@ pub type GenesisCertificateProcessorFunc =
 pub type StandardCertificateProcessorFunc =
     dyn Fn(Certificate, &CertificateChainBuilderContext) -> Certificate;
 
+/// Total signers per epoch processor function type. For tests only.
+pub type TotalSignersPerEpochProcessorFunc = dyn Fn(Epoch) -> usize;
+
 /// Context used while building a certificate chain. For tests only.
 pub struct CertificateChainBuilderContext<'a> {
     pub index_certificate: usize,
@@ -31,7 +34,7 @@ pub struct CertificateChainBuilderContext<'a> {
 
 /// A builder for creating a certificate chain. For tests only.
 ///
-/// # Example usage for building a fully valid certificate chain
+/// # Simple example usage for building a fully valid certificate chain
 ///
 /// ```
 ///     use mithril_common::crypto_helper::ProtocolParameters;
@@ -45,10 +48,10 @@ pub struct CertificateChainBuilderContext<'a> {
 ///     assert_eq!(5, certificate_chain.len());
 /// ```
 ///
-/// # Example usage for building an adversarial certificate chain
+/// # More complex example usage for building a fully valid certificate chain
 ///
 /// ```
-///     use mithril_common::entities::Epoch;
+///     use std::cmp::min;
 ///     use mithril_common::crypto_helper::ProtocolParameters;
 ///     use mithril_common::test_utils::CertificateChainBuilder;
 ///
@@ -59,7 +62,24 @@ pub struct CertificateChainBuilderContext<'a> {
 ///             m: 100,
 ///             k: 5,
 ///             phi_f: 0.65,
-///         }).with_standard_certificate_processor(&|certificate, context| {
+///         })
+///         .with_total_signers_per_epoch_processor(&|epoch| min(1 + *epoch as usize, 10))
+///         .build();
+///
+///     assert_eq!(5, certificate_chain.len());
+/// ```
+///
+/// # Advanced example usage for building an adversarial certificate chain
+///
+/// ```
+///     use mithril_common::entities::Epoch;
+///     use mithril_common::crypto_helper::ProtocolParameters;
+///     use mithril_common::test_utils::CertificateChainBuilder;
+///
+///     let (certificate_chain, _protocol_genesis_verifier) = CertificateChainBuilder::new()
+///         .with_total_certificates(5)
+///         .with_certificates_per_epoch(2)
+///         .with_standard_certificate_processor(&|certificate, context| {
 ///             let mut certificate = certificate;
 ///             // Tamper the epoch of the last certificate
 ///             if context.index_certificate == context.total_certificates - 1 {
@@ -67,7 +87,8 @@ pub struct CertificateChainBuilderContext<'a> {
 ///             }
 ///
 ///             certificate
-///        }).build();
+///        })
+///        .build();
 ///
 ///     assert_eq!(5, certificate_chain.len());
 /// ```
@@ -75,6 +96,7 @@ pub struct CertificateChainBuilder<'a> {
     total_certificates: u64,
     certificates_per_epoch: u64,
     protocol_parameters: ProtocolParameters,
+    total_signers_per_epoch_processor: &'a TotalSignersPerEpochProcessorFunc,
     genesis_certificate_processor: &'a GenesisCertificateProcessorFunc,
     standard_certificate_processor: &'a StandardCertificateProcessorFunc,
 }
@@ -91,6 +113,7 @@ impl<'a> CertificateChainBuilder<'a> {
             total_certificates: 5,
             certificates_per_epoch: 1,
             protocol_parameters,
+            total_signers_per_epoch_processor: &|epoch| min(2 + *epoch as usize, 5),
             genesis_certificate_processor: &|certificate, _, _| certificate,
             standard_certificate_processor: &|certificate, _| certificate,
         }
@@ -113,6 +136,16 @@ impl<'a> CertificateChainBuilder<'a> {
     /// Set the protocol parameters.
     pub fn with_protocol_parameters(mut self, protocol_parameters: ProtocolParameters) -> Self {
         self.protocol_parameters = protocol_parameters;
+
+        self
+    }
+
+    /// Set the total signers per epoch processor.
+    pub fn with_total_signers_per_epoch_processor(
+        mut self,
+        total_signers_per_epoch_processor: &'a TotalSignersPerEpochProcessorFunc,
+    ) -> Self {
+        self.total_signers_per_epoch_processor = total_signers_per_epoch_processor;
 
         self
     }
@@ -144,22 +177,22 @@ impl<'a> CertificateChainBuilder<'a> {
         let fixtures_per_epoch = self.build_fixtures_for_epochs(&epochs);
         let genesis_certificate_processor = self.genesis_certificate_processor;
         let standard_certificate_processor = self.standard_certificate_processor;
-        let certificate_chain_length = epochs.len() - 1;
+        let total_certificates = epochs.len() - 1;
         let certificates = epochs
             .into_iter()
-            .take(certificate_chain_length)
+            .take(total_certificates)
             .enumerate()
-            .map(|(i, epoch)| {
+            .map(|(index_certificate, epoch)| {
                 let fixture = fixtures_per_epoch.get(&epoch).unwrap();
                 let next_fixture = fixtures_per_epoch.get(&epoch.next()).unwrap();
                 let context = CertificateChainBuilderContext {
-                    index_certificate: i,
-                    total_certificates: certificate_chain_length,
+                    index_certificate,
+                    total_certificates,
                     epoch,
                     fixture,
                     next_fixture,
                 };
-                match i {
+                match index_certificate {
                     0 => genesis_certificate_processor(
                         self.build_genesis_certificate(&context, &genesis_signer),
                         &context,
@@ -212,8 +245,7 @@ impl<'a> CertificateChainBuilder<'a> {
         let fixtures_per_epoch = epochs
             .iter()
             .map(|epoch| {
-                // TODO: set that in the builder configuration?
-                let total_signers = min(2 + **epoch as usize, 5);
+                let total_signers = (self.total_signers_per_epoch_processor)(*epoch);
                 let protocol_parameters = self.protocol_parameters.to_owned().into();
                 (
                     *epoch,
