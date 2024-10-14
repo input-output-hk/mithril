@@ -6,7 +6,6 @@ use mithril_common::{entities::Epoch, StdResult};
 
 use mithril_metric::commons::{CounterValue, MetricCounter, MetricGauge, MithrilMetric};
 
-/// Build the metrics service with the required metrics.
 build_metrics_service!(
     MetricsService,
     "mithril_signer",

@@ -70,6 +70,7 @@ macro_rules! build_metrics_service {
             }
 
             impl $service {
+                /// Create a new MetricsService instance.
                 pub fn new(logger: Logger) -> StdResult<Self> {
 
                     let registry = Registry::new();
