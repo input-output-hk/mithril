@@ -127,7 +127,7 @@ impl MithrilSignedEntityService {
         certificate: &Certificate,
     ) -> StdResult<()> {
         info!(
-            self.logger, "create_artifact";
+            self.logger, ">> create_artifact_task";
             "signed_entity_type" => ?signed_entity_type, "certificate_hash" => &certificate.hash
         );
 

@@ -73,7 +73,7 @@ impl MithrilCertifierService {
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
         debug!(
             self.logger,
-            "get_open_message_record(signed_entity_type: {signed_entity_type:?})"
+            ">> get_open_message_record(signed_entity_type: {signed_entity_type:?})"
         );
 
         let open_message_with_single_signatures = self
@@ -89,7 +89,7 @@ impl MithrilCertifierService {
 #[async_trait]
 impl CertifierService for MithrilCertifierService {
     async fn inform_epoch(&self, epoch: Epoch) -> StdResult<()> {
-        debug!(self.logger, "inform_epoch(epoch: {epoch:?})");
+        debug!(self.logger, ">> inform_epoch(epoch: {epoch:?})");
         let nb = self
             .open_message_repository
             .clean_epoch(epoch)
@@ -107,8 +107,8 @@ impl CertifierService for MithrilCertifierService {
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignatures,
     ) -> StdResult<SignatureRegistrationStatus> {
-        debug!(self.logger, "register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
-        trace!(self.logger, "register_single_signature"; "complete_single_signatures" => #?signature);
+        debug!(self.logger, ">> register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
+        trace!(self.logger, ">> register_single_signature"; "complete_single_signatures" => #?signature);
 
         let open_message = self
             .get_open_message_record(signed_entity_type)
@@ -156,7 +156,7 @@ impl CertifierService for MithrilCertifierService {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage> {
-        debug!(self.logger, "create_open_message(signed_entity_type: {signed_entity_type:?}, protocol_message: {protocol_message:?})");
+        debug!(self.logger, ">> create_open_message(signed_entity_type: {signed_entity_type:?}, protocol_message: {protocol_message:?})");
         let open_message = self
             .open_message_repository
             .create_open_message(
@@ -190,7 +190,7 @@ impl CertifierService for MithrilCertifierService {
     ) -> StdResult<Option<OpenMessage>> {
         debug!(
             self.logger,
-            "get_open_message(signed_entity_type: {signed_entity_type:?})"
+            ">> get_open_message(signed_entity_type: {signed_entity_type:?})"
         );
 
         let open_message = self
@@ -207,7 +207,7 @@ impl CertifierService for MithrilCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!(self.logger, "mark_open_message_if_expired");
+        debug!(self.logger, ">> mark_open_message_if_expired");
 
         let mut open_message_record = self
             .open_message_repository
@@ -231,7 +231,7 @@ impl CertifierService for MithrilCertifierService {
     ) -> StdResult<Option<Certificate>> {
         debug!(
             self.logger,
-            "create_certificate(signed_entity_type: {signed_entity_type:?})"
+            ">> create_certificate(signed_entity_type: {signed_entity_type:?})"
         );
         let open_message_record = self
             .get_open_message_record(signed_entity_type)

@@ -114,7 +114,7 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         open_message: &OpenMessage,
     ) -> StdResult<Option<ProtocolMultiSignature>> {
-        debug!(self.logger, "create_multi_signature({open_message:?})");
+        debug!(self.logger, ">> create_multi_signature({open_message:?})");
 
         let epoch_service = self.epoch_service.read().await;
         let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
