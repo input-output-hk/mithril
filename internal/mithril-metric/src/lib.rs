@@ -5,7 +5,9 @@ pub mod helper;
 pub mod metric;
 mod server;
 
-pub use helper::*;
 pub use metric::*;
 pub use server::MetricsServer;
 pub use server::MetricsServiceExporter;
+
+#[cfg(test)]
+pub use helper::test_tools::TestLogger;

@@ -112,7 +112,7 @@ mod tests {
     use std::time::Duration;
     use tokio::{sync::oneshot, task::yield_now, time::sleep};
 
-    use crate::test_tools::TestLogger;
+    use crate::helper::test_tools::TestLogger;
 
     use super::*;
 

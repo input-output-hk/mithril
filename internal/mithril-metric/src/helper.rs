@@ -101,31 +101,12 @@ macro_rules! build_metrics_service {
 
             impl MetricsServiceExporter for $service {
                 fn export_metrics(&self) -> StdResult<String> {
-                    metrics_tools::export_metrics(&self.registry)
+                    Ok(prometheus::TextEncoder::new().encode_to_string(&self.registry.gather())?)
                 }
             }
 
         }
     };
-}
-
-pub mod metrics_tools {
-
-    use mithril_common::StdResult;
-    use prometheus::TextEncoder;
-
-    pub fn export_metrics(registry: &prometheus::Registry) -> StdResult<String> {
-        let encoder = TextEncoder::new();
-        let metric_families = registry.gather();
-        // TODO check encode_utf8 do the same as encode and remove the commented code
-        // let mut buffer = vec![];
-        // encoder.encode(&metric_families, &mut buffer)?;
-        // Ok(String::from_utf8(buffer)?)
-
-        let mut buffer = String::new();
-        encoder.encode_utf8(&metric_families, &mut buffer)?;
-        Ok(buffer)
-    }
 }
 
 // TODO do we create a module for that or put it in lib.rs ?
@@ -160,7 +141,7 @@ mod tests {
 
     use super::*;
     use mithril_common::{entities::Epoch, StdResult};
-    use prometheus::Registry;
+    use prometheus::{Registry, TextEncoder};
     use prometheus_parse::Value;
     use slog::Logger;
     use test_tools::TestLogger;
@@ -173,42 +154,6 @@ mod tests {
                 .map(|s| (s.metric, s.value))
                 .collect::<BTreeMap<_, _>>(),
         )
-    }
-
-    mod tools {
-        use crate::MetricCounter;
-
-        use super::*;
-        use prometheus::Registry;
-
-        use mithril_common::entities::Epoch;
-
-        #[test]
-        fn test_export_metrics() {
-            let counter_metric =
-                MetricCounter::new(TestLogger::stdout(), "test_counter", "test counter help")
-                    .unwrap();
-            counter_metric.increment();
-
-            let gauge_metric =
-                MetricGauge::new(TestLogger::stdout(), "test_gauge", "test gauge help").unwrap();
-            gauge_metric.record(Epoch(12));
-
-            let registry = Registry::new();
-            registry.register(counter_metric.collector()).unwrap();
-            registry.register(gauge_metric.collector()).unwrap();
-
-            let exported_metrics = metrics_tools::export_metrics(&registry).unwrap();
-
-            let parsed_metrics = parse_metrics(&exported_metrics).unwrap();
-
-            let parsed_metrics_expected = BTreeMap::from([
-                (counter_metric.name(), Value::Counter(1.0)),
-                (gauge_metric.name(), Value::Gauge(12.0)),
-            ]);
-
-            assert_eq!(parsed_metrics_expected, parsed_metrics);
-        }
     }
 
     pub struct MetricsServiceExample {
@@ -252,7 +197,7 @@ mod tests {
 
     impl MetricsServiceExporter for MetricsServiceExample {
         fn export_metrics(&self) -> StdResult<String> {
-            metrics_tools::export_metrics(&self.registry)
+            Ok(TextEncoder::new().encode_to_string(&self.registry.gather())?)
         }
     }
 
@@ -327,6 +272,27 @@ mod tests {
                 .unwrap();
         assert_eq!("counter_example", service.get_counter_example().name());
         assert_eq!("gauge_example", service.get_gauge_example().name());
+    }
+
+    #[test]
+    fn test_build_metrics_service_provide_a_functional_export_metrics_function() {
+        let service =
+            MetricsServiceExampleBuildWithMacroWithoutMetricName::new(TestLogger::stdout())
+                .unwrap();
+
+        service.counter_example.increment();
+        service.gauge_example.record(Epoch(12));
+
+        let exported_metrics = service.export_metrics().unwrap();
+
+        let parsed_metrics = parse_metrics(&exported_metrics).unwrap();
+
+        let parsed_metrics_expected = BTreeMap::from([
+            (service.counter_example.name(), Value::Counter(1.0)),
+            (service.gauge_example.name(), Value::Gauge(12.0)),
+        ]);
+
+        assert_eq!(parsed_metrics_expected, parsed_metrics);
     }
 
     build_metrics_service!(

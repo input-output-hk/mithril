@@ -1,4 +1,4 @@
-use mithril_metric::{build_metrics_service, metrics_tools, MetricsServiceExporter};
+use mithril_metric::{build_metrics_service, MetricsServiceExporter};
 use prometheus::Registry;
 use slog::Logger;
 
