@@ -9,11 +9,25 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-- Optimizations of the state machine used by the signer to create individual signatures.
+- Crates versions:
 
-- Support for buffering of incoming single signatures by the aggregator if it can not aggregate them yet.
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
 
-- Expose the Cardano transactions signing configuration for the current and upcoming epoch via the `/epoch-settings` route.
+## Mithril Distribution [2442.0] - UNRELEASED
+
+- Decentralization of the signature orchestration:
+
+  - Optimizations of the state machine used by the signer to create individual signatures.
+
+  - Support for buffering of incoming single signatures by the aggregator if it can not aggregate them yet.
+
+  - Expose the Cardano transactions signing configuration for the current and upcoming epoch via the `/epoch-settings` route.
+
+  - Signer computes what to sign independently of the aggregator.
+
+  - Deprecate aggregator `/certificate-pending` route as the signer does not need it anymore.
 
 - Support for new `Pythagoras` Mithril era.
 
@@ -21,15 +35,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Refactor the builder of the protocol messages, and add support for protocol parameters and epoch parts.
 
-- Signer computes what to sign independently of the aggregator.
-
-- Deprecate aggregator `/certificate-pending` route as the signer does not need it anymore.
-
 - Support for `Cardano node` `9.2.1` in the signer and the aggregator.
 
 - Support for stable Cardano transaction client library, CLI and WASM.
-
-- Support for Mithril era switch in end to end test.
 
 - Crates versions:
 
