@@ -2,8 +2,6 @@
 ///
 /// To build the service you need to provide the structure name and a list of metrics.
 /// Each metrics is defined by an attribute name, a type, a metric name and a help message.
-/// When the metric name is not provided the attribute name will be used.
-/// We can specify a prefix that will be added to all metric names.
 ///
 /// The attribute name will be used to create a getter method for the metric.
 ///
@@ -21,34 +19,12 @@
 ///     )
 /// );
 ///
-/// build_metrics_service!(
-///     MetricsService,
-///     counter_example: MetricCounter("Example of a counter metric"),
-///     gauge_example: MetricGauge("Example of a gauge metric")
-/// );
-///
-/// build_metrics_service!(
-///     MetricsService,
-///     "metric_prefix",
-///     counter_example: MetricCounter("Example of a counter metric"),
-///     gauge_example: MetricGauge("Example of a gauge metric")
-/// );
-///
-/// let service = MetricsServiceExampleBuildWithMacro::new(TestLogger::stdout()).unwrap();
+/// let service = MetricsService::new(TestLogger::stdout()).unwrap();
 /// service.get_counter_example().record();
 /// service.get_gauge_example().record(Epoch(12));
 #[macro_export]
 macro_rules! build_metrics_service {
-    ($service:ident, $($metric_attribute:ident:$metric_type:ident($help:literal)),*) => {
-        build_metrics_service!($service, "", $($metric_attribute:$metric_type("", $help)),*);
-    };
-    ($service:ident, $prefix:literal, $($metric_attribute:ident:$metric_type:ident($help:literal)),*) => {
-        build_metrics_service!($service, $prefix, $($metric_attribute:$metric_type("", $help)),*);
-    };
     ($service:ident, $($metric_attribute:ident:$metric_type:ident($name:literal, $help:literal)),*) => {
-        build_metrics_service!($service, "", $($metric_attribute:$metric_type($name, $help)),*);
-    };
-    ($service:ident, $prefix:literal, $($metric_attribute:ident:$metric_type:ident($name:literal, $help:literal)),*) => {
         paste::item! {
             /// Metrics service which is responsible for recording and exposing metrics.
             pub struct $service {
@@ -64,21 +40,10 @@ macro_rules! build_metrics_service {
 
                     let registry = Registry::new();
 
-                    let prefix = if $prefix.is_empty() {
-                        "".to_string()
-                    } else {
-                        format!("{}_", $prefix)
-                    };
-
                     $(
-                        let metric_name = if $name.is_empty() {
-                            stringify!($metric_attribute)
-                        } else {
-                            $name
-                        };
                         let $metric_attribute = $metric_type::new(
                             logger.clone(),
-                            &format!("{}{}", prefix, metric_name),
+                            $name,
                             $help,
                         )?;
                         registry.register($metric_attribute.collector())?;
@@ -109,7 +74,6 @@ macro_rules! build_metrics_service {
     };
 }
 
-// TODO do we create a module for that or put it in lib.rs ?
 #[cfg(test)]
 pub mod test_tools {
     use std::{io, sync::Arc};
@@ -248,37 +212,9 @@ mod tests {
         );
     }
 
-    build_metrics_service!(
-        MetricsServiceExampleBuildWithMacroWithoutMetricName,
-        counter_example: MetricCounter("Example of a counter metric"),
-        gauge_example: MetricGauge("Example of a gauge metric")
-    );
-
-    #[test]
-    fn test_build_metrics_service_macro_without_metric_name() {
-        let service = MetricsServiceExampleBuildWithMacro::new(TestLogger::stdout()).unwrap();
-        service.get_counter_example().increment();
-        service.get_counter_example().increment();
-        service.get_gauge_example().record(Epoch(12));
-
-        assert_eq!(2, service.get_counter_example().get());
-        assert_eq!(Epoch(12), Epoch(service.get_gauge_example().get() as u64));
-    }
-
-    #[test]
-    fn test_build_metrics_service_named_metrics_without_attribute_name() {
-        let service =
-            MetricsServiceExampleBuildWithMacroWithoutMetricName::new(TestLogger::stdout())
-                .unwrap();
-        assert_eq!("counter_example", service.get_counter_example().name());
-        assert_eq!("gauge_example", service.get_gauge_example().name());
-    }
-
     #[test]
     fn test_build_metrics_service_provide_a_functional_export_metrics_function() {
-        let service =
-            MetricsServiceExampleBuildWithMacroWithoutMetricName::new(TestLogger::stdout())
-                .unwrap();
+        let service = MetricsServiceExampleBuildWithMacro::new(TestLogger::stdout()).unwrap();
 
         service.counter_example.increment();
         service.gauge_example.record(Epoch(12));
@@ -293,44 +229,5 @@ mod tests {
         ]);
 
         assert_eq!(parsed_metrics_expected, parsed_metrics);
-    }
-
-    build_metrics_service!(
-        MetricsServiceExampleBuildWithMacroUsingPrefix,
-        "metric_prefix",
-        counter_example: MetricCounter("Example of a counter metric"),
-        gauge_example: MetricGauge("Example of a gauge metric")
-    );
-
-    #[test]
-    fn test_build_metrics_service_named_metrics_with_attribute_name_and_prefix() {
-        let service =
-            MetricsServiceExampleBuildWithMacroUsingPrefix::new(TestLogger::stdout()).unwrap();
-        assert_eq!(
-            "metric_prefix_counter_example",
-            service.get_counter_example().name()
-        );
-        assert_eq!(
-            "metric_prefix_gauge_example",
-            service.get_gauge_example().name()
-        );
-    }
-
-    #[test]
-    fn test_build_metrics_service_implement_export() {
-        let service =
-            MetricsServiceExampleBuildWithMacroUsingPrefix::new(TestLogger::stdout()).unwrap();
-        service.get_gauge_example().record(Epoch(12));
-
-        let export = service.export_metrics().unwrap();
-        let metrics = parse_metrics(&export).unwrap();
-
-        assert_eq!(
-            Value::Gauge(12.0),
-            metrics
-                .get(&service.get_gauge_example().name())
-                .unwrap()
-                .clone()
-        );
     }
 }
