@@ -71,8 +71,10 @@ impl MetricsService {
 
     /// Get the `signer_registration_success_last_epoch` gauge value.
     pub fn signer_registration_success_last_epoch_gauge_get(&self) -> Epoch {
-        self.get_signer_registration_success_last_epoch_gauge()
-            .get()
+        Epoch(
+            self.get_signer_registration_success_last_epoch_gauge()
+                .get() as u64,
+        )
     }
 
     /// Increment the `signature_registration_success_since_startup` counter.
@@ -107,8 +109,10 @@ impl MetricsService {
 
     /// Get the `signature_registration_success_last_epoch` gauge value.
     pub fn signature_registration_success_last_epoch_gauge_get(&self) -> Epoch {
-        self.get_signature_registration_success_last_epoch_gauge()
-            .get()
+        Epoch(
+            self.get_signature_registration_success_last_epoch_gauge()
+                .get() as u64,
+        )
     }
 
     /// Increment the `runtime_cycle_total_since_startup` counter.

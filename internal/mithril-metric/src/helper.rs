@@ -264,7 +264,7 @@ mod tests {
         service.get_gauge_example().record(Epoch(12));
 
         assert_eq!(2, service.get_counter_example().get());
-        assert_eq!(Epoch(12), service.get_gauge_example().get());
+        assert_eq!(Epoch(12), Epoch(service.get_gauge_example().get() as u64));
     }
 
     build_metrics_service!(
@@ -287,7 +287,7 @@ mod tests {
         service.get_gauge_example().record(Epoch(12));
 
         assert_eq!(2, service.get_counter_example().get());
-        assert_eq!(Epoch(12), service.get_gauge_example().get());
+        assert_eq!(Epoch(12), Epoch(service.get_gauge_example().get() as u64));
     }
 
     #[test]
@@ -317,7 +317,7 @@ mod tests {
         service.get_gauge_example().record(Epoch(12));
 
         assert_eq!(2, service.get_counter_example().get());
-        assert_eq!(Epoch(12), service.get_gauge_example().get());
+        assert_eq!(Epoch(12), Epoch(service.get_gauge_example().get() as u64));
     }
 
     #[test]

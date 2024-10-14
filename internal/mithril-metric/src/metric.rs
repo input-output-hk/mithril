@@ -1,7 +1,7 @@
 use prometheus::{core::Collector, Counter, Gauge, Opts};
 use slog::{debug, Logger};
 
-use mithril_common::{entities::Epoch, StdResult};
+use mithril_common::StdResult;
 
 /// Type alias for a metric name.
 pub type MetricName = str;
@@ -79,16 +79,18 @@ impl MetricGauge {
         })
     }
 
-    pub fn record(&self, epoch: Epoch) {
+    pub fn record<T: Into<f64> + Copy>(&self, value: T) {
         debug!(
             self.logger,
-            "set '{}' gauge value to {}", self.name, epoch.0
+            "set '{}' gauge value to {}",
+            self.name,
+            value.into()
         );
-        self.gauge.set(epoch.0 as f64);
+        self.gauge.set(value.into());
     }
 
-    pub fn get(&self) -> Epoch {
-        Epoch(self.gauge.get().round() as u64)
+    pub fn get(&self) -> f64 {
+        self.gauge.get().round()
     }
 
     fn create_metric_gauge(name: &MetricName, help: &str) -> StdResult<Gauge> {
@@ -125,13 +127,13 @@ mod tests {
     }
 
     #[test]
-    fn test_metric_gauge_can_be_set() {
+    fn test_metric_gauge_can_be_set_and_the_getter_rounded_the_value() {
         let metric =
             MetricGauge::new(TestLogger::stdout(), "test_gauge", "test gauge help").unwrap();
         assert_eq!(metric.name(), "test_gauge");
-        assert_eq!(metric.get(), Epoch(0));
+        assert_eq!(metric.get(), 0.0);
 
-        metric.record(Epoch(12));
-        assert_eq!(metric.get(), Epoch(12));
+        metric.record(12.3);
+        assert_eq!(metric.get(), 12.0);
     }
 }
