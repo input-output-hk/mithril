@@ -1,6 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
@@ -10,6 +10,7 @@ use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
     SignedEntityTypeDiscriminants, Signer, SignerWithStake,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::{CardanoNetwork, StdResult};
 
@@ -130,6 +131,7 @@ pub struct MithrilEpochService {
     verification_key_store: Arc<dyn VerificationKeyStorer>,
     network: CardanoNetwork,
     allowed_signed_entity_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    logger: Logger,
 }
 
 impl MithrilEpochService {
@@ -140,6 +142,7 @@ impl MithrilEpochService {
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         network: CardanoNetwork,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        logger: Logger,
     ) -> Self {
         Self {
             future_epoch_settings,
@@ -149,6 +152,7 @@ impl MithrilEpochService {
             verification_key_store,
             network,
             allowed_signed_entity_discriminants: allowed_discriminants,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -184,8 +188,7 @@ impl MithrilEpochService {
         let recording_epoch = actual_epoch.offset_to_epoch_settings_recording_epoch();
 
         debug!(
-            "EpochService: inserting epoch settings in epoch {}",
-            recording_epoch;
+            self.logger, "EpochService: inserting epoch settings in epoch {recording_epoch}";
             "epoch_settings" => ?self.future_epoch_settings
         );
 
@@ -217,7 +220,7 @@ impl MithrilEpochService {
 #[async_trait]
 impl EpochService for MithrilEpochService {
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
-        debug!("EpochService::inform_epoch(epoch: {epoch:?})");
+        debug!(self.logger, "EpochService::inform_epoch(epoch: {epoch:?})");
 
         let signer_retrieval_epoch =
             epoch.offset_to_signer_retrieval_epoch().with_context(|| {
@@ -274,7 +277,7 @@ impl EpochService for MithrilEpochService {
     }
 
     async fn update_epoch_settings(&mut self) -> StdResult<()> {
-        debug!("EpochService::update_epoch_settings");
+        debug!(self.logger, "EpochService::update_epoch_settings");
 
         let data = self.unwrap_data().with_context(|| {
             "can't update epoch settings if inform_epoch has not been called first"
@@ -284,7 +287,7 @@ impl EpochService for MithrilEpochService {
     }
 
     async fn precompute_epoch_data(&mut self) -> StdResult<()> {
-        debug!("EpochService::precompute_epoch_data");
+        debug!(self.logger, "EpochService::precompute_epoch_data");
 
         let data = self.unwrap_data().with_context(|| {
             "can't precompute epoch data if inform_epoch has not been called first"
@@ -648,6 +651,7 @@ mod tests {
     use std::collections::{BTreeSet, HashMap};
 
     use crate::store::FakeEpochSettingsStorer;
+    use crate::test_tools::TestLogger;
     use crate::VerificationKeyStore;
 
     use super::*;
@@ -801,6 +805,7 @@ mod tests {
                 Arc::new(vkey_store),
                 self.network,
                 self.allowed_discriminants,
+                TestLogger::stdout(),
             )
         }
     }

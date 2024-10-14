@@ -1,20 +1,18 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog_scope::{debug, warn};
+use slog::{debug, warn, Logger};
 use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::entities::{
     Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::entities::OpenMessage;
 use crate::DependencyContainer;
-
-#[cfg(test)]
-use mockall::automock;
 
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
@@ -136,12 +134,17 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 /// holds services and configuration.
 pub struct AggregatorRunner {
     dependencies: Arc<DependencyContainer>,
+    logger: Logger,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggregator Runner.
     pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
-        Self { dependencies }
+        let logger = dependencies.root_logger.new_with_component_name::<Self>();
+        Self {
+            dependencies,
+            logger,
+        }
     }
 
     async fn list_available_signed_entity_types(
@@ -165,12 +168,12 @@ impl AggregatorRunner {
     }
 }
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current time point from the chain
     async fn get_time_point_from_chain(&self) -> StdResult<TimePoint> {
-        debug!("RUNNER: get time point from chain");
+        debug!(self.logger, "RUNNER: get time point from chain");
         let time_point = self
             .dependencies
             .ticker_service
@@ -184,7 +187,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: get_current_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
+        debug!(self.logger,"RUNNER: get_current_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
         self.mark_open_message_if_expired(signed_entity_type)
             .await?;
 
@@ -200,7 +203,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         current_time_point: &TimePoint,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
+        debug!(self.logger,"RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
         let signed_entity_types = self
             .list_available_signed_entity_types(current_time_point)
             .await?;
@@ -229,7 +232,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn is_certificate_chain_valid(&self, time_point: &TimePoint) -> StdResult<()> {
-        debug!("RUNNER: is_certificate_chain_valid");
+        debug!(self.logger, "RUNNER: is_certificate_chain_valid");
         self.dependencies
             .certifier_service
             .verify_certificate_chain(time_point.epoch)
@@ -239,7 +242,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_stake_distribution(&self, new_time_point: &TimePoint) -> StdResult<()> {
-        debug!("RUNNER: update stake distribution"; "time_point" => #?new_time_point);
+        debug!(self.logger,"RUNNER: update stake distribution"; "time_point" => #?new_time_point);
         self.dependencies
             .stake_distribution_service
             .update_stake_distribution()
@@ -248,7 +251,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn open_signer_registration_round(&self, new_time_point: &TimePoint) -> StdResult<()> {
-        debug!("RUNNER: open signer registration round"; "time_point" => #?new_time_point);
+        debug!(self.logger,"RUNNER: open signer registration round"; "time_point" => #?new_time_point);
         let registration_epoch = new_time_point.epoch.offset_to_recording_epoch();
 
         let stakes = self
@@ -265,7 +268,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn close_signer_registration_round(&self) -> StdResult<()> {
-        debug!("RUNNER: close signer registration round");
+        debug!(self.logger, "RUNNER: close signer registration round");
 
         self.dependencies
             .signer_registration_round_opener
@@ -286,7 +289,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
-        debug!("RUNNER: compute protocol message");
+        debug!(self.logger, "RUNNER: compute protocol message");
         let protocol_message = self
             .dependencies
             .signable_builder_service
@@ -301,7 +304,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: mark expired open message");
+        debug!(self.logger, "RUNNER: mark expired open message");
 
         let expired_open_message = self
             .dependencies
@@ -311,8 +314,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .with_context(|| "CertifierService can not mark expired open message")?;
 
         debug!(
-            "RUNNER: marked expired open messages: {:#?}",
-            expired_open_message
+            self.logger,
+            "RUNNER: marked expired open messages: {:#?}", expired_open_message
         );
 
         Ok(expired_open_message)
@@ -323,7 +326,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         time_point: TimePoint,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending> {
-        debug!("RUNNER: create new pending certificate");
+        debug!(self.logger, "RUNNER: create new pending certificate");
         let epoch_service = self.dependencies.epoch_service.read().await;
 
         let signers = epoch_service.current_signers_with_stake()?;
@@ -355,7 +358,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         pending_certificate: CertificatePending,
     ) -> StdResult<()> {
-        debug!("RUNNER: saving pending certificate");
+        debug!(self.logger, "RUNNER: saving pending certificate");
 
         let signed_entity_type = pending_certificate.signed_entity_type.clone();
         self.dependencies
@@ -367,11 +370,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn drop_pending_certificate(&self) -> StdResult<Option<CertificatePending>> {
-        debug!("RUNNER: drop pending certificate");
+        debug!(self.logger, "RUNNER: drop pending certificate");
 
         let certificate_pending = self.dependencies.certificate_pending_store.remove().await?;
         if certificate_pending.is_none() {
-            warn!(" > drop_pending_certificate::no certificate pending in store, did the previous loop crashed ?");
+            warn!(self.logger," > drop_pending_certificate::no certificate pending in store, did the previous loop crashed ?");
         }
 
         Ok(certificate_pending)
@@ -381,7 +384,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>> {
-        debug!("RUNNER: create_certificate");
+        debug!(self.logger, "RUNNER: create_certificate");
 
         self.dependencies
             .certifier_service
@@ -399,7 +402,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         signed_entity_type: &SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<()> {
-        debug!("RUNNER: create artifact");
+        debug!(self.logger, "RUNNER: create artifact");
         self.dependencies
             .signed_entity_service
             .create_artifact(signed_entity_type.to_owned(), certificate)
@@ -434,6 +437,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .era_checker
             .change_era(current_era, token.get_current_epoch());
         debug!(
+            self.logger,
             "Current Era is {} (Epoch {}).",
             current_era,
             token.get_current_epoch()
@@ -441,7 +445,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         if token.get_next_supported_era().is_err() {
             let era_name = &token.get_next_era_marker().unwrap().name;
-            warn!("Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
+            warn!(self.logger,"Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
         }
 
         Ok(())
@@ -475,7 +479,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn upkeep(&self) -> StdResult<()> {
-        debug!("RUNNER: upkeep");
+        debug!(self.logger, "RUNNER: upkeep");
         self.dependencies.upkeep_service.run().await
     }
 

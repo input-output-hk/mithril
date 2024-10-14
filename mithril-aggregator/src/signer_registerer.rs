@@ -14,8 +14,6 @@ use mithril_common::{
 use crate::VerificationKeyStorer;
 
 use mithril_common::chain_observer::ChainObserverError;
-#[cfg(test)]
-use mockall::automock;
 
 /// Error type for signer registerer service.
 #[derive(Error, Debug)]
@@ -74,7 +72,7 @@ impl SignerRegistrationRound {
 }
 
 /// Trait to register a signer
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignerRegisterer: Sync + Send {
     /// Register a signer
@@ -89,7 +87,7 @@ pub trait SignerRegisterer: Sync + Send {
 }
 
 /// Trait to open a signer registration round
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignerRegistrationRoundOpener: Sync + Send {
     /// Open a signer registration round
@@ -104,7 +102,7 @@ pub trait SignerRegistrationRoundOpener: Sync + Send {
 }
 
 /// Signer recorder trait
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignerRecorder: Sync + Send {
     /// Record a signer registration

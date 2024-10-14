@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.5.80"
+version = "0.5.81"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -44,7 +44,6 @@ slog = { version = "2.7.0", features = [
 ] }
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
-slog-scope = "4.4.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
 tar = "0.4.41"
 thiserror = "1.0.63"
@@ -70,6 +69,7 @@ mithril-common = { path = "../mithril-common", features = [
     "test_tools",
 ] }
 mockall = "0.13.0"
+slog-scope = "4.4.0"
 slog-term = "2.9.1"
 tempfile = "3.12.0"
 

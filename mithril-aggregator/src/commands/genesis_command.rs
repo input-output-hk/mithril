@@ -6,7 +6,7 @@ use mithril_common::{
     entities::HexEncodedGenesisSecretKey,
     StdResult,
 };
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::path::PathBuf;
 
 use crate::{dependency_injection::DependenciesBuilder, tools::GenesisTools, Configuration};
@@ -20,8 +20,14 @@ pub struct GenesisCommand {
 }
 
 impl GenesisCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        self.genesis_subcommand.execute(config_builder).await
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
+        self.genesis_subcommand
+            .execute(root_logger, config_builder)
+            .await
     }
 }
 
@@ -42,12 +48,16 @@ pub enum GenesisSubCommand {
 }
 
 impl GenesisSubCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         match self {
-            Self::Bootstrap(cmd) => cmd.execute(config_builder).await,
-            Self::Export(cmd) => cmd.execute(config_builder).await,
-            Self::Import(cmd) => cmd.execute(config_builder).await,
-            Self::Sign(cmd) => cmd.execute(config_builder).await,
+            Self::Bootstrap(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Export(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Import(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Sign(cmd) => cmd.execute(root_logger, config_builder).await,
         }
     }
 }
@@ -61,18 +71,23 @@ pub struct ExportGenesisSubCommand {
 }
 
 impl ExportGenesisSubCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         let config: Configuration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
-        debug!("EXPORT GENESIS command"; "config" => format!("{config:?}"));
+        debug!(root_logger, "EXPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis export payload to sign to {}",
             self.target_path.display()
         );
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
@@ -98,18 +113,23 @@ pub struct ImportGenesisSubCommand {
 }
 
 impl ImportGenesisSubCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         let config: Configuration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
-        debug!("IMPORT GENESIS command"; "config" => format!("{config:?}"));
+        debug!(root_logger, "IMPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis import signed payload from {}",
             self.signed_payload_path.to_string_lossy()
         );
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await
@@ -144,8 +164,12 @@ pub struct SignGenesisSubCommand {
 }
 
 impl SignGenesisSubCommand {
-    pub async fn execute(&self, _config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
-        debug!("SIGN GENESIS command");
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        _config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
+        debug!(root_logger, "SIGN GENESIS command");
         println!(
             "Genesis sign payload from {} to {}",
             self.to_sign_payload_path.to_string_lossy(),
@@ -171,15 +195,20 @@ pub struct BootstrapGenesisSubCommand {
 }
 
 impl BootstrapGenesisSubCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         let config: Configuration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
-        debug!("BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
+        debug!(root_logger, "BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
         let dependencies = dependencies_builder
             .create_genesis_container()
             .await

@@ -17,9 +17,6 @@ use mithril_persistence::store::StakeStorer;
 
 use crate::database::repository::StakePoolStore;
 
-#[cfg(test)]
-use mockall::automock;
-
 /// Errors related to the [StakeDistributionService].
 #[derive(Debug)]
 pub enum StakePoolDistributionServiceError {
@@ -89,7 +86,7 @@ impl Display for StakePoolDistributionServiceError {
 impl std::error::Error for StakePoolDistributionServiceError {}
 
 /// Responsible of synchronizing with Cardano stake distribution.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait StakeDistributionService: Sync + Send {
     /// Return the stake distribution fot the given epoch.
@@ -233,7 +230,8 @@ mod tests {
     use super::*;
 
     async fn get_service(chain_observer: MockChainObserver) -> MithrilStakeDistributionService {
-        let mut builder = DependenciesBuilder::new(crate::Configuration::new_sample());
+        let mut builder =
+            DependenciesBuilder::new_with_stdout_logger(crate::Configuration::new_sample());
         let stake_service = MithrilStakeDistributionService::new(
             builder.get_stake_store().await.unwrap(),
             Arc::new(chain_observer),

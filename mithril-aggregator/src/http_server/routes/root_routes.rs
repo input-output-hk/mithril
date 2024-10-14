@@ -14,6 +14,7 @@ fn root(
     dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path::end()
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_api_version_provider(dependency_manager))
         .and(middlewares::with_allowed_signed_entity_type_discriminants(
             dependency_manager,
@@ -26,7 +27,7 @@ mod handlers {
     use std::collections::BTreeSet;
     use std::{convert::Infallible, sync::Arc};
 
-    use slog_scope::{debug, warn};
+    use slog::{debug, Logger};
     use warp::http::StatusCode;
 
     use mithril_common::api_version::APIVersionProvider;
@@ -40,15 +41,16 @@ mod handlers {
 
     /// Root
     pub async fn root(
+        logger: Logger,
         api_version_provider: Arc<APIVersionProvider>,
         allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         configuration: Configuration,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: root");
+        debug!(logger, "⇄ HTTP SERVER: root");
 
         let open_api_version = unwrap_to_internal_server_error!(
             api_version_provider.compute_current_version(),
-            "root::error"
+            logger => "root::error"
         );
 
         let mut capabilities = AggregatorCapabilities {
@@ -130,7 +132,7 @@ mod tests {
             )),
             ..Configuration::new_sample()
         };
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
 
         let expected_open_api_version = dependency_manager
@@ -191,7 +193,7 @@ mod tests {
             )),
             ..Configuration::new_sample()
         };
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         dependency_manager
             .config

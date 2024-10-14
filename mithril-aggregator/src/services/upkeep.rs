@@ -11,6 +11,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use slog::{info, Logger};
 
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
@@ -48,7 +49,7 @@ impl AggregatorUpkeepService {
             main_db_connection,
             cardano_tx_connection_pool,
             signed_entity_type_lock,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 

@@ -8,8 +8,7 @@ use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
-use slog::Level;
-use slog_scope::debug;
+use slog::{debug, Level, Logger};
 use std::path::PathBuf;
 
 use crate::{Configuration, DefaultConfiguration};
@@ -35,12 +34,16 @@ pub enum CommandType {
 }
 
 impl MainCommand {
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         match self {
-            Self::Genesis(cmd) => cmd.execute(config_builder).await,
-            Self::Era(cmd) => cmd.execute(config_builder).await,
-            Self::Serve(cmd) => cmd.execute(config_builder).await,
-            Self::Tools(cmd) => cmd.execute(config_builder).await,
+            Self::Genesis(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Era(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Serve(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::GenerateDoc(cmd) => {
                 let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
                 cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
@@ -111,7 +114,7 @@ impl Source for MainOpts {
 
 impl MainOpts {
     /// execute command
-    pub async fn execute(&self) -> StdResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> StdResult<()> {
         let config_file_path = self
             .config_directory
             .join(format!("{}.json", self.run_mode));
@@ -122,9 +125,9 @@ impl MainOpts {
             )
             .add_source(config::Environment::default().separator("__"))
             .add_source(self.clone());
-        debug!("Started"; "run_mode" => &self.run_mode, "node_version" => env!("CARGO_PKG_VERSION"));
+        debug!(root_logger, "Started"; "run_mode" => &self.run_mode, "node_version" => env!("CARGO_PKG_VERSION"));
 
-        self.command.execute(config_builder).await
+        self.command.execute(root_logger, config_builder).await
     }
 
     /// get log level from parameters

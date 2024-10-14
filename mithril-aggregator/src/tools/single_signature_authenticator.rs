@@ -2,6 +2,7 @@ use slog::{debug, Logger};
 use std::sync::Arc;
 
 use mithril_common::entities::{SingleSignatureAuthenticationStatus, SingleSignatures};
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::MultiSigner;
@@ -17,7 +18,7 @@ impl SingleSignatureAuthenticator {
     pub fn new(multi_signer: Arc<dyn MultiSigner>, logger: Logger) -> Self {
         Self {
             multi_signer,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 

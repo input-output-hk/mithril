@@ -206,13 +206,15 @@ impl GenesisTools {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::test_helper::main_db_connection;
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::ProtocolGenesisSigner,
         test_utils::{fake_data, MithrilFixtureBuilder, TempDir},
     };
     use std::path::PathBuf;
+
+    use crate::database::test_helper::main_db_connection;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -237,7 +239,7 @@ mod tests {
         let connection = main_db_connection().unwrap();
         let certificate_store = Arc::new(CertificateRepository::new(Arc::new(connection)));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(
-            slog_scope::logger(),
+            TestLogger::stdout(),
             certificate_store.clone(),
         ));
         let genesis_avk = create_fake_genesis_avk();

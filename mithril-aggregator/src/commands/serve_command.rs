@@ -2,7 +2,7 @@ use anyhow::Context;
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
-use slog_scope::{crit, debug, info, warn};
+use slog::{crit, debug, info, warn, Logger};
 use std::time::Duration;
 use std::{net::IpAddr, path::PathBuf};
 use tokio::{sync::oneshot, task::JoinSet};
@@ -80,15 +80,20 @@ impl Source for ServeCommand {
 }
 
 impl ServeCommand {
-    pub async fn execute(&self, mut config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        mut config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
         config_builder = config_builder.add_source(self.clone());
         let config: Configuration = config_builder
             .build()
             .with_context(|| "configuration build error")?
             .try_deserialize()
             .with_context(|| "configuration deserialize error")?;
-        debug!("SERVE command"; "config" => format!("{config:?}"));
-        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        debug!(root_logger, "SERVE command"; "config" => format!("{config:?}"));
+        let mut dependencies_builder =
+            DependenciesBuilder::new(root_logger.clone(), config.clone());
 
         // start servers
         println!("Starting server...");
@@ -172,8 +177,10 @@ impl ServeCommand {
                 }
                 Err(error) => {
                     warn!(
+                        root_logger,
                         "Failed to build the `SignersImporter`:\n url to import `{}`\n Error: {:?}",
-                        cexplorer_pools_url, error
+                        cexplorer_pools_url,
+                        error
                     );
                 }
             }
@@ -183,7 +190,7 @@ impl ServeCommand {
         dependencies_builder.vanish().await;
 
         if let Err(e) = join_set.join_next().await.unwrap()? {
-            crit!("A critical error occurred: {e}");
+            crit!(root_logger, "A critical error occurred: {e}");
         }
 
         // stop servers
@@ -194,7 +201,7 @@ impl ServeCommand {
             preload_task.abort();
         }
 
-        info!("Event store is finishing...");
+        info!(root_logger, "Event store is finishing...");
         event_store_thread.await.unwrap();
         println!("Services stopped, exiting.");
 

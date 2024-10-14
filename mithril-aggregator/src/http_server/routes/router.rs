@@ -1,6 +1,6 @@
 use crate::http_server::routes::{
-    artifact_routes, certificate_routes, epoch_routes, root_routes, signatures_routes,
-    signer_routes, statistics_routes,
+    artifact_routes, certificate_routes, epoch_routes, http_server_child_logger, root_routes,
+    signatures_routes, signer_routes, statistics_routes,
 };
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
@@ -8,7 +8,7 @@ use crate::DependencyContainer;
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
-use slog_scope::warn;
+use slog::{warn, Logger};
 use std::sync::Arc;
 use warp::http::Method;
 use warp::http::StatusCode;
@@ -39,6 +39,7 @@ pub fn routes(
     warp::any()
         .and(header_must_be(
             dependency_manager.api_version_provider.clone(),
+            http_server_child_logger(&dependency_manager.root_logger),
         ))
         .and(warp::path(SERVER_BASE_PATH))
         .and(
@@ -78,11 +79,13 @@ pub fn routes(
 /// API Version verification
 fn header_must_be(
     api_version_provider: Arc<APIVersionProvider>,
+    logger: Logger,
 ) -> impl Filter<Extract = (), Error = Rejection> + Clone {
     warp::header::optional(MITHRIL_API_VERSION_HEADER)
         .and(warp::any().map(move || api_version_provider.clone()))
+        .and(warp::any().map(move || logger.clone()))
         .and_then(
-            move |maybe_header: Option<String>, api_version_provider: Arc<APIVersionProvider>| async move {
+            move |maybe_header: Option<String>, api_version_provider: Arc<APIVersionProvider>, logger: Logger| async move {
                 match maybe_header {
                     None => Ok(()),
                     Some(version) => match semver::Version::parse(&version) {
@@ -96,7 +99,7 @@ fn header_must_be(
                         }
                         Ok(_version) => Err(warp::reject::custom(VersionMismatchError)),
                         Err(err) => {
-                            warn!("⇄ HTTP SERVER::api_version_check::parse_error"; "error" => ?err);
+                            warn!(logger, "⇄ HTTP SERVER::api_version_check::parse_error"; "error" => ?err);
                             Err(warp::reject::custom(VersionParseError))
                         }
                     },
@@ -124,13 +127,15 @@ mod tests {
         era::{EraChecker, SupportedEra},
     };
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     #[tokio::test]
     async fn test_no_version() {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let api_version_provider = Arc::new(APIVersionProvider::new(Arc::new(era_checker)));
-        let filters = header_must_be(api_version_provider);
+        let filters = header_must_be(api_version_provider, TestLogger::stdout());
         warp::test::request()
             .path("/aggregator/whatever")
             .filter(&filters)
@@ -142,7 +147,7 @@ mod tests {
     async fn test_parse_version_error() {
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let api_version_provider = Arc::new(APIVersionProvider::new(Arc::new(era_checker)));
-        let filters = header_must_be(api_version_provider);
+        let filters = header_must_be(api_version_provider, TestLogger::stdout());
         warp::test::request()
             .header(MITHRIL_API_VERSION_HEADER, "not_a_version")
             .path("/aggregator/whatever")
@@ -161,7 +166,7 @@ mod tests {
         open_api_versions.insert("openapi.yaml".to_string(), Version::new(1, 0, 0));
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
-        let filters = header_must_be(api_version_provider);
+        let filters = header_must_be(api_version_provider, TestLogger::stdout());
         warp::test::request()
             .header(MITHRIL_API_VERSION_HEADER, "0.0.999")
             .path("/aggregator/whatever")
@@ -178,7 +183,7 @@ mod tests {
         open_api_versions.insert("openapi.yaml".to_string(), Version::new(0, 1, 0));
         version_provider.update_open_api_versions(open_api_versions);
         let api_version_provider = Arc::new(version_provider);
-        let filters = header_must_be(api_version_provider);
+        let filters = header_must_be(api_version_provider, TestLogger::stdout());
         warp::test::request()
             .header(MITHRIL_API_VERSION_HEADER, "0.1.2")
             .path("/aggregator/whatever")
