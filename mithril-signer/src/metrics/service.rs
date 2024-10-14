@@ -4,7 +4,7 @@ use slog::Logger;
 
 use mithril_common::{entities::Epoch, StdResult};
 
-use mithril_metric::commons::{CounterValue, MetricCollector, MetricCounter, MetricGauge};
+use mithril_metric::metric::{CounterValue, MetricCollector, MetricCounter, MetricGauge};
 
 build_metrics_service!(
     MetricsService,

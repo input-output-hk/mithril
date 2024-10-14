@@ -107,11 +107,12 @@ impl<T: MetricsServiceExporter + Send + Sync + 'static> MetricsServer<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_tools::TestLogger;
     use anyhow::anyhow;
     use reqwest::StatusCode;
     use std::time::Duration;
     use tokio::{sync::oneshot, task::yield_now, time::sleep};
+
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
