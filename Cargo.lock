@@ -3700,7 +3700,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.196"
+version = "0.2.197"
 dependencies = [
  "anyhow",
  "async-trait",
