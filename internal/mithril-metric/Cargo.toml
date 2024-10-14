@@ -14,7 +14,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 anyhow = "1.0.86"
 axum = "0.7.5"
-mithril-common = { path = "../../mithril-common", features = ["full"] }
+mithril-common = { path = "../../mithril-common" }
 paste = "1.0.15"
 prometheus = "0.13.4"
 reqwest = { version = "0.12.7", features = ["json", "stream"] }
@@ -22,7 +22,7 @@ slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_debug",
 ] }
-tokio = { version = "1.40.0", features = ["full"] }
+tokio = { version = "1.40.0" }
 
 [dev-dependencies]
 prometheus-parse = "0.2.5"
