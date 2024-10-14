@@ -3813,7 +3813,7 @@ dependencies = [
  "paste",
  "prometheus",
  "prometheus-parse",
- "reqwest 0.12.7",
+ "reqwest 0.12.8",
  "slog",
  "slog-async",
  "slog-term",
