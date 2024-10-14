@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Context;
 use mithril_common::entities::TimePoint;
 use mithril_common::logging::LoggerExtensions;
-use slog::{crit, info, trace, warn, Logger};
+use slog::{info, trace, Logger};
 use std::fmt::Display;
 use std::sync::Arc;
 use tokio::time::sleep;
@@ -108,46 +108,9 @@ impl AggregatorRuntime {
 
         loop {
             if let Err(e) = self.cycle().await {
-                warn!(self.logger, "State machine issued an error"; "error" => ?e);
-
-                match &e {
-                    RuntimeError::Critical {
-                        message: _,
-                        nested_error: _,
-                    } => {
-                        crit!(self.logger, "A critical error occurred"; "error" => ?e);
-
-                        return Err(e);
-                    }
-                    RuntimeError::KeepState {
-                        message,
-                        nested_error,
-                    } => {
-                        warn!(
-                            self.logger,
-                            "KeepState Error: {message}. Nested error: «{}».",
-                            nested_error
-                                .as_ref()
-                                .map(|e| format!("{e:?}"))
-                                .unwrap_or("None".into())
-                        );
-                    }
-                    RuntimeError::ReInit {
-                        message,
-                        nested_error,
-                    } => {
-                        warn!(
-                            self.logger,
-                            "ReInit Error: {message}. Nested error: «{}».",
-                            nested_error
-                                .as_ref()
-                                .map(|e| format!("{e:?}"))
-                                .unwrap_or("None".into())
-                        );
-                        self.state = AggregatorState::Idle(IdleState {
-                            current_time_point: None,
-                        });
-                    }
+                e.write_to_log(&self.logger);
+                if e.is_critical() {
+                    return Err(e);
                 }
             }
 
