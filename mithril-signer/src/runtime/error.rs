@@ -1,5 +1,5 @@
 use slog::{crit, error, Logger};
-use std::fmt::Display;
+use thiserror::Error;
 
 use mithril_common::entities::EpochError;
 use mithril_common::StdError;
@@ -8,24 +8,28 @@ use crate::RunnerError;
 
 /// RuntimeError
 /// Error kinds tied to their faith in the state machine.
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum RuntimeError {
     /// KeepState error means the runtime will keep its state and try to cycle
     /// again.
+    #[error("An error occurred, runtime state kept. message = '{message}'")]
     KeepState {
         /// Context error message
         message: String,
 
         /// Eventual previous error message
+        #[source]
         nested_error: Option<StdError>,
     },
     /// Critical error means the runtime will exit and the software will return
     /// an error code.
+    #[error("A critical error occurred, aborting runtime. message = '{message}'")]
     Critical {
         /// Context error message
         message: String,
 
         /// Eventual previous error message
+        #[source]
         nested_error: Option<StdError>,
     },
 }
@@ -53,27 +57,6 @@ impl RuntimeError {
                 None => crit!(logger, "{self}"),
                 Some(err) => crit!(logger, "{self}"; "nested_error" => ?err),
             },
-        }
-    }
-}
-
-impl std::error::Error for RuntimeError {}
-
-impl Display for RuntimeError {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::KeepState { message, .. } => {
-                write!(
-                    formatter,
-                    "An error occurred, runtime state kept. message = '{message}'"
-                )
-            }
-            Self::Critical { message, .. } => {
-                write!(
-                    formatter,
-                    "A critical error occurred, aborting runtime. message = '{message}'"
-                )
-            }
         }
     }
 }
