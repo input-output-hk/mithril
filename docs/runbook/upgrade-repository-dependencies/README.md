@@ -84,23 +84,6 @@ chore: upgrade doc dependencies
 By running 'make upgrade' command.
 ```
 
-### Upgrade the explorer dependencies
-
-From the root of the repository, run:
-
-```bash
-cd mithril-explorer
-make upgrade
-```
-
-Create a dedicated commit, e.g.:
-
-```bash
-chore: upgrade explorer dependencies
-
-By running 'make upgrade' command.
-```
-
 ### Upgrade `www/` and `www-test/` dependencies
 
 From the root of the repository, run:
@@ -116,6 +99,23 @@ Create a dedicated commit, e.g.:
 chore: upgrade mithril client wasm 'www' and 'www-test' dependencies
 
 By running 'make upgrade-www-deps' command.
+```
+
+### Upgrade the explorer dependencies
+
+From the root of the repository, run:
+
+```bash
+cd mithril-explorer
+make upgrade
+```
+
+Create a dedicated commit, e.g.:
+
+```bash
+chore: upgrade explorer dependencies
+
+By running 'make upgrade' command.
 ```
 
 ### Bump Javascript packages versions
@@ -142,7 +142,7 @@ make install
 Create a dedicated commit, e.g.:
 
 ```bash
-chore: bump mithril client wasm 'www' and 'www-test' dependencies
+chore: bump javascript packages versions
 
 By running:
 - 'make www-install' command in 'mithril-client-wasm'.
