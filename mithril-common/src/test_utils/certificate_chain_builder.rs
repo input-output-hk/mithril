@@ -4,7 +4,7 @@ use crate::{
         ProtocolAggregateVerificationKey, ProtocolClerk, ProtocolGenesisSigner,
         ProtocolGenesisVerifier, ProtocolParameters,
     },
-    entities::{Certificate, CertificateSignature, Epoch, ProtocolMessagePartKey},
+    entities::{Certificate, CertificateSignature, Epoch, ProtocolMessage, ProtocolMessagePartKey},
     test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder, SignerFixture},
 };
 
@@ -30,6 +30,25 @@ pub struct CertificateChainBuilderContext<'a> {
     pub epoch: Epoch,
     pub fixture: &'a MithrilFixture,
     pub next_fixture: &'a MithrilFixture,
+}
+
+impl CertificateChainBuilderContext<'_> {
+    /// Computes the protocol message seed.
+    pub fn compute_protocol_message_seed(&self) -> ProtocolMessage {
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            self.next_fixture.compute_and_encode_avk(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            self.next_fixture.protocol_parameters().compute_hash(),
+        );
+        protocol_message
+            .set_message_part(ProtocolMessagePartKey::CurrentEpoch, self.epoch.to_string());
+
+        protocol_message
+    }
 }
 
 /// A builder for creating a certificate chain. For tests only.
@@ -264,24 +283,11 @@ impl<'a> CertificateChainBuilder<'a> {
         let index_certificate = context.index_certificate;
         let epoch = context.epoch;
         let immutable_file_number = index_certificate as u64 * 10;
-        let digest = format!("digest{index_certificate}");
         let certificate_hash = format!("certificate_hash-{index_certificate}");
         let avk = Self::compute_avk_for_signers(&context.fixture.signers_fixture());
-        let next_avk = Self::compute_avk_for_signers(&context.next_fixture.signers_fixture());
         let protocol_parameters = context.fixture.protocol_parameters().to_owned();
-        let next_protocol_parameters = &context.next_fixture.protocol_parameters();
         let base_certificate = fake_data::certificate(certificate_hash);
-        let mut protocol_message = base_certificate.protocol_message;
-        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            next_avk.to_json_hex().unwrap(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextProtocolParameters,
-            next_protocol_parameters.compute_hash(),
-        );
-        protocol_message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, epoch.to_string());
+        let protocol_message = context.compute_protocol_message_seed();
         let signed_message = protocol_message.compute_hash();
 
         Certificate {
@@ -337,6 +343,13 @@ impl<'a> CertificateChainBuilder<'a> {
         let fixture = context.fixture;
         let mut certificate = self.build_base_certificate(context);
         certificate.metadata.signers = fixture.stake_distribution_parties();
+        let mut protocol_message = certificate.protocol_message.clone();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            format!("digest-{}", context.index_certificate),
+        );
+        certificate.protocol_message = protocol_message;
+        certificate.signed_message = certificate.protocol_message.compute_hash();
         let single_signatures = fixture
             .signers_fixture()
             .iter()
@@ -390,9 +403,59 @@ impl<'a> Default for CertificateChainBuilder<'a> {
 mod test {
     use std::collections::BTreeMap;
 
-    use crate::entities::{self, ProtocolMessage};
-
     use super::*;
+
+    #[test]
+    fn certificate_chain_builder_context_computes_correct_protocol_message_seed() {
+        let protocol_parameters = ProtocolParameters {
+            m: 123,
+            k: 45,
+            phi_f: 0.67,
+        };
+        let next_protocol_parameters = ProtocolParameters {
+            m: 100,
+            k: 10,
+            phi_f: 0.10,
+        };
+        let fixture = MithrilFixtureBuilder::default()
+            .with_protocol_parameters(protocol_parameters.into())
+            .with_signers(2)
+            .build();
+        let next_fixture = MithrilFixtureBuilder::default()
+            .with_protocol_parameters(next_protocol_parameters.into())
+            .with_signers(3)
+            .build();
+        let context = CertificateChainBuilderContext {
+            index_certificate: 2,
+            total_certificates: 5,
+            epoch: Epoch(1),
+            fixture: &fixture,
+            next_fixture: &next_fixture,
+        };
+        let expected_next_avk_part_value = next_fixture.compute_and_encode_avk();
+        let expected_next_protocol_parameters_part_value =
+            next_fixture.protocol_parameters().compute_hash();
+
+        let expected_current_epoch_part_value = context.epoch.to_string();
+
+        let protocol_message = context.compute_protocol_message_seed();
+
+        let mut expected_protocol_message = ProtocolMessage::new();
+        expected_protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            expected_next_avk_part_value,
+        );
+        expected_protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            expected_next_protocol_parameters_part_value,
+        );
+        expected_protocol_message.set_message_part(
+            ProtocolMessagePartKey::CurrentEpoch,
+            expected_current_epoch_part_value,
+        );
+
+        assert_eq!(expected_protocol_message, protocol_message);
+    }
 
     #[test]
     fn builds_certificate_chain_with_correct_length() {
@@ -450,7 +513,6 @@ mod test {
             .with_protocol_parameters(expected_protocol_parameters.into())
             .with_signers(3)
             .build();
-        let next_avk = next_fixture.compute_and_encode_avk();
         let context = CertificateChainBuilderContext {
             index_certificate: 0,
             total_certificates: 5,
@@ -458,17 +520,7 @@ mod test {
             fixture: &fixture,
             next_fixture: &next_fixture,
         };
-        let mut expected_protocol_message = ProtocolMessage::new();
-        expected_protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            next_avk,
-        );
-        expected_protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextProtocolParameters,
-            Into::<entities::ProtocolParameters>::into(expected_protocol_parameters).compute_hash(),
-        );
-        expected_protocol_message
-            .set_message_part(ProtocolMessagePartKey::CurrentEpoch, "1".to_string());
+        let expected_protocol_message = context.compute_protocol_message_seed();
         let expected_signed_message = expected_protocol_message.compute_hash();
         let (protocol_genesis_signer, _) = CertificateChainBuilder::setup_genesis();
 
@@ -506,29 +558,18 @@ mod test {
             .with_signers(3)
             .build();
         let avk = fixture.compute_and_encode_avk();
-        let next_avk = next_fixture.compute_and_encode_avk();
         let context = CertificateChainBuilderContext {
-            index_certificate: 0,
+            index_certificate: 2,
             total_certificates: 5,
             epoch: Epoch(1),
             fixture: &fixture,
             next_fixture: &next_fixture,
         };
-        let mut expected_protocol_message = ProtocolMessage::new();
+        let mut expected_protocol_message = context.compute_protocol_message_seed();
         expected_protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
-            "digest0".to_string(),
+            format!("digest-{}", context.index_certificate),
         );
-        expected_protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            next_avk,
-        );
-        expected_protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextProtocolParameters,
-            Into::<entities::ProtocolParameters>::into(expected_protocol_parameters).compute_hash(),
-        );
-        expected_protocol_message
-            .set_message_part(ProtocolMessagePartKey::CurrentEpoch, "1".to_string());
         let expected_signed_message = expected_protocol_message.compute_hash();
 
         let standard_certificate = CertificateChainBuilder::default()
