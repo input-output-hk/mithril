@@ -1,7 +1,7 @@
 [package]
 name = "client-mithril-stake-distribution"
 description = "Mithril client stake distribution example"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
@@ -10,8 +10,8 @@ license = "Apache-2.0"
 repository = "https://github.com/input-output-hk/mithril/"
 
 [dependencies]
-anyhow = "1.0.86"
-clap = { version = "4.5.17", features = ["derive", "env"] }
+anyhow = "1.0.89"
+clap = { version = "4.5.20", features = ["derive", "env"] }
 mithril-client = { path = "../../mithril-client" }
 slog = "2.7.0"
 slog-async = "2.8.0"
