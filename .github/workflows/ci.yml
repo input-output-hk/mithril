@@ -315,7 +315,7 @@ jobs:
             "#19",
             "#20",
           ]
-        extra_args: [""]
+        extra_args: ["--mithril-era-regenesis-on-switch"]
 
         # include:
         #   # Include a test for the P2P mode
