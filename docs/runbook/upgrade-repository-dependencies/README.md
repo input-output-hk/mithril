@@ -88,6 +88,8 @@ By running 'make upgrade' command.
 
 From the root of the repository, run:
 
+[!IMPORTANT]: This command must be run before upgrading `mithril-explorer`.
+
 ```bash
 cd mithril-client-wasm
 make upgrade-www-deps

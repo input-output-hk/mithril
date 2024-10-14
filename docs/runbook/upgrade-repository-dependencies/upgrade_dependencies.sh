@@ -47,7 +47,7 @@ By running 'make upgrade' command."
 
 # Search all package.json files and bump the version
 # and exclude `package.json` in `node_modules` folder
-for package_json_file in $(find . -name package.json | grep -v "/node_modules/"); do
+for package_json_file in $(find . -name package.json | grep -v "/node_modules/" | grep -v "/pkg/"); do
     folder="$(dirname $package_json_file)"
     pushd "$folder" || exit
     npm version patch
