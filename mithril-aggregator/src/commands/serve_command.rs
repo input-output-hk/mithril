@@ -177,10 +177,9 @@ impl ServeCommand {
                 }
                 Err(error) => {
                     warn!(
-                        root_logger,
-                        "Failed to build the `SignersImporter`:\n url to import `{}`\n Error: {:?}",
-                        cexplorer_pools_url,
-                        error
+                        root_logger, "Failed to build the `SignersImporter`";
+                        "url_to_import" => cexplorer_pools_url,
+                        "error" => ?error
                     );
                 }
             }
@@ -190,7 +189,7 @@ impl ServeCommand {
         dependencies_builder.vanish().await;
 
         if let Err(e) = join_set.join_next().await.unwrap()? {
-            crit!(root_logger, "A critical error occurred: {e}");
+            crit!(root_logger, "A critical error occurred"; "error" => e);
         }
 
         // stop servers

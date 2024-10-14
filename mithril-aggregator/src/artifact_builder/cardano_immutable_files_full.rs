@@ -95,8 +95,8 @@ impl CardanoImmutableFilesFullArtifactBuilder {
 
         if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
             warn!(
-                self.logger,
-                " > Post upload ongoing snapshot file removal failure: {error}"
+                self.logger, " > Post upload ongoing snapshot file removal failure";
+                "error" => error
             );
         }
 

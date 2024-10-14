@@ -41,7 +41,7 @@ impl EventStore {
         );
         loop {
             if let Some(message) = self.receiver.recv().await {
-                debug!(self.logger, "Event received: {message:?}");
+                debug!(self.logger, "Event received"; "event" => ?message);
                 let event = persister
                     .persist(message)
                     .with_context(|| "event persist failure")?;

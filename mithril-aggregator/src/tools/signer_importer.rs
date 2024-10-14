@@ -62,10 +62,7 @@ impl SignersImporter {
         loop {
             interval.tick().await;
             if let Err(error) = self.run().await {
-                warn!(
-                    self.logger,
-                    "Signer retriever failed: Error: «{:?}».", error
-                );
+                warn!(self.logger, "Signer retriever failed"; "error" => ?error);
             }
             info!(
                 self.logger,

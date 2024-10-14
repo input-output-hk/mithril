@@ -156,7 +156,10 @@ impl CertifierService for MithrilCertifierService {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage> {
-        debug!(self.logger, ">> create_open_message(signed_entity_type: {signed_entity_type:?}, protocol_message: {protocol_message:?})");
+        debug!(
+            self.logger, ">> create_open_message(signed_entity_type: {signed_entity_type:?})";
+            "protocol_message" => ?protocol_message
+        );
         let open_message = self
             .open_message_repository
             .create_open_message(

@@ -62,10 +62,7 @@ async fn fetch_epoch_header_value(
     match epoch_service.read().await.epoch_of_current_data() {
         Ok(epoch) => format!("{epoch}"),
         Err(e) => {
-            warn!(
-                logger,
-                "Could not fetch epoch header value from Epoch service: {e}"
-            );
+            warn!(logger, "Could not fetch epoch header value from Epoch service"; "error" => ?e);
             String::new()
         }
     }
@@ -99,11 +96,8 @@ mod handlers {
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         epoch_service: EpochServiceWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "POST /register-signer/{register_signer_message:?}");
-        trace!(logger,
-            "POST /register_signer";
-            "complete_message" => #?register_signer_message
-        );
+        debug!(logger, "POST /register-signer"; "message" => ?register_signer_message);
+        trace!(logger, "POST /register-signer"; "complete_message" => #?register_signer_message);
 
         let registration_epoch = register_signer_message.epoch;
 

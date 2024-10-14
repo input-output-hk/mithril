@@ -314,8 +314,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .with_context(|| "CertifierService can not mark expired open message")?;
 
         debug!(
-            self.logger,
-            "Marked expired open messages: {:#?}", expired_open_message
+            self.logger, "Marked expired open messages";
+            "expired_open_message" => ?expired_open_message
         );
 
         Ok(expired_open_message)

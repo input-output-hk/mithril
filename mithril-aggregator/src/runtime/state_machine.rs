@@ -108,14 +108,14 @@ impl AggregatorRuntime {
 
         loop {
             if let Err(e) = self.cycle().await {
-                warn!(self.logger, "State machine issued an error: {e}");
+                warn!(self.logger, "State machine issued an error"; "error" => ?e);
 
                 match &e {
                     RuntimeError::Critical {
                         message: _,
                         nested_error: _,
                     } => {
-                        crit!(self.logger, "A critical error occurred: {e:?}");
+                        crit!(self.logger, "A critical error occurred"; "error" => ?e);
 
                         return Err(e);
                     }
