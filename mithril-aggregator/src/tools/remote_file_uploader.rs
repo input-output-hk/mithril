@@ -46,7 +46,7 @@ impl RemoteFileUploader for GcpFileUploader {
 
         let filename = filepath.file_name().unwrap().to_str().unwrap();
 
-        info!(self.logger, "uploading {filename}");
+        info!(self.logger, "Uploading {filename}");
         let client = Client::default();
         let file = tokio::fs::File::open(filepath).await.unwrap();
         let stream = FramedRead::new(file, BytesCodec::new());
@@ -62,7 +62,7 @@ impl RemoteFileUploader for GcpFileUploader {
             .await
             .with_context(|| "remote uploading failure")?;
 
-        info!(self.logger, "uploaded {filename}");
+        info!(self.logger, "Uploaded {filename}");
 
         // ensure the uploaded file as public read access
         // when a file is uploaded to Google cloud storage its permissions are overwritten so
@@ -74,7 +74,7 @@ impl RemoteFileUploader for GcpFileUploader {
 
         info!(
             self.logger,
-            "updating acl for {filename}: {new_bucket_access_control:?}"
+            "Updating acl for {filename}: {new_bucket_access_control:?}"
         );
 
         client
@@ -83,7 +83,7 @@ impl RemoteFileUploader for GcpFileUploader {
             .await
             .with_context(|| "updating acl failure")?;
 
-        info!(self.logger, "updated acl for {filename}");
+        info!(self.logger, "Updated acl for {filename}");
 
         Ok(())
     }

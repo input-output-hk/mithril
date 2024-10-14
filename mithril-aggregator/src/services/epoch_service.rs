@@ -188,7 +188,7 @@ impl MithrilEpochService {
         let recording_epoch = actual_epoch.offset_to_epoch_settings_recording_epoch();
 
         debug!(
-            self.logger, "inserting epoch settings in epoch {recording_epoch}";
+            self.logger, "Inserting epoch settings in epoch {recording_epoch}";
             "epoch_settings" => ?self.future_epoch_settings
         );
 

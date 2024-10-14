@@ -96,13 +96,13 @@ impl AggregatorUpkeepService {
 #[async_trait]
 impl UpkeepService for AggregatorUpkeepService {
     async fn run(&self) -> StdResult<()> {
-        info!(self.logger, "start upkeep of the application");
+        info!(self.logger, "Start upkeep of the application");
 
         self.upkeep_all_databases()
             .await
             .with_context(|| "Database upkeep failed")?;
 
-        info!(self.logger, "upkeep finished");
+        info!(self.logger, "Upkeep finished");
         Ok(())
     }
 }

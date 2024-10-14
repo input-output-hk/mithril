@@ -31,7 +31,7 @@ impl CertificatesHashMigrator {
 
     /// Recompute all the certificates hashes the database.
     pub async fn migrate(&self) -> StdResult<()> {
-        info!(self.logger, "starting migration");
+        info!(self.logger, "Starting migration");
         let (old_certificates, old_and_new_hashes) =
             self.create_certificates_with_updated_hash().await?;
 
@@ -42,7 +42,7 @@ impl CertificatesHashMigrator {
 
         info!(
             self.logger,
-            "all certificates have been migrated successfully"
+            "All certificates have been migrated successfully"
         );
         Ok(())
     }
@@ -52,7 +52,7 @@ impl CertificatesHashMigrator {
     async fn create_certificates_with_updated_hash(
         &self,
     ) -> StdResult<(Vec<Certificate>, HashMap<String, String>)> {
-        info!(self.logger, "recomputing all certificates hash");
+        info!(self.logger, "Recomputing all certificates hash");
         let old_certificates = self
             .certificate_repository
             // arbitrary high value to get all existing certificates
@@ -67,7 +67,7 @@ impl CertificatesHashMigrator {
         // Note: get_latest_certificates retrieve certificates from the earliest to the older,
         // in order to have a strong guarantee that when inserting a certificate in the db its
         // previous_hash exist we have to work in the reverse order.
-        debug!(self.logger, "computing new hash for all certificates");
+        debug!(self.logger, "Computing new hash for all certificates");
         for mut certificate in old_certificates.into_iter().rev() {
             let old_previous_hash = if certificate.is_genesis() {
                 certificate.previous_hash.clone()
@@ -92,14 +92,14 @@ impl CertificatesHashMigrator {
 
                 if certificate.is_genesis() {
                     trace!(
-                        self.logger, "new hash computed for genesis certificate {:?}",
+                        self.logger, "New hash computed for genesis certificate {:?}",
                         certificate.signed_entity_type();
                         "old_hash" => &certificate.hash,
                         "new_hash" => &new_hash,
                     );
                 } else {
                     trace!(
-                        self.logger, "new hash computed for certificate {:?}",
+                        self.logger, "New hash computed for certificate {:?}",
                         certificate.signed_entity_type();
                         "old_hash" => &certificate.hash,
                         "new_hash" => &new_hash,
@@ -120,7 +120,7 @@ impl CertificatesHashMigrator {
         // (we do this by chunks in order to avoid reaching the limit of 32766 variables in a single query)
         debug!(
             self.logger,
-            "inserting migrated certificates in the database"
+            "Inserting migrated certificates in the database"
         );
         let migrated_certificates_chunk_size = 250;
         for migrated_certificates_chunk in
@@ -141,7 +141,7 @@ impl CertificatesHashMigrator {
         &self,
         old_and_new_certificate_hashes: HashMap<String, String>,
     ) -> StdResult<()> {
-        info!(self.logger, "updating signed entities certificate ids");
+        info!(self.logger, "Updating signed entities certificate ids");
         let old_hashes: Vec<&str> = old_and_new_certificate_hashes
             .keys()
             .map(|k| k.as_str())
@@ -158,7 +158,7 @@ impl CertificatesHashMigrator {
 
         debug!(
             self.logger,
-            "updating signed entities certificate_ids to new computed hash"
+            "Updating signed entities certificate_ids to new computed hash"
         );
         for signed_entity_record in records_to_migrate.iter_mut() {
             let new_certificate_hash =
@@ -171,7 +171,7 @@ impl CertificatesHashMigrator {
                     .to_owned();
 
             trace!(
-                self.logger, "migrating signed entity {} certificate hash computed for certificate",
+                self.logger, "Migrating signed entity {} certificate hash computed for certificate",
                 signed_entity_record.signed_entity_id;
                 "old_certificate_hash" => &signed_entity_record.certificate_id,
                 "new_certificate_hash" => &new_certificate_hash
@@ -181,7 +181,7 @@ impl CertificatesHashMigrator {
 
         debug!(
             self.logger,
-            "updating migrated signed entities in the database"
+            "Updating migrated signed entities in the database"
         );
         self.signed_entity_storer
             .update_signed_entities(records_to_migrate)
@@ -192,7 +192,7 @@ impl CertificatesHashMigrator {
     }
 
     async fn cleanup(&self, old_certificates: Vec<Certificate>) -> StdResult<()> {
-        info!(self.logger, "deleting old certificates in the database");
+        info!(self.logger, "Deleting old certificates in the database");
         self.certificate_repository
             .delete_certificates(&old_certificates.iter().collect::<Vec<_>>())
             .await

@@ -38,7 +38,7 @@ impl SignersImporter {
 
     /// Import and persist the signers
     pub async fn run(&self) -> StdResult<()> {
-        info!(self.logger, "starting importation");
+        info!(self.logger, "Starting importation");
         let items = self
             .retriever
             .retrieve()
@@ -46,7 +46,7 @@ impl SignersImporter {
             .with_context(|| "Failed to retrieve signers from remote service")?;
 
         info!(self.logger,
-            "persisting retrieved data in the database";
+            "Persisting retrieved data in the database";
             "number_of_signer_to_insert" => items.len()
         );
         self.persister
@@ -139,7 +139,7 @@ impl CExplorerSignerRetriever {
 impl SignersImporterRetriever for CExplorerSignerRetriever {
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>> {
         info!(
-            self.logger, "retrieving data from source";
+            self.logger, "Retrieving data from source";
             "source_url" => &self.source_url.as_str()
         );
         let response = self

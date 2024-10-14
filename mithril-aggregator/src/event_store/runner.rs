@@ -45,7 +45,7 @@ impl EventStore {
                 let event = persister
                     .persist(message)
                     .with_context(|| "event persist failure")?;
-                debug!(self.logger, "event ID={} created", event.event_id);
+                debug!(self.logger, "Event ID={} created", event.event_id);
             } else {
                 info!(self.logger, "No more events to proceed, quitting…");
                 break;

@@ -78,7 +78,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
             })
             .await??;
 
-        debug!(self.logger, " > snapshot created: '{ongoing_snapshot:?}'");
+        debug!(self.logger, " > Snapshot created: '{ongoing_snapshot:?}'");
 
         Ok(ongoing_snapshot)
     }

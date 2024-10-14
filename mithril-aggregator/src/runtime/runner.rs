@@ -315,7 +315,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         debug!(
             self.logger,
-            "marked expired open messages: {:#?}", expired_open_message
+            "Marked expired open messages: {:#?}", expired_open_message
         );
 
         Ok(expired_open_message)
