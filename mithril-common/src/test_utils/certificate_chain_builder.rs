@@ -49,6 +49,11 @@ impl CertificateChainBuilderContext<'_> {
 
         protocol_message
     }
+
+    /// Checks if the current certificate is the last one.
+    pub fn is_last_certificate(&self) -> bool {
+        self.index_certificate == self.total_certificates - 1
+    }
 }
 
 /// A builder for creating a certificate chain. For tests only.
@@ -100,8 +105,8 @@ impl CertificateChainBuilderContext<'_> {
 ///         .with_certificates_per_epoch(2)
 ///         .with_standard_certificate_processor(&|certificate, context| {
 ///             let mut certificate = certificate;
-///             // Tamper the epoch of the last certificate
-///             if context.index_certificate == context.total_certificates - 1 {
+///             // Alter the epoch of the last certificate
+///             if context.is_last_certificate() {
 ///                 certificate.epoch = Epoch(123);
 ///             }
 ///
@@ -455,6 +460,20 @@ mod test {
         );
 
         assert_eq!(expected_protocol_message, protocol_message);
+    }
+
+    #[test]
+    fn certificate_chain_builder_context_checks_correctly_if_certificate_is_last() {
+        let fixture = MithrilFixtureBuilder::default().with_signers(2).build();
+        let context = CertificateChainBuilderContext {
+            index_certificate: 4,
+            total_certificates: 5,
+            epoch: Epoch(1),
+            fixture: &fixture,
+            next_fixture: &fixture,
+        };
+
+        assert!(context.is_last_certificate());
     }
 
     #[test]
