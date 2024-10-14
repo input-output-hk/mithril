@@ -120,8 +120,8 @@ macro_rules! build_metrics_service {
     };
 }
 
-/// Mithril metric
-pub trait MithrilMetric {
+/// Metric collector
+pub trait MetricCollector {
     /// Metric name
     fn name(&self) -> String;
 
@@ -129,6 +129,7 @@ pub trait MithrilMetric {
     fn collector(&self) -> Box<dyn Collector>;
 }
 
+/// Metric counter
 pub struct MetricCounter {
     name: String,
     logger: Logger,
@@ -145,7 +146,7 @@ impl MetricCounter {
         })
     }
 
-    pub fn record(&self) {
+    pub fn increment(&self) {
         debug!(self.logger, "incrementing '{}' counter", self.name);
         self.counter.inc();
     }
@@ -162,7 +163,7 @@ impl MetricCounter {
     }
 }
 
-impl MithrilMetric for MetricCounter {
+impl MetricCollector for MetricCounter {
     fn collector(&self) -> Box<dyn Collector> {
         self.counter.clone()
     }
@@ -172,6 +173,7 @@ impl MithrilMetric for MetricCounter {
     }
 }
 
+/// Metric gauge
 pub struct MetricGauge {
     name: String,
     logger: Logger,
@@ -207,7 +209,7 @@ impl MetricGauge {
         Ok(gauge)
     }
 }
-impl MithrilMetric for MetricGauge {
+impl MetricCollector for MetricGauge {
     fn collector(&self) -> Box<dyn Collector> {
         self.gauge.clone()
     }
@@ -286,7 +288,7 @@ mod tests {
         assert_eq!(metric.name(), "test_counter");
         assert_eq!(metric.get(), 0);
 
-        metric.record();
+        metric.increment();
         assert_eq!(metric.get(), 1);
     }
 
@@ -312,7 +314,7 @@ mod tests {
             let counter_metric =
                 MetricCounter::new(TestLogger::stdout(), "test_counter", "test counter help")
                     .unwrap();
-            counter_metric.record();
+            counter_metric.increment();
 
             let gauge_metric =
                 MetricGauge::new(TestLogger::stdout(), "test_gauge", "test gauge help").unwrap();
@@ -383,8 +385,8 @@ mod tests {
     #[test]
     fn test_service_creation() {
         let service = MetricsServiceExample::new(TestLogger::stdout()).unwrap();
-        service.get_counter_example().record();
-        service.get_counter_example().record();
+        service.get_counter_example().increment();
+        service.get_counter_example().increment();
         service.get_gauge_example().record(Epoch(12));
 
         assert_eq!(2, service.get_counter_example().get());
@@ -406,8 +408,8 @@ mod tests {
     #[test]
     fn test_service_creation_using_build_metrics_service_macro() {
         let service = MetricsServiceExampleBuildWithMacro::new(TestLogger::stdout()).unwrap();
-        service.get_counter_example().record();
-        service.get_counter_example().record();
+        service.get_counter_example().increment();
+        service.get_counter_example().increment();
         service.get_gauge_example().record(Epoch(12));
 
         assert_eq!(2, service.get_counter_example().get());
@@ -436,8 +438,8 @@ mod tests {
     #[test]
     fn test_build_metrics_service_macro_without_metric_name() {
         let service = MetricsServiceExampleBuildWithMacro::new(TestLogger::stdout()).unwrap();
-        service.get_counter_example().record();
-        service.get_counter_example().record();
+        service.get_counter_example().increment();
+        service.get_counter_example().increment();
         service.get_gauge_example().record(Epoch(12));
 
         assert_eq!(2, service.get_counter_example().get());

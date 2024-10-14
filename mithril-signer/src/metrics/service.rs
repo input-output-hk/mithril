@@ -4,7 +4,7 @@ use slog::Logger;
 
 use mithril_common::{entities::Epoch, StdResult};
 
-use mithril_metric::commons::{CounterValue, MetricCounter, MetricGauge, MithrilMetric};
+use mithril_metric::commons::{CounterValue, MetricCollector, MetricCounter, MetricGauge};
 
 build_metrics_service!(
     MetricsService,
@@ -42,7 +42,7 @@ impl MetricsService {
     /// Increment the `signer_registration_success_since_startup` counter.
     pub fn signer_registration_success_since_startup_counter_increment(&self) {
         self.get_signer_registration_success_since_startup_counter()
-            .record();
+            .increment();
     }
 
     /// Get the `signer_registration_success_since_startup` counter.
@@ -54,7 +54,7 @@ impl MetricsService {
     /// Increment the `signer_registration_total_since_startup` counter.
     pub fn signer_registration_total_since_startup_counter_increment(&self) {
         self.get_signer_registration_total_since_startup_counter()
-            .record();
+            .increment();
     }
 
     /// Get the `signer_registration_total_since_startup` counter.
@@ -78,7 +78,7 @@ impl MetricsService {
     /// Increment the `signature_registration_success_since_startup` counter.
     pub fn signature_registration_success_since_startup_counter_increment(&self) {
         self.get_signature_registration_success_since_startup_counter()
-            .record();
+            .increment();
     }
 
     /// Get the `signature_registration_success_since_startup` counter.
@@ -90,7 +90,7 @@ impl MetricsService {
     /// Increment the `signature_registration_total_since_startup` counter.
     pub fn signature_registration_total_since_startup_counter_increment(&self) {
         self.get_signature_registration_total_since_startup_counter()
-            .record();
+            .increment();
     }
 
     /// Get the `signature_registration_total_since_startup` counter.
@@ -114,7 +114,7 @@ impl MetricsService {
     /// Increment the `runtime_cycle_total_since_startup` counter.
     pub fn runtime_cycle_total_since_startup_counter_increment(&self) {
         self.get_runtime_cycle_total_since_startup_counter()
-            .record();
+            .increment();
     }
 
     /// Get the `runtime_cycle_total_since_startup` counter.
@@ -125,7 +125,7 @@ impl MetricsService {
     /// Increment the `runtime_cycle_success_since_startup` counter.
     pub fn runtime_cycle_success_since_startup_counter_increment(&self) {
         self.get_runtime_cycle_success_since_startup_counter()
-            .record();
+            .increment();
     }
 
     /// Get the `runtime_cycle_success_since_startup` counter.
