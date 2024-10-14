@@ -102,8 +102,7 @@ impl CertifierService for BufferedCertifierService {
             Err(error) => match error.downcast_ref::<CertifierServiceError>() {
                 Some(CertifierServiceError::NotFound(..)) if signature.is_authenticated() => {
                     debug!(
-                        self.logger,
-                        "No OpenMessage available for signed entity - Buffering single signature";
+                        self.logger, "No OpenMessage available for signed entity - Buffering single signature";
                         "signed_entity_type" => ?signed_entity_type,
                         "party_id" => &signature.party_id
                     );

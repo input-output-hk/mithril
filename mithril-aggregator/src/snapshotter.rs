@@ -101,8 +101,8 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         let filesize = self.create_and_verify_archive(&archive_path).inspect_err(|_err| {
             if archive_path.exists() {
                 if let Err(remove_error) = fs::remove_file(&archive_path) {
-                    warn!(self.logger,
-                        " > Post snapshotter.snapshot failure, could not remove temporary archive";
+                    warn!(
+                        self.logger, " > Post snapshotter.snapshot failure, could not remove temporary archive";
                         "archive_path" => archive_path.display(),
                         "error" => remove_error
                     );

@@ -45,8 +45,8 @@ impl SignersImporter {
             .await
             .with_context(|| "Failed to retrieve signers from remote service")?;
 
-        info!(self.logger,
-            "Persisting retrieved data in the database";
+        info!(
+            self.logger, "Persisting retrieved data in the database";
             "number_of_signer_to_insert" => items.len()
         );
         self.persister

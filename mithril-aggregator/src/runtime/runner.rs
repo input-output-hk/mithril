@@ -438,8 +438,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .change_era(current_era, token.get_current_epoch());
         debug!(
             self.logger,
-            "Current Era is {} (Epoch {}).",
-            current_era,
+            "Current Era is {current_era} (Epoch {}).",
             token.get_current_epoch()
         );
 

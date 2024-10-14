@@ -167,8 +167,7 @@ impl<S: MKTreeStorer> ProverService for MithrilProverService<S> {
     async fn compute_cache(&self, up_to: BlockNumber) -> StdResult<()> {
         let pool_size = self.mk_map_pool.size();
         info!(
-            self.logger,
-            "Starts computing the Merkle map pool resource of size {pool_size}";
+            self.logger, "Starts computing the Merkle map pool resource of size {pool_size}";
             "up_to_block_number" => *up_to,
         );
         let mk_map_cache = self
