@@ -289,7 +289,7 @@ jobs:
       matrix:
         mode: ["std"]
         era: ["thales"]
-        #next_era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras)[1] }}
+        next_era: ["pythagoras"]
         cardano_node_version: ["9.1.1"]
         hard_fork_latest_era_at_epoch: [0]
         run_id:
