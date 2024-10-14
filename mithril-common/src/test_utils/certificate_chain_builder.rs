@@ -9,7 +9,11 @@ use crate::{
 };
 
 use crate::entities::CertificateMetadata;
-use std::{cmp::min, collections::HashMap, sync::Arc};
+use std::{
+    cmp::min,
+    collections::{BTreeSet, HashMap},
+    sync::Arc,
+};
 
 /// Genesis certificate processor function type. For tests only.
 pub type GenesisCertificateProcessorFunc =
@@ -268,6 +272,8 @@ impl<'a> CertificateChainBuilder<'a> {
     fn build_fixtures_for_epochs(&self, epochs: &[Epoch]) -> HashMap<Epoch, MithrilFixture> {
         let fixtures_per_epoch = epochs
             .iter()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
             .map(|epoch| {
                 let total_signers = (self.total_signers_per_epoch_processor)(*epoch);
                 let protocol_parameters = self.protocol_parameters.to_owned().into();
