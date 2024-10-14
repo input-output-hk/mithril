@@ -1,7 +1,7 @@
 //! Tools to helps validate conformity to an OpenAPI specification
 
 use glob::glob;
-use jsonschema::JSONSchema;
+use jsonschema::Validator;
 use reqwest::Url;
 use serde::Serialize;
 use serde_json::{json, Value, Value::Null};
@@ -218,7 +218,7 @@ impl<'a> APISpec<'a> {
                 let components = self.openapi["components"].clone();
                 schema.insert(String::from("components"), components);
 
-                let validator = JSONSchema::compile(&json!(schema)).unwrap();
+                let validator = Validator::new(&json!(schema)).unwrap();
                 match validator.validate(value).map_err(|errs| {
                     errs.into_iter()
                         .map(|e| e.to_string())
