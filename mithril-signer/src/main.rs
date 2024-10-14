@@ -81,11 +81,10 @@ pub struct Args {
     allow_unparsable_block: bool,
 
     /// Preloading refresh interval in seconds
-    // TODO: Replace the default value to 43200 (12 hours) once the Cardano transactions is activated on mainnet
     #[clap(
         long,
         env = "PRELOADING_REFRESH_INTERVAL_IN_SECONDS",
-        default_value_t = 7200
+        default_value_t = 43200
     )]
     preloading_refresh_interval_in_seconds: u64,
 }
