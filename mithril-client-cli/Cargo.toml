@@ -22,21 +22,21 @@ Run `mithril-client --help` to display the available options."""
 assets = [["../target/release/mithril-client", "usr/bin/", "755"]]
 
 [dependencies]
-anyhow = "1.0.86"
-async-trait = "0.1.82"
+anyhow = "1.0.89"
+async-trait = "0.1.83"
 chrono = { version = "0.4.38", features = ["serde"] }
-clap = { version = "4.5.17", features = ["derive", "env"] }
+clap = { version = "4.5.20", features = ["derive", "env"] }
 cli-table = "0.4.9"
 config = "0.14.0"
 fs2 = "0.4.3"
-futures = "0.3.30"
+futures = "0.3.31"
 human_bytes = { version = "0.4.3", features = ["fast"] }
 indicatif = { version = "0.17.8", features = ["tokio"] }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 openssl = { version = "0.10.66", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
-serde = { version = "1.0.209", features = ["derive"] }
+serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
@@ -46,7 +46,7 @@ slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
-thiserror = "1.0.63"
+thiserror = "1.0.64"
 tokio = { version = "1.40.0", features = ["full"] }
 
 [dev-dependencies]
