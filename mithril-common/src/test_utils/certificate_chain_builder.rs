@@ -12,6 +12,7 @@ use crate::entities::CertificateMetadata;
 use std::{
     cmp::min,
     collections::{BTreeSet, HashMap},
+    iter::repeat,
     sync::Arc,
 };
 
@@ -201,18 +202,18 @@ impl<'a> CertificateChainBuilder<'a> {
     /// Build the certificate chain.
     pub fn build(self) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
         let (genesis_signer, genesis_verifier) = CertificateChainBuilder::setup_genesis();
-        let epochs = self.build_epochs();
+        let epochs = self.build_epochs_sequence().collect::<Vec<_>>();
         let fixtures_per_epoch = self.build_fixtures_for_epochs(&epochs);
         let genesis_certificate_processor = self.genesis_certificate_processor;
         let standard_certificate_processor = self.standard_certificate_processor;
-        let total_certificates = epochs.len() - 1;
+        let total_certificates = self.total_certificates as usize;
         let certificates = epochs
             .into_iter()
             .take(total_certificates)
             .enumerate()
             .map(|(index_certificate, epoch)| {
-                let fixture = fixtures_per_epoch.get(&epoch).unwrap();
-                let next_fixture = fixtures_per_epoch.get(&epoch.next()).unwrap();
+                let fixture = fixtures_per_epoch.get(&epoch).unwrap_or_else(|| panic!("Fixture not found at epoch {epoch:?} with {} total certificates and {} certificates per epoch", self.total_certificates, self.certificates_per_epoch));
+                let next_fixture = fixtures_per_epoch.get(&epoch.next()).unwrap_or_else(|| panic!("Next fixture not found at epoch {epoch:?} with {} total certificates and {} certificates per epoch", self.total_certificates, self.certificates_per_epoch));
                 let context = CertificateChainBuilderContext {
                     index_certificate,
                     total_certificates,
@@ -257,16 +258,30 @@ impl<'a> CertificateChainBuilder<'a> {
         (genesis_signer, genesis_verifier)
     }
 
-    fn build_epochs(&self) -> Vec<Epoch> {
+    fn build_epochs_sequence(&self) -> impl Iterator<Item = Epoch> {
         let total_certificates = self.total_certificates;
         let certificates_per_epoch = self.certificates_per_epoch;
-        (1..total_certificates + 2)
-            .map(|i| match certificates_per_epoch {
-                0 => panic!("expected at least 1 certificate per epoch"),
-                1 => Epoch(i),
-                _ => Epoch(i / certificates_per_epoch + 1),
-            })
-            .collect::<Vec<_>>()
+        assert!(
+            certificates_per_epoch > 0,
+            "Certificates per epoch must be greater than 0"
+        );
+        assert!(
+            total_certificates >= certificates_per_epoch,
+            "Total certificates must be greater or equal to certificates per epoch"
+        );
+        // The total number of epochs in the sequence is the total number of certificates divided by
+        // the number of certificates per epoch plus two (one for the genesis epoch and one to compute the next fixtures of the last epoch)
+        let total_epochs_in_sequence =
+            (total_certificates - 1).div_ceil(certificates_per_epoch) + 2;
+        (1..=total_epochs_in_sequence).flat_map(move |epoch| {
+            let repeat_epoch = if epoch == 1 || epoch == total_epochs_in_sequence {
+                // We need only one occurence of the first and the last epochs in the sequence
+                1
+            } else {
+                certificates_per_epoch as usize
+            };
+            repeat(Epoch(epoch)).take(repeat_epoch)
+        })
     }
 
     fn build_fixtures_for_epochs(&self, epochs: &[Epoch]) -> HashMap<Epoch, MithrilFixture> {
@@ -381,6 +396,8 @@ impl<'a> CertificateChainBuilder<'a> {
         certificate
     }
 
+    // Returns the chained certificates in reverse order
+    // The latest certificate of the chain is the first in the vector
     fn compute_chained_certificates(&self, certificates: Vec<Certificate>) -> Vec<Certificate> {
         let mut certificates_chained: Vec<Certificate> = Vec::new();
         certificates
@@ -415,6 +432,30 @@ mod test {
     use std::collections::BTreeMap;
 
     use super::*;
+
+    fn build_epoch_numbers_sequence(
+        total_certificates: u64,
+        certificates_per_epoch: u64,
+    ) -> Vec<u64> {
+        CertificateChainBuilder::default()
+            .with_total_certificates(total_certificates)
+            .with_certificates_per_epoch(certificates_per_epoch)
+            .build_epochs_sequence()
+            .map(|epoch| epoch.0)
+            .collect::<Vec<_>>()
+    }
+
+    fn build_certificate_chain(
+        total_certificates: u64,
+        certificates_per_epoch: u64,
+    ) -> Vec<Certificate> {
+        let (certificate_chain, _) = CertificateChainBuilder::default()
+            .with_total_certificates(total_certificates)
+            .with_certificates_per_epoch(certificates_per_epoch)
+            .build();
+
+        certificate_chain
+    }
 
     #[test]
     fn certificate_chain_builder_context_computes_correct_protocol_message_seed() {
@@ -484,24 +525,43 @@ mod test {
 
     #[test]
     fn builds_certificate_chain_with_correct_length() {
-        let (certificate_chain, _) = CertificateChainBuilder::new()
-            .with_total_certificates(5)
-            .with_certificates_per_epoch(2)
-            .build();
-
-        assert_eq!(5, certificate_chain.len());
+        assert_eq!(4, build_certificate_chain(4, 1).len());
+        assert_eq!(4, build_certificate_chain(4, 2).len());
+        assert_eq!(4, build_certificate_chain(4, 3).len());
+        assert_eq!(4, build_certificate_chain(4, 4).len());
+        assert_eq!(5, build_certificate_chain(5, 1).len());
+        assert_eq!(5, build_certificate_chain(5, 2).len());
+        assert_eq!(5, build_certificate_chain(5, 3).len());
+        assert_eq!(7, build_certificate_chain(7, 3).len());
+        assert_eq!(15, build_certificate_chain(15, 3).len());
     }
 
     #[test]
-    fn builds_valid_epochs() {
-        let expected_epochs = vec![Epoch(1), Epoch(2), Epoch(2), Epoch(3), Epoch(3), Epoch(4)];
+    fn builds_valid_epochs_sequence() {
+        assert_eq!(vec![1, 2, 3, 4], build_epoch_numbers_sequence(3, 1));
+        assert_eq!(vec![1, 2, 2, 3, 3, 4], build_epoch_numbers_sequence(4, 2));
+        assert_eq!(vec![1, 2, 2, 3, 3, 4], build_epoch_numbers_sequence(5, 2));
+        assert_eq!(
+            vec![1, 2, 2, 2, 3, 3, 3, 4],
+            build_epoch_numbers_sequence(7, 3),
+        );
+        assert_eq!(
+            vec![1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7],
+            build_epoch_numbers_sequence(15, 3),
+        );
+    }
 
-        let epochs = CertificateChainBuilder::default()
-            .with_total_certificates(5)
-            .with_certificates_per_epoch(2)
-            .build_epochs();
+    #[test]
+    #[should_panic]
+    fn panics_building_invalid_epochs_sequence_no_certificates_per_epoch() {
+        build_epoch_numbers_sequence(3, 0);
+    }
 
-        assert_eq!(expected_epochs, epochs);
+    #[test]
+    #[should_panic]
+    fn panics_building_invalid_epochs_sequence_less_total_certificates_than_certificates_per_epoch()
+    {
+        build_epoch_numbers_sequence(3, 5);
     }
 
     #[test]
@@ -511,7 +571,9 @@ mod test {
             .with_total_certificates(5)
             .with_certificates_per_epoch(1)
             .with_total_signers_per_epoch_processor(&|epoch| *epoch as usize);
-        let epochs = certificate_chain_builder.build_epochs();
+        let epochs = certificate_chain_builder
+            .build_epochs_sequence()
+            .collect::<Vec<_>>();
 
         let epoch_fixtures =
             BTreeMap::from_iter(certificate_chain_builder.build_fixtures_for_epochs(&epochs));
