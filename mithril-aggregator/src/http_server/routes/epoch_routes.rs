@@ -86,7 +86,7 @@ mod handlers {
         epoch_service: EpochServiceWrapper,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "epoch_settings");
+        debug!(logger, "GET /epoch-settings");
         let epoch_settings_message =
             get_epoch_settings_message(epoch_service, allowed_discriminants).await;
 

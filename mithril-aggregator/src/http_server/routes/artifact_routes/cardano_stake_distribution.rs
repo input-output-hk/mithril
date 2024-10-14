@@ -64,7 +64,7 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "artifacts");
+        debug!(logger, "GET /artifact/cardano-stake-distributions");
 
         match http_message_service
             .get_cardano_stake_distribution_list_message(LIST_MAX_ITEMS)
@@ -72,7 +72,7 @@ pub mod handlers {
         {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
-                warn!(logger, "list_artifacts_cardano_stake_distribution"; "error" => ?err);
+                warn!(logger, "get_cardano_stake_distribution_list::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -84,7 +84,10 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "artifact/{signed_entity_id}");
+        debug!(
+            logger,
+            "GET /artifact/cardano-stake-distribution/{signed_entity_id}"
+        );
 
         match http_message_service
             .get_cardano_stake_distribution_message(&signed_entity_id)
@@ -108,7 +111,10 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "artifact/epoch/{epoch}");
+        debug!(
+            logger,
+            "GET /artifact/cardano-stake-distributions/epoch/{epoch}"
+        );
 
         let artifact_epoch = match epoch.parse::<u64>() {
             Ok(epoch) => Epoch(epoch),

@@ -74,7 +74,7 @@ mod handlers {
         let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
             logger,
-            "proof_cardano_transaction?transaction_hashes={}",
+            "GET /proof/cardano-transaction?transaction_hashes={}",
             transaction_parameters.transaction_hashes
         );
 
