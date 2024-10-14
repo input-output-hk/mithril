@@ -47,7 +47,7 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "⇄ HTTP SERVER: artifacts");
+        debug!(logger, "artifacts");
 
         match http_message_service
             .get_cardano_transaction_list_message(LIST_MAX_ITEMS)
@@ -68,7 +68,7 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "⇄ HTTP SERVER: artifact/{signed_entity_id}");
+        debug!(logger, "artifact/{signed_entity_id}");
 
         match http_message_service
             .get_cardano_transaction_message(&signed_entity_id)

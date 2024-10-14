@@ -73,7 +73,7 @@ impl MithrilCertifierService {
     ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
         debug!(
             self.logger,
-            "CertifierService::get_open_message_record(signed_entity_type: {signed_entity_type:?})"
+            "get_open_message_record(signed_entity_type: {signed_entity_type:?})"
         );
 
         let open_message_with_single_signatures = self
@@ -89,10 +89,7 @@ impl MithrilCertifierService {
 #[async_trait]
 impl CertifierService for MithrilCertifierService {
     async fn inform_epoch(&self, epoch: Epoch) -> StdResult<()> {
-        debug!(
-            self.logger,
-            "CertifierService::inform_epoch(epoch: {epoch:?})"
-        );
+        debug!(self.logger, "inform_epoch(epoch: {epoch:?})");
         let nb = self
             .open_message_repository
             .clean_epoch(epoch)
@@ -100,7 +97,7 @@ impl CertifierService for MithrilCertifierService {
             .with_context(|| {
                 format!("Certifier can not clean open messages from epoch '{epoch}'")
             })?;
-        info!(self.logger, "MithrilCertifierService: Informed of a new Epoch: {epoch:?}. Cleaned {nb} open messages along with their single signatures.");
+        info!(self.logger, "Informed of a new Epoch: {epoch:?}. Cleaned {nb} open messages along with their single signatures.");
 
         Ok(())
     }
@@ -110,25 +107,25 @@ impl CertifierService for MithrilCertifierService {
         signed_entity_type: &SignedEntityType,
         signature: &SingleSignatures,
     ) -> StdResult<SignatureRegistrationStatus> {
-        debug!(self.logger, "CertifierService::register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
-        trace!(self.logger, "CertifierService::register_single_signature"; "complete_single_signatures" => #?signature);
+        debug!(self.logger, "register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
+        trace!(self.logger, "register_single_signature"; "complete_single_signatures" => #?signature);
 
         let open_message = self
             .get_open_message_record(signed_entity_type)
             .await.with_context(|| format!("CertifierService can not get open message record for signed_entity_type: '{signed_entity_type}'"))?
             .ok_or_else(|| {
-                warn!(self.logger, "CertifierService::register_single_signature: OpenMessage not found for type {signed_entity_type:?}.");
+                warn!(self.logger, "register_single_signature: OpenMessage not found for type {signed_entity_type:?}.");
                 CertifierServiceError::NotFound(signed_entity_type.clone())
             })?;
 
         if open_message.is_certified {
-            warn!(self.logger, "CertifierService::register_single_signature: open message {signed_entity_type:?} is already certified, cannot register single signature.");
+            warn!(self.logger, "register_single_signature: open message {signed_entity_type:?} is already certified, cannot register single signature.");
 
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
         }
 
         if open_message.is_expired {
-            warn!(self.logger, "CertifierService::register_single_signature: open message {signed_entity_type:?} has expired, cannot register single signature.");
+            warn!(self.logger, "register_single_signature: open message {signed_entity_type:?} has expired, cannot register single signature.");
 
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
@@ -144,8 +141,12 @@ impl CertifierService for MithrilCertifierService {
             .single_signature_repository
             .create_single_signature(signature, &open_message.clone().into())
             .await.with_context(|| format!("Certifier can not create the single signature from single_signature: '{signature:?}', open_message: '{open_message:?}'"))?;
-        info!(self.logger, "CertifierService::register_single_signature: created pool '{}' single signature for {signed_entity_type:?}.", single_signature.signer_id);
-        debug!(self.logger, "CertifierService::register_single_signature: created single signature for open message ID='{}'.", single_signature.open_message_id);
+        info!(self.logger, "register_single_signature: created pool '{}' single signature for {signed_entity_type:?}.", single_signature.signer_id);
+        debug!(
+            self.logger,
+            "register_single_signature: created single signature for open message ID='{}'.",
+            single_signature.open_message_id
+        );
 
         Ok(SignatureRegistrationStatus::Registered)
     }
@@ -155,7 +156,7 @@ impl CertifierService for MithrilCertifierService {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage> {
-        debug!(self.logger, "CertifierService::create_open_message(signed_entity_type: {signed_entity_type:?}, protocol_message: {protocol_message:?})");
+        debug!(self.logger, "create_open_message(signed_entity_type: {signed_entity_type:?}, protocol_message: {protocol_message:?})");
         let open_message = self
             .open_message_repository
             .create_open_message(
@@ -171,11 +172,13 @@ impl CertifierService for MithrilCertifierService {
                     signed_entity_type.get_epoch_when_signed_entity_type_is_signed()
                 )
             })?;
-        info!(self.logger, "CertifierService::create_open_message: created open message for {signed_entity_type:?}");
+        info!(
+            self.logger,
+            "create_open_message: created open message for {signed_entity_type:?}"
+        );
         debug!(
             self.logger,
-            "CertifierService::create_open_message: created open message ID='{}'",
-            open_message.open_message_id
+            "create_open_message: created open message ID='{}'", open_message.open_message_id
         );
 
         Ok(open_message.into())
@@ -187,7 +190,7 @@ impl CertifierService for MithrilCertifierService {
     ) -> StdResult<Option<OpenMessage>> {
         debug!(
             self.logger,
-            "CertifierService::get_open_message(signed_entity_type: {signed_entity_type:?})"
+            "get_open_message(signed_entity_type: {signed_entity_type:?})"
         );
 
         let open_message = self
@@ -204,10 +207,7 @@ impl CertifierService for MithrilCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!(
-            self.logger,
-            "CertifierService::mark_open_message_if_expired"
-        );
+        debug!(self.logger, "mark_open_message_if_expired");
 
         let mut open_message_record = self
             .open_message_repository
@@ -231,25 +231,28 @@ impl CertifierService for MithrilCertifierService {
     ) -> StdResult<Option<Certificate>> {
         debug!(
             self.logger,
-            "CertifierService::create_certificate(signed_entity_type: {signed_entity_type:?})"
+            "create_certificate(signed_entity_type: {signed_entity_type:?})"
         );
         let open_message_record = self
             .get_open_message_record(signed_entity_type)
             .await?
             .ok_or_else(|| {
-                warn!(self.logger, "CertifierService::create_certificate: OpenMessage not found for type {signed_entity_type:?}.");
+                warn!(
+                    self.logger,
+                    "create_certificate: OpenMessage not found for type {signed_entity_type:?}."
+                );
                 CertifierServiceError::NotFound(signed_entity_type.clone())
             })?;
         let open_message: OpenMessage = open_message_record.clone().into();
 
         if open_message.is_certified {
-            warn!(self.logger, "CertifierService::create_certificate: open message {signed_entity_type:?} is already certified, cannot create certificate.");
+            warn!(self.logger, "create_certificate: open message {signed_entity_type:?} is already certified, cannot create certificate.");
 
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
         }
 
         if open_message.is_expired {
-            warn!(self.logger, "CertifierService::create_certificate: open message {signed_entity_type:?} is expired, cannot create certificate.");
+            warn!(self.logger, "create_certificate: open message {signed_entity_type:?} is expired, cannot create certificate.");
 
             return Err(CertifierServiceError::Expired(signed_entity_type.clone()).into());
         }
@@ -260,11 +263,11 @@ impl CertifierService for MithrilCertifierService {
             .await?
         {
             None => {
-                debug!(self.logger, "CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
+                debug!(self.logger, "create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
                 return Ok(None);
             }
             Some(signature) => {
-                info!(self.logger, "CertifierService::create_certificate: multi-signature created for open message {signed_entity_type:?}");
+                info!(self.logger, "create_certificate: multi-signature created for open message {signed_entity_type:?}");
                 signature
             }
         };

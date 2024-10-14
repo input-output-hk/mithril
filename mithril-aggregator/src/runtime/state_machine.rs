@@ -104,7 +104,7 @@ impl AggregatorRuntime {
 
     /// Launches an infinite loop ticking the state machine.
     pub async fn run(&mut self) -> Result<(), RuntimeError> {
-        info!(self.logger, "STATE MACHINE: launching");
+        info!(self.logger, "launching");
 
         loop {
             if let Err(e) = self.cycle().await {
@@ -115,10 +115,7 @@ impl AggregatorRuntime {
                         message: _,
                         nested_error: _,
                     } => {
-                        crit!(
-                            self.logger,
-                            "state machine: a critical error occurred: {e:?}"
-                        );
+                        crit!(self.logger, "a critical error occurred: {e:?}");
 
                         return Err(e);
                     }
@@ -169,7 +166,7 @@ impl AggregatorRuntime {
             self.logger,
             "================================================================================"
         );
-        info!(self.logger, "STATE MACHINE: new cycle: {}", self.state);
+        info!(self.logger, "new cycle: {}", self.state);
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {

@@ -37,7 +37,7 @@ impl EventStore {
         let persister = EventPersister::new(connection);
         info!(
             self.logger,
-            "monitoring: starting event loop to log messages."
+            "Starting monitoring event loop to log messages."
         );
         loop {
             if let Some(message) = self.receiver.recv().await {

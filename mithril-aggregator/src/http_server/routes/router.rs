@@ -85,13 +85,16 @@ fn header_must_be(
         .and(warp::any().map(move || api_version_provider.clone()))
         .and(warp::any().map(move || logger.clone()))
         .and_then(
-            move |maybe_header: Option<String>, api_version_provider: Arc<APIVersionProvider>, logger: Logger| async move {
+            move |maybe_header: Option<String>,
+                  api_version_provider: Arc<APIVersionProvider>,
+                  logger: Logger| async move {
                 match maybe_header {
                     None => Ok(()),
                     Some(version) => match semver::Version::parse(&version) {
                         Ok(version)
                             if (api_version_provider
-                                .compute_current_version_requirement().unwrap()
+                                .compute_current_version_requirement()
+                                .unwrap()
                                 .matches(&version))
                             .to_owned() =>
                         {
@@ -99,7 +102,7 @@ fn header_must_be(
                         }
                         Ok(_version) => Err(warp::reject::custom(VersionMismatchError)),
                         Err(err) => {
-                            warn!(logger, "⇄ HTTP SERVER::api_version_check::parse_error"; "error" => ?err);
+                            warn!(logger, "api_version_check::parse_error"; "error" => ?err);
                             Err(warp::reject::custom(VersionParseError))
                         }
                     },

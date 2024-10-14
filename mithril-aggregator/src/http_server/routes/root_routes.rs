@@ -46,7 +46,7 @@ mod handlers {
         allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         configuration: Configuration,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "⇄ HTTP SERVER: root");
+        debug!(logger, "root");
 
         let open_api_version = unwrap_to_internal_server_error!(
             api_version_provider.compute_current_version(),

@@ -99,12 +99,9 @@ mod handlers {
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         epoch_service: EpochServiceWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(
-            logger,
-            "⇄ HTTP SERVER: register_signer/{register_signer_message:?}"
-        );
+        debug!(logger, "register_signer/{register_signer_message:?}");
         trace!(logger,
-            "⇄ HTTP SERVER: register_signer";
+            "register_signer";
             "complete_message" => #?register_signer_message
         );
 
@@ -181,10 +178,7 @@ mod handlers {
         logger: Logger,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(
-            logger,
-            "⇄ HTTP SERVER: signers/registered/{:?}", registered_at
-        );
+        debug!(logger, "signers/registered/{:?}", registered_at);
 
         let registered_at = match registered_at.parse::<u64>() {
             Ok(epoch) => Epoch(epoch),
@@ -223,7 +217,7 @@ mod handlers {
         configuration: Configuration,
         signer_getter: Arc<dyn SignerGetter>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "⇄ HTTP SERVER: signers/tickers");
+        debug!(logger, "signers/tickers");
         let network = configuration.network;
 
         match signer_getter.get_all().await {

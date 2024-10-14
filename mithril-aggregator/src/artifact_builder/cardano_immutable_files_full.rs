@@ -60,10 +60,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         beacon: &CardanoDbBeacon,
         snapshot_digest: &str,
     ) -> StdResult<OngoingSnapshot> {
-        debug!(
-            self.logger,
-            "CardanoImmutableFilesFullArtifactBuilder: create snapshot archive"
-        );
+        debug!(self.logger, "create snapshot archive");
 
         let snapshotter = self.snapshotter.clone();
         let snapshot_name = format!(
@@ -90,10 +87,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         &self,
         ongoing_snapshot: &OngoingSnapshot,
     ) -> StdResult<Vec<SnapshotLocation>> {
-        debug!(
-            self.logger,
-            "CardanoImmutableFilesFullArtifactBuilder: upload snapshot archive"
-        );
+        debug!(self.logger, "upload snapshot archive");
         let location = self
             .snapshot_uploader
             .upload_snapshot(ongoing_snapshot.get_file_path())
@@ -116,10 +110,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         snapshot_digest: String,
         remote_locations: Vec<String>,
     ) -> StdResult<Snapshot> {
-        debug!(
-            self.logger,
-            "CardanoImmutableFilesFullArtifactBuilder: create snapshot"
-        );
+        debug!(self.logger, "create snapshot");
 
         let snapshot = Snapshot::new(
             snapshot_digest,
