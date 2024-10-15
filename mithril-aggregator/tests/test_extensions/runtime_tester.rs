@@ -2,6 +2,7 @@ use crate::test_extensions::utilities::tx_hash;
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate};
 use anyhow::{anyhow, Context};
 use chrono::Utc;
+use mithril_aggregator::MetricsService;
 use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
@@ -81,6 +82,7 @@ pub struct RuntimeTester {
     pub observer: Arc<AggregatorObserver>,
     pub open_message_repository: Arc<OpenMessageRepository>,
     pub block_scanner: Arc<DumbBlockScanner>,
+    pub metrics_service: Arc<MetricsService>,
     _global_logger_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -125,6 +127,7 @@ impl RuntimeTester {
         let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
         let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
         let open_message_repository = deps_builder.get_open_message_repository().await.unwrap();
+        let metrics_service = deps_builder.get_metrics_service().await.unwrap();
 
         Self {
             network,
@@ -141,6 +144,7 @@ impl RuntimeTester {
             observer,
             open_message_repository,
             block_scanner,
+            metrics_service,
             _global_logger_guard: global_logger,
         }
     }

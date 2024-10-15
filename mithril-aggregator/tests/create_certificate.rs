@@ -224,4 +224,12 @@ async fn create_certificate() {
     cycle!(tester, "idle");
 
     cycle!(tester, "ready");
+
+    assert_eq!(
+        5,
+        tester
+            .metrics_service
+            .get_certificate_detail_total_produced_since_startup()
+            .get()
+    );
 }

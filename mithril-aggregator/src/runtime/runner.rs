@@ -384,7 +384,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> StdResult<Option<Certificate>> {
         debug!(self.logger, ">> create_certificate"; "signed_entity_type" => ?signed_entity_type);
 
-        self.dependencies
+        let certificate = self.dependencies
             .certifier_service
             .create_certificate(signed_entity_type)
             .await
@@ -392,7 +392,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 format!(
                     "CertifierService can not create certificate for signed_entity_type: '{signed_entity_type}'"
                 )
-            })
+            });
+
+        self.dependencies
+            .metrics_service
+            .get_certificate_detail_total_produced_since_startup()
+            .increment();
+
+        certificate
     }
 
     async fn create_artifact(
