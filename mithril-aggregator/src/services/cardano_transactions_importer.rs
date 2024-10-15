@@ -87,13 +87,13 @@ impl CardanoTransactionsImporter {
         if from.as_ref().is_some_and(|f| f.block_number >= until) {
             debug!(
                 self.logger,
-                "Does not need to retrieve Cardano transactions, the database is up to date for block_number '{until}'",
+                "No need to retrieve Cardano transactions, the database is up to date for block_number '{until}'",
             );
             return Ok(());
         }
         debug!(
             self.logger,
-            "Will retrieve Cardano transactions between block_number '{}' and '{until}'",
+            "Retrieving Cardano transactions between block_number '{}' and '{until}'",
             from.as_ref()
                 .map(|c| c.block_number)
                 .unwrap_or(BlockNumber(0))

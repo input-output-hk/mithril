@@ -38,7 +38,7 @@ impl SignersImporter {
 
     /// Import and persist the signers
     pub async fn run(&self) -> StdResult<()> {
-        info!(self.logger, "Starting importation");
+        info!(self.logger, "Starting import");
         let items = self
             .retriever
             .retrieve()

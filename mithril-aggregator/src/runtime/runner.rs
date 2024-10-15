@@ -326,7 +326,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         time_point: TimePoint,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending> {
-        debug!(self.logger, ">> create_new_pending_certificate");
+        debug!(self.logger, ">> create_new_pending_certificate"; "signed_entity_type" => ?signed_entity_type);
         let epoch_service = self.dependencies.epoch_service.read().await;
 
         let signers = epoch_service.current_signers_with_stake()?;
@@ -382,7 +382,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>> {
-        debug!(self.logger, ">> create_certificate");
+        debug!(self.logger, ">> create_certificate"; "signed_entity_type" => ?signed_entity_type);
 
         self.dependencies
             .certifier_service
@@ -400,7 +400,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         signed_entity_type: &SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<()> {
-        debug!(self.logger, ">> create_artifact");
+        debug!(
+            self.logger, ">> create_artifact";
+            "signed_entity_type" => ?signed_entity_type,
+            "certificate_hash" => &certificate.hash
+        );
 
         self.dependencies
             .signed_entity_service
@@ -417,7 +421,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()> {
-        debug!(self.logger, ">> update_era_checker");
+        debug!(self.logger, ">> update_era_checker({epoch:?})");
         let token = self
             .dependencies
             .era_reader
@@ -463,7 +467,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()> {
-        debug!(self.logger, ">> inform_new_epoch");
+        debug!(self.logger, ">> inform_new_epoch({epoch:?})");
         self.dependencies
             .certifier_service
             .inform_epoch(epoch)
