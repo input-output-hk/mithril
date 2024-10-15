@@ -4,7 +4,6 @@ use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::{Drain, Fuse, Level, Logger};
-use slog_async::Async;
 use slog_scope::debug;
 use slog_term::Decorator;
 use std::io::Write;
@@ -116,7 +115,7 @@ impl Args {
         }
     }
 
-    fn wrap_drain<D: Decorator + Send + 'static>(&self, decorator: D) -> Fuse<Async> {
+    fn wrap_drain<D: Decorator + Send + 'static>(&self, decorator: D) -> Fuse<slog_async::Async> {
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
         let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
 
@@ -128,7 +127,10 @@ impl Args {
         let writer = log_output_type.get_writer()?;
 
         let drain = if self.log_format_json {
-            let drain = slog_bunyan::new(writer).set_pretty(false).build().fuse();
+            let drain = slog_bunyan::with_name("mithril-client", writer)
+                .set_pretty(false)
+                .build()
+                .fuse();
             let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
 
             slog_async::Async::new(drain).build().fuse()
