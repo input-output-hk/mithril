@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use anyhow::anyhow;
-use mithril_metric::{MetricsServiceExporter, MetricCollector};
+use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
