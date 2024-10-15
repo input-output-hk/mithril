@@ -1,7 +1,8 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
+use mithril_metric::MetricsServer;
 use slog::{crit, debug, info, warn, Logger};
 use std::time::Duration;
 use std::{net::IpAddr, path::PathBuf};
@@ -183,6 +184,27 @@ impl ServeCommand {
                     );
                 }
             }
+        }
+        let metrics_service = dependencies_builder
+            .get_metrics_service()
+            .await
+            .with_context(|| "metric service initialization error")?;
+        let (_, metrics_server_shutdown_rx) = oneshot::channel();
+        if config.enable_metrics_server {
+            let metrics_logger = root_logger.clone();
+            join_set.spawn(async move {
+                let _ = MetricsServer::new(
+                    &config.metrics_server_ip,
+                    config.metrics_server_port,
+                    metrics_service,
+                    metrics_logger.clone(),
+                )
+                .start(metrics_server_shutdown_rx)
+                .await
+                .map_err(|e| anyhow!(e));
+
+                Ok(())
+            });
         }
 
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });

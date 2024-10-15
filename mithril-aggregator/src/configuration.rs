@@ -174,6 +174,15 @@ pub struct Configuration {
 
     /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
     pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: usize,
+
+    /// Enable metrics server (Prometheus endpoint on /metrics).
+    pub enable_metrics_server: bool,
+
+    /// Metrics HTTP Server IP.
+    pub metrics_server_ip: String,
+
+    /// Metrics HTTP Server listening port.
+    pub metrics_server_port: u16,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -254,6 +263,9 @@ impl Configuration {
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 1000,
+            enable_metrics_server: true,
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
         }
     }
 
@@ -374,6 +386,12 @@ pub struct DefaultConfiguration {
 
     /// The maximum number of roll forwards during a poll of the block streamer when importing transactions.
     pub cardano_transactions_block_streamer_max_roll_forwards_per_poll: u32,
+
+    /// Metrics HTTP server IP.
+    pub metrics_server_ip: String,
+
+    /// Metrics HTTP server listening port.
+    pub metrics_server_port: u16,
 }
 
 impl Default for DefaultConfiguration {
@@ -402,6 +420,8 @@ impl Default for DefaultConfiguration {
             },
             cardano_transactions_prover_max_hashes_allowed_by_request: 100,
             cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000,
+            metrics_server_ip: "0.0.0.0".to_string(),
+            metrics_server_port: 9090,
         }
     }
 }
@@ -469,6 +489,8 @@ impl Source for DefaultConfiguration {
             result,
             myself.cardano_transactions_block_streamer_max_roll_forwards_per_poll
         );
+        insert_default_configuration!(result, myself.metrics_server_ip);
+        insert_default_configuration!(result, myself.metrics_server_port);
         result.insert(
             "cardano_transactions_signing_config".to_string(),
             into_value(HashMap::from([
