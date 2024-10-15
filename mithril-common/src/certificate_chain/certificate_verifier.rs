@@ -223,8 +223,8 @@ impl MithrilCertificateVerifier {
             None => Ok(None),
             _ => {
                 debug!(
-                    self.logger,
-                    "Previous certificate {:#?}", previous_certificate
+                    self.logger, "Certificate chain AVK unmatch";
+                    "previous_certificate" => #?previous_certificate
                 );
                 Err(anyhow!(
                     CertificateVerifierError::CertificateChainAVKUnmatch
@@ -265,8 +265,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         genesis_verification_key: &ProtocolGenesisVerificationKey,
     ) -> StdResult<Option<Certificate>> {
         debug!(
-            self.logger,
-            "Verifying certificate";
+            self.logger, "Verifying certificate";
             "certificate_hash" => &certificate.hash,
             "certificate_previous_hash" => &certificate.previous_hash,
             "certificate_epoch" => ?certificate.epoch,

@@ -52,7 +52,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
                     &self.dirpath.display()
                 )
             })?;
-        info!(self.logger, "digest = '{digest}'.");
+        info!(self.logger, "Computed Digest = '{digest}'.");
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 

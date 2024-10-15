@@ -32,7 +32,7 @@ pub struct ChainReaderBlockStreamer {
 #[async_trait]
 impl BlockStreamer for ChainReaderBlockStreamer {
     async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>> {
-        debug!(self.logger, "polls next");
+        debug!(self.logger, ">> poll_next");
 
         let chain_scanned_blocks: ChainScannedBlocks;
         let mut roll_forwards = vec![];
@@ -123,14 +123,14 @@ impl ChainReaderBlockStreamer {
                 if parsed_block.block_number > self.until {
                     trace!(
                         self.logger,
-                        "received a RollForward above threshold block number ({})",
+                        "Received a RollForward above threshold block number ({})",
                         parsed_block.block_number
                     );
                     Ok(None)
                 } else {
                     trace!(
                         self.logger,
-                        "received a RollForward below threshold block number ({})",
+                        "Received a RollForward below threshold block number ({})",
                         parsed_block.block_number
                     );
                     Ok(Some(BlockStreamerNextAction::ChainBlockNextAction(
@@ -143,7 +143,7 @@ impl ChainReaderBlockStreamer {
             }) => {
                 trace!(
                     self.logger,
-                    "received a RollBackward({rollback_slot_number:?})"
+                    "Received a RollBackward({rollback_slot_number:?})"
                 );
                 let block_streamer_next_action = if rollback_slot_number == self.from.slot_number {
                     BlockStreamerNextAction::SkipToNextAction
@@ -157,7 +157,7 @@ impl ChainReaderBlockStreamer {
                 Ok(Some(block_streamer_next_action))
             }
             None => {
-                trace!(self.logger, "received nothing");
+                trace!(self.logger, "Received nothing");
                 Ok(None)
             }
         }
