@@ -104,7 +104,7 @@ impl SignerRunner {
 #[async_trait]
 impl Runner for SignerRunner {
     async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>> {
-        debug!(self.logger, "get_epoch_settings");
+        debug!(self.logger, ">> get_epoch_settings");
 
         self.services
             .certificate_handler
@@ -114,13 +114,13 @@ impl Runner for SignerRunner {
     }
 
     async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>> {
-        debug!(self.logger, "get_beacon_to_sign");
+        debug!(self.logger, ">> get_beacon_to_sign");
 
         self.services.certifier.get_beacon_to_sign().await
     }
 
     async fn get_current_time_point(&self) -> StdResult<TimePoint> {
-        debug!(self.logger, "get_current_time_point");
+        debug!(self.logger, ">> get_current_time_point");
 
         self.services
             .ticker_service
@@ -130,7 +130,7 @@ impl Runner for SignerRunner {
     }
 
     async fn register_signer_to_aggregator(&self) -> StdResult<()> {
-        debug!(self.logger, "register_signer_to_aggregator");
+        debug!(self.logger, ">> register_signer_to_aggregator");
 
         let (epoch, protocol_parameters) = {
             let epoch_service = self.services.epoch_service.read().await;
@@ -206,7 +206,7 @@ impl Runner for SignerRunner {
     }
 
     async fn update_stake_distribution(&self, epoch: Epoch) -> StdResult<()> {
-        debug!(self.logger, "update_stake_distribution");
+        debug!(self.logger, ">> update_stake_distribution(epoch: {epoch})");
 
         let exists_stake_distribution = !self
             .services
@@ -239,7 +239,10 @@ impl Runner for SignerRunner {
     }
 
     async fn inform_epoch_settings(&self, epoch_settings: SignerEpochSettings) -> StdResult<()> {
-        debug!(self.logger, "register_epoch");
+        debug!(
+            self.logger,
+            ">> inform_epoch_settings(epoch:{})", epoch_settings.epoch
+        );
         let aggregator_features = self
             .services
             .certificate_handler
@@ -261,7 +264,7 @@ impl Runner for SignerRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
-        debug!(self.logger, "compute_message");
+        debug!(self.logger, ">> compute_message({signed_entity_type:?})");
 
         let protocol_message = self
             .services
@@ -278,7 +281,7 @@ impl Runner for SignerRunner {
         beacon_to_sign: &BeaconToSign,
         message: &ProtocolMessage,
     ) -> StdResult<()> {
-        debug!(self.logger, "compute_publish_single_signature");
+        debug!(self.logger, ">> compute_publish_single_signature"; "beacon_to_sign" => ?beacon_to_sign);
         self.services
             .certifier
             .compute_publish_single_signature(beacon_to_sign, message)
@@ -286,7 +289,7 @@ impl Runner for SignerRunner {
     }
 
     async fn update_era_checker(&self, epoch: Epoch) -> StdResult<()> {
-        debug!(self.logger, "update_era_checker");
+        debug!(self.logger, ">> update_era_checker(epoch:{epoch})");
 
         let era_token = self
             .services
@@ -314,7 +317,7 @@ impl Runner for SignerRunner {
     }
 
     async fn upkeep(&self, current_epoch: Epoch) -> StdResult<()> {
-        debug!(self.logger, "upkeep");
+        debug!(self.logger, ">> upkeep(current_epoch:{current_epoch})");
         self.services.upkeep_service.run(current_epoch).await?;
         Ok(())
     }

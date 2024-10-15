@@ -118,7 +118,10 @@ impl MithrilEpochService {
         epoch: Epoch,
         signers: &[Signer],
     ) -> StdResult<Vec<SignerWithStake>> {
-        debug!(self.logger, "associate_signers_with_stake");
+        debug!(
+            self.logger,
+            ">> associate_signers_with_stake(epoch:{epoch})"
+        );
 
         let stakes = self
             .stake_storer
@@ -143,7 +146,7 @@ impl MithrilEpochService {
             ));
             trace!(
                 self.logger,
-                " > associating signer_id {} with stake {}",
+                " > Associating signer_id {} with stake {}",
                 signer.party_id,
                 *stake
             );
@@ -177,7 +180,7 @@ impl EpochService for MithrilEpochService {
         epoch_settings: SignerEpochSettings,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> StdResult<()> {
-        debug!(self.logger, "register_epoch_settings"; "epoch_settings" => ?epoch_settings);
+        debug!(self.logger, ">> inform_epoch_settings"; "epoch_settings" => ?epoch_settings);
 
         let epoch = epoch_settings.epoch;
         let protocol_initializer = self
@@ -259,7 +262,7 @@ impl EpochService for MithrilEpochService {
         if let Some(protocol_initializer) = self.protocol_initializer()? {
             debug!(
                 self.logger,
-                " > got protocol initializer for this epoch ({epoch})"
+                " > Got protocol initializer for this epoch ({epoch})"
             );
             if self
                 .is_signer_included_in_current_stake_distribution(party_id, protocol_initializer)?

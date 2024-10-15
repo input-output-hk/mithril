@@ -151,7 +151,7 @@ impl CertifierService for SignerCertifierService {
             .compute_single_signatures(protocol_message)
             .await?
         {
-            debug!(self.logger, " > there is a single signature to send");
+            debug!(self.logger, " > There is a single signature to send");
             self.signature_publisher
                 .publish(
                     &beacon_to_sign.signed_entity_type,
@@ -163,7 +163,7 @@ impl CertifierService for SignerCertifierService {
             debug!(self.logger, " > NO single signature to send");
         }
 
-        debug!(self.logger, " > marking beacon as signed"; "beacon" => ?beacon_to_sign);
+        debug!(self.logger, " > Marking beacon as signed"; "beacon" => ?beacon_to_sign);
         self.signed_beacon_store
             .mark_beacon_as_signed(beacon_to_sign)
             .await?;

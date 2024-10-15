@@ -123,7 +123,7 @@ impl SignerUpkeepService {
 #[async_trait]
 impl UpkeepService for SignerUpkeepService {
     async fn run(&self, current_epoch: Epoch) -> StdResult<()> {
-        info!(self.logger, "start upkeep of the application");
+        info!(self.logger, "Start upkeep of the application");
 
         self.execute_pruning_tasks(current_epoch)
             .await
@@ -133,7 +133,7 @@ impl UpkeepService for SignerUpkeepService {
             .await
             .with_context(|| "Database upkeep failed")?;
 
-        info!(self.logger, "upkeep finished");
+        info!(self.logger, "Upkeep finished");
         Ok(())
     }
 }

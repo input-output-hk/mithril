@@ -109,7 +109,7 @@ impl StateMachine {
 
     /// Launch the state machine until an error occurs or it is interrupted.
     pub async fn run(&self) -> Result<(), RuntimeError> {
-        info!(self.logger, "launching");
+        info!(self.logger, "Launching State Machine");
 
         loop {
             if let Err(e) = self.cycle().await {
@@ -135,7 +135,7 @@ impl StateMachine {
             self.logger,
             "================================================================================"
         );
-        info!(self.logger, "new cycle: {}", *state);
+        info!(self.logger, "New cycle: {}", *state);
 
         self.metrics_service
             .runtime_cycle_total_since_startup_counter_increment();
@@ -164,8 +164,8 @@ impl StateMachine {
                 {
                     info!(self.logger, "→ Epoch settings found");
                     if epoch_settings.epoch >= *epoch {
-                        info!(self.logger, "new Epoch found");
-                        info!(self.logger, " ⋅ transiting to Registered");
+                        info!(self.logger, "New Epoch found");
+                        info!(self.logger, " ⋅ Transiting to Registered");
                         *state = self
                             .transition_from_unregistered_to_one_of_registered_states(
                                 epoch_settings,
@@ -173,8 +173,7 @@ impl StateMachine {
                             .await?;
                     } else {
                         info!(
-                            self.logger,
-                            " ⋅ Epoch settings found, but its epoch is behind the known epoch, waiting…";
+                            self.logger, " ⋅ Epoch settings found, but its epoch is behind the known epoch, waiting…";
                             "epoch_settings" => ?epoch_settings,
                             "known_epoch" => ?epoch,
                         );
@@ -187,7 +186,7 @@ impl StateMachine {
                 if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
                     info!(
                         self.logger,
-                        " → new Epoch detected, transiting to Unregistered"
+                        " → New Epoch detected, transiting to Unregistered"
                     );
                     *state = self
                         .transition_from_registered_not_able_to_sign_to_unregistered(new_epoch)
@@ -218,8 +217,7 @@ impl StateMachine {
                     match beacon_to_sign {
                         Some(beacon) => {
                             info!(
-                                self.logger,
-                                "→ Epoch has NOT changed we can sign this beacon, transiting to ReadyToSign";
+                                self.logger, "→ Epoch has NOT changed we can sign this beacon, transiting to ReadyToSign";
                                 "beacon_to_sign" => ?beacon,
                             );
                             *state = self
@@ -227,7 +225,7 @@ impl StateMachine {
                                 .await?;
                         }
                         None => {
-                            info!(self.logger, " ⋅ no beacon to sign, waiting…");
+                            info!(self.logger, " ⋅ No beacon to sign, waiting…");
                         }
                     }
                 }
@@ -373,8 +371,7 @@ impl StateMachine {
         );
 
         debug!(
-            self.logger,
-            " > transition_from_ready_to_sign_to_ready_to_sign";
+            self.logger, ">> transition_from_ready_to_sign_to_ready_to_sign";
             "current_epoch" => ?current_epoch,
             "retrieval_epoch" => ?retrieval_epoch,
             "next_retrieval_epoch" => ?next_retrieval_epoch,
