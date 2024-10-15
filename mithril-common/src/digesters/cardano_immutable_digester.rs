@@ -50,6 +50,7 @@ impl ImmutableDigester for CardanoImmutableDigester {
             .into_iter()
             .filter(|f| f.number <= up_to_file_number)
             .collect::<Vec<_>>();
+        info!(self.logger, ">> compute_digest"; "beacon" => #?beacon, "nb_of_immutables" => immutables.len());
 
         match immutables.last() {
             None => Err(ImmutableDigesterError::NotEnoughImmutable {
@@ -65,8 +66,6 @@ impl ImmutableDigester for CardanoImmutableDigester {
                 })
             }
             Some(_) => {
-                info!(self.logger, ">> compute_digest"; "beacon" => #?beacon, "nb_of_immutables" => immutables.len());
-
                 let cached_values = match self.cache_provider.as_ref() {
                     None => BTreeMap::from_iter(immutables.into_iter().map(|i| (i, None))),
                     Some(cache_provider) => match cache_provider.get(immutables.clone()).await {
