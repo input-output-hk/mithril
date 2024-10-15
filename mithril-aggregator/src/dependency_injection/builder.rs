@@ -74,10 +74,10 @@ use crate::{
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
-    DumbSnapshotter, EpochSettingsStorer, LocalSnapshotUploader, MithrilSignerRegisterer,
-    MultiSigner, MultiSignerImpl, RemoteSnapshotUploader, SingleSignatureAuthenticator,
-    SnapshotUploader, SnapshotUploaderType, Snapshotter, SnapshotterCompressionAlgorithm,
-    VerificationKeyStorer,
+    DumbSnapshotter, EpochSettingsStorer, LocalSnapshotUploader, MetricsService,
+    MithrilSignerRegisterer, MultiSigner, MultiSignerImpl, RemoteSnapshotUploader,
+    SingleSignatureAuthenticator, SnapshotUploader, SnapshotUploaderType, Snapshotter,
+    SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -236,6 +236,9 @@ pub struct DependenciesBuilder {
 
     /// Single signer authenticator
     pub single_signer_authenticator: Option<Arc<SingleSignatureAuthenticator>>,
+
+    /// Metrics service
+    pub metrics_service: Option<Arc<MetricsService>>,
 }
 
 impl DependenciesBuilder {
@@ -288,6 +291,7 @@ impl DependenciesBuilder {
             transactions_importer: None,
             upkeep_service: None,
             single_signer_authenticator: None,
+            metrics_service: None,
         }
     }
 
@@ -1351,6 +1355,22 @@ impl DependenciesBuilder {
         Ok(epoch_settings)
     }
 
+    /// Create a [MetricsService] instance.
+    async fn build_metrics_service(&self) -> Result<Arc<MetricsService>> {
+        let metrics_service = MetricsService::new(self.root_logger())?;
+
+        Ok(Arc::new(metrics_service))
+    }
+
+    /// [MetricsService] service
+    pub async fn get_metrics_service(&mut self) -> Result<Arc<MetricsService>> {
+        if self.metrics_service.is_none() {
+            self.metrics_service = Some(self.build_metrics_service().await?);
+        }
+
+        Ok(self.metrics_service.as_ref().cloned().unwrap())
+    }
+
     /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
@@ -1397,6 +1417,7 @@ impl DependenciesBuilder {
             signed_entity_type_lock: self.get_signed_entity_lock().await?,
             upkeep_service: self.get_upkeep_service().await?,
             single_signer_authenticator: self.get_single_signature_authenticator().await?,
+            metrics_service: self.get_metrics_service().await?,
         };
 
         Ok(dependency_manager)
