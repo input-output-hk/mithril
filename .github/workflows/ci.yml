@@ -606,6 +606,7 @@ jobs:
           prerelease: true
           name: Unstable Development Builds
           files: package/*
+          generate_release_notes: true
           body_path: ./release-notes-addon.txt
           append_body: true
 
