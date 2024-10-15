@@ -1,5 +1,5 @@
-use mithril_persistence::sqlite::SqliteConnectionPool;
-use std::sync::Arc;
+use slog::Logger;
+use std::{collections::BTreeSet, sync::Arc};
 use tokio::sync::RwLock;
 
 use mithril_common::{
@@ -9,14 +9,20 @@ use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
-    entities::{Epoch, ProtocolParameters, SignedEntityConfig, SignerWithStake, StakeDistribution},
+    entities::{
+        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
+        SignerWithStake, StakeDistribution,
+    },
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
     signed_entity_type_lock::SignedEntityTypeLock,
     test_utils::MithrilFixture,
     TickerService,
 };
-use mithril_persistence::{sqlite::SqliteConnection, store::StakeStorer};
+use mithril_persistence::{
+    sqlite::{SqliteConnection, SqliteConnectionPool},
+    store::StakeStorer,
+};
 
 use crate::{
     configuration::*,
@@ -24,6 +30,7 @@ use crate::{
         CertificateRepository, OpenMessageRepository, SignedEntityStorer, SignerGetter,
         StakePoolStore,
     },
+    entities::AggregatorEpochSettings,
     event_store::{EventMessage, TransmitterService},
     multi_signer::MultiSigner,
     services::{
@@ -32,9 +39,8 @@ use crate::{
     },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
-    CertificatePendingStore, ProtocolParametersStorer, SignerRegisterer,
-    SignerRegistrationRoundOpener, SingleSignatureAuthenticator, Snapshotter,
-    VerificationKeyStorer,
+    CertificatePendingStore, EpochSettingsStorer, SignerRegisterer, SignerRegistrationRoundOpener,
+    SingleSignatureAuthenticator, Snapshotter, VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps a [EpochService]
@@ -45,8 +51,11 @@ pub struct DependencyContainer {
     /// Configuration structure.
     pub config: Configuration,
 
-    /// Signed entity configuration.
-    pub signed_entity_config: SignedEntityConfig,
+    /// List of signed entity discriminants that are allowed to be processed
+    pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+
+    /// Application root logger
+    pub root_logger: Logger,
 
     /// SQLite database connection
     ///
@@ -79,8 +88,8 @@ pub struct DependencyContainer {
     /// Verification key store.
     pub verification_key_store: Arc<dyn VerificationKeyStorer>,
 
-    /// Protocol parameter store.
-    pub protocol_parameters_store: Arc<dyn ProtocolParametersStorer>,
+    /// Epoch settings storer.
+    pub epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
 
     /// Chain observer service.
     pub chain_observer: Arc<dyn ChainObserver>,
@@ -193,10 +202,19 @@ impl DependencyContainer {
     /// using the data from a precomputed fixture.
     pub async fn init_state_from_fixture(&self, fixture: &MithrilFixture, target_epochs: &[Epoch]) {
         for epoch in target_epochs {
-            self.protocol_parameters_store
-                .save_protocol_parameters(*epoch, fixture.protocol_parameters())
+            self.epoch_settings_storer
+                .save_epoch_settings(
+                    *epoch,
+                    AggregatorEpochSettings {
+                        protocol_parameters: fixture.protocol_parameters(),
+                        cardano_transactions_signing_config: self
+                            .config
+                            .cardano_transactions_signing_config
+                            .clone(),
+                    },
+                )
                 .await
-                .expect("save_protocol_parameters should not fail");
+                .expect("save_epoch_settings should not fail");
             self.fill_verification_key_store(*epoch, &fixture.signers_with_stake())
                 .await;
             self.fill_stakes_store(*epoch, fixture.signers_with_stake())
@@ -217,9 +235,13 @@ impl DependencyContainer {
         genesis_signers: Vec<SignerWithStake>,
         second_epoch_signers: Vec<SignerWithStake>,
         genesis_protocol_parameters: &ProtocolParameters,
+        cardano_transactions_signing_config: &CardanoTransactionsSigningConfig,
     ) {
-        self.init_protocol_parameter_store(genesis_protocol_parameters)
-            .await;
+        self.init_epoch_settings_storer(&AggregatorEpochSettings {
+            protocol_parameters: genesis_protocol_parameters.clone(),
+            cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
+        })
+        .await;
 
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         for (epoch, signers) in [
@@ -233,18 +255,18 @@ impl DependencyContainer {
 
     /// `TEST METHOD ONLY`
     ///
-    /// Fill up to the first three epochs of the [ProtocolParametersStore] with the given value.
-    pub async fn init_protocol_parameter_store(&self, protocol_parameters: &ProtocolParameters) {
+    /// Fill up to the first three epochs of the [EpochSettingsStorer] with the given value.
+    pub async fn init_epoch_settings_storer(&self, epoch_settings: &AggregatorEpochSettings) {
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         let mut epochs_to_save = Vec::new();
         epochs_to_save.push(work_epoch);
         epochs_to_save.push(epoch_to_sign);
         epochs_to_save.push(epoch_to_sign.next());
         for epoch in epochs_to_save {
-            self.protocol_parameters_store
-                .save_protocol_parameters(epoch, protocol_parameters.clone())
+            self.epoch_settings_storer
+                .save_epoch_settings(epoch, epoch_settings.clone())
                 .await
-                .expect("save_protocol_parameters should not fail");
+                .expect("save_epoch_settings should not fail");
         }
     }
 
@@ -282,7 +304,7 @@ pub mod tests {
 
     pub async fn initialize_dependencies() -> DependencyContainer {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
 
         builder.build_dependency_container().await.unwrap()
     }

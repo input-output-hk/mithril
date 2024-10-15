@@ -1,12 +1,14 @@
-use slog_scope::{crit, debug, error, info};
+use slog::{debug, info, Logger};
 use std::{fmt::Display, ops::Deref, sync::Arc, time::Duration};
 use tokio::{sync::Mutex, time::sleep};
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
-    entities::{CertificatePending, Epoch, EpochSettings, SignedEntityType, TimePoint},
+    entities::{Epoch, TimePoint},
+    logging::LoggerExtensions,
 };
 
+use crate::entities::{BeaconToSign, SignerEpochSettings};
 use crate::MetricsService;
 
 use super::{Runner, RuntimeError};
@@ -27,8 +29,6 @@ pub enum SignerState {
     ReadyToSign {
         /// Epoch when signer transitioned to the state.
         epoch: Epoch,
-        /// Last signed entity type that the signer signed on this epoch.
-        last_signed_entity_type: Option<SignedEntityType>,
     },
 
     /// `RegisteredNotAbleToSign` state. The signer is registered but not able to sign for the duration of the epoch.
@@ -68,11 +68,8 @@ impl Display for SignerState {
             Self::RegisteredNotAbleToSign { epoch } => {
                 write!(f, "RegisteredNotAbleToSign - {epoch}")
             }
-            Self::ReadyToSign {
-                epoch,
-                last_signed_entity_type,
-            } => {
-                write!(f, "ReadyToSign - {epoch} - {last_signed_entity_type:?}")
+            Self::ReadyToSign { epoch } => {
+                write!(f, "ReadyToSign - {epoch}")
             }
         }
     }
@@ -84,13 +81,7 @@ pub struct StateMachine {
     runner: Box<dyn Runner>,
     state_sleep: Duration,
     metrics_service: Arc<MetricsService>,
-}
-
-enum ReadyToSignTransition {
-    ToReadyToSign(CertificatePending),
-    NoTransitionAlreadySigned,
-    NoTransitionCannotSignPendingCertificate,
-    NoTransitionNoPendingCertificate,
+    logger: Logger,
 }
 
 impl StateMachine {
@@ -100,12 +91,14 @@ impl StateMachine {
         runner: Box<dyn Runner>,
         state_sleep: Duration,
         metrics_service: Arc<MetricsService>,
+        logger: Logger,
     ) -> Self {
         Self {
             state: Mutex::new(starting_state),
             runner,
             state_sleep,
             metrics_service,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -116,20 +109,18 @@ impl StateMachine {
 
     /// Launch the state machine until an error occurs or it is interrupted.
     pub async fn run(&self) -> Result<(), RuntimeError> {
-        info!("STATE MACHINE: launching");
+        info!(self.logger, "launching");
 
         loop {
             if let Err(e) = self.cycle().await {
+                e.write_to_log(&self.logger);
                 if e.is_critical() {
-                    crit!("{e}");
-
                     return Err(e);
-                } else {
-                    error!("{e}");
                 }
             }
 
             info!(
+                self.logger,
                 "… Cycle finished, Sleeping for {} ms",
                 self.state_sleep.as_millis()
             );
@@ -140,8 +131,11 @@ impl StateMachine {
     /// Perform a cycle of the state machine.
     pub async fn cycle(&self) -> Result<(), RuntimeError> {
         let mut state = self.state.lock().await;
-        info!("================================================================================");
-        info!("STATE MACHINE: new cycle: {}", *state);
+        info!(
+            self.logger,
+            "================================================================================"
+        );
+        info!(self.logger, "new cycle: {}", *state);
 
         self.metrics_service
             .runtime_cycle_total_since_startup_counter_increment();
@@ -152,7 +146,10 @@ impl StateMachine {
             }
             SignerState::Unregistered { epoch } => {
                 if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
-                    info!("→ Epoch has changed, transiting to Unregistered");
+                    info!(
+                        self.logger,
+                        "→ Epoch has changed, transiting to Unregistered"
+                    );
                     *state = self
                         .transition_from_unregistered_to_unregistered(new_epoch)
                         .await?;
@@ -165,10 +162,10 @@ impl StateMachine {
                         nested_error: Some(e),
                     })?
                 {
-                    info!("→ Epoch settings found");
+                    info!(self.logger, "→ Epoch settings found");
                     if epoch_settings.epoch >= *epoch {
-                        info!("new Epoch found");
-                        info!(" ⋅ transiting to Registered");
+                        info!(self.logger, "new Epoch found");
+                        info!(self.logger, " ⋅ transiting to Registered");
                         *state = self
                             .transition_from_unregistered_to_one_of_registered_states(
                                 epoch_settings,
@@ -176,57 +173,62 @@ impl StateMachine {
                             .await?;
                     } else {
                         info!(
+                            self.logger,
                             " ⋅ Epoch settings found, but its epoch is behind the known epoch, waiting…";
                             "epoch_settings" => ?epoch_settings,
                             "known_epoch" => ?epoch,
                         );
                     }
                 } else {
-                    info!("→ No epoch settings found yet, waiting…");
+                    info!(self.logger, "→ No epoch settings found yet, waiting…");
                 }
             }
             SignerState::RegisteredNotAbleToSign { epoch } => {
                 if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
-                    info!(" → new Epoch detected, transiting to Unregistered");
+                    info!(
+                        self.logger,
+                        " → new Epoch detected, transiting to Unregistered"
+                    );
                     *state = self
                         .transition_from_registered_not_able_to_sign_to_unregistered(new_epoch)
                         .await?;
                 } else {
-                    info!(" ⋅ Epoch has NOT changed, waiting…");
+                    info!(self.logger, " ⋅ Epoch has NOT changed, waiting…");
                 }
             }
 
-            SignerState::ReadyToSign {
-                epoch,
-                last_signed_entity_type,
-            } => match self.has_epoch_changed(*epoch).await? {
+            SignerState::ReadyToSign { epoch } => match self.has_epoch_changed(*epoch).await? {
                 Some(new_epoch) => {
-                    info!("→ Epoch has changed, transiting to Unregistered");
+                    info!(
+                        self.logger,
+                        "→ Epoch has changed, transiting to Unregistered"
+                    );
                     *state = self
                         .transition_from_ready_to_sign_to_unregistered(new_epoch)
                         .await?;
                 }
                 None => {
-                    let pending_certificate =
-                        self.runner.get_pending_certificate().await.map_err(|e| {
-                            RuntimeError::KeepState {
-                                message: "could not fetch the pending certificate".to_string(),
-                                nested_error: Some(e),
-                            }
-                        })?;
-                    if let ReadyToSignTransition::ToReadyToSign(certificate) = self
-                        .ready_to_sign_certificate_next_transition(
-                            pending_certificate,
-                            last_signed_entity_type,
-                        )
-                        .await
-                    {
-                        *state = self
-                            .transition_from_ready_to_sign_to_ready_to_sign(
-                                *epoch,
-                                &certificate.signed_entity_type,
-                            )
-                            .await?;
+                    let beacon_to_sign = self.runner.get_beacon_to_sign().await.map_err(|e| {
+                        RuntimeError::KeepState {
+                            message: "could not fetch the beacon to sign".to_string(),
+                            nested_error: Some(e),
+                        }
+                    })?;
+
+                    match beacon_to_sign {
+                        Some(beacon) => {
+                            info!(
+                                self.logger,
+                                "→ Epoch has NOT changed we can sign this beacon, transiting to ReadyToSign";
+                                "beacon_to_sign" => ?beacon,
+                            );
+                            *state = self
+                                .transition_from_ready_to_sign_to_ready_to_sign(*epoch, beacon)
+                                .await?;
+                        }
+                        None => {
+                            info!(self.logger, " ⋅ no beacon to sign, waiting…");
+                        }
                     }
                 }
             },
@@ -236,53 +238,6 @@ impl StateMachine {
             .runtime_cycle_success_since_startup_counter_increment();
 
         Ok(())
-    }
-
-    async fn ready_to_sign_certificate_next_transition(
-        &self,
-        certificate_pending: Option<CertificatePending>,
-        last_signed_entity: &Option<SignedEntityType>,
-    ) -> ReadyToSignTransition {
-        fn is_same_signed_entity_type(
-            signed_entity_type: &Option<SignedEntityType>,
-            certificate: &CertificatePending,
-        ) -> bool {
-            Some(&certificate.signed_entity_type) == signed_entity_type.as_ref()
-        }
-
-        async fn can_sign_signed_entity_type(
-            s: &StateMachine,
-            certificate: &CertificatePending,
-        ) -> bool {
-            s.runner
-                .can_sign_signed_entity_type(&certificate.signed_entity_type)
-                .await
-        }
-
-        match certificate_pending {
-            Some(certificate) if is_same_signed_entity_type(last_signed_entity, &certificate) => {
-                info!(" ⋅ same entity type, already signed the pending certificate, waiting…");
-                ReadyToSignTransition::NoTransitionAlreadySigned
-            }
-            Some(certificate) if can_sign_signed_entity_type(self, &certificate).await => {
-                info!(
-                    " ⋅ Epoch has NOT changed we can sign this certificate, transiting to ReadyToSign";
-                    "pending_certificate" => ?certificate,
-                );
-                ReadyToSignTransition::ToReadyToSign(certificate)
-            }
-            Some(certificate) => {
-                info!(
-                    " ⋅ Epoch has NOT changed but cannot sign this pending certificate, waiting…";
-                    "pending_certificate" => ?certificate
-                );
-                ReadyToSignTransition::NoTransitionCannotSignPendingCertificate
-            }
-            None => {
-                info!(" ⋅ no pending certificate, waiting…");
-                ReadyToSignTransition::NoTransitionNoPendingCertificate
-            }
-        }
     }
 
     /// Return the new epoch if the epoch is different than the given one.
@@ -324,7 +279,7 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to `ReadyToSign` or `RegisteredNotAbleToSign` state.
     async fn transition_from_unregistered_to_one_of_registered_states(
         &self,
-        epoch_settings: EpochSettings,
+        epoch_settings: SignerEpochSettings,
     ) -> Result<SignerState, RuntimeError> {
         self.metrics_service
             .signer_registration_total_since_startup_counter_increment();
@@ -366,7 +321,7 @@ impl StateMachine {
             .signer_registration_success_last_epoch_gauge_set(epoch);
 
         self.runner
-            .upkeep()
+            .upkeep(epoch)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: "Failed to upkeep signer in 'unregistered → registered' phase".to_string(),
@@ -381,7 +336,7 @@ impl StateMachine {
                 message: "Failed to check if signer can sign in the current epoch in 'unregistered → ?' phase".to_string(),
                 nested_error: Some(e),
             })? {
-            true => Ok(SignerState::ReadyToSign { epoch, last_signed_entity_type: None }),
+            true => Ok(SignerState::ReadyToSign { epoch }),
             false => Ok(SignerState::RegisteredNotAbleToSign { epoch }),
         }
     }
@@ -410,7 +365,7 @@ impl StateMachine {
     async fn transition_from_ready_to_sign_to_ready_to_sign(
         &self,
         current_epoch: Epoch,
-        signed_entity_type: &SignedEntityType,
+        beacon_to_sign: BeaconToSign,
     ) -> Result<SignerState, RuntimeError> {
         let (retrieval_epoch, next_retrieval_epoch) = (
             current_epoch.offset_to_signer_retrieval_epoch()?,
@@ -418,6 +373,7 @@ impl StateMachine {
         );
 
         debug!(
+            self.logger,
             " > transition_from_ready_to_sign_to_ready_to_sign";
             "current_epoch" => ?current_epoch,
             "retrieval_epoch" => ?retrieval_epoch,
@@ -429,24 +385,17 @@ impl StateMachine {
 
         let message = self
             .runner
-            .compute_message(signed_entity_type)
+            .compute_message(&beacon_to_sign.signed_entity_type)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute message during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
-        let single_signatures = self
-            .runner
-            .compute_single_signature(current_epoch, &message)
+        self.runner.compute_publish_single_signature(&beacon_to_sign, &message)
             .await
             .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not compute single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
-                nested_error: Some(e)
-            })?;
-        self.runner.send_single_signature(signed_entity_type, single_signatures, &message).await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not send single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
+                message: format!("Could not compute and publish single signature during 'ready to sign → ready to sign' phase (current epoch {current_epoch:?})"),
                 nested_error: Some(e)
             })?;
 
@@ -457,7 +406,6 @@ impl StateMachine {
 
         Ok(SignerState::ReadyToSign {
             epoch: current_epoch,
-            last_signed_entity_type: Some(signed_entity_type.to_owned()),
         })
     }
 
@@ -491,21 +439,26 @@ impl StateMachine {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage};
-    use mithril_common::test_utils::fake_data;
+    use chrono::DateTime;
     use mockall::predicate;
 
+    use mithril_common::entities::{ChainPoint, Epoch, ProtocolMessage, SignedEntityType};
+    use mithril_common::test_utils::fake_data;
+
     use crate::runtime::runner::MockSignerRunner;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
     fn init_state_machine(init_state: SignerState, runner: MockSignerRunner) -> StateMachine {
-        let metrics_service = Arc::new(MetricsService::new().unwrap());
+        let logger = TestLogger::stdout();
+        let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
         StateMachine {
             state: init_state.into(),
             runner: Box::new(runner),
             state_sleep: Duration::from_millis(100),
             metrics_service,
+            logger,
         }
     }
 
@@ -542,7 +495,7 @@ mod tests {
     #[tokio::test]
     async fn unregistered_epoch_settings_behind_known_epoch() {
         let mut runner = MockSignerRunner::new();
-        let epoch_settings = EpochSettings {
+        let epoch_settings = SignerEpochSettings {
             epoch: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
             next_protocol_parameters: fake_data::protocol_parameters(),
@@ -578,15 +531,15 @@ mod tests {
     #[tokio::test]
     async fn unregistered_to_registered_not_able_to_sign() {
         let mut runner = MockSignerRunner::new();
-        runner.expect_upkeep().returning(|| Ok(())).once();
+        runner.expect_upkeep().returning(|_| Ok(())).once();
         runner
             .expect_get_epoch_settings()
             .once()
-            .returning(|| Ok(Some(fake_data::epoch_settings())));
+            .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
             .expect_inform_epoch_settings()
-            .with(predicate::eq(fake_data::epoch_settings()))
+            .with(predicate::eq(SignerEpochSettings::dummy()))
             .once()
             .returning(|_| Ok(()));
 
@@ -632,15 +585,15 @@ mod tests {
     #[tokio::test]
     async fn unregistered_to_ready_to_sign() {
         let mut runner = MockSignerRunner::new();
-        runner.expect_upkeep().returning(|| Ok(())).once();
+        runner.expect_upkeep().returning(|_| Ok(())).once();
         runner
             .expect_get_epoch_settings()
             .once()
-            .returning(|| Ok(Some(fake_data::epoch_settings())));
+            .returning(|| Ok(Some(SignerEpochSettings::dummy())));
 
         runner
             .expect_inform_epoch_settings()
-            .with(predicate::eq(fake_data::epoch_settings()))
+            .with(predicate::eq(SignerEpochSettings::dummy()))
             .once()
             .returning(|_| Ok(()));
 
@@ -677,7 +630,6 @@ mod tests {
         assert_eq!(
             SignerState::ReadyToSign {
                 epoch: TimePoint::dummy().epoch,
-                last_signed_entity_type: None
             },
             state_machine.get_state().await
         );
@@ -745,13 +697,8 @@ mod tests {
             .once()
             .returning(|_e: Epoch| Ok(()));
 
-        let state_machine = init_state_machine(
-            SignerState::ReadyToSign {
-                epoch: Epoch(0),
-                last_signed_entity_type: None,
-            },
-            runner,
-        );
+        let state_machine =
+            init_state_machine(SignerState::ReadyToSign { epoch: Epoch(0) }, runner);
 
         state_machine
             .cycle()
@@ -764,79 +711,40 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ready_to_sign_to_ready_to_sign_when_signed_entity_type_is_locked() {
-        let time_point = TimePoint {
-            immutable_file_number: 99,
-            epoch: Epoch(9),
-            chain_point: ChainPoint::dummy(),
-        };
-        let state = SignerState::ReadyToSign {
-            epoch: time_point.epoch,
-            last_signed_entity_type: None,
-        };
-
-        let certificate_pending = CertificatePending {
-            epoch: time_point.epoch,
-            ..fake_data::certificate_pending()
-        };
-        let time_point_clone = time_point.clone();
-        let mut runner = MockSignerRunner::new();
-        runner
-            .expect_get_current_time_point()
-            .once()
-            .returning(move || Ok(time_point_clone.to_owned()));
-        runner
-            .expect_get_pending_certificate()
-            .once()
-            .returning(move || Ok(Some(certificate_pending.to_owned())));
-        runner
-            .expect_can_sign_signed_entity_type()
-            .once()
-            .returning(move |_| false);
-
-        let state_machine = init_state_machine(state, runner);
-        state_machine
-            .cycle()
-            .await
-            .expect("Cycling the state machine should not fail");
-
-        assert_eq!(
-            SignerState::ReadyToSign {
-                epoch: time_point.epoch,
-                last_signed_entity_type: None
-            },
-            state_machine.get_state().await,
-            "state machine did not return a ReadyToSign but {:?}",
-            state_machine.get_state().await
-        );
-    }
-
-    #[tokio::test]
-    async fn ready_to_sign_to_ready_to_sign_when_same_signed_entity_type() {
+    async fn ready_to_sign_to_ready_to_sign_when_there_is_a_beacon_to_sign() {
         let time_point = TimePoint::dummy();
-        let certificate_pending = CertificatePending {
-            epoch: time_point.clone().epoch,
-            ..fake_data::certificate_pending()
-        };
-        let certificate_pending_clone = certificate_pending.clone();
-        let state = SignerState::ReadyToSign {
+        let beacon_to_sign = BeaconToSign {
             epoch: time_point.epoch,
-            last_signed_entity_type: Some(certificate_pending.signed_entity_type.clone()),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
+            initiated_at: DateTime::default(),
         };
-        let time_point_clone = time_point.clone();
+        let beacon_to_sign_clone = beacon_to_sign.clone();
+        let current_epoch = time_point.epoch;
+
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_time_point()
-            .returning(move || Ok(time_point_clone.to_owned()));
+            .once()
+            .returning(move || Ok(time_point.to_owned()));
         runner
-            .expect_get_pending_certificate()
-            .times(1)
-            .returning(move || Ok(Some(certificate_pending.clone())));
+            .expect_get_beacon_to_sign()
+            .once()
+            .returning(move || Ok(Some(beacon_to_sign_clone.clone())));
         runner
-            .expect_can_sign_signed_entity_type()
-            .returning(move |_| true);
+            .expect_compute_message()
+            .once()
+            .returning(|_| Ok(ProtocolMessage::new()));
+        runner
+            .expect_compute_publish_single_signature()
+            .once()
+            .returning(|_, _| Ok(()));
 
-        let state_machine = init_state_machine(state, runner);
+        let state_machine = init_state_machine(
+            SignerState::ReadyToSign {
+                epoch: current_epoch,
+            },
+            runner,
+        );
         state_machine
             .cycle()
             .await
@@ -844,8 +752,7 @@ mod tests {
 
         assert_eq!(
             SignerState::ReadyToSign {
-                epoch: time_point.epoch,
-                last_signed_entity_type: Some(certificate_pending_clone.signed_entity_type)
+                epoch: current_epoch
             },
             state_machine.get_state().await,
             "state machine did not return a ReadyToSign state but {:?}",
@@ -854,113 +761,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn ready_to_sign_to_ready_to_sign_when_can_sign_the_first_signed_entity_type() {
+    async fn ready_to_sign_to_ready_to_sign_when_there_no_beacon_to_sign() {
         let time_point = TimePoint::dummy();
-        let state = SignerState::ReadyToSign {
-            epoch: time_point.epoch,
-            last_signed_entity_type: None,
-        };
-        let certificate_pending = CertificatePending {
-            epoch: time_point.epoch,
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            ..fake_data::certificate_pending()
-        };
-        assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
-            state,
-            certificate_pending,
-        )
-        .await
-    }
+        let current_epoch = time_point.epoch;
 
-    #[tokio::test]
-    async fn ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one() {
-        let time_point = TimePoint::dummy();
-        let state = SignerState::ReadyToSign {
-            epoch: time_point.epoch,
-            last_signed_entity_type: Some(SignedEntityType::CardanoStakeDistribution(
-                time_point.epoch,
-            )),
-        };
-        let certificate_pending = CertificatePending {
-            epoch: time_point.epoch,
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            ..fake_data::certificate_pending()
-        };
-
-        assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
-            state,
-            certificate_pending,
-        )
-        .await
-    }
-
-    #[tokio::test]
-    async fn ready_to_sign_to_ready_to_sign_when_different_state_than_previous_return_state_with_same_epoch(
-    ) {
-        let time_point = TimePoint::dummy();
-        let state = SignerState::ReadyToSign {
-            epoch: time_point.epoch,
-            last_signed_entity_type: Some(SignedEntityType::CardanoStakeDistribution(
-                time_point.epoch,
-            )),
-        };
-        let certificate_pending = CertificatePending {
-            epoch: time_point.epoch + 10, // Check that the epoch
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(time_point.epoch),
-            ..fake_data::certificate_pending()
-        };
-
-        assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
-            state,
-            certificate_pending,
-        )
-        .await
-    }
-
-    async fn assert_ready_to_sign_to_ready_to_sign_when_different_state_than_previous_one(
-        initial_state: SignerState,
-        certificate_pending: CertificatePending,
-    ) {
-        let initial_state_epoch = match initial_state.clone() {
-            SignerState::ReadyToSign {
-                epoch,
-                last_signed_entity_type: _,
-            } => epoch,
-            _ => panic!("Invalid state, use only ReadyToSign"),
-        };
-        let time_point = TimePoint {
-            epoch: initial_state_epoch,
-            ..TimePoint::dummy()
-        };
-
-        let certificate_pending_clone = certificate_pending.clone();
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_time_point()
             .once()
             .returning(move || Ok(time_point.to_owned()));
         runner
-            .expect_get_pending_certificate()
+            .expect_get_beacon_to_sign()
             .once()
-            .returning(move || Ok(Some(certificate_pending.clone())));
-        runner
-            .expect_compute_single_signature()
-            .once()
-            .returning(|_, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
-        runner
-            .expect_compute_message()
-            .once()
-            .returning(|_| Ok(ProtocolMessage::new()));
-        runner
-            .expect_send_single_signature()
-            .once()
-            .returning(|_, _, _| Ok(()));
-        runner
-            .expect_can_sign_signed_entity_type()
-            .once()
-            .returning(move |_| true);
+            .returning(move || Ok(None));
 
-        let state_machine = init_state_machine(initial_state.clone(), runner);
+        let state_machine = init_state_machine(
+            SignerState::ReadyToSign {
+                epoch: current_epoch,
+            },
+            runner,
+        );
         state_machine
             .cycle()
             .await
@@ -968,8 +788,7 @@ mod tests {
 
         assert_eq!(
             SignerState::ReadyToSign {
-                epoch: initial_state_epoch,
-                last_signed_entity_type: Some(certificate_pending_clone.signed_entity_type)
+                epoch: current_epoch
             },
             state_machine.get_state().await,
             "state machine did not return a ReadyToSign state but {:?}",

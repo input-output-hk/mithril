@@ -5,11 +5,8 @@ use mithril_common::{
     StdResult,
 };
 
-#[cfg(test)]
-use mockall::automock;
-
 /// ArtifactBuilder is trait for building an artifact
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ArtifactBuilder<U, W>: Send + Sync
 where

@@ -4,16 +4,15 @@ use cloud_storage::{
     bucket::Entity, bucket_access_control::Role, object_access_control::NewObjectAccessControl,
     Client,
 };
-use mithril_common::StdResult;
-use slog_scope::info;
+use slog::{info, Logger};
 use std::{env, path::Path};
 use tokio_util::{codec::BytesCodec, codec::FramedRead};
 
-#[cfg(test)]
-use mockall::automock;
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
 
 /// RemoteFileUploader represents a remote file uploader interactor
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait RemoteFileUploader: Sync + Send {
     /// Upload a snapshot
@@ -23,12 +22,16 @@ pub trait RemoteFileUploader: Sync + Send {
 /// GcpFileUploader represents a Google Cloud Platform file uploader interactor
 pub struct GcpFileUploader {
     bucket: String,
+    logger: Logger,
 }
 
 impl GcpFileUploader {
     /// GcpFileUploader factory
-    pub fn new(bucket: String) -> Self {
-        Self { bucket }
+    pub fn new(bucket: String, logger: Logger) -> Self {
+        Self {
+            bucket,
+            logger: logger.new_with_component_name::<Self>(),
+        }
     }
 }
 
@@ -43,7 +46,7 @@ impl RemoteFileUploader for GcpFileUploader {
 
         let filename = filepath.file_name().unwrap().to_str().unwrap();
 
-        info!("uploading {}", filename);
+        info!(self.logger, "uploading {filename}");
         let client = Client::default();
         let file = tokio::fs::File::open(filepath).await.unwrap();
         let stream = FramedRead::new(file, BytesCodec::new());
@@ -59,7 +62,7 @@ impl RemoteFileUploader for GcpFileUploader {
             .await
             .with_context(|| "remote uploading failure")?;
 
-        info!("uploaded {}", filename);
+        info!(self.logger, "uploaded {filename}");
 
         // ensure the uploaded file as public read access
         // when a file is uploaded to Google cloud storage its permissions are overwritten so
@@ -70,8 +73,8 @@ impl RemoteFileUploader for GcpFileUploader {
         };
 
         info!(
-            "updating acl for {}: {:?}",
-            filename, new_bucket_access_control
+            self.logger,
+            "updating acl for {filename}: {new_bucket_access_control:?}"
         );
 
         client
@@ -80,7 +83,7 @@ impl RemoteFileUploader for GcpFileUploader {
             .await
             .with_context(|| "updating acl failure")?;
 
-        info!("updated acl for {} ", filename);
+        info!(self.logger, "updated acl for {filename}");
 
         Ok(())
     }

@@ -1,5 +1,18 @@
 #![allow(dead_code)]
 use anyhow::anyhow;
+use prometheus_parse::Value;
+use slog::Drain;
+use slog_scope::debug;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
+    path::Path,
+    sync::Arc,
+    time::Duration,
+};
+use thiserror::Error;
+use tokio::sync::RwLock;
+
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
@@ -10,7 +23,7 @@ use mithril_common::{
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
         BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
-        SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, TimePoint,
+        SignedEntityType, SignedEntityTypeDiscriminants, SignerWithStake, SlotNumber, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
@@ -21,28 +34,24 @@ use mithril_common::{
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdError, TickerService,
 };
-use mithril_persistence::database::repository::CardanoTransactionRepository;
-use mithril_persistence::store::adapter::SQLiteAdapter;
 use mithril_persistence::{
+    database::repository::CardanoTransactionRepository,
     sqlite::SqliteConnectionPool,
-    store::{StakeStore, StakeStorer},
+    store::{adapter::SQLiteAdapter, StakeStore, StakeStorer},
 };
+
 use mithril_signer::{
+    database::repository::SignedBeaconRepository,
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     metrics::*,
     services::{
         AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
+        SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
         SignerUpkeepService,
     },
     store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer},
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
 };
-use prometheus_parse::Value;
-use slog::Drain;
-use slog_scope::debug;
-use std::{collections::BTreeMap, fmt::Debug, path::Path, sync::Arc, time::Duration};
-use thiserror::Error;
-use tokio::sync::RwLock;
 
 use super::FakeAggregator;
 
@@ -74,6 +83,7 @@ pub struct StateMachineTester {
     era_checker: Arc<EraChecker>,
     era_reader_adapter: Arc<EraReaderDummyAdapter>,
     block_scanner: Arc<DumbBlockScanner>,
+    signed_beacon_repository: Arc<SignedBeaconRepository>,
     metrics_service: Arc<MetricsService>,
     expected_metrics_service: Arc<MetricsService>,
     comment_no: u32,
@@ -87,6 +97,13 @@ impl Debug for StateMachineTester {
     }
 }
 
+fn stdout_logger() -> slog::Logger {
+    let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
+    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+    slog::Logger::root(Arc::new(drain), slog::o!())
+}
+
 impl StateMachineTester {
     pub async fn init(
         signers_with_stake: &[SignerWithStake],
@@ -97,8 +114,12 @@ impl StateMachineTester {
         })?;
         let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
         let config = Configuration::new_sample(&selected_signer_party_id);
+        let network = config.get_network()?;
 
-        let dependencies_builder = DependenciesBuilder::new(&config);
+        let logger = stdout_logger();
+        let logs_guard = slog_scope::set_global_logger(logger.clone());
+
+        let dependencies_builder = DependenciesBuilder::new(&config, logger.clone());
         let sqlite_connection = Arc::new(
             dependencies_builder
                 .build_sqlite_connection(
@@ -119,12 +140,6 @@ impl StateMachineTester {
             SqliteConnectionPool::build_from_connection(transaction_sqlite_connection),
         );
 
-        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-        let drain = slog_async::Async::new(drain).build().fuse();
-        let logs_guard =
-            slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
-
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
 
@@ -140,7 +155,7 @@ impl StateMachineTester {
         let certificate_handler = Arc::new(FakeAggregator::new(
             SignedEntityConfig {
                 allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-                network: config.get_network().unwrap(),
+                network,
                 cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
             },
             ticker_service.clone(),
@@ -151,9 +166,6 @@ impl StateMachineTester {
                 SQLiteAdapter::new("protocol_initializer", sqlite_connection.clone()).unwrap(),
             ),
             config.store_retention_limit,
-        ));
-        let single_signer = Arc::new(MithrilSingleSigner::new(
-            config.party_id.to_owned().unwrap_or_default(),
         ));
         let stake_store = Arc::new(StakeStore::new(
             Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone()).unwrap()),
@@ -181,7 +193,7 @@ impl StateMachineTester {
             Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
                 digester.clone(),
                 Path::new(""),
-                slog_scope::logger(),
+                logger.clone(),
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
@@ -192,7 +204,7 @@ impl StateMachineTester {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner.clone(),
             transaction_store.clone(),
-            slog_scope::logger(),
+            logger.clone(),
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
@@ -200,19 +212,35 @@ impl StateMachineTester {
         >::new(
             transactions_importer.clone(),
             block_range_root_retriever,
-            slog_scope::logger(),
+            logger.clone(),
         ));
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            stake_store.clone(),
+            protocol_initializer_store.clone(),
+            logger.clone(),
+        )));
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            config.party_id.to_owned().unwrap_or_default(),
+            epoch_service.clone(),
+            logger.clone(),
+        ));
+        let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
+            epoch_service.clone(),
+            protocol_initializer_store.clone(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker.clone(),
+            signable_seed_builder_service,
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
         ));
-        let metrics_service = Arc::new(MetricsService::new().unwrap());
-        let expected_metrics_service = Arc::new(MetricsService::new().unwrap());
+        let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
+        let expected_metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let security_parameter = BlockNumber(0);
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
@@ -220,16 +248,30 @@ impl StateMachineTester {
             transactions_importer.clone(),
             security_parameter,
             chain_observer.clone(),
-            slog_scope::logger(),
+            logger.clone(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(true)),
         ));
         let upkeep_service = Arc::new(SignerUpkeepService::new(
             sqlite_connection.clone(),
             sqlite_connection_cardano_transaction_pool,
             signed_entity_type_lock.clone(),
-            slog_scope::logger(),
+            vec![],
+            logger.clone(),
         ));
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
+        let signed_beacon_repository =
+            Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None));
+        let certifier = Arc::new(SignerCertifierService::new(
+            ticker_service.clone(),
+            signed_beacon_repository.clone(),
+            Arc::new(SignerSignedEntityConfigProvider::new(
+                network,
+                epoch_service.clone(),
+            )),
+            signed_entity_type_lock.clone(),
+            single_signer.clone(),
+            certificate_handler.clone(),
+            logger.clone(),
+        ));
 
         let services = SignerDependencyContainer {
             certificate_handler: certificate_handler.clone(),
@@ -248,19 +290,21 @@ impl StateMachineTester {
             cardano_transactions_preloader,
             upkeep_service,
             epoch_service,
+            certifier,
         };
         // set up stake distribution
         chain_observer
             .set_signers(signers_with_stake.to_owned())
             .await;
 
-        let runner = Box::new(SignerRunner::new(config, services));
+        let runner = Box::new(SignerRunner::new(config, services, logger.clone()));
 
         let state_machine = StateMachine::new(
             SignerState::Init,
             runner,
             Duration::from_secs(5),
             metrics_service.clone(),
+            logger.clone(),
         );
 
         Ok(StateMachineTester {
@@ -273,6 +317,7 @@ impl StateMachineTester {
             era_checker,
             era_reader_adapter,
             block_scanner,
+            signed_beacon_repository,
             metrics_service,
             expected_metrics_service,
             comment_no: 0,
@@ -287,6 +332,7 @@ impl StateMachineTester {
             Ok(self)
         }
     }
+
     /// trigger a cycle in the state machine
     async fn cycle(&mut self) -> Result<&mut Self> {
         self.expected_metrics_service
@@ -334,12 +380,17 @@ impl StateMachineTester {
         self.check_total_signature_registrations_metrics(expected_metric)
     }
 
-    pub async fn cycle_ready_to_sign_with_signature_registration(&mut self) -> Result<&mut Self> {
+    pub async fn cycle_ready_to_sign_with_signature_registration(
+        &mut self,
+        expected_beacon: SignedEntityType,
+    ) -> Result<&mut Self> {
         let metric_before = self
             .metrics_service
             .signature_registration_success_since_startup_counter_get();
 
         self.cycle_ready_to_sign().await?;
+
+        self.check_last_signed_beacon(Some(expected_beacon))?;
 
         let expected_metric = metric_before + 1;
         self.check_total_signature_registrations_metrics(expected_metric)
@@ -380,13 +431,13 @@ impl StateMachineTester {
         self
     }
 
-    /// make the aggregator send the certificate pending with the given signed entity from now on
-    pub async fn aggregator_send_signed_entity(
+    /// change the signed entities allowed by the aggregator (returned by its '/' endpoint)
+    pub async fn aggregator_allow_signed_entities(
         &mut self,
-        discriminant: SignedEntityTypeDiscriminants,
+        discriminants: &[SignedEntityTypeDiscriminants],
     ) -> &mut Self {
         self.certificate_handler
-            .change_certificate_pending_signed_entity(discriminant)
+            .change_allowed_discriminants(&BTreeSet::from_iter(discriminants.iter().cloned()))
             .await;
         self
     }
@@ -673,5 +724,22 @@ impl StateMachineTester {
         )?;
 
         Ok(self)
+    }
+
+    pub fn check_last_signed_beacon(
+        &mut self,
+        expected_beacon: Option<SignedEntityType>,
+    ) -> Result<&mut Self> {
+        let last_signed_beacon = self
+            .signed_beacon_repository
+            .get_last()?
+            .map(|b| b.signed_entity_type);
+
+        self.assert(
+            expected_beacon == last_signed_beacon,
+            format!(
+                "Last signed beacon: given {last_signed_beacon:?}, expected {expected_beacon:?}"
+            ),
+        )
     }
 }

@@ -1,39 +1,30 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog_scope::{debug, warn};
+use slog::{debug, warn, Logger};
 use std::sync::Arc;
 use std::time::Duration;
 
 use mithril_common::entities::{
-    Certificate, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-    SignedEntityConfig, SignedEntityType, Signer, TimePoint,
+    Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, Signer, TimePoint,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 use crate::entities::OpenMessage;
 use crate::DependencyContainer;
 
-#[cfg(test)]
-use mockall::automock;
-
 /// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
 pub struct AggregatorConfig {
     /// Interval between each snapshot, in ms
     pub interval: Duration,
-
-    /// Signed entity configuration.
-    pub signed_entity_config: SignedEntityConfig,
 }
 
 impl AggregatorConfig {
     /// Create a new instance of AggregatorConfig.
-    pub fn new(interval: Duration, signed_entity_config: SignedEntityConfig) -> Self {
-        Self {
-            interval,
-            signed_entity_config,
-        }
+    pub fn new(interval: Duration) -> Self {
+        Self { interval }
     }
 }
 
@@ -68,8 +59,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
 
-    /// Ask the EpochService to update the protocol parameters.
-    async fn update_protocol_parameters(&self) -> StdResult<()>;
+    /// Ask the EpochService to update the epoch settings.
+    async fn update_epoch_settings(&self) -> StdResult<()>;
 
     /// Compute the protocol message
     async fn compute_protocol_message(
@@ -130,18 +121,30 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage>;
+
+    /// Checks if the open message is considered outdated.
+    async fn is_open_message_outdated(
+        &self,
+        open_message_signed_entity_type: SignedEntityType,
+        last_time_point: &TimePoint,
+    ) -> StdResult<bool>;
 }
 
 /// The runner responsibility is to expose a code API for the state machine. It
 /// holds services and configuration.
 pub struct AggregatorRunner {
     dependencies: Arc<DependencyContainer>,
+    logger: Logger,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggregator Runner.
     pub fn new(dependencies: Arc<DependencyContainer>) -> Self {
-        Self { dependencies }
+        let logger = dependencies.root_logger.new_with_component_name::<Self>();
+        Self {
+            dependencies,
+            logger,
+        }
     }
 
     async fn list_available_signed_entity_types(
@@ -150,7 +153,10 @@ impl AggregatorRunner {
     ) -> StdResult<Vec<SignedEntityType>> {
         let signed_entity_types = self
             .dependencies
-            .signed_entity_config
+            .epoch_service
+            .read()
+            .await
+            .signed_entity_config()?
             .list_allowed_signed_entity_types(time_point)?;
         let unlocked_signed_entities = self
             .dependencies
@@ -162,12 +168,12 @@ impl AggregatorRunner {
     }
 }
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current time point from the chain
     async fn get_time_point_from_chain(&self) -> StdResult<TimePoint> {
-        debug!("RUNNER: get time point from chain");
+        debug!(self.logger, "RUNNER: get time point from chain");
         let time_point = self
             .dependencies
             .ticker_service
@@ -181,7 +187,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: get_current_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
+        debug!(self.logger,"RUNNER: get_current_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
         self.mark_open_message_if_expired(signed_entity_type)
             .await?;
 
@@ -197,7 +203,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         current_time_point: &TimePoint,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
+        debug!(self.logger,"RUNNER: get_current_non_certified_open_message"; "time_point" => #?current_time_point);
         let signed_entity_types = self
             .list_available_signed_entity_types(current_time_point)
             .await?;
@@ -226,7 +232,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn is_certificate_chain_valid(&self, time_point: &TimePoint) -> StdResult<()> {
-        debug!("RUNNER: is_certificate_chain_valid");
+        debug!(self.logger, "RUNNER: is_certificate_chain_valid");
         self.dependencies
             .certifier_service
             .verify_certificate_chain(time_point.epoch)
@@ -236,7 +242,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_stake_distribution(&self, new_time_point: &TimePoint) -> StdResult<()> {
-        debug!("RUNNER: update stake distribution"; "time_point" => #?new_time_point);
+        debug!(self.logger,"RUNNER: update stake distribution"; "time_point" => #?new_time_point);
         self.dependencies
             .stake_distribution_service
             .update_stake_distribution()
@@ -245,7 +251,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn open_signer_registration_round(&self, new_time_point: &TimePoint) -> StdResult<()> {
-        debug!("RUNNER: open signer registration round"; "time_point" => #?new_time_point);
+        debug!(self.logger,"RUNNER: open signer registration round"; "time_point" => #?new_time_point);
         let registration_epoch = new_time_point.epoch.offset_to_recording_epoch();
 
         let stakes = self
@@ -262,7 +268,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn close_signer_registration_round(&self) -> StdResult<()> {
-        debug!("RUNNER: close signer registration round");
+        debug!(self.logger, "RUNNER: close signer registration round");
 
         self.dependencies
             .signer_registration_round_opener
@@ -270,12 +276,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
     }
 
-    async fn update_protocol_parameters(&self) -> StdResult<()> {
+    async fn update_epoch_settings(&self) -> StdResult<()> {
         self.dependencies
             .epoch_service
             .write()
             .await
-            .update_protocol_parameters()
+            .update_epoch_settings()
             .await
     }
 
@@ -283,22 +289,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
-        debug!("RUNNER: compute protocol message");
-        let mut protocol_message = self
+        debug!(self.logger, "RUNNER: compute protocol message");
+        let protocol_message = self
             .dependencies
             .signable_builder_service
             .compute_protocol_message(signed_entity_type.to_owned())
             .await
             .with_context(|| format!("Runner can not compute protocol message for signed entity type: '{signed_entity_type}'"))?;
-
-        let epoch_service = self.dependencies.epoch_service.read().await;
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            epoch_service
-                .next_aggregate_verification_key()?
-                .to_json_hex()
-                .with_context(|| "convert next avk to json hex failure")?,
-        );
 
         Ok(protocol_message)
     }
@@ -307,7 +304,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
-        debug!("RUNNER: mark expired open message");
+        debug!(self.logger, "RUNNER: mark expired open message");
 
         let expired_open_message = self
             .dependencies
@@ -317,8 +314,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .with_context(|| "CertifierService can not mark expired open message")?;
 
         debug!(
-            "RUNNER: marked expired open messages: {:#?}",
-            expired_open_message
+            self.logger,
+            "RUNNER: marked expired open messages: {:#?}", expired_open_message
         );
 
         Ok(expired_open_message)
@@ -329,22 +326,21 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         time_point: TimePoint,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<CertificatePending> {
-        debug!("RUNNER: create new pending certificate");
+        debug!(self.logger, "RUNNER: create new pending certificate");
         let epoch_service = self.dependencies.epoch_service.read().await;
 
         let signers = epoch_service.current_signers_with_stake()?;
         let next_signers = epoch_service.next_signers_with_stake()?;
 
-        let protocol_parameters =
-            epoch_service
-                .current_protocol_parameters()
-                .with_context(|| {
-                    format!("no current protocol parameters found for time point {time_point:?}")
-                })?;
+        let protocol_parameters = epoch_service.next_protocol_parameters().with_context(|| {
+            format!("no current protocol parameters found for time point {time_point:?}")
+        })?;
         let next_protocol_parameters =
-            epoch_service.next_protocol_parameters().with_context(|| {
-                format!("no next protocol parameters found for time point {time_point:?}")
-            })?;
+            epoch_service
+                .upcoming_protocol_parameters()
+                .with_context(|| {
+                    format!("no next protocol parameters found for time point {time_point:?}")
+                })?;
 
         let pending_certificate = CertificatePending::new(
             time_point.epoch,
@@ -362,7 +358,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         pending_certificate: CertificatePending,
     ) -> StdResult<()> {
-        debug!("RUNNER: saving pending certificate");
+        debug!(self.logger, "RUNNER: saving pending certificate");
 
         let signed_entity_type = pending_certificate.signed_entity_type.clone();
         self.dependencies
@@ -374,11 +370,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn drop_pending_certificate(&self) -> StdResult<Option<CertificatePending>> {
-        debug!("RUNNER: drop pending certificate");
+        debug!(self.logger, "RUNNER: drop pending certificate");
 
         let certificate_pending = self.dependencies.certificate_pending_store.remove().await?;
         if certificate_pending.is_none() {
-            warn!(" > drop_pending_certificate::no certificate pending in store, did the previous loop crashed ?");
+            warn!(self.logger," > drop_pending_certificate::no certificate pending in store, did the previous loop crashed ?");
         }
 
         Ok(certificate_pending)
@@ -388,7 +384,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>> {
-        debug!("RUNNER: create_certificate");
+        debug!(self.logger, "RUNNER: create_certificate");
 
         self.dependencies
             .certifier_service
@@ -406,7 +402,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         signed_entity_type: &SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<()> {
-        debug!("RUNNER: create artifact");
+        debug!(self.logger, "RUNNER: create artifact");
         self.dependencies
             .signed_entity_service
             .create_artifact(signed_entity_type.to_owned(), certificate)
@@ -441,6 +437,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .era_checker
             .change_era(current_era, token.get_current_epoch());
         debug!(
+            self.logger,
             "Current Era is {} (Epoch {}).",
             current_era,
             token.get_current_epoch()
@@ -448,7 +445,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         if token.get_next_supported_era().is_err() {
             let era_name = &token.get_next_era_marker().unwrap().name;
-            warn!("Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
+            warn!(self.logger,"Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
         }
 
         Ok(())
@@ -482,7 +479,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn upkeep(&self) -> StdResult<()> {
-        debug!("RUNNER: upkeep");
+        debug!(self.logger, "RUNNER: upkeep");
         self.dependencies.upkeep_service.run().await
     }
 
@@ -496,11 +493,42 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .create_open_message(signed_entity_type, protocol_message)
             .await
     }
+
+    async fn is_open_message_outdated(
+        &self,
+        open_message_signed_entity_type: SignedEntityType,
+        last_time_point: &TimePoint,
+    ) -> StdResult<bool> {
+        let current_open_message = self
+            .get_current_open_message_for_signed_entity_type(
+                &open_message_signed_entity_type,
+            )
+            .await
+            .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &open_message_signed_entity_type))?;
+        let is_expired_open_message = current_open_message
+            .as_ref()
+            .map(|om| om.is_expired)
+            .unwrap_or(false);
+
+        let exists_newer_open_message = {
+            let new_signed_entity_type = self
+                .dependencies
+                .epoch_service
+                .read()
+                .await
+                .signed_entity_config()?
+                .time_point_to_signed_entity(&open_message_signed_entity_type, last_time_point)?;
+            new_signed_entity_type != open_message_signed_entity_type
+        };
+
+        Ok(exists_newer_open_message || is_expired_open_message)
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
-    use crate::services::{FakeEpochService, MockUpkeepService};
+    use crate::entities::AggregatorEpochSettings;
+    use crate::services::{FakeEpochService, FakeEpochServiceBuilder, MockUpkeepService};
     use crate::{
         entities::OpenMessage,
         initialize_dependencies,
@@ -510,7 +538,10 @@ pub mod tests {
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
-    use mithril_common::entities::{ChainPoint, SignedEntityTypeDiscriminants};
+    use mithril_common::entities::{
+        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
+        SignedEntityTypeDiscriminants,
+    };
     use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
     use mithril_common::{
         chain_observer::FakeObserver,
@@ -807,6 +838,7 @@ pub mod tests {
             current_signers.clone(),
             next_signers.clone(),
             &protocol_parameters.clone(),
+            &CardanoTransactionsSigningConfig::dummy(),
         )
         .await;
         runner.inform_new_epoch(time_point.epoch).await.unwrap();
@@ -931,7 +963,7 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_protocol_parameters() {
+    async fn test_update_epoch_settings() {
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_inform_epoch()
@@ -940,25 +972,31 @@ pub mod tests {
 
         let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
-        let protocol_parameters_store = deps.protocol_parameters_store.clone();
-        let expected_protocol_parameters = deps.config.protocol_parameters.clone();
+        let epoch_settings_storer = deps.epoch_settings_storer.clone();
+        let expected_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: deps.config.protocol_parameters.clone(),
+            cardano_transactions_signing_config: deps
+                .config
+                .cardano_transactions_signing_config
+                .clone(),
+        };
         let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
-        let insert_epoch = current_epoch.offset_to_protocol_parameters_recording_epoch();
+        let insert_epoch = current_epoch.offset_to_epoch_settings_recording_epoch();
 
         let runner = build_runner_with_fixture_data(deps).await;
         runner.inform_new_epoch(current_epoch).await.unwrap();
         runner
-            .update_protocol_parameters()
+            .update_epoch_settings()
             .await
-            .expect("update_protocol_parameters should not fail");
+            .expect("update_epoch_settings should not fail");
 
-        let saved_protocol_parameters = protocol_parameters_store
-            .get_protocol_parameters(insert_epoch)
+        let saved_epoch_settings = epoch_settings_storer
+            .get_epoch_settings(insert_epoch)
             .await
             .unwrap()
-            .unwrap_or_else(|| panic!("should have protocol parameters for epoch {insert_epoch}",));
+            .unwrap_or_else(|| panic!("should have epoch settings for epoch {insert_epoch}",));
 
-        assert_eq!(expected_protocol_parameters, saved_protocol_parameters);
+        assert_eq!(expected_epoch_settings, saved_epoch_settings);
     }
 
     #[tokio::test]
@@ -1185,8 +1223,15 @@ pub mod tests {
     async fn list_available_signed_entity_types_list_all_configured_entities_if_none_are_locked() {
         let runner = {
             let mut dependencies = initialize_dependencies().await;
-            dependencies.signed_entity_config.allowed_discriminants =
-                SignedEntityTypeDiscriminants::all();
+            let epoch_service = FakeEpochServiceBuilder {
+                signed_entity_config: SignedEntityConfig {
+                    allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                    ..SignedEntityConfig::dummy()
+                },
+                ..FakeEpochServiceBuilder::dummy(Epoch(32))
+            }
+            .build();
+            dependencies.epoch_service = Arc::new(RwLock::new(epoch_service));
             dependencies.signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
             AggregatorRunner::new(Arc::new(dependencies))
         };
@@ -1213,9 +1258,17 @@ pub mod tests {
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         let runner = {
             let mut dependencies = initialize_dependencies().await;
-            dependencies.signed_entity_config.allowed_discriminants =
-                SignedEntityTypeDiscriminants::all();
             dependencies.signed_entity_type_lock = signed_entity_type_lock.clone();
+            let epoch_service = FakeEpochServiceBuilder {
+                signed_entity_config: SignedEntityConfig {
+                    allowed_discriminants: SignedEntityTypeDiscriminants::all(),
+                    ..SignedEntityConfig::dummy()
+                },
+                ..FakeEpochServiceBuilder::dummy(Epoch(32))
+            }
+            .build();
+            dependencies.epoch_service = Arc::new(RwLock::new(epoch_service));
+
             AggregatorRunner::new(Arc::new(dependencies))
         };
 
@@ -1234,5 +1287,76 @@ pub mod tests {
 
         assert!(!signed_entities.is_empty());
         assert!(!signed_entities.contains(&SignedEntityTypeDiscriminants::CardanoTransactions));
+    }
+
+    #[tokio::test]
+    async fn is_open_message_outdated_return_false_when_message_is_not_expired_and_no_newer_open_message(
+    ) {
+        assert!(!is_outdated_returned_when(IsExpired::No, false).await);
+    }
+
+    #[tokio::test]
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_no_newer_open_message(
+    ) {
+        assert!(is_outdated_returned_when(IsExpired::Yes, false).await);
+    }
+
+    #[tokio::test]
+    async fn is_open_message_outdated_return_true_when_message_is_not_expired_and_exists_newer_open_message(
+    ) {
+        assert!(is_outdated_returned_when(IsExpired::No, true).await);
+    }
+
+    #[tokio::test]
+    async fn is_open_message_outdated_return_true_when_message_is_expired_and_exists_newer_open_message(
+    ) {
+        assert!(is_outdated_returned_when(IsExpired::Yes, true).await);
+    }
+
+    async fn is_outdated_returned_when(is_expired: IsExpired, newer_open_message: bool) -> bool {
+        let current_time_point = TimePoint {
+            epoch: Epoch(2),
+            ..TimePoint::dummy()
+        };
+
+        let message_epoch = if newer_open_message {
+            current_time_point.epoch + 54
+        } else {
+            current_time_point.epoch
+        };
+        let open_message_to_verify = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(message_epoch),
+            is_expired: is_expired == IsExpired::Yes,
+            ..OpenMessage::dummy()
+        };
+
+        let runner = {
+            let mut deps = initialize_dependencies().await;
+            let mut mock_certifier_service = MockCertifierService::new();
+
+            let open_message_current = open_message_to_verify.clone();
+            mock_certifier_service
+                .expect_get_open_message()
+                .times(1)
+                .return_once(|_| Ok(Some(open_message_current)));
+            mock_certifier_service
+                .expect_mark_open_message_if_expired()
+                .returning(|_| Ok(None));
+
+            deps.certifier_service = Arc::new(mock_certifier_service);
+
+            let epoch_service = FakeEpochServiceBuilder::dummy(current_time_point.epoch).build();
+            deps.epoch_service = Arc::new(RwLock::new(epoch_service));
+
+            build_runner_with_fixture_data(deps).await
+        };
+
+        runner
+            .is_open_message_outdated(
+                open_message_to_verify.signed_entity_type,
+                &current_time_point,
+            )
+            .await
+            .unwrap()
     }
 }

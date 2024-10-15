@@ -52,35 +52,30 @@ pub fn protocol_parameters() -> entities::ProtocolParameters {
     entities::ProtocolParameters::new(k, m, phi_f)
 }
 
-/// Fake EpochSettings
-pub fn epoch_settings() -> entities::EpochSettings {
-    // Beacon
-    let beacon = beacon();
+cfg_random! {
+    /// Fake ProtocolInitializer
+    pub fn protocol_initializer<S: Into<String>>(
+        seed: S,
+        stake: entities::Stake,
+    ) -> crypto_helper::ProtocolInitializer {
+        use rand_chacha::ChaCha20Rng;
+        use rand_core::SeedableRng;
 
-    // Protocol parameters
-    let protocol_parameters = protocol_parameters();
-    let next_protocol_parameters = protocol_parameters.clone();
+        let protocol_parameters = protocol_parameters();
+        let seed: [u8; 32] = format!("{:<032}", seed.into()).as_bytes()[..32]
+            .try_into()
+            .unwrap();
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let kes_secret_key_path: Option<std::path::PathBuf> = None;
+        let kes_period = Some(0);
 
-    // Signers
-    let signers = signers(5);
-    let current_signers = signers[1..3].to_vec();
-    let next_signers = signers[2..5].to_vec();
-
-    // Cardano transactions signing configuration
-    let cardano_transactions_signing_config =
-        Some(entities::CardanoTransactionsSigningConfig::dummy());
-    let next_cardano_transactions_signing_config =
-        Some(entities::CardanoTransactionsSigningConfig::dummy());
-
-    // Epoch settings
-    entities::EpochSettings {
-        epoch: beacon.epoch,
-        protocol_parameters,
-        next_protocol_parameters,
-        current_signers,
-        next_signers,
-        cardano_transactions_signing_config,
-        next_cardano_transactions_signing_config,
+        crypto_helper::ProtocolInitializer::setup(
+            protocol_parameters.into(),
+            kes_secret_key_path,
+            kes_period,
+            stake,
+            &mut rng,
+        ).unwrap()
     }
 }
 

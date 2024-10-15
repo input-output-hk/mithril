@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::{Aggregator, Devnet};
-use mithril_common::entities::ProtocolParameters;
+use mithril_common::entities::{Epoch, ProtocolParameters};
 use mithril_common::StdResult;
 use slog_scope::info;
 
@@ -22,18 +22,19 @@ pub async fn register_era_marker(
     aggregator: &mut Aggregator,
     devnet: &Devnet,
     mithril_era: &str,
+    era_epoch: Epoch,
 ) -> StdResult<()> {
-    info!("Register era marker");
+    info!("Register '{mithril_era}' era marker");
 
     info!("> generating era marker tx datum...");
     let tx_datum_file_path = devnet
         .artifacts_dir()
         .join(PathBuf::from("era-tx-datum.txt".to_string()));
     aggregator
-        .era_generate_tx_datum(&tx_datum_file_path, mithril_era)
+        .era_generate_tx_datum(&tx_datum_file_path, mithril_era, era_epoch)
         .await?;
 
-    info!("> writing era marker on the Cardano chain...");
+    info!("> writing '{mithril_era}' era marker on the Cardano chain...");
     devnet.write_era_marker(&tx_datum_file_path).await?;
 
     Ok(())

@@ -15,7 +15,7 @@ pub struct SingleSignatureRecord {
     pub signer_id: String,
 
     /// Registration epoch setting id
-    pub registration_epoch_setting_id: Epoch,
+    pub registration_epoch_settings_id: Epoch,
 
     /// Lottery indexes
     pub lottery_indexes: Vec<LotteryIndex>,
@@ -31,12 +31,12 @@ impl SingleSignatureRecord {
     pub(crate) fn try_from_single_signatures(
         other: &SingleSignatures,
         open_message_id: &Uuid,
-        registration_epoch_setting_id: Epoch,
+        registration_epoch_settings_id: Epoch,
     ) -> StdResult<Self> {
         let record = SingleSignatureRecord {
             open_message_id: open_message_id.to_owned(),
             signer_id: other.party_id.to_owned(),
-            registration_epoch_setting_id,
+            registration_epoch_settings_id,
             lottery_indexes: other.won_indexes.to_owned(),
             signature: other.signature.to_json_hex()?,
             created_at: Utc::now(),
@@ -73,7 +73,7 @@ impl SqLiteEntity for SingleSignatureRecord {
             ))
         })?;
         let signer_id = row.read::<&str, _>(1).to_string();
-        let registration_epoch_setting_id_int = row.read::<i64, _>(2);
+        let registration_epoch_settings_id_int = row.read::<i64, _>(2);
         let lottery_indexes_str = row.read::<&str, _>(3);
         let signature = row.read::<&str, _>(4).to_string();
         let created_at = row.read::<&str, _>(5);
@@ -81,10 +81,10 @@ impl SqLiteEntity for SingleSignatureRecord {
         let single_signature_record = Self {
             open_message_id,
             signer_id,
-            registration_epoch_setting_id: Epoch(
-                registration_epoch_setting_id_int.try_into().map_err(|e| {
+            registration_epoch_settings_id: Epoch(
+                registration_epoch_settings_id_int.try_into().map_err(|e| {
                     HydrationError::InvalidData(format!(
-                        "Could not cast i64 ({registration_epoch_setting_id_int}) to u64. Error: '{e}'"
+                        "Could not cast i64 ({registration_epoch_settings_id_int}) to u64. Error: '{e}'"
                     ))
                 })?,
             ),

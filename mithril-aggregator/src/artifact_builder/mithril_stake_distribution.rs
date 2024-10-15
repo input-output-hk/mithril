@@ -44,29 +44,34 @@ mod tests {
 
     use super::*;
 
-    use crate::services::FakeEpochService;
+    use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};
 
     #[tokio::test]
     async fn should_compute_valid_artifact() {
         let signers_with_stake = fake_data::signers_with_stakes(5);
         let certificate = fake_data::certificate("certificate-123".to_string());
-        let protocol_parameters = fake_data::protocol_parameters();
-        let epoch_service = FakeEpochService::with_data(
-            Epoch(1),
-            &protocol_parameters,
-            &protocol_parameters,
-            &protocol_parameters,
-            &signers_with_stake,
-            &signers_with_stake,
-        );
+        let epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: fake_data::protocol_parameters(),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let epoch_service = FakeEpochServiceBuilder {
+            epoch_settings: epoch_settings.clone(),
+            current_signers_with_stake: signers_with_stake.clone(),
+            next_signers_with_stake: signers_with_stake.clone(),
+            ..FakeEpochServiceBuilder::dummy(Epoch(1))
+        }
+        .build();
         let mithril_stake_distribution_artifact_builder =
             MithrilStakeDistributionArtifactBuilder::new(Arc::new(RwLock::new(epoch_service)));
         let artifact = mithril_stake_distribution_artifact_builder
             .compute_artifact(Epoch(1), &certificate)
             .await
             .unwrap();
-        let artifact_expected =
-            MithrilStakeDistribution::new(Epoch(1), signers_with_stake, &protocol_parameters);
+        let artifact_expected = MithrilStakeDistribution::new(
+            Epoch(1),
+            signers_with_stake,
+            &epoch_settings.protocol_parameters,
+        );
         assert_eq!(artifact_expected, artifact);
     }
 

@@ -14,7 +14,7 @@ pub struct SignerRegistrationRecord {
     pub signer_id: String,
 
     /// Epoch of creation of the signer_registration.
-    pub epoch_setting_id: Epoch,
+    pub epoch_settings_id: Epoch,
 
     /// Verification key of the signer
     pub verification_key: HexEncodedVerificationKey,
@@ -39,7 +39,7 @@ impl SignerRegistrationRecord {
     pub(crate) fn from_signer_with_stake(other: SignerWithStake, epoch: Epoch) -> Self {
         SignerRegistrationRecord {
             signer_id: other.party_id,
-            epoch_setting_id: epoch,
+            epoch_settings_id: epoch,
             verification_key: other.verification_key.to_json_hex().unwrap(),
             verification_key_signature: other
                 .verification_key_signature
@@ -93,7 +93,7 @@ impl SqLiteEntity for SignerRegistrationRecord {
         Self: Sized,
     {
         let signer_id = row.read::<&str, _>(0).to_string();
-        let epoch_setting_id_int = row.read::<i64, _>(1);
+        let epoch_settings_id_int = row.read::<i64, _>(1);
         let verification_key = row.read::<&str, _>(2).to_string();
         let verification_key_signature = row.read::<Option<&str>, _>(3).map(|s| s.to_owned());
         let operational_certificate = row.read::<Option<&str>, _>(4).map(|s| s.to_owned());
@@ -103,9 +103,9 @@ impl SqLiteEntity for SignerRegistrationRecord {
 
         let signer_registration_record = Self {
             signer_id,
-            epoch_setting_id: Epoch(epoch_setting_id_int.try_into().map_err(|e| {
+            epoch_settings_id: Epoch(epoch_settings_id_int.try_into().map_err(|e| {
                 HydrationError::InvalidData(format!(
-                    "Could not cast i64 ({epoch_setting_id_int}) to u64. Error: '{e}'"
+                    "Could not cast i64 ({epoch_settings_id_int}) to u64. Error: '{e}'"
                 ))
             })?),
             verification_key,

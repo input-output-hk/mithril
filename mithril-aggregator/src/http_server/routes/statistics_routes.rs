@@ -1,25 +1,22 @@
-use std::sync::Arc;
 use warp::Filter;
 
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     post_statistics(dependency_manager)
 }
 
 /// POST /statistics/snapshot
 fn post_statistics(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_event_transmitter(
-            dependency_manager.clone(),
-        ))
+        .and(middlewares::with_event_transmitter(dependency_manager))
         .and_then(handlers::post_snapshot_statistics)
 }
 
@@ -57,6 +54,7 @@ mod tests {
     use mithril_common::messages::SnapshotDownloadMessage;
     use mithril_common::test_utils::apispec::APISpec;
 
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -76,13 +74,13 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]
     async fn post_statistics_ok() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut rx = builder.get_event_transmitter_receiver().await.unwrap();
         let dependency_manager = builder.build_dependency_container().await.unwrap();
         let snapshot_download_message = SnapshotDownloadMessage::dummy();

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-end-to-end"
-version = "0.4.31"
+version = "0.4.40"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -15,17 +15,17 @@ test = false
 bench = false
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = "1.0.89"
 async-recursion = "1.1.1"
-async-trait = "0.1.82"
-clap = { version = "4.5.17", features = ["derive"] }
+async-trait = "0.1.83"
+clap = { version = "4.5.20", features = ["derive"] }
 glob = "0.3.1"
 hex = "0.4.3"
 indicatif = { version = "0.17.8", features = ["tokio"] }
 mithril-common = { path = "../../mithril-common", features = ["full"] }
 mithril-doc = { path = "../../internal/mithril-doc" }
-reqwest = { version = "0.12.7", features = ["json"] }
-serde = { version = "1.0.209", features = ["derive"] }
+reqwest = { version = "0.12.8", features = ["json"] }
+serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 serde_yaml = "0.9.34"
 slog = { version = "2.7.0", features = [
@@ -35,7 +35,7 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
-thiserror = "1.0.63"
+thiserror = "1.0.64"
 tokio = { version = "1.40.0", features = ["full"] }
 tokio-util = { version = "0.7.12", features = ["codec"] }
 

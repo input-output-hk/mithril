@@ -6,6 +6,7 @@ use mithril_common::entities::{
     Certificate, Epoch, ProtocolMessage, SignedEntityType, SignedEntityTypeDiscriminants,
     SingleSignatures,
 };
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::entities::OpenMessage;
@@ -35,7 +36,7 @@ impl BufferedCertifierService {
         Self {
             certifier_service,
             buffered_single_signature_store,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 

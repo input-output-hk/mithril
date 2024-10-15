@@ -76,23 +76,15 @@ jobs:
           compatibility-table: '{ "release-mainnet": "⛔", "release-preprod": "⛔", "pre-release-preview": "✔", "testing-preview": "⛔", "testing-sanchonet": "⛔" }'
 
       - name: Create pre-release ${{ github.ref_name }}
-        uses: marvinpinto/action-automatic-releases@latest
+        uses: softprops/action-gh-release@v2
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref_name }}
           prerelease: true
-          title: Mithril v${{ github.ref_name }}
+          name: Mithril v${{ github.ref_name }}
           files: package/*
-
-      - name: Update release body with release notes addon
-        # specific version since this action does not support giving only the major number
-        uses: tubone24/update_release@v1.3.1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-        with:
-          is_append_body: true
           body_path: ./release-notes-addon.txt
+          append_body: true
 
   build-push-docker:
     runs-on: ubuntu-22.04

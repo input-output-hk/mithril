@@ -3,7 +3,9 @@ use sqlite::{ConnectionThreadSafe, Value};
 use std::path::Path;
 use uuid::Uuid;
 
-use mithril_common::entities::{ProtocolParameters, SignerWithStake};
+use mithril_common::entities::{
+    BlockNumber, CardanoTransactionsSigningConfig, ProtocolParameters, SignerWithStake,
+};
 use mithril_common::{entities::Epoch, test_utils::fake_keys, StdError, StdResult};
 use mithril_persistence::sqlite::{
     ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
@@ -13,12 +15,13 @@ use crate::database::query::{
     ImportSignerRecordQuery, InsertCertificateRecordQuery,
     InsertOrReplaceBufferedSingleSignatureRecordQuery,
     InsertOrReplaceSignerRegistrationRecordQuery, InsertOrReplaceStakePoolQuery,
-    InsertSignedEntityRecordQuery, UpdateEpochSettingQuery, UpdateSingleSignatureRecordQuery,
+    InsertSignedEntityRecordQuery, UpdateEpochSettingsQuery, UpdateSingleSignatureRecordQuery,
 };
 use crate::database::record::{
     BufferedSingleSignatureRecord, CertificateRecord, SignedEntityRecord, SignerRecord,
     SignerRegistrationRecord, SingleSignatureRecord,
 };
+use crate::entities::AggregatorEpochSettings;
 
 /// In-memory sqlite database without foreign key support with migrations applied
 pub fn main_db_connection() -> StdResult<SqliteConnection> {
@@ -82,7 +85,7 @@ pub fn setup_single_signature_records(
                 single_signature_records.push(SingleSignatureRecord {
                     open_message_id,
                     signer_id: format!("signer-{signer_idx}"),
-                    registration_epoch_setting_id: Epoch(epoch),
+                    registration_epoch_settings_id: Epoch(epoch),
                     lottery_indexes: (1..=single_signature_id).collect(),
                     signature: fake_keys::single_signature()[3].to_string(),
                     created_at: Utc::now(),
@@ -124,7 +127,7 @@ pub fn insert_single_signatures_in_db(
                 (2, single_signature_record.signer_id.into()),
                 (
                     3,
-                    Value::Integer(*single_signature_record.registration_epoch_setting_id as i64),
+                    Value::Integer(*single_signature_record.registration_epoch_settings_id as i64),
                 ),
                 (
                     4,
@@ -198,17 +201,30 @@ pub fn insert_epoch_settings(
     let query = {
         // leverage the expanded parameter from this query which is unit
         // tested on its own above.
-        let (sql_values, _) =
-            UpdateEpochSettingQuery::one(Epoch(1), ProtocolParameters::new(1, 2, 1.0))
-                .filters()
-                .expand();
+        let (sql_values, _) = UpdateEpochSettingsQuery::one(
+            Epoch(1),
+            AggregatorEpochSettings {
+                protocol_parameters: ProtocolParameters::new(1, 2, 1.0),
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
+                    BlockNumber(0),
+                    BlockNumber(0),
+                ),
+            },
+        )
+        .filters()
+        .expand();
 
         format!("insert into epoch_setting {sql_values}")
     };
 
-    for (epoch, protocol_parameters) in epoch_to_insert_settings
-        .iter()
-        .map(|epoch| (epoch, ProtocolParameters::new(*epoch, epoch + 1, 1.0)))
+    for (epoch, protocol_parameters, signing_config) in
+        epoch_to_insert_settings.iter().map(|epoch| {
+            (
+                epoch,
+                ProtocolParameters::new(*epoch, epoch + 1, 1.0),
+                CardanoTransactionsSigningConfig::new(BlockNumber(epoch * 10), BlockNumber(15)),
+            )
+        })
     {
         let mut statement = connection.prepare(&query)?;
         statement
@@ -218,6 +234,7 @@ pub fn insert_epoch_settings(
                     2,
                     serde_json::to_string(&protocol_parameters).unwrap().into(),
                 ),
+                (3, serde_json::to_string(&signing_config).unwrap().into()),
             ])
             .unwrap();
 
@@ -360,7 +377,7 @@ pub fn insert_signer_registrations(
                     (1, signer_registration_record.signer_id.into()),
                     (
                         2,
-                        Value::Integer(*signer_registration_record.epoch_setting_id as i64),
+                        Value::Integer(*signer_registration_record.epoch_settings_id as i64),
                     ),
                     (3, signer_registration_record.verification_key.into()),
                     (

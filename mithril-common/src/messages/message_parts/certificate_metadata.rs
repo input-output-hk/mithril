@@ -4,7 +4,7 @@ use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 /// CertificateMetadata represents the metadata associated to a Certificate
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificateMetadataMessagePart {
     /// Cardano network
     /// part of METADATA(p,n)

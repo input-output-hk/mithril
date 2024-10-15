@@ -1,10 +1,11 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog_scope::{debug, warn};
+use slog::{debug, warn, Logger};
 
 use mithril_common::{
     crypto_helper::{ProtocolAggregationError, ProtocolMultiSignature},
     entities::{self},
+    logging::LoggerExtensions,
     protocol::MultiSigner as ProtocolMultiSigner,
     StdResult,
 };
@@ -12,11 +13,8 @@ use mithril_common::{
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::entities::OpenMessage;
 
-#[cfg(test)]
-use mockall::automock;
-
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
     /// Verify a single signature
@@ -43,13 +41,18 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     epoch_service: EpochServiceWrapper,
+    logger: Logger,
 }
 
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
-    pub fn new(epoch_service: EpochServiceWrapper) -> Self {
-        debug!("New MultiSignerImpl created");
-        Self { epoch_service }
+    pub fn new(epoch_service: EpochServiceWrapper, logger: Logger) -> Self {
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New MultiSignerImpl created");
+        Self {
+            epoch_service,
+            logger,
+        }
     }
 
     fn run_verify_single_signature(
@@ -59,8 +62,11 @@ impl MultiSignerImpl {
         protocol_multi_signer: &ProtocolMultiSigner,
     ) -> StdResult<()> {
         debug!(
+            self.logger,
             "Verify single signature from {} at indexes {:?} for message {:?}",
-            single_signature.party_id, single_signature.won_indexes, message
+            single_signature.party_id,
+            single_signature.won_indexes,
+            message
         );
 
         protocol_multi_signer
@@ -108,7 +114,10 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         open_message: &OpenMessage,
     ) -> StdResult<Option<ProtocolMultiSignature>> {
-        debug!("MultiSigner:create_multi_signature({open_message:?})");
+        debug!(
+            self.logger,
+            "MultiSigner:create_multi_signature({open_message:?})"
+        );
 
         let epoch_service = self.epoch_service.read().await;
         let protocol_multi_signer = epoch_service.protocol_multi_signer().with_context(|| {
@@ -121,7 +130,10 @@ impl MultiSigner for MultiSignerImpl {
         ) {
             Ok(multi_signature) => Ok(Some(multi_signature)),
             Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
-                warn!("Could not compute multi-signature: Not enough signatures. Got only {} out of {}.", actual, expected);
+                warn!(
+                    self.logger,
+                    "Could not compute multi-signature: Not enough signatures. Got only {actual} out of {expected}."
+                );
                 Ok(None)
             }
             Err(err) => Err(anyhow!(err).context(format!(
@@ -142,7 +154,9 @@ mod tests {
     use mithril_common::protocol::ToMessage;
     use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
 
-    use crate::services::FakeEpochService;
+    use crate::entities::AggregatorEpochSettings;
+    use crate::services::{FakeEpochService, FakeEpochServiceBuilder};
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -171,15 +185,29 @@ mod tests {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let next_fixture = MithrilFixtureBuilder::default().with_signers(4).build();
-        let multi_signer =
-            MultiSignerImpl::new(Arc::new(RwLock::new(FakeEpochService::with_data(
-                epoch,
-                &fixture.protocol_parameters(),
-                &next_fixture.protocol_parameters(),
-                &next_fixture.protocol_parameters(),
-                &fixture.signers_with_stake(),
-                &next_fixture.signers_with_stake(),
-            ))));
+        let multi_signer = MultiSignerImpl::new(
+            Arc::new(RwLock::new(
+                FakeEpochServiceBuilder {
+                    epoch_settings: AggregatorEpochSettings {
+                        protocol_parameters: fixture.protocol_parameters(),
+                        ..AggregatorEpochSettings::dummy()
+                    },
+                    next_epoch_settings: AggregatorEpochSettings {
+                        protocol_parameters: next_fixture.protocol_parameters(),
+                        ..AggregatorEpochSettings::dummy()
+                    },
+                    upcoming_epoch_settings: AggregatorEpochSettings {
+                        protocol_parameters: next_fixture.protocol_parameters(),
+                        ..AggregatorEpochSettings::dummy()
+                    },
+                    current_signers_with_stake: fixture.signers_with_stake(),
+                    next_signers_with_stake: next_fixture.signers_with_stake(),
+                    ..FakeEpochServiceBuilder::dummy(epoch)
+                }
+                .build(),
+            )),
+            TestLogger::stdout(),
+        );
 
         {
             let message = setup_message();
@@ -217,9 +245,10 @@ mod tests {
         let epoch = Epoch(5);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let protocol_parameters = fixture.protocol_parameters();
-        let multi_signer = MultiSignerImpl::new(Arc::new(RwLock::new(
-            FakeEpochService::from_fixture(epoch, &fixture),
-        )));
+        let multi_signer = MultiSignerImpl::new(
+            Arc::new(RwLock::new(FakeEpochService::from_fixture(epoch, &fixture))),
+            TestLogger::stdout(),
+        );
 
         let message = setup_message();
 

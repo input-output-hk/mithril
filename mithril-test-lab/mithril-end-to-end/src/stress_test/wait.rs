@@ -9,8 +9,8 @@ use tokio::time::sleep;
 use mithril_common::{
     entities::{Epoch, SignedEntityType},
     messages::{
-        CertificateListItemMessage, CertificatePendingMessage, EpochSettingsMessage,
-        MithrilStakeDistributionListItemMessage, SnapshotListItemMessage,
+        CertificateListItemMessage, EpochSettingsMessage, MithrilStakeDistributionListItemMessage,
+        SnapshotListItemMessage,
     },
     StdResult,
 };
@@ -105,11 +105,14 @@ pub async fn for_epoch_settings_at_epoch(
 }
 
 /// Wait for pending certificate
+#[allow(deprecated)]
 pub async fn for_pending_certificate(
     aggregator: &Aggregator,
     timeout: Duration,
     signed_entity_type: &SignedEntityType,
 ) -> StdResult<()> {
+    use mithril_common::messages::CertificatePendingMessage;
+
     let url = &format!("{}/certificate-pending", aggregator.endpoint());
     spin_while_waiting!(
         {

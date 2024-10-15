@@ -9,6 +9,7 @@
 mod configuration;
 pub mod database;
 pub mod dependency_injection;
+pub mod entities;
 mod message_adapters;
 pub mod metrics;
 mod runtime;
@@ -16,9 +17,8 @@ pub mod services;
 pub mod store;
 
 pub use configuration::{Configuration, DefaultConfiguration};
-pub use message_adapters::{
-    FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
-};
+pub use entities::SignerEpochSettings;
+pub use message_adapters::{FromEpochSettingsAdapter, ToRegisterSignerMessageAdapter};
 pub use metrics::*;
 pub use runtime::*;
 

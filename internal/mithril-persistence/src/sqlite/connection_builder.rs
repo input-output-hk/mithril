@@ -2,9 +2,10 @@ use std::ops::Not;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use slog::Logger;
+use slog::{debug, Logger};
 use sqlite::{Connection, ConnectionThreadSafe};
 
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::database::{ApplicationNodeType, DatabaseVersionChecker, SqlMigration};
@@ -15,7 +16,7 @@ pub struct ConnectionBuilder {
     sql_migrations: Vec<SqlMigration>,
     options: Vec<ConnectionOptions>,
     node_type: ApplicationNodeType,
-    logger: Logger,
+    base_logger: Logger,
 }
 
 /// Options to apply to the connection
@@ -41,7 +42,7 @@ impl ConnectionBuilder {
             sql_migrations: vec![],
             options: vec![],
             node_type: ApplicationNodeType::Signer,
-            logger: Logger::root(slog::Discard, slog::o!()),
+            base_logger: Logger::root(slog::Discard, slog::o!()),
         }
     }
 
@@ -66,7 +67,7 @@ impl ConnectionBuilder {
 
     /// Set the logger to log to at build time
     pub fn with_logger(mut self, logger: Logger) -> Self {
-        self.logger = logger;
+        self.base_logger = logger;
         self
     }
 
@@ -78,6 +79,9 @@ impl ConnectionBuilder {
 
     /// Build a connection based on the builder configuration
     pub fn build(self) -> StdResult<ConnectionThreadSafe> {
+        let logger = self.base_logger.new_with_component_name::<Self>();
+
+        debug!(logger, "Opening SQLite connection"; "path" => self.connection_path.display());
         let connection =
             Connection::open_thread_safe(&self.connection_path).with_context(|| {
                 format!(
@@ -90,12 +94,14 @@ impl ConnectionBuilder {
             .options
             .contains(&ConnectionOptions::EnableWriteAheadLog)
         {
+            debug!(logger, "Enabling SQLite Write Ahead Log journal mode");
             connection
                 .execute("pragma journal_mode = wal; pragma synchronous = normal;")
                 .with_context(|| "SQLite initialization: could not enable WAL.")?;
         }
 
         if self.options.contains(&ConnectionOptions::EnableForeignKeys) {
+            debug!(logger, "Enabling SQLite foreign key support");
             connection
                 .execute("pragma foreign_keys=true")
                 .with_context(|| "SQLite initialization: could not enable FOREIGN KEY support.")?;
@@ -103,8 +109,9 @@ impl ConnectionBuilder {
 
         if self.sql_migrations.is_empty().not() {
             // Check database migrations
+            debug!(logger, "Applying database migrations");
             let mut db_checker =
-                DatabaseVersionChecker::new(self.logger, self.node_type, &connection);
+                DatabaseVersionChecker::new(self.base_logger, self.node_type, &connection);
 
             for migration in self.sql_migrations {
                 db_checker.add_migration(migration);
@@ -119,6 +126,7 @@ impl ConnectionBuilder {
             .options
             .contains(&ConnectionOptions::ForceDisableForeignKeys)
         {
+            debug!(logger, "Force disabling SQLite foreign key support");
             connection
                 .execute("pragma foreign_keys=false")
                 .with_context(|| "SQLite initialization: could not disable FOREIGN KEY support.")?;

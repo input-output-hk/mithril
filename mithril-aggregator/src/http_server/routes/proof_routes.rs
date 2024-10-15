@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use warp::Filter;
 
 use crate::http_server::routes::middlewares;
@@ -27,26 +26,21 @@ impl CardanoTransactionProofQueryParams {
 }
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     proof_cardano_transaction(dependency_manager)
 }
 
 /// GET /proof/cardano-transaction
 fn proof_cardano_transaction(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
         .and(warp::query::<CardanoTransactionProofQueryParams>())
-        .and(middlewares::with_signed_entity_service(
-            dependency_manager.clone(),
-        ))
-        .and(
-            middlewares::validators::with_prover_transactions_hash_validator(
-                dependency_manager.clone(),
-            ),
-        )
+        .and(middlewares::with_logger(dependency_manager))
+        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(middlewares::validators::with_prover_transactions_hash_validator(dependency_manager))
         .and(middlewares::with_prover_service(dependency_manager))
         .and_then(handlers::proof_cardano_transaction)
 }
@@ -57,7 +51,7 @@ mod handlers {
         messages::CardanoTransactionsProofsMessage,
         StdResult,
     };
-    use slog_scope::{debug, warn};
+    use slog::{debug, warn, Logger};
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
@@ -72,18 +66,20 @@ mod handlers {
 
     pub async fn proof_cardano_transaction(
         transaction_parameters: CardanoTransactionProofQueryParams,
+        logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
         validator: ProverTransactionsHashValidator,
         prover_service: Arc<dyn ProverService>,
     ) -> Result<impl warp::Reply, Infallible> {
         let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
+            logger,
             "⇄ HTTP SERVER: proof_cardano_transaction?transaction_hashes={}",
             transaction_parameters.transaction_hashes
         );
 
         if let Err(error) = validator.validate(&transaction_hashes) {
-            warn!("proof_cardano_transaction::bad_request");
+            warn!(logger, "proof_cardano_transaction::bad_request");
             return Ok(reply::bad_request(error.label, error.message));
         }
 
@@ -93,17 +89,17 @@ mod handlers {
             signed_entity_service
                 .get_last_cardano_transaction_snapshot()
                 .await,
-            "proof_cardano_transaction::error"
+            logger => "proof_cardano_transaction::error"
         ) {
             Some(signed_entity) => {
                 let message = unwrap_to_internal_server_error!(
                     build_response_message(prover_service, signed_entity, sanitized_hashes).await,
-                    "proof_cardano_transaction"
+                    logger => "proof_cardano_transaction"
                 );
                 Ok(reply::json(&message, StatusCode::OK))
             }
             None => {
-                warn!("proof_cardano_transaction::not_found");
+                warn!(logger, "proof_cardano_transaction::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
         }
@@ -134,6 +130,7 @@ mod handlers {
 mod tests {
     use anyhow::anyhow;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use std::vec;
     use warp::{
         http::{Method, StatusCode},
@@ -165,7 +162,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]
@@ -201,7 +198,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_ok() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
@@ -243,7 +240,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_not_found() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
 
         let method = Method::GET.as_str();
@@ -274,7 +271,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_ko() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
@@ -310,7 +307,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_return_bad_request_with_invalid_hashes() {
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
 
         let method = Method::GET.as_str();
@@ -340,7 +337,7 @@ mod tests {
     async fn proof_cardano_transaction_route_deduplicate_hashes() {
         let tx = fake_data::transaction_hashes()[0].to_string();
         let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new(config);
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
         let mut dependency_manager = builder.build_dependency_container().await.unwrap();
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service

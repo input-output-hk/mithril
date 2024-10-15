@@ -6,11 +6,18 @@ use slog::Logger;
 pub trait LoggerExtensions {
     /// Create a new child logger with a `src` key containing the component name.
     fn new_with_component_name<T>(&self) -> Self;
+
+    /// Create a new child logger with a `src` key containing the provided name.
+    fn new_with_name(&self, name: &str) -> Self;
 }
 
 impl LoggerExtensions for Logger {
     fn new_with_component_name<T>(&self) -> Self {
-        self.new(slog::o!("src" => component_name::<T>()))
+        self.new_with_name(component_name::<T>())
+    }
+
+    fn new_with_name(&self, name: &str) -> Self {
+        self.new(slog::o!("src" => name.to_owned()))
     }
 }
 
@@ -26,10 +33,8 @@ mod tests {
     use slog::info;
 
     struct TestStruct;
-    #[allow(
-        dead_code,
-        reason = "A field is needed to add the lifetime but is unused"
-    )]
+    // The `allow(dead_code)` is used because a field is needed to add the lifetime but is unused.
+    #[allow(dead_code)]
     struct TestStructWithLifetime<'a>(&'a str);
     enum TestEnum {}
 
@@ -78,6 +83,24 @@ mod tests {
         assert!(
             logs.contains("src") && logs.contains("TestStruct"),
             "log should contain `src` key for `TestStruct` as component name was provided, logs:\n{logs}"
+        );
+    }
+
+    #[test]
+    fn logger_extension_new_with_name() {
+        let expected_name = "my name";
+        let log_path =
+            TempDir::create("common_logging", "logger_extension_new_with_name").join("test.log");
+        {
+            let root_logger = TestLogger::file(&log_path);
+            let child_logger = root_logger.new_with_name(expected_name);
+            info!(child_logger, "Child log");
+        }
+
+        let logs = std::fs::read_to_string(&log_path).unwrap();
+        assert!(
+            logs.contains("src") && logs.contains(expected_name),
+            "log should contain `src` key for `{expected_name}` as a name was provided, logs:\n{logs}"
         );
     }
 }

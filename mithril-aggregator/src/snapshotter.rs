@@ -1,8 +1,7 @@
 use anyhow::{anyhow, Context};
 use flate2::Compression;
 use flate2::{read::GzDecoder, write::GzEncoder};
-use mithril_common::StdResult;
-use slog_scope::{info, warn};
+use slog::{info, warn, Logger};
 use std::fs::{self, File};
 use std::io::{self, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -10,6 +9,9 @@ use std::sync::RwLock;
 use tar::{Archive, Entry, EntryType};
 use thiserror::Error;
 use zstd::{Decoder, Encoder};
+
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
 
 use crate::dependency_injection::DependenciesBuilderError;
 use crate::ZstandardCompressionParameters;
@@ -45,6 +47,8 @@ pub struct CompressedArchiveSnapshotter {
 
     /// Compression algorithm used for the archive
     compression_algorithm: SnapshotterCompressionAlgorithm,
+
+    logger: Logger,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -97,7 +101,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         let filesize = self.create_and_verify_archive(&archive_path).inspect_err(|_err| {
             if archive_path.exists() {
                 if let Err(remove_error) = fs::remove_file(&archive_path) {
-                    warn!(
+                    warn!(self.logger,
                         " > Post snapshotter.snapshot failure, could not remove temporary archive at path: path:{}, err: {}",
                         archive_path.display(),
                         remove_error
@@ -119,6 +123,7 @@ impl CompressedArchiveSnapshotter {
         db_directory: PathBuf,
         ongoing_snapshot_directory: PathBuf,
         compression_algorithm: SnapshotterCompressionAlgorithm,
+        logger: Logger,
     ) -> StdResult<CompressedArchiveSnapshotter> {
         if ongoing_snapshot_directory.exists() {
             fs::remove_dir_all(&ongoing_snapshot_directory).with_context(|| {
@@ -143,6 +148,7 @@ impl CompressedArchiveSnapshotter {
             db_directory,
             ongoing_snapshot_directory,
             compression_algorithm,
+            logger: logger.new_with_component_name::<Self>(),
         })
     }
 
@@ -155,6 +161,7 @@ impl CompressedArchiveSnapshotter {
 
     fn create_archive(&self, archive_path: &Path) -> StdResult<u64> {
         info!(
+            self.logger,
             "compressing {} into {}",
             self.db_directory.display(),
             archive_path.display()
@@ -240,7 +247,7 @@ impl CompressedArchiveSnapshotter {
 
     // Verify if an archive is corrupted (i.e. at least one entry is invalid)
     fn verify_archive(&self, archive_path: &Path) -> StdResult<()> {
-        info!("verifying archive: {}", archive_path.display());
+        info!(self.logger, "verifying archive: {}", archive_path.display());
 
         let mut snapshot_file_tar = File::open(archive_path)
             .map_err(|e| SnapshotError::InvalidArchiveError(e.to_string()))?;
@@ -391,6 +398,8 @@ mod tests {
     use mithril_common::digesters::DummyImmutablesDbBuilder;
     use mithril_common::test_utils::TempDir;
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     fn get_test_directory(dir_name: &str) -> PathBuf {
@@ -427,6 +436,7 @@ mod tests {
                 db_directory,
                 pending_snapshot_directory.clone(),
                 SnapshotterCompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
             )
             .unwrap(),
         );
@@ -450,6 +460,7 @@ mod tests {
                 db_directory,
                 pending_snapshot_directory.clone(),
                 SnapshotterCompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
             )
             .unwrap(),
         );
@@ -470,6 +481,7 @@ mod tests {
                 db_directory,
                 pending_snapshot_directory.clone(),
                 SnapshotterCompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
             )
             .unwrap(),
         );
@@ -505,6 +517,7 @@ mod tests {
                 db_directory,
                 pending_snapshot_directory.clone(),
                 SnapshotterCompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
             )
             .unwrap(),
         );
@@ -543,6 +556,7 @@ mod tests {
                 db_directory,
                 pending_snapshot_directory.clone(),
                 ZstandardCompressionParameters::default().into(),
+                TestLogger::stdout(),
             )
             .unwrap(),
         );

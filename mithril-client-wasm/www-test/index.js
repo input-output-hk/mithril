@@ -101,6 +101,7 @@ test_number++;
 await run_test("compute_mithril_stake_distribution_message", test_number, async () => {
   mithril_stake_distribution_message = await client.compute_mithril_stake_distribution_message(
     mithril_stake_distribution,
+    last_certificate_from_chain,
   );
   console.log("mithril_stake_distribution_message", mithril_stake_distribution_message);
 });

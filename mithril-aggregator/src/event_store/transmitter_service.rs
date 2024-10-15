@@ -1,8 +1,9 @@
-use std::fmt::Debug;
-
 use serde::Serialize;
-use slog_scope::warn;
+use slog::{warn, Logger};
+use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
+
+use mithril_common::logging::LoggerExtensions;
 
 use super::EventMessage;
 
@@ -13,6 +14,7 @@ where
     MSG: Debug + Sync + Send,
 {
     transmitter: UnboundedSender<MSG>,
+    logger: Logger,
 }
 
 impl<MSG> TransmitterService<MSG>
@@ -20,8 +22,11 @@ where
     MSG: Debug + Sync + Send,
 {
     /// Instantiate a new Service by passing a MPSC transmitter.
-    pub fn new(transmitter: UnboundedSender<MSG>) -> Self {
-        Self { transmitter }
+    pub fn new(transmitter: UnboundedSender<MSG>, logger: Logger) -> Self {
+        Self {
+            transmitter,
+            logger: logger.new_with_component_name::<Self>(),
+        }
     }
 
     /// Clone the internal transmitter and return it.
@@ -47,7 +52,7 @@ impl TransmitterService<EventMessage> {
     {
         let content = serde_json::to_string(content).map_err(|e| {
             let error_msg = format!("Serialization error while forging event message: {e}");
-            warn!("Event message error => «{error_msg}»");
+            warn!(self.logger, "Event message error => «{error_msg}»");
 
             error_msg
         })?;
@@ -63,7 +68,7 @@ impl TransmitterService<EventMessage> {
         self.get_transmitter().send(message.clone()).map_err(|e| {
             let error_msg =
                 format!("An error occurred when sending message {message:?} to monitoring: '{e}'.");
-            warn!("Event message error => «{error_msg}»");
+            warn!(self.logger, "Event message error => «{error_msg}»");
 
             error_msg
         })

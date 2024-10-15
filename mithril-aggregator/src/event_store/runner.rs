@@ -1,22 +1,26 @@
 use anyhow::Context;
-use slog_scope::{debug, info};
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
+use slog::{debug, info, Logger};
 use sqlite::Connection;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::mpsc::UnboundedReceiver;
-
-use mithril_common::StdResult;
 
 use super::{EventMessage, EventPersister};
 
 /// EventMessage receiver service.
 pub struct EventStore {
     receiver: UnboundedReceiver<EventMessage>,
+    logger: Logger,
 }
 
 impl EventStore {
     /// Instantiate the EventMessage receiver service.
-    pub fn new(receiver: UnboundedReceiver<EventMessage>) -> Self {
-        Self { receiver }
+    pub fn new(receiver: UnboundedReceiver<EventMessage>, logger: Logger) -> Self {
+        Self {
+            receiver,
+            logger: logger.new_with_component_name::<Self>(),
+        }
     }
 
     /// Launch the service. It runs until all the transmitters are gone and all
@@ -31,16 +35,19 @@ impl EventStore {
             Arc::new(connection)
         };
         let persister = EventPersister::new(connection);
-        info!("monitoring: starting event loop to log messages.");
+        info!(
+            self.logger,
+            "monitoring: starting event loop to log messages."
+        );
         loop {
             if let Some(message) = self.receiver.recv().await {
-                debug!("Event received: {message:?}");
+                debug!(self.logger, "Event received: {message:?}");
                 let event = persister
                     .persist(message)
                     .with_context(|| "event persist failure")?;
-                debug!("event ID={} created", event.event_id);
+                debug!(self.logger, "event ID={} created", event.event_id);
             } else {
-                info!("No more events to proceed, quitting…");
+                info!(self.logger, "No more events to proceed, quitting…");
                 break;
             }
         }

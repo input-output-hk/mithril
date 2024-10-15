@@ -5,7 +5,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::Utc;
-use slog_scope::info;
+use slog::{info, Logger};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
@@ -15,6 +15,7 @@ use mithril_common::{
         Certificate, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType,
         SignedEntityTypeDiscriminants, Snapshot,
     },
+    logging::LoggerExtensions,
     signable_builder::Artifact,
     signed_entity_type_lock::SignedEntityTypeLock,
     StdResult,
@@ -25,11 +26,8 @@ use crate::{
     database::{record::SignedEntityRecord, repository::SignedEntityStorer},
 };
 
-#[cfg(test)]
-use mockall::automock;
-
 /// ArtifactBuilder Service trait
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignedEntityService: Send + Sync {
     /// Create artifact for a signed entity type and a certificate
@@ -90,6 +88,7 @@ pub struct MithrilSignedEntityService {
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
+    logger: Logger,
 }
 
 impl MithrilSignedEntityService {
@@ -109,6 +108,7 @@ impl MithrilSignedEntityService {
         cardano_stake_distribution_artifact_builder: Arc<
             dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>,
         >,
+        logger: Logger,
     ) -> Self {
         Self {
             signed_entity_storer,
@@ -117,6 +117,7 @@ impl MithrilSignedEntityService {
             cardano_transactions_artifact_builder,
             signed_entity_type_lock,
             cardano_stake_distribution_artifact_builder,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -126,7 +127,7 @@ impl MithrilSignedEntityService {
         certificate: &Certificate,
     ) -> StdResult<()> {
         info!(
-            "MithrilSignedEntityService::create_artifact";
+            self.logger, "MithrilSignedEntityService::create_artifact";
             "signed_entity_type" => ?signed_entity_type,
             "certificate_hash" => &certificate.hash
         );
@@ -400,6 +401,7 @@ mod tests {
 
     use crate::artifact_builder::MockArtifactBuilder;
     use crate::database::repository::MockSignedEntityStorer;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -473,6 +475,7 @@ mod tests {
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
                 Arc::new(SignedEntityTypeLock::default()),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
+                TestLogger::stdout(),
             )
         }
 
@@ -524,6 +527,7 @@ mod tests {
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
                 Arc::new(SignedEntityTypeLock::default()),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
+                TestLogger::stdout(),
             )
         }
 

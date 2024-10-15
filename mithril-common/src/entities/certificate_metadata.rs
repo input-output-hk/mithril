@@ -46,7 +46,7 @@ impl StakeDistributionParty {
 
 era_deprecate!("Remove immutable file number as it's here only for message backward-compatibility");
 /// CertificateMetadata represents the metadata associated to a Certificate
-#[derive(Clone, Debug, PartialEq, Default)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CertificateMetadata {
     /// Cardano network
     pub network: String,

@@ -1,17 +1,18 @@
 use anyhow::Context;
 use mithril_common::{
-    entities::EpochSettings,
     messages::{EpochSettingsMessage, SignerMessagePart, TryFromMessageAdapter},
     StdResult,
 };
 
-/// Adapter to convert [EpochSettingsMessage] to [EpochSettings].
+use crate::entities::SignerEpochSettings;
+
+/// Adapter to convert [EpochSettingsMessage] to [SignerEpochSettings].
 pub struct FromEpochSettingsAdapter;
 
-impl TryFromMessageAdapter<EpochSettingsMessage, EpochSettings> for FromEpochSettingsAdapter {
+impl TryFromMessageAdapter<EpochSettingsMessage, SignerEpochSettings> for FromEpochSettingsAdapter {
     /// Method to convert.
-    fn try_adapt(message: EpochSettingsMessage) -> StdResult<EpochSettings> {
-        let epoch_settings = EpochSettings {
+    fn try_adapt(message: EpochSettingsMessage) -> StdResult<SignerEpochSettings> {
+        let epoch_settings = SignerEpochSettings {
             epoch: message.epoch,
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,

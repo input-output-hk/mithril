@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{
     body::Body,
     extract::State,
@@ -8,9 +6,12 @@ use axum::{
     routing::get,
     Router,
 };
-use mithril_common::StdResult;
-use slog_scope::{error, info, warn};
+use slog::{error, info, warn, Logger};
+use std::sync::Arc;
 use tokio::sync::oneshot::Receiver;
+
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
 
 use crate::MetricsService;
 
@@ -26,8 +27,6 @@ impl IntoResponse for MetricsServerError {
     fn into_response(self) -> Response<Body> {
         match self {
             Self::Internal(e) => {
-                error!("{}", e);
-
                 (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {:?}", e)).into_response()
             }
         }
@@ -39,15 +38,27 @@ pub struct MetricsServer {
     server_port: u16,
     server_ip: String,
     metrics_service: Arc<MetricsService>,
+    logger: Logger,
+}
+
+struct RouterState {
+    metrics_service: Arc<MetricsService>,
+    logger: Logger,
 }
 
 impl MetricsServer {
     /// Create a new MetricsServer instance.
-    pub fn new(server_ip: &str, server_port: u16, metrics_service: Arc<MetricsService>) -> Self {
+    pub fn new(
+        server_ip: &str,
+        server_port: u16,
+        metrics_service: Arc<MetricsService>,
+        logger: Logger,
+    ) -> Self {
         Self {
             server_port,
             server_ip: server_ip.to_string(),
             metrics_service,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -56,27 +67,40 @@ impl MetricsServer {
         format!("http://{}:{}", self.server_ip, self.server_port)
     }
 
-    /// Serve the metrics on a HTTP server.
+    /// Serve the metrics on an HTTP server.
     pub async fn start(&self, shutdown_rx: Receiver<()>) -> StdResult<()> {
         info!(
-            "MetricsServer: starting HTTP server for metrics on port {}",
-            self.server_port
+            self.logger,
+            "starting HTTP server for metrics on port {}", self.server_port
         );
+
+        let router_state = Arc::new(RouterState {
+            metrics_service: self.metrics_service.clone(),
+            logger: self.logger.clone(),
+        });
         let app = Router::new()
             .route(
                 "/metrics",
-                get(|State(state): State<Arc<MetricsService>>| async move {
-                    state.export_metrics().map_err(MetricsServerError::Internal)
+                get(|State(state): State<Arc<RouterState>>| async move {
+                    state.metrics_service.export_metrics().map_err(|e| {
+                        error!(state.logger, "error exporting metrics"; "error" => ?e);
+                        MetricsServerError::Internal(e)
+                    })
                 }),
             )
-            .with_state(self.metrics_service.clone());
+            .with_state(router_state);
         let listener =
             tokio::net::TcpListener::bind(format!("{}:{}", self.server_ip, self.server_port))
                 .await?;
+
+        let serve_logger = self.logger.clone();
         axum::serve(listener, app)
-            .with_graceful_shutdown(async {
+            .with_graceful_shutdown(async move {
                 shutdown_rx.await.ok();
-                warn!("MetricsServer: shutting down HTTP server after receiving signal");
+                warn!(
+                    serve_logger,
+                    "shutting down HTTP server after receiving signal"
+                );
             })
             .await?;
 
@@ -91,13 +115,21 @@ mod tests {
     use std::time::Duration;
     use tokio::{sync::oneshot, task::yield_now, time::sleep};
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     #[tokio::test]
     async fn test_metrics_server() {
+        let logger = TestLogger::stdout();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
-        let metrics_service = Arc::new(MetricsService::new().unwrap());
-        let metrics_server = Arc::new(MetricsServer::new("0.0.0.0", 9090, metrics_service.clone()));
+        let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
+        let metrics_server = Arc::new(MetricsServer::new(
+            "0.0.0.0",
+            9090,
+            metrics_service.clone(),
+            logger,
+        ));
         let metrics_server_endpoint = metrics_server.endpoint();
 
         let exported_metrics_test = tokio::spawn(async move {

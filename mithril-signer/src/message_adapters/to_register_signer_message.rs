@@ -14,7 +14,7 @@ impl TryToMessageAdapter<(Epoch, Signer), RegisterSignerMessage>
     /// Method to trigger the conversion.
     fn try_adapt((epoch, signer): (Epoch, Signer)) -> StdResult<RegisterSignerMessage> {
         let message = RegisterSignerMessage {
-            epoch: Some(epoch),
+            epoch,
             party_id: signer.party_id,
             verification_key: signer.verification_key.try_into().with_context(|| {
                 format!(

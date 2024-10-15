@@ -16,9 +16,7 @@ use std::sync::Arc;
 use crate::common::{ProtocolMessage, ProtocolMessagePartKey};
 #[cfg(feature = "unstable")]
 use crate::CardanoStakeDistribution;
-#[cfg(any(feature = "fs", feature = "unstable"))]
 use crate::MithrilCertificate;
-#[cfg(feature = "unstable")]
 use crate::VerifiedCardanoTransactions;
 use crate::{MithrilResult, MithrilSigner, MithrilStakeDistribution};
 
@@ -106,6 +104,7 @@ impl MessageBuilder {
     /// Compute message for a Mithril stake distribution.
     pub fn compute_mithril_stake_distribution_message(
         &self,
+        certificate: &MithrilCertificate,
         mithril_stake_distribution: &MithrilStakeDistribution,
     ) -> MithrilResult<ProtocolMessage> {
         let signers =
@@ -125,24 +124,24 @@ impl MessageBuilder {
                 "Could not compute message: aggregate verification key encoding failed"
             })?;
 
-        let mut message = ProtocolMessage::new();
+        let mut message = certificate.protocol_message.clone();
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         Ok(message)
     }
 
-    cfg_unstable! {
-        /// Compute message for a Cardano Transactions Proofs.
-        pub fn compute_cardano_transactions_proofs_message(
-            &self,
-            transactions_proofs_certificate: &MithrilCertificate,
-            verified_transactions: &VerifiedCardanoTransactions,
-        ) -> ProtocolMessage {
-            let mut message = transactions_proofs_certificate.protocol_message.clone();
-            verified_transactions.fill_protocol_message(&mut message);
-            message
-        }
+    /// Compute message for a Cardano Transactions Proofs.
+    pub fn compute_cardano_transactions_proofs_message(
+        &self,
+        transactions_proofs_certificate: &MithrilCertificate,
+        verified_transactions: &VerifiedCardanoTransactions,
+    ) -> ProtocolMessage {
+        let mut message = transactions_proofs_certificate.protocol_message.clone();
+        verified_transactions.fill_protocol_message(&mut message);
+        message
+    }
 
+    cfg_unstable! {
         /// Compute message for a Cardano stake distribution.
         pub fn compute_cardano_stake_distribution_message(
             &self,

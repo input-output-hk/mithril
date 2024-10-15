@@ -179,7 +179,8 @@ pub fn setup_certificate_chain(
     let genesis_verifier = genesis_signer.create_genesis_verifier();
     let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
     let protocol_parameters = setup_protocol_parameters();
-    let mut epochs = (1..total_certificates + 2)
+    let genesis_epoch = Epoch(1);
+    let mut epochs = (genesis_epoch.0..total_certificates + 2)
         .map(|i| match certificates_per_epoch {
             0 => panic!("expected at least 1 certificate per epoch"),
             1 => Epoch(i),
@@ -219,6 +220,7 @@ pub fn setup_certificate_chain(
             let next_fixture = fixture_per_epoch.get(&(epoch + 1)).unwrap();
             let avk = avk_for_signers(&fixture.signers_fixture());
             let next_avk = avk_for_signers(&next_fixture.signers_fixture());
+            let next_protocol_parameters = &next_fixture.protocol_parameters();
             let mut fake_certificate = {
                 let mut base_certificate = fake_data::certificate(certificate_hash);
                 base_certificate
@@ -228,7 +230,6 @@ pub fn setup_certificate_chain(
                     ProtocolMessagePartKey::NextAggregateVerificationKey,
                     next_avk.to_json_hex().unwrap(),
                 );
-
                 Certificate {
                     epoch,
                     aggregate_verification_key: avk,
@@ -247,8 +248,12 @@ pub fn setup_certificate_chain(
             match i {
                 0 => {
                     let genesis_protocol_message =
-                        CertificateGenesisProducer::create_genesis_protocol_message(&next_avk)
-                            .unwrap();
+                        CertificateGenesisProducer::create_genesis_protocol_message(
+                            next_protocol_parameters,
+                            &next_avk,
+                            &genesis_epoch,
+                        )
+                        .unwrap();
                     let genesis_signature = genesis_producer
                         .sign_genesis_protocol_message(genesis_protocol_message)
                         .unwrap();

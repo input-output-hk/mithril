@@ -1,7 +1,7 @@
 use anyhow::Context;
 use semver::Version;
-use slog::Logger;
-use std::sync::Arc;
+use slog::{debug, Logger};
+use std::{collections::BTreeSet, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -29,10 +29,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{
-        CertificatePending, CompressionAlgorithm, Epoch, SignedEntityConfig,
-        SignedEntityTypeDiscriminants,
-    },
+    entities::{CertificatePending, CompressionAlgorithm, Epoch, SignedEntityTypeDiscriminants},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -40,7 +37,8 @@ use mithril_common::{
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
         CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder, SignableBuilderService, TransactionsImporter,
+        MithrilStakeDistributionSignableBuilder, SignableBuilderService, SignableSeedBuilder,
+        TransactionsImporter,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, TickerService,
@@ -59,24 +57,25 @@ use crate::{
     },
     configuration::ExecutionEnvironment,
     database::repository::{
-        BufferedSingleSignatureRepository, CertificateRepository, EpochSettingStore,
+        BufferedSingleSignatureRepository, CertificateRepository, EpochSettingsStore,
         OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
         SignerStore, SingleSignatureRepository, StakePoolStore,
     },
+    entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     services::{
-        AggregatorUpkeepService, BufferedCertifierService, CardanoTransactionsImporter,
-        CertifierService, MessageService, MithrilCertifierService, MithrilEpochService,
-        MithrilMessageService, MithrilProverService, MithrilSignedEntityService,
-        MithrilStakeDistributionService, ProverService, SignedEntityService,
-        StakeDistributionService, UpkeepService,
+        AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
+        CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
+        MithrilEpochService, MithrilMessageService, MithrilProverService,
+        MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
+        SignedEntityService, StakeDistributionService, UpkeepService,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
-    DumbSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    ProtocolParametersStorer, RemoteSnapshotUploader, SingleSignatureAuthenticator,
+    DumbSnapshotter, EpochSettingsStorer, LocalSnapshotUploader, MithrilSignerRegisterer,
+    MultiSigner, MultiSignerImpl, RemoteSnapshotUploader, SingleSignatureAuthenticator,
     SnapshotUploader, SnapshotUploaderType, Snapshotter, SnapshotterCompressionAlgorithm,
     VerificationKeyStorer,
 };
@@ -99,8 +98,8 @@ pub struct DependenciesBuilder {
     /// Configuration parameters
     pub configuration: Configuration,
 
-    /// Signed entity configuration
-    pub signed_entity_config: Option<SignedEntityConfig>,
+    /// Application root logger
+    pub root_logger: Logger,
 
     /// SQLite database connection
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
@@ -130,8 +129,8 @@ pub struct DependenciesBuilder {
     /// Verification key store.
     pub verification_key_store: Option<Arc<dyn VerificationKeyStorer>>,
 
-    /// Protocol parameter store.
-    pub protocol_parameters_store: Option<Arc<dyn ProtocolParametersStorer>>,
+    /// Epoch settings storer.
+    pub epoch_settings_storer: Option<Arc<dyn EpochSettingsStorer>>,
 
     /// Cardano CLI Runner for the [ChainObserver]
     pub cardano_cli_runner: Option<Box<CardanoCliRunner>>,
@@ -202,6 +201,9 @@ pub struct DependenciesBuilder {
     /// Signer Store
     pub signer_store: Option<Arc<SignerStore>>,
 
+    /// Signable Seed Builder
+    pub signable_seed_builder: Option<Arc<dyn SignableSeedBuilder>>,
+
     /// Signable Builder Service
     pub signable_builder_service: Option<Arc<dyn SignableBuilderService>>,
 
@@ -238,10 +240,10 @@ pub struct DependenciesBuilder {
 
 impl DependenciesBuilder {
     /// Create a new clean dependency builder
-    pub fn new(configuration: Configuration) -> Self {
+    pub fn new(root_logger: Logger, configuration: Configuration) -> Self {
         Self {
             configuration,
-            signed_entity_config: None,
+            root_logger,
             sqlite_connection: None,
             sqlite_connection_cardano_transaction_pool: None,
             stake_store: None,
@@ -251,7 +253,7 @@ impl DependenciesBuilder {
             certificate_repository: None,
             open_message_repository: None,
             verification_key_store: None,
-            protocol_parameters_store: None,
+            epoch_settings_storer: None,
             cardano_cli_runner: None,
             chain_observer: None,
             chain_block_reader: None,
@@ -274,6 +276,7 @@ impl DependenciesBuilder {
             stake_distribution_service: None,
             ticker_service: None,
             signer_store: None,
+            signable_seed_builder: None,
             signable_builder_service: None,
             signed_entity_service: None,
             certifier_service: None,
@@ -288,13 +291,15 @@ impl DependenciesBuilder {
         }
     }
 
-    /// Get the signed entity configuration
-    pub fn get_signed_entity_config(&mut self) -> Result<SignedEntityConfig> {
-        if self.signed_entity_config.is_none() {
-            self.signed_entity_config = Some(self.configuration.compute_signed_entity_config()?);
-        }
+    /// Get the allowed signed entity types discriminants
+    fn get_allowed_signed_entity_types_discriminants(
+        &self,
+    ) -> Result<BTreeSet<SignedEntityTypeDiscriminants>> {
+        let allowed_discriminants = self
+            .configuration
+            .compute_allowed_signed_entity_types_discriminants()?;
 
-        Ok(self.signed_entity_config.clone().unwrap())
+        Ok(allowed_discriminants)
     }
 
     fn build_sqlite_connection(
@@ -302,7 +307,7 @@ impl DependenciesBuilder {
         sqlite_file_name: &str,
         migrations: Vec<SqlMigration>,
     ) -> Result<SqliteConnection> {
-        let logger = self.get_logger()?;
+        let logger = self.root_logger();
         let connection_builder = match self.configuration.environment {
             ExecutionEnvironment::Test
                 if self.configuration.data_stores_directory.to_string_lossy() == ":memory:" =>
@@ -416,6 +421,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
+        let logger = self.root_logger();
         if self.configuration.environment == ExecutionEnvironment::Production {
             match self.configuration.snapshot_uploader_type {
                 SnapshotUploaderType::Gcp => {
@@ -430,14 +436,16 @@ impl DependenciesBuilder {
                         })?;
 
                     Ok(Arc::new(RemoteSnapshotUploader::new(
-                        Box::new(GcpFileUploader::new(bucket.clone())),
+                        Box::new(GcpFileUploader::new(bucket.clone(), logger.clone())),
                         bucket,
                         self.configuration.snapshot_use_cdn_domain,
+                        logger,
                     )))
                 }
                 SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
                     self.configuration.get_server_url(),
                     &self.configuration.snapshot_directory,
+                    logger,
                 ))),
             }
         } else {
@@ -455,7 +463,8 @@ impl DependenciesBuilder {
     }
 
     async fn build_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
-        let multi_signer = MultiSignerImpl::new(self.get_epoch_service().await?);
+        let multi_signer =
+            MultiSignerImpl::new(self.get_epoch_service().await?, self.root_logger());
 
         Ok(Arc::new(multi_signer))
     }
@@ -554,10 +563,9 @@ impl DependenciesBuilder {
         Ok(self.verification_key_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_protocol_parameters_store(
-        &mut self,
-    ) -> Result<Arc<dyn ProtocolParametersStorer>> {
-        let protocol_parameters_store = EpochSettingStore::new(
+    async fn build_epoch_settings_storer(&mut self) -> Result<Arc<dyn EpochSettingsStorer>> {
+        let logger = self.root_logger();
+        let epoch_settings_store = EpochSettingsStore::new(
             self.get_sqlite_connection().await?,
             self.configuration.safe_epoch_retention_limit(),
         );
@@ -576,26 +584,41 @@ impl DependenciesBuilder {
                 error: None,
             })?;
 
-        protocol_parameters_store
-            .handle_discrepancies_at_startup(current_epoch, &self.configuration.protocol_parameters)
+        {
+            // Temporary fix, should be removed
+            // Replace empty JSON values '{}' injected with Migration #28
+            let cardano_signing_config = self
+                .configuration
+                .cardano_transactions_signing_config
+                .clone();
+            #[allow(deprecated)]
+            epoch_settings_store
+                .replace_cardano_signing_config_empty_values(cardano_signing_config)?;
+        }
+
+        let epoch_settings_configuration = self.get_epoch_settings_configuration()?;
+        debug!(
+            logger,
+            "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {current_epoch}: {epoch_settings_configuration:?}"
+        );
+        epoch_settings_store
+            .handle_discrepancies_at_startup(current_epoch, &epoch_settings_configuration)
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "can not create aggregator runner".to_string(),
                 error: Some(e),
             })?;
 
-        Ok(Arc::new(protocol_parameters_store))
+        Ok(Arc::new(epoch_settings_store))
     }
 
-    /// Get a configured [ProtocolParametersStorer].
-    pub async fn get_protocol_parameters_store(
-        &mut self,
-    ) -> Result<Arc<dyn ProtocolParametersStorer>> {
-        if self.protocol_parameters_store.is_none() {
-            self.protocol_parameters_store = Some(self.build_protocol_parameters_store().await?);
+    /// Get a configured [EpochSettingsStorer].
+    pub async fn get_epoch_settings_storer(&mut self) -> Result<Arc<dyn EpochSettingsStorer>> {
+        if self.epoch_settings_storer.is_none() {
+            self.epoch_settings_storer = Some(self.build_epoch_settings_storer().await?);
         }
 
-        Ok(self.protocol_parameters_store.as_ref().cloned().unwrap())
+        Ok(self.epoch_settings_storer.as_ref().cloned().unwrap())
     }
 
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
@@ -683,7 +706,7 @@ impl DependenciesBuilder {
             &self.configuration.data_stores_directory,
             &format!("immutables_digests_{}.json", self.configuration.network),
         )
-        .with_logger(self.get_logger()?)
+        .with_logger(self.root_logger())
         .should_reset_digests_cache(self.configuration.reset_digests_cache)
         .build()
         .await?;
@@ -702,14 +725,9 @@ impl DependenciesBuilder {
         Ok(self.immutable_cache_provider.as_ref().cloned().unwrap())
     }
 
-    fn create_logger(&self) -> Result<Logger> {
-        Ok(slog_scope::logger())
-    }
-
-    /// This method does not cache the logger since it is managed internally by
-    /// its own crate.
-    pub fn get_logger(&self) -> Result<Logger> {
-        self.create_logger()
+    /// Return a copy of the root logger.
+    pub fn root_logger(&self) -> Logger {
+        self.root_logger.clone()
     }
 
     async fn build_transaction_repository(&mut self) -> Result<Arc<CardanoTransactionRepository>> {
@@ -736,7 +754,7 @@ impl DependenciesBuilder {
         let chain_block_reader = PallasChainReader::new(
             &self.configuration.cardano_node_socket_path,
             self.configuration.get_network()?,
-            self.get_logger()?,
+            self.root_logger(),
         );
 
         Ok(Arc::new(Mutex::new(chain_block_reader)))
@@ -756,7 +774,7 @@ impl DependenciesBuilder {
             self.get_chain_block_reader().await?,
             self.configuration
                 .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
-            self.get_logger()?,
+            self.root_logger(),
         );
 
         Ok(Arc::new(block_scanner))
@@ -776,7 +794,7 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
             _ => None,
         };
-        let digester = CardanoImmutableDigester::new(immutable_digester_cache, self.get_logger()?);
+        let digester = CardanoImmutableDigester::new(immutable_digester_cache, self.root_logger());
 
         Ok(Arc::new(digester))
     }
@@ -811,6 +829,7 @@ impl DependenciesBuilder {
                     self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
                     algorithm,
+                    self.root_logger(),
                 )?)
             }
             _ => Arc::new(DumbSnapshotter::new()),
@@ -830,7 +849,7 @@ impl DependenciesBuilder {
 
     async fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
         let verifier = Arc::new(MithrilCertificateVerifier::new(
-            self.get_logger()?,
+            self.root_logger(),
             self.get_certificate_repository().await?,
         ));
 
@@ -1013,7 +1032,7 @@ impl DependenciesBuilder {
 
     async fn build_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
         let sender = self.get_event_transmitter_sender().await?;
-        let event_transmitter = Arc::new(TransmitterService::new(sender));
+        let event_transmitter = Arc::new(TransmitterService::new(sender, self.root_logger()));
 
         Ok(event_transmitter)
     }
@@ -1083,12 +1102,13 @@ impl DependenciesBuilder {
     }
 
     async fn build_signable_builder_service(&mut self) -> Result<Arc<dyn SignableBuilderService>> {
+        let seed_signable_builder = self.get_signable_seed_builder().await?;
         let mithril_stake_distribution_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
         let immutable_signable_builder = Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
             self.get_immutable_digester().await?,
             &self.configuration.db_directory,
-            self.get_logger()?,
+            self.root_logger(),
         ));
         let transactions_importer = self.get_transactions_importer().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
@@ -1097,12 +1117,15 @@ impl DependenciesBuilder {
         >::new(
             transactions_importer,
             block_range_root_retriever,
-            self.get_logger()?,
+            self.root_logger(),
         ));
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
         );
+        let era_checker = self.get_era_checker().await?;
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker,
+            seed_signable_builder,
             mithril_stake_distribution_builder,
             immutable_signable_builder,
             cardano_transactions_builder,
@@ -1123,11 +1146,30 @@ impl DependenciesBuilder {
         Ok(self.signable_builder_service.as_ref().cloned().unwrap())
     }
 
+    async fn build_signable_seed_builder(&mut self) -> Result<Arc<dyn SignableSeedBuilder>> {
+        let signable_seed_builder_service = Arc::new(AggregatorSignableSeedBuilder::new(
+            self.get_epoch_service().await?,
+        ));
+
+        Ok(signable_seed_builder_service)
+    }
+
+    /// [SignableSeedBuilder] service
+    pub async fn get_signable_seed_builder(&mut self) -> Result<Arc<dyn SignableSeedBuilder>> {
+        if self.signable_seed_builder.is_none() {
+            self.signable_seed_builder = Some(self.build_signable_seed_builder().await?);
+        }
+
+        Ok(self.signable_seed_builder.as_ref().cloned().unwrap())
+    }
+
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
+        let logger = self.root_logger();
         let signed_entity_storer = self.build_signed_entity_storer().await?;
         let epoch_service = self.get_epoch_service().await?;
-        let mithril_stake_distribution_artifact_builder =
-            Arc::new(MithrilStakeDistributionArtifactBuilder::new(epoch_service));
+        let mithril_stake_distribution_artifact_builder = Arc::new(
+            MithrilStakeDistributionArtifactBuilder::new(epoch_service.clone()),
+        );
         let snapshotter = self.build_snapshotter().await?;
         let snapshot_uploader = self.build_snapshot_uploader().await?;
         let cardano_node_version = Version::parse(&self.configuration.cardano_node_version)
@@ -1138,6 +1180,7 @@ impl DependenciesBuilder {
                 snapshotter,
                 snapshot_uploader,
                 self.configuration.snapshot_compression_algorithm,
+                logger.clone(),
             ));
         let prover_service = self.get_prover_service().await?;
         let cardano_transactions_artifact_builder = Arc::new(
@@ -1153,6 +1196,7 @@ impl DependenciesBuilder {
             cardano_transactions_artifact_builder,
             self.get_signed_entity_lock().await?,
             cardano_stake_distribution_artifact_builder,
+            logger,
         ));
 
         // Compute the cache pool for prover service
@@ -1181,12 +1225,18 @@ impl DependenciesBuilder {
 
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
         let verification_key_store = self.get_verification_key_store().await?;
-        let protocol_parameters_store = self.get_protocol_parameters_store().await?;
+        let epoch_settings_storer = self.get_epoch_settings_storer().await?;
+        let epoch_settings = self.get_epoch_settings_configuration()?;
+        let network = self.configuration.get_network()?;
+        let allowed_discriminants = self.get_allowed_signed_entity_types_discriminants()?;
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
-            self.configuration.protocol_parameters.clone(),
-            protocol_parameters_store,
+            epoch_settings,
+            epoch_settings_storer,
             verification_key_store,
+            network,
+            allowed_discriminants,
+            self.root_logger(),
         )));
 
         Ok(epoch_service)
@@ -1234,7 +1284,7 @@ impl DependenciesBuilder {
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             self.get_block_scanner().await?,
             self.get_transaction_repository().await?,
-            self.get_logger()?,
+            self.root_logger(),
         ));
 
         Ok(transactions_importer)
@@ -1254,7 +1304,7 @@ impl DependenciesBuilder {
             self.get_sqlite_connection_cardano_transaction_pool()
                 .await?,
             self.get_signed_entity_lock().await?,
-            self.get_logger()?,
+            self.root_logger(),
         ));
 
         Ok(upkeep_service)
@@ -1272,7 +1322,7 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<Arc<SingleSignatureAuthenticator>> {
         let authenticator =
-            SingleSignatureAuthenticator::new(self.get_multi_signer().await?, self.get_logger()?);
+            SingleSignatureAuthenticator::new(self.get_multi_signer().await?, self.root_logger());
 
         Ok(Arc::new(authenticator))
     }
@@ -1289,11 +1339,23 @@ impl DependenciesBuilder {
         Ok(self.single_signer_authenticator.as_ref().cloned().unwrap())
     }
 
+    fn get_epoch_settings_configuration(&mut self) -> Result<AggregatorEpochSettings> {
+        let epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: self.configuration.protocol_parameters.clone(),
+            cardano_transactions_signing_config: self
+                .configuration
+                .cardano_transactions_signing_config
+                .clone(),
+        };
+        Ok(epoch_settings)
+    }
+
     /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
-            signed_entity_config: self.get_signed_entity_config()?,
+            allowed_discriminants: self.get_allowed_signed_entity_types_discriminants()?,
+            root_logger: self.root_logger(),
             sqlite_connection: self.get_sqlite_connection().await?,
             sqlite_connection_cardano_transaction_pool: self
                 .get_sqlite_connection_cardano_transaction_pool()
@@ -1305,7 +1367,7 @@ impl DependenciesBuilder {
             certificate_repository: self.get_certificate_repository().await?,
             open_message_repository: self.get_open_message_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,
-            protocol_parameters_store: self.get_protocol_parameters_store().await?,
+            epoch_settings_storer: self.get_epoch_settings_storer().await?,
             chain_observer: self.get_chain_observer().await?,
             immutable_file_observer: self.get_immutable_file_observer().await?,
             digester: self.get_immutable_digester().await?,
@@ -1341,7 +1403,10 @@ impl DependenciesBuilder {
 
     /// Create dependencies for the [EventStore] task.
     pub async fn create_event_store(&mut self) -> Result<EventStore> {
-        let event_store = EventStore::new(self.get_event_transmitter_receiver().await?);
+        let event_store = EventStore::new(
+            self.get_event_transmitter_receiver().await?,
+            self.root_logger(),
+        );
 
         Ok(event_store)
     }
@@ -1350,14 +1415,12 @@ impl DependenciesBuilder {
     pub async fn create_aggregator_runner(&mut self) -> Result<AggregatorRuntime> {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
-        let config = AggregatorConfig::new(
-            Duration::from_millis(self.configuration.run_interval),
-            self.get_signed_entity_config()?,
-        );
+        let config = AggregatorConfig::new(Duration::from_millis(self.configuration.run_interval));
         let runtime = AggregatorRuntime::new(
             config,
             None,
             Arc::new(AggregatorRunner::new(dependency_container)),
+            self.root_logger(),
         )
         .await
         .map_err(|e| DependenciesBuilderError::Initialization {
@@ -1382,8 +1445,7 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<Arc<CardanoTransactionsPreloader>> {
         let activation = self
-            .get_signed_entity_config()?
-            .list_allowed_signed_entity_types_discriminants()
+            .get_allowed_signed_entity_types_discriminants()?
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions);
         let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
             self.get_signed_entity_lock().await?,
@@ -1392,7 +1454,7 @@ impl DependenciesBuilder {
                 .cardano_transactions_signing_config
                 .security_parameter,
             self.get_chain_observer().await?,
-            self.get_logger()?,
+            self.root_logger(),
             Arc::new(CardanoTransactionsPreloaderActivation::new(activation)),
         );
 
@@ -1405,13 +1467,16 @@ impl DependenciesBuilder {
             "Dependencies Builder can not get Cardano network while building genesis container"
         })?;
 
+        // Disable store pruning for genesis commands
+        self.configuration.store_retention_limit = None;
+
         let dependencies = GenesisToolsDependency {
             network,
             ticker_service: self.get_ticker_service().await?,
             certificate_repository: self.get_certificate_repository().await?,
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
-            protocol_parameters_store: self.get_protocol_parameters_store().await?,
+            epoch_settings_storer: self.get_epoch_settings_storer().await?,
             verification_key_store: self.get_verification_key_store().await?,
         };
 
@@ -1423,11 +1488,18 @@ impl DependenciesBuilder {
         &mut self,
         cexplorer_pools_url: &str,
     ) -> Result<SignersImporter> {
-        let retriever =
-            CExplorerSignerRetriever::new(cexplorer_pools_url, Some(Duration::from_secs(30)))?;
+        let retriever = CExplorerSignerRetriever::new(
+            cexplorer_pools_url,
+            Some(Duration::from_secs(30)),
+            self.root_logger(),
+        )?;
         let persister = self.get_signer_store().await?;
 
-        Ok(SignersImporter::new(Arc::new(retriever), persister))
+        Ok(SignersImporter::new(
+            Arc::new(retriever),
+            persister,
+            self.root_logger(),
+        ))
     }
 
     /// Create [TickerService] instance.
@@ -1465,7 +1537,7 @@ impl DependenciesBuilder {
         let multi_signer = self.get_multi_signer().await?;
         let ticker_service = self.get_ticker_service().await?;
         let epoch_service = self.get_epoch_service().await?;
-        let logger = self.get_logger()?;
+        let logger = self.root_logger();
 
         let certifier = Arc::new(MithrilCertifierService::new(
             cardano_network,
@@ -1483,7 +1555,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(BufferedCertifierService::new(
             certifier,
             Arc::new(BufferedSingleSignatureRepository::new(sqlite_connection)),
-            self.get_logger()?,
+            self.root_logger(),
         )))
     }
 
@@ -1523,7 +1595,7 @@ impl DependenciesBuilder {
             .cardano_transactions_prover_cache_pool_size;
         let transaction_retriever = self.get_transaction_repository().await?;
         let block_range_root_retriever = self.get_transaction_repository().await?;
-        let logger = self.get_logger()?;
+        let logger = self.root_logger();
         let prover_service = MithrilProverService::<MKTreeStoreInMemory>::new(
             transaction_retriever,
             block_range_root_retriever,
@@ -1546,6 +1618,13 @@ impl DependenciesBuilder {
     /// Remove the dependencies builder from memory to release Arc instances.
     pub async fn vanish(self) {
         self.drop_sqlite_connections().await;
+    }
+}
+
+#[cfg(test)]
+impl DependenciesBuilder {
+    pub(crate) fn new_with_stdout_logger(configuration: Configuration) -> Self {
+        Self::new(crate::test_tools::TestLogger::stdout(), configuration)
     }
 }
 
@@ -1578,7 +1657,7 @@ mod tests {
             signed_entity_types: Some(signed_entity_types),
             ..Configuration::new_sample()
         };
-        let mut dep_builder = DependenciesBuilder::new(configuration);
+        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
 
         let cardano_transactions_preloader = dep_builder
             .create_cardano_transactions_preloader()

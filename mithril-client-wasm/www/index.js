@@ -116,8 +116,10 @@ console.log(
 );
 
 displayStepInDOM(5, "Computing the Mithril stake distribution message...");
-let mithril_stake_distributions_message =
-  await client.compute_mithril_stake_distribution_message(last_stake_distribution);
+let mithril_stake_distributions_message = await client.compute_mithril_stake_distribution_message(
+  last_stake_distribution,
+  last_certificate_from_chain,
+);
 displayMessageInDOM("Result", "Mithril stake distribution message computed &#x2713;");
 console.log("mithril_stake_distributions_message:", mithril_stake_distributions_message);
 

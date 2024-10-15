@@ -1,7 +1,9 @@
 use async_trait::async_trait;
-use mithril_common::StdResult;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::path::Path;
+
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::StdResult;
 
 use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
 use crate::tools::RemoteFileUploader;
@@ -11,6 +13,7 @@ pub struct RemoteSnapshotUploader {
     bucket: String,
     file_uploader: Box<dyn RemoteFileUploader>,
     use_cdn_domain: bool,
+    logger: Logger,
 }
 
 impl RemoteSnapshotUploader {
@@ -19,12 +22,15 @@ impl RemoteSnapshotUploader {
         file_uploader: Box<dyn RemoteFileUploader>,
         bucket: String,
         use_cdn_domain: bool,
+        logger: Logger,
     ) -> Self {
-        debug!("New GCPSnapshotUploader created");
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New GCPSnapshotUploader created");
         Self {
             bucket,
             file_uploader,
             use_cdn_domain,
+            logger,
         }
     }
 }
@@ -42,7 +48,9 @@ impl SnapshotUploader for RemoteSnapshotUploader {
             )
         };
 
+        debug!(self.logger, "Uploading snapshot to remote storage"; "location" => &location);
         self.file_uploader.upload_file(snapshot_filepath).await?;
+        debug!(self.logger, "Snapshot upload to remote storage completed"; "location" => &location);
 
         Ok(location)
     }
@@ -50,11 +58,14 @@ impl SnapshotUploader for RemoteSnapshotUploader {
 
 #[cfg(test)]
 mod tests {
-    use super::RemoteSnapshotUploader;
-    use crate::snapshot_uploaders::SnapshotUploader;
-    use crate::tools::MockRemoteFileUploader;
     use anyhow::anyhow;
     use std::path::Path;
+
+    use crate::snapshot_uploaders::SnapshotUploader;
+    use crate::test_tools::TestLogger;
+    use crate::tools::MockRemoteFileUploader;
+
+    use super::RemoteSnapshotUploader;
 
     #[tokio::test]
     async fn test_upload_snapshot_not_using_cdn_domain_ok() {
@@ -65,6 +76,7 @@ mod tests {
             Box::new(file_uploader),
             "cardano-testnet".to_string(),
             use_cdn_domain,
+            TestLogger::stdout(),
         );
         let snapshot_filepath = Path::new("test/snapshot.xxx.tar.gz");
         let expected_location =
@@ -87,6 +99,7 @@ mod tests {
             Box::new(file_uploader),
             "cdn.mithril.network".to_string(),
             use_cdn_domain,
+            TestLogger::stdout(),
         );
         let snapshot_filepath = Path::new("test/snapshot.xxx.tar.gz");
         let expected_location = "https://cdn.mithril.network/snapshot.xxx.tar.gz".to_string();
@@ -105,8 +118,12 @@ mod tests {
         file_uploader
             .expect_upload_file()
             .returning(|_| Err(anyhow!("unexpected error")));
-        let snapshot_uploader =
-            RemoteSnapshotUploader::new(Box::new(file_uploader), "".to_string(), false);
+        let snapshot_uploader = RemoteSnapshotUploader::new(
+            Box::new(file_uploader),
+            "".to_string(),
+            false,
+            TestLogger::stdout(),
+        );
         let snapshot_filepath = Path::new("test/snapshot.xxx.tar.gz");
 
         let result = snapshot_uploader

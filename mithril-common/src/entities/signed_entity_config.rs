@@ -40,6 +40,16 @@ impl SignedEntityConfig {
         SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
     ];
 
+    /// Append to the given list of allowed signed entity types discriminants the [Self::DEFAULT_ALLOWED_DISCRIMINANTS]
+    /// if not already present.
+    pub fn append_allowed_signed_entity_types_discriminants(
+        discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> BTreeSet<SignedEntityTypeDiscriminants> {
+        let mut discriminants = discriminants;
+        discriminants.append(&mut BTreeSet::from(Self::DEFAULT_ALLOWED_DISCRIMINANTS));
+        discriminants
+    }
+
     /// Create the deduplicated list of allowed signed entity types discriminants.
     ///
     /// The list is the aggregation of [Self::DEFAULT_ALLOWED_DISCRIMINANTS] and
@@ -47,9 +57,8 @@ impl SignedEntityConfig {
     pub fn list_allowed_signed_entity_types_discriminants(
         &self,
     ) -> BTreeSet<SignedEntityTypeDiscriminants> {
-        let mut discriminants = BTreeSet::from(Self::DEFAULT_ALLOWED_DISCRIMINANTS);
-        discriminants.append(&mut self.allowed_discriminants.clone());
-        discriminants
+        let discriminants = self.allowed_discriminants.clone();
+        Self::append_allowed_signed_entity_types_discriminants(discriminants)
     }
 
     /// Convert this time point to a signed entity type based on the given discriminant.
@@ -117,6 +126,14 @@ pub struct CardanoTransactionsSigningConfig {
 
 impl CardanoTransactionsSigningConfig {
     cfg_test_tools! {
+        /// Create a new CardanoTransactionsSigningConfig
+        pub fn new(security_parameter: BlockNumber, step: BlockNumber) -> Self {
+            Self {
+                security_parameter,
+                step,
+            }
+        }
+
         /// Create a dummy config
         pub fn dummy() -> Self {
             Self {

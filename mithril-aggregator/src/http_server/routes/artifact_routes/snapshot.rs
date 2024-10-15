@@ -1,18 +1,17 @@
 use crate::http_server::routes::middlewares;
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::hyper::Uri;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    artifact_cardano_full_immutable_snapshots(dependency_manager.clone())
+    artifact_cardano_full_immutable_snapshots(dependency_manager)
         .or(artifact_cardano_full_immutable_snapshot_by_id(
-            dependency_manager.clone(),
+            dependency_manager,
         ))
-        .or(serve_snapshots_dir(dependency_manager.clone()))
+        .or(serve_snapshots_dir(dependency_manager))
         .or(snapshot_download(dependency_manager))
         .or(artifact_cardano_full_immutable_snapshots_legacy())
         .or(artifact_cardano_full_immutable_snapshot_by_id_legacy())
@@ -20,42 +19,46 @@ pub fn routes(
 
 /// GET /artifact/snapshots
 fn artifact_cardano_full_immutable_snapshots(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::list_artifacts)
 }
 
 /// GET /artifact/snapshot/:id
 fn artifact_cardano_full_immutable_snapshot_by_id(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
 /// GET /artifact/snapshots/{digest}/download
 fn snapshot_download(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get().or(warp::head()).unify())
-        .and(middlewares::with_config(dependency_manager.clone()))
+        .and(middlewares::with_logger(dependency_manager))
+        .and(middlewares::with_config(dependency_manager))
         .and(middlewares::with_signed_entity_service(dependency_manager))
         .and_then(handlers::snapshot_download)
 }
 
 fn serve_snapshots_dir(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let config = dependency_manager.config.clone();
 
     warp::path("snapshot_download")
         .and(warp::fs::dir(config.snapshot_directory))
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_signed_entity_service(dependency_manager))
         .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
 }
@@ -93,7 +96,7 @@ mod handlers {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::services::MessageService;
     use crate::{services::SignedEntityService, Configuration};
-    use slog_scope::{debug, warn};
+    use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -103,9 +106,10 @@ mod handlers {
 
     /// List Snapshot artifacts
     pub async fn list_artifacts(
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: artifacts");
+        debug!(logger, "⇄ HTTP SERVER: artifacts");
 
         match http_message_service
             .get_snapshot_list_message(LIST_MAX_ITEMS)
@@ -113,7 +117,7 @@ mod handlers {
         {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
-                warn!("list_artifacts_snapshot"; "error" => ?err);
+                warn!(logger,"list_artifacts_snapshot"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -122,20 +126,21 @@ mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
+        debug!(logger, "⇄ HTTP SERVER: artifact/{signed_entity_id}");
         match http_message_service
             .get_snapshot_message(&signed_entity_id)
             .await
         {
             Ok(Some(signed_entity)) => Ok(reply::json(&signed_entity, StatusCode::OK)),
             Ok(None) => {
-                warn!("snapshot_details::not_found");
+                warn!(logger, "snapshot_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!("snapshot_details::error"; "error" => ?err);
+                warn!(logger,"snapshot_details::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -144,10 +149,12 @@ mod handlers {
     /// Download a file if and only if it's a snapshot archive
     pub async fn ensure_downloaded_file_is_a_snapshot(
         reply: warp::fs::File,
+        logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
         let filepath = reply.path().to_path_buf();
         debug!(
+            logger,
             "⇄ HTTP SERVER: ensure_downloaded_file_is_a_snapshot / file: `{}`",
             filepath.display()
         );
@@ -168,7 +175,7 @@ mod handlers {
                 _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
             },
             Err(err) => {
-                warn!("ensure_downloaded_file_is_a_snapshot::error"; "error" => ?err);
+                warn!(logger,"ensure_downloaded_file_is_a_snapshot::error"; "error" => ?err);
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
         }
@@ -177,10 +184,11 @@ mod handlers {
     /// Snapshot download
     pub async fn snapshot_download(
         digest: String,
+        logger: Logger,
         config: Configuration,
         signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: snapshot_download/{}", digest);
+        debug!(logger, "⇄ HTTP SERVER: snapshot_download/{}", digest);
 
         match signed_entity_service
             .get_signed_snapshot_by_id(&digest)
@@ -207,11 +215,11 @@ mod handlers {
                 Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
             }
             Ok(None) => {
-                warn!("snapshot_download::not_found");
+                warn!(logger, "snapshot_download::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!("snapshot_download::error"; "error" => ?err);
+                warn!(logger,"snapshot_download::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -234,6 +242,7 @@ mod tests {
     };
     use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -251,7 +260,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use slog::{debug, Logger};
 
 use mithril_common::entities::BlockNumber;
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::signable_builder::TransactionsImporter;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{SqliteCleaner, SqliteCleaningTask, SqliteConnectionPool};
@@ -25,7 +26,7 @@ impl TransactionsImporterWithVacuum {
         Self {
             connection_pool,
             wrapped_importer,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 }

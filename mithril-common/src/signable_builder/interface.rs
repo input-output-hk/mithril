@@ -1,7 +1,10 @@
 use async_trait::async_trait;
 use std::fmt::Debug;
 
-use crate::{entities::ProtocolMessage, StdResult};
+use crate::{
+    entities::{ProtocolMessage, ProtocolMessagePartValue},
+    StdResult,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -16,7 +19,7 @@ pub trait Artifact: Debug + Send + Sync {
     fn get_id(&self) -> String;
 }
 
-/// SignableBuilder is trait for building a protocol message for a beacon
+/// SignableBuilder is a trait for building a protocol message for a beacon
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait SignableBuilder<U>: Send + Sync
@@ -25,4 +28,18 @@ where
 {
     /// Compute a protocol message
     async fn compute_protocol_message(&self, beacon: U) -> StdResult<ProtocolMessage>;
+}
+
+/// SignableSeedBuilder is a trait for building seed protocol message part values
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait SignableSeedBuilder: Send + Sync {
+    /// Compute next aggregate verification key protocol message part value
+    async fn compute_next_aggregate_verification_key(&self) -> StdResult<ProtocolMessagePartValue>;
+
+    /// Compute next protocol parameters protocol message part value
+    async fn compute_next_protocol_parameters(&self) -> StdResult<ProtocolMessagePartValue>;
+
+    /// Compute current epoch protocol message part value
+    async fn compute_current_epoch(&self) -> StdResult<ProtocolMessagePartValue>;
 }

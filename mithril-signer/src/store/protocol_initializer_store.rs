@@ -6,6 +6,7 @@ use mithril_persistence::store::{adapter::StoreAdapter, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolInitializer>>;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 /// Store the ProtocolInitializer used for each Epoch. This is useful because
 /// protocol parameters and stake distribution change over time.
@@ -99,34 +100,16 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-
-    use super::*;
-
     use mithril_common::test_utils::fake_data;
     use mithril_persistence::store::adapter::MemoryAdapter;
 
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
+    use super::*;
 
     fn setup_protocol_initializers(nb_epoch: u64) -> Vec<(Epoch, ProtocolInitializer)> {
         let mut values: Vec<(Epoch, ProtocolInitializer)> = Vec::new();
         for epoch in 1..=nb_epoch {
-            let protocol_parameters = fake_data::protocol_parameters();
-            let party_id = format!("{:<032}", 1);
             let stake = (epoch + 1) * 100;
-            let seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
-            let mut rng = ChaCha20Rng::from_seed(seed);
-            let kes_secret_key_path: Option<PathBuf> = None;
-            let kes_period = Some(0);
-            let protocol_initializer = ProtocolInitializer::setup(
-                protocol_parameters.into(),
-                kes_secret_key_path,
-                kes_period,
-                stake,
-                &mut rng,
-            )
-            .expect("protocol initializer should not fail");
+            let protocol_initializer = fake_data::protocol_initializer("1", stake);
             values.push((Epoch(epoch), protocol_initializer));
         }
         values

@@ -1,22 +1,22 @@
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    certificate_pending(dependency_manager.clone())
-        .or(certificate_certificates(dependency_manager.clone()))
+    certificate_pending(dependency_manager)
+        .or(certificate_certificates(dependency_manager))
         .or(certificate_certificate_hash(dependency_manager))
 }
 
 /// GET /certificate-pending
 fn certificate_pending(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate-pending")
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_certificate_pending_store(
             dependency_manager,
         ))
@@ -25,20 +25,22 @@ fn certificate_pending(
 
 /// GET /certificates
 fn certificate_certificates(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificates")
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::certificate_certificates)
 }
 
 /// GET /certificate/{certificate_hash}
 fn certificate_certificate_hash(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate" / String)
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::certificate_certificate_hash)
 }
@@ -49,7 +51,7 @@ mod handlers {
         ToCertificatePendingMessageAdapter,
     };
 
-    use slog_scope::{debug, warn};
+    use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -58,9 +60,10 @@ mod handlers {
 
     /// Certificate Pending
     pub async fn certificate_pending(
+        logger: Logger,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: certificate_pending");
+        debug!(logger, "⇄ HTTP SERVER: certificate_pending");
 
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(
@@ -69,7 +72,7 @@ mod handlers {
             )),
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
             Err(err) => {
-                warn!("certificate_pending::error"; "error" => ?err);
+                warn!(logger,"certificate_pending::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -77,9 +80,10 @@ mod handlers {
 
     /// List all Certificates
     pub async fn certificate_certificates(
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: certificate_certificates",);
+        debug!(logger, "⇄ HTTP SERVER: certificate_certificates",);
 
         match http_message_service
             .get_certificate_list_message(LIST_MAX_ITEMS)
@@ -87,7 +91,7 @@ mod handlers {
         {
             Ok(certificates) => Ok(reply::json(&certificates, StatusCode::OK)),
             Err(err) => {
-                warn!("certificate_certificates::error"; "error" => ?err);
+                warn!(logger,"certificate_certificates::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -96,11 +100,12 @@ mod handlers {
     /// Certificate by certificate hash
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
-            "⇄ HTTP SERVER: certificate_certificate_hash/{}",
-            certificate_hash
+            logger,
+            "⇄ HTTP SERVER: certificate_certificate_hash/{}", certificate_hash
         );
 
         match http_message_service
@@ -110,7 +115,7 @@ mod handlers {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
             Err(err) => {
-                warn!("certificate_certificate_hash::error"; "error" => ?err);
+                warn!(logger,"certificate_certificate_hash::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -126,6 +131,7 @@ mod tests {
     };
     use mithril_persistence::store::adapter::DumbStoreAdapter;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -148,7 +154,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

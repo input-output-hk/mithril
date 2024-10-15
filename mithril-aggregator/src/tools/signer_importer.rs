@@ -1,18 +1,17 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use mithril_common::{entities::PartyId, StdResult};
 use reqwest::{IntoUrl, Url};
 use serde::{Deserialize, Serialize};
+use slog::{info, warn, Logger};
 use std::collections::HashMap;
 use std::ops::Not;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::database::repository::SignerStore;
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::{entities::PartyId, StdResult};
 
-#[cfg(test)]
-use mockall::automock;
-use slog_scope::{info, warn};
+use crate::database::repository::SignerStore;
 
 pub type PoolTicker = String;
 
@@ -20,6 +19,7 @@ pub type PoolTicker = String;
 pub struct SignersImporter {
     retriever: Arc<dyn SignersImporterRetriever>,
     persister: Arc<dyn SignersImporterPersister>,
+    logger: Logger,
 }
 
 impl SignersImporter {
@@ -27,21 +27,28 @@ impl SignersImporter {
     pub fn new(
         retriever: Arc<dyn SignersImporterRetriever>,
         persister: Arc<dyn SignersImporterPersister>,
+        logger: Logger,
     ) -> Self {
         Self {
             retriever,
             persister,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
     /// Import and persist the signers
     pub async fn run(&self) -> StdResult<()> {
-        info!("🔧 Signer Importer: starting");
+        info!(self.logger, "🔧 Signer Importer: starting");
         let items = self
             .retriever
             .retrieve()
             .await
             .with_context(|| "Failed to retrieve signers from remote service")?;
+
+        info!(self.logger,
+            "🔧 Signer Importer: persisting retrieved data in the database";
+            "number_of_signer_to_insert" => items.len()
+        );
         self.persister
             .persist(items)
             .await
@@ -55,9 +62,13 @@ impl SignersImporter {
         loop {
             interval.tick().await;
             if let Err(error) = self.run().await {
-                warn!("Signer retriever failed: Error: «{:?}».", error);
+                warn!(
+                    self.logger,
+                    "Signer retriever failed: Error: «{:?}».", error
+                );
             }
             info!(
+                self.logger,
                 "🔧 Signer Importer: Cycle finished, Sleeping for {} min",
                 run_interval.as_secs() / 60
             );
@@ -66,7 +77,7 @@ impl SignersImporter {
 }
 
 /// Trait that define how a [SignersImporter] retrieve the signers to import.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignersImporterRetriever: Sync + Send {
     /// Retrieve the signers list.
@@ -74,7 +85,7 @@ pub trait SignersImporterRetriever: Sync + Send {
 }
 
 /// Trait that define how a [SignersImporter] persist the retrieved signers.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignersImporterPersister: Sync + Send {
     /// Persist the given list of signers.
@@ -84,10 +95,6 @@ pub trait SignersImporterPersister: Sync + Send {
 #[async_trait]
 impl SignersImporterPersister for SignerStore {
     async fn persist(&self, signers: HashMap<PartyId, Option<PoolTicker>>) -> StdResult<()> {
-        info!(
-            "🔧 Signer Importer: persisting retrieved data in the database";
-            "number_of_signer_to_insert" => signers.len()
-        );
         self.import_many_signers(signers).await?;
 
         Ok(())
@@ -99,11 +106,16 @@ pub struct CExplorerSignerRetriever {
     /// Url from which a SPO list using the CExplorer format will be fetch.
     source_url: Url,
     client: reqwest::Client,
+    logger: Logger,
 }
 
 impl CExplorerSignerRetriever {
     /// Create a new [CExplorerSignerRetriever] that will fetch data from the given url.
-    pub(crate) fn new<T: IntoUrl>(source_url: T, timeout: Option<Duration>) -> StdResult<Self> {
+    pub(crate) fn new<T: IntoUrl>(
+        source_url: T,
+        timeout: Option<Duration>,
+        logger: Logger,
+    ) -> StdResult<Self> {
         let source_url = source_url
             .into_url()
             .with_context(|| "Given `source_url` is not a valid Url")?;
@@ -115,7 +127,11 @@ impl CExplorerSignerRetriever {
         .build()
         .with_context(|| "Http Client build failed")?;
 
-        Ok(Self { source_url, client })
+        Ok(Self {
+            source_url,
+            client,
+            logger,
+        })
     }
 }
 
@@ -123,7 +139,7 @@ impl CExplorerSignerRetriever {
 impl SignersImporterRetriever for CExplorerSignerRetriever {
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>> {
         info!(
-            "🔧 Signer Importer: retrieving data from source";
+            self.logger, "🔧 Signer Importer: retrieving data from source";
             "source_url" => &self.source_url.as_str()
         );
         let response = self
@@ -192,6 +208,7 @@ mod tests {
     use crate::database::repository::{SignerGetter, SignerStore};
     use crate::database::test_helper::main_db_connection;
     use crate::http_server::routes::reply;
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -272,8 +289,12 @@ mod tests {
         }"#
         }));
 
-        let retriever =
-            CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap();
+        let retriever = CExplorerSignerRetriever::new(
+            format!("{}/list", server.url()),
+            None,
+            TestLogger::stdout(),
+        )
+        .unwrap();
         let result = retriever
             .retrieve()
             .await
@@ -294,8 +315,12 @@ mod tests {
         let server =
             test_http_server(warp::path("list").map(|| reply::internal_server_error("whatever")));
 
-        let retriever =
-            CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap();
+        let retriever = CExplorerSignerRetriever::new(
+            format!("{}/list", server.url()),
+            None,
+            TestLogger::stdout(),
+        )
+        .unwrap();
         retriever
             .retrieve()
             .await
@@ -306,8 +331,12 @@ mod tests {
     async fn retriever_yield_error_when_json_is_malformed() {
         let server = test_http_server(warp::path("list").map(|| r#"{ "data": [ {"pool_" ] }"#));
 
-        let retriever =
-            CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap();
+        let retriever = CExplorerSignerRetriever::new(
+            format!("{}/list", server.url()),
+            None,
+            TestLogger::stdout(),
+        )
+        .unwrap();
         retriever
             .retrieve()
             .await
@@ -324,6 +353,7 @@ mod tests {
         let retriever = CExplorerSignerRetriever::new(
             format!("{}/list", server.url()),
             Some(Duration::from_millis(10)),
+            TestLogger::stdout(),
         )
         .unwrap();
         retriever
@@ -346,6 +376,7 @@ mod tests {
         let importer = SignersImporter::new(
             Arc::new(retriever),
             Arc::new(SignerStore::new(connection.clone())),
+            TestLogger::stdout(),
         );
         importer
             .run()
@@ -390,6 +421,7 @@ mod tests {
         let importer = SignersImporter::new(
             Arc::new(retriever),
             Arc::new(SignerStore::new(connection.clone())),
+            TestLogger::stdout(),
         );
         importer
             .run()
@@ -438,9 +470,15 @@ mod tests {
 
         let importer = SignersImporter::new(
             Arc::new(
-                CExplorerSignerRetriever::new(format!("{}/list", server.url()), None).unwrap(),
+                CExplorerSignerRetriever::new(
+                    format!("{}/list", server.url()),
+                    None,
+                    TestLogger::stdout(),
+                )
+                .unwrap(),
             ),
             Arc::new(SignerStore::new(connection.clone())),
+            TestLogger::stdout(),
         );
         importer
             .run()

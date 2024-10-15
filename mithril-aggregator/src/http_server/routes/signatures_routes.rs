@@ -1,24 +1,22 @@
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     register_signatures(dependency_manager)
 }
 
 /// POST /register-signatures
 fn register_signatures(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signatures")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_certifier_service(
-            dependency_manager.clone(),
-        ))
+        .and(middlewares::with_logger(dependency_manager))
+        .and(middlewares::with_certifier_service(dependency_manager))
         .and(middlewares::with_single_signature_authenticator(
             dependency_manager,
         ))
@@ -26,7 +24,7 @@ fn register_signatures(
 }
 
 mod handlers {
-    use slog_scope::{debug, trace, warn};
+    use slog::{debug, trace, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -43,11 +41,12 @@ mod handlers {
     /// Register Signatures
     pub async fn register_signatures(
         message: RegisterSignatureMessage,
+        logger: Logger,
         certifier_service: Arc<dyn CertifierService>,
         single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
-        trace!("⇄ HTTP SERVER: register_signatures"; "complete_message" => #?message );
+        debug!(logger, "⇄ HTTP SERVER: register_signatures/{:?}", message);
+        trace!(logger,"⇄ HTTP SERVER: register_signatures"; "complete_message" => #?message );
 
         let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();
@@ -55,7 +54,7 @@ mod handlers {
         let mut signatures = match FromRegisterSingleSignatureAdapter::try_adapt(message) {
             Ok(signature) => signature,
             Err(err) => {
-                warn!("register_signatures::payload decoding error"; "error" => ?err);
+                warn!(logger,"register_signatures::payload decoding error"; "error" => ?err);
 
                 return Ok(reply::bad_request(
                     "Could not decode signature payload".to_string(),
@@ -69,11 +68,11 @@ mod handlers {
                 single_signer_authenticator
                     .authenticate(&mut signatures, &signed_message)
                     .await,
-                "single_signer_authenticator::error"
+                logger => "single_signer_authenticator::error"
             );
 
             if !signatures.is_authenticated() {
-                debug!("register_signatures::unauthenticated_signature");
+                debug!(logger, "register_signatures::unauthenticated_signature");
                 return Ok(reply::bad_request(
                     "Could not authenticate signature".to_string(),
                     "Signature could not be authenticated".to_string(),
@@ -87,15 +86,15 @@ mod handlers {
         {
             Err(err) => match err.downcast_ref::<CertifierServiceError>() {
                 Some(CertifierServiceError::AlreadyCertified(signed_entity_type)) => {
-                    debug!("register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
+                    debug!(logger,"register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
                     Ok(reply::empty(StatusCode::GONE))
                 }
                 Some(CertifierServiceError::NotFound(signed_entity_type)) => {
-                    debug!("register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
+                    debug!(logger,"register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
                     Ok(reply::empty(StatusCode::NOT_FOUND))
                 }
                 Some(_) | None => {
-                    warn!("register_signatures::error"; "error" => ?err);
+                    warn!(logger,"register_signatures::error"; "error" => ?err);
                     Ok(reply::server_error(err))
                 }
             },
@@ -108,6 +107,7 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use std::sync::Arc;
     use warp::http::{Method, StatusCode};
     use warp::test::request;
 
@@ -135,7 +135,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

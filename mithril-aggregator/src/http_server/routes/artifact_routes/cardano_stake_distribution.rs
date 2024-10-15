@@ -1,14 +1,13 @@
 use crate::http_server::routes::middlewares;
 use crate::DependencyContainer;
-use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    artifact_cardano_stake_distributions(dependency_manager.clone())
+    artifact_cardano_stake_distributions(dependency_manager)
         .or(artifact_cardano_stake_distribution_by_id(
-            dependency_manager.clone(),
+            dependency_manager,
         ))
         .or(artifact_cardano_stake_distribution_by_epoch(
             dependency_manager,
@@ -17,30 +16,33 @@ pub fn routes(
 
 /// GET /artifact/cardano-stake-distributions
 fn artifact_cardano_stake_distributions(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distributions")
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::list_artifacts)
 }
 
 /// GET /artifact/cardano-stake-distribution/:id
 fn artifact_cardano_stake_distribution_by_id(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distribution" / String)
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
 /// GET /artifact/cardano-stake-distribution/epoch/:epoch
 fn artifact_cardano_stake_distribution_by_epoch(
-    dependency_manager: Arc<DependencyContainer>,
+    dependency_manager: &DependencyContainer,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distribution" / "epoch" / String)
         .and(warp::get())
+        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
         .and_then(handlers::get_artifact_by_epoch)
 }
@@ -50,7 +52,7 @@ pub mod handlers {
     use crate::services::MessageService;
 
     use mithril_common::entities::Epoch;
-    use slog_scope::{debug, warn};
+    use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -59,9 +61,10 @@ pub mod handlers {
 
     /// List CardanoStakeDistribution artifacts
     pub async fn list_artifacts(
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: artifacts");
+        debug!(logger, "⇄ HTTP SERVER: artifacts");
 
         match http_message_service
             .get_cardano_stake_distribution_list_message(LIST_MAX_ITEMS)
@@ -69,7 +72,7 @@ pub mod handlers {
         {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
             Err(err) => {
-                warn!("list_artifacts_cardano_stake_distribution"; "error" => ?err);
+                warn!(logger, "list_artifacts_cardano_stake_distribution"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -78,9 +81,10 @@ pub mod handlers {
     /// Get Artifact by signed entity id
     pub async fn get_artifact_by_signed_entity_id(
         signed_entity_id: String,
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
+        debug!(logger, "⇄ HTTP SERVER: artifact/{signed_entity_id}");
 
         match http_message_service
             .get_cardano_stake_distribution_message(&signed_entity_id)
@@ -88,11 +92,11 @@ pub mod handlers {
         {
             Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
             Ok(None) => {
-                warn!("get_cardano_stake_distribution_details::not_found");
+                warn!(logger, "get_cardano_stake_distribution_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!("get_cardano_stake_distribution_details::error"; "error" => ?err);
+                warn!(logger, "get_cardano_stake_distribution_details::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -101,14 +105,15 @@ pub mod handlers {
     /// Get Artifact by epoch
     pub async fn get_artifact_by_epoch(
         epoch: String,
+        logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: artifact/epoch/{epoch}");
+        debug!(logger, "⇄ HTTP SERVER: artifact/epoch/{epoch}");
 
         let artifact_epoch = match epoch.parse::<u64>() {
             Ok(epoch) => Epoch(epoch),
             Err(err) => {
-                warn!("get_artifact_by_epoch::invalid_epoch"; "error" => ?err);
+                warn!(logger, "get_artifact_by_epoch::invalid_epoch"; "error" => ?err);
                 return Ok(reply::bad_request(
                     "invalid_epoch".to_string(),
                     err.to_string(),
@@ -122,11 +127,14 @@ pub mod handlers {
         {
             Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
             Ok(None) => {
-                warn!("get_cardano_stake_distribution_details_by_epoch::not_found");
+                warn!(
+                    logger,
+                    "get_cardano_stake_distribution_details_by_epoch::not_found"
+                );
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!("get_cardano_stake_distribution_details_by_epoch::error"; "error" => ?err);
+                warn!(logger, "get_cardano_stake_distribution_details_by_epoch::error"; "error" => ?err);
                 Ok(reply::server_error(err))
             }
         }
@@ -137,6 +145,7 @@ pub mod handlers {
 pub mod tests {
     use anyhow::anyhow;
     use serde_json::Value::Null;
+    use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
@@ -163,7 +172,7 @@ pub mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(dependency_manager).with(cors))
+            .and(routes(&dependency_manager).with(cors))
     }
 
     #[tokio::test]

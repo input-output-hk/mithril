@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{anyhow, Context};
-
+use slog::Logger;
 use tokio::sync::{Mutex, RwLock};
 
 use mithril_common::api_version::APIVersionProvider;
@@ -35,10 +35,12 @@ use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteCon
 use mithril_persistence::store::adapter::SQLiteAdapter;
 use mithril_persistence::store::StakeStore;
 
+use crate::database::repository::SignedBeaconRepository;
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
     CardanoTransactionsPreloaderActivationSigner, MithrilEpochService, MithrilSingleSigner,
+    SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
     SignerUpkeepService, TransactionsImporterByChunk, TransactionsImporterWithPruner,
     TransactionsImporterWithVacuum,
 };
@@ -56,11 +58,12 @@ pub struct DependenciesBuilder<'a> {
     chain_observer_builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>>,
     immutable_file_observer_builder:
         fn(&Configuration) -> StdResult<Arc<dyn ImmutableFileObserver>>,
+    root_logger: Logger,
 }
 
 impl<'a> DependenciesBuilder<'a> {
     /// Create a new `DependenciesBuilder`.
-    pub fn new(config: &'a Configuration) -> Self {
+    pub fn new(config: &'a Configuration, root_logger: Logger) -> Self {
         let chain_observer_builder: fn(&Configuration) -> StdResult<Arc<dyn ChainObserver>> =
             |config: &Configuration| {
                 let chain_observer_type = ChainObserverType::Pallas;
@@ -100,6 +103,7 @@ impl<'a> DependenciesBuilder<'a> {
             config,
             chain_observer_builder,
             immutable_file_observer_builder,
+            root_logger,
         }
     }
 
@@ -111,6 +115,11 @@ impl<'a> DependenciesBuilder<'a> {
         self.immutable_file_observer_builder = builder;
 
         self
+    }
+
+    /// Return a copy of the root logger.
+    pub fn root_logger(&self) -> Logger {
+        self.root_logger.clone()
     }
 
     /// Override default chain observer builder.
@@ -153,7 +162,7 @@ impl<'a> DependenciesBuilder<'a> {
             &format!("immutables_digests_{}.json", self.config.network),
         )
         .should_reset_digests_cache(self.config.reset_digests_cache)
-        .with_logger(slog_scope::logger())
+        .with_logger(self.root_logger())
         .build()
         .await?;
 
@@ -167,11 +176,10 @@ impl<'a> DependenciesBuilder<'a> {
         migrations: Vec<SqlMigration>,
     ) -> StdResult<SqliteConnection> {
         let sqlite_db_path = self.config.get_sqlite_file(sqlite_file_name)?;
-        let logger = slog_scope::logger();
         let connection = ConnectionBuilder::open_file(&sqlite_db_path)
             .with_node_type(ApplicationNodeType::Signer)
             .with_migrations(migrations)
-            .with_logger(logger.clone())
+            .with_logger(self.root_logger())
             .build()
             .with_context(|| "Database connection initialisation error")?;
 
@@ -212,10 +220,9 @@ impl<'a> DependenciesBuilder<'a> {
             )?),
             self.config.store_retention_limit,
         ));
-        let single_signer = Arc::new(MithrilSingleSigner::new(self.compute_protocol_party_id()?));
         let digester = Arc::new(CardanoImmutableDigester::new(
             self.build_digester_cache_provider().await?,
-            slog_scope::logger(),
+            self.root_logger(),
         ));
         let stake_store = Arc::new(StakeStore::new(
             Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone())?),
@@ -251,13 +258,14 @@ impl<'a> DependenciesBuilder<'a> {
             self.config.relay_endpoint.clone(),
             api_version_provider.clone(),
             Some(Duration::from_millis(HTTP_REQUEST_TIMEOUT_DURATION)),
+            self.root_logger(),
         ));
 
         let cardano_immutable_snapshot_builder =
             Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
                 digester.clone(),
                 &self.config.db_directory,
-                slog_scope::logger(),
+                self.root_logger(),
             ));
         let mithril_stake_distribution_signable_builder =
             Arc::new(MithrilStakeDistributionSignableBuilder::default());
@@ -267,18 +275,18 @@ impl<'a> DependenciesBuilder<'a> {
         let chain_block_reader = PallasChainReader::new(
             &self.config.cardano_node_socket_path,
             network,
-            slog_scope::logger(),
+            self.root_logger(),
         );
         let block_scanner = Arc::new(CardanoBlockScanner::new(
             Arc::new(Mutex::new(chain_block_reader)),
             self.config
                 .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
-            slog_scope::logger(),
+            self.root_logger(),
         ));
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner,
             transaction_store.clone(),
-            slog_scope::logger(),
+            self.root_logger(),
         ));
         // Wrap the transaction importer with decorator to prune the transactions after import
         let transactions_importer = Arc::new(TransactionsImporterWithPruner::new(
@@ -287,7 +295,7 @@ impl<'a> DependenciesBuilder<'a> {
                 .then_some(self.config.network_security_parameter),
             transaction_store.clone(),
             transactions_importer,
-            slog_scope::logger(),
+            self.root_logger(),
         ));
         // Wrap the transaction importer with decorator to chunk its workload, so it prunes
         // transactions after each chunk, reducing the storage footprint
@@ -295,7 +303,7 @@ impl<'a> DependenciesBuilder<'a> {
             transaction_store.clone(),
             transactions_importer.clone(),
             self.config.transactions_import_block_chunk_size,
-            slog_scope::logger(),
+            self.root_logger(),
         ));
         // For the preloader, we want to vacuum the database after each chunk, to reclaim disk space
         // earlier than with just auto_vacuum (that execute only after the end of all import).
@@ -304,10 +312,10 @@ impl<'a> DependenciesBuilder<'a> {
             Arc::new(TransactionsImporterWithVacuum::new(
                 sqlite_connection_cardano_transaction_pool.clone(),
                 transactions_importer.clone(),
-                slog_scope::logger(),
+                self.root_logger(),
             )),
             self.config.transactions_import_block_chunk_size,
-            slog_scope::logger(),
+            self.root_logger(),
         ));
         let block_range_root_retriever = transaction_store.clone();
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
@@ -315,18 +323,34 @@ impl<'a> DependenciesBuilder<'a> {
         >::new(
             state_machine_transactions_importer,
             block_range_root_retriever,
-            slog_scope::logger(),
+            self.root_logger(),
         ));
         let cardano_stake_distribution_signable_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
+        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
+            stake_store.clone(),
+            protocol_initializer_store.clone(),
+            self.root_logger(),
+        )));
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            self.compute_protocol_party_id()?,
+            epoch_service.clone(),
+            self.root_logger(),
+        ));
+        let signable_seed_builder_service = Arc::new(SignerSignableSeedBuilder::new(
+            epoch_service.clone(),
+            protocol_initializer_store.clone(),
+        ));
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker.clone(),
+            signable_seed_builder_service,
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_signable_builder,
         ));
-        let metrics_service = Arc::new(MetricsService::new()?);
+        let metrics_service = Arc::new(MetricsService::new(self.root_logger())?);
         let preloader_activation =
             CardanoTransactionsPreloaderActivationSigner::new(aggregator_client.clone());
         let cardano_transactions_preloader = Arc::new(CardanoTransactionsPreloader::new(
@@ -334,17 +358,33 @@ impl<'a> DependenciesBuilder<'a> {
             preloader_transactions_importer,
             self.config.preload_security_parameter,
             chain_observer.clone(),
-            slog_scope::logger(),
+            self.root_logger(),
             Arc::new(preloader_activation),
+        ));
+        let signed_beacon_repository = Arc::new(SignedBeaconRepository::new(
+            sqlite_connection.clone(),
+            self.config.store_retention_limit.map(|limit| limit as u64),
         ));
         let upkeep_service = Arc::new(SignerUpkeepService::new(
             sqlite_connection.clone(),
             sqlite_connection_cardano_transaction_pool,
             signed_entity_type_lock.clone(),
-            slog_scope::logger(),
+            vec![signed_beacon_repository.clone()],
+            self.root_logger(),
+        ));
+        let certifier = Arc::new(SignerCertifierService::new(
+            ticker_service.clone(),
+            signed_beacon_repository,
+            Arc::new(SignerSignedEntityConfigProvider::new(
+                network,
+                epoch_service.clone(),
+            )),
+            signed_entity_type_lock.clone(),
+            single_signer.clone(),
+            aggregator_client.clone(),
+            self.root_logger(),
         ));
 
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(stake_store.clone())));
         let services = SignerDependencyContainer {
             ticker_service,
             certificate_handler: aggregator_client,
@@ -362,6 +402,7 @@ impl<'a> DependenciesBuilder<'a> {
             cardano_transactions_preloader,
             upkeep_service,
             epoch_service,
+            certifier,
         };
 
         Ok(services)
@@ -376,6 +417,8 @@ mod tests {
         chain_observer::FakeObserver, digesters::DumbImmutableFileObserver, entities::TimePoint,
         test_utils::TempDir,
     };
+
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -400,7 +443,7 @@ mod tests {
             -> StdResult<Arc<dyn ImmutableFileObserver>> =
             |_config: &Configuration| Ok(Arc::new(DumbImmutableFileObserver::default()));
 
-        let mut dependencies_builder = DependenciesBuilder::new(&config);
+        let mut dependencies_builder = DependenciesBuilder::new(&config, TestLogger::stdout());
         dependencies_builder
             .override_chain_observer_builder(chain_observer_builder)
             .override_immutable_file_observer_builder(immutable_file_observer_builder)

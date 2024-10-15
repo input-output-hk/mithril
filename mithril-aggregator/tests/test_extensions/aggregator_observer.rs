@@ -1,13 +1,12 @@
 use anyhow::{anyhow, Context};
-use mithril_aggregator::services::SignedEntityService;
 use mithril_aggregator::{
-    dependency_injection::DependenciesBuilder, entities::OpenMessage, services::CertifierService,
+    dependency_injection::{DependenciesBuilder, EpochServiceWrapper},
+    entities::OpenMessage,
+    services::{CertifierService, SignedEntityService},
 };
 use mithril_common::entities::{CardanoTransactionsSnapshot, Certificate, SignedEntity};
 use mithril_common::{
-    entities::{
-        Epoch, SignedEntityConfig, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint,
-    },
+    entities::{Epoch, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint},
     CardanoNetwork, StdResult, TickerService,
 };
 use std::sync::Arc;
@@ -18,7 +17,7 @@ pub struct AggregatorObserver {
     certifier_service: Arc<dyn CertifierService>,
     signed_entity_service: Arc<dyn SignedEntityService>,
     ticker_service: Arc<dyn TickerService>,
-    signed_entity_config: SignedEntityConfig,
+    epoch_service: EpochServiceWrapper,
 }
 
 impl AggregatorObserver {
@@ -29,7 +28,7 @@ impl AggregatorObserver {
             certifier_service: deps_builder.get_certifier_service().await.unwrap(),
             signed_entity_service: deps_builder.get_signed_entity_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
-            signed_entity_config: deps_builder.get_signed_entity_config().unwrap(),
+            epoch_service: deps_builder.get_epoch_service().await.unwrap(),
         }
     }
 
@@ -72,7 +71,10 @@ impl AggregatorObserver {
             .await
             .with_context(|| "Querying the current beacon should not fail")?;
 
-        self.signed_entity_config
+        self.epoch_service
+            .read()
+            .await
+            .signed_entity_config()?
             .time_point_to_signed_entity(discriminant, &time_point)
     }
 

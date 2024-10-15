@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.5.65"
+version = "0.5.82"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -18,13 +18,13 @@ name = "cardano_transactions_get"
 harness = false
 
 [dependencies]
-anyhow = "1.0.86"
-async-trait = "0.1.82"
+anyhow = "1.0.89"
+async-trait = "0.1.83"
 chrono = { version = "0.4.38", features = ["serde"] }
-clap = { version = "4.5.17", features = ["derive", "env", "cargo"] }
+clap = { version = "4.5.20", features = ["derive", "env", "cargo"] }
 cloud-storage = "0.11.1"
 config = "0.14.0"
-flate2 = "1.0.33"
+flate2 = "1.0.34"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
@@ -32,9 +32,9 @@ mithril-persistence = { path = "../internal/mithril-persistence" }
 openssl = { version = "0.10.66", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
 rayon = "1.10.0"
-reqwest = { version = "0.12.7", features = ["json"] }
+reqwest = { version = "0.12.8", features = ["json"] }
 semver = "1.0.23"
-serde = { version = "1.0.209", features = ["derive"] }
+serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.128"
 serde_yaml = "0.9.34"
 sha2 = "0.10.8"
@@ -44,10 +44,9 @@ slog = { version = "2.7.0", features = [
 ] }
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
-slog-scope = "4.4.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
-tar = "0.4.41"
-thiserror = "1.0.63"
+tar = "0.4.42"
+thiserror = "1.0.64"
 tokio = { version = "1.40.0", features = ["full"] }
 tokio-util = { version = "0.7.12", features = ["codec"] }
 typetag = "0.2.18"
@@ -70,8 +69,9 @@ mithril-common = { path = "../mithril-common", features = [
     "test_tools",
 ] }
 mockall = "0.13.0"
+slog-scope = "4.4.0"
 slog-term = "2.9.1"
-tempfile = "3.12.0"
+tempfile = "3.13.0"
 
 [features]
 default = ["jemallocator"]

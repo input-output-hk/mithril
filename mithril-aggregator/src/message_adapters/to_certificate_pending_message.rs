@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use mithril_common::entities::CardanoDbBeacon;
 use mithril_common::{
     entities::{CertificatePending, SignedEntityType},

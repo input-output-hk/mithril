@@ -6,7 +6,8 @@ use crate::{
 
 use anyhow::Context;
 use mithril_common::entities::TimePoint;
-use slog_scope::{crit, info, trace, warn};
+use mithril_common::logging::LoggerExtensions;
+use slog::{crit, info, trace, warn, Logger};
 use std::fmt::Display;
 use std::sync::Arc;
 use tokio::time::sleep;
@@ -57,14 +58,10 @@ impl Display for AggregatorState {
 /// [documentation](https://mithril.network/doc/mithril/mithril-network/aggregator#under-the-hood)
 /// for more explanations about the Aggregator state machine.
 pub struct AggregatorRuntime {
-    /// Configuration
     config: AggregatorConfig,
-
-    /// the internal state of the automate
     state: AggregatorState,
-
-    /// specific runner for this state machine
     runner: Arc<dyn AggregatorRunnerTrait>,
+    logger: Logger,
 }
 
 impl AggregatorRuntime {
@@ -73,14 +70,16 @@ impl AggregatorRuntime {
         aggregator_config: AggregatorConfig,
         init_state: Option<AggregatorState>,
         runner: Arc<dyn AggregatorRunnerTrait>,
+        logger: Logger,
     ) -> Result<Self, RuntimeError> {
-        info!("initializing runtime");
+        let logger = logger.new_with_component_name::<Self>();
+        info!(logger, "initializing runtime");
 
         let state = if let Some(init_state) = init_state {
-            trace!("got initial state from caller");
+            trace!(logger, "got initial state from caller");
             init_state
         } else {
-            trace!("idle state, no current time point");
+            trace!(logger, "idle state, no current time point");
             AggregatorState::Idle(IdleState {
                 current_time_point: None,
             })
@@ -90,6 +89,7 @@ impl AggregatorRuntime {
             config: aggregator_config,
             state,
             runner,
+            logger,
         })
     }
 
@@ -104,18 +104,21 @@ impl AggregatorRuntime {
 
     /// Launches an infinite loop ticking the state machine.
     pub async fn run(&mut self) -> Result<(), RuntimeError> {
-        info!("STATE MACHINE: launching");
+        info!(self.logger, "STATE MACHINE: launching");
 
         loop {
             if let Err(e) = self.cycle().await {
-                warn!("State machine issued an error: {e}");
+                warn!(self.logger, "State machine issued an error: {e}");
 
                 match &e {
                     RuntimeError::Critical {
                         message: _,
                         nested_error: _,
                     } => {
-                        crit!("state machine: a critical error occurred: {e:?}");
+                        crit!(
+                            self.logger,
+                            "state machine: a critical error occurred: {e:?}"
+                        );
 
                         return Err(e);
                     }
@@ -124,6 +127,7 @@ impl AggregatorRuntime {
                         nested_error,
                     } => {
                         warn!(
+                            self.logger,
                             "KeepState Error: {message}. Nested error: «{}».",
                             nested_error
                                 .as_ref()
@@ -136,6 +140,7 @@ impl AggregatorRuntime {
                         nested_error,
                     } => {
                         warn!(
+                            self.logger,
                             "ReInit Error: {message}. Nested error: «{}».",
                             nested_error
                                 .as_ref()
@@ -150,6 +155,7 @@ impl AggregatorRuntime {
             }
 
             info!(
+                self.logger,
                 "… Cycle finished, Sleeping for {} ms",
                 self.config.interval.as_millis()
             );
@@ -159,8 +165,11 @@ impl AggregatorRuntime {
 
     /// Perform one tick of the state machine.
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
-        info!("================================================================================");
-        info!("STATE MACHINE: new cycle: {}", self.state);
+        info!(
+            self.logger,
+            "================================================================================"
+        );
+        info!(self.logger, "STATE MACHINE: new cycle: {}", self.state);
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {
@@ -168,7 +177,7 @@ impl AggregatorRuntime {
                     || "AggregatorRuntime in the state IDLE can not get current time point from chain",
                 )?;
 
-                info!("→ trying to transition to READY"; "last_time_point" => ?last_time_point);
+                info!(self.logger, "→ trying to transition to READY"; "last_time_point" => ?last_time_point);
 
                 self.try_transition_from_idle_to_ready(
                     state.current_time_point,
@@ -190,7 +199,7 @@ impl AggregatorRuntime {
 
                 if state.current_time_point.epoch < last_time_point.epoch {
                     // transition READY > IDLE
-                    info!("→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
+                    info!(self.logger, "→ Epoch has changed, transitioning to IDLE"; "last_time_point" => ?last_time_point);
                     self.state = AggregatorState::Idle(IdleState {
                         current_time_point: Some(state.current_time_point),
                     });
@@ -201,7 +210,7 @@ impl AggregatorRuntime {
                     .with_context(|| "AggregatorRuntime can not get the current open message")?
                 {
                     // transition READY > SIGNING
-                    info!("→ transitioning to SIGNING");
+                    info!(self.logger, "→ transitioning to SIGNING");
                     let new_state = self
                         .transition_from_ready_to_signing(last_time_point.clone(), open_message.clone())
                         .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
@@ -209,7 +218,7 @@ impl AggregatorRuntime {
                 } else {
                     // READY > READY
                     info!(
-                        " ⋅ no open message to certify, waiting…";
+                        self.logger, " ⋅ no open message to certify, waiting…";
                         "time_point" => ?state.current_time_point
                     );
                     self.state = AggregatorState::Ready(ReadyState {
@@ -222,36 +231,26 @@ impl AggregatorRuntime {
                     self.runner.get_time_point_from_chain().await.with_context(|| {
                         "AggregatorRuntime in the state SIGNING can not get current time point from chain"
                     })?;
-                let current_open_message = self
+
+                let is_outdated = self
                     .runner
-                    .get_current_open_message_for_signed_entity_type(
-                        &state.open_message.signed_entity_type,
+                    .is_open_message_outdated(
+                        state.open_message.signed_entity_type.clone(),
+                        &last_time_point,
                     )
-                    .await
-                    .with_context(|| format!("AggregatorRuntime can not get the current open message for signed entity type: '{}'", &state.open_message.signed_entity_type))?;
-                let is_expired_open_message = current_open_message
-                    .as_ref()
-                    .map(|om| om.is_expired)
-                    .unwrap_or(false);
-                let exists_newer_open_message = {
-                    let new_signed_entity_type = self
-                        .config
-                        .signed_entity_config
-                        .time_point_to_signed_entity(
-                            &state.open_message.signed_entity_type,
-                            &last_time_point,
-                        )?;
-                    new_signed_entity_type != state.open_message.signed_entity_type
-                };
+                    .await?;
 
                 if state.current_time_point.epoch < last_time_point.epoch {
                     // SIGNING > IDLE
-                    info!("→ Epoch changed, transitioning to IDLE");
+                    info!(self.logger, "→ Epoch changed, transitioning to IDLE");
                     let new_state = self.transition_from_signing_to_idle(state).await?;
                     self.state = AggregatorState::Idle(new_state);
-                } else if exists_newer_open_message || is_expired_open_message {
+                } else if is_outdated {
                     // SIGNING > READY
-                    info!("→ Open message changed, transitioning to READY");
+                    info!(
+                        self.logger,
+                        "→ Open message changed, transitioning to READY"
+                    );
                     let new_state = self
                         .transition_from_signing_to_ready_new_open_message(state)
                         .await?;
@@ -261,7 +260,7 @@ impl AggregatorRuntime {
                     let new_state = self
                         .transition_from_signing_to_ready_multisignature(state)
                         .await?;
-                    info!("→ a multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
+                    info!(self.logger, "→ a multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
                     self.state = AggregatorState::Ready(new_state);
                 }
             }
@@ -276,7 +275,7 @@ impl AggregatorRuntime {
         maybe_current_time_point: Option<TimePoint>,
         new_time_point: TimePoint,
     ) -> Result<(), RuntimeError> {
-        trace!("trying transition from IDLE to READY state");
+        trace!(self.logger, "trying transition from IDLE to READY state");
 
         if maybe_current_time_point.is_none()
             || maybe_current_time_point.unwrap().epoch < new_time_point.epoch
@@ -294,7 +293,7 @@ impl AggregatorRuntime {
             self.runner
                 .open_signer_registration_round(&new_time_point)
                 .await?;
-            self.runner.update_protocol_parameters().await?;
+            self.runner.update_epoch_settings().await?;
             self.runner.precompute_epoch_data().await?;
         }
 
@@ -315,7 +314,10 @@ impl AggregatorRuntime {
         &self,
         state: SigningState,
     ) -> Result<ReadyState, RuntimeError> {
-        trace!("launching transition from SIGNING to READY state");
+        trace!(
+            self.logger,
+            "launching transition from SIGNING to READY state"
+        );
         let certificate = self
             .runner
             .create_certificate(&state.open_message.signed_entity_type)
@@ -352,7 +354,10 @@ impl AggregatorRuntime {
         &self,
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
-        trace!("launching transition from SIGNING to IDLE state");
+        trace!(
+            self.logger,
+            "launching transition from SIGNING to IDLE state"
+        );
         self.runner.drop_pending_certificate().await?;
 
         Ok(IdleState {
@@ -366,7 +371,10 @@ impl AggregatorRuntime {
         &self,
         state: SigningState,
     ) -> Result<ReadyState, RuntimeError> {
-        trace!("launching transition from SIGNING to READY state");
+        trace!(
+            self.logger,
+            "launching transition from SIGNING to READY state"
+        );
         self.runner.drop_pending_certificate().await?;
 
         Ok(ReadyState {
@@ -381,7 +389,10 @@ impl AggregatorRuntime {
         new_time_point: TimePoint,
         open_message: OpenMessage,
     ) -> Result<SigningState, RuntimeError> {
-        trace!("launching transition from READY to SIGNING state");
+        trace!(
+            self.logger,
+            "launching transition from READY to SIGNING state"
+        );
 
         let certificate_pending = self
             .runner
@@ -409,8 +420,9 @@ mod tests {
     use mockall::predicate;
     use std::time::Duration;
 
-    use mithril_common::entities::{Epoch, SignedEntityConfig, SignedEntityType};
     use mithril_common::test_utils::fake_data;
+
+    use crate::test_tools::TestLogger;
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
@@ -420,9 +432,10 @@ mod tests {
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
         AggregatorRuntime::new(
-            AggregatorConfig::new(Duration::from_millis(20), SignedEntityConfig::dummy()),
+            AggregatorConfig::new(Duration::from_millis(20)),
             init_state,
             Arc::new(runner),
+            TestLogger::stdout(),
         )
         .await
         .unwrap()
@@ -463,7 +476,7 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_update_protocol_parameters()
+            .expect_update_epoch_settings()
             .once()
             .returning(|| Ok(()));
         runner
@@ -520,7 +533,7 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_update_protocol_parameters()
+            .expect_update_epoch_settings()
             .once()
             .returning(|| Ok(()));
         runner
@@ -646,27 +659,20 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_get_current_open_message_for_signed_entity_type()
+            .expect_is_open_message_outdated()
             .once()
-            .returning(|_| {
-                Ok(Some(OpenMessage {
-                    signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-                    ..OpenMessage::dummy()
-                }))
-            });
+            .returning(|_, _| Ok(true));
         runner
             .expect_drop_pending_certificate()
             .once()
             .returning(|| Ok(Some(fake_data::certificate_pending())));
 
-        let state = SigningState {
+        let initial_state = AggregatorState::Signing(SigningState {
             current_time_point: TimePoint::dummy(),
-            open_message: OpenMessage {
-                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(2)),
-                ..OpenMessage::dummy()
-            },
-        };
-        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
+            open_message: OpenMessage::dummy(),
+        });
+
+        let mut runtime = init_runtime(Some(initial_state), runner).await;
         runtime.cycle().await.unwrap();
 
         assert_eq!("ready".to_string(), runtime.get_state());
@@ -680,9 +686,9 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_get_current_open_message_for_signed_entity_type()
+            .expect_is_open_message_outdated()
             .once()
-            .returning(|_| Ok(Some(OpenMessage::dummy())));
+            .returning(|_, _| Ok(false));
         runner
             .expect_create_certificate()
             .once()
@@ -713,9 +719,9 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_get_current_open_message_for_signed_entity_type()
+            .expect_is_open_message_outdated()
             .once()
-            .returning(|_| Ok(Some(OpenMessage::dummy())));
+            .returning(|_, _| Ok(false));
         runner
             .expect_create_certificate()
             .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
@@ -753,9 +759,9 @@ mod tests {
             .once()
             .returning(|| Ok(TimePoint::dummy()));
         runner
-            .expect_get_current_open_message_for_signed_entity_type()
+            .expect_is_open_message_outdated()
             .once()
-            .returning(|_| Ok(Some(OpenMessage::dummy())));
+            .returning(|_, _| Ok(false));
         runner
             .expect_create_certificate()
             .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));

@@ -1,14 +1,17 @@
 use crate::devnet::PoolNode;
 use crate::utils::MithrilCommand;
 use crate::{DEVNET_MAGIC_ID, ERA_MARKERS_VERIFICATION_KEY};
+use anyhow::Context;
 use mithril_common::entities::PartyId;
 use mithril_common::StdResult;
+use slog_scope::info;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::process::Child;
 
 #[derive(Debug)]
 pub struct SignerConfig<'a> {
+    pub signer_number: usize,
     pub aggregator_endpoint: String,
     pub pool_node: &'a PoolNode,
     pub cardano_cli_path: &'a Path,
@@ -23,6 +26,7 @@ pub struct SignerConfig<'a> {
 
 #[derive(Debug)]
 pub struct Signer {
+    name: String,
     party_id: PartyId,
     command: MithrilCommand,
     process: Option<Child>,
@@ -55,6 +59,7 @@ impl Signer {
                 signer_config.pool_node.db_path.to_str().unwrap(),
             ),
             ("DATA_STORES_DIRECTORY", &data_stores_path),
+            ("STORE_RETENTION_LIMIT", "10"),
             ("NETWORK_MAGIC", &magic_id),
             (
                 "CARDANO_NODE_SOCKET_PATH",
@@ -101,9 +106,11 @@ impl Signer {
             env,
             &args,
         )?;
-        command.set_log_name(format!("mithril-signer-{party_id}").as_str());
+        let name = format!("mithril-signer-{}-{party_id}", signer_config.signer_number);
+        command.set_log_name(&name);
 
         Ok(Self {
+            name,
             party_id,
             command,
             process: None,
@@ -115,6 +122,18 @@ impl Signer {
         Ok(())
     }
 
+    pub async fn stop(&mut self) -> StdResult<()> {
+        if let Some(process) = self.process.as_mut() {
+            let name = self.name.as_str();
+            info!("Stopping {name}");
+            process
+                .kill()
+                .await
+                .with_context(|| "Could not kill signer")?;
+            self.process = None;
+        }
+        Ok(())
+    }
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.command
             .tail_logs(

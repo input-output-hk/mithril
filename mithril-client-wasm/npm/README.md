@@ -79,6 +79,7 @@ console.log(
 let mithril_stake_distributions_message =
   await client.compute_mithril_stake_distribution_message(
     last_stake_distribution,
+    last_certificate_from_chain,
   );
 console.log(
   "mithril_stake_distributions_message:",

@@ -23,6 +23,7 @@ pub async fn bootstrap_aggregator(
         pool_node: &args.pool_node,
         cardano_cli_path: &args.cardano_cli_path,
         work_dir: &args.work_dir,
+        artifacts_dir: &args.work_dir,
         bin_dir: &args.bin_dir,
         cardano_node_version: "1.2.3",
         mithril_run_interval: 1000,

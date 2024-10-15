@@ -16,8 +16,8 @@ use mithril_common::{
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
     entities::{
         BlockNumber, Certificate, CertificateSignature, ChainPoint, Epoch, ImmutableFileNumber,
-        ProtocolMessagePartKey, SignedEntityType, SignedEntityTypeDiscriminants,
-        SingleSignatureAuthenticationStatus, SlotNumber, Snapshot, StakeDistribution, TimePoint,
+        SignedEntityType, SignedEntityTypeDiscriminants, SingleSignatureAuthenticationStatus,
+        SlotNumber, Snapshot, StakeDistribution, TimePoint,
     },
     era::{adapters::EraReaderDummyAdapter, EraMarker, EraReader, SupportedEra},
     test_utils::{
@@ -81,19 +81,20 @@ pub struct RuntimeTester {
     pub observer: Arc<AggregatorObserver>,
     pub open_message_repository: Arc<OpenMessageRepository>,
     pub block_scanner: Arc<DumbBlockScanner>,
-    _logs_guard: slog_scope::GlobalLoggerGuard,
+    _global_logger_guard: slog_scope::GlobalLoggerGuard,
 }
 
-fn build_logger() -> slog_scope::GlobalLoggerGuard {
+fn build_logger() -> slog::Logger {
     let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
     let drain = slog_term::CompactFormat::new(decorator).build().fuse();
     let drain = slog_async::Async::new(drain).build().fuse();
-    slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()))
+    slog::Logger::root(Arc::new(drain), slog::o!())
 }
 
 impl RuntimeTester {
     pub async fn build(start_time_point: TimePoint, configuration: Configuration) -> Self {
         let logger = build_logger();
+        let global_logger = slog_scope::set_global_logger(logger.clone());
         let network = configuration.network.clone();
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
@@ -110,7 +111,7 @@ impl RuntimeTester {
                 Some(Epoch(0)),
             )]));
         let block_scanner = Arc::new(DumbBlockScanner::new());
-        let mut deps_builder = DependenciesBuilder::new(configuration);
+        let mut deps_builder = DependenciesBuilder::new(logger.clone(), configuration);
         deps_builder.snapshot_uploader = Some(snapshot_uploader.clone());
         deps_builder.chain_observer = Some(chain_observer.clone());
         deps_builder.immutable_file_observer = Some(immutable_file_observer.clone());
@@ -140,7 +141,7 @@ impl RuntimeTester {
             observer,
             open_message_repository,
             block_scanner,
-            _logs_guard: logger,
+            _global_logger_guard: global_logger,
         }
     }
 
@@ -417,23 +418,11 @@ impl RuntimeTester {
             .build_current_signed_entity_type(discriminant)
             .await?;
 
-        // Code copied from `AggregatorRunner::compute_protocol_message`
-        // Todo: Refactor this code to avoid code duplication by making the signable_builder_service
-        // able to retrieve the next avk by itself.
-        let mut message = self
+        let message = self
             .dependencies
             .signable_builder_service
             .compute_protocol_message(signed_entity_type.clone())
             .await?;
-
-        let epoch_service = self.dependencies.epoch_service.read().await;
-        message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            epoch_service
-                .next_aggregate_verification_key()?
-                .to_json_hex()
-                .with_context(|| "convert next avk to json hex failure")?,
-        );
 
         for signer_fixture in signers {
             if let Some(mut single_signatures) = signer_fixture.sign(&message) {
@@ -491,7 +480,7 @@ impl RuntimeTester {
         let epoch = self.observer.current_time_point().await.epoch;
         let protocol_parameters = self
             .dependencies
-            .protocol_parameters_store
+            .epoch_settings_storer
             .get_protocol_parameters(epoch.offset_to_recording_epoch())
             .await
             .with_context(|| "Querying the recording epoch protocol_parameters should not fail")?

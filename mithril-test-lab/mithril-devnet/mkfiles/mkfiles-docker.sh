@@ -5,8 +5,6 @@ GENESIS_SECRET_KEY=5b3131382c3138342c3232342c3137332c3136302c3234312c36312c31343
 CHAIN_OBSERVER_TYPE=pallas
 
 cat >> docker-compose.yaml <<EOF
-version: "3.9"
-
 services:
 EOF
 
