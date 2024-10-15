@@ -68,7 +68,7 @@ impl<T: MetricsServiceExporter + Send + Sync + 'static> MetricsServer<T> {
     pub async fn start(&self, shutdown_rx: Receiver<()>) -> StdResult<()> {
         info!(
             self.logger,
-            "starting HTTP server for metrics on port {}", self.server_port
+            "Starting HTTP server for metrics on port {}", self.server_port
         );
 
         let router_state = Arc::new(RouterState {
@@ -80,7 +80,7 @@ impl<T: MetricsServiceExporter + Send + Sync + 'static> MetricsServer<T> {
                 "/metrics",
                 get(|State(state): State<Arc<RouterState<T>>>| async move {
                     state.metrics_service.export_metrics().map_err(|e| {
-                        error!(state.logger, "error exporting metrics"; "error" => ?e);
+                        error!(state.logger, "Error exporting metrics"; "error" => ?e);
                         MetricsServerError::Internal(e)
                     })
                 }),

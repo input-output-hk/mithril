@@ -36,7 +36,7 @@ impl MetricCounter {
     }
 
     pub fn increment(&self) {
-        debug!(self.logger, "incrementing '{}' counter", self.name);
+        debug!(self.logger, "Incrementing '{}' counter", self.name);
         self.counter.inc();
     }
 
@@ -82,7 +82,7 @@ impl MetricGauge {
     pub fn record<T: Into<f64> + Copy>(&self, value: T) {
         debug!(
             self.logger,
-            "set '{}' gauge value to {}",
+            "Set '{}' gauge value to {}",
             self.name,
             value.into()
         );
