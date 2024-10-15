@@ -309,7 +309,7 @@ impl AggregatorHTTPClient {
     #[cfg_attr(target_family = "wasm", async_recursion(?Send))]
     #[cfg_attr(not(target_family = "wasm"), async_recursion)]
     async fn post(&self, url: Url, json: &str) -> Result<Response, AggregatorClientError> {
-        debug!(self.logger, "POST url='{url}' json='{json}'.");
+        debug!(self.logger, "POST url='{url}'"; "json" => json);
         let request_builder = self.http_client.post(url.to_owned()).body(json.to_owned());
         let current_api_version = self
             .compute_current_api_version()

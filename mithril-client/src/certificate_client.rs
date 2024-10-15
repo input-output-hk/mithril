@@ -59,7 +59,7 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog::{crit, debug, Logger};
+use slog::{crit, Logger};
 
 use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
 use crate::feedback::{FeedbackSender, MithrilEvent};
@@ -173,13 +173,12 @@ impl InternalCertificateRetriever {
             Err(e) => Err(e.into()),
             Ok(response) => {
                 let message =
-                    serde_json::from_str::<CertificateMessage>(&response).map_err(|e| {
+                    serde_json::from_str::<CertificateMessage>(&response).inspect_err(|e| {
                         crit!(
-                            self.logger,
-                            "Could not create certificate from API message: {e}."
+                            self.logger, "Could not create certificate from API message";
+                            "error" => e.to_string(),
+                            "raw_message" => response
                         );
-                        debug!(self.logger, "Certificate message = {response}");
-                        e
                     })?;
 
                 Ok(Some(message))

@@ -222,8 +222,8 @@ impl SnapshotClient {
                         }
                         Err(e) => {
                             slog::warn!(
-                                self.logger,
-                                "Failed downloading snapshot from '{location}' Error: {e}."
+                                self.logger, "Failed downloading snapshot from '{location}'";
+                                "error" => ?e
                             );
                             Err(e)
                         }
