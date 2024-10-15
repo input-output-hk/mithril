@@ -69,7 +69,7 @@ async fn get_epoch_settings_message(
 }
 
 mod handlers {
-    use slog::{debug, Logger};
+    use slog::{warn, Logger};
     use std::collections::BTreeSet;
     use std::convert::Infallible;
     use warp::http::StatusCode;
@@ -86,13 +86,15 @@ mod handlers {
         epoch_service: EpochServiceWrapper,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /epoch-settings");
         let epoch_settings_message =
             get_epoch_settings_message(epoch_service, allowed_discriminants).await;
 
         match epoch_settings_message {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
-            Err(err) => Ok(reply::server_error(err)),
+            Err(err) => {
+                warn!(logger,"epoch_settings::error"; "error" => ?err);
+                Ok(reply::server_error(err))
+            }
         }
     }
 }

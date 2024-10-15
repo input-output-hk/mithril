@@ -109,8 +109,6 @@ mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /artifact/snapshots");
-
         match http_message_service
             .get_snapshot_list_message(LIST_MAX_ITEMS)
             .await
@@ -129,7 +127,6 @@ mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /artifact/snapshot/{signed_entity_id}");
         match http_message_service
             .get_snapshot_message(&signed_entity_id)
             .await
@@ -188,8 +185,6 @@ mod handlers {
         config: Configuration,
         signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /snapshot_download/snapshot/{digest}");
-
         match signed_entity_service
             .get_signed_snapshot_by_id(&digest)
             .await

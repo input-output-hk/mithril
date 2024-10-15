@@ -16,13 +16,11 @@ fn post_statistics(
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_event_transmitter(dependency_manager))
         .and_then(handlers::post_snapshot_statistics)
 }
 
 mod handlers {
-    use slog::{debug, Logger};
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
@@ -33,10 +31,8 @@ mod handlers {
 
     pub async fn post_snapshot_statistics(
         snapshot_download_message: SnapshotDownloadMessage,
-        logger: Logger,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "POST /statistics/snapshot");
         let headers: Vec<(&str, &str)> = Vec::new();
 
         match event_transmitter.send_event_message(

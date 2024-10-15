@@ -82,7 +82,7 @@ mod handlers {
     use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
-    use slog::{debug, trace, warn, Logger};
+    use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -96,8 +96,7 @@ mod handlers {
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         epoch_service: EpochServiceWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "POST /register-signer"; "message" => ?register_signer_message);
-        trace!(logger, "POST /register-signer"; "complete_message" => #?register_signer_message);
+        debug!(logger, ">> register_signer"; "payload" => ?register_signer_message);
 
         let registration_epoch = register_signer_message.epoch;
 

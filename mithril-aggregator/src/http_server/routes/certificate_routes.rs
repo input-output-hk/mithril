@@ -51,7 +51,7 @@ mod handlers {
         ToCertificatePendingMessageAdapter,
     };
 
-    use slog::{debug, warn, Logger};
+    use slog::{warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -63,8 +63,6 @@ mod handlers {
         logger: Logger,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /certificate-pending");
-
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(
                 &ToCertificatePendingMessageAdapter::adapt(certificate_pending),
@@ -83,8 +81,6 @@ mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /certificates");
-
         match http_message_service
             .get_certificate_list_message(LIST_MAX_ITEMS)
             .await
@@ -103,8 +99,6 @@ mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /certificate/{certificate_hash}");
-
         match http_message_service
             .get_certificate_message(&certificate_hash)
             .await

@@ -74,6 +74,7 @@ pub fn routes(
                     .to_string(),
             )
         })
+        .with(middlewares::log_route_call(&dependency_manager))
 }
 
 /// API Version verification

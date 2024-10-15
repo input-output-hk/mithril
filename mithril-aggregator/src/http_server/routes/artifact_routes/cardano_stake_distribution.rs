@@ -52,7 +52,7 @@ pub mod handlers {
     use crate::services::MessageService;
 
     use mithril_common::entities::Epoch;
-    use slog::{debug, warn, Logger};
+    use slog::{warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -64,8 +64,6 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /artifact/cardano-stake-distributions");
-
         match http_message_service
             .get_cardano_stake_distribution_list_message(LIST_MAX_ITEMS)
             .await
@@ -84,11 +82,6 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(
-            logger,
-            "GET /artifact/cardano-stake-distribution/{signed_entity_id}"
-        );
-
         match http_message_service
             .get_cardano_stake_distribution_message(&signed_entity_id)
             .await
@@ -111,11 +104,6 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(
-            logger,
-            "GET /artifact/cardano-stake-distributions/epoch/{epoch}"
-        );
-
         let artifact_epoch = match epoch.parse::<u64>() {
             Ok(epoch) => Epoch(epoch),
             Err(err) => {
