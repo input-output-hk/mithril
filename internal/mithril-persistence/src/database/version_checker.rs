@@ -54,7 +54,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
 
     /// Apply migrations
     pub fn apply(&self) -> StdResult<()> {
-        debug!(&self.logger, "check database version",);
+        debug!(&self.logger, "Check database version",);
         self.create_table_if_not_exists(&self.application_type)
             .with_context(|| "Can not create table 'db_version' while applying migrations")?;
         let db_version = self
@@ -80,7 +80,7 @@ impl<'conn> DatabaseVersionChecker<'conn> {
                 self.apply_migrations(&db_version, self.connection)?;
                 info!(
                     &self.logger,
-                    "database upgraded to version '{}'", migration_version
+                    "Database upgraded to version '{migration_version}'"
                 );
             }
             Ordering::Less => {
