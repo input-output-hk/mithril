@@ -52,7 +52,7 @@ impl TransmitterService<EventMessage> {
     {
         let content = serde_json::to_string(content).map_err(|e| {
             let error_msg = format!("Serialization error while forging event message: {e}");
-            warn!(self.logger, "Event message error => «{error_msg}»");
+            warn!(self.logger, "Event message error"; "error" => &error_msg);
 
             error_msg
         })?;
@@ -68,7 +68,7 @@ impl TransmitterService<EventMessage> {
         self.get_transmitter().send(message.clone()).map_err(|e| {
             let error_msg =
                 format!("An error occurred when sending message {message:?} to monitoring: '{e}'.");
-            warn!(self.logger, "Event message error => «{error_msg}»");
+            warn!(self.logger, "Event message error"; "error" => &error_msg);
 
             error_msg
         })

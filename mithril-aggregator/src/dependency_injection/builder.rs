@@ -599,7 +599,8 @@ impl DependenciesBuilder {
         let epoch_settings_configuration = self.get_epoch_settings_configuration()?;
         debug!(
             logger,
-            "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {current_epoch}: {epoch_settings_configuration:?}"
+            "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {current_epoch}";
+            "epoch_settings_configuration" => ?epoch_settings_configuration,
         );
         epoch_settings_store
             .handle_discrepancies_at_startup(current_epoch, &epoch_settings_configuration)

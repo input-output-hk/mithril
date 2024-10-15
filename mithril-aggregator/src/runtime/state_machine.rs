@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Context;
 use mithril_common::entities::TimePoint;
 use mithril_common::logging::LoggerExtensions;
-use slog::{crit, info, trace, warn, Logger};
+use slog::{info, trace, Logger};
 use std::fmt::Display;
 use std::sync::Arc;
 use tokio::time::sleep;
@@ -73,13 +73,13 @@ impl AggregatorRuntime {
         logger: Logger,
     ) -> Result<Self, RuntimeError> {
         let logger = logger.new_with_component_name::<Self>();
-        info!(logger, "initializing runtime");
+        info!(logger, "Initializing runtime");
 
         let state = if let Some(init_state) = init_state {
-            trace!(logger, "got initial state from caller");
+            trace!(logger, "Got initial state from caller");
             init_state
         } else {
-            trace!(logger, "idle state, no current time point");
+            trace!(logger, "Idle state, no current time point");
             AggregatorState::Idle(IdleState {
                 current_time_point: None,
             })
@@ -104,53 +104,13 @@ impl AggregatorRuntime {
 
     /// Launches an infinite loop ticking the state machine.
     pub async fn run(&mut self) -> Result<(), RuntimeError> {
-        info!(self.logger, "STATE MACHINE: launching");
+        info!(self.logger, "Launching State Machine");
 
         loop {
             if let Err(e) = self.cycle().await {
-                warn!(self.logger, "State machine issued an error: {e}");
-
-                match &e {
-                    RuntimeError::Critical {
-                        message: _,
-                        nested_error: _,
-                    } => {
-                        crit!(
-                            self.logger,
-                            "state machine: a critical error occurred: {e:?}"
-                        );
-
-                        return Err(e);
-                    }
-                    RuntimeError::KeepState {
-                        message,
-                        nested_error,
-                    } => {
-                        warn!(
-                            self.logger,
-                            "KeepState Error: {message}. Nested error: «{}».",
-                            nested_error
-                                .as_ref()
-                                .map(|e| format!("{e:?}"))
-                                .unwrap_or("None".into())
-                        );
-                    }
-                    RuntimeError::ReInit {
-                        message,
-                        nested_error,
-                    } => {
-                        warn!(
-                            self.logger,
-                            "ReInit Error: {message}. Nested error: «{}».",
-                            nested_error
-                                .as_ref()
-                                .map(|e| format!("{e:?}"))
-                                .unwrap_or("None".into())
-                        );
-                        self.state = AggregatorState::Idle(IdleState {
-                            current_time_point: None,
-                        });
-                    }
+                e.write_to_log(&self.logger);
+                if e.is_critical() {
+                    return Err(e);
                 }
             }
 
@@ -169,7 +129,7 @@ impl AggregatorRuntime {
             self.logger,
             "================================================================================"
         );
-        info!(self.logger, "STATE MACHINE: new cycle: {}", self.state);
+        info!(self.logger, "new cycle: {}", self.state);
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {
@@ -177,7 +137,7 @@ impl AggregatorRuntime {
                     || "AggregatorRuntime in the state IDLE can not get current time point from chain",
                 )?;
 
-                info!(self.logger, "→ trying to transition to READY"; "last_time_point" => ?last_time_point);
+                info!(self.logger, "→ Trying to transition to READY"; "last_time_point" => ?last_time_point);
 
                 self.try_transition_from_idle_to_ready(
                     state.current_time_point,
@@ -210,7 +170,7 @@ impl AggregatorRuntime {
                     .with_context(|| "AggregatorRuntime can not get the current open message")?
                 {
                     // transition READY > SIGNING
-                    info!(self.logger, "→ transitioning to SIGNING");
+                    info!(self.logger, "→ Transitioning to SIGNING");
                     let new_state = self
                         .transition_from_ready_to_signing(last_time_point.clone(), open_message.clone())
                         .await.with_context(|| format!("AggregatorRuntime can not perform a transition from READY state to SIGNING with entity_type: '{:?}'", open_message.signed_entity_type))?;
@@ -218,7 +178,7 @@ impl AggregatorRuntime {
                 } else {
                     // READY > READY
                     info!(
-                        self.logger, " ⋅ no open message to certify, waiting…";
+                        self.logger, " ⋅ No open message to certify, waiting…";
                         "time_point" => ?state.current_time_point
                     );
                     self.state = AggregatorState::Ready(ReadyState {
@@ -260,7 +220,7 @@ impl AggregatorRuntime {
                     let new_state = self
                         .transition_from_signing_to_ready_multisignature(state)
                         .await?;
-                    info!(self.logger, "→ a multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
+                    info!(self.logger, "→ A multi-signature has been created, build an artifact & a certificate and transitioning back to READY");
                     self.state = AggregatorState::Ready(new_state);
                 }
             }
@@ -275,7 +235,7 @@ impl AggregatorRuntime {
         maybe_current_time_point: Option<TimePoint>,
         new_time_point: TimePoint,
     ) -> Result<(), RuntimeError> {
-        trace!(self.logger, "trying transition from IDLE to READY state");
+        trace!(self.logger, "Trying transition from IDLE to READY state");
 
         if maybe_current_time_point.is_none()
             || maybe_current_time_point.unwrap().epoch < new_time_point.epoch
@@ -316,7 +276,7 @@ impl AggregatorRuntime {
     ) -> Result<ReadyState, RuntimeError> {
         trace!(
             self.logger,
-            "launching transition from SIGNING to READY state"
+            "Launching transition from SIGNING to READY state"
         );
         let certificate = self
             .runner
@@ -356,7 +316,7 @@ impl AggregatorRuntime {
     ) -> Result<IdleState, RuntimeError> {
         trace!(
             self.logger,
-            "launching transition from SIGNING to IDLE state"
+            "Launching transition from SIGNING to IDLE state"
         );
         self.runner.drop_pending_certificate().await?;
 
@@ -373,7 +333,7 @@ impl AggregatorRuntime {
     ) -> Result<ReadyState, RuntimeError> {
         trace!(
             self.logger,
-            "launching transition from SIGNING to READY state"
+            "Launching transition from SIGNING to READY state"
         );
         self.runner.drop_pending_certificate().await?;
 
@@ -391,7 +351,7 @@ impl AggregatorRuntime {
     ) -> Result<SigningState, RuntimeError> {
         trace!(
             self.logger,
-            "launching transition from READY to SIGNING state"
+            "Launching transition from READY to SIGNING state"
         );
 
         let certificate_pending = self

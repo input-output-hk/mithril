@@ -35,8 +35,7 @@ impl SingleSignatureAuthenticator {
         {
             Ok(()) => {
                 debug!(
-                    self.logger,
-                    "Single signature party authenticated for current stake distribution";
+                    self.logger, "Single signature party authenticated for current stake distribution";
                     "party_id" => &single_signature.party_id,
                 );
                 true
@@ -54,15 +53,13 @@ impl SingleSignatureAuthenticator {
                     .is_ok()
                 {
                     debug!(
-                        self.logger,
-                        "Single signature party authenticated for next stake distribution";
+                        self.logger, "Single signature party authenticated for next stake distribution";
                         "party_id" => &single_signature.party_id,
                     );
                     true
                 } else {
                     debug!(
-                        self.logger,
-                        "Single signature party not authenticated";
+                        self.logger, "Single signature party not authenticated";
                         "party_id" => &single_signature.party_id,
                     );
                     false

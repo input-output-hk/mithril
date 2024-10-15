@@ -36,7 +36,7 @@ pub mod handlers {
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
 
-    use slog::{debug, warn, Logger};
+    use slog::{warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -48,8 +48,6 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "⇄ HTTP SERVER: artifacts");
-
         match http_message_service
             .get_mithril_stake_distribution_list_message(LIST_MAX_ITEMS)
             .await
@@ -68,8 +66,6 @@ pub mod handlers {
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "⇄ HTTP SERVER: artifact/{signed_entity_id}");
-
         match http_message_service
             .get_mithril_stake_distribution_message(&signed_entity_id)
             .await

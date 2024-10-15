@@ -24,7 +24,7 @@ fn register_signatures(
 }
 
 mod handlers {
-    use slog::{debug, trace, warn, Logger};
+    use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
@@ -45,8 +45,7 @@ mod handlers {
         certifier_service: Arc<dyn CertifierService>,
         single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "⇄ HTTP SERVER: register_signatures/{:?}", message);
-        trace!(logger,"⇄ HTTP SERVER: register_signatures"; "complete_message" => #?message );
+        debug!(logger, ">> register_signatures"; "payload" => ?message);
 
         let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();

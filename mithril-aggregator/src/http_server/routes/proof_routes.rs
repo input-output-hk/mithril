@@ -73,9 +73,8 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
-            logger,
-            "⇄ HTTP SERVER: proof_cardano_transaction?transaction_hashes={}",
-            transaction_parameters.transaction_hashes
+            logger, ">> proof_cardano_transaction";
+            "transaction_hashes" => &transaction_parameters.transaction_hashes
         );
 
         if let Err(error) = validator.validate(&transaction_hashes) {

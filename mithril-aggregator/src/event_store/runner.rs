@@ -37,15 +37,15 @@ impl EventStore {
         let persister = EventPersister::new(connection);
         info!(
             self.logger,
-            "monitoring: starting event loop to log messages."
+            "Starting monitoring event loop to log messages."
         );
         loop {
             if let Some(message) = self.receiver.recv().await {
-                debug!(self.logger, "Event received: {message:?}");
+                debug!(self.logger, "Event received"; "event" => ?message);
                 let event = persister
                     .persist(message)
                     .with_context(|| "event persist failure")?;
-                debug!(self.logger, "event ID={} created", event.event_id);
+                debug!(self.logger, "Event ID={} created", event.event_id);
             } else {
                 info!(self.logger, "No more events to proceed, quitting…");
                 break;

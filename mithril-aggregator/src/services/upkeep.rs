@@ -57,7 +57,7 @@ impl AggregatorUpkeepService {
         if self.signed_entity_type_lock.has_locked_entities().await {
             info!(
                 self.logger,
-                "UpkeepService::Some entities are locked - Skipping database upkeep"
+                "Some entities are locked - Skipping database upkeep"
             );
             return Ok(());
         }
@@ -68,7 +68,7 @@ impl AggregatorUpkeepService {
 
         // Run the database upkeep tasks in another thread to avoid blocking the tokio runtime
         let db_upkeep_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
-            info!(db_upkeep_logger, "UpkeepService::Cleaning main database");
+            info!(db_upkeep_logger, "Cleaning main database");
             SqliteCleaner::new(&main_db_connection)
                 .with_logger(db_upkeep_logger.clone())
                 .with_tasks(&[
@@ -77,10 +77,7 @@ impl AggregatorUpkeepService {
                 ])
                 .run()?;
 
-            info!(
-                db_upkeep_logger,
-                "UpkeepService::Cleaning cardano transactions database"
-            );
+            info!(db_upkeep_logger, "Cleaning cardano transactions database");
             let cardano_tx_db_connection = cardano_tx_db_connection_pool.connection()?;
             SqliteCleaner::new(&cardano_tx_db_connection)
                 .with_logger(db_upkeep_logger.clone())
@@ -99,13 +96,13 @@ impl AggregatorUpkeepService {
 #[async_trait]
 impl UpkeepService for AggregatorUpkeepService {
     async fn run(&self) -> StdResult<()> {
-        info!(self.logger, "UpkeepService::start");
+        info!(self.logger, "Start upkeep of the application");
 
         self.upkeep_all_databases()
             .await
             .with_context(|| "Database upkeep failed")?;
 
-        info!(self.logger, "UpkeepService::end");
+        info!(self.logger, "Upkeep finished");
         Ok(())
     }
 }

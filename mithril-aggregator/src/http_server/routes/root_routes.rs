@@ -27,7 +27,7 @@ mod handlers {
     use std::collections::BTreeSet;
     use std::{convert::Infallible, sync::Arc};
 
-    use slog::{debug, Logger};
+    use slog::Logger;
     use warp::http::StatusCode;
 
     use mithril_common::api_version::APIVersionProvider;
@@ -46,8 +46,6 @@ mod handlers {
         allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         configuration: Configuration,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "⇄ HTTP SERVER: root");
-
         let open_api_version = unwrap_to_internal_server_error!(
             api_version_provider.compute_current_version(),
             logger => "root::error"

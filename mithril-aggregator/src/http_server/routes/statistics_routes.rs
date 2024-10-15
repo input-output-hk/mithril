@@ -22,9 +22,9 @@ fn post_statistics(
 
 mod handlers {
     use std::{convert::Infallible, sync::Arc};
+    use warp::http::StatusCode;
 
     use mithril_common::messages::SnapshotDownloadMessage;
-    use warp::http::StatusCode;
 
     use crate::event_store::{EventMessage, TransmitterService};
     use crate::http_server::routes::reply;

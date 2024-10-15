@@ -127,9 +127,8 @@ impl MithrilSignedEntityService {
         certificate: &Certificate,
     ) -> StdResult<()> {
         info!(
-            self.logger, "MithrilSignedEntityService::create_artifact";
-            "signed_entity_type" => ?signed_entity_type,
-            "certificate_hash" => &certificate.hash
+            self.logger, ">> create_artifact_task";
+            "signed_entity_type" => ?signed_entity_type, "certificate_hash" => &certificate.hash
         );
 
         let mut remaining_retries = 2;

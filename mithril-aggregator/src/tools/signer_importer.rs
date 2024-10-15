@@ -38,15 +38,15 @@ impl SignersImporter {
 
     /// Import and persist the signers
     pub async fn run(&self) -> StdResult<()> {
-        info!(self.logger, "🔧 Signer Importer: starting");
+        info!(self.logger, "Starting import");
         let items = self
             .retriever
             .retrieve()
             .await
             .with_context(|| "Failed to retrieve signers from remote service")?;
 
-        info!(self.logger,
-            "🔧 Signer Importer: persisting retrieved data in the database";
+        info!(
+            self.logger, "Persisting retrieved data in the database";
             "number_of_signer_to_insert" => items.len()
         );
         self.persister
@@ -62,14 +62,11 @@ impl SignersImporter {
         loop {
             interval.tick().await;
             if let Err(error) = self.run().await {
-                warn!(
-                    self.logger,
-                    "Signer retriever failed: Error: «{:?}».", error
-                );
+                warn!(self.logger, "Signer retriever failed"; "error" => ?error);
             }
             info!(
                 self.logger,
-                "🔧 Signer Importer: Cycle finished, Sleeping for {} min",
+                "Cycle finished, Sleeping for {} min",
                 run_interval.as_secs() / 60
             );
         }
@@ -139,7 +136,7 @@ impl CExplorerSignerRetriever {
 impl SignersImporterRetriever for CExplorerSignerRetriever {
     async fn retrieve(&self) -> StdResult<HashMap<PartyId, Option<PoolTicker>>> {
         info!(
-            self.logger, "🔧 Signer Importer: retrieving data from source";
+            self.logger, "Retrieving data from source";
             "source_url" => &self.source_url.as_str()
         );
         let response = self

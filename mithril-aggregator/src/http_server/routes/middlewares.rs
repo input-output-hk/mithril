@@ -1,4 +1,4 @@
-use slog::Logger;
+use slog::{debug, Logger};
 use std::collections::BTreeSet;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -23,6 +23,24 @@ pub(crate) fn with_logger(
 ) -> impl Filter<Extract = (Logger,), Error = Infallible> + Clone {
     let logger = http_server_child_logger(&dependency_manager.root_logger);
     warp::any().map(move || logger.clone())
+}
+
+/// Log to apply each time a route is called
+///
+/// Example of log produced: `POST /aggregator/register-signatures 202 Accepted`
+pub(crate) fn log_route_call(
+    dependency_manager: &DependencyContainer,
+) -> warp::log::Log<impl Fn(warp::log::Info<'_>) + Clone> {
+    let logger = http_server_child_logger(&dependency_manager.root_logger);
+    warp::log::custom(move |info| {
+        debug!(
+            logger,
+            "{} {} {}",
+            info.method(),
+            info.path(),
+            info.status()
+        )
+    })
 }
 
 /// With certificate pending store
