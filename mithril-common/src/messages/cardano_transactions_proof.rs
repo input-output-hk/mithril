@@ -322,7 +322,6 @@ mod tests {
             CardanoTransactionsSignableBuilder, MockBlockRangeRootRetriever,
             MockTransactionsImporter, SignableBuilder,
         };
-        use slog::Logger;
         use std::sync::Arc;
 
         use super::*;
@@ -416,7 +415,6 @@ mod tests {
             let cardano_transaction_signable_builder = CardanoTransactionsSignableBuilder::new(
                 Arc::new(transaction_importer),
                 Arc::new(block_range_root_retriever),
-                Logger::root(slog::Discard, slog::o!()),
             );
             cardano_transaction_signable_builder
                 .compute_protocol_message(block_number)

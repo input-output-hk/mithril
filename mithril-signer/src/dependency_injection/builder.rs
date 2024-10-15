@@ -323,7 +323,6 @@ impl<'a> DependenciesBuilder<'a> {
         >::new(
             state_machine_transactions_importer,
             block_range_root_retriever,
-            self.root_logger(),
         ));
         let cardano_stake_distribution_signable_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
@@ -349,6 +348,7 @@ impl<'a> DependenciesBuilder<'a> {
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_signable_builder,
+            self.root_logger(),
         ));
         let metrics_service = Arc::new(MetricsService::new(self.root_logger())?);
         let preloader_activation =

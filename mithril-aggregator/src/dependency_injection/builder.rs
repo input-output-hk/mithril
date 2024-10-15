@@ -1118,7 +1118,6 @@ impl DependenciesBuilder {
         >::new(
             transactions_importer,
             block_range_root_retriever,
-            self.root_logger(),
         ));
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
@@ -1131,6 +1130,7 @@ impl DependenciesBuilder {
             immutable_signable_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+            self.root_logger(),
         ));
 
         Ok(signable_builder_service)

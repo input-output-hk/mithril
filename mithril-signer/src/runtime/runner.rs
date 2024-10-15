@@ -441,7 +441,6 @@ mod tests {
         let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::new(
             transactions_importer.clone(),
             block_range_root_retriever,
-            logger.clone(),
         ));
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
         let cardano_stake_distribution_builder = Arc::new(
@@ -470,6 +469,7 @@ mod tests {
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+            logger.clone(),
         ));
         let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
