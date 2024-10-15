@@ -588,24 +588,26 @@ jobs:
           gpg-secret-key: ${{ secrets.GPG_SECRET_KEY }}
           compatibility-table: '{ "release-mainnet": "⛔", "release-preprod": "⛔", "pre-release-preview": "⛔", "testing-preview": "✔", "testing-sanchonet": "✔" }'
 
-      - name: Update unstable release
-        uses: marvinpinto/action-automatic-releases@latest
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: unstable
-          prerelease: true
-          title: Unstable Development Builds
-          files: package/*
-
-      - name: Update unstable release body with release notes addon
-        # specific version since this action does not support giving only the major number
-        uses: tubone24/update_release@v1.3.1
+      - name: Delete unstable release and associated tag
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: unstable
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view unstable -R ${{ github.repository }} &>/dev/null; then
+            gh release delete unstable --cleanup-tag -y -R ${{ github.repository }}
+          else
+            echo "Release 'unstable' not found, skipping deletion."
+          fi
+
+      - name: Update unstable release
+        uses: softprops/action-gh-release@v2
         with:
-          is_append_body: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: unstable
+          prerelease: true
+          name: Unstable Development Builds
+          files: package/*
           body_path: ./release-notes-addon.txt
+          append_body: true
 
   deploy-testing:
     if: vars.DEPLOY_NETWORKS_IN_CI == 'true' && (github.event_name == 'push' || github.event_name == 'pull_request')
