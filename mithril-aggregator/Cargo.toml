@@ -28,9 +28,12 @@ flate2 = "1.0.34"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
+mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
 openssl = { version = "0.10.66", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
+paste = "1.0.15"
+prometheus = "0.13.4"
 rayon = "1.10.0"
 reqwest = { version = "0.12.8", features = ["json"] }
 semver = "1.0.23"

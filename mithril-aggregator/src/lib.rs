@@ -20,6 +20,7 @@ pub mod entities;
 pub mod event_store;
 mod http_server;
 mod message_adapters;
+pub mod metrics;
 mod multi_signer;
 mod runtime;
 pub mod services;
@@ -38,6 +39,7 @@ pub use crate::multi_signer::{MultiSigner, MultiSignerImpl};
 pub use commands::{CommandType, MainOpts};
 pub use dependency_injection::DependencyContainer;
 pub use message_adapters::{FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter};
+pub use metrics::*;
 pub use runtime::{
     AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
 };
