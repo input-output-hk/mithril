@@ -26,14 +26,6 @@ git commit -am "chore: upgrade doc dependencies
 
 By running 'make upgrade' command."
 
-# Upgrade the explorer dependencies
-pushd mithril-explorer || exit
-make upgrade
-popd || exit
-git commit -am "chore: upgrade explorer dependencies
-
-By running 'make upgrade' command."
-
 # Upgrade www/ and www-test/ dependencies
 pushd mithril-client-wasm || exit
 make upgrade-www-deps
@@ -43,11 +35,19 @@ git commit -am "chore: upgrade mithril client wasm 'www' and 'www-test' dependen
 
 By running 'make upgrade-www-deps' command."
 
+# Upgrade the explorer dependencies
+pushd mithril-explorer || exit
+make upgrade
+popd || exit
+git commit -am "chore: upgrade explorer dependencies
+
+By running 'make upgrade' command."
+
 # Bump Javascript packages versions
 
 # Search all package.json files and bump the version
 # and exclude `package.json` in `node_modules` folder
-for package_json_file in $(find . -name package.json | grep -v "/node_modules/"); do
+for package_json_file in $(find . -name package.json | grep -v "/node_modules/" | grep -v "/pkg/"); do
     folder="$(dirname $package_json_file)"
     pushd "$folder" || exit
     npm version patch
@@ -66,7 +66,7 @@ pushd docs/website || exit
 make install
 popd || exit
 
-git commit -am "chore: bump mithril client wasm 'www' and 'www-test' dependencies
+git commit -am "chore: bump javascript packages versions
 
 By running:
 - 'make www-install' command in 'mithril-client-wasm'.
