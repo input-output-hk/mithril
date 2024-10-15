@@ -153,7 +153,7 @@ impl SingleSigner for MithrilSingleSigner {
             None => {
                 warn!(
                     self.logger,
-                    "no signature computed, all lotteries were lost"
+                    "No signature computed, all lotteries were lost"
                 );
             }
         };

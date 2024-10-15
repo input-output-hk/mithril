@@ -212,7 +212,6 @@ impl StateMachineTester {
         >::new(
             transactions_importer.clone(),
             block_range_root_retriever,
-            logger.clone(),
         ));
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
@@ -238,6 +237,7 @@ impl StateMachineTester {
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+            logger.clone(),
         ));
         let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());
         let expected_metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());

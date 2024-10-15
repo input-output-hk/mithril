@@ -12,9 +12,9 @@ use crate::{
 };
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{debug, info, Logger};
+use slog::{info, Logger};
 
-/// This structure is responsible of calculating the message for Cardano immutable files snapshots.
+/// This structure is responsible for calculating the message for Cardano immutable files snapshots.
 pub struct CardanoImmutableFilesFullSignableBuilder {
     immutable_digester: Arc<dyn ImmutableDigester>,
     logger: Logger,
@@ -42,7 +42,6 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
         &self,
         beacon: CardanoDbBeacon,
     ) -> StdResult<ProtocolMessage> {
-        debug!(self.logger, "compute_signable({beacon:?})");
         let digest = self
             .immutable_digester
             .compute_digest(&self.dirpath, &beacon)
@@ -53,7 +52,7 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
                     &self.dirpath.display()
                 )
             })?;
-        info!(self.logger, "digest = '{digest}'.");
+        info!(self.logger, "Computed Digest = '{digest}'.");
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 

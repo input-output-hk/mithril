@@ -46,7 +46,7 @@ impl PallasChainReader {
     async fn get_client(&mut self) -> StdResult<&mut NodeClient> {
         if self.client.is_none() {
             self.client = Some(self.new_client().await?);
-            debug!(self.logger, "connected to a new client");
+            debug!(self.logger, "Connected to a new client");
         }
 
         self.client
@@ -61,12 +61,12 @@ impl PallasChainReader {
         let chainsync = client.chainsync();
 
         if chainsync.has_agency() {
-            debug!(logger, "has agency, finding intersect point..."; "point" => ?point);
+            debug!(logger, "Has agency, finding intersect point..."; "point" => ?point);
             chainsync
                 .find_intersect(vec![point.to_owned().into()])
                 .await?;
         } else {
-            debug!(logger, "doesn't have agency, no need to find intersect point";);
+            debug!(logger, "Doesn't have agency, no need to find intersect point";);
         }
 
         Ok(())

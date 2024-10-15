@@ -1,5 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
+use slog::{debug, Logger};
 use std::sync::Arc;
 
 use crate::{
@@ -8,6 +9,7 @@ use crate::{
         SignedEntityType,
     },
     era::{EraChecker, SupportedEra},
+    logging::LoggerExtensions,
     signable_builder::{SignableBuilder, SignableSeedBuilder},
     StdResult,
 };
@@ -31,6 +33,7 @@ pub struct MithrilSignableBuilderService {
     immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
     cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+    logger: Logger,
 }
 
 impl MithrilSignableBuilderService {
@@ -42,6 +45,7 @@ impl MithrilSignableBuilderService {
         immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
         cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
         cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+        logger: Logger,
     ) -> Self {
         Self {
             era_checker,
@@ -50,6 +54,7 @@ impl MithrilSignableBuilderService {
             immutable_signable_builder,
             cardano_transactions_signable_builder,
             cardano_stake_distribution_builder,
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
@@ -57,6 +62,11 @@ impl MithrilSignableBuilderService {
         &self,
         signed_entity_type: SignedEntityType,
     ) -> StdResult<ProtocolMessage> {
+        debug!(
+            self.logger,
+            "Compute protocol message for signed entity type: '{signed_entity_type:?}'"
+        );
+
         let protocol_message = match signed_entity_type {
             SignedEntityType::MithrilStakeDistribution(e) => self
                 .mithril_stake_distribution_builder
@@ -145,6 +155,7 @@ mod tests {
         entities::{BlockNumber, Epoch, ProtocolMessage},
         era::SupportedEra,
         signable_builder::{Beacon as Beaconnable, MockSignableSeedBuilder, SignableBuilder},
+        test_utils::TestLogger,
         StdResult,
     };
 
@@ -191,6 +202,7 @@ mod tests {
                 Arc::new(self.mock_cardano_immutable_files_full_signable_builder),
                 Arc::new(self.mock_cardano_transactions_signable_builder),
                 Arc::new(self.mock_cardano_stake_distribution_signable_builder),
+                TestLogger::stdout(),
             )
         }
     }

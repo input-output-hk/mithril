@@ -50,6 +50,7 @@ impl ImmutableDigester for CardanoImmutableDigester {
             .into_iter()
             .filter(|f| f.number <= up_to_file_number)
             .collect::<Vec<_>>();
+        info!(self.logger, ">> compute_digest"; "beacon" => #?beacon, "nb_of_immutables" => immutables.len());
 
         match immutables.last() {
             None => Err(ImmutableDigesterError::NotEnoughImmutable {
@@ -65,16 +66,14 @@ impl ImmutableDigester for CardanoImmutableDigester {
                 })
             }
             Some(_) => {
-                info!(self.logger, "#compute_digest"; "beacon" => #?beacon, "nb_of_immutables" => immutables.len());
-
                 let cached_values = match self.cache_provider.as_ref() {
                     None => BTreeMap::from_iter(immutables.into_iter().map(|i| (i, None))),
                     Some(cache_provider) => match cache_provider.get(immutables.clone()).await {
                         Ok(values) => values,
                         Err(error) => {
                             warn!(
-                                self.logger,
-                                "Error while getting cached immutable files digests: {}", error
+                                self.logger, "Error while getting cached immutable files digests";
+                                "error" => ?error
                             );
                             BTreeMap::from_iter(immutables.into_iter().map(|i| (i, None)))
                         }
@@ -92,13 +91,13 @@ impl ImmutableDigester for CardanoImmutableDigester {
                     .map_err(|e| ImmutableDigesterError::DigestComputationError(e.into()))??;
                 let digest = hex::encode(hash);
 
-                debug!(self.logger, "#computed digest: {:?}", digest);
+                debug!(self.logger, "Computed digest: {digest:?}");
 
                 if let Some(cache_provider) = self.cache_provider.as_ref() {
                     if let Err(error) = cache_provider.store(new_cache_entries).await {
                         warn!(
-                            self.logger,
-                            "Error while storing new immutable files digests to cache: {}", error
+                            self.logger, "Error while storing new immutable files digests to cache";
+                            "error" => ?error
                         );
                     }
                 }
@@ -136,7 +135,7 @@ fn compute_hash(
         };
 
         if progress.report(ix) {
-            info!(logger, "hashing: {}", &progress);
+            info!(logger, "Hashing: {progress}");
         }
     }
 

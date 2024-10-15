@@ -2,12 +2,10 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{debug, Logger};
 
 use crate::{
     crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStorer},
     entities::{BlockNumber, BlockRange, ProtocolMessage, ProtocolMessagePartKey},
-    logging::LoggerExtensions,
     signable_builder::SignableBuilder,
     StdResult,
 };
@@ -53,7 +51,6 @@ pub trait BlockRangeRootRetriever<S: MKTreeStorer>: Send + Sync {
 pub struct CardanoTransactionsSignableBuilder<S: MKTreeStorer> {
     transaction_importer: Arc<dyn TransactionsImporter>,
     block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
-    logger: Logger,
 }
 
 impl<S: MKTreeStorer> CardanoTransactionsSignableBuilder<S> {
@@ -61,12 +58,10 @@ impl<S: MKTreeStorer> CardanoTransactionsSignableBuilder<S> {
     pub fn new(
         transaction_importer: Arc<dyn TransactionsImporter>,
         block_range_root_retriever: Arc<dyn BlockRangeRootRetriever<S>>,
-        logger: Logger,
     ) -> Self {
         Self {
             transaction_importer,
             block_range_root_retriever,
-            logger: logger.new_with_component_name::<Self>(),
         }
     }
 }
@@ -74,11 +69,6 @@ impl<S: MKTreeStorer> CardanoTransactionsSignableBuilder<S> {
 #[async_trait]
 impl<S: MKTreeStorer> SignableBuilder<BlockNumber> for CardanoTransactionsSignableBuilder<S> {
     async fn compute_protocol_message(&self, beacon: BlockNumber) -> StdResult<ProtocolMessage> {
-        debug!(
-            self.logger,
-            "Compute protocol message for CardanoTransactions at block_number: {beacon}"
-        );
-
         self.transaction_importer.import(beacon).await?;
 
         let mk_root = self
@@ -105,9 +95,8 @@ impl<S: MKTreeStorer> SignableBuilder<BlockNumber> for CardanoTransactionsSignab
 mod tests {
 
     use crate::{
-        crypto_helper::MKTreeStoreInMemory,
-        entities::CardanoTransaction,
-        test_utils::{CardanoTransactionsBuilder, TestLogger},
+        crypto_helper::MKTreeStoreInMemory, entities::CardanoTransaction,
+        test_utils::CardanoTransactionsBuilder,
     };
 
     use super::*;
@@ -143,7 +132,6 @@ mod tests {
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
             Arc::new(block_range_root_retriever),
-            TestLogger::stdout(),
         );
 
         // Action
@@ -177,7 +165,6 @@ mod tests {
         let cardano_transactions_signable_builder = CardanoTransactionsSignableBuilder::new(
             Arc::new(transaction_importer),
             Arc::new(block_range_root_retriever),
-            TestLogger::stdout(),
         );
 
         let result = cardano_transactions_signable_builder

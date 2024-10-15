@@ -23,7 +23,14 @@ impl LoggerExtensions for Logger {
 
 fn component_name<T>() -> &'static str {
     let complete_name = std::any::type_name::<T>();
-    complete_name.split("::").last().unwrap_or(complete_name)
+    let without_generic = {
+        if complete_name.contains('<') {
+            complete_name.split('<').next().unwrap_or("")
+        } else {
+            complete_name
+        }
+    };
+    without_generic.split("::").last().unwrap_or(complete_name)
 }
 
 #[cfg(test)]
@@ -37,6 +44,10 @@ mod tests {
     #[allow(dead_code)]
     struct TestStructWithLifetime<'a>(&'a str);
     enum TestEnum {}
+
+    struct TestStructWithGeneric<T> {
+        _phantom: std::marker::PhantomData<T>,
+    }
 
     mod test_mod {
         pub struct ScopedTestStruct;
@@ -65,6 +76,14 @@ mod tests {
         assert_eq!(
             component_name::<TestStructWithLifetime>(),
             "TestStructWithLifetime"
+        );
+        assert_eq!(
+            component_name::<TestStructWithGeneric<test_mod::ScopedTestStruct>>(),
+            "TestStructWithGeneric"
+        );
+        assert_eq!(
+            component_name::<TestStructWithGeneric<&str>>(),
+            "TestStructWithGeneric"
         );
     }
 
