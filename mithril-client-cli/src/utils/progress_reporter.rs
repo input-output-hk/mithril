@@ -1,7 +1,7 @@
 use chrono::Utc;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
 use mithril_client::MithrilResult;
-use slog_scope::warn;
+use slog::{warn, Logger};
 use std::{
     ops::Deref,
     sync::RwLock,
@@ -112,15 +112,17 @@ pub struct DownloadProgressReporter {
     progress_bar: ProgressBar,
     output_type: ProgressOutputType,
     last_json_report_instant: RwLock<Option<Instant>>,
+    logger: Logger,
 }
 
 impl DownloadProgressReporter {
     /// Instantiate a new progress reporter
-    pub fn new(progress_bar: ProgressBar, output_type: ProgressOutputType) -> Self {
+    pub fn new(progress_bar: ProgressBar, output_type: ProgressOutputType, logger: Logger) -> Self {
         Self {
             progress_bar,
             output_type,
             last_json_report_instant: RwLock::new(None),
+            logger,
         }
     }
 
@@ -140,7 +142,7 @@ impl DownloadProgressReporter {
                 match self.last_json_report_instant.write() {
                     Ok(mut instant) => *instant = Some(Instant::now()),
                     Err(error) => {
-                        warn!("failed to update last json report instant"; "error" => ?error)
+                        warn!(self.logger, "failed to update last json report instant"; "error" => ?error)
                     }
                 };
             }

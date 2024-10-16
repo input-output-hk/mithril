@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
+use slog::Logger;
 use std::fmt::Write;
 use tokio::sync::RwLock;
 
@@ -13,15 +14,17 @@ pub struct IndicatifFeedbackReceiver {
     download_progress_reporter: RwLock<Option<DownloadProgressReporter>>,
     certificate_validation_pb: RwLock<Option<ProgressBar>>,
     output_type: ProgressOutputType,
+    logger: Logger,
 }
 
 impl IndicatifFeedbackReceiver {
     /// [IndicatifFeedbackReceiver] constructor
-    pub fn new(output_type: ProgressOutputType) -> Self {
+    pub fn new(output_type: ProgressOutputType, logger: Logger) -> Self {
         Self {
             download_progress_reporter: RwLock::new(None),
             certificate_validation_pb: RwLock::new(None),
             output_type,
+            logger,
         }
     }
 }
@@ -45,8 +48,11 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     .with_key("eta", |state : &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
                     .progress_chars("#>-"));
                 let mut download_progress_reporter = self.download_progress_reporter.write().await;
-                *download_progress_reporter =
-                    Some(DownloadProgressReporter::new(pb, self.output_type));
+                *download_progress_reporter = Some(DownloadProgressReporter::new(
+                    pb,
+                    self.output_type,
+                    self.logger.clone(),
+                ));
             }
             MithrilEvent::SnapshotDownloadProgress {
                 download_id: _,

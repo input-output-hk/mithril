@@ -49,6 +49,7 @@ impl CardanoStakeDistributionDownloadCommand {
         let params = context.config_parameters()?.add_source(self)?;
         let download_dir = params.get_or("download_dir", ".");
         let download_dir = Path::new(&download_dir);
+        let logger = context.logger();
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
@@ -59,6 +60,7 @@ impl CardanoStakeDistributionDownloadCommand {
         let client = client_builder(&params)?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
+                logger.clone(),
             )))
             .build()?;
 

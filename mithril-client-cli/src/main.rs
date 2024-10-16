@@ -3,8 +3,7 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use slog::{Drain, Fuse, Level, Logger};
-use slog_scope::debug;
+use slog::{debug, Drain, Fuse, Level, Logger};
 use slog_term::Decorator;
 use std::io::Write;
 use std::sync::Arc;
@@ -85,9 +84,9 @@ pub struct Args {
 
 impl Args {
     pub async fn execute(&self, root_logger: Logger) -> MithrilResult<()> {
-        debug!("Run Mode: {}", self.run_mode);
+        debug!(root_logger, "Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
-        debug!("Reading configuration file '{filename}'.");
+        debug!(root_logger, "Reading configuration file '{filename}'.");
         let config: ConfigBuilder<DefaultState> = config::Config::builder()
             .add_source(config::File::with_name(&filename).required(false))
             .add_source(self.clone())
