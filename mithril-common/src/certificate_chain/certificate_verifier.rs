@@ -524,7 +524,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_certificate_chain_ok() {
         let total_certificates = 15;
-        let certificates_per_epoch = 2;
+        let certificates_per_epoch = 1;
         let (fake_certificates, genesis_verifier) =
             setup_certificate_chain(total_certificates, certificates_per_epoch);
         let mut mock_certificate_retriever = MockCertificateRetrieverImpl::new();
@@ -551,7 +551,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_certificate_chain_ko() {
         let total_certificates = 15;
-        let certificates_per_epoch = 2;
+        let certificates_per_epoch = 1;
         let (mut fake_certificates, genesis_verifier) =
             setup_certificate_chain(total_certificates, certificates_per_epoch);
         let index_certificate_fail = (total_certificates / 2) as usize;

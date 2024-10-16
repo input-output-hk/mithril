@@ -419,29 +419,58 @@ impl<'a> CertificateChainBuilder<'a> {
         certificate
     }
 
+    fn update_certificate_previous_hash(
+        &self,
+        certificate: Certificate,
+        previous_certificate: Option<&Certificate>,
+    ) -> Certificate {
+        let mut certificate = certificate;
+        certificate.previous_hash = previous_certificate
+            .map(|c| c.hash.to_string())
+            .unwrap_or_default();
+        certificate.hash = certificate.compute_hash();
+
+        certificate
+    }
+
+    fn fetch_previous_certificate_from_chain<'b>(
+        &self,
+        certificate: &Certificate,
+        certificates_chained: &'b [Certificate],
+    ) -> Option<&'b Certificate> {
+        let is_certificate_first_of_epoch = certificates_chained
+            .last()
+            .map(|c| c.epoch != certificate.epoch)
+            .unwrap_or(true);
+
+        certificates_chained
+            .iter()
+            .rev()
+            .filter(|c| {
+                if is_certificate_first_of_epoch {
+                    // The previous certificate of the first certificate of an epoch
+                    // is the first certificate of the previous epoch
+                    c.epoch == certificate.epoch.previous().unwrap()
+                } else {
+                    // The previous certificate of not the first certificate of an epoch
+                    // is the first certificate of the epoch
+                    c.epoch == certificate.epoch
+                }
+            })
+            .last()
+    }
+
     // Returns the chained certificates in reverse order
     // The latest certificate of the chain is the first in the vector
     fn compute_chained_certificates(&self, certificates: Vec<Certificate>) -> Vec<Certificate> {
-        fn update_certificate_previous_hash(
-            certificate: Certificate,
-            previous_certificate: Option<&Certificate>,
-        ) -> Certificate {
-            let mut certificate = certificate;
-            certificate.previous_hash = previous_certificate
-                .map(|c| c.hash.to_string())
-                .unwrap_or_default();
-            certificate.hash = certificate.compute_hash();
-
-            certificate
-        }
-
         let mut certificates_chained: Vec<Certificate> =
             certificates
                 .into_iter()
                 .fold(Vec::new(), |mut certificates_chained, certificate| {
-                    let previous_certificate_maybe = certificates_chained.last();
-                    let certificate =
-                        update_certificate_previous_hash(certificate, previous_certificate_maybe);
+                    let previous_certificate_maybe = self
+                        .fetch_previous_certificate_from_chain(&certificate, &certificates_chained);
+                    let certificate = self
+                        .update_certificate_previous_hash(certificate, previous_certificate_maybe);
                     certificates_chained.push(certificate);
 
                     certificates_chained
@@ -760,32 +789,66 @@ mod test {
 
     #[test]
     fn builds_certificate_chain_correctly_chained() {
+        fn create_fake_certificate(epoch: Epoch, index: u64) -> Certificate {
+            Certificate {
+                epoch,
+                signed_message: format!("certificate-{index}"),
+                ..fake_data::certificate("cert-fake".to_string())
+            }
+        }
+
+        let certificate_1 = create_fake_certificate(Epoch(1), 1);
+        let certificate_2 = create_fake_certificate(Epoch(2), 2);
+        let certificate_3 = create_fake_certificate(Epoch(2), 3);
+        let certificate_4 = create_fake_certificate(Epoch(3), 4);
+        let certificate_5 = create_fake_certificate(Epoch(4), 5);
+        let certificate_6 = create_fake_certificate(Epoch(4), 6);
+        let certificate_7 = create_fake_certificate(Epoch(4), 7);
         let certificates = vec![
-            Certificate {
-                epoch: Epoch(1),
-                ..fake_data::certificate("cert-1".to_string())
-            },
-            Certificate {
-                epoch: Epoch(2),
-                ..fake_data::certificate("cert-2".to_string())
-            },
-            Certificate {
-                epoch: Epoch(3),
-                ..fake_data::certificate("cert-3".to_string())
-            },
+            certificate_1,
+            certificate_2,
+            certificate_3,
+            certificate_4,
+            certificate_5,
+            certificate_6,
+            certificate_7,
         ];
 
-        let certificates_chained =
+        let mut certificates_chained =
             CertificateChainBuilder::default().compute_chained_certificates(certificates);
+        certificates_chained.reverse();
 
-        assert_eq!("", certificates_chained[2].previous_hash);
+        let certificate_chained_1 = &certificates_chained[0];
+        let certificate_chained_2 = &certificates_chained[1];
+        let certificate_chained_3 = &certificates_chained[2];
+        let certificate_chained_4 = &certificates_chained[3];
+        let certificate_chained_5 = &certificates_chained[4];
+        let certificate_chained_6 = &certificates_chained[5];
+        let certificate_chained_7 = &certificates_chained[6];
+        assert_eq!("", certificate_chained_1.previous_hash);
         assert_eq!(
-            certificates_chained[2].hash,
-            certificates_chained[1].previous_hash
+            certificate_chained_2.previous_hash,
+            certificate_chained_1.hash
         );
         assert_eq!(
-            certificates_chained[1].hash,
-            certificates_chained[0].previous_hash
+            certificate_chained_3.previous_hash,
+            certificate_chained_2.hash
+        );
+        assert_eq!(
+            certificate_chained_4.previous_hash,
+            certificate_chained_2.hash
+        );
+        assert_eq!(
+            certificate_chained_5.previous_hash,
+            certificate_chained_4.hash
+        );
+        assert_eq!(
+            certificate_chained_6.previous_hash,
+            certificate_chained_5.hash
+        );
+        assert_eq!(
+            certificate_chained_7.previous_hash,
+            certificate_chained_5.hash
         );
     }
 
