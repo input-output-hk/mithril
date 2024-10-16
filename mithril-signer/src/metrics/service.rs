@@ -30,7 +30,6 @@ build_metrics_service!(
         "mithril_signer_signature_registration_success_last_epoch",
         "Latest epoch at which signature successfully registered on a Mithril signer node"
     ),
-    // Runtime cycle metrics
     runtime_cycle_success_since_startup_counter:MetricCounter(
         "mithril_signer_runtime_cycle_success_since_startup",
         "Number of successful runtime cycles since startup on a Mithril signer node"

@@ -86,19 +86,15 @@ impl MetricGauge {
     }
 
     /// Record a value in the gauge.
-    pub fn record<T: Into<f64> + Copy>(&self, value: T) {
-        debug!(
-            self.logger,
-            "Set '{}' gauge value to {}",
-            self.name,
-            value.into()
-        );
-        self.gauge.set(value.into());
+    pub fn record<T: Into<f64>>(&self, value: T) {
+        let value = value.into();
+        debug!(self.logger, "Set '{}' gauge value to {}", self.name, value);
+        self.gauge.set(value);
     }
 
     /// Get the gauge value.
     pub fn get(&self) -> f64 {
-        self.gauge.get().round()
+        self.gauge.get()
     }
 
     fn create_metric_gauge(name: &MetricName, help: &str) -> StdResult<Gauge> {
@@ -142,6 +138,6 @@ mod tests {
         assert_eq!(metric.get(), 0.0);
 
         metric.record(12.3);
-        assert_eq!(metric.get(), 12.0);
+        assert_eq!(metric.get(), 12.3);
     }
 }

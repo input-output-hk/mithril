@@ -14,7 +14,7 @@ use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 /// Metrics service exporter gives the possibility of exporting metrics.
-pub trait MetricsServiceExporter {
+pub trait MetricsServiceExporter: Send + Sync {
     /// Export metrics.
     fn export_metrics(&self) -> StdResult<String>;
 }
@@ -38,19 +38,19 @@ impl IntoResponse for MetricsServerError {
 }
 
 /// The MetricsServer is responsible for exposing the metrics of the signer.
-pub struct MetricsServer<T: MetricsServiceExporter + Send + Sync> {
+pub struct MetricsServer<T: MetricsServiceExporter> {
     server_port: u16,
     server_ip: String,
     metrics_service: Arc<T>,
     logger: Logger,
 }
 
-struct RouterState<T: MetricsServiceExporter + Send + Sync> {
+struct RouterState<T: MetricsServiceExporter> {
     metrics_service: Arc<T>,
     logger: Logger,
 }
 
-impl<T: MetricsServiceExporter + Send + Sync + 'static> MetricsServer<T> {
+impl<T: MetricsServiceExporter + 'static> MetricsServer<T> {
     /// Create a new MetricsServer instance.
     pub fn new(server_ip: &str, server_port: u16, metrics_service: Arc<T>, logger: Logger) -> Self {
         Self {
