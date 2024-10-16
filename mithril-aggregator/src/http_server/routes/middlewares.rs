@@ -13,7 +13,7 @@ use crate::event_store::{EventMessage, TransmitterService};
 use crate::http_server::routes::http_server_child_logger;
 use crate::services::{CertifierService, MessageService, ProverService, SignedEntityService};
 use crate::{
-    CertificatePendingStore, Configuration, DependencyContainer, SignerRegisterer,
+    CertificatePendingStore, Configuration, DependencyContainer, MetricsService, SignerRegisterer,
     SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
@@ -153,6 +153,14 @@ pub fn with_single_signature_authenticator(
 ) -> impl Filter<Extract = (Arc<SingleSignatureAuthenticator>,), Error = Infallible> + Clone {
     let single_signer_authenticator = dependency_manager.single_signer_authenticator.clone();
     warp::any().map(move || single_signer_authenticator.clone())
+}
+
+/// With Metrics service
+pub fn with_metrics_service(
+    dependency_manager: &DependencyContainer,
+) -> impl Filter<Extract = (Arc<MetricsService>,), Error = Infallible> + Clone {
+    let metrics_service = dependency_manager.metrics_service.clone();
+    warp::any().map(move || metrics_service.clone())
 }
 
 pub mod validators {
