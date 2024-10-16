@@ -8,7 +8,11 @@ use std::{
 };
 
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
-use crate::{commands::client_builder, configuration::ConfigParameters, utils::ExpanderUtils};
+use crate::{
+    commands::{client_builder, SharedArgs},
+    configuration::ConfigParameters,
+    utils::ExpanderUtils,
+};
 use mithril_client::MessageBuilder;
 use mithril_client::MithrilResult;
 
@@ -16,9 +20,8 @@ use mithril_client::MithrilResult;
 /// verification fails, the file is not persisted.
 #[derive(Parser, Debug, Clone)]
 pub struct MithrilStakeDistributionDownloadCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 
     /// Hash of the Mithril Stake Distribution artifact.
     ///
@@ -37,6 +40,11 @@ pub struct MithrilStakeDistributionDownloadCommand {
 }
 
 impl MithrilStakeDistributionDownloadCommand {
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.shared_args.json
+    }
+
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder
@@ -47,7 +55,7 @@ impl MithrilStakeDistributionDownloadCommand {
         let download_dir = &params.require("download_dir")?;
         let download_dir = Path::new(download_dir);
 
-        let progress_output_type = if self.json {
+        let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -144,7 +152,7 @@ impl MithrilStakeDistributionDownloadCommand {
             })?,
         )?;
 
-        if self.json {
+        if self.is_json_output_enabled() {
             println!(
                 r#"{{"mithril_stake_distribution_hash": "{}", "filepath": "{}"}}"#,
                 mithril_stake_distribution.hash,

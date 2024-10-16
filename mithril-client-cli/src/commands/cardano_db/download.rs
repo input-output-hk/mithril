@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::{
-    commands::client_builder,
+    commands::{client_builder, SharedArgs},
     configuration::ConfigParameters,
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
@@ -25,9 +25,8 @@ use mithril_client::{
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 
     /// Digest of the cardano db to download. Use the `list` command to get that information.
     ///
@@ -48,7 +47,7 @@ pub struct CardanoDbDownloadCommand {
 impl CardanoDbDownloadCommand {
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
-        self.json
+        self.shared_args.json
     }
 
     /// Command execution
@@ -58,7 +57,7 @@ impl CardanoDbDownloadCommand {
         let download_dir: &String = &params.require("download_dir")?;
         let db_dir = Path::new(download_dir).join("db");
 
-        let progress_output_type = if self.json {
+        let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -128,7 +127,11 @@ impl CardanoDbDownloadCommand {
         )
         .await?;
 
-        Self::log_download_information(&db_dir, &cardano_db_message, self.json)?;
+        Self::log_download_information(
+            &db_dir,
+            &cardano_db_message,
+            self.is_json_output_enabled(),
+        )?;
 
         Ok(())
     }

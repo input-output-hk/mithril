@@ -11,10 +11,19 @@ pub mod mithril_stake_distribution;
 
 pub use deprecation::{DeprecatedCommand, Deprecation};
 
+use clap::Args;
 use mithril_client::{ClientBuilder, MithrilResult};
 use slog_scope::logger;
 
 use crate::configuration::ConfigParameters;
+
+/// Shared arguments for all commands
+#[derive(Debug, Clone, Args)]
+pub struct SharedArgs {
+    /// Enable JSON output.
+    #[clap(long)]
+    json: bool,
+}
 
 pub(crate) fn client_builder(params: &ConfigParameters) -> MithrilResult<ClientBuilder> {
     let builder = ClientBuilder::aggregator(

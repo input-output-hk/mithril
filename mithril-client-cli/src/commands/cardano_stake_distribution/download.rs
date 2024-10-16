@@ -8,7 +8,10 @@ use std::{
 };
 
 use crate::utils::{ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
-use crate::{commands::client_builder, configuration::ConfigParameters};
+use crate::{
+    commands::{client_builder, SharedArgs},
+    configuration::ConfigParameters,
+};
 use mithril_client::common::Epoch;
 use mithril_client::Client;
 use mithril_client::{CardanoStakeDistribution, MessageBuilder, MithrilResult};
@@ -16,9 +19,8 @@ use mithril_client::{CardanoStakeDistribution, MessageBuilder, MithrilResult};
 /// Download and verify a Cardano stake distribution information.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoStakeDistributionDownloadCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 
     /// Epoch or hash of the Cardano stake distribution artifact.
     ///
@@ -37,6 +39,11 @@ pub struct CardanoStakeDistributionDownloadCommand {
 }
 
 impl CardanoStakeDistributionDownloadCommand {
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.shared_args.json
+    }
+
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder
@@ -47,7 +54,7 @@ impl CardanoStakeDistributionDownloadCommand {
         let download_dir = &params.require("download_dir")?;
         let download_dir = Path::new(download_dir);
 
-        let progress_output_type = if self.json {
+        let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -130,7 +137,7 @@ impl CardanoStakeDistributionDownloadCommand {
             })?,
         )?;
 
-        if self.json {
+        if self.is_json_output_enabled() {
             println!(
                 r#"{{"cardano_stake_distribution_epoch": "{}", "filepath": "{}"}}"#,
                 cardano_stake_distribution.epoch,

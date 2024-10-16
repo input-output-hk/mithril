@@ -5,7 +5,8 @@ use config::{builder::DefaultState, ConfigBuilder};
 use std::collections::HashMap;
 
 use crate::{
-    commands::client_builder_with_fallback_genesis_key, configuration::ConfigParameters,
+    commands::{client_builder_with_fallback_genesis_key, SharedArgs},
+    configuration::ConfigParameters,
     utils::ExpanderUtils,
 };
 use mithril_client::MithrilResult;
@@ -13,9 +14,8 @@ use mithril_client::MithrilResult;
 /// Clap command to show a given Cardano transaction snapshot
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoTransactionsSnapshotShowCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 
     /// Cardano transaction snapshot hash.
     ///
@@ -25,6 +25,11 @@ pub struct CardanoTransactionsSnapshotShowCommand {
 }
 
 impl CardanoTransactionsSnapshotShowCommand {
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.shared_args.json
+    }
+
     /// Cardano transaction snapshot Show command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.build()?;
@@ -56,7 +61,7 @@ impl CardanoTransactionsSnapshotShowCommand {
                 )
             })?;
 
-        if self.json {
+        if self.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&tx_sets)?);
         } else {
             let transaction_sets_table = vec![

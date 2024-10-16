@@ -3,21 +3,23 @@ use cli_table::{format::Justify, print_stdout, Cell, Table};
 use config::{builder::DefaultState, ConfigBuilder};
 use std::collections::HashMap;
 
-use crate::{commands::client_builder_with_fallback_genesis_key, configuration::ConfigParameters};
+use crate::{
+    commands::{client_builder_with_fallback_genesis_key, SharedArgs},
+    configuration::ConfigParameters,
+};
 use mithril_client::MithrilResult;
 
 /// Clap command to list existing cardano dbs
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbListCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 }
 
 impl CardanoDbListCommand {
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
-        self.json
+        self.shared_args.json
     }
 
     /// Main command execution
@@ -27,7 +29,7 @@ impl CardanoDbListCommand {
         let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
         let items = client.snapshot().list().await?;
 
-        if self.json {
+        if self.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&items)?);
         } else {
             let items = items

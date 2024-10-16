@@ -11,14 +11,16 @@ use mithril_client::{
 };
 
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
-use crate::{commands::client_builder, configuration::ConfigParameters};
+use crate::{
+    commands::{client_builder, SharedArgs},
+    configuration::ConfigParameters,
+};
 
 /// Clap command to show a given Cardano transaction sets
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoTransactionsCertifyCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 
     /// Genesis Verification Key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
@@ -30,12 +32,17 @@ pub struct CardanoTransactionsCertifyCommand {
 }
 
 impl CardanoTransactionsCertifyCommand {
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.shared_args.json
+    }
+
     /// Cardano transaction certify command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
         let config = config_builder.add_source(self.clone()).build()?;
         let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
 
-        let progress_output_type = if self.json {
+        let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -91,7 +98,7 @@ impl CardanoTransactionsCertifyCommand {
         Self::log_certify_information(
             &verified_transactions,
             &cardano_transaction_proof.non_certified_transactions,
-            self.json,
+            self.is_json_output_enabled(),
         )
     }
 

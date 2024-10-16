@@ -5,7 +5,8 @@ use config::{builder::DefaultState, ConfigBuilder};
 use std::collections::HashMap;
 
 use crate::{
-    commands::client_builder_with_fallback_genesis_key, configuration::ConfigParameters,
+    commands::{client_builder_with_fallback_genesis_key, SharedArgs},
+    configuration::ConfigParameters,
     utils::ExpanderUtils,
 };
 use mithril_client::MithrilResult;
@@ -13,9 +14,8 @@ use mithril_client::MithrilResult;
 /// Clap command to show a given cardano db
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbShowCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 
     /// Cardano DB digest.
     ///
@@ -26,7 +26,7 @@ pub struct CardanoDbShowCommand {
 impl CardanoDbShowCommand {
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
-        self.json
+        self.shared_args.json
     }
 
     /// Cardano DB Show command
@@ -55,7 +55,7 @@ impl CardanoDbShowCommand {
             .await?
             .ok_or_else(|| anyhow!("Cardano DB not found for digest: '{}'", &self.digest))?;
 
-        if self.json {
+        if self.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&cardano_db_message)?);
         } else {
             let cardano_db_table = vec![
