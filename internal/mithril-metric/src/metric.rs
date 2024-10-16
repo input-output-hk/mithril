@@ -131,7 +131,7 @@ mod tests {
     }
 
     #[test]
-    fn test_metric_gauge_can_be_set_and_the_getter_rounded_the_value() {
+    fn test_metric_gauge_can_be_recorded() {
         let metric =
             MetricGauge::new(TestLogger::stdout(), "test_gauge", "test gauge help").unwrap();
         assert_eq!(metric.name(), "test_gauge");
