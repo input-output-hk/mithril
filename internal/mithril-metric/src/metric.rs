@@ -1,3 +1,5 @@
+//! This module contains wrapper to prometheus metrics for use in a metrics service.
+
 use prometheus::{core::Collector, Counter, Gauge, Opts};
 use slog::{debug, Logger};
 
@@ -26,6 +28,7 @@ pub struct MetricCounter {
 }
 
 impl MetricCounter {
+    /// Create a new metric counter.
     pub fn new(logger: Logger, name: &str, help: &str) -> StdResult<Self> {
         let counter = MetricCounter::create_metric_counter(name, help)?;
         Ok(Self {
@@ -35,11 +38,13 @@ impl MetricCounter {
         })
     }
 
+    /// Increment the counter.
     pub fn increment(&self) {
         debug!(self.logger, "Incrementing '{}' counter", self.name);
         self.counter.inc();
     }
 
+    /// Get the counter value.
     pub fn get(&self) -> CounterValue {
         self.counter.get().round() as CounterValue
     }
@@ -70,6 +75,7 @@ pub struct MetricGauge {
 }
 
 impl MetricGauge {
+    /// Create a new metric gauge.
     pub fn new(logger: Logger, name: &str, help: &str) -> StdResult<Self> {
         let gauge = MetricGauge::create_metric_gauge(name, help)?;
         Ok(Self {
@@ -79,6 +85,7 @@ impl MetricGauge {
         })
     }
 
+    /// Record a value in the gauge.
     pub fn record<T: Into<f64> + Copy>(&self, value: T) {
         debug!(
             self.logger,
@@ -89,6 +96,7 @@ impl MetricGauge {
         self.gauge.set(value.into());
     }
 
+    /// Get the gauge value.
     pub fn get(&self) -> f64 {
         self.gauge.get().round()
     }

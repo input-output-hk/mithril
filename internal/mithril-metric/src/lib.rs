@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 //! metrics module.
 //! This module contains the tools to create a metrics service and a metrics server.
 

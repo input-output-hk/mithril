@@ -1,8 +1,6 @@
 use mithril_metric::{build_metrics_service, MetricsServiceExporter};
-use prometheus::Registry;
-use slog::Logger;
 
-use mithril_common::{entities::Epoch, StdResult};
+use mithril_common::entities::Epoch;
 
 use mithril_metric::metric::{CounterValue, MetricCollector, MetricCounter, MetricGauge};
 
@@ -147,6 +145,7 @@ impl MetricsService {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::StdResult;
     use prometheus_parse::Value;
     use std::collections::BTreeMap;
 

@@ -1,3 +1,5 @@
+//! Helper to create a metric service.
+
 /// Create a MetricService.
 ///
 /// To build the service you need to provide the structure name and a list of metrics.
@@ -28,7 +30,7 @@ macro_rules! build_metrics_service {
         paste::item! {
             /// Metrics service which is responsible for recording and exposing metrics.
             pub struct $service {
-                registry: Registry,
+                registry: prometheus::Registry,
                 $(
                     $metric_attribute: $metric_type,
                 )*
@@ -36,9 +38,9 @@ macro_rules! build_metrics_service {
 
             impl $service {
                 /// Create a new MetricsService instance.
-                pub fn new(logger: Logger) -> StdResult<Self> {
+                pub fn new(logger: slog::Logger) -> mithril_common::StdResult<Self> {
 
-                    let registry = Registry::new();
+                    let registry = prometheus::Registry::new();
 
                     $(
                         let $metric_attribute = $metric_type::new(
@@ -65,7 +67,7 @@ macro_rules! build_metrics_service {
             }
 
             impl MetricsServiceExporter for $service {
-                fn export_metrics(&self) -> StdResult<String> {
+                fn export_metrics(&self) -> mithril_common::StdResult<String> {
                     Ok(prometheus::TextEncoder::new().encode_to_string(&self.registry.gather())?)
                 }
             }

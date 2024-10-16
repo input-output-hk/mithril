@@ -13,7 +13,9 @@ use tokio::sync::oneshot::Receiver;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
+/// Metrics service exporter gives the possibility of exporting metrics.
 pub trait MetricsServiceExporter {
+    /// Export metrics.
     fn export_metrics(&self) -> StdResult<String>;
 }
 
