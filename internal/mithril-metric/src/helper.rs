@@ -9,21 +9,30 @@
 ///
 /// Crate that use this macro should have `paste` as dependency.
 ///
-/// build_metrics_service!(
-///     MetricsService,
-///     counter_example: MetricCounter(
-///         "custom_counter_example_name",
-///         "Example of a counter metric"
-///     ),
-///     gauge_example: MetricGauge(
-///         "custom_gauge_example_name",
-///         "Example of a gauge metric"
-///     )
-/// );
+/// # Example of 'build_metrics_service' and metrics usage
 ///
-/// let service = MetricsService::new(TestLogger::stdout()).unwrap();
-/// service.get_counter_example().record();
-/// service.get_gauge_example().record(Epoch(12));
+/// ```
+///     use slog::Logger;
+///     use mithril_common::{entities::Epoch, StdResult};
+///     use mithril_metric::build_metrics_service;
+///     use mithril_metric::{MetricCollector, MetricCounter, MetricGauge, MetricsServiceExporter};
+///
+///     build_metrics_service!(
+///         MetricsService,
+///         counter_example: MetricCounter(
+///             "custom_counter_example_name",
+///             "Example of a counter metric"
+///         ),
+///         gauge_example: MetricGauge(
+///             "custom_gauge_example_name",
+///             "Example of a gauge metric"
+///         )
+///     );
+///
+///     let service = MetricsService::new(Logger::root(slog::Discard, slog::o!())).unwrap();
+///     service.get_counter_example().increment();
+///     service.get_gauge_example().record(Epoch(12));
+/// ```
 #[macro_export]
 macro_rules! build_metrics_service {
     ($service:ident, $($metric_attribute:ident:$metric_type:ident($name:literal, $help:literal)),*) => {
