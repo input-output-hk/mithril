@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use cli_table::{print_stdout, Cell, Table};
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use config::{builder::DefaultState, ConfigBuilder};
 use slog_scope::debug;
 use std::{collections::HashMap, sync::Arc};
 
@@ -13,7 +13,7 @@ use mithril_client::{
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
     commands::{client_builder, SharedArgs},
-    configuration::ConfigParameters,
+    configuration::{ConfigError, ConfigParameters, ConfigSource},
 };
 
 /// Clap command to show a given Cardano transaction sets
@@ -39,8 +39,9 @@ impl CardanoTransactionsCertifyCommand {
 
     /// Cardano transaction certify command
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        let config = config_builder.add_source(self.clone()).build()?;
-        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
+        let config = config_builder.build()?;
+        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?)
+            .add_source(self)?;
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
@@ -189,19 +190,14 @@ No proof could be computed for some Cardano transactions. Mithril may not have s
     }
 }
 
-impl Source for CardanoTransactionsCertifyCommand {
-    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
-        Box::new(self.clone())
-    }
-
-    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
-        let mut map = Map::new();
-        let namespace = "clap arguments".to_string();
+impl ConfigSource for CardanoTransactionsCertifyCommand {
+    fn collect(&self) -> Result<HashMap<String, String>, ConfigError> {
+        let mut map = HashMap::new();
 
         if let Some(genesis_verification_key) = self.genesis_verification_key.clone() {
             map.insert(
                 "genesis_verification_key".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(genesis_verification_key)),
+                genesis_verification_key,
             );
         }
 

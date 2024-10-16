@@ -1,6 +1,6 @@
 use anyhow::Context;
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use config::{builder::DefaultState, ConfigBuilder};
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -10,7 +10,7 @@ use std::{
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
     commands::{client_builder, SharedArgs},
-    configuration::ConfigParameters,
+    configuration::{ConfigError, ConfigParameters, ConfigSource},
     utils::ExpanderUtils,
 };
 use mithril_client::MessageBuilder;
@@ -47,13 +47,11 @@ impl MithrilStakeDistributionDownloadCommand {
 
     /// Main command execution
     pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        let config = config_builder
-            .set_default("download_dir", ".")?
-            .add_source(self.clone())
-            .build()?;
-        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
-        let download_dir = &params.require("download_dir")?;
-        let download_dir = Path::new(download_dir);
+        let config = config_builder.build()?;
+        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?)
+            .add_source(self)?;
+        let download_dir = params.get_or("download_dir", ".");
+        let download_dir = Path::new(&download_dir);
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
@@ -170,34 +168,29 @@ impl MithrilStakeDistributionDownloadCommand {
     }
 }
 
-impl Source for MithrilStakeDistributionDownloadCommand {
-    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
-        Box::new(self.clone())
-    }
-
-    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
-        let mut map = Map::new();
-        let namespace = "clap arguments".to_string();
+impl ConfigSource for MithrilStakeDistributionDownloadCommand {
+    fn collect(&self) -> Result<HashMap<String, String>, ConfigError> {
+        let mut map = HashMap::new();
 
         if let Some(download_dir) = self.download_dir.clone() {
             map.insert(
                 "download_dir".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(download_dir.to_str().ok_or_else(|| {
-                        config::ConfigError::Message(format!(
+                download_dir
+                    .to_str()
+                    .ok_or_else(|| {
+                        ConfigError::Conversion(format!(
                             "Could not read download directory: '{}'.",
                             download_dir.display()
                         ))
-                    })?),
-                ),
+                    })?
+                    .to_string(),
             );
         }
 
         if let Some(genesis_verification_key) = self.genesis_verification_key.clone() {
             map.insert(
                 "genesis_verification_key".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(genesis_verification_key)),
+                genesis_verification_key,
             );
         }
 
