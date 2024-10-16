@@ -3708,7 +3708,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.4.70"
+version = "0.4.71"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3804,6 +3804,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-metric"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "mithril-common",
+ "paste",
+ "prometheus",
+ "prometheus-parse",
+ "reqwest 0.12.8",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
 name = "mithril-persistence"
 version = "0.2.30"
 dependencies = [
@@ -3849,7 +3866,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.201"
+version = "0.2.202"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3863,10 +3880,12 @@ dependencies = [
  "httpmock",
  "mithril-common",
  "mithril-doc",
+ "mithril-metric",
  "mithril-persistence",
  "mockall",
  "openssl",
  "openssl-probe",
+ "paste",
  "prometheus",
  "prometheus-parse",
  "rand_chacha",

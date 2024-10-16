@@ -138,7 +138,8 @@ impl StateMachine {
         info!(self.logger, "New cycle: {}", *state);
 
         self.metrics_service
-            .runtime_cycle_total_since_startup_counter_increment();
+            .get_runtime_cycle_total_since_startup_counter()
+            .increment();
 
         match state.deref() {
             SignerState::Init => {
@@ -233,7 +234,8 @@ impl StateMachine {
         };
 
         self.metrics_service
-            .runtime_cycle_success_since_startup_counter_increment();
+            .get_runtime_cycle_success_since_startup_counter()
+            .increment();
 
         Ok(())
     }
@@ -280,7 +282,8 @@ impl StateMachine {
         epoch_settings: SignerEpochSettings,
     ) -> Result<SignerState, RuntimeError> {
         self.metrics_service
-            .signer_registration_total_since_startup_counter_increment();
+            .get_signer_registration_total_since_startup_counter()
+            .increment();
 
         let time_point = self
             .get_current_time_point("unregistered → registered")
@@ -314,9 +317,12 @@ impl StateMachine {
         })?;
 
         self.metrics_service
-            .signer_registration_success_since_startup_counter_increment();
+            .get_signer_registration_success_since_startup_counter()
+            .increment();
+
         self.metrics_service
-            .signer_registration_success_last_epoch_gauge_set(epoch);
+            .get_signer_registration_success_last_epoch_gauge()
+            .record(epoch);
 
         self.runner
             .upkeep(epoch)
@@ -378,7 +384,8 @@ impl StateMachine {
         );
 
         self.metrics_service
-            .signature_registration_total_since_startup_counter_increment();
+            .get_signature_registration_total_since_startup_counter()
+            .increment();
 
         let message = self
             .runner
@@ -397,9 +404,11 @@ impl StateMachine {
             })?;
 
         self.metrics_service
-            .signature_registration_success_since_startup_counter_increment();
+            .get_signature_registration_success_since_startup_counter()
+            .increment();
         self.metrics_service
-            .signature_registration_success_last_epoch_gauge_set(current_epoch);
+            .get_signature_registration_success_last_epoch_gauge()
+            .record(current_epoch);
 
         Ok(SignerState::ReadyToSign {
             epoch: current_epoch,

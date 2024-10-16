@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use anyhow::anyhow;
+use mithril_metric::{MetricCollector, MetricsServiceExporter};
 use prometheus_parse::Value;
 use slog::Drain;
 use slog_scope::debug;
@@ -43,7 +44,6 @@ use mithril_persistence::{
 use mithril_signer::{
     database::repository::SignedBeaconRepository,
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
-    metrics::*,
     services::{
         AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
         SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
@@ -336,12 +336,14 @@ impl StateMachineTester {
     /// trigger a cycle in the state machine
     async fn cycle(&mut self) -> Result<&mut Self> {
         self.expected_metrics_service
-            .runtime_cycle_total_since_startup_counter_increment();
+            .get_runtime_cycle_total_since_startup_counter()
+            .increment();
 
         self.state_machine.cycle().await?;
 
         self.expected_metrics_service
-            .runtime_cycle_success_since_startup_counter_increment();
+            .get_runtime_cycle_success_since_startup_counter()
+            .increment();
 
         Ok(self)
     }
@@ -372,7 +374,8 @@ impl StateMachineTester {
     ) -> Result<&mut Self> {
         let metric_before = self
             .metrics_service
-            .signature_registration_success_since_startup_counter_get();
+            .get_signature_registration_success_since_startup_counter()
+            .get();
 
         self.cycle_ready_to_sign().await?;
 
@@ -386,7 +389,8 @@ impl StateMachineTester {
     ) -> Result<&mut Self> {
         let metric_before = self
             .metrics_service
-            .signature_registration_success_since_startup_counter_get();
+            .get_signature_registration_success_since_startup_counter()
+            .get();
 
         self.cycle_ready_to_sign().await?;
 
@@ -678,7 +682,8 @@ impl StateMachineTester {
     ) -> Result<&mut Self> {
         let metric = self
             .metrics_service
-            .signature_registration_success_since_startup_counter_get();
+            .get_signature_registration_success_since_startup_counter()
+            .get();
 
         self.assert(
             expected_metric == metric,
@@ -695,27 +700,39 @@ impl StateMachineTester {
         let metrics = Self::parse_exported_metrics(&self.metrics_service)?;
         let mut expected_metrics = Self::parse_exported_metrics(&self.expected_metrics_service)?;
         expected_metrics.insert(
-            SIGNATURE_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME.to_string(),
+            self.metrics_service
+                .get_signature_registration_success_last_epoch_gauge()
+                .name(),
             Value::Gauge(self.current_epoch().await?.0 as f64),
         );
         expected_metrics.insert(
-            SIGNATURE_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
+            self.metrics_service
+                .get_signature_registration_success_since_startup_counter()
+                .name(),
             Value::Counter(total_signature_registrations_expected as f64),
         );
         expected_metrics.insert(
-            SIGNATURE_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
+            self.metrics_service
+                .get_signature_registration_total_since_startup_counter()
+                .name(),
             Value::Counter(total_signature_registrations_expected as f64),
         );
         expected_metrics.insert(
-            SIGNER_REGISTRATION_SUCCESS_LAST_EPOCH_METRIC_NAME.to_string(),
+            self.metrics_service
+                .get_signer_registration_success_last_epoch_gauge()
+                .name(),
             Value::Gauge(self.current_epoch().await?.0 as f64),
         );
         expected_metrics.insert(
-            SIGNER_REGISTRATION_SUCCESS_SINCE_STARTUP_METRIC_NAME.to_string(),
+            self.metrics_service
+                .get_signer_registration_success_since_startup_counter()
+                .name(),
             Value::Counter(total_signer_registrations_expected as f64),
         );
         expected_metrics.insert(
-            SIGNER_REGISTRATION_TOTAL_SINCE_STARTUP_METRIC_NAME.to_string(),
+            self.metrics_service
+                .get_signer_registration_total_since_startup_counter()
+                .name(),
             Value::Counter(total_signer_registrations_expected as f64),
         );
         self.assert(

@@ -137,6 +137,12 @@ impl TryInto<i64> for &Epoch {
     }
 }
 
+impl From<Epoch> for f64 {
+    fn from(value: Epoch) -> f64 {
+        value.0 as f64
+    }
+}
+
 /// EpochError is an error triggered by an [Epoch]
 #[derive(Error, Debug)]
 pub enum EpochError {
