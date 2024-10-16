@@ -17,15 +17,15 @@ use std::{
 };
 
 /// Genesis certificate processor function type. For tests only.
-pub type GenesisCertificateProcessorFunc =
+type GenesisCertificateProcessorFunc =
     dyn Fn(Certificate, &CertificateChainBuilderContext, &ProtocolGenesisSigner) -> Certificate;
 
 /// Standard certificate processor function type. For tests only.
-pub type StandardCertificateProcessorFunc =
+type StandardCertificateProcessorFunc =
     dyn Fn(Certificate, &CertificateChainBuilderContext) -> Certificate;
 
 /// Total signers per epoch processor function type. For tests only.
-pub type TotalSignersPerEpochProcessorFunc = dyn Fn(Epoch) -> usize;
+type TotalSignersPerEpochProcessorFunc = dyn Fn(Epoch) -> usize;
 
 /// Context used while building a certificate chain. For tests only.
 pub struct CertificateChainBuilderContext<'a> {
@@ -37,7 +37,23 @@ pub struct CertificateChainBuilderContext<'a> {
     pub next_fixture: &'a MithrilFixture,
 }
 
-impl CertificateChainBuilderContext<'_> {
+impl<'a> CertificateChainBuilderContext<'a> {
+    fn new(
+        index_certificate: usize,
+        total_certificates: usize,
+        epoch: Epoch,
+        fixture: &'a MithrilFixture,
+        next_fixture: &'a MithrilFixture,
+    ) -> Self {
+        Self {
+            index_certificate,
+            total_certificates,
+            epoch,
+            fixture,
+            next_fixture,
+        }
+    }
+
     /// Computes the protocol message seed.
     pub fn compute_protocol_message_seed(&self) -> ProtocolMessage {
         let mut protocol_message = ProtocolMessage::new();
@@ -210,13 +226,13 @@ impl<'a> CertificateChainBuilder<'a> {
             .map(|(index_certificate, epoch)| {
                 let fixture = fixtures_per_epoch.get(&epoch).unwrap_or_else(|| panic!("Fixture not found at epoch {epoch:?} with {} total certificates and {} certificates per epoch", self.total_certificates, self.certificates_per_epoch));
                 let next_fixture = fixtures_per_epoch.get(&epoch.next()).unwrap_or_else(|| panic!("Next fixture not found at epoch {epoch:?} with {} total certificates and {} certificates per epoch", self.total_certificates, self.certificates_per_epoch));
-                let context = CertificateChainBuilderContext {
+                let context = CertificateChainBuilderContext::new(
                     index_certificate,
                     total_certificates,
                     epoch,
                     fixture,
                     next_fixture,
-                };
+                );
                 match index_certificate {
                     0 => genesis_certificate_processor(
                         self.build_genesis_certificate(&context, &genesis_signer),
