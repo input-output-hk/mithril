@@ -289,7 +289,7 @@ jobs:
       matrix:
         mode: ["std"]
         era: ["thales"]
-        # next_era: ["pythagoras"]
+        next_era: ["pythagoras"]
         cardano_node_version: ["9.1.1"]
         hard_fork_latest_era_at_epoch: [0]
         run_id:
