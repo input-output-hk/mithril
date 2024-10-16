@@ -8,6 +8,10 @@ pub enum ConfigError {
     /// Error raised when a required parameter is not present.
     #[error("Parameter '{0}' is mandatory.")]
     Required(String),
+
+    /// Error raised when a parameter cannot be converted to string.
+    #[error("Parameter '{0}' cannot be converted to string.")]
+    Conversion(String),
 }
 
 /// Configuration parameters holder
@@ -42,6 +46,14 @@ impl ConfigParameters {
         self
     }
 
+    /// Fill the holder with parameters from a source
+    pub fn add_source(mut self, source: &impl ConfigSource) -> Result<Self, ConfigError> {
+        let extra = source.collect()?;
+        self.parameters.extend(extra);
+
+        Ok(self)
+    }
+
     /// Fetch a parameter from the holder.
     pub fn get(&self, name: &str) -> Option<String> {
         self.parameters.get(name).cloned()
@@ -61,9 +73,36 @@ impl ConfigParameters {
     }
 }
 
+/// Describes a generic source of configuration parameters
+pub trait ConfigSource {
+    /// Collect all the configuration parameters from the source
+    fn collect(&self) -> Result<HashMap<String, String>, ConfigError>;
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct TestSource {
+        params: HashMap<String, String>,
+    }
+
+    impl<const N: usize> From<[(&str, &str); N]> for TestSource {
+        fn from(arr: [(&str, &str); N]) -> Self {
+            TestSource {
+                params: arr
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            }
+        }
+    }
+
+    impl ConfigSource for TestSource {
+        fn collect(&self) -> Result<HashMap<String, String>, ConfigError> {
+            Ok(self.params.clone())
+        }
+    }
 
     #[test]
     fn test_config_constructor() {
@@ -118,5 +157,37 @@ mod tests {
 
         assert_eq!("chu".to_string(), config.require("pika").unwrap());
         config.require("whatever").unwrap_err();
+    }
+
+    #[test]
+    fn test_add_source_to_config() {
+        let config = ConfigParameters::build(&[("pika", "chu"), ("chari", "zard")])
+            .add_source(&TestSource::from([("jiggly", "puff")]))
+            .unwrap();
+
+        assert_eq!(
+            ConfigParameters {
+                parameters: HashMap::from([
+                    ("pika".to_string(), "chu".to_string()),
+                    ("chari".to_string(), "zard".to_string()),
+                    ("jiggly".to_string(), "puff".to_string())
+                ])
+            },
+            config
+        );
+    }
+
+    #[test]
+    fn test_add_source_replace_existing_value() {
+        let config = ConfigParameters::build(&[("pika", "pika")])
+            .add_source(&TestSource::from([("pika", "not chu")]))
+            .unwrap();
+
+        assert_eq!(
+            ConfigParameters {
+                parameters: HashMap::from([("pika".to_string(), "not chu".to_string()),])
+            },
+            config
+        );
     }
 }
