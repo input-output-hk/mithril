@@ -422,22 +422,30 @@ impl<'a> CertificateChainBuilder<'a> {
     // Returns the chained certificates in reverse order
     // The latest certificate of the chain is the first in the vector
     fn compute_chained_certificates(&self, certificates: Vec<Certificate>) -> Vec<Certificate> {
-        let mut certificates_chained: Vec<Certificate> = Vec::new();
-        certificates
-            .iter()
-            .enumerate()
-            .for_each(|(i, certificate)| {
-                let mut certificate_new = certificate.clone();
-                if i > 0 {
-                    if let Some(previous_certificate) = certificates_chained.get(i - 1) {
-                        certificate_new.previous_hash = previous_certificate.compute_hash();
-                    }
-                } else {
-                    certificate_new.previous_hash = "".to_string();
-                }
-                certificate_new.hash = certificate_new.compute_hash();
-                certificates_chained.push(certificate_new);
-            });
+        fn update_certificate_previous_hash(
+            certificate: Certificate,
+            previous_certificate: Option<&Certificate>,
+        ) -> Certificate {
+            let mut certificate = certificate;
+            certificate.previous_hash = previous_certificate
+                .map(|c| c.hash.to_string())
+                .unwrap_or_default();
+            certificate.hash = certificate.compute_hash();
+
+            certificate
+        }
+
+        let mut certificates_chained: Vec<Certificate> =
+            certificates
+                .into_iter()
+                .fold(Vec::new(), |mut certificates_chained, certificate| {
+                    let previous_certificate_maybe = certificates_chained.last();
+                    let certificate =
+                        update_certificate_previous_hash(certificate, previous_certificate_maybe);
+                    certificates_chained.push(certificate);
+
+                    certificates_chained
+                });
         certificates_chained.reverse();
 
         certificates_chained
@@ -753,9 +761,18 @@ mod test {
     #[test]
     fn builds_certificate_chain_correctly_chained() {
         let certificates = vec![
-            fake_data::certificate("cert-1".to_string()),
-            fake_data::certificate("cert-2".to_string()),
-            fake_data::certificate("cert-3".to_string()),
+            Certificate {
+                epoch: Epoch(1),
+                ..fake_data::certificate("cert-1".to_string())
+            },
+            Certificate {
+                epoch: Epoch(2),
+                ..fake_data::certificate("cert-2".to_string())
+            },
+            Certificate {
+                epoch: Epoch(3),
+                ..fake_data::certificate("cert-3".to_string())
+            },
         ];
 
         let certificates_chained =
