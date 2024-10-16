@@ -241,7 +241,6 @@ async fn main() -> MithrilResult<()> {
         )
     });
     let logger = args.build_logger()?;
-    let _guard = slog_scope::set_global_logger(logger.clone());
 
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();

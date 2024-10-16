@@ -63,6 +63,7 @@ impl MithrilStakeDistributionDownloadCommand {
                 progress_output_type,
                 logger.clone(),
             )))
+            .with_logger(logger.clone())
             .build()?;
 
         let get_list_of_artifact_ids = || async {

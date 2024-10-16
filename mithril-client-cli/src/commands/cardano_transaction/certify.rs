@@ -53,6 +53,7 @@ impl CardanoTransactionsCertifyCommand {
                 progress_output_type,
                 logger.clone(),
             )))
+            .with_logger(logger.clone())
             .build()?;
 
         progress_printer.report_step(1, "Fetching a proof for the given transactions…")?;

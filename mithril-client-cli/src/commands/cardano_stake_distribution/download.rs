@@ -62,6 +62,7 @@ impl CardanoStakeDistributionDownloadCommand {
                 progress_output_type,
                 logger.clone(),
             )))
+            .with_logger(logger.clone())
             .build()?;
 
         progress_printer.report_step(

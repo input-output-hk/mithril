@@ -13,7 +13,6 @@ pub use deprecation::{DeprecatedCommand, Deprecation};
 
 use clap::Args;
 use mithril_client::{ClientBuilder, MithrilResult};
-use slog_scope::logger;
 
 use crate::configuration::ConfigParameters;
 
@@ -29,8 +28,7 @@ pub(crate) fn client_builder(params: &ConfigParameters) -> MithrilResult<ClientB
     let builder = ClientBuilder::aggregator(
         &params.require("aggregator_endpoint")?,
         &params.require("genesis_verification_key")?,
-    )
-    .with_logger(logger());
+    );
 
     Ok(builder)
 }
@@ -50,8 +48,7 @@ pub(crate) fn client_builder_with_fallback_genesis_key(
             "genesis_verification_key",
             fallback_genesis_verification_key,
         ),
-    )
-    .with_logger(logger());
+    );
 
     Ok(builder)
 }
