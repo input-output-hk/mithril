@@ -229,7 +229,7 @@ async fn create_certificate() {
         5,
         tester
             .metrics_service
-            .get_certificate_detail_total_produced_since_startup()
+            .get_certificate_total_produced_since_startup()
             .get()
     );
 }
