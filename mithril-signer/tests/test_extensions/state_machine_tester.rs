@@ -336,12 +336,14 @@ impl StateMachineTester {
     /// trigger a cycle in the state machine
     async fn cycle(&mut self) -> Result<&mut Self> {
         self.expected_metrics_service
-            .runtime_cycle_total_since_startup_counter_increment();
+            .get_runtime_cycle_total_since_startup_counter()
+            .increment();
 
         self.state_machine.cycle().await?;
 
         self.expected_metrics_service
-            .runtime_cycle_success_since_startup_counter_increment();
+            .get_runtime_cycle_success_since_startup_counter()
+            .increment();
 
         Ok(self)
     }
@@ -372,7 +374,8 @@ impl StateMachineTester {
     ) -> Result<&mut Self> {
         let metric_before = self
             .metrics_service
-            .signature_registration_success_since_startup_counter_get();
+            .get_signature_registration_success_since_startup_counter()
+            .get();
 
         self.cycle_ready_to_sign().await?;
 
@@ -386,7 +389,8 @@ impl StateMachineTester {
     ) -> Result<&mut Self> {
         let metric_before = self
             .metrics_service
-            .signature_registration_success_since_startup_counter_get();
+            .get_signature_registration_success_since_startup_counter()
+            .get();
 
         self.cycle_ready_to_sign().await?;
 
@@ -678,7 +682,8 @@ impl StateMachineTester {
     ) -> Result<&mut Self> {
         let metric = self
             .metrics_service
-            .signature_registration_success_since_startup_counter_get();
+            .get_signature_registration_success_since_startup_counter()
+            .get();
 
         self.assert(
             expected_metric == metric,
