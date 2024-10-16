@@ -93,9 +93,9 @@ impl Args {
             .add_source(config::File::with_name(&filename).required(false))
             .add_source(self.clone())
             .set_default("download_dir", "")?;
-        let context = CommandContext::new(config, root_logger);
+        let context = CommandContext::new(config, self.unstable, root_logger);
 
-        self.command.execute(self.unstable, context).await
+        self.command.execute(context).await
     }
 
     fn log_level(&self) -> Level {
@@ -200,17 +200,13 @@ enum ArtifactCommands {
 }
 
 impl ArtifactCommands {
-    pub async fn execute(
-        &self,
-        unstable_enabled: bool,
-        context: CommandContext,
-    ) -> MithrilResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         match self {
             Self::CardanoDb(cmd) => cmd.execute(context).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(context).await,
             Self::CardanoTransaction(cmd) => cmd.execute(context).await,
             Self::CardanoStakeDistribution(cmd) => {
-                if !unstable_enabled {
+                if !context.is_unstable_enabled() {
                     Err(anyhow!(Self::unstable_flag_missing_message(
                         "cardano-stake-distribution",
                         "list"
