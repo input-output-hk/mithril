@@ -267,8 +267,12 @@ impl<'a> CertificateChainBuilder<'a> {
         );
         // The total number of epochs in the sequence is the total number of standard certificates (total number of certificates minus one genesis certificate)
         // divided by the number of certificates per epoch plus two (one for the genesis epoch and one to compute the next fixtures of the last epoch)
-        let total_epochs_in_sequence =
-            (total_certificates - 1).div_ceil(certificates_per_epoch) + 2;
+        const TOTAL_GENESIS_CERTIFICATES: u64 = 1;
+        const TOTAL_EXTRA_EPOCHS_FOR_FIXTURES_COMPUTATION: u64 = 1;
+        let total_epochs_in_sequence = (total_certificates - TOTAL_GENESIS_CERTIFICATES)
+            .div_ceil(certificates_per_epoch)
+            + TOTAL_GENESIS_CERTIFICATES
+            + TOTAL_EXTRA_EPOCHS_FOR_FIXTURES_COMPUTATION;
         (1..=total_epochs_in_sequence).map(Epoch)
     }
 
