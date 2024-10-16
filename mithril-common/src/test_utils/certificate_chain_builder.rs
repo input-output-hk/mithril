@@ -202,15 +202,11 @@ impl<'a> CertificateChainBuilder<'a> {
     /// Build the certificate chain.
     pub fn build(self) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
         let (genesis_signer, genesis_verifier) = CertificateChainBuilder::setup_genesis();
-        let epochs = self.build_epochs_sequence().collect::<Vec<_>>();
-        let fixtures_per_epoch = self.build_fixtures_for_epochs(&epochs);
         let genesis_certificate_processor = self.genesis_certificate_processor;
         let standard_certificate_processor = self.standard_certificate_processor;
         let total_certificates = self.total_certificates as usize;
-        let certificates = epochs
-            .into_iter()
-            .take(total_certificates)
-            .enumerate()
+        let fixtures_per_epoch = self.build_fixtures_for_epochs();
+        let certificates = self.build_certificate_index_and_epoch_sequence()
             .map(|(index_certificate, epoch)| {
                 let fixture = fixtures_per_epoch.get(&epoch).unwrap_or_else(|| panic!("Fixture not found at epoch {epoch:?} with {} total certificates and {} certificates per epoch", self.total_certificates, self.certificates_per_epoch));
                 let next_fixture = fixtures_per_epoch.get(&epoch.next()).unwrap_or_else(|| panic!("Next fixture not found at epoch {epoch:?} with {} total certificates and {} certificates per epoch", self.total_certificates, self.certificates_per_epoch));
@@ -269,40 +265,47 @@ impl<'a> CertificateChainBuilder<'a> {
             total_certificates >= certificates_per_epoch,
             "Total certificates must be greater or equal to certificates per epoch"
         );
-        // The total number of epochs in the sequence is the total number of certificates divided by
-        // the number of certificates per epoch plus two (one for the genesis epoch and one to compute the next fixtures of the last epoch)
+        // The total number of epochs in the sequence is the total number of standard certificates (total number of certificates minus one genesis certificate)
+        // divided by the number of certificates per epoch plus two (one for the genesis epoch and one to compute the next fixtures of the last epoch)
         let total_epochs_in_sequence =
             (total_certificates - 1).div_ceil(certificates_per_epoch) + 2;
-        (1..=total_epochs_in_sequence).flat_map(move |epoch| {
-            let repeat_epoch = if epoch == 1 || epoch == total_epochs_in_sequence {
-                // We need only one occurence of the first and the last epochs in the sequence
-                1
-            } else {
-                certificates_per_epoch as usize
-            };
-            repeat(Epoch(epoch)).take(repeat_epoch)
-        })
+        (1..=total_epochs_in_sequence).map(Epoch)
     }
 
-    fn build_fixtures_for_epochs(&self, epochs: &[Epoch]) -> HashMap<Epoch, MithrilFixture> {
-        let fixtures_per_epoch = epochs
-            .iter()
+    fn build_certificate_index_and_epoch_sequence(&self) -> impl Iterator<Item = (usize, Epoch)> {
+        let total_certificates = self.total_certificates as usize;
+        let certificates_per_epoch = self.certificates_per_epoch as usize;
+
+        self.build_epochs_sequence()
+            .flat_map(move |epoch| {
+                let repeat_epoch = if epoch == 1 {
+                    // No need to repeat with the genesis epoch
+                    1
+                } else {
+                    certificates_per_epoch
+                };
+                repeat(Epoch(*epoch)).take(repeat_epoch)
+            })
+            .take(total_certificates)
+            .enumerate()
+    }
+
+    fn build_fixtures_for_epochs(&self) -> HashMap<Epoch, MithrilFixture> {
+        self.build_epochs_sequence()
             .collect::<BTreeSet<_>>()
             .into_iter()
             .map(|epoch| {
-                let total_signers = (self.total_signers_per_epoch_processor)(*epoch);
+                let total_signers = (self.total_signers_per_epoch_processor)(epoch);
                 let protocol_parameters = self.protocol_parameters.to_owned().into();
                 (
-                    *epoch,
+                    epoch,
                     MithrilFixtureBuilder::default()
                         .with_protocol_parameters(protocol_parameters)
                         .with_signers(total_signers)
                         .build(),
                 )
             })
-            .collect::<HashMap<_, _>>();
-
-        fixtures_per_epoch
+            .collect::<HashMap<_, _>>()
     }
 
     fn build_base_certificate(&self, context: &CertificateChainBuilderContext) -> Certificate {
@@ -441,8 +444,33 @@ mod test {
             .with_total_certificates(total_certificates)
             .with_certificates_per_epoch(certificates_per_epoch)
             .build_epochs_sequence()
-            .map(|epoch| epoch.0)
+            .map(|epoch| *epoch)
             .collect::<Vec<_>>()
+    }
+
+    fn build_certificate_index_and_epoch_numbers_sequence(
+        total_certificates: u64,
+        certificates_per_epoch: u64,
+    ) -> Vec<(usize, u64)> {
+        CertificateChainBuilder::default()
+            .with_total_certificates(total_certificates)
+            .with_certificates_per_epoch(certificates_per_epoch)
+            .build_certificate_index_and_epoch_sequence()
+            .map(|(certificate_index, epoch)| (certificate_index, *epoch))
+            .collect::<Vec<_>>()
+    }
+
+    fn build_epoch_numbers_sequence_in_certificate_chain(
+        total_certificates: u64,
+        certificates_per_epoch: u64,
+    ) -> Vec<u64> {
+        build_certificate_index_and_epoch_numbers_sequence(
+            total_certificates,
+            certificates_per_epoch,
+        )
+        .iter()
+        .map(|(_certificate_index, epoch)| *epoch)
+        .collect::<Vec<_>>()
     }
 
     fn build_certificate_chain(
@@ -539,15 +567,36 @@ mod test {
     #[test]
     fn builds_valid_epochs_sequence() {
         assert_eq!(vec![1, 2, 3, 4], build_epoch_numbers_sequence(3, 1));
-        assert_eq!(vec![1, 2, 2, 3, 3, 4], build_epoch_numbers_sequence(4, 2));
-        assert_eq!(vec![1, 2, 2, 3, 3, 4], build_epoch_numbers_sequence(5, 2));
+        assert_eq!(vec![1, 2, 3, 4], build_epoch_numbers_sequence(4, 2));
+        assert_eq!(vec![1, 2, 3, 4], build_epoch_numbers_sequence(5, 2));
+        assert_eq!(vec![1, 2, 3, 4], build_epoch_numbers_sequence(7, 3),);
         assert_eq!(
-            vec![1, 2, 2, 2, 3, 3, 3, 4],
-            build_epoch_numbers_sequence(7, 3),
+            vec![1, 2, 3, 4, 5, 6, 7],
+            build_epoch_numbers_sequence(15, 3),
+        );
+    }
+
+    #[test]
+    fn builds_valid_certificate_index_and_epoch_numbers_sequence() {
+        assert_eq!(
+            vec![1, 2, 3],
+            build_epoch_numbers_sequence_in_certificate_chain(3, 1)
         );
         assert_eq!(
-            vec![1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6, 6, 7],
-            build_epoch_numbers_sequence(15, 3),
+            vec![1, 2, 2, 3],
+            build_epoch_numbers_sequence_in_certificate_chain(4, 2)
+        );
+        assert_eq!(
+            vec![1, 2, 2, 3, 3],
+            build_epoch_numbers_sequence_in_certificate_chain(5, 2)
+        );
+        assert_eq!(
+            vec![1, 2, 2, 2, 3, 3, 3],
+            build_epoch_numbers_sequence_in_certificate_chain(7, 3),
+        );
+        assert_eq!(
+            vec![1, 2, 2, 2, 3, 3, 3, 4, 4, 4, 5, 5, 5, 6, 6],
+            build_epoch_numbers_sequence_in_certificate_chain(15, 3),
         );
     }
 
@@ -571,12 +620,9 @@ mod test {
             .with_total_certificates(5)
             .with_certificates_per_epoch(1)
             .with_total_signers_per_epoch_processor(&|epoch| *epoch as usize);
-        let epochs = certificate_chain_builder
-            .build_epochs_sequence()
-            .collect::<Vec<_>>();
 
         let epoch_fixtures =
-            BTreeMap::from_iter(certificate_chain_builder.build_fixtures_for_epochs(&epochs));
+            BTreeMap::from_iter(certificate_chain_builder.build_fixtures_for_epochs());
 
         let total_signers = epoch_fixtures
             .into_values()
