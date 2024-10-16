@@ -7,9 +7,11 @@
 //
 //!   You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/client).
 
+mod command_context;
 pub mod commands;
 mod configuration;
 mod utils;
 
+pub use command_context::*;
 /// Error Clap
 pub type ClapError = clap::error::Error;

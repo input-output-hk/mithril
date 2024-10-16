@@ -5,8 +5,8 @@ mod list;
 pub use download::*;
 pub use list::*;
 
+use crate::CommandContext;
 use clap::Subcommand;
-use config::{builder::DefaultState, ConfigBuilder};
 use mithril_client::MithrilResult;
 
 /// Mithril Stake Distribution management (alias: msd)
@@ -23,7 +23,7 @@ pub enum MithrilStakeDistributionCommands {
 
 impl MithrilStakeDistributionCommands {
     /// Execute Mithril stake distribution command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
+    pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Download(cmd) => cmd.execute(config_builder).await,

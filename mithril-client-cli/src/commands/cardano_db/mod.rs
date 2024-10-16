@@ -7,8 +7,8 @@ pub use download::*;
 pub use list::*;
 pub use show::*;
 
+use crate::CommandContext;
 use clap::Subcommand;
-use config::{builder::DefaultState, ConfigBuilder};
 use mithril_client::MithrilResult;
 
 /// Cardano db management (alias: cdb)
@@ -37,7 +37,7 @@ pub enum CardanoDbSnapshotCommands {
 
 impl CardanoDbCommands {
     /// Execute cardano db command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
+    pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
         match self {
             Self::Download(cmd) => cmd.execute(config_builder).await,
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
@@ -47,7 +47,7 @@ impl CardanoDbCommands {
 
 impl CardanoDbSnapshotCommands {
     /// Execute Cardano db snapshot command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
+    pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Show(cmd) => cmd.execute(config_builder).await,

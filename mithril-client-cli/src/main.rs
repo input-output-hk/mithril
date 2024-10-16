@@ -19,7 +19,7 @@ use mithril_client_cli::commands::{
     cardano_transaction::CardanoTransactionCommands,
     mithril_stake_distribution::MithrilStakeDistributionCommands, DeprecatedCommand, Deprecation,
 };
-use mithril_client_cli::ClapError;
+use mithril_client_cli::{ClapError, CommandContext};
 
 enum LogOutputType {
     StdErr,
@@ -85,7 +85,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub async fn execute(&self) -> MithrilResult<()> {
+    pub async fn execute(&self, root_logger: Logger) -> MithrilResult<()> {
         debug!("Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
         debug!("Reading configuration file '{}'.", filename);
@@ -93,8 +93,9 @@ impl Args {
             .add_source(config::File::with_name(&filename).required(false))
             .add_source(self.clone())
             .set_default("download_dir", "")?;
+        let context = CommandContext::new(config, root_logger);
 
-        self.command.execute(self.unstable, config).await
+        self.command.execute(self.unstable, context).await
     }
 
     fn log_level(&self) -> Level {
@@ -202,12 +203,12 @@ impl ArtifactCommands {
     pub async fn execute(
         &self,
         unstable_enabled: bool,
-        config_builder: ConfigBuilder<DefaultState>,
+        context: CommandContext,
     ) -> MithrilResult<()> {
         match self {
-            Self::CardanoDb(cmd) => cmd.execute(config_builder).await,
-            Self::MithrilStakeDistribution(cmd) => cmd.execute(config_builder).await,
-            Self::CardanoTransaction(cmd) => cmd.execute(config_builder).await,
+            Self::CardanoDb(cmd) => cmd.execute(context).await,
+            Self::MithrilStakeDistribution(cmd) => cmd.execute(context).await,
+            Self::CardanoTransaction(cmd) => cmd.execute(context).await,
             Self::CardanoStakeDistribution(cmd) => {
                 if !unstable_enabled {
                     Err(anyhow!(Self::unstable_flag_missing_message(
@@ -215,7 +216,7 @@ impl ArtifactCommands {
                         "list"
                     )))
                 } else {
-                    cmd.execute(config_builder).await
+                    cmd.execute(context).await
                 }
             }
             Self::GenerateDoc(cmd) => cmd
@@ -242,12 +243,13 @@ async fn main() -> MithrilResult<()> {
             vec![DeprecatedCommand::new("snapshot", "cardano-db")],
         )
     });
-    let _guard = slog_scope::set_global_logger(args.build_logger()?);
+    let logger = args.build_logger()?;
+    let _guard = slog_scope::set_global_logger(logger.clone());
 
     #[cfg(feature = "bundle_openssl")]
     openssl_probe::init_ssl_cert_env_vars();
 
-    args.execute().await
+    args.execute(logger).await
 }
 
 #[cfg(test)]
@@ -260,7 +262,7 @@ mod tests {
             Args::try_parse_from(["mithril-client", "cardano-stake-distribution", "list"]).unwrap();
 
         let error = args
-            .execute()
+            .execute(Logger::root(slog::Discard, slog::o!()))
             .await
             .expect_err("Should fail if unstable flag missing");
 

@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder};
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -10,7 +9,8 @@ use std::{
 use crate::utils::{ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
     commands::{client_builder, SharedArgs},
-    configuration::{ConfigError, ConfigParameters, ConfigSource},
+    configuration::{ConfigError, ConfigSource},
+    CommandContext,
 };
 use mithril_client::common::Epoch;
 use mithril_client::Client;
@@ -45,10 +45,8 @@ impl CardanoStakeDistributionDownloadCommand {
     }
 
     /// Main command execution
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        let config = config_builder.build()?;
-        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?)
-            .add_source(self)?;
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        let params = context.config_parameters()?.add_source(self)?;
         let download_dir = params.get_or("download_dir", ".");
         let download_dir = Path::new(&download_dir);
 

@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder};
 use slog_scope::{debug, warn};
 use std::{
     collections::HashMap,
@@ -12,11 +11,12 @@ use std::{
 
 use crate::{
     commands::{client_builder, SharedArgs},
-    configuration::{ConfigError, ConfigParameters, ConfigSource},
+    configuration::{ConfigError, ConfigSource},
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
     },
+    CommandContext,
 };
 use mithril_client::{
     common::ProtocolMessage, Client, MessageBuilder, MithrilCertificate, MithrilResult, Snapshot,
@@ -51,10 +51,8 @@ impl CardanoDbDownloadCommand {
     }
 
     /// Command execution
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        let config = config_builder.build()?;
-        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?)
-            .add_source(self)?;
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        let params = context.config_parameters()?.add_source(self)?;
         let download_dir: &String = &params.require("download_dir")?;
         let db_dir = Path::new(download_dir).join("db");
 

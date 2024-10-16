@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use cli_table::{print_stdout, Cell, Table};
-use config::{builder::DefaultState, ConfigBuilder};
 use slog_scope::debug;
 use std::{collections::HashMap, sync::Arc};
 
@@ -13,7 +12,8 @@ use mithril_client::{
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
 use crate::{
     commands::{client_builder, SharedArgs},
-    configuration::{ConfigError, ConfigParameters, ConfigSource},
+    configuration::{ConfigError, ConfigSource},
+    CommandContext,
 };
 
 /// Clap command to show a given Cardano transaction sets
@@ -38,10 +38,8 @@ impl CardanoTransactionsCertifyCommand {
     }
 
     /// Cardano transaction certify command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        let config = config_builder.build()?;
-        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?)
-            .add_source(self)?;
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        let params = context.config_parameters()?.add_source(self)?;
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter

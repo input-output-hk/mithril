@@ -1,13 +1,11 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use cli_table::{print_stdout, Cell, Table};
-use config::{builder::DefaultState, ConfigBuilder};
-use std::collections::HashMap;
 
 use crate::{
     commands::{client_builder_with_fallback_genesis_key, SharedArgs},
-    configuration::ConfigParameters,
     utils::ExpanderUtils,
+    CommandContext,
 };
 use mithril_client::MithrilResult;
 
@@ -31,9 +29,8 @@ impl CardanoTransactionsSnapshotShowCommand {
     }
 
     /// Cardano transaction snapshot Show command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        let config = config_builder.build()?;
-        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        let params = context.config_parameters()?;
         let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
 
         let get_list_of_artifact_ids = || async {
