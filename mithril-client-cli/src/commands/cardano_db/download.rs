@@ -196,14 +196,17 @@ impl CardanoDbDownloadCommand {
         // The cardano db download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
         if let Err(e) = client.snapshot().add_statistics(cardano_db).await {
-            warn!("Could not increment cardano db download statistics: {e:?}");
+            warn!(
+                "Could not increment cardano db download statistics";
+                "error" => ?e
+            );
         }
 
         // Append 'clean' file to speedup node bootstrap
         if let Err(error) = File::create(db_dir.join("clean")) {
             warn!(
-                "Could not create clean shutdown marker file in directory {}: {error}",
-                db_dir.display()
+                "Could not create clean shutdown marker file in directory '{}'", db_dir.display();
+                "error" => error.to_string()
             );
         };
 
@@ -245,7 +248,10 @@ impl CardanoDbDownloadCommand {
             debug!("Digest verification failed, removing unpacked files & directory.");
 
             if let Err(error) = std::fs::remove_dir_all(db_dir) {
-                warn!("Error while removing unpacked files & directory: {error}.");
+                warn!(
+                    "Error while removing unpacked files & directory";
+                    "error" => error.to_string()
+                );
             }
 
             return Err(anyhow!(

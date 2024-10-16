@@ -64,10 +64,7 @@ impl CardanoTransactionsCertifyCommand {
                     self.transactions_hashes
                 )
             })?;
-        debug!(
-            "Got Proof from aggregator, proof: {:?}",
-            cardano_transaction_proof
-        );
+        debug!("Got Proof from aggregator"; "proof" => ?cardano_transaction_proof);
 
         let verified_transactions =
             Self::verify_proof_validity(2, &progress_printer, &cardano_transaction_proof)?;

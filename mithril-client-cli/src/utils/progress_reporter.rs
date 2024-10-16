@@ -140,7 +140,7 @@ impl DownloadProgressReporter {
                 match self.last_json_report_instant.write() {
                     Ok(mut instant) => *instant = Some(Instant::now()),
                     Err(error) => {
-                        warn!("failed to update last json report instant, error: {error:?}")
+                        warn!("failed to update last json report instant"; "error" => ?error)
                     }
                 };
             }
