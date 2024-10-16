@@ -20,6 +20,7 @@ fn register_signatures(
         .and(middlewares::with_single_signature_authenticator(
             dependency_manager,
         ))
+        .and(middlewares::with_metrics_service(dependency_manager))
         .and_then(handlers::register_signatures)
 }
 
@@ -35,7 +36,7 @@ mod handlers {
         http_server::routes::reply,
         message_adapters::FromRegisterSingleSignatureAdapter,
         services::{CertifierService, CertifierServiceError, SignatureRegistrationStatus},
-        unwrap_to_internal_server_error, SingleSignatureAuthenticator,
+        unwrap_to_internal_server_error, MetricsService, SingleSignatureAuthenticator,
     };
 
     /// Register Signatures
@@ -44,8 +45,13 @@ mod handlers {
         logger: Logger,
         certifier_service: Arc<dyn CertifierService>,
         single_signer_authenticator: Arc<SingleSignatureAuthenticator>,
+        metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(logger, ">> register_signatures"; "payload" => ?message);
+
+        metrics_service
+            .get_signature_registration_total_received_since_startup()
+            .increment();
 
         let signed_entity_type = message.signed_entity_type.clone();
         let signed_message = message.signed_message.clone();
@@ -135,6 +141,33 @@ mod tests {
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
             .and(routes(&dependency_manager).with(cors))
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_increments_signature_registration_total_received_since_startup_metric(
+    ) {
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let initial_counter_value = dependency_manager
+            .metrics_service
+            .get_signature_registration_total_received_since_startup()
+            .get();
+
+        request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&RegisterSignatureMessage::dummy())
+            .reply(&setup_router(dependency_manager.clone()))
+            .await;
+
+        assert_eq!(
+            initial_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_signature_registration_total_received_since_startup()
+                .get()
+        );
     }
 
     #[tokio::test]
