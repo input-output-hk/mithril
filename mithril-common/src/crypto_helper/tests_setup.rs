@@ -1,18 +1,13 @@
 //! Test data builders for Mithril STM types, for testing purpose.
 use super::{genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
 use crate::{
-    certificate_chain::CertificateGenesisProducer,
-    entities::{
-        Certificate, CertificateSignature, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-        SignerWithStake, Stake,
-    },
-    test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
+    entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
+    test_utils::{CertificateChainBuilder, SignerFixture},
 };
 
-use crate::entities::{CertificateMetadata, SignedEntityType};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
-use std::{cmp::min, collections::HashMap, fs, path::PathBuf, sync::Arc};
+use std::{fs, path::PathBuf};
 
 /// Create or retrieve a temporary directory for storing cryptographic material for a signer, use this for tests only.
 pub fn setup_temp_directory_for_signer(
@@ -163,150 +158,15 @@ pub fn setup_signers_from_stake_distribution(
         .collect::<_>()
 }
 
-/// Instantiate a Genesis Signer and its associated Verifier
-pub fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
-    let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
-    let genesis_verifier = genesis_signer.create_genesis_verifier();
-    (genesis_signer, genesis_verifier)
-}
-
 /// Instantiate a certificate chain, use this for tests only.
 pub fn setup_certificate_chain(
     total_certificates: u64,
     certificates_per_epoch: u64,
 ) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
-    let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
-    let genesis_verifier = genesis_signer.create_genesis_verifier();
-    let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
-    let protocol_parameters = setup_protocol_parameters();
-    let genesis_epoch = Epoch(1);
-    let mut epochs = (genesis_epoch.0..total_certificates + 2)
-        .map(|i| match certificates_per_epoch {
-            0 => panic!("expected at least 1 certificate per epoch"),
-            1 => Epoch(i),
-            _ => Epoch(i / certificates_per_epoch + 1),
-        })
-        .collect::<Vec<_>>();
-    let fixture_per_epoch = epochs
-        .clone()
-        .into_iter()
-        .map(|epoch| {
-            (
-                epoch,
-                MithrilFixtureBuilder::default()
-                    .with_protocol_parameters(protocol_parameters.into())
-                    .with_signers(min(2 + *epoch as usize, 5))
-                    .build(),
-            )
-        })
-        .collect::<HashMap<_, _>>();
-    let clerk_for_signers = |signers: &[SignerFixture]| -> ProtocolClerk {
-        let first_signer = &signers[0].protocol_signer;
-        ProtocolClerk::from_signer(first_signer)
-    };
-    let avk_for_signers = |signers: &[SignerFixture]| -> ProtocolAggregateVerificationKey {
-        let clerk = clerk_for_signers(signers);
-        clerk.compute_avk().into()
-    };
-    epochs.pop();
-    let certificates = epochs
-        .into_iter()
-        .enumerate()
-        .map(|(i, epoch)| {
-            let immutable_file_number = i as u64 * 10;
-            let digest = format!("digest{i}");
-            let certificate_hash = format!("certificate_hash-{i}");
-            let fixture = fixture_per_epoch.get(&epoch).unwrap();
-            let next_fixture = fixture_per_epoch.get(&(epoch + 1)).unwrap();
-            let avk = avk_for_signers(&fixture.signers_fixture());
-            let next_avk = avk_for_signers(&next_fixture.signers_fixture());
-            let next_protocol_parameters = &next_fixture.protocol_parameters();
-            let mut fake_certificate = {
-                let mut base_certificate = fake_data::certificate(certificate_hash);
-                base_certificate
-                    .protocol_message
-                    .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
-                base_certificate.protocol_message.set_message_part(
-                    ProtocolMessagePartKey::NextAggregateVerificationKey,
-                    next_avk.to_json_hex().unwrap(),
-                );
-                Certificate {
-                    epoch,
-                    aggregate_verification_key: avk,
-                    previous_hash: "".to_string(),
-                    signed_message: base_certificate.protocol_message.compute_hash(),
-                    #[allow(deprecated)]
-                    metadata: CertificateMetadata {
-                        immutable_file_number,
-                        ..base_certificate.metadata
-                    },
-                    ..base_certificate
-                }
-            };
+    let certificate_chain_builder = CertificateChainBuilder::new()
+        .with_total_certificates(total_certificates)
+        .with_certificates_per_epoch(certificates_per_epoch)
+        .with_protocol_parameters(setup_protocol_parameters());
 
-            let beacon = fake_certificate.as_cardano_db_beacon();
-            match i {
-                0 => {
-                    let genesis_protocol_message =
-                        CertificateGenesisProducer::create_genesis_protocol_message(
-                            next_protocol_parameters,
-                            &next_avk,
-                            &genesis_epoch,
-                        )
-                        .unwrap();
-                    let genesis_signature = genesis_producer
-                        .sign_genesis_protocol_message(genesis_protocol_message)
-                        .unwrap();
-                    fake_certificate = CertificateGenesisProducer::create_genesis_certificate(
-                        fake_certificate.metadata.protocol_parameters,
-                        beacon.network,
-                        beacon.epoch,
-                        beacon.immutable_file_number,
-                        next_avk,
-                        genesis_signature,
-                    )
-                    .unwrap()
-                }
-                _ => {
-                    fake_certificate.metadata.signers = fixture.stake_distribution_parties();
-                    let single_signatures = fixture
-                        .signers_fixture()
-                        .iter()
-                        .filter_map(|s| {
-                            s.protocol_signer
-                                .sign(fake_certificate.signed_message.as_bytes())
-                        })
-                        .collect::<Vec<_>>();
-                    let clerk = clerk_for_signers(&fixture.signers_fixture());
-                    let multi_signature = clerk
-                        .aggregate(
-                            &single_signatures,
-                            fake_certificate.signed_message.as_bytes(),
-                        )
-                        .unwrap();
-                    fake_certificate.signature = CertificateSignature::MultiSignature(
-                        SignedEntityType::CardanoImmutableFilesFull(beacon),
-                        multi_signature.into(),
-                    );
-                }
-            }
-            fake_certificate
-        })
-        .collect::<Vec<Certificate>>();
-    let mut certificates_new: Vec<Certificate> = Vec::new();
-    certificates
-        .iter()
-        .enumerate()
-        .for_each(|(i, certificate)| {
-            let mut certificate_new = certificate.clone();
-            if i > 0 {
-                if let Some(previous_certificate) = certificates_new.get(i - 1) {
-                    certificate_new.previous_hash = previous_certificate.compute_hash();
-                }
-            }
-            certificate_new.hash = certificate_new.compute_hash();
-            certificates_new.push(certificate_new);
-        });
-    certificates_new.reverse();
-    (certificates_new, genesis_verifier)
+    certificate_chain_builder.build()
 }

@@ -18,7 +18,7 @@ pub struct ProtocolGenesisError(#[source] StdError);
 
 /// A protocol Genesis Signer that is responsible for signing the
 /// [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtocolGenesisSigner {
     /// Protocol Genesis secret key
     pub(crate) secret_key: ProtocolGenesisSecretKey,
