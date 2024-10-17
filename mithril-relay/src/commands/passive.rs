@@ -1,9 +1,9 @@
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder};
 use libp2p::Multiaddr;
 use mithril_common::StdResult;
 use slog_scope::error;
 
+use super::CommandContext;
 use crate::PassiveRelay;
 
 #[derive(Parser, Debug, Clone)]
@@ -19,7 +19,7 @@ pub struct PassiveCommand {
 
 impl PassiveCommand {
     /// Main command execution
-    pub async fn execute(&self, _config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, _context: CommandContext) -> StdResult<()> {
         let dial_to = self.dial_to.to_owned();
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;
 
