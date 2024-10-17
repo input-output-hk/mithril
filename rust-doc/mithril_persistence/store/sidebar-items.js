@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["adapter"],"struct":["StakeStore"],"trait":["StakeStorer","StorePruner"]};

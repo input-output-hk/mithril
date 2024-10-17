@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EraReaderError","SupportedEra"],"mod":["adapters"],"struct":["EraChecker","EraEpochToken","EraMarker","EraReader","SupportedEraIter"],"trait":["EraReaderAdapter"]};
