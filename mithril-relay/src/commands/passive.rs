@@ -30,7 +30,7 @@ impl PassiveCommand {
         }
         loop {
             if let Err(err) = relay.tick().await {
-                error!(logger, "P2PClient: tick error"; "error" => format!("{err:#?}"));
+                error!(logger, "P2PClient: tick error"; "error" => ?err);
             }
         }
     }

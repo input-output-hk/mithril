@@ -43,7 +43,7 @@ impl AggregatorRelay {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => {
-                    info!(self.logger, "Relay aggregator: sent successfully signature message to aggregator"; "signature_message" => format!("{:#?}", signature_message));
+                    info!(self.logger, "Relay aggregator: sent successfully signature message to aggregator"; "signature_message" => #?signature_message);
                     Ok(())
                 }
                 status => {
@@ -74,7 +74,7 @@ impl AggregatorRelay {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => {
-                    info!(self.logger, "Relay aggregator: sent successfully signer registration message to aggregator"; "signer_message" => format!("{:#?}", signer_message));
+                    info!(self.logger, "Relay aggregator: sent successfully signer registration message to aggregator"; "signer_message" => #?signer_message);
                     Ok(())
                 }
                 status => {
@@ -105,7 +105,7 @@ impl AggregatorRelay {
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
-                            error!(self.logger, "Relay aggregator: failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => format!("{:#?}", signer_message_received), "error" => format!("{e:?}"));
+                            error!(self.logger, "Relay aggregator: failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => #?signer_message_received, "error" => ?e);
                             return Err(e);
                         }
                     }
@@ -119,7 +119,7 @@ impl AggregatorRelay {
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
-                            error!(self.logger, "Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => format!("{:#?}", signature_message_received), "error" => format!("{e:?}"));
+                            error!(self.logger, "Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => #?signature_message_received, "error" => ?e);
                             return Err(e);
                         }
                     }

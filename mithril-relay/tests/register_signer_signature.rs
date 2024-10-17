@@ -108,7 +108,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let signer_relay_thread = tokio::spawn(async move {
         loop {
             if let Err(err) = signer_relay.tick().await {
-                error!("RelaySigner: tick error"; "error" => format!("{err:#?}"));
+                error!("RelaySigner: tick error"; "error" => #?err);
             }
         }
     });

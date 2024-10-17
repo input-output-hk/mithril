@@ -55,7 +55,7 @@ impl SignerCommand {
 
         loop {
             if let Err(err) = relay.tick().await {
-                error!(logger, "RelaySigner: tick error"; "error" => format!("{err:#?}"));
+                error!(logger, "RelaySigner: tick error"; "error" => ?err);
             }
         }
     }

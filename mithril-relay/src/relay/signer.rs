@@ -52,7 +52,7 @@ impl SignerRelay {
             logger,
         )
         .await;
-        info!(relay_logger, "SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
+        info!(relay_logger, "SignerRelay: listening on"; "address" => ?server.address());
 
         Ok(Self {
             server,
@@ -118,7 +118,7 @@ impl SignerRelay {
             message = self.signature_rx.recv()  => {
                 match message {
                     Some(signature_message) => {
-                        info!(self.logger, "SignerRelay: publish signature to p2p network"; "message" => format!("{signature_message:#?}"));
+                        info!(self.logger, "SignerRelay: publish signature to p2p network"; "message" => #?signature_message);
                         self.peer.publish_signature(&signature_message)?;
                         Ok(())
                     }
@@ -131,7 +131,7 @@ impl SignerRelay {
             message = self.signer_rx.recv()  => {
                 match message {
                     Some(signer_message) => {
-                        info!(self.logger, "SignerRelay: publish signer-registration to p2p network"; "message" => format!("{signer_message:#?}"));
+                        info!(self.logger, "SignerRelay: publish signer-registration to p2p network"; "message" => #?signer_message);
                         self.peer.publish_signer_registration(&signer_message)?;
                         Ok(())
                     }
@@ -234,7 +234,7 @@ mod handlers {
         tx: UnboundedSender<RegisterSignerMessage>,
         repeater: Arc<repeater::MessageRepeater<RegisterSignerMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "SignerRelay: serve HTTP route /register-signer"; "register_signer_message" => format!("{register_signer_message:#?}"));
+        debug!(logger, "SignerRelay: serve HTTP route /register-signer"; "register_signer_message" => #?register_signer_message);
 
         repeater.set_message(register_signer_message.clone()).await;
         match tx.send(register_signer_message) {
@@ -254,7 +254,7 @@ mod handlers {
         logger: Logger,
         tx: UnboundedSender<RegisterSignatureMessage>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "SignerRelay: serve HTTP route /register-signatures"; "register_signature_message" => format!("{register_signature_message:#?}"));
+        debug!(logger, "SignerRelay: serve HTTP route /register-signatures"; "register_signature_message" => #?register_signature_message);
         match tx.send(register_signature_message) {
             Ok(_) => Ok(Box::new(warp::reply::with_status(
                 "".to_string(),
