@@ -1,8 +1,7 @@
 use anyhow::anyhow;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
-use slog::Logger;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::{fmt::Debug, sync::Arc, time::Duration};
 use tokio::{
     sync::{mpsc::UnboundedSender, Mutex},
@@ -31,13 +30,13 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
     }
 
     async fn reset_next_repeat_at(&self) {
-        debug!("MessageRepeater: reset next_repeat_at");
+        debug!(self.logger, "MessageRepeater: reset next_repeat_at");
         *self.next_repeat_at.lock().await = Some(Instant::now() + self.delay);
     }
 
     /// Set the message to repeat
     pub async fn set_message(&self, message: M) {
-        debug!("MessageRepeater: set message"; "message" => format!("{:#?}", message));
+        debug!(self.logger, "MessageRepeater: set message"; "message" => format!("{:#?}", message));
         *self.message.lock().await = Some(message);
         self.reset_next_repeat_at().await;
     }
@@ -53,13 +52,13 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
         tokio::time::sleep(wait_delay).await;
         match self.message.lock().await.as_ref() {
             Some(message) => {
-                debug!("MessageRepeater: repeat message"; "message" => format!("{:#?}", message));
+                debug!(self.logger, "MessageRepeater: repeat message"; "message" => format!("{:#?}", message));
                 self.tx_message
                     .send(message.clone())
                     .map_err(|e| anyhow!(e))?
             }
             None => {
-                debug!("MessageRepeater: no message to repeat");
+                debug!(self.logger, "MessageRepeater: no message to repeat");
             }
         }
         self.reset_next_repeat_at().await;

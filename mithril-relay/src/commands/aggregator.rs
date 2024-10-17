@@ -1,7 +1,7 @@
 use clap::Parser;
 use libp2p::Multiaddr;
 use mithril_common::StdResult;
-use slog_scope::error;
+use slog::error;
 
 use super::CommandContext;
 use crate::AggregatorRelay;
@@ -27,16 +27,16 @@ impl AggregatorCommand {
         let dial_to = self.dial_to.to_owned();
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;
         let aggregator_endpoint = self.aggregator_endpoint.to_owned();
+        let logger = context.logger();
 
-        let mut relay =
-            AggregatorRelay::start(&addr, &aggregator_endpoint, context.logger()).await?;
+        let mut relay = AggregatorRelay::start(&addr, &aggregator_endpoint, logger).await?;
         if let Some(dial_to_address) = dial_to {
             relay.dial_peer(dial_to_address.clone())?;
         }
 
         loop {
             if let Err(err) = relay.tick().await {
-                error!("RelayAggregator: tick error"; "error" => format!("{err:#?}"));
+                error!(logger, "RelayAggregator: tick error"; "error" => format!("{err:#?}"));
             }
         }
     }
