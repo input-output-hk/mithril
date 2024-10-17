@@ -225,11 +225,38 @@ async fn create_certificate() {
 
     cycle!(tester, "ready");
 
-    assert_eq!(
-        5,
-        tester
-            .metrics_service
-            .get_certificate_total_produced_since_startup()
-            .get()
-    );
+    // Validate metrics for total number of certificates and artifacts produced since startup
+    {
+        assert_eq!(
+            4,
+            tester
+                .metrics_service
+                .get_certificate_total_produced_since_startup()
+                .get()
+        );
+
+        assert_eq!(
+            1,
+            tester
+                .metrics_service
+                .get_artifact_cardano_db_total_produced_since_startup()
+                .get()
+        );
+
+        assert_eq!(
+            1,
+            tester
+                .metrics_service
+                .get_artifact_mithril_stake_distribution_total_produced_since_startup()
+                .get()
+        );
+
+        assert_eq!(
+            2,
+            tester
+                .metrics_service
+                .get_artifact_cardano_transaction_total_produced_since_startup()
+                .get()
+        );
+    }
 }

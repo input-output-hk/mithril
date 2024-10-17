@@ -181,4 +181,31 @@ async fn cardano_stake_distribution_verify_stakes() {
         .unwrap()
         .unwrap();
     assert_eq!(updated_stake_distribution, message.stake_distribution);
+
+    // Validate metrics for total number of certificates and artifacts produced since startup
+    {
+        assert_eq!(
+            3,
+            tester
+                .metrics_service
+                .get_certificate_total_produced_since_startup()
+                .get()
+        );
+
+        assert_eq!(
+            2,
+            tester
+                .metrics_service
+                .get_artifact_mithril_stake_distribution_total_produced_since_startup()
+                .get()
+        );
+
+        assert_eq!(
+            1,
+            tester
+                .metrics_service
+                .get_artifact_cardano_stake_distribution_total_produced_since_startup()
+                .get()
+        );
+    }
 }

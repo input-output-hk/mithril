@@ -321,4 +321,31 @@ async fn certificate_chain() {
             ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
         )
     );
+
+    // Validate metrics for total number of certificates and artifacts produced since startup
+    {
+        assert_eq!(
+            7,
+            tester
+                .metrics_service
+                .get_certificate_total_produced_since_startup()
+                .get()
+        );
+
+        assert_eq!(
+            3,
+            tester
+                .metrics_service
+                .get_artifact_cardano_db_total_produced_since_startup()
+                .get()
+        );
+
+        assert_eq!(
+            4,
+            tester
+                .metrics_service
+                .get_artifact_mithril_stake_distribution_total_produced_since_startup()
+                .get()
+        );
+    }
 }
