@@ -31,7 +31,9 @@ impl CardanoTransactionsSnapshotShowCommand {
     /// Cardano transaction snapshot Show command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?;
-        let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
+        let client = client_builder_with_fallback_genesis_key(&params)?
+            .with_logger(context.logger().clone())
+            .build()?;
 
         let get_list_of_artifact_ids = || async {
             let transactions_sets = client.cardano_transaction().list_snapshots().await.with_context(|| {

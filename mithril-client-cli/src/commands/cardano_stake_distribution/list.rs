@@ -23,7 +23,9 @@ impl CardanoStakeDistributionListCommand {
     /// Main command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?;
-        let client = client_builder_with_fallback_genesis_key(&params)?.build()?;
+        let client = client_builder_with_fallback_genesis_key(&params)?
+            .with_logger(context.logger().clone())
+            .build()?;
         let lines = client.cardano_stake_distribution().list().await?;
 
         if self.is_json_output_enabled() {

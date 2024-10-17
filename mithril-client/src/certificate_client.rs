@@ -59,24 +59,23 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog::{crit, debug, Logger};
+use slog::{crit, Logger};
 
-use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
-use crate::feedback::{FeedbackSender, MithrilEvent};
-use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
-use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
 use mithril_common::{
     certificate_chain::{
         CertificateRetriever, CertificateRetrieverError,
         CertificateVerifier as CommonCertificateVerifier,
         MithrilCertificateVerifier as CommonMithrilCertificateVerifier,
     },
+    crypto_helper::ProtocolGenesisVerificationKey,
     entities::Certificate,
+    logging::LoggerExtensions,
     messages::CertificateMessage,
 };
 
-#[cfg(test)]
-use mockall::automock;
+use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
+use crate::feedback::{FeedbackSender, MithrilEvent};
+use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
 
 /// Aggregator client for the Certificate
 pub struct CertificateClient {
@@ -86,7 +85,7 @@ pub struct CertificateClient {
 }
 
 /// API that defines how to validate certificates.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait CertificateVerifier: Sync + Send {
@@ -101,6 +100,7 @@ impl CertificateClient {
         verifier: Arc<dyn CertificateVerifier>,
         logger: Logger,
     ) -> Self {
+        let logger = logger.new_with_component_name::<Self>();
         let retriever = Arc::new(InternalCertificateRetriever {
             aggregator_client: aggregator_client.clone(),
             logger,
@@ -173,13 +173,12 @@ impl InternalCertificateRetriever {
             Err(e) => Err(e.into()),
             Ok(response) => {
                 let message =
-                    serde_json::from_str::<CertificateMessage>(&response).map_err(|e| {
+                    serde_json::from_str::<CertificateMessage>(&response).inspect_err(|e| {
                         crit!(
-                            self.logger,
-                            "Could not create certificate from API message: {e}."
+                            self.logger, "Could not create certificate from API message";
+                            "error" => e.to_string(),
+                            "raw_message" => response
                         );
-                        debug!(self.logger, "Certificate message = {response}");
-                        e
                     })?;
 
                 Ok(Some(message))
@@ -204,6 +203,7 @@ impl MithrilCertificateVerifier {
         feedback_sender: FeedbackSender,
         logger: Logger,
     ) -> MithrilResult<MithrilCertificateVerifier> {
+        let logger = logger.new_with_component_name::<Self>();
         let retriever = Arc::new(InternalCertificateRetriever {
             aggregator_client: aggregator_client.clone(),
             logger: logger.clone(),

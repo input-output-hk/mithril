@@ -20,6 +20,7 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{ClientError, ServerError};
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
 #[cfg(feature = "unstable")]
@@ -233,7 +234,7 @@ impl AggregatorHTTPClient {
             http_client,
             aggregator_endpoint,
             api_versions: Arc::new(RwLock::new(api_versions)),
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
             http_headers,
         })
     }
@@ -309,7 +310,7 @@ impl AggregatorHTTPClient {
     #[cfg_attr(target_family = "wasm", async_recursion(?Send))]
     #[cfg_attr(not(target_family = "wasm"), async_recursion)]
     async fn post(&self, url: Url, json: &str) -> Result<Response, AggregatorClientError> {
-        debug!(self.logger, "POST url='{url}' json='{json}'.");
+        debug!(self.logger, "POST url='{url}'"; "json" => json);
         let request_builder = self.http_client.post(url.to_owned()).body(json.to_owned());
         let current_api_version = self
             .compute_current_api_version()

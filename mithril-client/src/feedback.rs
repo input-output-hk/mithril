@@ -191,11 +191,8 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
                 size,
             } => {
                 info!(
-                    self.logger,
-                    "Snapshot download started";
-                    "size" => size,
-                    "digest" => digest,
-                    "download_id" => download_id,
+                    self.logger, "Snapshot download started";
+                    "size" => size, "digest" => digest, "download_id" => download_id,
                 );
             }
             MithrilEvent::SnapshotDownloadProgress {
@@ -204,11 +201,8 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
                 size,
             } => {
                 info!(
-                    self.logger,
-                    "Snapshot download in progress ...";
-                    "downloaded bytes" => downloaded_bytes,
-                    "size" => size,
-                    "download_id" => download_id,
+                    self.logger, "Snapshot download in progress ...";
+                    "downloaded_bytes" => downloaded_bytes, "size" => size, "download_id" => download_id,
                 );
             }
             MithrilEvent::SnapshotDownloadCompleted { download_id } => {
@@ -218,8 +212,7 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
                 certificate_chain_validation_id,
             } => {
                 info!(
-                    self.logger,
-                    "Certificate chain validation started";
+                    self.logger, "Certificate chain validation started";
                     "certificate_chain_validation_id" => certificate_chain_validation_id,
                 );
             }
@@ -228,8 +221,7 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
                 certificate_chain_validation_id,
             } => {
                 info!(
-                    self.logger,
-                    "Certificate validated";
+                    self.logger, "Certificate validated";
                     "certificate_hash" => certificate_hash,
                     "certificate_chain_validation_id" => certificate_chain_validation_id,
                 );
@@ -238,8 +230,7 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
                 certificate_chain_validation_id,
             } => {
                 info!(
-                    self.logger,
-                    "Certificate chain validated";
+                    self.logger, "Certificate chain validated";
                     "certificate_chain_validation_id" => certificate_chain_validation_id,
                 );
             }

@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use cli_table::{print_stdout, Cell, Table};
-use slog_scope::debug;
+use slog::debug;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_client::{
@@ -40,6 +40,7 @@ impl CardanoTransactionsCertifyCommand {
     /// Cardano transaction certify command
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?.add_source(self)?;
+        let logger = context.logger();
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
@@ -50,7 +51,9 @@ impl CardanoTransactionsCertifyCommand {
         let client = client_builder(&params)?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
+                logger.clone(),
             )))
+            .with_logger(logger.clone())
             .build()?;
 
         progress_printer.report_step(1, "Fetching a proof for the given transactions…")?;
@@ -64,10 +67,7 @@ impl CardanoTransactionsCertifyCommand {
                     self.transactions_hashes
                 )
             })?;
-        debug!(
-            "Got Proof from aggregator, proof: {:?}",
-            cardano_transaction_proof
-        );
+        debug!(logger, "Got Proof from aggregator"; "proof" => ?cardano_transaction_proof);
 
         let verified_transactions =
             Self::verify_proof_validity(2, &progress_printer, &cardano_transaction_proof)?;

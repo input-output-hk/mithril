@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
 use clap::Parser;
-use slog_scope::{debug, warn};
+use slog::{debug, warn, Logger};
 use std::{
     collections::HashMap,
     fs::File,
@@ -55,6 +55,7 @@ impl CardanoDbDownloadCommand {
         let params = context.config_parameters()?.add_source(self)?;
         let download_dir: &String = &params.require("download_dir")?;
         let db_dir = Path::new(download_dir).join("db");
+        let logger = context.logger();
 
         let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
@@ -65,7 +66,9 @@ impl CardanoDbDownloadCommand {
         let client = client_builder(&params)?
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(
                 progress_output_type,
+                logger.clone(),
             )))
+            .with_logger(logger.clone())
             .build()?;
 
         let get_list_of_artifact_ids = || async {
@@ -99,6 +102,7 @@ impl CardanoDbDownloadCommand {
         .await?;
 
         Self::download_and_unpack_cardano_db(
+            logger,
             3,
             &progress_printer,
             &client,
@@ -117,6 +121,7 @@ impl CardanoDbDownloadCommand {
             Self::compute_cardano_db_message(4, &progress_printer, &certificate, &db_dir).await?;
 
         Self::verify_cardano_db_signature(
+            logger,
             5,
             &progress_printer,
             &certificate,
@@ -181,6 +186,7 @@ impl CardanoDbDownloadCommand {
     }
 
     async fn download_and_unpack_cardano_db(
+        logger: &Logger,
         step_number: u16,
         progress_printer: &ProgressPrinter,
         client: &Client,
@@ -196,14 +202,17 @@ impl CardanoDbDownloadCommand {
         // The cardano db download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
         if let Err(e) = client.snapshot().add_statistics(cardano_db).await {
-            warn!("Could not increment cardano db download statistics: {e:?}");
+            warn!(
+                logger, "Could not increment cardano db download statistics";
+                "error" => ?e
+            );
         }
 
         // Append 'clean' file to speedup node bootstrap
         if let Err(error) = File::create(db_dir.join("clean")) {
             warn!(
-                "Could not create clean shutdown marker file in directory {}: {error}",
-                db_dir.display()
+                logger, "Could not create clean shutdown marker file in directory '{}'", db_dir.display();
+                "error" => error.to_string()
             );
         };
 
@@ -233,6 +242,7 @@ impl CardanoDbDownloadCommand {
     }
 
     async fn verify_cardano_db_signature(
+        logger: &Logger,
         step_number: u16,
         progress_printer: &ProgressPrinter,
         certificate: &MithrilCertificate,
@@ -242,10 +252,16 @@ impl CardanoDbDownloadCommand {
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Verifying the cardano db signature…")?;
         if !certificate.match_message(message) {
-            debug!("Digest verification failed, removing unpacked files & directory.");
+            debug!(
+                logger,
+                "Digest verification failed, removing unpacked files & directory."
+            );
 
             if let Err(error) = std::fs::remove_dir_all(db_dir) {
-                warn!("Error while removing unpacked files & directory: {error}.");
+                warn!(
+                    logger, "Error while removing unpacked files & directory";
+                    "error" => error.to_string()
+                );
             }
 
             return Err(anyhow!(
@@ -389,6 +405,7 @@ mod tests {
         );
 
         let result = CardanoDbDownloadCommand::verify_cardano_db_signature(
+            &Logger::root(slog::Discard, slog::o!()),
             1,
             &progress_printer,
             &certificate,
