@@ -36,7 +36,7 @@ impl AggregatorCommand {
 
         loop {
             if let Err(err) = relay.tick().await {
-                error!(logger, "RelayAggregator: tick error"; "error" => format!("{err:#?}"));
+                error!(logger, "RelayAggregator: tick error"; "error" => ?err);
             }
         }
     }

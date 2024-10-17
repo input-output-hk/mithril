@@ -38,10 +38,10 @@ impl PassiveRelay {
         if let Some(peer_event) = self.peer.tick_swarm().await? {
             match self.peer.convert_peer_event_to_message(peer_event) {
                 Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
-                    info!(self.logger, "Relay passive: received signer registration message from P2P network"; "signer_message" => format!("{:#?}", signer_message_received));
+                    info!(self.logger, "Relay passive: received signer registration message from P2P network"; "signer_message" => #?signer_message_received);
                 }
                 Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
-                    info!(self.logger, "Relay passive: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
+                    info!(self.logger, "Relay passive: received signature message from P2P network"; "signature_message" => #?signature_message_received);
                 }
                 Ok(None) => {}
                 Err(e) => return Err(e),

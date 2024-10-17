@@ -36,7 +36,7 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
 
     /// Set the message to repeat
     pub async fn set_message(&self, message: M) {
-        debug!(self.logger, "MessageRepeater: set message"; "message" => format!("{:#?}", message));
+        debug!(self.logger, "MessageRepeater: set message"; "message" => #?message);
         *self.message.lock().await = Some(message);
         self.reset_next_repeat_at().await;
     }
@@ -52,7 +52,7 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
         tokio::time::sleep(wait_delay).await;
         match self.message.lock().await.as_ref() {
             Some(message) => {
-                debug!(self.logger, "MessageRepeater: repeat message"; "message" => format!("{:#?}", message));
+                debug!(self.logger, "MessageRepeater: repeat message"; "message" => #?message);
                 self.tx_message
                     .send(message.clone())
                     .map_err(|e| anyhow!(e))?
