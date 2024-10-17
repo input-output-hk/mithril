@@ -1,11 +1,11 @@
 use std::time::Duration;
 
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder};
 use libp2p::Multiaddr;
 use mithril_common::StdResult;
 use slog_scope::error;
 
+use super::CommandContext;
 use crate::SignerRelay;
 
 #[derive(Parser, Debug, Clone)]
@@ -33,7 +33,7 @@ pub struct SignerCommand {
 
 impl SignerCommand {
     /// Main command execution
-    pub async fn execute(&self, _config_builder: ConfigBuilder<DefaultState>) -> StdResult<()> {
+    pub async fn execute(&self, _context: CommandContext) -> StdResult<()> {
         let server_port = self.server_port.to_owned();
         let dial_to = self.dial_to.to_owned();
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;

@@ -1,4 +1,5 @@
 mod aggregator;
+mod context;
 mod passive;
 mod relay;
 mod signer;
@@ -10,6 +11,7 @@ pub use signer::SignerCommand;
 
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use context::CommandContext;
 use mithril_common::StdResult;
 use slog::Level;
 use slog_scope::debug;
@@ -51,7 +53,8 @@ impl Args {
             .add_source(config::File::with_name(&filename).required(false))
             .add_source(self.clone());
 
-        self.command.execute(config).await
+        let context = CommandContext::new(config, slog_scope::logger());
+        self.command.execute(context).await
     }
 
     /// get log level from parameters
