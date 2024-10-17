@@ -52,11 +52,8 @@ impl AggregatorRelay {
                 }
             },
             Err(err) => {
-                error!(
-                    self.logger,
-                    "Relay aggregator: Post `/register-signatures` failed: {err:?}"
-                );
-                Err(anyhow!("Post `/register-signatures` failed: {err:?}"))
+                error!(self.logger, "Relay aggregator: Post `/register-signatures` failed"; "error" => ?err);
+                Err(anyhow!(err).context("Post `/register-signatures` failed"))
             }
         }
     }
@@ -83,11 +80,8 @@ impl AggregatorRelay {
                 }
             },
             Err(err) => {
-                error!(
-                    self.logger,
-                    "Relay aggregator: Post `/register-signer` failed: {err:?}"
-                );
-                Err(anyhow!("Post `/register-signer` failed: {err:?}"))
+                error!(self.logger, "Relay aggregator: Post `/register-signer` failed"; "error" => ?err);
+                Err(anyhow!(err).context("Post `/register-signer` failed"))
             }
         }
     }
