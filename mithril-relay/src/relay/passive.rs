@@ -1,6 +1,8 @@
 use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 use libp2p::Multiaddr;
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use slog::Logger;
 use slog_scope::{debug, info};
 
 /// A passive relay
@@ -8,14 +10,18 @@ pub struct PassiveRelay {
     /// Relay peer
     // TODO: should be private
     pub peer: Peer,
+    logger: Logger,
 }
 
 impl PassiveRelay {
     /// Start a passive relay
-    pub async fn start(addr: &Multiaddr) -> StdResult<Self> {
+    pub async fn start(addr: &Multiaddr, logger: &Logger) -> StdResult<Self> {
+        let relay_logger = logger.new_with_component_name::<Self>();
         debug!("PassiveRelay: starting...");
+
         Ok(Self {
-            peer: Peer::new(addr).start().await?,
+            peer: Peer::new(addr).with_logger(logger).start().await?,
+            logger: relay_logger,
         })
     }
 

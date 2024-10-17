@@ -28,7 +28,8 @@ fn build_logger(log_level: Level) -> Logger {
 #[tokio::test]
 async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let log_level = Level::Info;
-    let _guard = slog_scope::set_global_logger(build_logger(log_level));
+    let logger = build_logger(log_level);
+    let _guard = slog_scope::set_global_logger(logger.clone());
 
     let total_p2p_client = 2;
     let total_peers = 1 + total_p2p_client;
@@ -41,6 +42,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
         &server_port,
         &aggregator_endpoint,
         &signer_repeater_delay,
+        &logger,
     )
     .await
     .expect("Relay start failed");
@@ -48,7 +50,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
     let relay_peer_address = signer_relay.peer_address().unwrap();
     info!("Test: relay_address is '{relay_address:?}'");
 
-    let mut p2p_client1 = PassiveRelay::start(&addr)
+    let mut p2p_client1 = PassiveRelay::start(&addr, &logger)
         .await
         .expect("P2P client start failed");
     p2p_client1
@@ -56,7 +58,7 @@ async fn should_receive_registrations_from_signers_when_subscribed_to_pubsub() {
         .dial(relay_peer_address.clone())
         .expect("P2P client dial to the relay should not fail");
 
-    let mut p2p_client2 = PassiveRelay::start(&addr)
+    let mut p2p_client2 = PassiveRelay::start(&addr, &logger)
         .await
         .expect("P2P client start failed");
     p2p_client2

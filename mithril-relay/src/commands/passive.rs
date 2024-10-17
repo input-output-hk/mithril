@@ -19,11 +19,11 @@ pub struct PassiveCommand {
 
 impl PassiveCommand {
     /// Main command execution
-    pub async fn execute(&self, _context: CommandContext) -> StdResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> StdResult<()> {
         let dial_to = self.dial_to.to_owned();
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;
 
-        let mut relay = PassiveRelay::start(&addr).await?;
+        let mut relay = PassiveRelay::start(&addr, context.logger()).await?;
         if let Some(dial_to_address) = dial_to {
             relay.dial_peer(dial_to_address.clone())?;
         }

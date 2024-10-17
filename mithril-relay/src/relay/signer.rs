@@ -4,10 +4,12 @@ use crate::{
 };
 use libp2p::Multiaddr;
 use mithril_common::{
+    logging::LoggerExtensions,
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
     test_utils::test_http_server::{test_http_server_with_socket_address, TestHttpServer},
     StdResult,
 };
+use slog::Logger;
 use slog_scope::{debug, info};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -20,6 +22,7 @@ pub struct SignerRelay {
     signature_rx: UnboundedReceiver<RegisterSignatureMessage>,
     signer_rx: UnboundedReceiver<RegisterSignerMessage>,
     signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
+    logger: Logger,
 }
 
 impl SignerRelay {
@@ -29,13 +32,16 @@ impl SignerRelay {
         server_port: &u16,
         aggregator_endpoint: &str,
         signer_repeater_delay: &Duration,
+        logger: &Logger,
     ) -> StdResult<Self> {
+        let relay_logger = logger.new_with_component_name::<Self>();
         debug!("SignerRelay: starting...");
         let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessage>();
         let (signer_tx, signer_rx) = unbounded_channel::<RegisterSignerMessage>();
         let signer_repeater = Arc::new(MessageRepeater::new(
             signer_tx.clone(),
             signer_repeater_delay.to_owned(),
+            logger,
         ));
         let peer = Peer::new(address).start().await?;
         let server = Self::start_http_server(
@@ -44,6 +50,7 @@ impl SignerRelay {
             signer_tx,
             signature_tx,
             signer_repeater.clone(),
+            logger,
         )
         .await;
         info!("SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
@@ -54,6 +61,7 @@ impl SignerRelay {
             signature_rx,
             signer_rx,
             signer_repeater,
+            logger: relay_logger,
         })
     }
 
@@ -63,6 +71,7 @@ impl SignerRelay {
         signer_tx: UnboundedSender<RegisterSignerMessage>,
         signature_tx: UnboundedSender<RegisterSignatureMessage>,
         signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
+        logger: &Logger,
     ) -> TestHttpServer {
         test_http_server_with_socket_address(
             warp::path::end()
