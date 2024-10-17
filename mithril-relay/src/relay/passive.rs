@@ -2,8 +2,7 @@ use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 use libp2p::Multiaddr;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
-use slog::Logger;
-use slog_scope::{debug, info};
+use slog::{debug, info, Logger};
 
 /// A passive relay
 pub struct PassiveRelay {
@@ -17,7 +16,7 @@ impl PassiveRelay {
     /// Start a passive relay
     pub async fn start(addr: &Multiaddr, logger: &Logger) -> StdResult<Self> {
         let relay_logger = logger.new_with_component_name::<Self>();
-        debug!("PassiveRelay: starting...");
+        debug!(relay_logger, "PassiveRelay: starting...");
 
         Ok(Self {
             peer: Peer::new(addr).with_logger(logger).start().await?,
@@ -39,10 +38,10 @@ impl PassiveRelay {
         if let Some(peer_event) = self.peer.tick_swarm().await? {
             match self.peer.convert_peer_event_to_message(peer_event) {
                 Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
-                    info!("Relay passive: received signer registration message from P2P network"; "signer_message" => format!("{:#?}", signer_message_received));
+                    info!(self.logger, "Relay passive: received signer registration message from P2P network"; "signer_message" => format!("{:#?}", signer_message_received));
                 }
                 Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
-                    info!("Relay passive: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
+                    info!(self.logger, "Relay passive: received signature message from P2P network"; "signature_message" => format!("{:#?}", signature_message_received));
                 }
                 Ok(None) => {}
                 Err(e) => return Err(e),

@@ -1,7 +1,7 @@
 use clap::Parser;
 use libp2p::Multiaddr;
 use mithril_common::StdResult;
-use slog_scope::error;
+use slog::error;
 
 use super::CommandContext;
 use crate::PassiveRelay;
@@ -22,14 +22,15 @@ impl PassiveCommand {
     pub async fn execute(&self, context: CommandContext) -> StdResult<()> {
         let dial_to = self.dial_to.to_owned();
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;
+        let logger = context.logger();
 
-        let mut relay = PassiveRelay::start(&addr, context.logger()).await?;
+        let mut relay = PassiveRelay::start(&addr, logger).await?;
         if let Some(dial_to_address) = dial_to {
             relay.dial_peer(dial_to_address.clone())?;
         }
         loop {
             if let Err(err) = relay.tick().await {
-                error!("P2PClient: tick error"; "error" => format!("{err:#?}"));
+                error!(logger, "P2PClient: tick error"; "error" => format!("{err:#?}"));
             }
         }
     }
