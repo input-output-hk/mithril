@@ -9,10 +9,12 @@ use libp2p::{
     tls, yamux, Multiaddr, PeerId, Swarm, SwarmBuilder,
 };
 use mithril_common::{
+    logging::LoggerExtensions,
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
     StdResult,
 };
 use serde::{Deserialize, Serialize};
+use slog::Logger;
 use slog_scope::{debug, info};
 use std::{collections::HashMap, time::Duration};
 
@@ -75,6 +77,7 @@ pub struct Peer {
     addr: Multiaddr,
     /// Multi address on which the peer is listening
     pub addr_peer: Option<Multiaddr>,
+    logger: Logger,
 }
 
 impl Peer {
@@ -85,6 +88,7 @@ impl Peer {
             swarm: None,
             addr: addr.to_owned(),
             addr_peer: None,
+            logger: Logger::root(slog::Discard, slog::o!()),
         }
     }
 
@@ -99,6 +103,12 @@ impl Peer {
                 gossipsub::IdentTopic::new(mithril_p2p_topic::SIGNERS),
             ),
         ])
+    }
+
+    /// Set the logger for the peer
+    pub fn with_logger(mut self, logger: &Logger) -> Self {
+        self.logger = logger.new_with_component_name::<Self>();
+        self
     }
 
     /// Start the peer

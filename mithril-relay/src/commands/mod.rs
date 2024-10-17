@@ -13,7 +13,7 @@ use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
 use context::CommandContext;
 use mithril_common::StdResult;
-use slog::Level;
+use slog::{Level, Logger};
 use slog_scope::debug;
 use std::path::PathBuf;
 
@@ -45,7 +45,7 @@ pub struct Args {
 
 impl Args {
     /// execute command
-    pub async fn execute(&self) -> StdResult<()> {
+    pub async fn execute(&self, logger: Logger) -> StdResult<()> {
         debug!("Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
         debug!("Reading configuration file '{}'.", filename);
@@ -53,7 +53,7 @@ impl Args {
             .add_source(config::File::with_name(&filename).required(false))
             .add_source(self.clone());
 
-        let context = CommandContext::new(config, slog_scope::logger());
+        let context = CommandContext::new(config, logger);
         self.command.execute(context).await
     }
 

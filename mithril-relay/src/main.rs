@@ -19,7 +19,8 @@ pub fn build_logger(min_level: Level) -> Logger {
 #[tokio::main]
 async fn main() -> StdResult<()> {
     let args = Args::parse();
-    let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
+    let logger = build_logger(args.log_level());
+    let _guard = slog_scope::set_global_logger(logger.clone());
 
-    args.execute().await
+    args.execute(logger).await
 }

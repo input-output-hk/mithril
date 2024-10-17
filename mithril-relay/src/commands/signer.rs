@@ -33,7 +33,7 @@ pub struct SignerCommand {
 
 impl SignerCommand {
     /// Main command execution
-    pub async fn execute(&self, _context: CommandContext) -> StdResult<()> {
+    pub async fn execute(&self, context: CommandContext) -> StdResult<()> {
         let server_port = self.server_port.to_owned();
         let dial_to = self.dial_to.to_owned();
         let addr: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}", self.listen_port).parse()?;
@@ -45,6 +45,7 @@ impl SignerCommand {
             &server_port,
             &aggregator_endpoint,
             &signer_repeater_delay,
+            context.logger(),
         )
         .await?;
         if let Some(dial_to_address) = dial_to {

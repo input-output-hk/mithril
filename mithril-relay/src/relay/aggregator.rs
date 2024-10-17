@@ -2,24 +2,32 @@ use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 use anyhow::anyhow;
 use libp2p::Multiaddr;
 use mithril_common::{
+    logging::LoggerExtensions,
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
     StdResult,
 };
 use reqwest::StatusCode;
+use slog::Logger;
 use slog_scope::{error, info};
 
 /// A relay for a Mithril aggregator
 pub struct AggregatorRelay {
     aggregator_endpoint: String,
     peer: Peer,
+    logger: Logger,
 }
 
 impl AggregatorRelay {
     /// Start a relay for a Mithril aggregator
-    pub async fn start(addr: &Multiaddr, aggregator_endpoint: &str) -> StdResult<Self> {
+    pub async fn start(
+        addr: &Multiaddr,
+        aggregator_endpoint: &str,
+        logger: &Logger,
+    ) -> StdResult<Self> {
         Ok(Self {
             aggregator_endpoint: aggregator_endpoint.to_owned(),
-            peer: Peer::new(addr).start().await?,
+            peer: Peer::new(addr).with_logger(logger).start().await?,
+            logger: logger.new_with_component_name::<Self>(),
         })
     }
 
