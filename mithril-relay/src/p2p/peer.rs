@@ -112,7 +112,7 @@ impl Peer {
 
     /// Start the peer
     pub async fn start(mut self) -> StdResult<Self> {
-        debug!(self.logger, "Peer: starting...");
+        debug!(self.logger, "Starting...");
         let mut swarm = SwarmBuilder::with_new_identity()
             .with_tokio()
             .with_tcp(
@@ -150,7 +150,7 @@ impl Peer {
             .build();
 
         for topic in self.topics.values() {
-            debug!(self.logger, "Peer: subscribing to"; "topic" => ?topic, "local_peer_id" => ?self.local_peer_id());
+            debug!(self.logger, "Subscribing to"; "topic" => ?topic, "local_peer_id" => ?self.local_peer_id());
             swarm.behaviour_mut().gossipsub.subscribe(topic)?;
         }
 
@@ -159,7 +159,7 @@ impl Peer {
 
         loop {
             if let Some(PeerEvent::ListeningOnAddr { address }) = self.tick_swarm().await? {
-                info!(self.logger, "Peer: listening on"; "address" => ?address, "local_peer_id" => ?self.local_peer_id());
+                info!(self.logger, "Listening on"; "address" => ?address, "local_peer_id" => ?self.local_peer_id());
                 self.addr_peer = Some(address);
                 break;
             }
@@ -183,7 +183,7 @@ impl Peer {
 
     /// Tick the peer swarm to receive the next event
     pub async fn tick_swarm(&mut self) -> StdResult<Option<PeerEvent>> {
-        debug!(self.logger, "Peer: reading next event"; "local_peer_id" => ?self.local_peer_id());
+        debug!(self.logger, "Reading next event"; "local_peer_id" => ?self.local_peer_id());
         match self
             .swarm
             .as_mut()
@@ -193,23 +193,23 @@ impl Peer {
             .await
         {
             Some(swarm::SwarmEvent::NewListenAddr { address, .. }) => {
-                debug!(self.logger, "Peer: received listening address event"; "address" => ?address, "local_peer_id" => ?self.local_peer_id());
+                debug!(self.logger, "Received listening address event"; "address" => ?address, "local_peer_id" => ?self.local_peer_id());
                 Ok(Some(PeerEvent::ListeningOnAddr { address }))
             }
             Some(swarm::SwarmEvent::OutgoingConnectionError { peer_id, error, .. }) => {
-                debug!(self.logger, "Peer: received outgoing connection error event"; "error" => ?error, "remote_peer_id" => ?peer_id, "local_peer_id" => ?self.local_peer_id());
+                debug!(self.logger, "Received outgoing connection error event"; "error" => ?error, "remote_peer_id" => ?peer_id, "local_peer_id" => ?self.local_peer_id());
                 Ok(Some(PeerEvent::OutgoingConnectionError { peer_id, error }))
             }
             Some(swarm::SwarmEvent::ConnectionEstablished { peer_id, .. }) => {
-                debug!(self.logger, "Peer: received connection established event"; "remote_peer_id" => ?peer_id, "local_peer_id" => ?self.local_peer_id());
+                debug!(self.logger, "Received connection established event"; "remote_peer_id" => ?peer_id, "local_peer_id" => ?self.local_peer_id());
                 Ok(Some(PeerEvent::ConnectionEstablished { peer_id }))
             }
             Some(swarm::SwarmEvent::Behaviour(event)) => {
-                debug!(self.logger, "Peer: received behaviour event"; "event" => ?event, "local_peer_id" => ?self.local_peer_id());
+                debug!(self.logger, "Received behaviour event"; "event" => ?event, "local_peer_id" => ?self.local_peer_id());
                 Ok(Some(PeerEvent::Behaviour { event }))
             }
             Some(event) => {
-                debug!(self.logger, "Peer: received other event"; "event" => ?event, "local_peer_id" => ?self.local_peer_id());
+                debug!(self.logger, "Received other event"; "event" => ?event, "local_peer_id" => ?self.local_peer_id());
                 Ok(None)
             }
             _ => Ok(None),
@@ -276,7 +276,7 @@ impl Peer {
 
     /// Connect to a remote peer
     pub fn dial(&mut self, addr: Multiaddr) -> StdResult<()> {
-        debug!(self.logger, "Peer: dialing to"; "address" => ?addr, "local_peer_id" => ?self.local_peer_id());
+        debug!(self.logger, "Dialing to"; "address" => ?addr, "local_peer_id" => ?self.local_peer_id());
         self.swarm
             .as_mut()
             .ok_or(PeerError::UnavailableSwarm())

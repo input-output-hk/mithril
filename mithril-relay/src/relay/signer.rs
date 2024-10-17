@@ -34,7 +34,7 @@ impl SignerRelay {
         logger: &Logger,
     ) -> StdResult<Self> {
         let relay_logger = logger.new_with_component_name::<Self>();
-        debug!(relay_logger, "SignerRelay: starting...");
+        debug!(relay_logger, "Starting...");
         let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessage>();
         let (signer_tx, signer_rx) = unbounded_channel::<RegisterSignerMessage>();
         let signer_repeater = Arc::new(MessageRepeater::new(
@@ -52,7 +52,7 @@ impl SignerRelay {
             logger,
         )
         .await;
-        info!(relay_logger, "SignerRelay: listening on"; "address" => ?server.address());
+        info!(relay_logger, "Listening on"; "address" => ?server.address());
 
         Ok(Self {
             server,
@@ -118,12 +118,12 @@ impl SignerRelay {
             message = self.signature_rx.recv()  => {
                 match message {
                     Some(signature_message) => {
-                        info!(self.logger, "SignerRelay: publish signature to p2p network"; "message" => #?signature_message);
+                        info!(self.logger, "Publish signature to p2p network"; "message" => #?signature_message);
                         self.peer.publish_signature(&signature_message)?;
                         Ok(())
                     }
                     None => {
-                        debug!(self.logger, "SignerRelay: no signature message available");
+                        debug!(self.logger, "No signature message available");
                         Ok(())
                     }
                 }
@@ -131,12 +131,12 @@ impl SignerRelay {
             message = self.signer_rx.recv()  => {
                 match message {
                     Some(signer_message) => {
-                        info!(self.logger, "SignerRelay: publish signer-registration to p2p network"; "message" => #?signer_message);
+                        info!(self.logger, "Publish signer-registration to p2p network"; "message" => #?signer_message);
                         self.peer.publish_signer_registration(&signer_message)?;
                         Ok(())
                     }
                     None => {
-                        debug!(self.logger, "SignerRelay: no signer message available");
+                        debug!(self.logger, "No signer message available");
                         Ok(())
                     }
                 }
@@ -220,7 +220,7 @@ mod handlers {
         logger: Logger,
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "SignerRelay: serve HTTP route /");
+        debug!(logger, "Serve HTTP route /");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/"))
             .send()
@@ -234,7 +234,7 @@ mod handlers {
         tx: UnboundedSender<RegisterSignerMessage>,
         repeater: Arc<repeater::MessageRepeater<RegisterSignerMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "SignerRelay: serve HTTP route /register-signer"; "register_signer_message" => #?register_signer_message);
+        debug!(logger, "Serve HTTP route /register-signer"; "register_signer_message" => #?register_signer_message);
 
         repeater.set_message(register_signer_message.clone()).await;
         match tx.send(register_signer_message) {
@@ -254,7 +254,7 @@ mod handlers {
         logger: Logger,
         tx: UnboundedSender<RegisterSignatureMessage>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "SignerRelay: serve HTTP route /register-signatures"; "register_signature_message" => #?register_signature_message);
+        debug!(logger, "Serve HTTP route /register-signatures"; "register_signature_message" => #?register_signature_message);
         match tx.send(register_signature_message) {
             Ok(_) => Ok(Box::new(warp::reply::with_status(
                 "".to_string(),
@@ -271,7 +271,7 @@ mod handlers {
         logger: Logger,
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "SignerRelay: serve HTTP route /epoch-settings");
+        debug!(logger, "Serve HTTP route /epoch-settings");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/epoch-settings"))
             .send()
@@ -283,7 +283,7 @@ mod handlers {
         logger: Logger,
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "SignerRelay: serve HTTP route /certificate-pending");
+        debug!(logger, "Serve HTTP route /certificate-pending");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/certificate-pending"))
             .send()
@@ -299,12 +299,12 @@ mod handlers {
             Ok(response) => match StatusCode::from_u16(response.status().into()) {
                 Ok(status) => match response.text().await {
                     Ok(content) => {
-                        debug!(logger, "SignerRelay: received response with status '{status}'"; "content" => &content);
+                        debug!(logger, "Received response with status '{status}'"; "content" => &content);
 
                         Ok(Box::new(warp::reply::with_status(content, status)))
                     }
                     Err(err) => {
-                        debug!(logger, "SignerRelay: received error"; "error" => ?err);
+                        debug!(logger, "Received error"; "error" => ?err);
                         Ok(Box::new(warp::reply::with_status(
                             format!("{err:?}"),
                             StatusCode::INTERNAL_SERVER_ERROR,
@@ -312,7 +312,7 @@ mod handlers {
                     }
                 },
                 Err(err) => {
-                    debug!(logger, "SignerRelay: failed to parse the returned status"; "error" => ?err);
+                    debug!(logger, "Failed to parse the returned status"; "error" => ?err);
                     Ok(Box::new(warp::reply::with_status(
                         format!("{err:?}"),
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -320,7 +320,7 @@ mod handlers {
                 }
             },
             Err(err) => {
-                debug!(logger, "SignerRelay: received error"; "error" => ?err);
+                debug!(logger, "Received error"; "error" => ?err);
                 Ok(Box::new(warp::reply::with_status(
                     format!("{err:?}"),
                     StatusCode::INTERNAL_SERVER_ERROR,

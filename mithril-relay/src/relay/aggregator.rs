@@ -43,16 +43,16 @@ impl AggregatorRelay {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => {
-                    info!(self.logger, "Relay aggregator: sent successfully signature message to aggregator"; "signature_message" => #?signature_message);
+                    info!(self.logger, "Sent successfully signature message to aggregator"; "signature_message" => #?signature_message);
                     Ok(())
                 }
                 status => {
-                    error!(self.logger, "Relay aggregator: Post `/register-signatures` should have returned a 201 status code, got: {status}");
+                    error!(self.logger, "Post `/register-signatures` should have returned a 201 status code, got: {status}");
                     Err(anyhow!("Post `/register-signatures` should have returned a 201 status code, got: {status}"))
                 }
             },
             Err(err) => {
-                error!(self.logger, "Relay aggregator: Post `/register-signatures` failed"; "error" => ?err);
+                error!(self.logger, "Post `/register-signatures` failed"; "error" => ?err);
                 Err(anyhow!(err).context("Post `/register-signatures` failed"))
             }
         }
@@ -71,16 +71,16 @@ impl AggregatorRelay {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => {
-                    info!(self.logger, "Relay aggregator: sent successfully signer registration message to aggregator"; "signer_message" => #?signer_message);
+                    info!(self.logger, "Sent successfully signer registration message to aggregator"; "signer_message" => #?signer_message);
                     Ok(())
                 }
                 status => {
-                    error!(self.logger, "Relay aggregator: Post `/register-signer` should have returned a 201 status code, got: {status}");
+                    error!(self.logger, "Post `/register-signer` should have returned a 201 status code, got: {status}");
                     Err(anyhow!("Post `/register-signer` should have returned a 201 status code, got: {status}"))
                 }
             },
             Err(err) => {
-                error!(self.logger, "Relay aggregator: Post `/register-signer` failed"; "error" => ?err);
+                error!(self.logger, "Post `/register-signer` failed"; "error" => ?err);
                 Err(anyhow!(err).context("Post `/register-signer` failed"))
             }
         }
@@ -99,7 +99,7 @@ impl AggregatorRelay {
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
-                            error!(self.logger, "Relay aggregator: failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => #?signer_message_received, "error" => ?e);
+                            error!(self.logger, "Failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => #?signer_message_received, "error" => ?e);
                             return Err(e);
                         }
                     }
@@ -113,7 +113,7 @@ impl AggregatorRelay {
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
-                            error!(self.logger, "Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => #?signature_message_received, "error" => ?e);
+                            error!(self.logger, "Failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => #?signature_message_received, "error" => ?e);
                             return Err(e);
                         }
                     }
