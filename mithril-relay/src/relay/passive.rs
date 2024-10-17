@@ -16,7 +16,7 @@ impl PassiveRelay {
     /// Start a passive relay
     pub async fn start(addr: &Multiaddr, logger: &Logger) -> StdResult<Self> {
         let relay_logger = logger.new_with_component_name::<Self>();
-        debug!(relay_logger, "PassiveRelay: starting...");
+        debug!(relay_logger, "Starting...");
 
         Ok(Self {
             peer: Peer::new(addr).with_logger(logger).start().await?,
@@ -38,10 +38,10 @@ impl PassiveRelay {
         if let Some(peer_event) = self.peer.tick_swarm().await? {
             match self.peer.convert_peer_event_to_message(peer_event) {
                 Ok(Some(BroadcastMessage::RegisterSigner(signer_message_received))) => {
-                    info!(self.logger, "Relay passive: received signer registration message from P2P network"; "signer_message" => #?signer_message_received);
+                    info!(self.logger, "Received signer registration message from P2P network"; "signer_message" => #?signer_message_received);
                 }
                 Ok(Some(BroadcastMessage::RegisterSignature(signature_message_received))) => {
-                    info!(self.logger, "Relay passive: received signature message from P2P network"; "signature_message" => #?signature_message_received);
+                    info!(self.logger, "Received signature message from P2P network"; "signature_message" => #?signature_message_received);
                 }
                 Ok(None) => {}
                 Err(e) => return Err(e),
