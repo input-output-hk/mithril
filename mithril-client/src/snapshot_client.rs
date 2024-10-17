@@ -144,7 +144,9 @@ impl SnapshotClient {
             #[cfg(feature = "fs")]
             feedback_sender,
             #[cfg(feature = "fs")]
-            logger,
+            logger: mithril_common::logging::LoggerExtensions::new_with_component_name::<Self>(
+                &logger,
+            ),
         }
     }
 

@@ -18,13 +18,15 @@ use std::path::Path;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
-#[cfg(test)]
-use mockall::automock;
+use mithril_common::logging::LoggerExtensions;
 
 use crate::common::CompressionAlgorithm;
 use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::utils::SnapshotUnpacker;
 use crate::MithrilResult;
+
+#[cfg(test)]
+use mockall::automock;
 
 /// API that defines a snapshot downloader
 #[async_trait]
@@ -65,7 +67,7 @@ impl HttpSnapshotDownloader {
         Ok(Self {
             http_client,
             feedback_sender,
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
         })
     }
 

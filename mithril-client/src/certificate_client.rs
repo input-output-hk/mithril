@@ -61,19 +61,21 @@ use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::{crit, Logger};
 
-use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
-use crate::feedback::{FeedbackSender, MithrilEvent};
-use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
-use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
 use mithril_common::{
     certificate_chain::{
         CertificateRetriever, CertificateRetrieverError,
         CertificateVerifier as CommonCertificateVerifier,
         MithrilCertificateVerifier as CommonMithrilCertificateVerifier,
     },
+    crypto_helper::ProtocolGenesisVerificationKey,
     entities::Certificate,
+    logging::LoggerExtensions,
     messages::CertificateMessage,
 };
+
+use crate::aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest};
+use crate::feedback::{FeedbackSender, MithrilEvent};
+use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
 
 #[cfg(test)]
 use mockall::automock;
@@ -101,6 +103,7 @@ impl CertificateClient {
         verifier: Arc<dyn CertificateVerifier>,
         logger: Logger,
     ) -> Self {
+        let logger = logger.new_with_component_name::<Self>();
         let retriever = Arc::new(InternalCertificateRetriever {
             aggregator_client: aggregator_client.clone(),
             logger,
@@ -203,6 +206,7 @@ impl MithrilCertificateVerifier {
         feedback_sender: FeedbackSender,
         logger: Logger,
     ) -> MithrilResult<MithrilCertificateVerifier> {
+        let logger = logger.new_with_component_name::<Self>();
         let retriever = Arc::new(InternalCertificateRetriever {
             aggregator_client: aggregator_client.clone(),
             logger: logger.clone(),

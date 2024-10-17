@@ -1,4 +1,11 @@
 use anyhow::Context;
+use slog::{o, Logger};
+#[cfg(feature = "fs")]
+use std::path::Path;
+#[cfg(feature = "fs")]
+use std::sync::Arc;
+
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::SignerBuilder;
 #[cfg(feature = "unstable")]
 use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
@@ -7,11 +14,6 @@ use mithril_common::{
     digesters::{CardanoImmutableDigester, ImmutableDigester},
     entities::SignedEntityType,
 };
-use slog::{o, Logger};
-#[cfg(feature = "fs")]
-use std::path::Path;
-#[cfg(feature = "fs")]
-use std::sync::Arc;
 
 use crate::common::{ProtocolMessage, ProtocolMessagePartKey};
 #[cfg(feature = "unstable")]
@@ -40,7 +42,7 @@ impl MessageBuilder {
 
     /// Set the [Logger] to use.
     pub fn with_logger(mut self, logger: Logger) -> Self {
-        self.logger = logger;
+        self.logger = logger.new_with_component_name::<Self>();
         self
     }
 

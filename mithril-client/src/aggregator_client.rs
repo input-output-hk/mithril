@@ -20,6 +20,7 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{ClientError, ServerError};
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
 #[cfg(feature = "unstable")]
@@ -233,7 +234,7 @@ impl AggregatorHTTPClient {
             http_client,
             aggregator_endpoint,
             api_versions: Arc::new(RwLock::new(api_versions)),
-            logger,
+            logger: logger.new_with_component_name::<Self>(),
             http_headers,
         })
     }
