@@ -9,7 +9,9 @@ use mithril_common::{
     },
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
+use test_extensions::{
+    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+};
 
 #[tokio::test]
 async fn create_certificate() {
@@ -225,11 +227,12 @@ async fn create_certificate() {
 
     cycle!(tester, "ready");
 
-    assert_eq!(
-        5,
-        tester
-            .metrics_service
-            .get_certificate_total_produced_since_startup()
-            .get()
+    assert_metrics_eq!(
+        tester.metrics_verifier,
+        ExpectedMetrics::new()
+            .certificate_total(4)
+            .artifact_cardano_db_total(1)
+            .artifact_mithril_stake_distribution_total(1)
+            .artifact_cardano_transaction_total(2)
     );
 }

@@ -9,7 +9,9 @@ use mithril_common::{
     },
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
+use test_extensions::{
+    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+};
 
 #[tokio::test]
 async fn create_certificate_with_buffered_signatures() {
@@ -104,4 +106,11 @@ async fn create_certificate_with_buffered_signatures() {
     cycle!(tester, "idle");
 
     cycle!(tester, "ready");
+
+    assert_metrics_eq!(
+        tester.metrics_verifier,
+        ExpectedMetrics::new()
+            .certificate_total(1)
+            .artifact_mithril_stake_distribution_total(1)
+    );
 }
