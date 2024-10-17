@@ -8,7 +8,9 @@ pub mod runtime_tester;
 pub mod utilities;
 pub mod aggregator_observer;
 mod expected_certificate;
+mod metrics_validator;
 
 pub use aggregator_observer::AggregatorObserver;
 pub use expected_certificate::ExpectedCertificate;
+pub use metrics_validator::MetricsValidatorBuilder;
 pub use runtime_tester::RuntimeTester;

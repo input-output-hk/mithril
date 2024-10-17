@@ -9,7 +9,9 @@ use mithril_common::{
     },
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
+use test_extensions::{
+    utilities::get_test_dir, ExpectedCertificate, MetricsValidatorBuilder, RuntimeTester,
+};
 
 #[tokio::test]
 async fn certificate_chain() {
@@ -322,30 +324,10 @@ async fn certificate_chain() {
         )
     );
 
-    // Validate metrics for total number of certificates and artifacts produced since startup
-    {
-        assert_eq!(
-            7,
-            tester
-                .metrics_service
-                .get_certificate_total_produced_since_startup()
-                .get()
-        );
-
-        assert_eq!(
-            3,
-            tester
-                .metrics_service
-                .get_artifact_cardano_db_total_produced_since_startup()
-                .get()
-        );
-
-        assert_eq!(
-            4,
-            tester
-                .metrics_service
-                .get_artifact_mithril_stake_distribution_total_produced_since_startup()
-                .get()
-        );
-    }
+    MetricsValidatorBuilder::new(&tester.metrics_service)
+        .certificate_total(7)
+        .artifact_cardano_db_total(3)
+        .artifact_mithril_stake_distribution_total(4)
+        .build()
+        .validate();
 }
