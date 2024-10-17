@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context};
 use clap::Parser;
 use cli_table::{print_stdout, Cell, Table};
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog_scope::debug;
 use std::{collections::HashMap, sync::Arc};
 
@@ -11,14 +10,17 @@ use mithril_client::{
 };
 
 use crate::utils::{IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
-use crate::{commands::client_builder, configuration::ConfigParameters};
+use crate::{
+    commands::{client_builder, SharedArgs},
+    configuration::{ConfigError, ConfigSource},
+    CommandContext,
+};
 
 /// Clap command to show a given Cardano transaction sets
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoTransactionsCertifyCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 
     /// Genesis Verification Key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
@@ -30,12 +32,16 @@ pub struct CardanoTransactionsCertifyCommand {
 }
 
 impl CardanoTransactionsCertifyCommand {
-    /// Cardano transaction certify command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        let config = config_builder.add_source(self.clone()).build()?;
-        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
+    /// Is JSON output enabled
+    pub fn is_json_output_enabled(&self) -> bool {
+        self.shared_args.json
+    }
 
-        let progress_output_type = if self.json {
+    /// Cardano transaction certify command
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        let params = context.config_parameters()?.add_source(self)?;
+
+        let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -91,7 +97,7 @@ impl CardanoTransactionsCertifyCommand {
         Self::log_certify_information(
             &verified_transactions,
             &cardano_transaction_proof.non_certified_transactions,
-            self.json,
+            self.is_json_output_enabled(),
         )
     }
 
@@ -182,19 +188,14 @@ No proof could be computed for some Cardano transactions. Mithril may not have s
     }
 }
 
-impl Source for CardanoTransactionsCertifyCommand {
-    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
-        Box::new(self.clone())
-    }
-
-    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
-        let mut map = Map::new();
-        let namespace = "clap arguments".to_string();
+impl ConfigSource for CardanoTransactionsCertifyCommand {
+    fn collect(&self) -> Result<HashMap<String, String>, ConfigError> {
+        let mut map = HashMap::new();
 
         if let Some(genesis_verification_key) = self.genesis_verification_key.clone() {
             map.insert(
                 "genesis_verification_key".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(genesis_verification_key)),
+                genesis_verification_key,
             );
         }
 

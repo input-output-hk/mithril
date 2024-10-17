@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Context};
 use chrono::Utc;
 use clap::Parser;
-use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog_scope::{debug, warn};
 use std::{
     collections::HashMap,
@@ -11,12 +10,13 @@ use std::{
 };
 
 use crate::{
-    commands::client_builder,
-    configuration::ConfigParameters,
+    commands::{client_builder, SharedArgs},
+    configuration::{ConfigError, ConfigSource},
     utils::{
         CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
     },
+    CommandContext,
 };
 use mithril_client::{
     common::ProtocolMessage, Client, MessageBuilder, MithrilCertificate, MithrilResult, Snapshot,
@@ -25,9 +25,8 @@ use mithril_client::{
 /// Clap command to download a Cardano db and verify its associated certificate.
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbDownloadCommand {
-    /// Enable JSON output.
-    #[clap(long)]
-    json: bool,
+    #[clap(flatten)]
+    shared_args: SharedArgs,
 
     /// Digest of the cardano db to download. Use the `list` command to get that information.
     ///
@@ -48,17 +47,16 @@ pub struct CardanoDbDownloadCommand {
 impl CardanoDbDownloadCommand {
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
-        self.json
+        self.shared_args.json
     }
 
     /// Command execution
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
-        let config = config_builder.add_source(self.clone()).build()?;
-        let params = ConfigParameters::new(config.try_deserialize::<HashMap<String, String>>()?);
+    pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
+        let params = context.config_parameters()?.add_source(self)?;
         let download_dir: &String = &params.require("download_dir")?;
         let db_dir = Path::new(download_dir).join("db");
 
-        let progress_output_type = if self.json {
+        let progress_output_type = if self.is_json_output_enabled() {
             ProgressOutputType::JsonReporter
         } else {
             ProgressOutputType::Tty
@@ -128,7 +126,11 @@ impl CardanoDbDownloadCommand {
         )
         .await?;
 
-        Self::log_download_information(&db_dir, &cardano_db_message, self.json)?;
+        Self::log_download_information(
+            &db_dir,
+            &cardano_db_message,
+            self.is_json_output_enabled(),
+        )?;
 
         Ok(())
     }
@@ -301,34 +303,29 @@ impl CardanoDbDownloadCommand {
     }
 }
 
-impl Source for CardanoDbDownloadCommand {
-    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
-        Box::new(self.clone())
-    }
-
-    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
-        let mut map = Map::new();
-        let namespace = "clap arguments".to_string();
+impl ConfigSource for CardanoDbDownloadCommand {
+    fn collect(&self) -> Result<HashMap<String, String>, ConfigError> {
+        let mut map = HashMap::new();
 
         if let Some(download_dir) = self.download_dir.clone() {
             map.insert(
                 "download_dir".to_string(),
-                Value::new(
-                    Some(&namespace),
-                    ValueKind::from(download_dir.to_str().ok_or_else(|| {
-                        config::ConfigError::Message(format!(
+                download_dir
+                    .to_str()
+                    .ok_or_else(|| {
+                        ConfigError::Conversion(format!(
                             "Could not read download directory: '{}'.",
                             download_dir.display()
                         ))
-                    })?),
-                ),
+                    })?
+                    .to_string(),
             );
         }
 
         if let Some(genesis_verification_key) = self.genesis_verification_key.clone() {
             map.insert(
                 "genesis_verification_key".to_string(),
-                Value::new(Some(&namespace), ValueKind::from(genesis_verification_key)),
+                genesis_verification_key,
             );
         }
 

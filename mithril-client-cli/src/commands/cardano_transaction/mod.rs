@@ -7,9 +7,8 @@ pub use certify::*;
 pub use snapshot_list::*;
 pub use snapshot_show::*;
 
+use crate::CommandContext;
 use clap::Subcommand;
-use config::builder::DefaultState;
-use config::ConfigBuilder;
 use mithril_client::MithrilResult;
 
 /// Cardano transactions management
@@ -39,7 +38,7 @@ pub enum CardanoTransactionSnapshotCommands {
 
 impl CardanoTransactionCommands {
     /// Execute Cardano transaction command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
+    pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
             Self::Certify(cmd) => cmd.execute(config_builder).await,
@@ -49,7 +48,7 @@ impl CardanoTransactionCommands {
 
 impl CardanoTransactionSnapshotCommands {
     /// Execute Cardano transaction snapshot command
-    pub async fn execute(&self, config_builder: ConfigBuilder<DefaultState>) -> MithrilResult<()> {
+    pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Show(cmd) => cmd.execute(config_builder).await,
