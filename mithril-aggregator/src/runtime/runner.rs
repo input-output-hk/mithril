@@ -166,6 +166,38 @@ impl AggregatorRunner {
 
         Ok(unlocked_signed_entities)
     }
+
+    fn increment_artifact_total_produced_metric_since_startup(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) {
+        match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(_) => {
+                self.dependencies
+                    .metrics_service
+                    .get_artifact_mithril_stake_distribution_total_produced_since_startup()
+                    .increment();
+            }
+            SignedEntityType::CardanoImmutableFilesFull(_) => {
+                self.dependencies
+                    .metrics_service
+                    .get_artifact_cardano_db_total_produced_since_startup()
+                    .increment();
+            }
+            SignedEntityType::CardanoStakeDistribution(_) => {
+                self.dependencies
+                    .metrics_service
+                    .get_artifact_cardano_stake_distribution_total_produced_since_startup()
+                    .increment();
+            }
+            SignedEntityType::CardanoTransactions(_, _) => {
+                self.dependencies
+                    .metrics_service
+                    .get_artifact_cardano_transaction_total_produced_since_startup()
+                    .increment();
+            }
+        }
+    }
 }
 
 #[cfg_attr(test, mockall::automock)]
@@ -394,10 +426,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 )
             });
 
-        self.dependencies
-            .metrics_service
-            .get_certificate_total_produced_since_startup()
-            .increment();
+        if let Ok(Some(_)) = &certificate {
+            self.dependencies
+                .metrics_service
+                .get_certificate_total_produced_since_startup()
+                .increment();
+        }
 
         certificate
     }
@@ -423,6 +457,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     certificate.hash
                 )
             })?;
+
+        self.increment_artifact_total_produced_metric_since_startup(signed_entity_type);
 
         Ok(())
     }

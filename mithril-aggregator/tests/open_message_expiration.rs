@@ -10,7 +10,9 @@ use mithril_common::{
     },
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
+use test_extensions::{
+    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+};
 
 #[tokio::test]
 async fn open_message_expiration() {
@@ -135,5 +137,12 @@ async fn open_message_expiration() {
                 1
             )),
         )
+    );
+
+    assert_metrics_eq!(
+        tester.metrics_verifier,
+        ExpectedMetrics::new()
+            .certificate_total(1)
+            .artifact_cardano_db_total(1)
     );
 }

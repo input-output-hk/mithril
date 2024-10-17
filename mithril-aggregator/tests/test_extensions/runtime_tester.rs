@@ -32,6 +32,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 
+use super::MetricsVerifier;
+
 #[macro_export]
 macro_rules! cycle {
     ( $tester:expr, $expected_state:expr ) => {{
@@ -67,6 +69,13 @@ macro_rules! assert_last_certificate_eq {
     }};
 }
 
+#[macro_export]
+macro_rules! assert_metrics_eq {
+    ( $tester:expr, $expected_metrics:expr ) => {{
+        $tester.verify($expected_metrics);
+    }};
+}
+
 pub struct RuntimeTester {
     pub network: String,
     pub snapshot_uploader: Arc<DumbSnapshotUploader>,
@@ -83,6 +92,7 @@ pub struct RuntimeTester {
     pub open_message_repository: Arc<OpenMessageRepository>,
     pub block_scanner: Arc<DumbBlockScanner>,
     pub metrics_service: Arc<MetricsService>,
+    pub metrics_verifier: MetricsVerifier,
     _global_logger_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -128,6 +138,7 @@ impl RuntimeTester {
         let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
         let open_message_repository = deps_builder.get_open_message_repository().await.unwrap();
         let metrics_service = deps_builder.get_metrics_service().await.unwrap();
+        let metrics_verifier = MetricsVerifier::new(metrics_service.clone());
 
         Self {
             network,
@@ -145,6 +156,7 @@ impl RuntimeTester {
             open_message_repository,
             block_scanner,
             metrics_service,
+            metrics_verifier,
             _global_logger_guard: global_logger,
         }
     }
