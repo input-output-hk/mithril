@@ -77,9 +77,6 @@ use crate::aggregator_client::{AggregatorClient, AggregatorClientError, Aggregat
 use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
 
-#[cfg(test)]
-use mockall::automock;
-
 /// Aggregator client for the Certificate
 pub struct CertificateClient {
     aggregator_client: Arc<dyn AggregatorClient>,
@@ -88,7 +85,7 @@ pub struct CertificateClient {
 }
 
 /// API that defines how to validate certificates.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait CertificateVerifier: Sync + Send {

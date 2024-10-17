@@ -25,9 +25,6 @@ use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::utils::SnapshotUnpacker;
 use crate::MithrilResult;
 
-#[cfg(test)]
-use mockall::automock;
-
 /// API that defines a snapshot downloader
 #[async_trait]
 pub trait SnapshotDownloader: Sync + Send {
@@ -154,7 +151,7 @@ impl HttpSnapshotDownloader {
     }
 }
 
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 impl SnapshotDownloader for HttpSnapshotDownloader {
     async fn download_unpack(
