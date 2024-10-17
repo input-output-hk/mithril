@@ -3649,7 +3649,6 @@ dependencies = [
  "serde_json",
  "slog",
  "slog-async",
- "slog-scope",
  "slog-term",
  "strum",
  "tar",
