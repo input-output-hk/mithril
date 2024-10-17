@@ -299,14 +299,12 @@ mod handlers {
             Ok(response) => match StatusCode::from_u16(response.status().into()) {
                 Ok(status) => match response.text().await {
                     Ok(content) => {
-                        debug!(
-                            logger, "SignerRelay: received response with status '{status}' and content {content:?}"
-                        );
+                        debug!(logger, "SignerRelay: received response with status '{status}'"; "content" => &content);
 
                         Ok(Box::new(warp::reply::with_status(content, status)))
                     }
                     Err(err) => {
-                        debug!(logger, "SignerRelay: received error '{err:?}'");
+                        debug!(logger, "SignerRelay: received error"; "error" => ?err);
                         Ok(Box::new(warp::reply::with_status(
                             format!("{err:?}"),
                             StatusCode::INTERNAL_SERVER_ERROR,
@@ -314,10 +312,7 @@ mod handlers {
                     }
                 },
                 Err(err) => {
-                    debug!(
-                        logger,
-                        "SignerRelay: failed to parse the returned status '{err:?}'"
-                    );
+                    debug!(logger, "SignerRelay: failed to parse the returned status"; "error" => ?err);
                     Ok(Box::new(warp::reply::with_status(
                         format!("{err:?}"),
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -325,7 +320,7 @@ mod handlers {
                 }
             },
             Err(err) => {
-                debug!(logger, "SignerRelay: received error '{err:?}'");
+                debug!(logger, "SignerRelay: received error"; "error" => ?err);
                 Ok(Box::new(warp::reply::with_status(
                     format!("{err:?}"),
                     StatusCode::INTERNAL_SERVER_ERROR,
