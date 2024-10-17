@@ -52,9 +52,7 @@ All Mithril signers and Mithril clients connect to a single aggregator using HTT
 
 Registering a Mithril signing key means that a signer sends its corresponding verification key to the aggregator, for the purpose of distribution to all other Mithril signers.
 
-A Mithril aggregator coordinates creation of signatures by all registered signers. Mithril signers do ask the aggregator whether a signature is pending on a regular basis. The aggregator responds with information what to sign and a list of public information about all registered signers.
-
-Each Mithril signer verifies the information, produces a signature of the requested information to sign and submits that to the aggregator (which verifies the signature being correct upon receiving).
+Each Mithril signer checks if there is something that can be signed independently, produces a signature of what's needed to sign and submits that to the aggregator (which verifies the signature being correct upon receiving).
 
 The aggregator repeatedly checks whether enough valid signatures (to reach the quorum) are available to aggregate a Mithril stake-based multi-signature into a certificate.
 

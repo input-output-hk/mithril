@@ -909,7 +909,7 @@ Once this delay has passed, you should be able to observe your `PoolId` listed i
 
 ### Verify your signer is registered
 
-After installing the Mithril signer, you can verify that your node is registered by checking your Mithril signer node logs.
+After installing the Mithril signer, you can verify that your node is registered.
 
 First, download the script into the desired directory:
 

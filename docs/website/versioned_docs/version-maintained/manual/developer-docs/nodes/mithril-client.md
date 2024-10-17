@@ -130,7 +130,7 @@ Usage: mithril-client [OPTIONS] <COMMAND>
 Commands:
   cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
-  cardano-transaction         [unstable] Cardano transactions management (alias: ctx)
+  cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  [unstable] Cardano stake distribution management (alias: csd)
   help                        Print this message or the help of the given subcommand(s)
 
@@ -148,7 +148,7 @@ Options:
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
       --unstable
-          Enable unstable commands (such as Cardano Transactions)
+          Enable unstable commands (such as Cardano Stake Distribution)
   -h, --help
           Print help
   -V, --version
@@ -253,13 +253,13 @@ mithril_client mithril-stake-distribution list
 mithril_client mithril-stake-distribution download $MITHRIL_STAKE_DISTRIBUTION_ARTIFACT_HASH
 
 # 7- List Cardano transaction snapshots
-mithril_client --unstable cardano-transaction snapshot list
+mithril_client cardano-transaction snapshot list
 
 # 8- Show detailed information about a Cardano transaction snapshot
-mithril_client --unstable cardano-transaction snapshot show $CARDANO_TRANSACTION_SNAPSHOT_HASH
+mithril_client cardano-transaction snapshot show $CARDANO_TRANSACTION_SNAPSHOT_HASH
 
 # 9- Certify that given list of transactions hashes are included in the Cardano transactions set
-mithril_client --unstable cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
+mithril_client cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
 
 # 10- List Cardano stake distributions
 mithril_client --unstable cardano-stake-distribution list
