@@ -1,4 +1,5 @@
 mod aggregator;
+mod context;
 mod passive;
 mod relay;
 mod signer;
@@ -10,9 +11,9 @@ pub use signer::SignerCommand;
 
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value};
+use context::CommandContext;
 use mithril_common::StdResult;
-use slog::Level;
-use slog_scope::debug;
+use slog::{debug, Level, Logger};
 use std::path::PathBuf;
 
 /// Relay for Mithril Node
@@ -43,15 +44,16 @@ pub struct Args {
 
 impl Args {
     /// execute command
-    pub async fn execute(&self) -> StdResult<()> {
-        debug!("Run Mode: {}", self.run_mode);
+    pub async fn execute(&self, logger: Logger) -> StdResult<()> {
+        debug!(logger, "Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
-        debug!("Reading configuration file '{}'.", filename);
+        debug!(logger, "Reading configuration file '{filename}'.");
         let config: ConfigBuilder<DefaultState> = config::Config::builder()
             .add_source(config::File::with_name(&filename).required(false))
             .add_source(self.clone());
 
-        self.command.execute(config).await
+        let context = CommandContext::new(config, logger);
+        self.command.execute(context).await
     }
 
     /// get log level from parameters

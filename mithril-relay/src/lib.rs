@@ -21,3 +21,33 @@ pub mod mithril_p2p_topic {
     /// The topic name where signatures are published
     pub const SIGNATURES: &str = "mithril/signatures";
 }
+
+#[cfg(test)]
+pub mod test_tools {
+    use std::fs::File;
+    use std::io;
+    use std::sync::Arc;
+
+    use slog::{Drain, Logger};
+    use slog_async::Async;
+    use slog_term::{CompactFormat, PlainDecorator};
+
+    pub struct TestLogger;
+
+    impl TestLogger {
+        fn from_writer<W: io::Write + Send + 'static>(writer: W) -> Logger {
+            let decorator = PlainDecorator::new(writer);
+            let drain = CompactFormat::new(decorator).build().fuse();
+            let drain = Async::new(drain).build().fuse();
+            Logger::root(Arc::new(drain), slog::o!())
+        }
+
+        pub fn stdout() -> Logger {
+            Self::from_writer(slog_term::TestStdoutWriter)
+        }
+
+        pub fn file(filepath: &std::path::Path) -> Logger {
+            Self::from_writer(File::create(filepath).unwrap())
+        }
+    }
+}

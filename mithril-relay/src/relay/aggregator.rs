@@ -2,24 +2,31 @@ use crate::p2p::{BroadcastMessage, Peer, PeerEvent};
 use anyhow::anyhow;
 use libp2p::Multiaddr;
 use mithril_common::{
+    logging::LoggerExtensions,
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
     StdResult,
 };
 use reqwest::StatusCode;
-use slog_scope::{error, info};
+use slog::{error, info, Logger};
 
 /// A relay for a Mithril aggregator
 pub struct AggregatorRelay {
     aggregator_endpoint: String,
     peer: Peer,
+    logger: Logger,
 }
 
 impl AggregatorRelay {
     /// Start a relay for a Mithril aggregator
-    pub async fn start(addr: &Multiaddr, aggregator_endpoint: &str) -> StdResult<Self> {
+    pub async fn start(
+        addr: &Multiaddr,
+        aggregator_endpoint: &str,
+        logger: &Logger,
+    ) -> StdResult<Self> {
         Ok(Self {
             aggregator_endpoint: aggregator_endpoint.to_owned(),
-            peer: Peer::new(addr).start().await?,
+            peer: Peer::new(addr).with_logger(logger).start().await?,
+            logger: logger.new_with_component_name::<Self>(),
         })
     }
 
@@ -36,17 +43,17 @@ impl AggregatorRelay {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => {
-                    info!("Relay aggregator: sent successfully signature message to aggregator"; "signature_message" => format!("{:#?}", signature_message));
+                    info!(self.logger, "Sent successfully signature message to aggregator"; "signature_message" => #?signature_message);
                     Ok(())
                 }
                 status => {
-                    error!("Relay aggregator: Post `/register-signatures` should have returned a 201 status code, got: {status}");
+                    error!(self.logger, "Post `/register-signatures` should have returned a 201 status code, got: {status}");
                     Err(anyhow!("Post `/register-signatures` should have returned a 201 status code, got: {status}"))
                 }
             },
             Err(err) => {
-                error!("Relay aggregator: Post `/register-signatures` failed: {err:?}");
-                Err(anyhow!("Post `/register-signatures` failed: {err:?}"))
+                error!(self.logger, "Post `/register-signatures` failed"; "error" => ?err);
+                Err(anyhow!(err).context("Post `/register-signatures` failed"))
             }
         }
     }
@@ -64,17 +71,17 @@ impl AggregatorRelay {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => {
-                    info!("Relay aggregator: sent successfully signer registration message to aggregator"; "signer_message" => format!("{:#?}", signer_message));
+                    info!(self.logger, "Sent successfully signer registration message to aggregator"; "signer_message" => #?signer_message);
                     Ok(())
                 }
                 status => {
-                    error!("Relay aggregator: Post `/register-signer` should have returned a 201 status code, got: {status}");
+                    error!(self.logger, "Post `/register-signer` should have returned a 201 status code, got: {status}");
                     Err(anyhow!("Post `/register-signer` should have returned a 201 status code, got: {status}"))
                 }
             },
             Err(err) => {
-                error!("Relay aggregator: Post `/register-signer` failed: {err:?}");
-                Err(anyhow!("Post `/register-signer` failed: {err:?}"))
+                error!(self.logger, "Post `/register-signer` failed"; "error" => ?err);
+                Err(anyhow!(err).context("Post `/register-signer` failed"))
             }
         }
     }
@@ -92,7 +99,7 @@ impl AggregatorRelay {
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
-                            error!("Relay aggregator: failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => format!("{:#?}", signer_message_received), "error" => format!("{e:?}"));
+                            error!(self.logger, "Failed to send signer registration message to aggregator after {retry_count} attempts"; "signer_message" => #?signer_message_received, "error" => ?e);
                             return Err(e);
                         }
                     }
@@ -106,7 +113,7 @@ impl AggregatorRelay {
                     {
                         retry_count += 1;
                         if retry_count >= retry_max {
-                            error!("Relay aggregator: failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => format!("{:#?}", signature_message_received), "error" => format!("{e:?}"));
+                            error!(self.logger, "Failed to send signature message to aggregator after {retry_count} attempts"; "signature_message" => #?signature_message_received, "error" => ?e);
                             return Err(e);
                         }
                     }

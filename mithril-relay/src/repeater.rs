@@ -1,6 +1,7 @@
 use anyhow::anyhow;
+use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
-use slog_scope::debug;
+use slog::{debug, Logger};
 use std::{fmt::Debug, sync::Arc, time::Duration};
 use tokio::{
     sync::{mpsc::UnboundedSender, Mutex},
@@ -13,27 +14,29 @@ pub struct MessageRepeater<M: Clone + Debug + Sync + Send + 'static> {
     tx_message: UnboundedSender<M>,
     delay: Duration,
     next_repeat_at: Arc<Mutex<Option<Instant>>>,
+    logger: Logger,
 }
 
 impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
     /// Factory for MessageRepeater
-    pub fn new(tx_message: UnboundedSender<M>, delay: Duration) -> Self {
+    pub fn new(tx_message: UnboundedSender<M>, delay: Duration, logger: &Logger) -> Self {
         Self {
             message: Arc::new(Mutex::new(None)),
             tx_message,
             delay,
             next_repeat_at: Arc::new(Mutex::new(None)),
+            logger: logger.new_with_component_name::<Self>(),
         }
     }
 
     async fn reset_next_repeat_at(&self) {
-        debug!("MessageRepeater: reset next_repeat_at");
+        debug!(self.logger, "Reset next_repeat_at");
         *self.next_repeat_at.lock().await = Some(Instant::now() + self.delay);
     }
 
     /// Set the message to repeat
     pub async fn set_message(&self, message: M) {
-        debug!("MessageRepeater: set message"; "message" => format!("{:#?}", message));
+        debug!(self.logger, "Set message"; "message" => #?message);
         *self.message.lock().await = Some(message);
         self.reset_next_repeat_at().await;
     }
@@ -49,13 +52,13 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
         tokio::time::sleep(wait_delay).await;
         match self.message.lock().await.as_ref() {
             Some(message) => {
-                debug!("MessageRepeater: repeat message"; "message" => format!("{:#?}", message));
+                debug!(self.logger, "Repeat message"; "message" => #?message);
                 self.tx_message
                     .send(message.clone())
                     .map_err(|e| anyhow!(e))?
             }
             None => {
-                debug!("MessageRepeater: no message to repeat");
+                debug!(self.logger, "No message to repeat");
             }
         }
         self.reset_next_repeat_at().await;
@@ -68,13 +71,15 @@ impl<M: Clone + Debug + Sync + Send + 'static> MessageRepeater<M> {
 mod tests {
     use tokio::{sync::mpsc, time};
 
+    use crate::test_tools::TestLogger;
+
     use super::*;
 
     #[tokio::test]
     async fn should_repeat_message_when_exists() {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let delay = Duration::from_millis(100);
-        let repeater = MessageRepeater::new(tx, delay);
+        let repeater = MessageRepeater::new(tx, delay, &TestLogger::stdout());
 
         let message = "Hello, world!";
         repeater.set_message(message.to_string()).await;
@@ -88,7 +93,7 @@ mod tests {
     async fn should_repeat_message_when_exists_with_expected_delay() {
         let (tx, _rx) = mpsc::unbounded_channel();
         let delay = Duration::from_secs(1);
-        let repeater = MessageRepeater::new(tx, delay);
+        let repeater = MessageRepeater::new(tx, delay, &TestLogger::stdout());
 
         let message = "Hello, world!";
         repeater.set_message(message.to_string()).await;
@@ -105,7 +110,7 @@ mod tests {
     async fn should_do_nothing_when_message_not_exists() {
         let (tx, rx) = mpsc::unbounded_channel::<String>();
         let delay = Duration::from_millis(100);
-        let repeater = MessageRepeater::new(tx, delay);
+        let repeater = MessageRepeater::new(tx, delay, &TestLogger::stdout());
 
         repeater.repeat_message().await.unwrap();
 
@@ -116,7 +121,7 @@ mod tests {
     async fn should_do_nothing_when_message_not_exists_with_expected_delay() {
         let (tx, _rx) = mpsc::unbounded_channel::<String>();
         let delay = Duration::from_secs(1);
-        let repeater = MessageRepeater::new(tx, delay);
+        let repeater = MessageRepeater::new(tx, delay, &TestLogger::stdout());
 
         let result = tokio::select! {
             _ = time::sleep(delay - Duration::from_millis(100)) => {Err(anyhow!("Timeout"))}
