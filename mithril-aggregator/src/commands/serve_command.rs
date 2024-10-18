@@ -213,7 +213,7 @@ impl ServeCommand {
             .get_metrics_service()
             .await
             .with_context(|| "metric service initialization error")?;
-        let (_, metrics_server_shutdown_rx) = oneshot::channel();
+        let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
         if config.enable_metrics_server {
             let metrics_logger = root_logger.clone();
             join_set.spawn(async move {
@@ -237,6 +237,10 @@ impl ServeCommand {
         if let Err(e) = join_set.join_next().await.unwrap()? {
             crit!(root_logger, "A critical error occurred"; "error" => e);
         }
+
+        metrics_server_shutdown_tx
+            .send(())
+            .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
 
         // stop servers
         join_set.shutdown().await;
