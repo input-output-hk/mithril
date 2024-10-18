@@ -56,6 +56,12 @@ pub struct Configuration {
     #[example = "`/tmp/cardano.sock`"]
     pub cardano_node_socket_path: PathBuf,
 
+    /// Path of the socket used by a signature network node to publish signatures
+    ///
+    /// If not set, the signatures will be published to the aggregator using the HTTP API.
+    #[example = "`/tmp/signature-network-node_1/node.sock`"]
+    pub signature_network_node_socket_path: Option<PathBuf>,
+
     /// Cardano node version.
     ///
     /// **NOTE**: This cannot be verified for now (see [this
@@ -216,6 +222,7 @@ impl Configuration {
             environment: ExecutionEnvironment::Test,
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
+            signature_network_node_socket_path: None,
             cardano_node_version: "0.0.1".to_string(),
             network_magic: Some(42),
             network: "devnet".to_string(),

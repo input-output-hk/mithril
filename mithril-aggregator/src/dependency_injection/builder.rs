@@ -50,6 +50,7 @@ use mithril_persistence::{
 };
 
 use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
+use crate::services::SignatureConsumer;
 use crate::{
     artifact_builder::{
         CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
@@ -1430,6 +1431,27 @@ impl DependenciesBuilder {
         })?;
 
         Ok(runtime)
+    }
+
+    /// Create a [SignatureConsumer] instance if `signature_network_node_socket_path`
+    /// is set in the [Configuration].
+    pub async fn create_signature_consumer(&mut self) -> Result<Option<SignatureConsumer>> {
+        let signature_network_node_socket_path = &self
+            .configuration
+            .signature_network_node_socket_path
+            .clone();
+        match signature_network_node_socket_path {
+            Some(socket_path) => {
+                let consumer = SignatureConsumer::new(
+                    socket_path,
+                    Duration::from_millis(50),
+                    self.get_certifier_service().await?,
+                    &self.root_logger(),
+                );
+                Ok(Some(consumer))
+            }
+            None => Ok(None),
+        }
     }
 
     /// Create the HTTP route instance
