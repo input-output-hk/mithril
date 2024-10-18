@@ -19,7 +19,7 @@ jobs:
         run: mkdir package
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-Linux-X64
           path: ./package-Linux-X64
@@ -28,7 +28,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Download Debian packages (Linux-X64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-deb-packages-Linux-X64
           path: ./package
@@ -37,7 +37,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Download built artifacts (macOS-x64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-macOS-X64
           path: ./package-macOS-X64
@@ -46,7 +46,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Download built artifacts (macOS-ARM64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-macOS-ARM64
           path: ./package-macOS-ARM64
@@ -55,7 +55,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Download built artifacts (Windows-x64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-Windows-X64
           path: ./package-Windows-X64
@@ -129,7 +129,7 @@ jobs:
             type=raw,value=${{ github.ref_name }}-{{sha}}
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}
@@ -138,7 +138,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}

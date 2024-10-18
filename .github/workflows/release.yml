@@ -48,7 +48,7 @@ jobs:
             type=raw,value=${{ github.ref_name }}-{{sha}}
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}
@@ -57,7 +57,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
