@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkmithril_doc=self.webpackChunkmithril_doc||[]).push([[7961],{51289:e=>{e.exports=JSON.parse('{"metadata":{"permalink":"/doc/adr/","page":1,"postsPerPage":10,"totalPages":1,"totalCount":7,"blogDescription":"Blog","blogTitle":"ADR"}}')}}]);
