@@ -131,6 +131,9 @@ impl AggregatorRuntime {
         );
         info!(self.logger, "new cycle: {}", self.state);
 
+        self.runner
+            .increment_runtime_cycle_total_since_startup_counter();
+
         match self.state.clone() {
             AggregatorState::Idle(state) => {
                 let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
@@ -225,6 +228,10 @@ impl AggregatorRuntime {
                 }
             }
         }
+
+        self.runner
+            .increment_runtime_cycle_success_since_startup_counter();
+
         Ok(())
     }
 
