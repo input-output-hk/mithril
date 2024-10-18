@@ -159,22 +159,19 @@ impl Reporter {
     }
 
     pub fn stop(&mut self) {
-        match &self.current_timing {
-            Some((phase, instant)) => {
-                let phase = if self.number_of_clients == 0 {
-                    format!("{phase} - without clients")
-                } else {
-                    format!("{phase} - with clients")
-                };
-                let timing = Timing {
-                    phase: phase.clone(),
-                    duration: instant.elapsed(),
-                };
+        if let Some((phase, instant)) = &self.current_timing {
+            let phase = if self.number_of_clients == 0 {
+                format!("{phase} - without clients")
+            } else {
+                format!("{phase} - with clients")
+            };
+            let timing = Timing {
+                phase: phase.clone(),
+                duration: instant.elapsed(),
+            };
 
-                self.timings.push(timing);
-                self.current_timing = None;
-            }
-            None => (),
+            self.timings.push(timing);
+            self.current_timing = None;
         }
     }
 
