@@ -925,7 +925,7 @@ jobs:
           sed -i '1s/^/<script type="text\/javascript"> if (window.location.href.endsWith("\/index.html")) { end_of_clean_url = window.location.href.lastIndexOf("\/"); window.location.href = window.location.href.substring(0, end_of_clean_url); } <\/script>\n/' ./github-pages/doc/index.html
 
       - name: Mithril / Publish GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
           publish_dir: ./github-pages
