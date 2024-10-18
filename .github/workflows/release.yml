@@ -48,7 +48,7 @@ jobs:
             type=raw,value=${{ github.ref_name }}-{{sha}}
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}

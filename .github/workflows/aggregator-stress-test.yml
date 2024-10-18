@@ -44,7 +44,7 @@ jobs:
           toolchain: stable
 
       - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-distribution-Linux-X64
           path: ./bin
@@ -53,7 +53,7 @@ jobs:
           workflow_conclusion: success
 
       - name: Download test runners
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v6
         with:
           name: mithril-tooling-Linux-X64
           path: ./bin
