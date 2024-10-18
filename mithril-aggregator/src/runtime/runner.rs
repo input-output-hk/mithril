@@ -128,6 +128,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         open_message_signed_entity_type: SignedEntityType,
         last_time_point: &TimePoint,
     ) -> StdResult<bool>;
+
+    /// Increment the runtime cycle success metric.
+    fn increment_runtime_cycle_success_since_startup_counter(&self);
+
+    /// Increment the runtime cycle total metric.
+    fn increment_runtime_cycle_total_since_startup_counter(&self);
 }
 
 /// The runner responsibility is to expose a code API for the state machine. It
@@ -571,6 +577,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         };
 
         Ok(exists_newer_open_message || is_expired_open_message)
+    }
+
+    fn increment_runtime_cycle_success_since_startup_counter(&self) {
+        self.dependencies
+            .metrics_service
+            .get_runtime_cycle_success_since_startup()
+            .increment();
+    }
+
+    fn increment_runtime_cycle_total_since_startup_counter(&self) {
+        self.dependencies
+            .metrics_service
+            .get_runtime_cycle_total_since_startup()
+            .increment();
     }
 }
 

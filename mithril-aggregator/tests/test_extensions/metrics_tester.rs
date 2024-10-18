@@ -8,6 +8,8 @@ pub struct ExpectedMetrics {
     artifact_mithril_stake_distribution_total: Option<u32>,
     artifact_cardano_stake_distribution_total: Option<u32>,
     artifact_cardano_transaction_total: Option<u32>,
+    runtime_cycle_success: Option<u32>,
+    runtime_cycle_total: Option<u32>,
 }
 
 impl ExpectedMetrics {
@@ -18,6 +20,8 @@ impl ExpectedMetrics {
             artifact_mithril_stake_distribution_total: None,
             artifact_cardano_stake_distribution_total: None,
             artifact_cardano_transaction_total: None,
+            runtime_cycle_success: None,
+            runtime_cycle_total: None,
         }
     }
 
@@ -43,6 +47,16 @@ impl ExpectedMetrics {
 
     pub fn artifact_cardano_transaction_total(mut self, value: u32) -> Self {
         self.artifact_cardano_transaction_total = Some(value);
+        self
+    }
+
+    pub fn runtime_cycle_success(mut self, value: u32) -> Self {
+        self.runtime_cycle_success = Some(value);
+        self
+    }
+
+    pub fn runtime_cycle_total(mut self, value: u32) -> Self {
+        self.runtime_cycle_total = Some(value);
         self
     }
 }
@@ -100,6 +114,17 @@ impl MetricsVerifier {
             expected_metrics.artifact_cardano_transaction_total,
             self.metrics_service
                 .get_artifact_cardano_transaction_total_produced_since_startup()
+        );
+
+        verify_metric!(
+            expected_metrics.runtime_cycle_success,
+            self.metrics_service
+                .get_runtime_cycle_success_since_startup()
+        );
+
+        verify_metric!(
+            expected_metrics.runtime_cycle_total,
+            self.metrics_service.get_runtime_cycle_total_since_startup()
         );
     }
 }

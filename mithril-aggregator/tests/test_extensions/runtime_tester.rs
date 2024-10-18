@@ -37,18 +37,42 @@ use super::MetricsVerifier;
 #[macro_export]
 macro_rules! cycle {
     ( $tester:expr, $expected_state:expr ) => {{
+        use $crate::test_extensions::ExpectedMetrics;
+
+        let (runtime_cycle_success, runtime_cycle_total) =
+            $tester.get_runtime_cycle_success_and_total_since_startup_metrics();
+
         RuntimeTester::cycle(&mut $tester).await.unwrap();
         assert_eq!($expected_state, $tester.runtime.get_state());
+
+        assert_metrics_eq!(
+            $tester.metrics_verifier,
+            ExpectedMetrics::new()
+                .runtime_cycle_success(runtime_cycle_success + 1)
+                .runtime_cycle_total(runtime_cycle_total + 1)
+        );
     }};
 }
 
 #[macro_export]
 macro_rules! cycle_err {
     ( $tester:expr, $expected_state:expr ) => {{
+        use $crate::test_extensions::ExpectedMetrics;
+
+        let (runtime_cycle_success, runtime_cycle_total) =
+            $tester.get_runtime_cycle_success_and_total_since_startup_metrics();
+
         RuntimeTester::cycle(&mut $tester)
             .await
             .expect_err("cycle tick should have returned an error");
         assert_eq!($expected_state, $tester.runtime.get_state());
+
+        assert_metrics_eq!(
+            $tester.metrics_verifier,
+            ExpectedMetrics::new()
+                .runtime_cycle_success(runtime_cycle_success)
+                .runtime_cycle_total(runtime_cycle_total + 1)
+        );
     }};
 }
 
@@ -671,5 +695,17 @@ impl RuntimeTester {
         }
 
         Ok(())
+    }
+
+    /// Returns the runtime cycle success and total metrics since startup
+    pub fn get_runtime_cycle_success_and_total_since_startup_metrics(&self) -> (u32, u32) {
+        (
+            self.metrics_service
+                .get_runtime_cycle_success_since_startup()
+                .get(),
+            self.metrics_service
+                .get_runtime_cycle_total_since_startup()
+                .get(),
+        )
     }
 }
