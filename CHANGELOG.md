@@ -39,6 +39,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for stable Cardano transaction client library, CLI and WASM.
 
+- Support for `Prometheus` endpoint for metrics in aggregator
+
 - Crates versions:
 
 | Crate | Version |
