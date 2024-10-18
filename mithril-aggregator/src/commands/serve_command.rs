@@ -43,6 +43,18 @@ pub struct ServeCommand {
     /// Will be ignored on (pre)production networks.
     #[clap(long)]
     allow_unparsable_block: bool,
+
+    /// Enable metrics HTTP server (Prometheus endpoint on /metrics).
+    #[clap(long)]
+    enable_metrics_server: bool,
+
+    /// Metrics HTTP server IP.
+    #[clap(long)]
+    metrics_server_ip: Option<String>,
+
+    /// Metrics HTTP server listening port.
+    #[clap(long)]
+    metrics_server_port: Option<u16>,
 }
 
 impl Source for ServeCommand {
@@ -73,6 +85,18 @@ impl Source for ServeCommand {
                     Some(&namespace),
                     ValueKind::from(format!("{}", snapshot_directory.to_string_lossy())),
                 ),
+            );
+        }
+        if let Some(metrics_server_ip) = self.metrics_server_ip.clone() {
+            result.insert(
+                "metrics_server_ip".to_string(),
+                Value::new(Some(&namespace), ValueKind::from(metrics_server_ip)),
+            );
+        }
+        if let Some(metrics_server_port) = self.metrics_server_port {
+            result.insert(
+                "metrics_server_port".to_string(),
+                Value::new(Some(&namespace), ValueKind::from(metrics_server_port)),
             );
         }
 
