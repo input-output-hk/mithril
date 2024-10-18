@@ -17,7 +17,7 @@ use mockall::automock;
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait TransactionsImporter: Send + Sync {
-    /// Returns all transactions up to the given beacon
+    /// Import all transactions up to the given beacon into the system
     async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
 }
 

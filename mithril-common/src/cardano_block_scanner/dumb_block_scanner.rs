@@ -21,32 +21,42 @@ impl DumbBlockScanner {
         }
     }
 
-    /// Add to the inner streamer several [ChainScannedBlocks::RollForwards] responses at the end of the
+    /// Add to the inner streamer several [ChainScannedBlocks::RollForwards] responses at the end of
     /// its queue.
     pub fn forwards(self, blocks: Vec<Vec<ScannedBlock>>) -> Self {
         self.add_forwards(blocks);
         self
     }
 
-    /// Add to the inner streamer a [ChainScannedBlocks::RollBackward] response at the end of the
-    /// its queue.
+    /// Add to the inner streamer a [ChainScannedBlocks::RollBackward] response at the end of its queue.
     pub fn backward(self, chain_point: ChainPoint) -> Self {
         self.add_backward(chain_point);
         self
     }
 
-    /// Add to the inner streamer several [ChainScannedBlocks::RollForwards] responses at the end of the
+    /// Set the latest polled chain point to return when [Self::latest_polled_chain_point] is called.
+    pub fn latest_polled_chain_point(self, chain_point: Option<ChainPoint>) -> Self {
+        self.set_latest_polled_chain_point(chain_point);
+        self
+    }
+
+    /// Add to the inner streamer several [ChainScannedBlocks::RollForwards] responses at the end of
     /// its queue.
     pub fn add_forwards(&self, blocks: Vec<Vec<ScannedBlock>>) {
         let mut streamer = self.streamer.write().unwrap();
         *streamer = streamer.clone().forwards(blocks);
     }
 
-    /// Add to the inner streamer a [ChainScannedBlocks::RollBackward] response at the end of the
-    /// its queue.
+    /// Add to the inner streamer a [ChainScannedBlocks::RollBackward] response at the end of its queue.
     pub fn add_backward(&self, chain_point: ChainPoint) {
         let mut streamer = self.streamer.write().unwrap();
         *streamer = streamer.clone().rollback(chain_point);
+    }
+
+    /// Set the latest polled chain point to return when [Self::latest_polled_chain_point] is called.
+    pub fn set_latest_polled_chain_point(&self, chain_point: Option<ChainPoint>) {
+        let mut streamer = self.streamer.write().unwrap();
+        *streamer = streamer.clone().set_latest_polled_chain_point(chain_point);
     }
 }
 
@@ -72,6 +82,7 @@ impl BlockScanner for DumbBlockScanner {
 #[derive(Clone)]
 pub struct DumbBlockStreamer {
     streamer_responses: VecDeque<ChainScannedBlocks>,
+    latest_polled_chain_point: Option<ChainPoint>,
 }
 
 impl DumbBlockStreamer {
@@ -79,10 +90,17 @@ impl DumbBlockStreamer {
     pub fn new() -> Self {
         Self {
             streamer_responses: VecDeque::new(),
+            latest_polled_chain_point: None,
         }
     }
 
-    /// Add to the streamer several [ChainScannedBlocks::RollForwards] responses at the end of the
+    /// Set the latest polled chain point to return when [Self::latest_polled_chain_point] is called
+    pub fn set_latest_polled_chain_point(mut self, chain_point: Option<ChainPoint>) -> Self {
+        self.latest_polled_chain_point = chain_point;
+        self
+    }
+
+    /// Add to the streamer several [ChainScannedBlocks::RollForwards] responses at the end of
     /// its queue.
     pub fn forwards(mut self, blocks: Vec<Vec<ScannedBlock>>) -> Self {
         let mut source: VecDeque<_> = blocks
@@ -94,8 +112,7 @@ impl DumbBlockStreamer {
         self
     }
 
-    /// Add to the streamer a [ChainScannedBlocks::RollBackward] response at the end of the
-    /// its queue.
+    /// Add to the streamer a [ChainScannedBlocks::RollBackward] response at the end of its queue.
     pub fn rollback(mut self, chain_point: ChainPoint) -> Self {
         self.streamer_responses
             .push_back(ChainScannedBlocks::RollBackward(chain_point.slot_number));
@@ -113,6 +130,10 @@ impl Default for DumbBlockStreamer {
 impl BlockStreamer for DumbBlockStreamer {
     async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>> {
         Ok(self.streamer_responses.pop_front())
+    }
+
+    fn latest_polled_chain_point(&self) -> Option<ChainPoint> {
+        self.latest_polled_chain_point.clone()
     }
 }
 
@@ -286,5 +307,18 @@ mod tests {
 
         let blocks = streamer.poll_next().await.unwrap();
         assert_eq!(blocks, None);
+    }
+
+    #[tokio::test]
+    async fn setting_last_polled_block() {
+        let mut streamer = DumbBlockStreamer::new().forwards(vec![]);
+        assert_eq!(streamer.latest_polled_chain_point(), None);
+
+        let chain_point = ChainPoint::new(SlotNumber(10), BlockNumber(2), "block-hash");
+        streamer = streamer.set_latest_polled_chain_point(Some(chain_point.clone()));
+        assert_eq!(streamer.latest_polled_chain_point(), Some(chain_point));
+
+        streamer = streamer.set_latest_polled_chain_point(None);
+        assert_eq!(streamer.latest_polled_chain_point(), None);
     }
 }

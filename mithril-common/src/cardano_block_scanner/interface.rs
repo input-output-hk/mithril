@@ -65,6 +65,9 @@ pub enum ChainScannedBlocks {
 pub trait BlockStreamer: Sync + Send {
     /// Stream the next available blocks
     async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>>;
+
+    /// Get the latest polled chain point
+    fn latest_polled_chain_point(&self) -> Option<ChainPoint>;
 }
 
 cfg_test_tools! {
