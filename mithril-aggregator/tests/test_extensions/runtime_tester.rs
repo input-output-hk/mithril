@@ -2,6 +2,7 @@ use crate::test_extensions::utilities::tx_hash;
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate};
 use anyhow::{anyhow, Context};
 use chrono::Utc;
+use mithril_aggregator::MetricsService;
 use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
@@ -31,21 +32,47 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 
+use super::MetricsVerifier;
+
 #[macro_export]
 macro_rules! cycle {
     ( $tester:expr, $expected_state:expr ) => {{
+        use $crate::test_extensions::ExpectedMetrics;
+
+        let (runtime_cycle_success, runtime_cycle_total) =
+            $tester.get_runtime_cycle_success_and_total_since_startup_metrics();
+
         RuntimeTester::cycle(&mut $tester).await.unwrap();
         assert_eq!($expected_state, $tester.runtime.get_state());
+
+        assert_metrics_eq!(
+            $tester.metrics_verifier,
+            ExpectedMetrics::new()
+                .runtime_cycle_success(runtime_cycle_success + 1)
+                .runtime_cycle_total(runtime_cycle_total + 1)
+        );
     }};
 }
 
 #[macro_export]
 macro_rules! cycle_err {
     ( $tester:expr, $expected_state:expr ) => {{
+        use $crate::test_extensions::ExpectedMetrics;
+
+        let (runtime_cycle_success, runtime_cycle_total) =
+            $tester.get_runtime_cycle_success_and_total_since_startup_metrics();
+
         RuntimeTester::cycle(&mut $tester)
             .await
             .expect_err("cycle tick should have returned an error");
         assert_eq!($expected_state, $tester.runtime.get_state());
+
+        assert_metrics_eq!(
+            $tester.metrics_verifier,
+            ExpectedMetrics::new()
+                .runtime_cycle_success(runtime_cycle_success)
+                .runtime_cycle_total(runtime_cycle_total + 1)
+        );
     }};
 }
 
@@ -66,6 +93,13 @@ macro_rules! assert_last_certificate_eq {
     }};
 }
 
+#[macro_export]
+macro_rules! assert_metrics_eq {
+    ( $tester:expr, $expected_metrics:expr ) => {{
+        $tester.verify($expected_metrics);
+    }};
+}
+
 pub struct RuntimeTester {
     pub network: String,
     pub snapshot_uploader: Arc<DumbSnapshotUploader>,
@@ -81,6 +115,8 @@ pub struct RuntimeTester {
     pub observer: Arc<AggregatorObserver>,
     pub open_message_repository: Arc<OpenMessageRepository>,
     pub block_scanner: Arc<DumbBlockScanner>,
+    pub metrics_service: Arc<MetricsService>,
+    pub metrics_verifier: MetricsVerifier,
     _global_logger_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -125,6 +161,8 @@ impl RuntimeTester {
         let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
         let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
         let open_message_repository = deps_builder.get_open_message_repository().await.unwrap();
+        let metrics_service = deps_builder.get_metrics_service().await.unwrap();
+        let metrics_verifier = MetricsVerifier::new(metrics_service.clone());
 
         Self {
             network,
@@ -141,6 +179,8 @@ impl RuntimeTester {
             observer,
             open_message_repository,
             block_scanner,
+            metrics_service,
+            metrics_verifier,
             _global_logger_guard: global_logger,
         }
     }
@@ -655,5 +695,17 @@ impl RuntimeTester {
         }
 
         Ok(())
+    }
+
+    /// Returns the runtime cycle success and total metrics since startup
+    pub fn get_runtime_cycle_success_and_total_since_startup_metrics(&self) -> (u32, u32) {
+        (
+            self.metrics_service
+                .get_runtime_cycle_success_since_startup()
+                .get(),
+            self.metrics_service
+                .get_runtime_cycle_total_since_startup()
+                .get(),
+        )
     }
 }

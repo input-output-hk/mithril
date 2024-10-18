@@ -10,6 +10,7 @@ use mithril_common::{
     },
     test_utils::MithrilFixtureBuilder,
 };
+use test_extensions::ExpectedMetrics;
 use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
 
 #[tokio::test]
@@ -181,4 +182,12 @@ async fn cardano_stake_distribution_verify_stakes() {
         .unwrap()
         .unwrap();
     assert_eq!(updated_stake_distribution, message.stake_distribution);
+
+    assert_metrics_eq!(
+        tester.metrics_verifier,
+        ExpectedMetrics::new()
+            .certificate_total(3)
+            .artifact_mithril_stake_distribution_total(2)
+            .artifact_cardano_stake_distribution_total(1)
+    );
 }
