@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Support for Prometheus metrics endpoint in aggregator
+
 - Crates versions:
 
 | Crate | Version |
