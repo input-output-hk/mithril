@@ -71,7 +71,7 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                slot_number: build_chain_point(1).slot_number,
+                chain_point: build_chain_point(1),
             },
         ];
 

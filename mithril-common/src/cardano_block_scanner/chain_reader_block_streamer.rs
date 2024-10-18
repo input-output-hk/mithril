@@ -52,9 +52,10 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                 }
                 Some(BlockStreamerNextAction::ChainBlockNextAction(
                     ChainBlockNextAction::RollBackward {
-                        slot_number: rollback_slot_number,
+                        chain_point: rollback_chain_point,
                     },
                 )) => {
+                    let rollback_slot_number = rollback_chain_point.slot_number;
                     let index_rollback = roll_forwards
                         .iter()
                         .position(|block| block.slot_number == rollback_slot_number);
@@ -139,8 +140,9 @@ impl ChainReaderBlockStreamer {
                 }
             }
             Some(ChainBlockNextAction::RollBackward {
-                slot_number: rollback_slot_number,
+                chain_point: rollback_chain_point,
             }) => {
+                let rollback_slot_number = rollback_chain_point.slot_number;
                 trace!(
                     self.logger,
                     "Received a RollBackward({rollback_slot_number:?})"
@@ -150,7 +152,7 @@ impl ChainReaderBlockStreamer {
                 } else {
                     BlockStreamerNextAction::ChainBlockNextAction(
                         ChainBlockNextAction::RollBackward {
-                            slot_number: rollback_slot_number,
+                            chain_point: rollback_chain_point,
                         },
                     )
                 };
@@ -394,7 +396,7 @@ mod tests {
     async fn test_parse_expected_nothing_when_rollbackward_on_same_point() {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward {
-                slot_number: SlotNumber(100),
+                chain_point: ChainPoint::new(SlotNumber(100), BlockNumber(10), "hash-123"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -420,7 +422,7 @@ mod tests {
     {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward {
-                slot_number: SlotNumber(100),
+                chain_point: ChainPoint::new(SlotNumber(100), BlockNumber(10), "hash-123"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -473,7 +475,7 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                slot_number: SlotNumber(9),
+                chain_point: ChainPoint::new(SlotNumber(9), BlockNumber(90), "hash-9"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -518,7 +520,7 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                slot_number: SlotNumber(3),
+                chain_point: ChainPoint::new(SlotNumber(3), BlockNumber(30), "hash-3"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
