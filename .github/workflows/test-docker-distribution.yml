@@ -99,7 +99,7 @@ jobs:
             type=raw,value=test-${{ inputs.distribution_code }}-${{ steps.slug.outputs.sha8 }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
