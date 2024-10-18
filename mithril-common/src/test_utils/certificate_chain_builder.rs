@@ -29,11 +29,16 @@ type TotalSignersPerEpochProcessorFunc = dyn Fn(Epoch) -> usize;
 
 /// Context used while building a certificate chain. For tests only.
 pub struct CertificateChainBuilderContext<'a> {
+    /// The index of the certificate in the chain.
     pub index_certificate: usize,
+    /// The total number of certificates in the chain.
     #[allow(dead_code)]
     pub total_certificates: usize,
+    /// The epoch of the certificate.
     pub epoch: Epoch,
+    /// The fixtures of the epoch.
     pub fixture: &'a MithrilFixture,
+    /// The fixtures of the next epoch.
     pub next_fixture: &'a MithrilFixture,
 }
 
