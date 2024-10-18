@@ -4,11 +4,12 @@ use crate::{
 };
 use libp2p::Multiaddr;
 use mithril_common::{
+    logging::LoggerExtensions,
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
     test_utils::test_http_server::{test_http_server_with_socket_address, TestHttpServer},
     StdResult,
 };
-use slog_scope::{debug, info};
+use slog::{debug, info, Logger};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use warp::Filter;
@@ -20,6 +21,7 @@ pub struct SignerRelay {
     signature_rx: UnboundedReceiver<RegisterSignatureMessage>,
     signer_rx: UnboundedReceiver<RegisterSignerMessage>,
     signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
+    logger: Logger,
 }
 
 impl SignerRelay {
@@ -29,13 +31,16 @@ impl SignerRelay {
         server_port: &u16,
         aggregator_endpoint: &str,
         signer_repeater_delay: &Duration,
+        logger: &Logger,
     ) -> StdResult<Self> {
-        debug!("SignerRelay: starting...");
+        let relay_logger = logger.new_with_component_name::<Self>();
+        debug!(relay_logger, "Starting...");
         let (signature_tx, signature_rx) = unbounded_channel::<RegisterSignatureMessage>();
         let (signer_tx, signer_rx) = unbounded_channel::<RegisterSignerMessage>();
         let signer_repeater = Arc::new(MessageRepeater::new(
             signer_tx.clone(),
             signer_repeater_delay.to_owned(),
+            logger,
         ));
         let peer = Peer::new(address).start().await?;
         let server = Self::start_http_server(
@@ -44,9 +49,10 @@ impl SignerRelay {
             signer_tx,
             signature_tx,
             signer_repeater.clone(),
+            logger,
         )
         .await;
-        info!("SignerRelay: listening on"; "address" => format!("{:?}", server.address()));
+        info!(relay_logger, "Listening on"; "address" => ?server.address());
 
         Ok(Self {
             server,
@@ -54,6 +60,7 @@ impl SignerRelay {
             signature_rx,
             signer_rx,
             signer_repeater,
+            logger: relay_logger,
         })
     }
 
@@ -63,10 +70,13 @@ impl SignerRelay {
         signer_tx: UnboundedSender<RegisterSignerMessage>,
         signature_tx: UnboundedSender<RegisterSignatureMessage>,
         signer_repeater: Arc<MessageRepeater<RegisterSignerMessage>>,
+        logger: &Logger,
     ) -> TestHttpServer {
+        let server_logger = logger.new_with_name("http_server");
         test_http_server_with_socket_address(
             warp::path::end()
                 .and(warp::get())
+                .and(middlewares::with_logger(&server_logger))
                 .and(middlewares::with_aggregator_endpoint(
                     aggregator_endpoint.to_string(),
                 ))
@@ -74,22 +84,26 @@ impl SignerRelay {
                 .or(warp::path("register-signatures")
                     .and(warp::post())
                     .and(warp::body::json())
+                    .and(middlewares::with_logger(&server_logger))
                     .and(middlewares::with_transmitter(signature_tx))
                     .and_then(handlers::register_signatures_handler))
                 .or(warp::path("register-signer")
                     .and(warp::post())
                     .and(warp::body::json())
+                    .and(middlewares::with_logger(&server_logger))
                     .and(middlewares::with_transmitter(signer_tx))
                     .and(middlewares::with_repeater(signer_repeater.clone()))
                     .and_then(handlers::register_signer_handler))
                 .or(warp::path("epoch-settings")
                     .and(warp::get())
+                    .and(middlewares::with_logger(&server_logger))
                     .and(middlewares::with_aggregator_endpoint(
                         aggregator_endpoint.to_string(),
                     ))
                     .and_then(handlers::epoch_settings_handler))
                 .or(warp::path("certificate-pending")
                     .and(warp::get())
+                    .and(middlewares::with_logger(&server_logger))
                     .and(middlewares::with_aggregator_endpoint(
                         aggregator_endpoint.to_string(),
                     ))
@@ -104,12 +118,12 @@ impl SignerRelay {
             message = self.signature_rx.recv()  => {
                 match message {
                     Some(signature_message) => {
-                        info!("SignerRelay: publish signature to p2p network"; "message" => format!("{signature_message:#?}"));
+                        info!(self.logger, "Publish signature to p2p network"; "message" => #?signature_message);
                         self.peer.publish_signature(&signature_message)?;
                         Ok(())
                     }
                     None => {
-                        debug!("SignerRelay: no signature message available");
+                        debug!(self.logger, "No signature message available");
                         Ok(())
                     }
                 }
@@ -117,12 +131,12 @@ impl SignerRelay {
             message = self.signer_rx.recv()  => {
                 match message {
                     Some(signer_message) => {
-                        info!("SignerRelay: publish signer-registration to p2p network"; "message" => format!("{signer_message:#?}"));
+                        info!(self.logger, "Publish signer-registration to p2p network"; "message" => #?signer_message);
                         self.peer.publish_signer_registration(&signer_message)?;
                         Ok(())
                     }
                     None => {
-                        debug!("SignerRelay: no signer message available");
+                        debug!(self.logger, "No signer message available");
                         Ok(())
                     }
                 }
@@ -166,6 +180,13 @@ mod middlewares {
 
     use crate::repeater::MessageRepeater;
 
+    pub fn with_logger(
+        logger: &slog::Logger,
+    ) -> impl Filter<Extract = (slog::Logger,), Error = Infallible> + Clone {
+        let logger = logger.clone();
+        warp::any().map(move || logger.clone())
+    }
+
     pub fn with_transmitter<T: Send + Sync>(
         tx: UnboundedSender<T>,
     ) -> impl Filter<Extract = (UnboundedSender<T>,), Error = Infallible> + Clone {
@@ -188,7 +209,7 @@ mod middlewares {
 mod handlers {
     use mithril_common::messages::{RegisterSignatureMessage, RegisterSignerMessage};
     use reqwest::{Error, Response};
-    use slog_scope::debug;
+    use slog::{debug, Logger};
     use std::{convert::Infallible, sync::Arc};
     use tokio::sync::mpsc::UnboundedSender;
     use warp::http::StatusCode;
@@ -196,22 +217,24 @@ mod handlers {
     use crate::repeater;
 
     pub async fn aggregator_features_handler(
+        logger: Logger,
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("SignerRelay: serve HTTP route /");
+        debug!(logger, "Serve HTTP route /");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/"))
             .send()
             .await;
-        reply_response(response).await
+        reply_response(logger, response).await
     }
 
     pub async fn register_signer_handler(
         register_signer_message: RegisterSignerMessage,
+        logger: Logger,
         tx: UnboundedSender<RegisterSignerMessage>,
         repeater: Arc<repeater::MessageRepeater<RegisterSignerMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("SignerRelay: serve HTTP route /register-signer"; "register_signer_message" => format!("{register_signer_message:#?}"));
+        debug!(logger, "Serve HTTP route /register-signer"; "register_signer_message" => #?register_signer_message);
 
         repeater.set_message(register_signer_message.clone()).await;
         match tx.send(register_signer_message) {
@@ -228,9 +251,10 @@ mod handlers {
 
     pub async fn register_signatures_handler(
         register_signature_message: RegisterSignatureMessage,
+        logger: Logger,
         tx: UnboundedSender<RegisterSignatureMessage>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("SignerRelay: serve HTTP route /register-signatures"; "register_signature_message" => format!("{register_signature_message:#?}"));
+        debug!(logger, "Serve HTTP route /register-signatures"; "register_signature_message" => #?register_signature_message);
         match tx.send(register_signature_message) {
             Ok(_) => Ok(Box::new(warp::reply::with_status(
                 "".to_string(),
@@ -244,42 +268,43 @@ mod handlers {
     }
 
     pub async fn epoch_settings_handler(
+        logger: Logger,
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("SignerRelay: serve HTTP route /epoch-settings");
+        debug!(logger, "Serve HTTP route /epoch-settings");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/epoch-settings"))
             .send()
             .await;
-        reply_response(response).await
+        reply_response(logger, response).await
     }
 
     pub async fn certificate_pending_handler(
+        logger: Logger,
         aggregator_endpoint: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("SignerRelay: serve HTTP route /certificate-pending");
+        debug!(logger, "Serve HTTP route /certificate-pending");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/certificate-pending"))
             .send()
             .await;
-        reply_response(response).await
+        reply_response(logger, response).await
     }
 
     pub async fn reply_response(
+        logger: Logger,
         response: Result<Response, Error>,
     ) -> Result<impl warp::Reply, Infallible> {
         match response {
             Ok(response) => match StatusCode::from_u16(response.status().into()) {
                 Ok(status) => match response.text().await {
                     Ok(content) => {
-                        debug!(
-                            "SignerRelay: received response with status '{status}' and content {content:?}"
-                        );
+                        debug!(logger, "Received response with status '{status}'"; "content" => &content);
 
                         Ok(Box::new(warp::reply::with_status(content, status)))
                     }
                     Err(err) => {
-                        debug!("SignerRelay: received error '{err:?}'");
+                        debug!(logger, "Received error"; "error" => ?err);
                         Ok(Box::new(warp::reply::with_status(
                             format!("{err:?}"),
                             StatusCode::INTERNAL_SERVER_ERROR,
@@ -287,7 +312,7 @@ mod handlers {
                     }
                 },
                 Err(err) => {
-                    debug!("SignerRelay: failed to parse the returned status '{err:?}'");
+                    debug!(logger, "Failed to parse the returned status"; "error" => ?err);
                     Ok(Box::new(warp::reply::with_status(
                         format!("{err:?}"),
                         StatusCode::INTERNAL_SERVER_ERROR,
@@ -295,7 +320,7 @@ mod handlers {
                 }
             },
             Err(err) => {
-                debug!("SignerRelay: received error '{err:?}'");
+                debug!(logger, "Received error"; "error" => ?err);
                 Ok(Box::new(warp::reply::with_status(
                     format!("{err:?}"),
                     StatusCode::INTERNAL_SERVER_ERROR,
