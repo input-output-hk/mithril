@@ -15,7 +15,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2442.0] - UNRELEASED
+## Mithril Distribution [2442.0] - 2024-10-21
 
 - Decentralization of the signature orchestration:
 
@@ -41,9 +41,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.5.83`  |
+| mithril-client      | `0.9.2`   |
+| mithril-client-cli  | `0.9.15`  |
+| mithril-client-wasm | `0.5.2`   |
+| mithril-common      | `0.4.69`  |
+| mithril-signer      | `0.2.200` |
+| mithril-stm         | `0.3.30`  |
 
 ## Mithril Distribution [2437.1] - 2024-09-23
 
