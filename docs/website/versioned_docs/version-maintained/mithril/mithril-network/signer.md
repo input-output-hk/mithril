@@ -40,7 +40,6 @@ Ultimately, any signer will have the potential to function as a Mithril aggregat
 
 The Mithril signer establishes a connection with the Mithril aggregator for the following purposes:
 
-- Determining when to sign a new snapshot (via the advertised beacon of the pending certificate)
 - Obtaining the presently used protocol parameters
 - Registering its verification keys (public keys)
 - Receiving the verification keys of all other declared signers, available for the upcoming message signing
@@ -56,7 +55,7 @@ In its initial version, the **Mithril signer** consists of a primary component:
 
 - A runtime powered by a state machine:
   - The runtime operates synchronously and is programmed to run at consistent intervals
-  - Three potential states exist: **UNREGISTERED**, **REGISTERED**, and **SIGNED**
+  - Four potential states exist: **INIT**, **UNREGISTERED**, **READY TO SIGN** and **REGISTERED NOT ABLE TO SIGN**.
   - The runtime effectively manages state transitions
   - The runtime's framework is depicted in the diagram below:
 
