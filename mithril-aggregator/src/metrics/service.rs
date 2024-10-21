@@ -24,9 +24,13 @@ build_metrics_service!(
         "mithril_aggregator_artifact_detail_cardano_transaction_total_served_since_startup_counter",
         "Number of Cardano transaction artifact details served since startup on a Mithril aggregator node"
     ),
-    proof_cardano_transaction_total_served_since_startup:MetricCounter(
-        "mithril_aggregator_proof_cardano_transaction_total_served_since_startup_counter",
+    proof_cardano_transaction_total_proofs_served_since_startup:MetricCounter(
+        "mithril_aggregator_proof_cardano_transaction_total_proofs_served_since_startup_counter",
         "Number of Cardano transaction proofs served since startup on a Mithril aggregator node"
+    ),
+    proof_cardano_transaction_total_transactions_served_since_startup:MetricCounter(
+        "mithril_aggregator_proof_cardano_transaction_total_transactions_served_since_startup_counter",
+        "Number of Cardano transaction hashes requested for proof since startup on a Mithril aggregator node"
     ),
     signer_registration_total_received_since_startup:MetricCounter(
         "mithril_aggregator_signer_registration_total_received_since_startup_counter",
