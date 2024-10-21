@@ -45,4 +45,3 @@ scrape_configs:
     file_sd_configs:
       - files:
           - "mithril-aggregator.json"
-
