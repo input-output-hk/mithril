@@ -212,7 +212,7 @@ impl ServeCommand {
         let metrics_service = dependencies_builder
             .get_metrics_service()
             .await
-            .with_context(|| "metric service initialization error")?;
+            .with_context(|| "Metrics service initialization error")?;
         let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
         if config.enable_metrics_server {
             let metrics_logger = root_logger.clone();

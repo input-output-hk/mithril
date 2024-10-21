@@ -177,32 +177,23 @@ impl AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
     ) {
-        match signed_entity_type {
+        let metrics = self.dependencies.metrics_service.clone();
+        let metric_counter = match signed_entity_type {
             SignedEntityType::MithrilStakeDistribution(_) => {
-                self.dependencies
-                    .metrics_service
-                    .get_artifact_mithril_stake_distribution_total_produced_since_startup()
-                    .increment();
+                metrics.get_artifact_mithril_stake_distribution_total_produced_since_startup()
             }
             SignedEntityType::CardanoImmutableFilesFull(_) => {
-                self.dependencies
-                    .metrics_service
-                    .get_artifact_cardano_db_total_produced_since_startup()
-                    .increment();
+                metrics.get_artifact_cardano_db_total_produced_since_startup()
             }
             SignedEntityType::CardanoStakeDistribution(_) => {
-                self.dependencies
-                    .metrics_service
-                    .get_artifact_cardano_stake_distribution_total_produced_since_startup()
-                    .increment();
+                metrics.get_artifact_cardano_stake_distribution_total_produced_since_startup()
             }
             SignedEntityType::CardanoTransactions(_, _) => {
-                self.dependencies
-                    .metrics_service
-                    .get_artifact_cardano_transaction_total_produced_since_startup()
-                    .increment();
+                metrics.get_artifact_cardano_transaction_total_produced_since_startup()
             }
-        }
+        };
+
+        metric_counter.increment();
     }
 }
 
@@ -430,16 +421,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 format!(
                     "CertifierService can not create certificate for signed_entity_type: '{signed_entity_type}'"
                 )
-            });
+            })?;
 
-        if let Ok(Some(_)) = &certificate {
+        if certificate.is_some() {
             self.dependencies
                 .metrics_service
                 .get_certificate_total_produced_since_startup()
                 .increment();
         }
 
-        certificate
+        Ok(certificate)
     }
 
     async fn create_artifact(

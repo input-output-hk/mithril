@@ -1,5 +1,5 @@
 use crate::test_extensions::utilities::tx_hash;
-use crate::test_extensions::{AggregatorObserver, ExpectedCertificate};
+use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 use anyhow::{anyhow, Context};
 use chrono::Utc;
 use mithril_aggregator::MetricsService;
@@ -31,8 +31,6 @@ use slog_scope::debug;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
-
-use super::MetricsVerifier;
 
 #[macro_export]
 macro_rules! cycle {
