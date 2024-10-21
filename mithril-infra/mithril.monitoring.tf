@@ -62,6 +62,16 @@ cat /home/curry/docker/prometheus/mithril-signer.json | jq --arg MITHRIL_SIGNER_
 }]' | jq '. | map(try(.targets |= split(",")) // .)' > /home/curry/docker/prometheus/mithril-signer.json.new
 rm -f /home/curry/docker/prometheus/mithril-signer.json
 mv /home/curry/docker/prometheus/mithril-signer.json.new docker/prometheus/mithril-signer.json
+# Setup prometheus targets configuration for Mithril aggregator nodes
+MITHRIL_AGGREGATOR_NODES=$(docker ps --format='{{.Names}}:8080,' | grep "mithril-aggregator" | sort | tr -d '\n\t\r ' | sed 's/.$//')
+cat /home/curry/docker/prometheus/mithril-aggregator.json | jq --arg MITHRIL_AGGREGATOR_NODES "$MITHRIL_AGGREGATOR_NODES" '. += [{
+    "labels": {
+        "job": "mithril-aggregator"
+    },
+    "targets": $MITHRIL_AGGREGATOR_NODES
+}]' | jq '. | map(try(.targets |= split(",")) // .)' > /home/curry/docker/prometheus/mithril-aggregator.json.new
+rm -f /home/curry/docker/prometheus/mithril-aggregator.json
+mv /home/curry/docker/prometheus/mithril-aggregator.json.new docker/prometheus/mithril-aggregator.json
 EOT
       ,
       <<-EOT
