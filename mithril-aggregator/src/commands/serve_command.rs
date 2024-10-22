@@ -87,6 +87,31 @@ impl Source for ServeCommand {
                 ),
             );
         }
+        result.insert(
+            "disable_digests_cache".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(self.disable_digests_cache),
+            ),
+        );
+        result.insert(
+            "reset_digests_cache".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(self.reset_digests_cache)),
+        );
+        result.insert(
+            "allow_unparsable_block".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(self.allow_unparsable_block),
+            ),
+        );
+        result.insert(
+            "enable_metrics_server".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(self.enable_metrics_server),
+            ),
+        );
         if let Some(metrics_server_ip) = self.metrics_server_ip.clone() {
             result.insert(
                 "metrics_server_ip".to_string(),
