@@ -29,6 +29,7 @@ fn register_signer(
         .and(middlewares::with_signer_registerer(dependency_manager))
         .and(middlewares::with_event_transmitter(dependency_manager))
         .and(middlewares::with_epoch_service(dependency_manager))
+        .and(middlewares::with_metrics_service(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
@@ -79,7 +80,7 @@ mod handlers {
     use crate::{
         http_server::routes::reply, Configuration, SignerRegisterer, SignerRegistrationError,
     };
-    use crate::{FromRegisterSignerAdapter, VerificationKeyStorer};
+    use crate::{FromRegisterSignerAdapter, MetricsService, VerificationKeyStorer};
     use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
     use slog::{debug, warn, Logger};
@@ -95,8 +96,13 @@ mod handlers {
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         epoch_service: EpochServiceWrapper,
+        metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(logger, ">> register_signer"; "payload" => ?register_signer_message);
+
+        metrics_service
+            .get_signer_registration_total_received_since_startup()
+            .increment();
 
         let registration_epoch = register_signer_message.epoch;
 
@@ -315,6 +321,33 @@ mod tests {
             &StatusCode::CREATED,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_post_increments_signer_registration_total_received_since_startup_metric(
+    ) {
+        let method = Method::POST.as_str();
+        let path = "/register-signer";
+        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let initial_counter_value = dependency_manager
+            .metrics_service
+            .get_signer_registration_total_received_since_startup()
+            .get();
+
+        request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&RegisterSignerMessage::dummy())
+            .reply(&setup_router(dependency_manager.clone()))
+            .await;
+
+        assert_eq!(
+            initial_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_signer_registration_total_received_since_startup()
+                .get()
+        );
     }
 
     #[tokio::test]

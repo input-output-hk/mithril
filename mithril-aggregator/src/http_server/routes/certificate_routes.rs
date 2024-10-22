@@ -42,10 +42,12 @@ fn certificate_certificate_hash(
         .and(warp::get())
         .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
+        .and(middlewares::with_metrics_service(dependency_manager))
         .and_then(handlers::certificate_certificate_hash)
 }
 
 mod handlers {
+    use crate::MetricsService;
     use crate::{
         http_server::routes::reply, services::MessageService, CertificatePendingStore,
         ToCertificatePendingMessageAdapter,
@@ -98,7 +100,12 @@ mod handlers {
         certificate_hash: String,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
+        metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
+        metrics_service
+            .get_certificate_detail_total_served_since_startup()
+            .increment();
+
         match http_message_service
             .get_certificate_message(&certificate_hash)
             .await
@@ -295,6 +302,32 @@ mod tests {
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_certificate_certificate_hash_increments_certificate_detail_total_served_since_startup_metric(
+    ) {
+        let method = Method::GET.as_str();
+        let path = "/certificate/{certificate_hash}";
+        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let initial_counter_value = dependency_manager
+            .metrics_service
+            .get_certificate_detail_total_served_since_startup()
+            .get();
+
+        request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(dependency_manager.clone()))
+            .await;
+
+        assert_eq!(
+            initial_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_certificate_detail_total_served_since_startup()
+                .get()
+        );
     }
 
     #[tokio::test]

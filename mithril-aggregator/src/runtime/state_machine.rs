@@ -131,6 +131,9 @@ impl AggregatorRuntime {
         );
         info!(self.logger, "new cycle: {}", self.state);
 
+        self.runner
+            .increment_runtime_cycle_total_since_startup_counter();
+
         match self.state.clone() {
             AggregatorState::Idle(state) => {
                 let last_time_point = self.runner.get_time_point_from_chain().await.with_context(
@@ -225,6 +228,10 @@ impl AggregatorRuntime {
                 }
             }
         }
+
+        self.runner
+            .increment_runtime_cycle_success_since_startup_counter();
+
         Ok(())
     }
 
@@ -444,6 +451,13 @@ mod tests {
             .once()
             .returning(|| Ok(()));
         runner.expect_upkeep().once().returning(|| Ok(()));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .never();
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
@@ -501,6 +515,14 @@ mod tests {
             .once()
             .returning(|| Ok(()));
         runner.expect_upkeep().once().returning(|| Ok(()));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .once()
+            .returning(|| ());
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
@@ -526,6 +548,14 @@ mod tests {
             .expect_get_time_point_from_chain()
             .once()
             .returning(move || Ok(new_time_point.clone()));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .once()
+            .returning(|| ());
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
                 current_time_point: time_point,
@@ -555,6 +585,14 @@ mod tests {
             .expect_get_current_non_certified_open_message()
             .once()
             .returning(|_| Ok(None));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .once()
+            .returning(|| ());
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
                 current_time_point: time_point.clone(),
@@ -598,6 +636,14 @@ mod tests {
             .expect_save_pending_certificate()
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .once()
+            .returning(|| ());
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
@@ -626,6 +672,14 @@ mod tests {
             .expect_drop_pending_certificate()
             .once()
             .returning(|| Ok(Some(fake_data::certificate_pending())));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .once()
+            .returning(|| ());
 
         let initial_state = AggregatorState::Signing(SigningState {
             current_time_point: TimePoint::dummy(),
@@ -653,6 +707,13 @@ mod tests {
             .expect_create_certificate()
             .once()
             .returning(|_| Ok(None));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .never();
         let state = SigningState {
             current_time_point: TimePoint::dummy(),
             open_message: OpenMessage::dummy(),
@@ -693,6 +754,13 @@ mod tests {
             .expect_create_artifact()
             .once()
             .returning(|_, _| Err(anyhow!("whatever")));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .never();
         let state = SigningState {
             current_time_point: TimePoint::dummy(),
             open_message: OpenMessage::dummy(),
@@ -733,6 +801,14 @@ mod tests {
             .expect_create_artifact()
             .once()
             .returning(|_, _| Ok(()));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .once()
+            .returning(|| ());
 
         let state = SigningState {
             current_time_point: TimePoint::dummy(),
@@ -760,6 +836,13 @@ mod tests {
             .expect_close_signer_registration_round()
             .once()
             .returning(|| Ok(()));
+        runner
+            .expect_increment_runtime_cycle_total_since_startup_counter()
+            .once()
+            .returning(|| ());
+        runner
+            .expect_increment_runtime_cycle_success_since_startup_counter()
+            .never();
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {

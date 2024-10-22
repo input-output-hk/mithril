@@ -128,6 +128,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         open_message_signed_entity_type: SignedEntityType,
         last_time_point: &TimePoint,
     ) -> StdResult<bool>;
+
+    /// Increment the runtime cycle success metric.
+    fn increment_runtime_cycle_success_since_startup_counter(&self);
+
+    /// Increment the runtime cycle total metric.
+    fn increment_runtime_cycle_total_since_startup_counter(&self);
 }
 
 /// The runner responsibility is to expose a code API for the state machine. It
@@ -165,6 +171,29 @@ impl AggregatorRunner {
             .await;
 
         Ok(unlocked_signed_entities)
+    }
+
+    fn increment_artifact_total_produced_metric_since_startup(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) {
+        let metrics = self.dependencies.metrics_service.clone();
+        let metric_counter = match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(_) => {
+                metrics.get_artifact_mithril_stake_distribution_total_produced_since_startup()
+            }
+            SignedEntityType::CardanoImmutableFilesFull(_) => {
+                metrics.get_artifact_cardano_db_total_produced_since_startup()
+            }
+            SignedEntityType::CardanoStakeDistribution(_) => {
+                metrics.get_artifact_cardano_stake_distribution_total_produced_since_startup()
+            }
+            SignedEntityType::CardanoTransactions(_, _) => {
+                metrics.get_artifact_cardano_transaction_total_produced_since_startup()
+            }
+        };
+
+        metric_counter.increment();
     }
 }
 
@@ -384,7 +413,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> StdResult<Option<Certificate>> {
         debug!(self.logger, ">> create_certificate"; "signed_entity_type" => ?signed_entity_type);
 
-        self.dependencies
+        let certificate = self.dependencies
             .certifier_service
             .create_certificate(signed_entity_type)
             .await
@@ -392,7 +421,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 format!(
                     "CertifierService can not create certificate for signed_entity_type: '{signed_entity_type}'"
                 )
-            })
+            })?;
+
+        if certificate.is_some() {
+            self.dependencies
+                .metrics_service
+                .get_certificate_total_produced_since_startup()
+                .increment();
+        }
+
+        Ok(certificate)
     }
 
     async fn create_artifact(
@@ -416,6 +454,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     certificate.hash
                 )
             })?;
+
+        self.increment_artifact_total_produced_metric_since_startup(signed_entity_type);
 
         Ok(())
     }
@@ -528,6 +568,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         };
 
         Ok(exists_newer_open_message || is_expired_open_message)
+    }
+
+    fn increment_runtime_cycle_success_since_startup_counter(&self) {
+        self.dependencies
+            .metrics_service
+            .get_runtime_cycle_success_since_startup()
+            .increment();
+    }
+
+    fn increment_runtime_cycle_total_since_startup_counter(&self) {
+        self.dependencies
+            .metrics_service
+            .get_runtime_cycle_total_since_startup()
+            .increment();
     }
 }
 

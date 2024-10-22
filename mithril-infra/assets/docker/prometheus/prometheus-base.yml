@@ -40,3 +40,8 @@ scrape_configs:
     file_sd_configs:
       - files:
           - "mithril-signer.json"
+
+  - job_name: "mithril-aggregators"
+    file_sd_configs:
+      - files:
+          - "mithril-aggregator.json"

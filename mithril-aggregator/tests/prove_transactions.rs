@@ -7,7 +7,9 @@ use mithril_common::{
     },
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
+use test_extensions::{
+    utilities::get_test_dir, ExpectedCertificate, ExpectedMetrics, RuntimeTester,
+};
 
 use crate::test_extensions::utilities::tx_hash;
 
@@ -148,5 +150,12 @@ async fn prove_transactions() {
             .get_message_part(&ProtocolMessagePartKey::CardanoTransactionsMerkleRoot),
         Some(&proof_merkle_root),
         "The proof merkle root should match the one in the certificate"
+    );
+
+    assert_metrics_eq!(
+        tester.metrics_verifier,
+        ExpectedMetrics::new()
+            .certificate_total(1)
+            .artifact_cardano_transaction_total(1)
     );
 }

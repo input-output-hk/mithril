@@ -1,7 +1,8 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use mithril_common::StdResult;
+use mithril_metric::MetricsServer;
 use slog::{crit, debug, info, warn, Logger};
 use std::time::Duration;
 use std::{net::IpAddr, path::PathBuf};
@@ -42,6 +43,18 @@ pub struct ServeCommand {
     /// Will be ignored on (pre)production networks.
     #[clap(long)]
     allow_unparsable_block: bool,
+
+    /// Enable metrics HTTP server (Prometheus endpoint on /metrics).
+    #[clap(long)]
+    enable_metrics_server: bool,
+
+    /// Metrics HTTP server IP.
+    #[clap(long)]
+    metrics_server_ip: Option<String>,
+
+    /// Metrics HTTP server listening port.
+    #[clap(long)]
+    metrics_server_port: Option<u16>,
 }
 
 impl Source for ServeCommand {
@@ -72,6 +85,43 @@ impl Source for ServeCommand {
                     Some(&namespace),
                     ValueKind::from(format!("{}", snapshot_directory.to_string_lossy())),
                 ),
+            );
+        }
+        result.insert(
+            "disable_digests_cache".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(self.disable_digests_cache),
+            ),
+        );
+        result.insert(
+            "reset_digests_cache".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(self.reset_digests_cache)),
+        );
+        result.insert(
+            "allow_unparsable_block".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(self.allow_unparsable_block),
+            ),
+        );
+        result.insert(
+            "enable_metrics_server".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(self.enable_metrics_server),
+            ),
+        );
+        if let Some(metrics_server_ip) = self.metrics_server_ip.clone() {
+            result.insert(
+                "metrics_server_ip".to_string(),
+                Value::new(Some(&namespace), ValueKind::from(metrics_server_ip)),
+            );
+        }
+        if let Some(metrics_server_port) = self.metrics_server_port {
+            result.insert(
+                "metrics_server_port".to_string(),
+                Value::new(Some(&namespace), ValueKind::from(metrics_server_port)),
             );
         }
 
@@ -184,6 +234,27 @@ impl ServeCommand {
                 }
             }
         }
+        let metrics_service = dependencies_builder
+            .get_metrics_service()
+            .await
+            .with_context(|| "Metrics service initialization error")?;
+        let (metrics_server_shutdown_tx, metrics_server_shutdown_rx) = oneshot::channel();
+        if config.enable_metrics_server {
+            let metrics_logger = root_logger.clone();
+            join_set.spawn(async move {
+                let _ = MetricsServer::new(
+                    &config.metrics_server_ip,
+                    config.metrics_server_port,
+                    metrics_service,
+                    metrics_logger.clone(),
+                )
+                .start(metrics_server_shutdown_rx)
+                .await
+                .map_err(|e| anyhow!(e));
+
+                Ok(())
+            });
+        }
 
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
         dependencies_builder.vanish().await;
@@ -191,6 +262,10 @@ impl ServeCommand {
         if let Err(e) = join_set.join_next().await.unwrap()? {
             crit!(root_logger, "A critical error occurred"; "error" => e);
         }
+
+        metrics_server_shutdown_tx
+            .send(())
+            .map_err(|e| anyhow!("Metrics server shutdown signal could not be sent: {e:?}"))?;
 
         // stop servers
         join_set.shutdown().await;

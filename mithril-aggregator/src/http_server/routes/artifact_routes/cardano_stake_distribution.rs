@@ -33,6 +33,7 @@ fn artifact_cardano_stake_distribution_by_id(
         .and(warp::get())
         .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
+        .and(middlewares::with_metrics_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
@@ -44,12 +45,14 @@ fn artifact_cardano_stake_distribution_by_epoch(
         .and(warp::get())
         .and(middlewares::with_logger(dependency_manager))
         .and(middlewares::with_http_message_service(dependency_manager))
+        .and(middlewares::with_metrics_service(dependency_manager))
         .and_then(handlers::get_artifact_by_epoch)
 }
 
 pub mod handlers {
     use crate::http_server::routes::reply;
     use crate::services::MessageService;
+    use crate::MetricsService;
 
     use mithril_common::entities::Epoch;
     use slog::{warn, Logger};
@@ -81,7 +84,12 @@ pub mod handlers {
         signed_entity_id: String,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
+        metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
+        metrics_service
+            .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
+            .increment();
+
         match http_message_service
             .get_cardano_stake_distribution_message(&signed_entity_id)
             .await
@@ -103,7 +111,12 @@ pub mod handlers {
         epoch: String,
         logger: Logger,
         http_message_service: Arc<dyn MessageService>,
+        metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
+        metrics_service
+            .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
+            .increment();
+
         let artifact_epoch = match epoch.parse::<u64>() {
             Ok(epoch) => Epoch(epoch),
             Err(err) => {
@@ -230,6 +243,52 @@ pub mod tests {
             &StatusCode::INTERNAL_SERVER_ERROR,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cardano_stake_distribution_increments_artifact_detail_total_served_since_startup_metric(
+    ) {
+        let method = Method::GET.as_str();
+        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let initial_counter_value = dependency_manager
+            .metrics_service
+            .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
+            .get();
+        {
+            let path = "/artifact/cardano-stake-distribution/{hash}";
+
+            request()
+                .method(method)
+                .path(&format!("/{SERVER_BASE_PATH}{path}"))
+                .reply(&setup_router(dependency_manager.clone()))
+                .await;
+
+            assert_eq!(
+                initial_counter_value + 1,
+                dependency_manager
+                    .metrics_service
+                    .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
+                    .get()
+            );
+        }
+
+        {
+            let base_path = "/artifact/cardano-stake-distribution/epoch";
+
+            request()
+                .method(method)
+                .path(&format!("/{SERVER_BASE_PATH}{base_path}/123"))
+                .reply(&setup_router(dependency_manager.clone()))
+                .await;
+
+            assert_eq!(
+                initial_counter_value + 2,
+                dependency_manager
+                    .metrics_service
+                    .get_artifact_detail_cardano_stake_distribution_total_served_since_startup()
+                    .get()
+            );
+        }
     }
 
     #[tokio::test]

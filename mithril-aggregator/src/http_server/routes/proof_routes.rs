@@ -42,6 +42,7 @@ fn proof_cardano_transaction(
         .and(middlewares::with_signed_entity_service(dependency_manager))
         .and(middlewares::validators::with_prover_transactions_hash_validator(dependency_manager))
         .and(middlewares::with_prover_service(dependency_manager))
+        .and(middlewares::with_metrics_service(dependency_manager))
         .and_then(handlers::proof_cardano_transaction)
 }
 
@@ -59,7 +60,7 @@ mod handlers {
         http_server::{routes::reply, validators::ProverTransactionsHashValidator},
         message_adapters::ToCardanoTransactionsProofsMessageAdapter,
         services::{ProverService, SignedEntityService},
-        unwrap_to_internal_server_error,
+        unwrap_to_internal_server_error, MetricsService,
     };
 
     use super::CardanoTransactionProofQueryParams;
@@ -70,7 +71,12 @@ mod handlers {
         signed_entity_service: Arc<dyn SignedEntityService>,
         validator: ProverTransactionsHashValidator,
         prover_service: Arc<dyn ProverService>,
+        metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
+        metrics_service
+            .get_proof_cardano_transaction_total_proofs_served_since_startup()
+            .increment();
+
         let transaction_hashes = transaction_parameters.split_transactions_hashes();
         debug!(
             logger, ">> proof_cardano_transaction";
@@ -83,6 +89,11 @@ mod handlers {
         }
 
         let sanitized_hashes = transaction_parameters.sanitize();
+
+        // Fallback to 0, it should be impossible to have more than u32::MAX transactions.
+        metrics_service
+            .get_proof_cardano_transaction_total_transactions_served_since_startup()
+            .increment_by(sanitized_hashes.len().try_into().unwrap_or(0));
 
         match unwrap_to_internal_server_error!(
             signed_entity_service
@@ -143,11 +154,11 @@ mod tests {
         test_utils::{apispec::APISpec, assert_equivalent, fake_data},
     };
 
-    use crate::services::MockSignedEntityService;
     use crate::{
         dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH,
         services::MockProverService, Configuration,
     };
+    use crate::{initialize_dependencies, services::MockSignedEntityService};
 
     use super::*;
 
@@ -192,6 +203,47 @@ mod tests {
 
         // Assert
         assert_eq!(message.latest_block_number, 2309)
+    }
+
+    #[tokio::test]
+    async fn test_proof_cardano_transaction_increments_proofs_metrics() {
+        let method = Method::GET.as_str();
+        let path = "/proof/cardano-transaction";
+        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let initial_proofs_counter_value = dependency_manager
+            .metrics_service
+            .get_proof_cardano_transaction_total_proofs_served_since_startup()
+            .get();
+        let initial_transactions_counter_value = dependency_manager
+            .metrics_service
+            .get_proof_cardano_transaction_total_transactions_served_since_startup()
+            .get();
+
+        request()
+            .method(method)
+            .path(&format!(
+                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{},{}",
+                fake_data::transaction_hashes()[0],
+                fake_data::transaction_hashes()[1],
+                fake_data::transaction_hashes()[2]
+            ))
+            .reply(&setup_router(dependency_manager.clone()))
+            .await;
+
+        assert_eq!(
+            initial_proofs_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_proof_cardano_transaction_total_proofs_served_since_startup()
+                .get()
+        );
+        assert_eq!(
+            initial_transactions_counter_value + 3,
+            dependency_manager
+                .metrics_service
+                .get_proof_cardano_transaction_total_transactions_served_since_startup()
+                .get()
+        );
     }
 
     #[tokio::test]

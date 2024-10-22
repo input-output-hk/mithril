@@ -44,6 +44,15 @@ impl MetricCounter {
         self.counter.inc();
     }
 
+    /// Increment the counter by a value.
+    pub fn increment_by(&self, value: CounterValue) {
+        debug!(
+            self.logger,
+            "Incrementing '{}' counter by {}", self.name, value
+        );
+        self.counter.inc_by(value as f64);
+    }
+
     /// Get the counter value.
     pub fn get(&self) -> CounterValue {
         self.counter.get().round() as CounterValue
@@ -131,7 +140,7 @@ mod tests {
     }
 
     #[test]
-    fn test_metric_gauge_can_be_set_and_the_getter_rounded_the_value() {
+    fn test_metric_gauge_can_be_recorded() {
         let metric =
             MetricGauge::new(TestLogger::stdout(), "test_gauge", "test gauge help").unwrap();
         assert_eq!(metric.name(), "test_gauge");
@@ -139,5 +148,14 @@ mod tests {
 
         metric.record(12.3);
         assert_eq!(metric.get(), 12.3);
+    }
+
+    #[test]
+    fn test_metric_counter_can_be_incremented_more_than_one() {
+        let metric =
+            MetricCounter::new(TestLogger::stdout(), "test_counter", "test counter help").unwrap();
+
+        metric.increment_by(37);
+        assert_eq!(metric.get(), 37);
     }
 }

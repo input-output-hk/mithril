@@ -53,7 +53,9 @@ macro_rules! build_metrics_service {
 
                     $(
                         let $metric_attribute = $metric_type::new(
-                            logger.clone(),
+                            mithril_common::logging::LoggerExtensions::new_with_component_name::<Self>(
+                                &logger,
+                            ),
                             $name,
                             $help,
                         )?;
