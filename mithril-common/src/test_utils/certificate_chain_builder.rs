@@ -789,66 +789,59 @@ mod test {
 
     #[test]
     fn builds_certificate_chain_correctly_chained() {
-        fn create_fake_certificate(epoch: Epoch, index: u64) -> Certificate {
+        fn create_fake_certificate(epoch: Epoch, index_in_epoch: u64) -> Certificate {
             Certificate {
                 epoch,
-                signed_message: format!("certificate-{index}"),
+                signed_message: format!("certificate-{}-{index_in_epoch}", *epoch),
                 ..fake_data::certificate("cert-fake".to_string())
             }
         }
 
-        let certificate_1 = create_fake_certificate(Epoch(1), 1);
-        let certificate_2 = create_fake_certificate(Epoch(2), 2);
-        let certificate_3 = create_fake_certificate(Epoch(2), 3);
-        let certificate_4 = create_fake_certificate(Epoch(3), 4);
-        let certificate_5 = create_fake_certificate(Epoch(4), 5);
-        let certificate_6 = create_fake_certificate(Epoch(4), 6);
-        let certificate_7 = create_fake_certificate(Epoch(4), 7);
         let certificates = vec![
-            certificate_1,
-            certificate_2,
-            certificate_3,
-            certificate_4,
-            certificate_5,
-            certificate_6,
-            certificate_7,
+            create_fake_certificate(Epoch(1), 1),
+            create_fake_certificate(Epoch(2), 1),
+            create_fake_certificate(Epoch(2), 2),
+            create_fake_certificate(Epoch(3), 1),
+            create_fake_certificate(Epoch(4), 1),
+            create_fake_certificate(Epoch(4), 2),
+            create_fake_certificate(Epoch(4), 3),
         ];
 
         let mut certificates_chained =
             CertificateChainBuilder::default().compute_chained_certificates(certificates);
         certificates_chained.reverse();
 
-        let certificate_chained_1 = &certificates_chained[0];
-        let certificate_chained_2 = &certificates_chained[1];
-        let certificate_chained_3 = &certificates_chained[2];
-        let certificate_chained_4 = &certificates_chained[3];
-        let certificate_chained_5 = &certificates_chained[4];
-        let certificate_chained_6 = &certificates_chained[5];
-        let certificate_chained_7 = &certificates_chained[6];
-        assert_eq!("", certificate_chained_1.previous_hash);
+        let certificate_chained_1_1 = &certificates_chained[0];
+        let certificate_chained_2_1 = &certificates_chained[1];
+        let certificate_chained_2_2 = &certificates_chained[2];
+        let certificate_chained_3_1 = &certificates_chained[3];
+        let certificate_chained_4_1 = &certificates_chained[4];
+        let certificate_chained_4_2 = &certificates_chained[5];
+        let certificate_chained_4_3 = &certificates_chained[6];
+        assert_eq!("", certificate_chained_1_1.previous_hash);
         assert_eq!(
-            certificate_chained_2.previous_hash,
-            certificate_chained_1.hash
+            certificate_chained_2_1.previous_hash,
+            certificate_chained_1_1.hash
         );
         assert_eq!(
-            certificate_chained_3.previous_hash,
-            certificate_chained_2.hash
+            certificate_chained_2_2.previous_hash,
+            certificate_chained_2_1.hash
         );
         assert_eq!(
-            certificate_chained_4.previous_hash,
-            certificate_chained_2.hash
+            certificate_chained_3_1.previous_hash,
+            certificate_chained_2_1.hash
         );
         assert_eq!(
-            certificate_chained_5.previous_hash,
-            certificate_chained_4.hash
+            certificate_chained_4_1.previous_hash,
+            certificate_chained_3_1.hash
         );
         assert_eq!(
-            certificate_chained_6.previous_hash,
-            certificate_chained_5.hash
+            certificate_chained_4_2.previous_hash,
+            certificate_chained_4_1.hash
         );
         assert_eq!(
-            certificate_chained_7.previous_hash,
-            certificate_chained_5.hash
+            certificate_chained_4_3.previous_hash,
+            certificate_chained_4_1.hash
         );
     }
 
