@@ -154,7 +154,6 @@ impl EventPersister {
 
     /// Save an EventMessage in the database.
     pub fn persist(&self, message: EventMessage) -> StdResult<Event> {
-        self.create_table_if_not_exists();
         let log_message = message.clone();
         let mut rows = self.connection.fetch(InsertEventQuery::one(message)?)?;
 
@@ -162,26 +161,13 @@ impl EventPersister {
             "No record from the database after I saved event message {log_message:?}"
         ))
     }
-
-    fn create_table_if_not_exists(&self) {
-        let sql = r#"
-        create table if not exists event (
-            event_id integer primary key asc autoincrement,
-            created_at text not null,
-            source text not null,
-            action text not null,
-            content text nul null
-        )"#;
-
-        self.connection.execute(sql).unwrap();
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::event_store::test_helper::event_store_db_connection;
     use mithril_common::StdResult;
-    use sqlite::Connection;
 
     #[test]
     fn event_projection() {
@@ -207,7 +193,19 @@ mod tests {
 
     #[test]
     fn can_persist_event() -> StdResult<()> {
-        let connection = Arc::new(Connection::open_thread_safe(":memory:").unwrap());
+        let connection = Arc::new(event_store_db_connection().unwrap());
+
+        let persister = EventPersister::new(connection);
+        let message = EventMessage::new("source", "action", "content");
+
+        let _event = persister.persist(message)?;
+        Ok(())
+    }
+
+    #[test]
+    fn migration_executed_running_database() -> StdResult<()> {
+        let connection = Arc::new(event_store_db_connection().unwrap());
+
         let persister = EventPersister::new(connection);
         let message = EventMessage::new("source", "action", "content");
 
