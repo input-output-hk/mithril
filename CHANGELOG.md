@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for Prometheus metrics endpoint in aggregator
 
+- Fix an issue that caused unnecessary re-scan of the Cardano chain when importing transactions.
+
 - Crates versions:
 
 | Crate | Version |

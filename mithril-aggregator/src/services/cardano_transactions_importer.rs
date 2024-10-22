@@ -5,7 +5,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, Logger};
-use tokio::{runtime::Handle, task};
+use tokio::{runtime::Handle, sync::Mutex, task};
 
 use mithril_common::cardano_block_scanner::{BlockScanner, ChainScannedBlocks};
 use mithril_common::crypto_helper::{MKTree, MKTreeNode, MKTreeStoreInMemory};
@@ -56,6 +56,7 @@ pub trait TransactionStore: Send + Sync {
 pub struct CardanoTransactionsImporter {
     block_scanner: Arc<dyn BlockScanner>,
     transaction_store: Arc<dyn TransactionStore>,
+    latest_polled_chain_point: Arc<Mutex<Option<ChainPoint>>>,
     logger: Logger,
 }
 
@@ -69,12 +70,23 @@ impl CardanoTransactionsImporter {
         Self {
             block_scanner,
             transaction_store,
+            latest_polled_chain_point: Arc::new(Mutex::new(None)),
             logger: logger.new_with_component_name::<Self>(),
         }
     }
 
+    async fn start_chain_point(&self) -> StdResult<Option<ChainPoint>> {
+        let last_scanned_chain_point = self.latest_polled_chain_point.lock().await.clone();
+
+        if last_scanned_chain_point.is_none() {
+            self.transaction_store.get_highest_beacon().await
+        } else {
+            Ok(last_scanned_chain_point)
+        }
+    }
+
     async fn import_transactions(&self, up_to_beacon: BlockNumber) -> StdResult<()> {
-        let from = self.transaction_store.get_highest_beacon().await?;
+        let from = self.start_chain_point().await?;
         self.parse_and_store_transactions_not_imported_yet(from, up_to_beacon)
             .await
     }
@@ -120,6 +132,7 @@ impl CardanoTransactionsImporter {
                 }
             }
         }
+        *self.latest_polled_chain_point.lock().await = streamer.latest_polled_chain_point();
 
         Ok(())
     }
@@ -779,6 +792,189 @@ mod tests {
 
         assert_eq!(transactions, cold_imported_transactions);
         assert_eq!(cold_imported_transactions, warm_imported_transactions);
+    }
+
+    mod transactions_import_start_point {
+        use super::*;
+
+        async fn importer_with_highest_stored_transaction_and_last_polled_chain_point(
+            highest_stored_transaction: Option<CardanoTransaction>,
+            last_polled_chain_point: Option<ChainPoint>,
+        ) -> CardanoTransactionsImporter {
+            let connection = cardano_tx_db_connection().unwrap();
+            let repository = Arc::new(CardanoTransactionRepository::new(Arc::new(
+                SqliteConnectionPool::build_from_connection(connection),
+            )));
+
+            if let Some(transaction) = highest_stored_transaction {
+                repository
+                    .store_transactions(vec![transaction])
+                    .await
+                    .unwrap();
+            }
+
+            CardanoTransactionsImporter {
+                latest_polled_chain_point: Arc::new(Mutex::new(last_polled_chain_point)),
+                ..CardanoTransactionsImporter::new_for_test(
+                    Arc::new(DumbBlockScanner::new()),
+                    repository,
+                )
+            }
+        }
+
+        #[tokio::test]
+        async fn cloning_keep_last_polled_chain_point() {
+            let importer = importer_with_highest_stored_transaction_and_last_polled_chain_point(
+                None,
+                Some(ChainPoint::new(
+                    SlotNumber(15),
+                    BlockNumber(10),
+                    "block_hash-1",
+                )),
+            )
+            .await;
+
+            let cloned_importer = importer.clone();
+            let start_point = cloned_importer.start_chain_point().await.unwrap();
+            assert_eq!(
+                Some(ChainPoint::new(
+                    SlotNumber(15),
+                    BlockNumber(10),
+                    "block_hash-1"
+                )),
+                start_point
+            );
+        }
+
+        #[tokio::test]
+        async fn none_if_nothing_stored_nor_scanned() {
+            let importer =
+                importer_with_highest_stored_transaction_and_last_polled_chain_point(None, None)
+                    .await;
+
+            let start_point = importer.start_chain_point().await.unwrap();
+            assert_eq!(None, start_point);
+        }
+
+        #[tokio::test]
+        async fn start_at_last_stored_chain_point_if_nothing_scanned() {
+            let importer = importer_with_highest_stored_transaction_and_last_polled_chain_point(
+                Some(CardanoTransaction::new(
+                    "tx_hash-2",
+                    BlockNumber(20),
+                    SlotNumber(25),
+                    "block_hash-2",
+                )),
+                None,
+            )
+            .await;
+
+            let start_point = importer.start_chain_point().await.unwrap();
+            assert_eq!(
+                Some(ChainPoint::new(
+                    SlotNumber(25),
+                    BlockNumber(20),
+                    "block_hash-2"
+                )),
+                start_point
+            );
+        }
+
+        #[tokio::test]
+        async fn start_at_last_scanned_chain_point_when_nothing_stored() {
+            let importer = importer_with_highest_stored_transaction_and_last_polled_chain_point(
+                None,
+                Some(ChainPoint::new(
+                    SlotNumber(15),
+                    BlockNumber(10),
+                    "block_hash-1",
+                )),
+            )
+            .await;
+
+            let start_point = importer.start_chain_point().await.unwrap();
+            assert_eq!(
+                Some(ChainPoint::new(
+                    SlotNumber(15),
+                    BlockNumber(10),
+                    "block_hash-1"
+                )),
+                start_point
+            );
+        }
+
+        #[tokio::test]
+        async fn start_at_last_scanned_chain_point_even_if_something_stored() {
+            let importer = importer_with_highest_stored_transaction_and_last_polled_chain_point(
+                Some(CardanoTransaction::new(
+                    "tx_hash-2",
+                    BlockNumber(20),
+                    SlotNumber(25),
+                    "block_hash-2",
+                )),
+                Some(ChainPoint::new(
+                    SlotNumber(15),
+                    BlockNumber(10),
+                    "block_hash-1",
+                )),
+            )
+            .await;
+
+            let start_point = importer.start_chain_point().await.unwrap();
+            assert_eq!(
+                Some(ChainPoint::new(
+                    SlotNumber(15),
+                    BlockNumber(10),
+                    "block_hash-1"
+                )),
+                start_point
+            );
+        }
+
+        #[tokio::test]
+        async fn importing_transactions_update_start_point_even_if_no_transactions_are_found() {
+            let connection = cardano_tx_db_connection().unwrap();
+            let importer = CardanoTransactionsImporter {
+                latest_polled_chain_point: Arc::new(Mutex::new(None)),
+                ..CardanoTransactionsImporter::new_for_test(
+                    Arc::new(
+                        DumbBlockScanner::new()
+                            .forwards(vec![vec![ScannedBlock::new(
+                                "block_hash-1",
+                                BlockNumber(10),
+                                SlotNumber(15),
+                                Vec::<&str>::new(),
+                            )]])
+                            .latest_polled_chain_point(Some(ChainPoint::new(
+                                SlotNumber(25),
+                                BlockNumber(20),
+                                "block_hash-2",
+                            ))),
+                    ),
+                    Arc::new(CardanoTransactionRepository::new(Arc::new(
+                        SqliteConnectionPool::build_from_connection(connection),
+                    ))),
+                )
+            };
+
+            let start_point_before_import = importer.start_chain_point().await.unwrap();
+            assert_eq!(None, start_point_before_import);
+
+            importer
+                .import_transactions(BlockNumber(1000))
+                .await
+                .unwrap();
+
+            let start_point_after_import = importer.start_chain_point().await.unwrap();
+            assert_eq!(
+                Some(ChainPoint::new(
+                    SlotNumber(25),
+                    BlockNumber(20),
+                    "block_hash-2"
+                )),
+                start_point_after_import
+            );
+        }
     }
 
     #[tokio::test]

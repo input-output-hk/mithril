@@ -1,6 +1,8 @@
 use pallas_traverse::MultiEraBlock;
 
-use crate::entities::{BlockHash, BlockNumber, CardanoTransaction, SlotNumber, TransactionHash};
+use crate::entities::{
+    BlockHash, BlockNumber, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
+};
 
 /// A block scanned from a Cardano database
 #[derive(Debug, Clone, PartialEq)]
@@ -65,5 +67,15 @@ impl ScannedBlock {
                 )
             })
             .collect::<Vec<_>>()
+    }
+}
+
+impl From<&ScannedBlock> for ChainPoint {
+    fn from(scanned_block: &ScannedBlock) -> Self {
+        ChainPoint::new(
+            scanned_block.slot_number,
+            scanned_block.block_number,
+            scanned_block.block_hash.clone(),
+        )
     }
 }
