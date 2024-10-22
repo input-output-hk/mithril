@@ -41,7 +41,7 @@ build_metrics_service!(
         "Number of signature registrations received since startup on a Mithril aggregator node"
     ),
     certificate_total_produced_since_startup:MetricCounter(
-        "mithril_aggregator_certificate_detail_total_produced_since_startup_counter",
+        "mithril_aggregator_certificate_total_produced_since_startup_counter",
         "Number of certificates produced since startup on a Mithril aggregator node"
     ),
     artifact_cardano_db_total_produced_since_startup:MetricCounter(
