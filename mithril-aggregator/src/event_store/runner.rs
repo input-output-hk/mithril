@@ -1,10 +1,13 @@
 use anyhow::Context;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use mithril_persistence::sqlite::ConnectionBuilder;
 use slog::{debug, info, Logger};
-use sqlite::Connection;
+use sqlite::ConnectionThreadSafe;
 use std::{path::PathBuf, sync::Arc};
 use tokio::sync::mpsc::UnboundedReceiver;
+
+use crate::dependency_injection::DependenciesBuilderError;
 
 use super::{EventMessage, EventPersister};
 
@@ -23,17 +26,35 @@ impl EventStore {
         }
     }
 
+    fn get_sqlite_connection(&self, file: Option<PathBuf>) -> StdResult<ConnectionThreadSafe> {
+        let connection_builder = match file {
+            Some(path) => ConnectionBuilder::open_file(path.as_path()),
+            None => ConnectionBuilder::open_memory(),
+        };
+
+        // TODO How can we check the database is correctly created with correct options ?
+        // TODO should we use the same function to create database for tests ?
+        let connection = connection_builder
+            // .with_node_type(ApplicationNodeType::Aggregator)
+            // .with_options(&[
+            //     ConnectionOptions::EnableForeignKeys,
+            //     ConnectionOptions::EnableWriteAheadLog,
+            // ])
+            // .with_logger(logger.clone())
+            .with_migrations(crate::event_store::migration::get_migrations())
+            .build()
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "SQLite initialization: failed to build connection.".to_string(),
+                error: Some(e),
+            })?;
+        Ok(connection)
+    }
+
     /// Launch the service. It runs until all the transmitters are gone and all
     /// messages have been processed. This means this service shall be waited
     /// upon completion to ensure all events are properly saved in the database.
     pub async fn run(&mut self, file: Option<PathBuf>) -> StdResult<()> {
-        let connection = {
-            let connection = match file {
-                Some(path) => Connection::open_thread_safe(path)?,
-                None => Connection::open_thread_safe(":memory:")?,
-            };
-            Arc::new(connection)
-        };
+        let connection = Arc::new(self.get_sqlite_connection(file)?);
         let persister = EventPersister::new(connection);
         info!(
             self.logger,
