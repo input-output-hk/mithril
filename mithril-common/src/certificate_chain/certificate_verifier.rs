@@ -306,7 +306,7 @@ mod tests {
     use super::CertificateRetriever;
     use super::*;
 
-    use crate::certificate_chain::CertificateRetrieverError;
+    use crate::certificate_chain::{CertificateRetrieverError, FakeCertificaterRetriever};
     use crate::crypto_helper::{tests_setup::*, ProtocolClerk};
     use crate::test_utils::{MithrilFixtureBuilder, TestLogger};
 
@@ -527,24 +527,19 @@ mod tests {
         let certificates_per_epoch = 2;
         let (fake_certificates, genesis_verifier) =
             setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let mut mock_certificate_retriever = MockCertificateRetrieverImpl::new();
+        let certificate_retriever =
+            FakeCertificaterRetriever::from_certificates(&fake_certificates);
+        let verifier =
+            MithrilCertificateVerifier::new(TestLogger::stdout(), Arc::new(certificate_retriever));
         let certificate_to_verify = fake_certificates[0].clone();
-        for fake_certificate in fake_certificates.into_iter().skip(1) {
-            mock_certificate_retriever
-                .expect_get_certificate_details()
-                .returning(move |_| Ok(fake_certificate.clone()))
-                .times(1);
-        }
-        let verifier = MithrilCertificateVerifier::new(
-            TestLogger::stdout(),
-            Arc::new(mock_certificate_retriever),
-        );
+
         let verify = verifier
             .verify_certificate_chain(
                 certificate_to_verify,
                 &genesis_verifier.to_verification_key(),
             )
             .await;
+
         verify.expect("unexpected error");
     }
 
@@ -555,23 +550,13 @@ mod tests {
         let (mut fake_certificates, genesis_verifier) =
             setup_certificate_chain(total_certificates, certificates_per_epoch);
         let index_certificate_fail = (total_certificates / 2) as usize;
-        fake_certificates[index_certificate_fail].hash = "tampered-hash".to_string();
-        let mut mock_certificate_retriever = MockCertificateRetrieverImpl::new();
+        fake_certificates[index_certificate_fail].signed_message = "tampered-message".to_string();
+        let certificate_retriever =
+            FakeCertificaterRetriever::from_certificates(&fake_certificates);
+        let verifier =
+            MithrilCertificateVerifier::new(TestLogger::stdout(), Arc::new(certificate_retriever));
         let certificate_to_verify = fake_certificates[0].clone();
-        for fake_certificate in fake_certificates
-            .into_iter()
-            .skip(1)
-            .take(index_certificate_fail)
-        {
-            mock_certificate_retriever
-                .expect_get_certificate_details()
-                .returning(move |_| Ok(fake_certificate.clone()))
-                .times(1);
-        }
-        let verifier = MithrilCertificateVerifier::new(
-            TestLogger::stdout(),
-            Arc::new(mock_certificate_retriever),
-        );
+
         let error = verifier
             .verify_certificate_chain(
                 certificate_to_verify,
@@ -584,10 +569,7 @@ mod tests {
             .expect("Can not downcast to `CertificateVerifierError`.");
 
         assert!(
-            matches!(
-                error,
-                CertificateVerifierError::CertificateChainPreviousHashUnmatch
-            ),
+            matches!(error, CertificateVerifierError::CertificateHashUnmatch),
             "unexpected error type: {error:?}"
         );
     }
