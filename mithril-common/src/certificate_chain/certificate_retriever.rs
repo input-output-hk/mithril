@@ -5,16 +5,13 @@ use thiserror::Error;
 
 use crate::{entities::Certificate, StdError};
 
-#[cfg(test)]
-use mockall::automock;
-
 /// [CertificateRetriever] related errors.
 #[derive(Debug, Error)]
 #[error("Error when retrieving certificate")]
 pub struct CertificateRetrieverError(#[source] pub StdError);
 
 /// CertificateRetriever is in charge of retrieving a [Certificate] given its hash
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait CertificateRetriever: Sync + Send {
