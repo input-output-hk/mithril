@@ -2,7 +2,7 @@
 //! This module proposes tools to send messages between processes and how to
 //! persist them in a separate database.
 mod event;
-mod migration;
+pub mod migration;
 mod runner;
 mod transmitter_service;
 
