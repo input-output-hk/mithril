@@ -4,9 +4,9 @@ use async_trait::async_trait;
 use slog::Logger;
 use tokio::sync::Mutex;
 
-use crate::cardano_block_scanner::{BlockScanner, BlockStreamer};
+use crate::cardano_block_scanner::{BlockScanner, BlockStreamer, RawCardanoPoint};
 use crate::chain_reader::ChainBlockReader;
-use crate::entities::{BlockNumber, ChainPoint};
+use crate::entities::BlockNumber;
 use crate::StdResult;
 
 use super::ChainReaderBlockStreamer;
@@ -39,7 +39,7 @@ impl CardanoBlockScanner {
 impl BlockScanner for CardanoBlockScanner {
     async fn scan(
         &self,
-        from: Option<ChainPoint>,
+        from: Option<RawCardanoPoint>,
         until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
         Ok(Box::new(
