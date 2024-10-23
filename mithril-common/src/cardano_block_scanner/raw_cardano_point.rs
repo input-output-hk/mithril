@@ -97,7 +97,7 @@ impl From<&ScannedBlock> for RawCardanoPoint {
     fn from(scanned_block: &ScannedBlock) -> Self {
         RawCardanoPoint {
             slot_number: scanned_block.slot_number,
-            block_hash: hex::decode(&scanned_block.block_hash).unwrap(),
+            block_hash: scanned_block.block_hash.clone(),
         }
     }
 }
@@ -134,7 +134,7 @@ mod tests {
     fn from_scanned_block_to_raw_cardano_point_conversions() {
         let expected_hash = vec![7, 1, 13, 7, 8];
         let scanned_block = ScannedBlock::new(
-            hex::encode(&expected_hash),
+            expected_hash.clone(),
             BlockNumber(31),
             SlotNumber(4),
             Vec::<&str>::new(),
