@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
-use crate::cardano_block_scanner::ScannedBlock;
-use crate::entities::{BlockNumber, ChainPoint, SlotNumber};
+use crate::cardano_block_scanner::{RawCardanoPoint, ScannedBlock};
+use crate::entities::{BlockNumber, SlotNumber};
 use crate::StdResult;
 
 /// A scanner that can read cardano transactions in a cardano database
@@ -15,8 +15,8 @@ use crate::StdResult;
 ///     use async_trait::async_trait;
 ///     use mockall::mock;
 ///
-///     use mithril_common::cardano_block_scanner::{BlockScanner, BlockStreamer};
-///     use mithril_common::entities::{BlockNumber, ChainPoint};
+///     use mithril_common::cardano_block_scanner::{BlockScanner, BlockStreamer, RawCardanoPoint};
+///     use mithril_common::entities::{BlockNumber};
 ///     use mithril_common::StdResult;
 ///
 ///     mock! {
@@ -26,7 +26,7 @@ use crate::StdResult;
 ///         impl BlockScanner for BlockScannerImpl {
 ///             async fn scan(
 ///               &self,
-///               from: Option<ChainPoint>,
+///               from: Option<RawCardanoPoint>,
 ///               until: BlockNumber,
 ///             ) -> StdResult<Box<dyn BlockStreamer>>;
 ///         }
@@ -46,7 +46,7 @@ pub trait BlockScanner: Sync + Send {
     /// Scan the transactions
     async fn scan(
         &self,
-        from: Option<ChainPoint>,
+        from: Option<RawCardanoPoint>,
         until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>>;
 }
@@ -66,8 +66,8 @@ pub trait BlockStreamer: Sync + Send {
     /// Stream the next available blocks
     async fn poll_next(&mut self) -> StdResult<Option<ChainScannedBlocks>>;
 
-    /// Get the latest polled chain point
-    fn latest_polled_chain_point(&self) -> Option<ChainPoint>;
+    /// Get the last polled point of the chain
+    fn last_polled_point(&self) -> Option<RawCardanoPoint>;
 }
 
 cfg_test_tools! {

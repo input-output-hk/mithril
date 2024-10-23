@@ -10,7 +10,10 @@ use pallas_traverse::MultiEraBlock;
 use slog::{debug, Logger};
 
 use crate::logging::LoggerExtensions;
-use crate::{cardano_block_scanner::ScannedBlock, entities::ChainPoint, CardanoNetwork, StdResult};
+use crate::{
+    cardano_block_scanner::{RawCardanoPoint, ScannedBlock},
+    CardanoNetwork, StdResult,
+};
 
 use super::{ChainBlockNextAction, ChainBlockReader};
 
@@ -55,7 +58,7 @@ impl PallasChainReader {
     }
 
     /// Intersects the point of the chain with the given point.
-    async fn find_intersect_point(&mut self, point: &ChainPoint) -> StdResult<()> {
+    async fn find_intersect_point(&mut self, point: &RawCardanoPoint) -> StdResult<()> {
         let logger = self.logger.clone();
         let client = self.get_client().await?;
         let chainsync = client.chainsync();
@@ -85,8 +88,8 @@ impl PallasChainReader {
                 Ok(Some(ChainBlockNextAction::RollForward { parsed_block }))
             }
             NextResponse::RollBackward(rollback_point, _) => {
-                let chain_point = ChainPoint::from(rollback_point);
-                Ok(Some(ChainBlockNextAction::RollBackward { chain_point }))
+                let point = RawCardanoPoint::from(rollback_point);
+                Ok(Some(ChainBlockNextAction::RollBackward { point }))
             }
             NextResponse::Await => Ok(None),
         }
@@ -105,7 +108,7 @@ impl Drop for PallasChainReader {
 
 #[async_trait]
 impl ChainBlockReader for PallasChainReader {
-    async fn set_chain_point(&mut self, point: &ChainPoint) -> StdResult<()> {
+    async fn set_chain_point(&mut self, point: &RawCardanoPoint) -> StdResult<()> {
         self.find_intersect_point(point).await
     }
 
@@ -167,9 +170,9 @@ mod tests {
         BlockNumber(1337)
     }
 
-    /// Returns a fake chain point for testing purposes.
-    fn get_fake_chain_point_backwards() -> ChainPoint {
-        ChainPoint::from(get_fake_specific_point())
+    /// Returns a fake cardano raw point for testing purposes.
+    fn get_fake_raw_point_backwards() -> RawCardanoPoint {
+        RawCardanoPoint::from(get_fake_specific_point())
     }
 
     /// Creates a new work directory in the system's temporary folder.
@@ -268,7 +271,7 @@ mod tests {
             );
 
             chain_reader
-                .set_chain_point(&ChainPoint::from(known_point.clone()))
+                .set_chain_point(&RawCardanoPoint::from(known_point.clone()))
                 .await
                 .unwrap();
 
@@ -278,8 +281,8 @@ mod tests {
         let (_, client_res) = tokio::join!(server, client);
         let chain_block = client_res.expect("Client failed to get next chain block");
         match chain_block {
-            ChainBlockNextAction::RollBackward { chain_point } => {
-                assert_eq!(chain_point, get_fake_chain_point_backwards());
+            ChainBlockNextAction::RollBackward { point: chain_point } => {
+                assert_eq!(chain_point, get_fake_raw_point_backwards());
             }
             _ => panic!("Unexpected chain block action"),
         }
@@ -303,7 +306,7 @@ mod tests {
             );
 
             chain_reader
-                .set_chain_point(&ChainPoint::from(known_point.clone()))
+                .set_chain_point(&RawCardanoPoint::from(known_point.clone()))
                 .await
                 .unwrap();
 
@@ -338,7 +341,7 @@ mod tests {
             );
 
             chain_reader
-                .set_chain_point(&ChainPoint::from(known_point.clone()))
+                .set_chain_point(&RawCardanoPoint::from(known_point.clone()))
                 .await
                 .unwrap();
 
@@ -355,7 +358,7 @@ mod tests {
 
             // make sure that setting the chain point is harmless when the chainsync client does not have agency
             chain_reader
-                .set_chain_point(&ChainPoint::from(known_point.clone()))
+                .set_chain_point(&RawCardanoPoint::from(known_point.clone()))
                 .await
                 .unwrap();
 

@@ -4,10 +4,9 @@ use async_trait::async_trait;
 use slog::{debug, trace, Logger};
 use tokio::sync::Mutex;
 
-use crate::cardano_block_scanner::BlockStreamer;
-use crate::cardano_block_scanner::ChainScannedBlocks;
+use crate::cardano_block_scanner::{BlockStreamer, ChainScannedBlocks, RawCardanoPoint};
 use crate::chain_reader::{ChainBlockNextAction, ChainBlockReader};
-use crate::entities::{BlockNumber, ChainPoint};
+use crate::entities::BlockNumber;
 use crate::logging::LoggerExtensions;
 use crate::StdResult;
 
@@ -23,10 +22,10 @@ enum BlockStreamerNextAction {
 /// [Block streamer][BlockStreamer] that streams blocks with a [Chain block reader][ChainBlockReader]
 pub struct ChainReaderBlockStreamer {
     chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
-    from: ChainPoint,
+    from: RawCardanoPoint,
     until: BlockNumber,
     max_roll_forwards_per_poll: usize,
-    last_polled_chain_point: Option<ChainPoint>,
+    last_polled_point: Option<RawCardanoPoint>,
     logger: Logger,
 }
 
@@ -43,7 +42,7 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                 Some(BlockStreamerNextAction::ChainBlockNextAction(
                     ChainBlockNextAction::RollForward { parsed_block },
                 )) => {
-                    self.last_polled_chain_point = Some(ChainPoint::from(&parsed_block));
+                    self.last_polled_point = Some(RawCardanoPoint::from(&parsed_block));
                     let parsed_block_number = parsed_block.block_number;
                     roll_forwards.push(parsed_block);
                     if roll_forwards.len() >= self.max_roll_forwards_per_poll
@@ -54,10 +53,10 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                 }
                 Some(BlockStreamerNextAction::ChainBlockNextAction(
                     ChainBlockNextAction::RollBackward {
-                        chain_point: rollback_chain_point,
+                        point: rollback_chain_point,
                     },
                 )) => {
-                    self.last_polled_chain_point = Some(rollback_chain_point.clone());
+                    self.last_polled_point = Some(rollback_chain_point.clone());
                     let rollback_slot_number = rollback_chain_point.slot_number;
                     let index_rollback = roll_forwards
                         .iter()
@@ -96,8 +95,8 @@ impl BlockStreamer for ChainReaderBlockStreamer {
         }
     }
 
-    fn latest_polled_chain_point(&self) -> Option<ChainPoint> {
-        self.last_polled_chain_point.clone()
+    fn last_polled_point(&self) -> Option<RawCardanoPoint> {
+        self.last_polled_point.clone()
     }
 }
 
@@ -105,12 +104,12 @@ impl ChainReaderBlockStreamer {
     /// Factory
     pub async fn try_new(
         chain_reader: Arc<Mutex<dyn ChainBlockReader>>,
-        from: Option<ChainPoint>,
+        from: Option<RawCardanoPoint>,
         until: BlockNumber,
         max_roll_forwards_per_poll: usize,
         logger: Logger,
     ) -> StdResult<Self> {
-        let from = from.unwrap_or(ChainPoint::origin());
+        let from = from.unwrap_or(RawCardanoPoint::origin());
         {
             let mut chain_reader_inner = chain_reader.try_lock()?;
             chain_reader_inner.set_chain_point(&from).await?;
@@ -120,7 +119,7 @@ impl ChainReaderBlockStreamer {
             from,
             until,
             max_roll_forwards_per_poll,
-            last_polled_chain_point: None,
+            last_polled_point: None,
             logger: logger.new_with_component_name::<Self>(),
         })
     }
@@ -148,7 +147,7 @@ impl ChainReaderBlockStreamer {
                 }
             }
             Some(ChainBlockNextAction::RollBackward {
-                chain_point: rollback_chain_point,
+                point: rollback_chain_point,
             }) => {
                 let rollback_slot_number = rollback_chain_point.slot_number;
                 trace!(
@@ -160,7 +159,7 @@ impl ChainReaderBlockStreamer {
                 } else {
                     BlockStreamerNextAction::ChainBlockNextAction(
                         ChainBlockNextAction::RollBackward {
-                            chain_point: rollback_chain_point,
+                            point: rollback_chain_point,
                         },
                     )
                 };
@@ -219,7 +218,7 @@ mod tests {
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
         assert_eq!(None, scanned_blocks);
-        assert_eq!(None, block_streamer.latest_polled_chain_point());
+        assert_eq!(None, block_streamer.last_polled_point());
 
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
             chain_reader,
@@ -242,12 +241,8 @@ mod tests {
             scanned_blocks
         );
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(
-                SlotNumber(100),
-                until_block_number,
-                "hash-2",
-            ))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(100), "hash-2"))
         );
     }
 
@@ -304,8 +299,8 @@ mod tests {
         assert_eq!(1, chain_reader_total_remaining_next_actions);
 
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(20), BlockNumber(2), "hash-2"))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(20), "hash-2"))
         );
     }
 
@@ -350,8 +345,8 @@ mod tests {
             scanned_blocks,
         );
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(20), BlockNumber(2), "hash-2"))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(20), "hash-2"))
         );
     }
 
@@ -403,8 +398,8 @@ mod tests {
             scanned_blocks,
         );
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(20), BlockNumber(2), "hash-2"))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(20), "hash-2"))
         );
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
@@ -418,15 +413,15 @@ mod tests {
             scanned_blocks,
         );
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(30), BlockNumber(3), "hash-3"))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(30), "hash-3"))
         );
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
         assert_eq!(None, scanned_blocks);
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(30), BlockNumber(3), "hash-3"))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(30), "hash-3"))
         );
     }
 
@@ -434,16 +429,12 @@ mod tests {
     async fn test_parse_expected_nothing_when_rollbackward_on_same_point() {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward {
-                chain_point: ChainPoint::new(SlotNumber(100), BlockNumber(10), "hash-123"),
+                point: RawCardanoPoint::new(SlotNumber(100), "hash-123"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
             chain_reader,
-            Some(ChainPoint::new(
-                SlotNumber(100),
-                BlockNumber(10),
-                "hash-123",
-            )),
+            Some(RawCardanoPoint::new(SlotNumber(100), "hash-123")),
             BlockNumber(1),
             MAX_ROLL_FORWARDS_PER_POLL,
             TestLogger::stdout(),
@@ -453,7 +444,7 @@ mod tests {
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
         assert_eq!(None, scanned_blocks);
-        assert_eq!(block_streamer.latest_polled_chain_point(), None);
+        assert_eq!(block_streamer.last_polled_point(), None);
     }
 
     #[tokio::test]
@@ -461,7 +452,7 @@ mod tests {
     {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward {
-                chain_point: ChainPoint::new(SlotNumber(100), BlockNumber(10), "hash-10"),
+                point: RawCardanoPoint::new(SlotNumber(100), "hash-10"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -481,15 +472,15 @@ mod tests {
             scanned_blocks,
         );
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(100), BlockNumber(10), "hash-10"))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(100), "hash-10"))
         );
 
         let scanned_blocks = block_streamer.poll_next().await.expect("poll_next failed");
         assert_eq!(None, scanned_blocks);
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(100), BlockNumber(10), "hash-10"))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(100), "hash-10"))
         );
     }
 
@@ -522,7 +513,7 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                chain_point: ChainPoint::new(SlotNumber(9), BlockNumber(90), "hash-9"),
+                point: RawCardanoPoint::new(SlotNumber(9), "hash-9"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -545,8 +536,8 @@ mod tests {
             scanned_blocks,
         );
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(9), BlockNumber(90), "hash-9",))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(9), "hash-9"))
         );
     }
 
@@ -571,7 +562,7 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                chain_point: ChainPoint::new(SlotNumber(3), BlockNumber(30), "hash-3"),
+                point: RawCardanoPoint::new(SlotNumber(3), "hash-3"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -591,8 +582,8 @@ mod tests {
             scanned_blocks,
         );
         assert_eq!(
-            block_streamer.latest_polled_chain_point(),
-            Some(ChainPoint::new(SlotNumber(3), BlockNumber(30), "hash-3",))
+            block_streamer.last_polled_point(),
+            Some(RawCardanoPoint::new(SlotNumber(3), "hash-3"))
         );
     }
 
@@ -615,7 +606,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_latest_polled_chain_point_is_none_if_nothing_was_polled() {
+    async fn test_last_polled_point_is_none_if_nothing_was_polled() {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![])));
         let block_streamer = ChainReaderBlockStreamer::try_new(
             chain_reader,
@@ -627,6 +618,6 @@ mod tests {
         .await
         .unwrap();
 
-        assert_eq!(block_streamer.latest_polled_chain_point(), None);
+        assert_eq!(block_streamer.last_polled_point(), None);
     }
 }

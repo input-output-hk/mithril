@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
-use crate::{entities::ChainPoint, StdResult};
+use crate::cardano_block_scanner::RawCardanoPoint;
+use crate::StdResult;
 
 use super::ChainBlockNextAction;
 
@@ -11,7 +12,7 @@ use super::ChainBlockNextAction;
 #[async_trait]
 pub trait ChainBlockReader: Send + Sync {
     /// Sets the chain point
-    async fn set_chain_point(&mut self, point: &ChainPoint) -> StdResult<()>;
+    async fn set_chain_point(&mut self, point: &RawCardanoPoint) -> StdResult<()>;
 
     /// Get the next chain block
     async fn get_next_chain_block(&mut self) -> StdResult<Option<ChainBlockNextAction>>;
