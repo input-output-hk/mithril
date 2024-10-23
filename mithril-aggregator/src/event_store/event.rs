@@ -166,7 +166,7 @@ impl EventPersister {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::event_store::test_helper::event_store_db_connection;
+    use crate::event_store::database::test_helper::event_store_db_connection;
     use mithril_common::StdResult;
 
     #[test]

@@ -12,7 +12,7 @@ fn build_event_store_db_connection(
 ) -> StdResult<SqliteConnection> {
     let connection = connection_builder
         .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
-        .with_migrations(crate::event_store::migration::get_migrations())
+        .with_migrations(crate::event_store::database::migration::get_migrations())
         .build()?;
     Ok(connection)
 }

@@ -373,7 +373,7 @@ impl DependenciesBuilder {
         if self.sqlite_connection_event_store.is_none() {
             self.sqlite_connection_event_store = Some(Arc::new(self.build_sqlite_connection(
                 SQLITE_MONITORING_FILE,
-                crate::event_store::migration::get_migrations(),
+                crate::event_store::database::migration::get_migrations(),
             )?));
         }
 
