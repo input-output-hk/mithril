@@ -6,6 +6,6 @@ mod event;
 mod runner;
 mod transmitter_service;
 
-pub use event::{Event, EventMessage, EventPersister};
+pub use event::{Event, EventMessage};
 pub use runner::EventStore;
 pub use transmitter_service::TransmitterService;

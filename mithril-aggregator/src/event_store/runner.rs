@@ -6,7 +6,8 @@ use sqlite::ConnectionThreadSafe;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use super::{EventMessage, EventPersister};
+use super::database::EventPersister;
+use super::EventMessage;
 
 /// EventMessage receiver service.
 pub struct EventStore {
