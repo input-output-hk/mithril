@@ -33,6 +33,7 @@ pub trait UpkeepService: Send + Sync {
 pub struct AggregatorUpkeepService {
     main_db_connection: Arc<SqliteConnection>,
     cardano_tx_connection_pool: Arc<SqliteConnectionPool>,
+    event_store_connection: Arc<SqliteConnection>,
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     logger: Logger,
 }
@@ -42,12 +43,14 @@ impl AggregatorUpkeepService {
     pub fn new(
         main_db_connection: Arc<SqliteConnection>,
         cardano_tx_connection_pool: Arc<SqliteConnectionPool>,
+        event_store_connection: Arc<SqliteConnection>,
         signed_entity_type_lock: Arc<SignedEntityTypeLock>,
         logger: Logger,
     ) -> Self {
         Self {
             main_db_connection,
             cardano_tx_connection_pool,
+            event_store_connection,
             signed_entity_type_lock,
             logger: logger.new_with_component_name::<Self>(),
         }
@@ -64,6 +67,7 @@ impl AggregatorUpkeepService {
 
         let main_db_connection = self.main_db_connection.clone();
         let cardano_tx_db_connection_pool = self.cardano_tx_connection_pool.clone();
+        let event_store_connection = self.event_store_connection.clone();
         let db_upkeep_logger = self.logger.clone();
 
         // Run the database upkeep tasks in another thread to avoid blocking the tokio runtime
@@ -80,6 +84,12 @@ impl AggregatorUpkeepService {
             info!(db_upkeep_logger, "Cleaning cardano transactions database");
             let cardano_tx_db_connection = cardano_tx_db_connection_pool.connection()?;
             SqliteCleaner::new(&cardano_tx_db_connection)
+                .with_logger(db_upkeep_logger.clone())
+                .with_tasks(&[SqliteCleaningTask::WalCheckpointTruncate])
+                .run()?;
+
+            info!(db_upkeep_logger, "Cleaning event database");
+            SqliteCleaner::new(&event_store_connection)
                 .with_logger(db_upkeep_logger.clone())
                 .with_tasks(&[SqliteCleaningTask::WalCheckpointTruncate])
                 .run()?;
@@ -116,23 +126,28 @@ mod tests {
         cardano_tx_db_connection, cardano_tx_db_file_connection, main_db_connection,
         main_db_file_connection,
     };
+    use crate::event_store::database::test_helper::{
+        event_store_db_connection, event_store_db_file_connection,
+    };
     use crate::test_tools::TestLogger;
 
     use super::*;
 
     #[tokio::test]
     async fn test_cleanup_database() {
-        let (main_db_path, ctx_db_path, log_path) = {
+        let (main_db_path, ctx_db_path, event_store_db_path, log_path) = {
             let db_dir = TempDir::create("aggregator_upkeep", "test_cleanup_database");
             (
                 db_dir.join("main.db"),
                 db_dir.join("cardano_tx.db"),
+                db_dir.join("event_store.db"),
                 db_dir.join("upkeep.log"),
             )
         };
 
         let main_db_connection = main_db_file_connection(&main_db_path).unwrap();
         let cardano_tx_connection = cardano_tx_db_file_connection(&ctx_db_path).unwrap();
+        let event_store_connection = event_store_db_file_connection(&event_store_db_path).unwrap();
 
         // Separate block to force log flushing by dropping the service that owns the logger
         {
@@ -141,6 +156,7 @@ mod tests {
                 Arc::new(SqliteConnectionPool::build_from_connection(
                     cardano_tx_connection,
                 )),
+                Arc::new(event_store_connection),
                 Arc::new(SignedEntityTypeLock::default()),
                 TestLogger::file(&log_path),
             );
@@ -159,8 +175,8 @@ mod tests {
         assert_eq!(
             logs.matches(SqliteCleaningTask::WalCheckpointTruncate.log_message())
                 .count(),
-            2,
-            "Should have run twice since the two databases have a `WalCheckpointTruncate` cleanup"
+            3,
+            "Should have run three times since the three databases have a `WalCheckpointTruncate` cleanup"
         );
     }
 
@@ -182,6 +198,7 @@ mod tests {
             let service = AggregatorUpkeepService::new(
                 Arc::new(main_db_connection().unwrap()),
                 Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
+                Arc::new(event_store_db_connection().unwrap()),
                 signed_entity_type_lock.clone(),
                 TestLogger::file(&log_path),
             );
