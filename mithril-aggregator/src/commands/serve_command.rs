@@ -10,8 +10,6 @@ use tokio::{sync::oneshot, task::JoinSet};
 
 use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
-const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
-
 /// Server runtime mode
 #[derive(Parser, Debug, Clone)]
 pub struct ServeCommand {
@@ -153,17 +151,7 @@ impl ServeCommand {
             .create_event_store()
             .await
             .with_context(|| "Dependencies Builder can not create event store")?;
-        let event_store_config = config.clone();
-        let event_store_thread = tokio::spawn(async move {
-            event_store
-                .run(Some(
-                    event_store_config
-                        .get_sqlite_dir()
-                        .join(SQLITE_MONITORING_FILE),
-                ))
-                .await
-                .unwrap()
-        });
+        let event_store_thread = tokio::spawn(async move { event_store.run().await.unwrap() });
 
         // start the aggregator runtime
         let mut runtime = dependencies_builder

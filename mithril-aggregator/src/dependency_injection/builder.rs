@@ -82,6 +82,7 @@ use crate::{
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
+const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
 
 /// ## Dependencies container builder
 ///
@@ -103,6 +104,9 @@ pub struct DependenciesBuilder {
 
     /// SQLite database connection
     pub sqlite_connection: Option<Arc<SqliteConnection>>,
+
+    /// Event store SQLite database connection
+    pub sqlite_connection_event_store: Option<Arc<SqliteConnection>>,
 
     /// Cardano transactions SQLite database connection pool
     pub sqlite_connection_cardano_transaction_pool: Option<Arc<SqliteConnectionPool>>,
@@ -248,6 +252,7 @@ impl DependenciesBuilder {
             configuration,
             root_logger,
             sqlite_connection: None,
+            sqlite_connection_event_store: None,
             sqlite_connection_cardano_transaction_pool: None,
             stake_store: None,
             snapshot_uploader: None,
@@ -362,6 +367,21 @@ impl DependenciesBuilder {
         }
 
         Ok(self.sqlite_connection.as_ref().cloned().unwrap())
+    }
+    /// Get EventStore SQLite connection
+    pub async fn get_event_store_sqlite_connection(&mut self) -> Result<Arc<SqliteConnection>> {
+        if self.sqlite_connection_event_store.is_none() {
+            self.sqlite_connection_event_store = Some(Arc::new(self.build_sqlite_connection(
+                SQLITE_MONITORING_FILE,
+                crate::event_store::database::migration::get_migrations(),
+            )?));
+        }
+
+        Ok(self
+            .sqlite_connection_event_store
+            .as_ref()
+            .cloned()
+            .unwrap())
     }
 
     async fn build_sqlite_connection_cardano_transaction_pool(
@@ -1308,6 +1328,7 @@ impl DependenciesBuilder {
             self.get_sqlite_connection().await?,
             self.get_sqlite_connection_cardano_transaction_pool()
                 .await?,
+            self.get_event_store_sqlite_connection().await?,
             self.get_signed_entity_lock().await?,
             self.root_logger(),
         ));
@@ -1427,6 +1448,7 @@ impl DependenciesBuilder {
     pub async fn create_event_store(&mut self) -> Result<EventStore> {
         let event_store = EventStore::new(
             self.get_event_transmitter_receiver().await?,
+            self.get_event_store_sqlite_connection().await?,
             self.root_logger(),
         );
 
