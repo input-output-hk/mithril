@@ -1,4 +1,4 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
@@ -158,11 +158,10 @@ async fn main() -> StdResult<()> {
             .map_err(|message| anyhow!(message));
     }
 
-    let server_port = 8080;
-    let work_dir = match args.work_directory {
+    let work_dir = match &args.work_directory {
         Some(path) => {
-            create_workdir_if_not_exist_clean_otherwise(&path);
-            path.canonicalize().unwrap()
+            create_workdir_if_not_exist_clean_otherwise(path);
+            path.canonicalize()?
         }
         None => {
             #[cfg(target_os = "macos")]
@@ -170,7 +169,7 @@ async fn main() -> StdResult<()> {
             #[cfg(not(target_os = "macos"))]
             let work_dir = std::env::temp_dir().join("mithril_end_to_end");
             create_workdir_if_not_exist_clean_otherwise(&work_dir);
-            work_dir.canonicalize().unwrap()
+            work_dir.canonicalize()?
         }
     };
     let artifacts_dir = {
@@ -178,78 +177,118 @@ async fn main() -> StdResult<()> {
         fs::create_dir(&path).expect("Artifacts dir creation failure");
         path
     };
-    let run_only_mode = args.run_only;
-    let use_p2p_network_mode = args.use_p2p_network;
-    let use_p2p_passive_relays = args.use_p2p_passive_relays;
 
-    let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
-        devnet_scripts_dir: args.devnet_scripts_directory,
-        artifacts_target_dir: work_dir.join("devnet"),
-        number_of_pool_nodes: args.number_of_pool_nodes,
-        cardano_slot_length: args.cardano_slot_length,
-        cardano_epoch_length: args.cardano_epoch_length,
-        cardano_node_version: args.cardano_node_version.to_owned(),
-        cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
-        skip_cardano_bin_download: args.skip_cardano_bin_download,
-    })
-    .await?;
+    let mut app = App::new();
+    let res = app.run(args, work_dir, artifacts_dir).await;
+    app.stop().await;
+    res
+}
 
-    let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
-        server_port,
-        devnet: devnet.clone(),
-        artifacts_dir,
-        work_dir,
-        bin_dir: args.bin_directory,
-        cardano_node_version: args.cardano_node_version,
-        mithril_run_interval: args.mithril_run_interval,
-        mithril_era: args.mithril_era,
-        mithril_era_reader_adapter: args.mithril_era_reader_adapter,
-        signed_entity_types: args.signed_entity_types.clone(),
-        run_only_mode,
-        use_p2p_network_mode,
-        use_p2p_passive_relays,
-        use_era_specific_work_dir: args.mithril_next_era.is_some(),
-    })
-    .await?;
+struct App {
+    devnet: Option<Devnet>,
+    infrastructure: Option<MithrilInfrastructure>,
+}
 
-    let runner: StdResult<()> = match run_only_mode {
-        true => {
-            let mut run_only = RunOnly::new(&mut infrastructure);
-            run_only.start().await
+impl App {
+    fn new() -> Self {
+        Self {
+            devnet: None,
+            infrastructure: None,
         }
-        false => {
-            let mut spec = Spec::new(
-                &mut infrastructure,
-                args.signed_entity_types,
-                args.mithril_next_era,
-                args.mithril_era_regenesis_on_switch,
-            );
-            spec.run().await
-        }
-    };
+    }
 
-    match runner {
-        Ok(_) if run_only_mode => run_until_cancelled(infrastructure, devnet).await,
-        Ok(_) => {
-            infrastructure.stop_nodes().await?;
-            devnet.stop().await?;
-            Ok(())
+    pub async fn stop(&mut self) {
+        if let Some(infrastructure) = &mut self.infrastructure {
+            let _ = infrastructure.stop_nodes().await.inspect_err(|e| {
+                error!("Failed to stop nodes: {}", e);
+            });
         }
-        Err(error) => {
-            let has_written_logs = infrastructure.tail_logs(40).await;
-            error!("Mithril End to End test in failed: {}", error);
-            infrastructure.stop_nodes().await?;
-            devnet.stop().await?;
-            has_written_logs?;
-            Err(error)
+        if let Some(devnet) = &self.devnet {
+            let _ = devnet.stop().await.inspect_err(|e| {
+                error!("Failed to stop devnet: {}", e);
+            });
+        }
+    }
+
+    async fn tail_logs(&self) {
+        if let Some(infrastructure) = &self.infrastructure {
+            let _ = infrastructure.tail_logs(40).await.inspect_err(|e| {
+                error!("Failed to tail logs: {}", e);
+            });
+        }
+    }
+
+    pub async fn run(
+        &mut self,
+        args: Args,
+        work_dir: PathBuf,
+        artifacts_dir: PathBuf,
+    ) -> StdResult<()> {
+        let server_port = 8080;
+        let run_only_mode = args.run_only;
+        let use_p2p_network_mode = args.use_p2p_network;
+        let use_p2p_passive_relays = args.use_p2p_passive_relays;
+
+        let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
+            devnet_scripts_dir: args.devnet_scripts_directory,
+            artifacts_target_dir: work_dir.join("devnet"),
+            number_of_pool_nodes: args.number_of_pool_nodes,
+            cardano_slot_length: args.cardano_slot_length,
+            cardano_epoch_length: args.cardano_epoch_length,
+            cardano_node_version: args.cardano_node_version.to_owned(),
+            cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
+            skip_cardano_bin_download: args.skip_cardano_bin_download,
+        })
+        .await?;
+        self.devnet = Some(devnet.clone());
+
+        let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
+            server_port,
+            devnet: devnet.clone(),
+            artifacts_dir,
+            work_dir,
+            bin_dir: args.bin_directory,
+            cardano_node_version: args.cardano_node_version,
+            mithril_run_interval: args.mithril_run_interval,
+            mithril_era: args.mithril_era,
+            mithril_era_reader_adapter: args.mithril_era_reader_adapter,
+            signed_entity_types: args.signed_entity_types.clone(),
+            run_only_mode,
+            use_p2p_network_mode,
+            use_p2p_passive_relays,
+            use_era_specific_work_dir: args.mithril_next_era.is_some(),
+        })
+        .await?;
+
+        let runner: StdResult<()> = match run_only_mode {
+            true => {
+                let mut run_only = RunOnly::new(&mut infrastructure);
+                run_only.start().await
+            }
+            false => {
+                let mut spec = Spec::new(
+                    &mut infrastructure,
+                    args.signed_entity_types,
+                    args.mithril_next_era,
+                    args.mithril_era_regenesis_on_switch,
+                );
+                spec.run().await
+            }
+        };
+        self.infrastructure = Some(infrastructure);
+
+        match runner.with_context(|| "Mithril End to End test failed") {
+            Ok(()) if run_only_mode => run_until_cancelled().await,
+            Ok(()) => Ok(()),
+            Err(error) => {
+                self.tail_logs().await;
+                Err(error)
+            }
         }
     }
 }
 
-async fn run_until_cancelled(
-    mut mithril_infrastructure: MithrilInfrastructure,
-    devnet: Devnet,
-) -> StdResult<()> {
+async fn run_until_cancelled() -> StdResult<()> {
     let cancellation_token = CancellationToken::new();
     let cloned_token = cancellation_token.clone();
 
@@ -261,9 +300,7 @@ async fn run_until_cancelled(
             }
         }) => {}
         _ = tokio::signal::ctrl_c() => {
-            mithril_infrastructure.stop_nodes().await?;
             cancellation_token.cancel();
-            devnet.stop().await?;
         }
     }
 
