@@ -80,6 +80,13 @@ impl CardanoTransactionsImporter {
         highest_stored_chain_point: &Option<ChainPoint>,
     ) -> StdResult<Option<RawCardanoPoint>> {
         let last_polled_point = self.last_polled_point.lock().await.clone();
+        if last_polled_point.is_none() {
+            debug!(
+                self.logger,
+                "No last polled point available, falling back to the highest stored chain point"
+            );
+        }
+
         Ok(last_polled_point.or(highest_stored_chain_point
             .as_ref()
             .map(RawCardanoPoint::from)))
@@ -138,7 +145,9 @@ impl CardanoTransactionsImporter {
             }
         }
 
-        *self.last_polled_point.lock().await = streamer.last_polled_point();
+        if let Some(point) = streamer.last_polled_point() {
+            *self.last_polled_point.lock().await = Some(point);
+        }
 
         Ok(())
     }
@@ -959,6 +968,38 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 Some(RawCardanoPoint::new(SlotNumber(25), "block_hash-2")),
+                start_point_after_import
+            );
+        }
+
+        #[tokio::test]
+        async fn importing_transactions_dont_update_start_point_if_streamer_did_nothing() {
+            let connection = cardano_tx_db_connection().unwrap();
+            let importer = CardanoTransactionsImporter {
+                last_polled_point: Arc::new(Mutex::new(Some(RawCardanoPoint::new(
+                    SlotNumber(15),
+                    "block_hash-1",
+                )))),
+                ..CardanoTransactionsImporter::new_for_test(
+                    Arc::new(DumbBlockScanner::new()),
+                    Arc::new(CardanoTransactionRepository::new(Arc::new(
+                        SqliteConnectionPool::build_from_connection(connection),
+                    ))),
+                )
+            };
+            let highest_stored_block_number = None;
+
+            importer
+                .import_transactions(BlockNumber(1000))
+                .await
+                .unwrap();
+
+            let start_point_after_import = importer
+                .start_point(&highest_stored_block_number)
+                .await
+                .unwrap();
+            assert_eq!(
+                Some(RawCardanoPoint::new(SlotNumber(15), "block_hash-1")),
                 start_point_after_import
             );
         }
