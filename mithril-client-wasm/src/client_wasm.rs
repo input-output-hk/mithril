@@ -396,21 +396,15 @@ mod tests {
     const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";
     const FAKE_AGGREGATOR_PORT: &str = "8000";
 
-    fn get_mithril_client(unstable: bool) -> MithrilClient {
-        let options = ClientOptions::new(None).with_unstable_features(unstable);
-        let options_js_value = serde_wasm_bindgen::to_value(&options).unwrap();
+    fn get_mithril_client() -> MithrilClient {
         MithrilClient::new(
             &format!(
                 "http://{}:{}/aggregator",
                 FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
             ),
             GENESIS_VERIFICATION_KEY,
-            options_js_value,
+            JsValue::undefined(),
         )
-    }
-
-    fn get_mithril_client_stable() -> MithrilClient {
-        get_mithril_client(false)
     }
 
     wasm_bindgen_test_configure!(run_in_browser);
@@ -433,18 +427,6 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn build_mithril_client_with_undefined_options() {
-        MithrilClient::new(
-            &format!(
-                "http://{}:{}/aggregator",
-                FAKE_AGGREGATOR_IP, FAKE_AGGREGATOR_PORT
-            ),
-            GENESIS_VERIFICATION_KEY,
-            JsValue::undefined(),
-        );
-    }
-
-    #[wasm_bindgen_test]
     #[should_panic(expected = "Failed to parse options")]
     fn build_mithril_client_with_unparsable_options() {
         let invalid_js_value = JsValue::from_str("invalid");
@@ -460,7 +442,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_snapshots_should_return_value_convertible_in_rust_type() {
-        let snapshots_list_js_value = get_mithril_client_stable()
+        let snapshots_list_js_value = get_mithril_client()
             .list_snapshots()
             .await
             .expect("list_snapshots should not fail");
@@ -477,7 +459,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_snapshot_should_return_value_convertible_in_rust_type() {
-        let snapshot_js_value = get_mithril_client_stable()
+        let snapshot_js_value = get_mithril_client()
             .get_snapshot(test_data::snapshot_digests()[0])
             .await
             .expect("get_snapshot should not fail");
@@ -489,7 +471,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_snapshot_should_fail_with_unknown_digest() {
-        get_mithril_client_stable()
+        get_mithril_client()
             .get_snapshot("whatever")
             .await
             .expect_err("get_snapshot should fail");
@@ -497,7 +479,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_mithril_stake_distributions_should_return_value_convertible_in_rust_type() {
-        let msd_list_js_value = get_mithril_client_stable()
+        let msd_list_js_value = get_mithril_client()
             .list_mithril_stake_distributions()
             .await
             .expect("list_mithril_stake_distributions should not fail");
@@ -515,7 +497,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_mithril_stake_distribution_should_return_value_convertible_in_rust_type() {
-        let msd_js_value = get_mithril_client_stable()
+        let msd_js_value = get_mithril_client()
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
             .expect("get_mithril_stake_distribution should not fail");
@@ -527,7 +509,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_mithril_stake_distribution_should_fail_with_unknown_hash() {
-        get_mithril_client_stable()
+        get_mithril_client()
             .get_mithril_stake_distribution("whatever")
             .await
             .expect_err("get_mithril_stake_distribution should fail");
@@ -535,7 +517,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_mithril_certificates_should_return_value_convertible_in_rust_type() {
-        let certificates_list_js_value = get_mithril_client_stable()
+        let certificates_list_js_value = get_mithril_client()
             .list_mithril_certificates()
             .await
             .expect("list_mithril_certificates should not fail");
@@ -553,7 +535,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_mithril_certificate_should_return_value_convertible_in_rust_type() {
-        let certificate_js_value = get_mithril_client_stable()
+        let certificate_js_value = get_mithril_client()
             .get_mithril_certificate(test_data::certificate_hashes()[0])
             .await
             .expect("get_mithril_certificate should not fail");
@@ -566,7 +548,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_mithril_certificate_should_fail_with_unknown_hash() {
-        get_mithril_client_stable()
+        get_mithril_client()
             .get_mithril_certificate("whatever")
             .await
             .expect_err("get_mithril_certificate should fail");
@@ -575,7 +557,7 @@ mod tests {
     #[wasm_bindgen_test]
     async fn compute_mithril_stake_distribution_message_should_return_value_convertible_in_rust_type(
     ) {
-        let client = get_mithril_client_stable();
+        let client = get_mithril_client();
         let msd_js_value = client
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
@@ -597,7 +579,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn verify_certificate_chain_should_return_value_convertible_in_rust_type() {
-        let client = get_mithril_client_stable();
+        let client = get_mithril_client();
         let msd_js_value = client
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
@@ -614,7 +596,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn verify_message_match_certificate_should_return_true() {
-        let client = get_mithril_client_stable();
+        let client = get_mithril_client();
         let msd_js_value = client
             .get_mithril_stake_distribution(test_data::msd_hashes()[0])
             .await
@@ -641,7 +623,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_cardano_transactions_snapshots_should_return_value_convertible_in_rust_type() {
-        let cardano_tx_sets_js_value = get_mithril_client_stable()
+        let cardano_tx_sets_js_value = get_mithril_client()
             .list_cardano_transactions_snapshots()
             .await
             .expect("list_cardano_transactions_snapshots should not fail");
@@ -659,7 +641,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_transactions_snapshot_should_return_value_convertible_in_rust_type() {
-        let cardano_tx_set_js_value = get_mithril_client_stable()
+        let cardano_tx_set_js_value = get_mithril_client()
             .get_cardano_transactions_snapshot(test_data::ctx_snapshot_hashes()[0])
             .await
             .expect("get_cardano_transactions_snapshot should not fail");
@@ -672,7 +654,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_transactions_snapshot_should_fail_with_unknown_digest() {
-        get_mithril_client_stable()
+        get_mithril_client()
             .get_cardano_transactions_snapshot("whatever")
             .await
             .expect_err("get_cardano_transactions_snapshot should fail");
@@ -682,7 +664,7 @@ mod tests {
     async fn get_cardano_transaction_proofs_should_return_value_convertible_in_rust_type() {
         let tx_hash = test_data::proof_transaction_hashes()[0];
         let ctx_hashes = Box::new([JsValue::from(tx_hash)]);
-        let client = get_mithril_client_stable();
+        let client = get_mithril_client();
 
         let tx_proof = client
             .get_cardano_transaction_proofs(ctx_hashes)
@@ -701,7 +683,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn list_cardano_stake_distributions_should_return_value_convertible_in_rust_type() {
-        let csd_list_js_value = get_mithril_client_stable()
+        let csd_list_js_value = get_mithril_client()
             .list_cardano_stake_distributions()
             .await
             .expect("cardano_mithril_stake_distributions should not fail");
@@ -719,7 +701,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_should_return_value_convertible_in_rust_type() {
-        let csd_js_value = get_mithril_client_stable()
+        let csd_js_value = get_mithril_client()
             .get_cardano_stake_distribution(test_data::csd_hashes()[0])
             .await
             .expect("get_cardano_stake_distribution should not fail");
@@ -731,7 +713,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_should_fail_with_unknown_hash() {
-        get_mithril_client_stable()
+        get_mithril_client()
             .get_cardano_stake_distribution("whatever")
             .await
             .expect_err("get_cardano_stake_distribution should fail");
@@ -741,7 +723,7 @@ mod tests {
     async fn get_cardano_stake_distribution_by_epoch_should_return_value_convertible_in_rust_type()
     {
         let epoch: u64 = test_data::csd_epochs()[0].parse().unwrap();
-        let csd_js_value = get_mithril_client_stable()
+        let csd_js_value = get_mithril_client()
             .get_cardano_stake_distribution_by_epoch(epoch)
             .await
             .expect("get_cardano_stake_distribution_by_epoch should not fail");
@@ -754,7 +736,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_by_epoch_should_fail_with_unknown_epoch() {
-        get_mithril_client_stable()
+        get_mithril_client()
             .get_cardano_stake_distribution_by_epoch(u64::MAX)
             .await
             .expect_err("get_cardano_stake_distribution_by_epoch should fail");
@@ -763,7 +745,7 @@ mod tests {
     #[wasm_bindgen_test]
     async fn compute_cardano_stake_distribution_message_should_return_value_convertible_in_rust_type(
     ) {
-        let client = get_mithril_client_stable();
+        let client = get_mithril_client();
         let csd_js_value = client
             .get_cardano_stake_distribution(test_data::csd_hashes()[0])
             .await
