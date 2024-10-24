@@ -50,12 +50,8 @@ impl TransmitterService<EventMessage> {
     where
         T: Serialize,
     {
-        let content = serde_json::to_string(content).map_err(|e| {
-            let error_msg = format!("Serialization error while forging event message: {e}");
-            warn!(self.logger, "Event message error"; "error" => &error_msg);
+        let content = serde_json::json!(content);
 
-            error_msg
-        })?;
         let message = EventMessage {
             source: source.to_string(),
             action: action.to_string(),
