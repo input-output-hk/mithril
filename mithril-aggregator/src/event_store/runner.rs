@@ -1,8 +1,8 @@
 use anyhow::Context;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use mithril_persistence::sqlite::SqliteConnection;
 use slog::{debug, info, Logger};
-use sqlite::ConnectionThreadSafe;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
@@ -12,7 +12,7 @@ use super::EventMessage;
 /// EventMessage receiver service.
 pub struct EventStore {
     receiver: UnboundedReceiver<EventMessage>,
-    connection: Arc<ConnectionThreadSafe>,
+    connection: Arc<SqliteConnection>,
     logger: Logger,
 }
 
@@ -20,7 +20,7 @@ impl EventStore {
     /// Instantiate the EventMessage receiver service.
     pub fn new(
         receiver: UnboundedReceiver<EventMessage>,
-        connection: Arc<ConnectionThreadSafe>,
+        connection: Arc<SqliteConnection>,
         logger: Logger,
     ) -> Self {
         Self {
