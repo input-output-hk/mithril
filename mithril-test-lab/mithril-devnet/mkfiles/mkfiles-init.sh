@@ -17,6 +17,9 @@ fi
 if [ -z "${CARDANO_BINARY_URL}" ]; then 
   CARDANO_BINARY_URL="https://github.com/input-output-hk/cardano-node/releases/download/${CARDANO_NODE_VERSION}/cardano-node-${CARDANO_NODE_VERSION_RELEASE}-${OPERATING_SYSTEM}.tar.gz"
 fi
+if [ -z "${CARDANO_CLI_ERA}" ]; then
+    CARDANO_CLI_ERA=latest
+fi
 if [ -z "${NETWORK_MAGIC}" ]; then 
   NETWORK_MAGIC=42
 fi

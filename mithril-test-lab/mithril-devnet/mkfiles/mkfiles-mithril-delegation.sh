@@ -5,13 +5,13 @@ cat >> delegate.sh <<EOF
 set -e
 
 # Get current Cardano era
-CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
+CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip \\
     --testnet-magic ${NETWORK_MAGIC} \\
     | jq  -r '.era |= ascii_downcase | .era')
 echo ">>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
 
 # Get the current epoch
-CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
+CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip \\
                     --cardano-mode \\
                     --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
@@ -41,7 +41,7 @@ version_lte() {
 # Stake addresses registration certs
 for ADDR in ${USER_ADDRS}; do
   if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
-    KEY_REGISTRATION_DEPOSIT_ANOUNT=0
+    KEY_REGISTRATION_DEPOSIT_ANOUNT=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query gov-state --testnet-magic ${NETWORK_MAGIC} | jq .currentPParams.stakeAddressDeposit)
     # Conway specific creation of registration certificate
     $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
     --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
@@ -75,7 +75,7 @@ for N in ${POOL_NODES_N}; do
     AMOUNT_STAKED=\$(( $N*1000000 +  \$DELEGATION_ROUND*1 ))
 
     # Get the UTxO
-    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query utxo \\
+    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query utxo \\
       --testnet-magic ${NETWORK_MAGIC}  --address \$(cat addresses/utxo${N}.addr) --out-file /dev/stdout \\
       | jq  -r 'to_entries | [last] | .[0].key')
 
