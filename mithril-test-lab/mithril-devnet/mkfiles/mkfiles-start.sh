@@ -64,7 +64,7 @@ CARDANO_ACTIVATION_WAIT_ROUNDS=1
 CARDANO_ACTIVATION_WAIT_ROUND_DELAY=2
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
     if [ "\$EPOCH" != "" ] ; then
         echo ">>>> Cardano network is ready!"
         break
@@ -165,10 +165,10 @@ done
 cat >> start-mithril.sh <<EOF
 
 echo ">> Wait for Mithril signers to be registered"
-EPOCH_NOW=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+EPOCH_NOW=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
     EPOCH_DELTA=\$(( \$EPOCH - \$EPOCH_NOW ))
     if [ \$EPOCH_DELTA -ge 2 ] ; then
         echo ">>>> Ready!"

@@ -113,7 +113,7 @@ echo "TestBabbageHardForkAtEpoch: ${HARD_FORK_BABBAGE_AT_EPOCH}" >> "${ARTIFACTS
 echo "TestConwayHardForkAtEpoch: ${HARD_FORK_CONWAY_AT_EPOCH}" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
 echo "ExperimentalProtocolsEnabled: True" >> "${ARTIFACTS_DIR_TEMP}/configuration.yaml"
 
-$CARDANO_CLI genesis create-staked --genesis-dir "${ARTIFACTS_DIR_TEMP}" \
+$CARDANO_CLI $CARDANO_CLI_ERA genesis create-staked --genesis-dir "${ARTIFACTS_DIR_TEMP}" \
   --testnet-magic "${NETWORK_MAGIC}" \
   --gen-pools ${NUM_SPO_NODES} \
   --supply ${TOTAL_SUPPLY} \
@@ -167,7 +167,7 @@ cp -r ${ARTIFACTS_DIR_TEMP}/utxo-keys/* addresses
 
 for ADDR in ${UTXO_ADDRS}; do
     # Payment addresses
-    $CARDANO_CLI address build \
+    $CARDANO_CLI $CARDANO_CLI_ERA address build \
         --payment-verification-key-file addresses/${ADDR}.vkey \
         --testnet-magic ${NETWORK_MAGIC} \
         --out-file addresses/${ADDR}.addr
@@ -175,24 +175,24 @@ done
 
 for ADDR in ${USER_ADDRS}; do
   # Payment address keys
-  $CARDANO_CLI address key-gen \
+  $CARDANO_CLI $CARDANO_CLI_ERA address key-gen \
       --verification-key-file addresses/${ADDR}.vkey \
       --signing-key-file      addresses/${ADDR}.skey
 
   # Stake address keys
-  $CARDANO_CLI stake-address key-gen \
+  $CARDANO_CLI $CARDANO_CLI_ERA stake-address key-gen \
       --verification-key-file addresses/${ADDR}-stake.vkey \
       --signing-key-file      addresses/${ADDR}-stake.skey
 
   # Payment addresses
-  $CARDANO_CLI address build \
+  $CARDANO_CLI $CARDANO_CLI_ERA address build \
       --payment-verification-key-file addresses/${ADDR}.vkey \
       --stake-verification-key-file addresses/${ADDR}-stake.vkey \
       --testnet-magic ${NETWORK_MAGIC} \
       --out-file addresses/${ADDR}.addr
 
   # Stake addresses
-  $CARDANO_CLI stake-address build \
+  $CARDANO_CLI $CARDANO_CLI_ERA stake-address build \
       --stake-verification-key-file addresses/${ADDR}-stake.vkey \
       --testnet-magic ${NETWORK_MAGIC} \
       --out-file addresses/${ADDR}-stake.addr

@@ -114,7 +114,7 @@
   },
   "sanchonet": {
     "cardano-minimum-version": {
-      "mithril-signer": "9.0.0"
+      "mithril-signer": "10.1.0-pre"
     },
     "mithril-networks": [
       {

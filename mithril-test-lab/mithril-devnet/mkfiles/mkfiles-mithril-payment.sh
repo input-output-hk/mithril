@@ -4,12 +4,12 @@ for (( i=1; i<=${NUM_POOL_NODES}; i++ ))
     ADDR_RX=mithril-rx${i}
     if [ ! -f addresses/${ADDR_RX}.addr ]; then
         ## Payment address keys
-        $CARDANO_CLI address key-gen \
+        $CARDANO_CLI $CARDANO_CLI_ERA address key-gen \
             --verification-key-file addresses/${ADDR_RX}.vkey \
             --signing-key-file      addresses/${ADDR_RX}.skey
 
         ## Payment addresses
-        $CARDANO_CLI address build \
+        $CARDANO_CLI $CARDANO_CLI_ERA address build \
             --payment-verification-key-file addresses/${ADDR_RX}.vkey \
             --testnet-magic ${NETWORK_MAGIC} \
             --out-file addresses/${ADDR_RX}.addr
@@ -34,13 +34,13 @@ function wait_for_elapsed_blocks {
     CARDANO_NEXT_BLOCK_WAIT_ROUNDS_MAX=30
     CARDANO_NEXT_BLOCK_WAIT_ROUNDS=1
     CARDANO_NEXT_BLOCK_WAIT_ROUND_DELAY=2
-    CURRENT_CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
+    CURRENT_CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip \\
         --testnet-magic ${NETWORK_MAGIC} \\
         | jq  -r '.block')
     while true
     do
         CARDANO_BLOCK_TARGET=\$(( \${CURRENT_CARDANO_BLOCK} + \${CARDANO_BLOCK_OFFSET} ))
-        CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
+        CARDANO_BLOCK=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip \\
         --testnet-magic ${NETWORK_MAGIC} \\
         | jq  -r '.block')
         if [ \$CARDANO_BLOCK -lt \$CARDANO_BLOCK_TARGET ] ; then
@@ -72,7 +72,7 @@ do
     ADDR_RX=mithril-rx${i}
 cat >> payment-mithril.sh <<EOF
     # Get current Cardano era
-    CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query tip \\
+    CURRENT_CARDANO_ERA=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip \\
         --testnet-magic ${NETWORK_MAGIC} \\
         | jq  -r '.era |= ascii_downcase | .era')
     echo ">>>>>> Current Cardano Era: \${CURRENT_CARDANO_ERA}"
@@ -83,7 +83,7 @@ cat >> payment-mithril.sh <<EOF
 
     # Send funds to Mithril receiver address
     ## Get the UTxO of utxo${i}
-    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query utxo \\
+    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query utxo \\
         --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/utxo${i}.addr) --out-file /dev/stdout \\
         | jq  -r 'to_entries | [last] | .[0].key')
 
@@ -123,7 +123,7 @@ cat >> payment-mithril.sh <<EOF
     TX_ID_SUBMITTED=\$($CARDANO_CLI \${CURRENT_CARDANO_ERA} transaction txid --tx-file node-pool${i}/tx/tx${i}-payment-funds.tx)
 
     ## Retrieve the on-chain transaction id
-    TX_IN_ON_CHAIN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI query utxo \\
+    TX_IN_ON_CHAIN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query utxo \\
         --testnet-magic ${NETWORK_MAGIC} --address \$(cat addresses/utxo${i}.addr) --out-file /dev/stdout \\
         | jq  -r 'to_entries | [last] | .[0].key' | cut -d '#' -f 1)
     

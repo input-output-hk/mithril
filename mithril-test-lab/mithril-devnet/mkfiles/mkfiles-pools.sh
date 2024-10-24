@@ -2,7 +2,7 @@
 cat >> pools.sh <<EOF
 #!/usr/bin/env bash
 
-CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query stake-pools \\
+CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query stake-pools \\
     --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 EOF
@@ -13,7 +13,7 @@ chmod u+x pools.sh
 NODE_ID=1
 PARTY_IDS=()
 for NODE in ${POOL_NODES}; do
-    PARTY_ID=$($CARDANO_CLI stake-pool id \
+    PARTY_ID=$($CARDANO_CLI $CARDANO_CLI_ERA stake-pool id \
                 --cold-verification-key-file ${NODE}/shelley/cold.vkey)
     PARTY_IDS[$NODE_ID]=$PARTY_ID
     echo PARTY_ID=${PARTY_ID} > ${NODE}/pool.env

@@ -25,26 +25,26 @@ cat >> query-cardano.sh <<EOF
 #!/usr/bin/env bash
 
 echo ">> Query chain tip"
-CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query tip \\
+CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query tip \\
     --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC} | jq .
 
 echo
 echo ">> Query whole utxo"
-CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query utxo \\
+CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query utxo \\
     --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC} \\
     --whole-utxo
 echo
 
 echo ">> Query stake pools"
-CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query stake-pools \\
+CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query stake-pools \\
     --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 echo
 
 echo ">> Query stake distribution"
-CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI query stake-snapshot --all-stake-pools \\
+CARDANO_NODE_SOCKET_PATH=node-pool1/ipc/node.sock $CARDANO_CLI $CARDANO_CLI_ERA query stake-snapshot --all-stake-pools \\
     --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC} | jq .
 echo
