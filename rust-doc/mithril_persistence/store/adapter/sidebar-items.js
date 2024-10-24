@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AdapterError"],"struct":["DumbStoreAdapter","FailStoreAdapter","MemoryAdapter","SQLiteAdapter","SQLiteResultIterator"],"trait":["StoreAdapter"]};

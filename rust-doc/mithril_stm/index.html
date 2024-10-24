@@ -1,0 +1,197 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Mithril-stm CI workflow crates.io Discord"><title>mithril_stm - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-492a78a4a87dcc01.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="mithril_stm" data-themes="" data-resource-suffix="" data-rustdoc-version="1.82.0 (f6e511eec 2024-10-15)" data-channel="1.82.0" data-search-js="search-a99f1315e7cc5121.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../crates.js"></script><script defer src="../static.files/main-921df33f47b8780c.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-3b12f09e550e0385.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../mithril_stm/index.html">mithril_<wbr>stm</a><span class="version">0.3.30</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section><ul class="block"><li><a href="#modules">Modules</a></li><li><a href="#enums">Enums</a></li></ul></section></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1>Crate <a class="mod" href="#">mithril_stm</a><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><span class="out-of-band"><a class="src" href="../src/mithril_stm/lib.rs.html#1-22">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="mithril-stm-ci-workflow-cratesio-discord"><a class="doc-anchor" href="#mithril-stm-ci-workflow-cratesio-discord">§</a>Mithril-stm <img src="https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg" alt="CI workflow" /> <img src="https://img.shields.io/crates/v/mithril_stm.svg" alt="crates.io" /> <a href="https://discord.gg/5kaErDKDRq"><img src="https://img.shields.io/discord/500028886025895936.svg?logo=discord&amp;style=flat-square" alt="Discord" /></a></h2>
+<p><strong>This is a work in progress</strong> 🛠</p>
+<ul>
+<li>
+<p><code>mithril-stm</code> is a Rust implementation of the scheme described in the paper <a href="https://eprint.iacr.org/2021/916.pdf">Mithril: Stake-based Threshold Multisignatures</a> by Pyrros Chaidos and Aggelos Kiayias.</p>
+</li>
+<li>
+<p>The BLS12-381 signature library <a href="https://github.com/supranational/blst">blst</a> is used as the backend for the implementation of STM.</p>
+</li>
+<li>
+<p>This implementation supports the <em>trivial concatenation proof system</em> (Section 4.3). Other proof systems such as <em>Bulletproofs</em> or <em>Halo2</em> are not supported in this version.</p>
+</li>
+<li>
+<p>We implemented the concatenation proof system as batch proofs:</p>
+<ul>
+<li>Individual signatures do not contain the Merkle path to prove membership of the avk. Instead, it is the role of the aggregator to generate such proofs. This allows for a more efficient implementation of batched membership proofs (or batched Merkle paths).</li>
+</ul>
+</li>
+<li>
+<p>Protocol documentation is given in <a href="https://mithril.network/doc/mithril/mithril-protocol/protocol/">Mithril Protocol in depth</a>.</p>
+</li>
+<li>
+<p>The API also includes <em>core verification</em>. This functionality allows a full node verifier (<code>CoreVerifier</code>) that is
+able to verify the signatures that are generated without the registration information, i.e., <code>avk</code>. A
+<code>CoreVerifier</code> is assumed to know identities of the signers, so, it does not need to check the registration.</p>
+</li>
+<li>
+<p>This library provides:</p>
+<ul>
+<li>The implementation of the Stake-based Threshold Multisignatures</li>
+<li>The implementation of <code>CoreVerifier</code></li>
+<li>Key registration procedure for STM signatures</li>
+<li>The tests for the library functions, STM scheme, and <code>CoreVerifier</code></li>
+<li>Benchmark tests</li>
+</ul>
+</li>
+</ul>
+<h3 id="pre-requisites"><a class="doc-anchor" href="#pre-requisites">§</a>Pre-requisites</h3>
+<p><strong>Install Rust</strong></p>
+<ul>
+<li>
+<p>Install a <a href="https://www.rust-lang.org/learn/get-started">correctly configured</a> Rust toolchain (latest stable version).</p>
+</li>
+<li>
+<p>Install Build Tools <code>build-essential</code> and <code>m4</code>. For example, on Ubuntu/Debian/Mint, run <code>sudo apt install build-essential m4</code>.</p>
+</li>
+</ul>
+<h3 id="download-source-code"><a class="doc-anchor" href="#download-source-code">§</a>Download source code</h3><div class="example-wrap"><pre class="language-bash"><code># Download sources from github
+git clone https://github.com/input-output-hk/mithril
+
+# Go to sources directory
+cd mithril-stm
+</code></pre></div><h3 id="compiling-the-library"><a class="doc-anchor" href="#compiling-the-library">§</a>Compiling the library</h3><div class="example-wrap"><pre class="language-shell"><code>cargo build --release
+</code></pre></div><h3 id="running-the-tests"><a class="doc-anchor" href="#running-the-tests">§</a>Running the tests</h3>
+<p>For running rust tests, simply run (to run the tests faster, the use of <code>--release</code> flag is recommended):</p>
+<div class="example-wrap"><pre class="language-shell"><code>cargo test --release
+</code></pre></div><h3 id="running-the-benches"><a class="doc-anchor" href="#running-the-benches">§</a>Running the benches</h3><div class="example-wrap"><pre class="language-shell"><code>cargo bench
+</code></pre></div><h3 id="example"><a class="doc-anchor" href="#example">§</a>Example</h3>
+<p>The following is a simple example of the STM implementation:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>mithril_stm::key_reg::KeyReg;
+<span class="kw">use </span>mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+<span class="kw">use </span>mithril_stm::AggregationError;
+
+<span class="kw">use </span>blake2::{digest::consts::U32, Blake2b};
+<span class="kw">use </span>rayon::prelude::<span class="kw-2">*</span>;
+<span class="kw">use </span>rand_chacha::ChaCha20Rng;
+<span class="kw">use </span>rand_core::{RngCore, SeedableRng};
+
+<span class="kw">type </span>H = Blake2b&lt;U32&gt;;
+
+<span class="kw">fn </span>main() {
+    <span class="kw">let </span>nparties = <span class="number">32</span>;
+    <span class="kw">let </span><span class="kw-2">mut </span>rng = ChaCha20Rng::from_seed([<span class="number">0u8</span>; <span class="number">32</span>]);
+    <span class="kw">let </span><span class="kw-2">mut </span>msg = [<span class="number">0u8</span>; <span class="number">16</span>];
+    rng.fill_bytes(<span class="kw-2">&amp;mut </span>msg);
+
+    <span class="comment">//////////////////////////
+    // initialization phase //
+    //////////////////////////
+
+    </span><span class="kw">let </span>params = StmParameters {
+        k: <span class="number">357</span>,
+        m: <span class="number">2642</span>,
+        phi_f: <span class="number">0.2</span>,
+    };
+
+    <span class="kw">let </span>parties = (<span class="number">0</span>..nparties)
+        .into_iter()
+        .map(|<span class="kw">_</span>| <span class="number">1 </span>+ (rng.next_u64() % <span class="number">9999</span>))
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>key_reg = KeyReg::init();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>ps: Vec&lt;StmInitializer&gt; = Vec::with_capacity(nparties <span class="kw">as </span>usize);
+    <span class="kw">for </span>stake <span class="kw">in </span>parties {
+        <span class="kw">let </span>p = StmInitializer::setup(params, stake, <span class="kw-2">&amp;mut </span>rng);
+        key_reg.register(stake, p.verification_key()).unwrap();
+        ps.push(p);
+    }
+
+    <span class="kw">let </span>closed_reg = key_reg.close();
+
+    <span class="kw">let </span>ps = ps
+        .into_par_iter()
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .collect::&lt;Vec&lt;StmSigner&lt;H&gt;&gt;&gt;();
+
+    <span class="comment">/////////////////////
+    // operation phase //
+    /////////////////////
+
+    </span><span class="kw">let </span>sigs = ps
+        .par_iter()
+        .filter_map(|p| p.sign(<span class="kw-2">&amp;</span>msg))
+        .collect::&lt;Vec&lt;StmSig&gt;&gt;();
+
+    <span class="kw">let </span>clerk = StmClerk::from_signer(<span class="kw-2">&amp;</span>ps[<span class="number">0</span>]);
+    <span class="kw">let </span>avk = clerk.compute_avk();
+
+    <span class="comment">// Check all parties can verify every sig
+    </span><span class="kw">for </span>(s, p) <span class="kw">in </span>sigs.iter().zip(ps.iter()) {
+        <span class="macro">assert!</span>(s.verify(<span class="kw-2">&amp;</span>params, <span class="kw-2">&amp;</span>p.verification_key(), <span class="kw-2">&amp;</span>p.get_stake(), <span class="kw-2">&amp;</span>avk, <span class="kw-2">&amp;</span>msg).is_ok(), <span class="string">"Verification
+        failed"</span>);
+    }
+
+    <span class="comment">// Aggregate with random parties
+    </span><span class="kw">let </span>msig = clerk.aggregate(<span class="kw-2">&amp;</span>sigs, <span class="kw-2">&amp;</span>msg);
+
+    <span class="kw">match </span>msig {
+        <span class="prelude-val">Ok</span>(aggr) =&gt; {
+            <span class="macro">println!</span>(<span class="string">"Aggregate ok"</span>);
+            <span class="macro">assert!</span>(aggr.verify(<span class="kw-2">&amp;</span>msg, <span class="kw-2">&amp;</span>clerk.compute_avk(), <span class="kw-2">&amp;</span>params).is_ok());
+        }
+        <span class="prelude-val">Err</span>(AggregationError::NotEnoughSignatures(n, k)) =&gt; {
+            <span class="macro">println!</span>(<span class="string">"Not enough signatures"</span>);
+            <span class="macro">assert!</span>(n &lt; params.k &amp;&amp; k == params.k)
+        }
+        <span class="prelude-val">Err</span>(AggregationError::UsizeConversionInvalid) =&gt; {
+            <span class="macro">println!</span>(<span class="string">"Invalid usize conversion"</span>);
+        }
+    }
+}</code></pre></div>
+<h3 id="benchmarks"><a class="doc-anchor" href="#benchmarks">§</a>Benchmarks</h3>
+<p>Here we give the benchmark results of STM for size and time. We run the benchmarks on macOS 12.6 on an Apple M1 Pro machine with 16 GB of RAM.</p>
+<p>Note that the size of an individual signature with one valid index is <strong>72 bytes</strong> (48 bytes from <code>sigma</code>, 8 bytes from <code>party_index</code>, 8 bytes for the <code>length</code> of winning indices and at least 8 bytes for a single winning <code>index</code>) and increases linearly in the length of valid indices (where an index is 8 bytes).</p>
+<div class="example-wrap"><pre class="language-shell"><code>+----------------------+
+| Size of benchmarks   |
++----------------------+
+| Results obtained by using the parameters suggested by the paper.
++----------------------+
++----------------------+
+| Aggregate signatures |
++----------------------+
++----------------------+
+| Hash: Blake2b 512    |
++----------------------+
+k = 445 | m = 2728 | nr parties = 3000; 118760 bytes
++----------------------+
+| Hash: Blake2b 256    |
++----------------------+
+k = 445 | m = 2728 | nr parties = 3000; 99384 bytes
++----------------------+
++----------------------+
+| Aggregate signatures |
++----------------------+
+| Hash: Blake2b 512    |
++----------------------+
+k = 554 | m = 3597 | nr parties = 3000; 133936 bytes
++----------------------+
+| Hash: Blake2b 256    |
++----------------------+
+k = 554 | m = 3597 | nr parties = 3000; 113728 bytes
+</code></pre></div><div class="example-wrap"><pre class="language-shell"><code>STM/Blake2b/Key registration/k: 25, m: 150, nr_parties: 300
+                        time:   [409.70 ms 426.81 ms 446.30 ms]
+STM/Blake2b/Play all lotteries/k: 25, m: 150, nr_parties: 300
+                        time:   [696.58 µs 697.62 µs 698.75 µs]
+STM/Blake2b/Aggregation/k: 25, m: 150, nr_parties: 300
+                        time:   [18.765 ms 18.775 ms 18.785 ms]
+STM/Blake2b/Verification/k: 25, m: 150, nr_parties: 300
+                        time:   [2.1577 ms 2.1715 ms 2.1915 ms]
+
+STM/Blake2b/Key registration/k: 250, m: 1523, nr_parties: 2000
+                        time:   [2.5807 s 2.5880 s 2.5961 s]
+STM/Blake2b/Play all lotteries/k: 250, m: 1523, nr_parties: 2000
+                        time:   [5.9318 ms 5.9447 ms 5.9582 ms]
+STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000
+                        time:   [190.81 ms 191.15 ms 191.54 ms]
+STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
+                        time:   [13.944 ms 14.010 ms 14.077 ms]
+</code></pre></div>
+<p>Implementation of Stake-based Threshold Multisignatures</p>
+</div></details><h2 id="modules" class="section-header">Modules<a href="#modules" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="mod" href="key_reg/index.html" title="mod mithril_stm::key_reg">key_reg</a></div><div class="desc docblock-short">Key registration functionality.</div></li><li><div class="item-name"><a class="mod" href="multi_sig/index.html" title="mod mithril_stm::multi_sig">multi_<wbr>sig</a></div><div class="desc docblock-short">Base multi-signature scheme, used as a primitive for STM.
+See Section 2.4 of <a href="https://eprint.iacr.org/2021/916">the paper</a>.
+This module uses the <code>blst</code> library as a backend for pairings.</div></li><li><div class="item-name"><a class="mod" href="stm/index.html" title="mod mithril_stm::stm">stm</a></div><div class="desc docblock-short">Top-level API for Mithril Stake-based Threshold Multisignature scheme.
+See figure 6 of <a href="https://eprint.iacr.org/2021/916">the paper</a> for most of the
+protocol.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.AggregationError.html" title="enum mithril_stm::AggregationError">Aggregation<wbr>Error</a></div><div class="desc docblock-short">Error types for aggregation.</div></li><li><div class="item-name"><a class="enum" href="enum.CoreVerifierError.html" title="enum mithril_stm::CoreVerifierError">Core<wbr>Verifier<wbr>Error</a></div><div class="desc docblock-short">Errors which can be output by <code>CoreVerifier</code>.</div></li><li><div class="item-name"><a class="enum" href="enum.RegisterError.html" title="enum mithril_stm::RegisterError">Register<wbr>Error</a></div><div class="desc docblock-short">Errors which can be outputted by key registration.</div></li><li><div class="item-name"><a class="enum" href="enum.StmAggregateSignatureError.html" title="enum mithril_stm::StmAggregateSignatureError">StmAggregate<wbr>Signature<wbr>Error</a></div><div class="desc docblock-short">Errors which can be output by Mithril aggregate verification.</div></li><li><div class="item-name"><a class="enum" href="enum.StmSignatureError.html" title="enum mithril_stm::StmSignatureError">StmSignature<wbr>Error</a></div><div class="desc docblock-short">Errors which can be output by Mithril single signature verification.</div></li></ul></section></div></main></body></html>
