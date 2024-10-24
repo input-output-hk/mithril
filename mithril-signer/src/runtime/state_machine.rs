@@ -212,13 +212,15 @@ impl StateMachine {
                         .transition_from_ready_to_sign_to_unregistered(new_epoch)
                         .await?;
                 }
-                EpochStatus::Unchanged(_timepoint) => {
-                    let beacon_to_sign = self.runner.get_beacon_to_sign().await.map_err(|e| {
-                        RuntimeError::KeepState {
-                            message: "could not fetch the beacon to sign".to_string(),
-                            nested_error: Some(e),
-                        }
-                    })?;
+                EpochStatus::Unchanged(timepoint) => {
+                    let beacon_to_sign =
+                        self.runner
+                            .get_beacon_to_sign(timepoint)
+                            .await
+                            .map_err(|e| RuntimeError::KeepState {
+                                message: "could not fetch the beacon to sign".to_string(),
+                                nested_error: Some(e),
+                            })?;
 
                     match beacon_to_sign {
                         Some(beacon) => {
@@ -740,7 +742,7 @@ mod tests {
         runner
             .expect_get_beacon_to_sign()
             .once()
-            .returning(move || Ok(Some(beacon_to_sign_clone.clone())));
+            .returning(move |_| Ok(Some(beacon_to_sign_clone.clone())));
         runner
             .expect_compute_message()
             .once()
@@ -784,7 +786,7 @@ mod tests {
         runner
             .expect_get_beacon_to_sign()
             .once()
-            .returning(move || Ok(None));
+            .returning(move |_| Ok(None));
 
         let state_machine = init_state_machine(
             SignerState::ReadyToSign {

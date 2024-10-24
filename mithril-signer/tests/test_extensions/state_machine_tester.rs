@@ -261,7 +261,6 @@ impl StateMachineTester {
         let signed_beacon_repository =
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None));
         let certifier = Arc::new(SignerCertifierService::new(
-            ticker_service.clone(),
             signed_beacon_repository.clone(),
             Arc::new(SignerSignedEntityConfigProvider::new(
                 network,
