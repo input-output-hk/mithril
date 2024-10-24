@@ -5,10 +5,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::{BlockNumber, SlotNumber};
 
-cfg_fs! {
-    use pallas_network::miniprotocols::{chainsync::Tip, Point};
-}
-
 /// Hash of a Cardano Block
 pub type BlockHash = String;
 
@@ -37,20 +33,6 @@ impl ChainPoint {
             block_number,
             block_hash: block_hash.into(),
         }
-    }
-
-    /// Create a new origin chain point
-    pub fn origin() -> ChainPoint {
-        ChainPoint {
-            slot_number: SlotNumber(0),
-            block_number: BlockNumber(0),
-            block_hash: String::new(),
-        }
-    }
-
-    /// Check if origin chain point
-    pub fn is_origin(&self) -> bool {
-        self.slot_number == 0 && self.block_number == 0 && self.block_hash.is_empty()
     }
 
     cfg_test_tools! {
@@ -87,56 +69,6 @@ impl Ord for ChainPoint {
             .cmp(&other.block_number)
             .then(self.slot_number.cmp(&other.slot_number))
             .then(self.block_hash.cmp(&other.block_hash))
-    }
-}
-
-cfg_fs! {
-    impl From<ChainPoint> for Point {
-        fn from(chain_point: ChainPoint) -> Self {
-            match chain_point.is_origin() {
-                true => Self::Origin,
-                false => Self::Specific(
-                    *chain_point.slot_number,
-                    hex::decode(&chain_point.block_hash).unwrap(), // TODO: keep block_hash as a Vec<u8>
-                ),
-            }
-        }
-    }
-
-    impl From<Point> for ChainPoint {
-        fn from(point: Point) -> Self {
-            match point {
-                Point::Specific(slot_number, block_hash) => Self {
-                    slot_number: SlotNumber(slot_number),
-                    block_number: BlockNumber(0),
-                    block_hash: hex::encode(block_hash),
-                },
-                Point::Origin => Self {
-                    slot_number: SlotNumber(0),
-                    block_number: BlockNumber(0),
-                    block_hash: String::new(),
-                },
-            }
-        }
-    }
-
-    impl From<Tip> for ChainPoint {
-        fn from(tip: Tip) -> Self {
-            let chain_point: Self = tip.0.into();
-            Self {
-                slot_number: chain_point.slot_number,
-                block_number: BlockNumber(tip.1),
-                block_hash: chain_point.block_hash,
-            }
-        }
-    }
-
-    impl From<ChainPoint> for Tip {
-        fn from(chain_point: ChainPoint) -> Self {
-            let block_number = chain_point.block_number;
-            let point: Point = chain_point.into();
-            Tip(point, *block_number)
-        }
     }
 }
 
