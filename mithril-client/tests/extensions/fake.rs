@@ -140,7 +140,6 @@ impl FakeAggregator {
     }
 }
 
-#[cfg(feature = "unstable")]
 mod proof {
     use mithril_client::common::{BlockNumber, ProtocolMessagePartKey};
     use mithril_client::{CardanoTransactionsProofs, CardanoTransactionsSetProof};
