@@ -26,7 +26,7 @@ impl EventPersister {
         let mut rows = self.connection.fetch(InsertEventQuery::one(message)?)?;
 
         rows.next().ok_or(anyhow!(
-            "No record from the database after I saved event message {log_message:?}"
+            "No record from the database after saving event message {log_message:?}"
         ))
     }
 }
