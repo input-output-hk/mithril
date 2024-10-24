@@ -16,7 +16,7 @@ pub struct EventMessage {
     pub action: String,
 
     /// JSON content of the message, its type is declared in the action property.
-    pub content: String,
+    pub content: serde_json::Value,
 
     /// Headers
     pub headers: HashMap<String, String>,
@@ -24,20 +24,13 @@ pub struct EventMessage {
 
 impl EventMessage {
     /// Instantiate a new EventMessage.
-    pub fn new(source: &str, action: &str, content: &str) -> Self {
+    pub fn new(source: &str, action: &str, content: serde_json::Value) -> Self {
         Self {
             source: source.to_string(),
             action: action.to_string(),
-            content: content.to_string(),
+            content,
             headers: HashMap::new(),
         }
-    }
-
-    /// forge a new instance adding the given header
-    pub fn add_header(mut self, name: &str, value: &str) -> Self {
-        let _ = self.headers.insert(name.to_owned(), value.to_owned());
-
-        self
     }
 }
 
