@@ -373,7 +373,6 @@ impl<'a> DependenciesBuilder<'a> {
             self.root_logger(),
         ));
         let certifier = Arc::new(SignerCertifierService::new(
-            ticker_service.clone(),
             signed_beacon_repository,
             Arc::new(SignerSignedEntityConfigProvider::new(
                 network,

@@ -24,7 +24,7 @@ pub trait Runner: Send + Sync {
     async fn get_epoch_settings(&self) -> StdResult<Option<SignerEpochSettings>>;
 
     /// Fetch the beacon to sign if any.
-    async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>>;
+    async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>>;
 
     /// Fetch the current time point from the Cardano node.
     async fn get_current_time_point(&self) -> StdResult<TimePoint>;
@@ -113,10 +113,13 @@ impl Runner for SignerRunner {
             .map_err(|e| e.into())
     }
 
-    async fn get_beacon_to_sign(&self) -> StdResult<Option<BeaconToSign>> {
-        debug!(self.logger, ">> get_beacon_to_sign");
+    async fn get_beacon_to_sign(&self, time_point: TimePoint) -> StdResult<Option<BeaconToSign>> {
+        debug!(
+            self.logger,
+            ">> get_beacon_to_sign(time_point: {time_point})"
+        );
 
-        self.services.certifier.get_beacon_to_sign().await
+        self.services.certifier.get_beacon_to_sign(time_point).await
     }
 
     async fn get_current_time_point(&self) -> StdResult<TimePoint> {
@@ -488,7 +491,6 @@ mod tests {
         let upkeep_service = Arc::new(MockUpkeepService::new());
         let aggregator_client = Arc::new(DumbAggregatorClient::default());
         let certifier = Arc::new(SignerCertifierService::new(
-            ticker_service.clone(),
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None)),
             Arc::new(SignerSignedEntityConfigProvider::new(
                 network,

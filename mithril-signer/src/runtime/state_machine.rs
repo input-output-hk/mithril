@@ -75,6 +75,11 @@ impl Display for SignerState {
     }
 }
 
+enum EpochStatus {
+    NewEpoch(Epoch),
+    Unchanged(TimePoint),
+}
+
 /// The state machine is responsible of the execution of the signer automate.
 pub struct StateMachine {
     state: Mutex<SignerState>,
@@ -146,7 +151,7 @@ impl StateMachine {
                 *state = self.transition_from_init_to_unregistered().await?;
             }
             SignerState::Unregistered { epoch } => {
-                if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
+                if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(*epoch).await? {
                     info!(
                         self.logger,
                         "→ Epoch has changed, transiting to Unregistered"
@@ -184,7 +189,7 @@ impl StateMachine {
                 }
             }
             SignerState::RegisteredNotAbleToSign { epoch } => {
-                if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
+                if let EpochStatus::NewEpoch(new_epoch) = self.has_epoch_changed(*epoch).await? {
                     info!(
                         self.logger,
                         " → New Epoch detected, transiting to Unregistered"
@@ -198,7 +203,7 @@ impl StateMachine {
             }
 
             SignerState::ReadyToSign { epoch } => match self.has_epoch_changed(*epoch).await? {
-                Some(new_epoch) => {
+                EpochStatus::NewEpoch(new_epoch) => {
                     info!(
                         self.logger,
                         "→ Epoch has changed, transiting to Unregistered"
@@ -207,13 +212,15 @@ impl StateMachine {
                         .transition_from_ready_to_sign_to_unregistered(new_epoch)
                         .await?;
                 }
-                None => {
-                    let beacon_to_sign = self.runner.get_beacon_to_sign().await.map_err(|e| {
-                        RuntimeError::KeepState {
-                            message: "could not fetch the beacon to sign".to_string(),
-                            nested_error: Some(e),
-                        }
-                    })?;
+                EpochStatus::Unchanged(timepoint) => {
+                    let beacon_to_sign =
+                        self.runner
+                            .get_beacon_to_sign(timepoint)
+                            .await
+                            .map_err(|e| RuntimeError::KeepState {
+                                message: "could not fetch the beacon to sign".to_string(),
+                                nested_error: Some(e),
+                            })?;
 
                     match beacon_to_sign {
                         Some(beacon) => {
@@ -240,16 +247,16 @@ impl StateMachine {
         Ok(())
     }
 
-    /// Return the new epoch if the epoch is different than the given one.
-    async fn has_epoch_changed(&self, epoch: Epoch) -> Result<Option<Epoch>, RuntimeError> {
+    /// Return the new epoch if the epoch is different than the given one, otherwise return the current time point.
+    async fn has_epoch_changed(&self, epoch: Epoch) -> Result<EpochStatus, RuntimeError> {
         let current_time_point = self
             .get_current_time_point("checking if epoch has changed")
             .await?;
 
         if current_time_point.epoch > epoch {
-            Ok(Some(current_time_point.epoch))
+            Ok(EpochStatus::NewEpoch(current_time_point.epoch))
         } else {
-            Ok(None)
+            Ok(EpochStatus::Unchanged(current_time_point))
         }
     }
 
@@ -735,7 +742,7 @@ mod tests {
         runner
             .expect_get_beacon_to_sign()
             .once()
-            .returning(move || Ok(Some(beacon_to_sign_clone.clone())));
+            .returning(move |_| Ok(Some(beacon_to_sign_clone.clone())));
         runner
             .expect_compute_message()
             .once()
@@ -779,7 +786,7 @@ mod tests {
         runner
             .expect_get_beacon_to_sign()
             .once()
-            .returning(move || Ok(None));
+            .returning(move |_| Ok(None));
 
         let state_machine = init_state_machine(
             SignerState::ReadyToSign {
