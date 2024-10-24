@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::SignerBuilder;
-#[cfg(feature = "unstable")]
 use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 #[cfg(feature = "fs")]
 use mithril_common::{
@@ -15,12 +14,11 @@ use mithril_common::{
     entities::SignedEntityType,
 };
 
-use crate::common::{ProtocolMessage, ProtocolMessagePartKey};
-#[cfg(feature = "unstable")]
-use crate::CardanoStakeDistribution;
-use crate::MithrilCertificate;
-use crate::VerifiedCardanoTransactions;
-use crate::{MithrilResult, MithrilSigner, MithrilStakeDistribution};
+use crate::{
+    common::{ProtocolMessage, ProtocolMessagePartKey},
+    CardanoStakeDistribution, MithrilCertificate, MithrilResult, MithrilSigner,
+    MithrilStakeDistribution, VerifiedCardanoTransactions,
+};
 
 /// A [MessageBuilder] can be used to compute the message of Mithril artifacts.
 pub struct MessageBuilder {
@@ -143,29 +141,28 @@ impl MessageBuilder {
         message
     }
 
-    cfg_unstable! {
-        /// Compute message for a Cardano stake distribution.
-        pub fn compute_cardano_stake_distribution_message(
-            &self,
-            certificate: &MithrilCertificate,
-            cardano_stake_distribution: &CardanoStakeDistribution,
-        ) -> MithrilResult<ProtocolMessage> {
-            let mk_tree = CardanoStakeDistributionSignableBuilder::compute_merkle_tree_from_stake_distribution(
+    /// Compute message for a Cardano stake distribution.
+    pub fn compute_cardano_stake_distribution_message(
+        &self,
+        certificate: &MithrilCertificate,
+        cardano_stake_distribution: &CardanoStakeDistribution,
+    ) -> MithrilResult<ProtocolMessage> {
+        let mk_tree =
+            CardanoStakeDistributionSignableBuilder::compute_merkle_tree_from_stake_distribution(
                 cardano_stake_distribution.stake_distribution.clone(),
             )?;
 
-            let mut message = certificate.protocol_message.clone();
-            message.set_message_part(
-                ProtocolMessagePartKey::CardanoStakeDistributionEpoch,
-                cardano_stake_distribution.epoch.to_string(),
-            );
-            message.set_message_part(
-                ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
-                mk_tree.compute_root()?.to_hex(),
-            );
+        let mut message = certificate.protocol_message.clone();
+        message.set_message_part(
+            ProtocolMessagePartKey::CardanoStakeDistributionEpoch,
+            cardano_stake_distribution.epoch.to_string(),
+        );
+        message.set_message_part(
+            ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
+            mk_tree.compute_root()?.to_hex(),
+        );
 
-            Ok(message)
-        }
+        Ok(message)
     }
 }
 
