@@ -1,14 +1,13 @@
 use pallas_traverse::MultiEraBlock;
+use std::fmt::{Debug, Formatter};
 
-use crate::entities::{
-    BlockHash, BlockNumber, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash,
-};
+use crate::entities::{BlockNumber, CardanoTransaction, ChainPoint, SlotNumber, TransactionHash};
 
 /// A block scanned from a Cardano database
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct ScannedBlock {
     /// Block hash
-    pub block_hash: BlockHash,
+    pub block_hash: Vec<u8>,
     /// Block number
     pub block_number: BlockNumber,
     /// Slot number of the block
@@ -19,11 +18,11 @@ pub struct ScannedBlock {
 
 impl ScannedBlock {
     /// Scanned block factory
-    pub fn new<T: Into<TransactionHash>, U: Into<BlockHash>>(
-        block_hash: U,
+    pub fn new<BlkHash: Into<Vec<u8>>, TxHash: Into<TransactionHash>>(
+        block_hash: BlkHash,
         block_number: BlockNumber,
         slot_number: SlotNumber,
-        transaction_hashes: Vec<T>,
+        transaction_hashes: Vec<TxHash>,
     ) -> Self {
         Self {
             block_hash: block_hash.into(),
@@ -40,7 +39,7 @@ impl ScannedBlock {
         }
 
         Self::new(
-            multi_era_block.hash().to_string(),
+            *multi_era_block.hash(),
             BlockNumber(multi_era_block.number()),
             SlotNumber(multi_era_block.slot()),
             transactions,
@@ -56,6 +55,7 @@ impl ScannedBlock {
     ///
     /// Consume the block.
     pub fn into_transactions(self) -> Vec<CardanoTransaction> {
+        let block_hash = hex::encode(&self.block_hash);
         self.transactions_hashes
             .into_iter()
             .map(|transaction_hash| {
@@ -63,10 +63,22 @@ impl ScannedBlock {
                     transaction_hash,
                     self.block_number,
                     self.slot_number,
-                    self.block_hash.clone(),
+                    block_hash.clone(),
                 )
             })
             .collect::<Vec<_>>()
+    }
+}
+
+impl Debug for ScannedBlock {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut debug = f.debug_struct("ScannedBlock");
+        debug
+            .field("block_hash", &hex::encode(&self.block_hash))
+            .field("block_number", &self.block_number)
+            .field("slot_number", &self.slot_number)
+            .field("transactions_hashes", &self.transactions_hashes)
+            .finish()
     }
 }
 
@@ -75,7 +87,7 @@ impl From<&ScannedBlock> for ChainPoint {
         ChainPoint::new(
             scanned_block.slot_number,
             scanned_block.block_number,
-            scanned_block.block_hash.clone(),
+            hex::encode(&scanned_block.block_hash),
         )
     }
 }

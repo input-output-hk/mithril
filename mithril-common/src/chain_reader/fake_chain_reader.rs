@@ -2,7 +2,8 @@ use std::{collections::VecDeque, sync::Mutex};
 
 use async_trait::async_trait;
 
-use crate::{entities::ChainPoint, StdResult};
+use crate::cardano_block_scanner::RawCardanoPoint;
+use crate::StdResult;
 
 use super::{ChainBlockNextAction, ChainBlockReader};
 
@@ -27,7 +28,7 @@ impl FakeChainReader {
 
 #[async_trait]
 impl ChainBlockReader for FakeChainReader {
-    async fn set_chain_point(&mut self, _point: &ChainPoint) -> StdResult<()> {
+    async fn set_chain_point(&mut self, _point: &RawCardanoPoint) -> StdResult<()> {
         Ok(())
     }
 
@@ -42,14 +43,6 @@ mod tests {
     use crate::entities::{BlockNumber, SlotNumber};
 
     use super::*;
-
-    fn build_chain_point(id: u64) -> ChainPoint {
-        ChainPoint {
-            slot_number: SlotNumber(id),
-            block_number: BlockNumber(id),
-            block_hash: format!("point-hash-{id}"),
-        }
-    }
 
     #[tokio::test]
     async fn test_get_next_chain_block() {
@@ -71,7 +64,7 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                chain_point: build_chain_point(1),
+                point: RawCardanoPoint::new(SlotNumber(1), "point-hash-1".as_bytes()),
             },
         ];
 

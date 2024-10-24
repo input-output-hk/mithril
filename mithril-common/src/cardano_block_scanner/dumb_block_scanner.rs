@@ -3,8 +3,8 @@ use std::sync::RwLock;
 
 use async_trait::async_trait;
 
-use crate::cardano_block_scanner::ChainScannedBlocks;
 use crate::cardano_block_scanner::{BlockScanner, BlockStreamer, ScannedBlock};
+use crate::cardano_block_scanner::{ChainScannedBlocks, RawCardanoPoint};
 use crate::entities::{BlockNumber, ChainPoint};
 use crate::StdResult;
 
@@ -34,9 +34,9 @@ impl DumbBlockScanner {
         self
     }
 
-    /// Set the latest polled chain point to return when [Self::latest_polled_chain_point] is called.
-    pub fn latest_polled_chain_point(self, chain_point: Option<ChainPoint>) -> Self {
-        self.set_latest_polled_chain_point(chain_point);
+    /// Set the last polled point to return when [Self::last_polled_point] is called.
+    pub fn last_polled_point(self, raw_point: Option<RawCardanoPoint>) -> Self {
+        self.set_last_polled_point(raw_point);
         self
     }
 
@@ -53,10 +53,10 @@ impl DumbBlockScanner {
         *streamer = streamer.clone().rollback(chain_point);
     }
 
-    /// Set the latest polled chain point to return when [Self::latest_polled_chain_point] is called.
-    pub fn set_latest_polled_chain_point(&self, chain_point: Option<ChainPoint>) {
+    /// Set the last polled point to return when [Self::last_polled_point] is called.
+    pub fn set_last_polled_point(&self, raw_point: Option<RawCardanoPoint>) {
         let mut streamer = self.streamer.write().unwrap();
-        *streamer = streamer.clone().set_latest_polled_chain_point(chain_point);
+        *streamer = streamer.clone().set_last_polled_point(raw_point);
     }
 }
 
@@ -70,7 +70,7 @@ impl Default for DumbBlockScanner {
 impl BlockScanner for DumbBlockScanner {
     async fn scan(
         &self,
-        _from: Option<ChainPoint>,
+        _from: Option<RawCardanoPoint>,
         _until: BlockNumber,
     ) -> StdResult<Box<dyn BlockStreamer>> {
         let streamer = self.streamer.read().unwrap();
@@ -82,7 +82,7 @@ impl BlockScanner for DumbBlockScanner {
 #[derive(Clone)]
 pub struct DumbBlockStreamer {
     streamer_responses: VecDeque<ChainScannedBlocks>,
-    latest_polled_chain_point: Option<ChainPoint>,
+    last_polled_point: Option<RawCardanoPoint>,
 }
 
 impl DumbBlockStreamer {
@@ -90,13 +90,13 @@ impl DumbBlockStreamer {
     pub fn new() -> Self {
         Self {
             streamer_responses: VecDeque::new(),
-            latest_polled_chain_point: None,
+            last_polled_point: None,
         }
     }
 
-    /// Set the latest polled chain point to return when [Self::latest_polled_chain_point] is called
-    pub fn set_latest_polled_chain_point(mut self, chain_point: Option<ChainPoint>) -> Self {
-        self.latest_polled_chain_point = chain_point;
+    /// Set the last polled point to return when [Self::last_polled_point] is called
+    pub fn set_last_polled_point(mut self, raw_point: Option<RawCardanoPoint>) -> Self {
+        self.last_polled_point = raw_point;
         self
     }
 
@@ -132,8 +132,8 @@ impl BlockStreamer for DumbBlockStreamer {
         Ok(self.streamer_responses.pop_front())
     }
 
-    fn latest_polled_chain_point(&self) -> Option<ChainPoint> {
-        self.latest_polled_chain_point.clone()
+    fn last_polled_point(&self) -> Option<RawCardanoPoint> {
+        self.last_polled_point.clone()
     }
 }
 
@@ -312,13 +312,13 @@ mod tests {
     #[tokio::test]
     async fn setting_last_polled_block() {
         let mut streamer = DumbBlockStreamer::new().forwards(vec![]);
-        assert_eq!(streamer.latest_polled_chain_point(), None);
+        assert_eq!(streamer.last_polled_point(), None);
 
-        let chain_point = ChainPoint::new(SlotNumber(10), BlockNumber(2), "block-hash");
-        streamer = streamer.set_latest_polled_chain_point(Some(chain_point.clone()));
-        assert_eq!(streamer.latest_polled_chain_point(), Some(chain_point));
+        let raw_point = RawCardanoPoint::new(SlotNumber(10), "block-hash".as_bytes());
+        streamer = streamer.set_last_polled_point(Some(raw_point.clone()));
+        assert_eq!(streamer.last_polled_point(), Some(raw_point));
 
-        streamer = streamer.set_latest_polled_chain_point(None);
-        assert_eq!(streamer.latest_polled_chain_point(), None);
+        streamer = streamer.set_last_polled_point(None);
+        assert_eq!(streamer.last_polled_point(), None);
     }
 }
