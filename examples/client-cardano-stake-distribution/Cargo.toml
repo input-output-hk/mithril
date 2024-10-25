@@ -1,7 +1,7 @@
 [package]
 name = "client-cardano-stake-distribution"
 description = "Mithril client cardano stake distribution example"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
@@ -12,7 +12,7 @@ repository = "https://github.com/input-output-hk/mithril/"
 [dependencies]
 anyhow = "1.0.89"
 clap = { version = "4.5.20", features = ["derive", "env"] }
-mithril-client = { path = "../../mithril-client", features = ["unstable"] }
+mithril-client = { path = "../../mithril-client" }
 slog = "2.7.0"
 slog-async = "2.8.0"
 slog-term = "2.9.1"

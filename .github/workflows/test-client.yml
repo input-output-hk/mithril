@@ -161,8 +161,8 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: |
-          ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution list
-          CMD_OUTPUT=$(./mithril-client --unstable cardano-stake-distribution list --json)
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution list
+          CMD_OUTPUT=$(./mithril-client cardano-stake-distribution list --json)
           echo "CARDANO_STAKE_DISTRIBUTION_EPOCH=$(echo "$CMD_OUTPUT" | jq -r '.[0].epoch')" >> $GITHUB_ENV
           echo "CARDANO_STAKE_DISTRIBUTION_HASH=$(echo "$CMD_OUTPUT" | jq -r '.[0].hash')" >> $GITHUB_ENV
 
@@ -170,13 +170,13 @@ jobs:
         if: steps.aggregator_capability_unix.outputs.csd_enabled == 'true' || steps.aggregator_capability_windows.outputs.csd_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH
 
       - name: Cardano Stake Distribution / download & restore latest by hash
         if: steps.aggregator_capability_unix.outputs.csd_enabled == 'true' || steps.aggregator_capability_windows.outputs.csd_enabled == 'true'
         shell: bash
         working-directory: ./bin
-        run: ./mithril-client --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH
 
   test-docker:
     strategy:
@@ -259,20 +259,20 @@ jobs:
         if: steps.aggregator_capability.outputs.csd_enabled == 'true'
         shell: bash
         run: |
-          ${{ steps.command.outputs.mithril_client }} --unstable cardano-stake-distribution list
-          CMD_OUTPUT=$(${{ steps.command.outputs.mithril_client }} --unstable cardano-stake-distribution list --json)
+          ${{ steps.command.outputs.mithril_client }} cardano-stake-distribution list
+          CMD_OUTPUT=$(${{ steps.command.outputs.mithril_client }} cardano-stake-distribution list --json)
           echo "CARDANO_STAKE_DISTRIBUTION_EPOCH=$(echo "$CMD_OUTPUT" | jq -r '.[0].epoch')" >> $GITHUB_ENV
           echo "CARDANO_STAKE_DISTRIBUTION_HASH=$(echo "$CMD_OUTPUT" | jq -r '.[0].hash')" >> $GITHUB_ENV
 
       - name: Cardano Stake Distribution / download & restore latest by epoch
         if: steps.aggregator_capability.outputs.csd_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_EPOCH --download-dir /app
 
       - name: Cardano Stake Distribution / download & restore latest by hash
         if: steps.aggregator_capability.outputs.csd_enabled == 'true'
         shell: bash
-        run: ${{ steps.command.outputs.mithril_client }} --unstable ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app
 
   test-mithril-client-wasm:
     strategy:

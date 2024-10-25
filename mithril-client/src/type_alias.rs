@@ -50,22 +50,17 @@ pub use mithril_common::messages::CardanoTransactionSnapshotMessage as CardanoTr
 /// List item of a Cardano transaction snapshot.
 pub use mithril_common::messages::CardanoTransactionSnapshotListItemMessage as CardanoTransactionSnapshotListItem;
 
-cfg_unstable! {
-    /// A Cardano stake distribution.
-    pub use mithril_common::messages::CardanoStakeDistributionMessage as CardanoStakeDistribution;
+/// A Cardano stake distribution.
+pub use mithril_common::messages::CardanoStakeDistributionMessage as CardanoStakeDistribution;
 
-    /// List item of Cardano stake distributions.
-    pub use mithril_common::messages::CardanoStakeDistributionListItemMessage as CardanoStakeDistributionListItem;
-}
+/// List item of Cardano stake distributions.
+pub use mithril_common::messages::CardanoStakeDistributionListItemMessage as CardanoStakeDistributionListItem;
 
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::entities::{
         BlockHash, BlockNumber, CardanoDbBeacon, ChainPoint, CompressionAlgorithm, Epoch,
         ImmutableFileNumber, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
-        SlotNumber, TransactionHash,
+        SlotNumber, StakeDistribution, TransactionHash,
     };
-    cfg_unstable! {
-        pub use mithril_common::entities::{StakeDistribution};
-    }
 }

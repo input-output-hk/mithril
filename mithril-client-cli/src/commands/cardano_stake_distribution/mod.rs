@@ -11,7 +11,7 @@ use mithril_client::MithrilResult;
 
 /// Cardano Stake Distribution management (alias: csd)
 #[derive(Subcommand, Debug, Clone)]
-#[command(about = "[unstable] Cardano stake distribution management (alias: csd)")]
+#[command(about = "Cardano stake distribution management (alias: csd)")]
 pub enum CardanoStakeDistributionCommands {
     /// List certified Cardano Stake Distributions
     #[clap(arg_required_else_help = false)]

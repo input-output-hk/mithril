@@ -19,6 +19,15 @@ use mithril_client_cli::commands::{
 };
 use mithril_client_cli::{ClapError, CommandContext};
 
+macro_rules! allow_unstable_dead_code {
+    ($($item:item)*) => {
+        $(
+            #[allow(dead_code)]
+            $item
+        )*
+    }
+}
+
 enum LogOutputType {
     StdErr,
     File(String),
@@ -77,7 +86,7 @@ pub struct Args {
     #[example = "`./mithril-client.log`"]
     log_output: Option<String>,
 
-    /// Enable unstable commands (such as Cardano Stake Distribution)
+    /// Enable unstable commands
     #[clap(long)]
     unstable: bool,
 }
@@ -206,28 +215,21 @@ impl ArtifactCommands {
             Self::CardanoDb(cmd) => cmd.execute(context).await,
             Self::MithrilStakeDistribution(cmd) => cmd.execute(context).await,
             Self::CardanoTransaction(cmd) => cmd.execute(context).await,
-            Self::CardanoStakeDistribution(cmd) => {
-                if !context.is_unstable_enabled() {
-                    Err(anyhow!(Self::unstable_flag_missing_message(
-                        "cardano-stake-distribution",
-                        "list"
-                    )))
-                } else {
-                    cmd.execute(context).await
-                }
-            }
+            Self::CardanoStakeDistribution(cmd) => cmd.execute(context).await,
             Self::GenerateDoc(cmd) => cmd
                 .execute(&mut Args::command())
                 .map_err(|message| anyhow!(message)),
         }
     }
 
-    fn unstable_flag_missing_message(sub_command: &str, command_example: &str) -> String {
-        format!(
-            "The \"{}\" subcommand is only accepted using the --unstable flag.\n\n\
-            ie: \"mithril-client --unstable {} {}\"",
-            sub_command, sub_command, command_example
-        )
+    allow_unstable_dead_code! {
+        fn unstable_flag_missing_message(sub_command: &str, command_example: &str) -> String {
+            format!(
+                "The \"{}\" subcommand is only accepted using the --unstable flag.\n\n\
+                ie: \"mithril-client --unstable {} {}\"",
+                sub_command, sub_command, command_example
+            )
+        }
     }
 }
 
@@ -246,24 +248,4 @@ async fn main() -> MithrilResult<()> {
     openssl_probe::init_ssl_cert_env_vars();
 
     args.execute(logger).await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn fail_if_cardano_stake_distribution_command_is_used_without_unstable_flag() {
-        let args =
-            Args::try_parse_from(["mithril-client", "cardano-stake-distribution", "list"]).unwrap();
-
-        let error = args
-            .execute(Logger::root(slog::Discard, slog::o!()))
-            .await
-            .expect_err("Should fail if unstable flag missing");
-
-        assert!(error
-            .to_string()
-            .contains("subcommand is only accepted using the --unstable flag."));
-    }
 }

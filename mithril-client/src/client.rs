@@ -8,7 +8,6 @@ use std::sync::Arc;
 use mithril_common::api_version::APIVersionProvider;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
-#[cfg(feature = "unstable")]
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
 use crate::cardano_transaction_client::CardanoTransactionClient;
 use crate::certificate_client::{
@@ -56,7 +55,6 @@ impl ClientOptions {
 #[derive(Clone)]
 pub struct Client {
     cardano_transaction_client: Arc<CardanoTransactionClient>,
-    #[cfg(feature = "unstable")]
     cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
     certificate_client: Arc<CertificateClient>,
     mithril_stake_distribution_client: Arc<MithrilStakeDistributionClient>,
@@ -85,7 +83,6 @@ impl Client {
     }
 
     /// Get the client that fetches Cardano stake distributions.
-    #[cfg(feature = "unstable")]
     pub fn cardano_stake_distribution(&self) -> Arc<CardanoStakeDistributionClient> {
         self.cardano_stake_distribution_client.clone()
     }
@@ -216,13 +213,11 @@ impl ClientBuilder {
             logger,
         ));
 
-        #[cfg(feature = "unstable")]
         let cardano_stake_distribution_client =
             Arc::new(CardanoStakeDistributionClient::new(aggregator_client));
 
         Ok(Client {
             cardano_transaction_client,
-            #[cfg(feature = "unstable")]
             cardano_stake_distribution_client,
             certificate_client,
             mithril_stake_distribution_client,

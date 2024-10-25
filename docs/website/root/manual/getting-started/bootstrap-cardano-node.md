@@ -118,7 +118,7 @@ Commands:
   cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
-  cardano-stake-distribution  [unstable] Cardano stake distribution management (alias: csd)
+  cardano-stake-distribution  Cardano stake distribution management (alias: csd)
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -135,7 +135,7 @@ Options:
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
       --unstable
-          Enable unstable commands (such as Cardano Stake Distribution)
+          Enable unstable commands
   -h, --help
           Print help
   -V, --version
