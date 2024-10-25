@@ -154,14 +154,14 @@ In order to retire a stake pool:
 
 - Retire a stake poool with `retire-stake-pool.sh`
 
-| Script                      | Description                                                          | Usage                                                                                                                                                               |
-| --------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create-keys.sh`            | Script for creating keys for a Cardano pool (SPO)                    | `GENESIS_FILE=**YOUR_GENESIS_FILE** ./tools/pool/create-keys.sh`                                                                                                    |
-| `query-stake-pool.sh`       | Script for querying info about a Cardano pool (SPO)                  | `./tools/pool/query-stake-pool.sh`                                                                                                                                  |
-| `register-stake-address.sh` | Script for registering stake address of a Cardano pool (SPO)         | `TX_IN=**YOUR_TX_IN** ./tools/pool/register-stake-address.sh`                                                                                                       |
-| `register-stake-pool.sh`    | Script for registering a Cardano stake pool (SPO)                    | `GENESIS_FILE=**YOUR_GENESIS_FILE** TX_IN=**YOUR_TX_IN** SIGNER_DOMAIN=**YOUR_SIGNER_DOMAIN_NAME** POOL_TICKER=**YOUR_TICKER** ./tools/pool/register-stake-pool.sh` |
-| `renew-opcert.sh`           | Script for renewing Operational Certificate for a Cardano pool (SPO) | `./tools/pool/renew-opcert.sh`                                                                                                                                      |
-| `retire-stake-pool.sh`      | Script for retiring a Cardano pool (SPO)                             | `TX_IN=**YOUR_TX_IN** VALUE_OUT=**YOUR_VALUE_OUT** ./tools/pool/retire-stake-pool.sh`                                                                               |
+| Script                      | Description                                                          | Usage                                                                                                                                                                       |
+| --------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create-keys.sh`            | Script for creating keys for a Cardano pool (SPO)                    | `GENESIS_FILE=**YOUR_SHELLEY_GENESIS_FILE** ./tools/pool/create-keys.sh`                                                                                                    |
+| `query-stake-pool.sh`       | Script for querying info about a Cardano pool (SPO)                  | `./tools/pool/query-stake-pool.sh`                                                                                                                                          |
+| `register-stake-address.sh` | Script for registering stake address of a Cardano pool (SPO)         | `TX_IN=**YOUR_TX_IN** ./tools/pool/register-stake-address.sh`                                                                                                               |
+| `register-stake-pool.sh`    | Script for registering a Cardano stake pool (SPO)                    | `GENESIS_FILE=**YOUR_SHELLEY_GENESIS_FILE** TX_IN=**YOUR_TX_IN** SIGNER_DOMAIN=**YOUR_SIGNER_DOMAIN_NAME** POOL_TICKER=**YOUR_TICKER** ./tools/pool/register-stake-pool.sh` |
+| `renew-opcert.sh`           | Script for renewing Operational Certificate for a Cardano pool (SPO) | `./tools/pool/renew-opcert.sh`                                                                                                                                              |
+| `retire-stake-pool.sh`      | Script for retiring a Cardano pool (SPO)                             | `TX_IN=**YOUR_TX_IN** VALUE_OUT=**YOUR_VALUE_OUT** ./tools/pool/retire-stake-pool.sh`                                                                                       |
 
 ### Genesis
 

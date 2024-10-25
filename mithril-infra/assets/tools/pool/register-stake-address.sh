@@ -13,7 +13,7 @@ if [ -z "${TX_IN}" ]; then
 fi
 
 # Register stake address on chain
-SLOT=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq .slot)
+SLOT=$(CARDANO_CLI_CMD ${CARDANO_ERA} query tip --testnet-magic $NETWORK_MAGIC | jq .slot)
 
 ## Build transaction
 CARDANO_CLI_CMD ${CARDANO_ERA} transaction build \
