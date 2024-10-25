@@ -18,8 +18,8 @@ if [ -z "${VALUE_OUT}" ]; then
 fi
 
 # Compute retirement epoch
-SLOT=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq .slot)
-EPOCH_CURRENT=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq .epoch)
+SLOT=$(CARDANO_CLI_CMD ${CARDANO_ERA} query tip --testnet-magic $NETWORK_MAGIC | jq .slot)
+EPOCH_CURRENT=$(CARDANO_CLI_CMD ${CARDANO_ERA} query tip --testnet-magic $NETWORK_MAGIC | jq .epoch)
 EPOCH_RETIREMENT=$(( EPOCH_CURRENT + 1 ))
 
 # Build deregistration certificate

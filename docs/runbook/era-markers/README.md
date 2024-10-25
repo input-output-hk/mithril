@@ -33,7 +33,7 @@ export SCRIPT_TX_VALUE=**MINIUM_SCRIPT_TX_VALUE**
 A common value for the transaction amount used when a script transaction is made is:
 
 ```bash
-export SCRIPT_TX_VALUE=2000000
+export SCRIPT_TX_VALUE=2100000
 ```
 
 Compute the network magic parameter that handles both the Cardano mainnet and Cardano test networks:
@@ -129,7 +129,10 @@ An example output of the command is:
 Verify that the payment address has funds:
 
 ```bash
-$CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH
+$CARDANO_CLI $CARDANO_ERA query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH
+```
+
+```bash
                            TxHash                                 TxIx        Amount
 --------------------------------------------------------------------------------------
 f0c0345f151f9365fbbb4e7afa217e56b987d9e91fd754ca609d9dfec97275c7     0        10000000000 lovelace + TxOutDatumNone
@@ -151,6 +154,9 @@ $CARDANO_CLI $CARDANO_ERA transaction build $CARDANO_NETWORK_MAGIC \
     --change-address $(cat $CARDANO_WALLET_PATH/payment.addr) \
     --out-file $ASSETS_PATH/tx.raw \
     --socket-path $CARDANO_NODE_SOCKET_PATH
+```
+
+```bash
 Estimated transaction fee: Lovelace 168669
 ```
 
@@ -171,20 +177,29 @@ $CARDANO_CLI $CARDANO_ERA transaction submit \
     $CARDANO_NETWORK_MAGIC \
     --tx-file $ASSETS_PATH/tx.signed \
     --socket-path $CARDANO_NODE_SOCKET_PATH
+```
+
+```bash
 Transaction successfully submitted.
 ```
 
 Also get the transaction id:
 
 ```bash
-$CARDANO_CLI transaction txid --tx-file $ASSETS_PATH/tx.signed
+$CARDANO_CLI $CARDANO_ERA transaction txid --tx-file $ASSETS_PATH/tx.signed
+```
+
+```bash
 6518b3cea0b49b55746ec61148e7c60ab042959d534f6bb6e8f6a844d4af69fb
 ```
 
 We need to wait a few seconds before the transaction is available and we can see the initial datum for the script address:
 
 ```bash
-$CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH
+$CARDANO_CLI $CARDANO_ERA query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH
+```
+
+```bash
                            TxHash                                 TxIx        Amount
 --------------------------------------------------------------------------------------
 6518b3cea0b49b55746ec61148e7c60ab042959d534f6bb6e8f6a844d4af69fb     0        1500000 lovelace + TxOutDatumInline ReferenceTxInsScriptsInlineDatumsInBabbageEra (ScriptDataConstructor 0 [ScriptDataBytes "[{\"n\":\"thales\",\"e\":1}]",ScriptDataBytes "\165\143\232\227\&6\244e\222\211\187\167\197\167\175\229\181\162o/\182[|Nnt.h\ACKE\241=\242\139\242\182:a\204r\217\200&\190I\SO,\US\DLE\152\217U\223P5\128\164\232\153\181\ETB8\132\227\SO"])
@@ -196,7 +211,10 @@ Optional: We can retrieve the initial value stored in the datum with the cardano
 The full utxo json representation:
 
 ```bash
-$CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH --out-file temp.json && cat temp.json | jq '. [] | select(.inlineDatum | . != null and . != "")'
+$CARDANO_CLI $CARDANO_ERA query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH --out-file temp.json && cat temp.json | jq '.[] | select(.inlineDatum | . != null and . != "")'
+```
+
+```bash
 {
   "address": "addr_test1qzzngukkj9ydjemqjlgfn42sevy2xnvauay46weushlpuq9thd4ray00csjssf4sxftv04xeequ3xfx72nujg9y4d5ysgkxxlh",
   "datum": null,
@@ -219,6 +237,28 @@ $CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARD
 }
 ```
 
+The parsed era markers json representation:
+
+```bash
+$CARDANO_CLI $CARDANO_ERA query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH --out-file temp.json && cat temp.json | jq -r '.[] | select(.inlineDatum | . != null and . != "")| .inlineDatum.fields[].bytes' | tr '\n' ' ' | xxd -r -p | jq
+```
+
+```json
+{
+  "markers": [
+    {
+      "name": "thales",
+      "epoch": 1
+    },
+    {
+      "name": "pythagoras",
+      "epoch": null
+    }
+  ],
+  "signature": "a83a8dee3b875a7e8d259500a8ce14cc73587ef838899d269ad58aadd16086cfe0486528e54b841b3a1d5aa8b7176d55c0803337ca59fbd3654b2bdd5a480d05"
+}
+```
+
 ## Update Era Markers: Write a new version of datum on chain
 
 > [!IMPORTANT]
@@ -228,7 +268,10 @@ $CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARD
 Retrieve the utxo of the payment address:
 
 ```bash
-$CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH
+$CARDANO_CLI $CARDANO_ERA query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH
+```
+
+```bash
                            TxHash                                 TxIx        Amount
 --------------------------------------------------------------------------------------
 6518b3cea0b49b55746ec61148e7c60ab042959d534f6bb6e8f6a844d4af69fb     0        1500000 lovelace + TxOutDatumInline ReferenceTxInsScriptsInlineDatumsInBabbageEra (ScriptDataConstructor 0 [ScriptDataBytes "[{\"n\":\"thales\",\"e\":1}]",ScriptDataBytes "\165\143\232\227\&6\244e\222\211\187\167\197\167\175\229\181\162o/\182[|Nnt.h\ACKE\241=\242\139\242\182:a\204r\217\200&\190I\SO,\US\DLE\152\217U\223P5\128\164\232\153\181\ETB8\132\227\SO"])
@@ -284,14 +327,20 @@ Transaction successfully submitted.
 Also get the transaction id:
 
 ```bash
-$CARDANO_CLI transaction txid --tx-file $ASSETS_PATH/tx.signed
+$CARDANO_CLI $CARDANO_ERA transaction txid --tx-file $ASSETS_PATH/tx.signed
+```
+
+```bash
 1fd4d3e131afe3c8b212772a3f3083d2fbc6b2a7b20e54e4ff08e001598818d8
 ```
 
 We need to wait a few seconds before the transaction is available and we can see the updated datum for the script address:
 
 ```bash
-$CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH
+$CARDANO_CLI $CARDANO_ERA query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH
+```
+
+```bash
                            TxHash                                 TxIx        Amount
 --------------------------------------------------------------------------------------
 1f139b47017c9c90d4622ac768e249d25d37ad4461db44a20486b7da72a78915     0        2000000 lovelace + TxOutDatumInline ReferenceTxInsScriptsInlineDatumsInBabbageEra (ScriptDataConstructor 0 [ScriptDataBytes "[{\"n\":\"thales\",\"e\":1},{\"n\":\"pythagoras\",\"e\":null}]",ScriptDataBytes "^P\EOT\248k3\196/\139\tU\173H\138\FS\194MD\240\153\227\142z\181\134\213\168\&2\222\219i1\246\NAK\\]\247\154U\143-^vmtq\204\207#\236\213\f\201\&1\152\145(\161\ETX;\183\128\195\r"])
@@ -303,7 +352,10 @@ We can retrieve the updated value stored in the datum with the cardano cli:
 The full utxo json representation:
 
 ```bash
-$CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH --out-file temp.json && cat temp.json | jq '. [] | select(.inlineDatum | . != null and . != "")'
+$CARDANO_CLI $CARDANO_ERA query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH --out-file temp.json && cat temp.json | jq '.[] | select(.inlineDatum | . != null and . != "")'
+```
+
+```bash
 {
   "address": "addr_test1qzzngukkj9ydjemqjlgfn42sevy2xnvauay46weushlpuq9thd4ray00csjssf4sxftv04xeequ3xfx72nujg9y4d5ysgkxxlh",
   "datum": null,
@@ -323,5 +375,27 @@ $CARDANO_CLI query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARD
   "value": {
     "lovelace": 2000000
   }
+}
+```
+
+The parsed era markers json representation:
+
+```bash
+$CARDANO_CLI $CARDANO_ERA query utxo --address $(cat $CARDANO_WALLET_PATH/payment.addr) $CARDANO_NETWORK_MAGIC --socket-path $CARDANO_NODE_SOCKET_PATH --out-file temp.json && cat temp.json | jq -r '.[] | select(.inlineDatum | . != null and . != "")| .inlineDatum.fields[].bytes' | tr '\n' ' ' | xxd -r -p | jq
+```
+
+```json
+{
+  "markers": [
+    {
+      "name": "thales",
+      "epoch": 1
+    },
+    {
+      "name": "pythagoras",
+      "epoch": 123
+    }
+  ],
+  "signature": "a83a8dee3b875a7e8d259500a8ce14cc73587ef838899d269ad58aadd16086cfe0486528e54b841b3a1d5aa8b7176d55c0803337ca59fbd3654b2bdd5a480d05"
 }
 ```

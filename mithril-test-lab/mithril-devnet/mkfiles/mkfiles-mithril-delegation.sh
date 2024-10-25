@@ -41,12 +41,12 @@ version_lte() {
 # Stake addresses registration certs
 for ADDR in ${USER_ADDRS}; do
   if [ "\${CURRENT_CARDANO_ERA}" == "conway" ]; then
-    KEY_REGISTRATION_DEPOSIT_ANOUNT=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query gov-state --testnet-magic ${NETWORK_MAGIC} | jq .currentPParams.stakeAddressDeposit)
+    KEY_REGISTRATION_DEPOSIT_AMOUNT=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock $CARDANO_CLI \${CURRENT_CARDANO_ERA} query gov-state --testnet-magic ${NETWORK_MAGIC} | jq .currentPParams.stakeAddressDeposit)
     # Conway specific creation of registration certificate
     $CARDANO_CLI \${CURRENT_CARDANO_ERA} stake-address registration-certificate \
     --stake-verification-key-file addresses/\${ADDR}-stake.vkey \
     --out-file addresses/\${ADDR}-stake.reg.cert \
-    --key-reg-deposit-amt \$KEY_REGISTRATION_DEPOSIT_ANOUNT
+    --key-reg-deposit-amt \$KEY_REGISTRATION_DEPOSIT_AMOUNT
   else
     # Legacy creation of registration certificate
     $CARDANO_CLI stake-address registration-certificate \

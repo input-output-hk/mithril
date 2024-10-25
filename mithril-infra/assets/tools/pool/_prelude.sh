@@ -35,7 +35,7 @@ CARDANO_CLI_CMD() {
 
 # Compute current Cardano era if needed
 if [ -z "${CARDANO_ERA}" ]; then
-    CARDANO_ERA=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq  -r '.era |= ascii_downcase | .era')
+    CARDANO_ERA=$(CARDANO_CLI_CMD latest query tip --testnet-magic $NETWORK_MAGIC | jq  -r '.era |= ascii_downcase | .era')
 fi
 
 # Compute auxiliary env vars

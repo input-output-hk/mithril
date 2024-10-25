@@ -36,7 +36,7 @@ cat > ${POOL_ARTIFACTS_DIR_PREFIX}${POOL_WWW_DIR}/pool-metadata.json << EOF
 "homepage": "https://mithril.network"
 }
 EOF
-POOL_METADATA_HASH=$(CARDANO_CLI_CMD stake-pool metadata-hash --pool-metadata-file ${POOL_WWW_DIR}/pool-metadata.json)
+POOL_METADATA_HASH=$(CARDANO_CLI_CMD ${CARDANO_ERA} stake-pool metadata-hash --pool-metadata-file ${POOL_WWW_DIR}/pool-metadata.json)
 
 # Generate stake pool registration certificate
 POOL_PLEDGE=$AMOUNT_STAKED
@@ -45,7 +45,7 @@ POOL_MARGIN=0.1
 POOL_METADATA_URL=$(curl -s https://tinyurl.com/api-create.php?url=https://${SIGNER_NODE}.${SIGNER_DOMAIN}/pool-metadata.json)
 POOL_RELAY_URL="${SIGNER_NODE}.${SIGNER_DOMAIN}"
 POOL_RELAY_PORT=$(cat ${POOL_ARTIFACTS_DIR_PREFIX}/pool/port)
-SLOT=$(CARDANO_CLI_CMD query tip --testnet-magic $NETWORK_MAGIC | jq .slot)
+SLOT=$(CARDANO_CLI_CMD ${CARDANO_ERA} query tip --testnet-magic $NETWORK_MAGIC | jq .slot)
 
 # Build registration certificate
 CARDANO_CLI_CMD ${CARDANO_ERA} stake-pool registration-certificate \
