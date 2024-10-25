@@ -25,7 +25,6 @@ impl InsertCertificateRecordQuery {
         aggregate_verification_key, \
         epoch, \
         network, \
-        immutable_file_number, \
         signed_entity_type_id, \
         signed_entity_beacon, \
         protocol_version, \
@@ -35,7 +34,7 @@ impl InsertCertificateRecordQuery {
         initiated_at, \
         sealed_at)";
         let values_columns: Vec<&str> =
-            repeat("(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)")
+            repeat("(?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)")
                 .take(certificates_records.len())
                 .collect();
 
@@ -53,7 +52,6 @@ impl InsertCertificateRecordQuery {
                     Value::String(certificate_record.aggregate_verification_key),
                     Value::Integer(certificate_record.epoch.try_into().unwrap()),
                     Value::String(certificate_record.network),
-                    Value::Integer(certificate_record.immutable_file_number as i64),
                     Value::Integer(certificate_record.signed_entity_type.index() as i64),
                     Value::String(
                         certificate_record

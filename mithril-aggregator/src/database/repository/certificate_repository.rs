@@ -146,7 +146,6 @@ mod tests {
                 '7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b37372c3230382c3138392c3138372c37362c3136322c36382c3233382c3134342c31372c3131342c3137352c36302c3136352c3230322c3134362c3139342c31332c37332c3233392c3233372c3232322c3136392c3230362c352c3130392c3132332c35322c3235342c39382c3133312c37395d2c226e725f6c6561766573223a332c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a32383439323639303636317d',
                 241,
                 'preview',
-                4823,
                 0,
                 241,
                 '0.1.0',
@@ -176,7 +175,6 @@ mod tests {
                 '7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3134302c31332c3135352c3134312c3136332c372c38362c3232372c34372c31392c3138302c3132372c3139362c3130382c3137312c3135382c3134302c37372c3137352c3135392c3133362c3139332c3130382c34322c3134322c3234342c38352c3131362c3235322c3135362c3233352c35305d2c226e725f6c6561766573223a312c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a313030393439373433323536397d',
                 142,
                 'preview',
-                2838,
                 2,
                 '{"network":"preview","epoch":142,"immutable_file_number":2838}',
                 '0.1.0',
@@ -288,7 +286,7 @@ mod tests {
     #[tokio::test]
     async fn get_master_certificate_one_cert_in_current_epoch_recorded_returns_that_one() {
         let connection = Arc::new(main_db_connection().unwrap());
-        let certificate = CertificateRecord::dummy_genesis("1", Epoch(1), 1);
+        let certificate = CertificateRecord::dummy_genesis("1", Epoch(1));
         let expected_certificate: Certificate = certificate.clone().into();
         insert_certificate_records(&connection, vec![certificate]);
 
@@ -307,7 +305,7 @@ mod tests {
     {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
@@ -329,7 +327,7 @@ mod tests {
     ) {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
@@ -351,7 +349,7 @@ mod tests {
     ) {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
             CertificateRecord::dummy_db_snapshot("4", "1", Epoch(2), 4),
@@ -374,7 +372,7 @@ mod tests {
     ) {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
             CertificateRecord::dummy_db_snapshot("4", "1", Epoch(2), 4),
@@ -398,7 +396,7 @@ mod tests {
     ) {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];
@@ -418,10 +416,10 @@ mod tests {
     ) {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
-            CertificateRecord::dummy_genesis("4", Epoch(1), 3),
+            CertificateRecord::dummy_genesis("4", Epoch(1)),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(&connection, certificates);
@@ -441,12 +439,12 @@ mod tests {
     ) {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("4", "1", Epoch(2), 4),
             CertificateRecord::dummy_db_snapshot("5", "1", Epoch(2), 5),
-            CertificateRecord::dummy_genesis("6", Epoch(2), 5),
+            CertificateRecord::dummy_genesis("6", Epoch(2)),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(&connection, certificates);
@@ -466,10 +464,10 @@ mod tests {
     ) {
         let connection = Arc::new(main_db_connection().unwrap());
         let certificates = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
-            CertificateRecord::dummy_genesis("4", Epoch(2), 3),
+            CertificateRecord::dummy_genesis("4", Epoch(2)),
         ];
         let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
         insert_certificate_records(&connection, certificates);
@@ -530,7 +528,7 @@ mod tests {
         let connection = Arc::new(main_db_connection().unwrap());
         let repository = CertificateRepository::new(connection.clone());
         let records = vec![
-            CertificateRecord::dummy_genesis("1", Epoch(1), 1),
+            CertificateRecord::dummy_genesis("1", Epoch(1)),
             CertificateRecord::dummy_db_snapshot("2", "1", Epoch(1), 2),
             CertificateRecord::dummy_db_snapshot("3", "1", Epoch(1), 3),
         ];

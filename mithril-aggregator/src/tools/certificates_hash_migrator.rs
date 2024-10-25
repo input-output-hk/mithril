@@ -245,11 +245,7 @@ mod test {
     }
 
     fn dummy_genesis(certificate_hash: &str, time_point: TimePoint) -> Certificate {
-        let certificate = CertificateRecord::dummy_genesis(
-            certificate_hash,
-            time_point.epoch,
-            time_point.immutable_file_number,
-        );
+        let certificate = CertificateRecord::dummy_genesis(certificate_hash, time_point.epoch);
 
         certificate.into()
     }
@@ -264,7 +260,6 @@ mod test {
             certificate_hash,
             previous_hash,
             time_point.epoch,
-            time_point.immutable_file_number,
             SignedEntityConfig::dummy()
                 .time_point_to_signed_entity(signed_entity_type, &time_point)
                 .unwrap(),
