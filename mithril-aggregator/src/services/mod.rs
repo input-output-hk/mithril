@@ -18,6 +18,7 @@ mod signable_builder;
 mod signed_entity;
 mod stake_distribution;
 mod upkeep;
+mod usage_reporter;
 
 pub use cardano_transactions_importer::*;
 pub use certifier::*;
@@ -28,3 +29,4 @@ pub use signable_builder::*;
 pub use signed_entity::*;
 pub use stake_distribution::*;
 pub use upkeep::*;
+pub use usage_reporter::*;

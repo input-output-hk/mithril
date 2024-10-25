@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
 /// Event that is sent from a thread to be persisted.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct EventMessage {
     /// The source of the message shall be composed of the name of the thread
     /// that sends the message, the name of the method can be added to it,
