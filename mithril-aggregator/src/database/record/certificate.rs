@@ -245,13 +245,11 @@ impl From<CertificateRecord> for CertificateListItemMessage {
             total_signers: value.signers.len(),
         };
 
-        #[allow(deprecated)]
         CertificateListItemMessage {
             hash: value.certificate_id,
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
             epoch: value.epoch,
             signed_entity_type: value.signed_entity_type,
-            beacon: None,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,
