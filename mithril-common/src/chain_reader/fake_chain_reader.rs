@@ -2,37 +2,38 @@ use std::{collections::VecDeque, sync::Mutex};
 
 use async_trait::async_trait;
 
-use crate::{entities::ChainPoint, StdResult};
+use crate::cardano_block_scanner::RawCardanoPoint;
+use crate::StdResult;
 
 use super::{ChainBlockNextAction, ChainBlockReader};
 
 /// [FakeChainReader] is a fake implementation of [ChainBlockReader] for testing purposes.
 pub struct FakeChainReader {
-    chain_point_next_actions: Mutex<VecDeque<ChainBlockNextAction>>,
+    chain_block_next_actions: Mutex<VecDeque<ChainBlockNextAction>>,
 }
 
 impl FakeChainReader {
     /// Creates a new [FakeChainReader] instance.
-    pub fn new(chain_point_next_actions: Vec<ChainBlockNextAction>) -> Self {
+    pub fn new(chain_block_next_actions: Vec<ChainBlockNextAction>) -> Self {
         Self {
-            chain_point_next_actions: Mutex::new(chain_point_next_actions.into()),
+            chain_block_next_actions: Mutex::new(chain_block_next_actions.into()),
         }
     }
 
     /// Total remaining next actions
     pub fn get_total_remaining_next_actions(&self) -> usize {
-        self.chain_point_next_actions.lock().unwrap().len()
+        self.chain_block_next_actions.lock().unwrap().len()
     }
 }
 
 #[async_trait]
 impl ChainBlockReader for FakeChainReader {
-    async fn set_chain_point(&mut self, _point: &ChainPoint) -> StdResult<()> {
+    async fn set_chain_point(&mut self, _point: &RawCardanoPoint) -> StdResult<()> {
         Ok(())
     }
 
     async fn get_next_chain_block(&mut self) -> StdResult<Option<ChainBlockNextAction>> {
-        Ok(self.chain_point_next_actions.lock().unwrap().pop_front())
+        Ok(self.chain_block_next_actions.lock().unwrap().pop_front())
     }
 }
 
@@ -43,17 +44,9 @@ mod tests {
 
     use super::*;
 
-    fn build_chain_point(id: u64) -> ChainPoint {
-        ChainPoint {
-            slot_number: SlotNumber(id),
-            block_number: BlockNumber(id),
-            block_hash: format!("point-hash-{id}"),
-        }
-    }
-
     #[tokio::test]
     async fn test_get_next_chain_block() {
-        let expected_chain_point_next_actions = vec![
+        let expected_chain_block_next_actions = vec![
             ChainBlockNextAction::RollForward {
                 parsed_block: ScannedBlock::new(
                     "hash-1",
@@ -71,18 +64,18 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                chain_point: build_chain_point(1),
+                rollback_point: RawCardanoPoint::new(SlotNumber(1), "point-hash-1".as_bytes()),
             },
         ];
 
-        let mut chain_reader = FakeChainReader::new(expected_chain_point_next_actions.clone());
+        let mut chain_reader = FakeChainReader::new(expected_chain_block_next_actions.clone());
 
-        let mut chain_point_next_actions = vec![];
+        let mut chain_block_next_actions = vec![];
         while let Some(chain_block_next_action) = chain_reader.get_next_chain_block().await.unwrap()
         {
-            chain_point_next_actions.push(chain_block_next_action);
+            chain_block_next_actions.push(chain_block_next_action);
         }
 
-        assert_eq!(expected_chain_point_next_actions, chain_point_next_actions);
+        assert_eq!(expected_chain_block_next_actions, chain_block_next_actions);
     }
 }
