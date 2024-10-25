@@ -615,7 +615,7 @@ impl RuntimeTester {
 
         let expected_certificate = match signed_entity_record {
             None if certificate.is_genesis() => ExpectedCertificate::new_genesis(
-                certificate.as_cardano_db_beacon(),
+                certificate.epoch,
                 certificate.aggregate_verification_key.try_into().unwrap(),
             ),
             None => {
@@ -627,7 +627,7 @@ impl RuntimeTester {
                     .await?;
 
                 ExpectedCertificate::new(
-                    certificate.as_cardano_db_beacon(),
+                    certificate.epoch,
                     certificate.metadata.signers.as_slice(),
                     certificate.aggregate_verification_key.try_into().unwrap(),
                     record.signed_entity_type,
@@ -664,7 +664,7 @@ impl RuntimeTester {
                         "A genesis certificate should exist with hash {}",
                         certificate_hash
                     ))?;
-                ExpectedCertificate::genesis_identifier(&genesis_certificate.as_cardano_db_beacon())
+                ExpectedCertificate::genesis_identifier(genesis_certificate.epoch)
             }
         };
 

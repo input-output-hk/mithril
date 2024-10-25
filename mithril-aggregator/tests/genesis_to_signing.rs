@@ -2,9 +2,7 @@ mod test_extensions;
 
 use mithril_aggregator::Configuration;
 use mithril_common::{
-    entities::{
-        BlockNumber, CardanoDbBeacon, ChainPoint, ProtocolParameters, SlotNumber, TimePoint,
-    },
+    entities::{BlockNumber, ChainPoint, Epoch, ProtocolParameters, SlotNumber, TimePoint},
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
@@ -45,10 +43,7 @@ async fn genesis_to_signing() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
-            fixture.compute_and_encode_avk()
-        )
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
     );
 
     comment!("Increase immutable number");

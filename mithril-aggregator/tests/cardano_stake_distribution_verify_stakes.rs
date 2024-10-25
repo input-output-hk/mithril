@@ -4,7 +4,7 @@ use mithril_aggregator::Configuration;
 use mithril_common::entities::SignerWithStake;
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
+        BlockNumber, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
         SignedEntityTypeDiscriminants, SlotNumber, StakeDistribution, StakeDistributionParty,
         TimePoint,
     },
@@ -52,10 +52,7 @@ async fn cardano_stake_distribution_verify_stakes() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(
-            CardanoDbBeacon::new("devnet".to_string(), 2, 1),
-            fixture.compute_and_encode_avk()
-        )
+        ExpectedCertificate::new_genesis(Epoch(2), fixture.compute_and_encode_avk())
     );
 
     comment!("Start the runtime state machine and register signers");
@@ -95,15 +92,11 @@ async fn cardano_stake_distribution_verify_stakes() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 3, 1),
+            Epoch(3),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(3)),
-            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
-                "devnet".to_string(),
-                2,
-                1
-            )),
+            ExpectedCertificate::genesis_identifier(Epoch(2)),
         )
     );
 
@@ -143,7 +136,7 @@ async fn cardano_stake_distribution_verify_stakes() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 4, 1),
+            Epoch(4),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(4)),
@@ -165,7 +158,7 @@ async fn cardano_stake_distribution_verify_stakes() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 4, 1),
+            Epoch(4),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::CardanoStakeDistribution(Epoch(3)),

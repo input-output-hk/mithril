@@ -5,7 +5,7 @@ use std::time::Duration;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoDbBeacon, ChainPoint, ProtocolParameters, SignedEntityType,
+        BlockNumber, CardanoDbBeacon, ChainPoint, Epoch, ProtocolParameters, SignedEntityType,
         SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
@@ -49,10 +49,7 @@ async fn open_message_expiration() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
-            fixture.compute_and_encode_avk()
-        )
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
     );
 
     comment!("Increase immutable number");
@@ -95,10 +92,7 @@ async fn open_message_expiration() {
     cycle!(tester, "ready");
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
-            fixture.compute_and_encode_avk()
-        )
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
     );
 
     comment!("Increase the immutable file number");
@@ -120,7 +114,7 @@ async fn open_message_expiration() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 3),
+            Epoch(1),
             &signers_for_immutables
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
@@ -131,11 +125,7 @@ async fn open_message_expiration() {
                 1,
                 3
             )),
-            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
-                "devnet".to_string(),
-                1,
-                1
-            )),
+            ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
 
