@@ -1,19 +1,24 @@
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
-use mithril_common::StdResult;
-use mithril_doc::GenerateDocCommands;
-use mithril_end_to_end::{
-    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
-};
 use slog::{Drain, Level, Logger};
-use slog_scope::{error, info};
+use slog_scope::{error, info, warn};
 use std::{
     fs,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
-use tokio_util::sync::CancellationToken;
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    sync::Mutex,
+    task::JoinSet,
+};
+
+use mithril_common::StdResult;
+use mithril_doc::GenerateDocCommands;
+use mithril_end_to_end::{
+    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
+};
 
 /// Tests args
 #[derive(Parser, Debug, Clone)]
@@ -158,11 +163,10 @@ async fn main() -> StdResult<()> {
             .map_err(|message| anyhow!(message));
     }
 
-    let server_port = 8080;
-    let work_dir = match args.work_directory {
+    let work_dir = match &args.work_directory {
         Some(path) => {
-            create_workdir_if_not_exist_clean_otherwise(&path);
-            path.canonicalize().unwrap()
+            create_workdir_if_not_exist_clean_otherwise(path);
+            path.canonicalize()?
         }
         None => {
             #[cfg(target_os = "macos")]
@@ -170,7 +174,7 @@ async fn main() -> StdResult<()> {
             #[cfg(not(target_os = "macos"))]
             let work_dir = std::env::temp_dir().join("mithril_end_to_end");
             create_workdir_if_not_exist_clean_otherwise(&work_dir);
-            work_dir.canonicalize().unwrap()
+            work_dir.canonicalize()?
         }
     };
     let artifacts_dir = {
@@ -178,96 +182,144 @@ async fn main() -> StdResult<()> {
         fs::create_dir(&path).expect("Artifacts dir creation failure");
         path
     };
-    let run_only_mode = args.run_only;
-    let use_p2p_network_mode = args.use_p2p_network;
-    let use_p2p_passive_relays = args.use_p2p_passive_relays;
 
-    let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
-        devnet_scripts_dir: args.devnet_scripts_directory,
-        artifacts_target_dir: work_dir.join("devnet"),
-        number_of_pool_nodes: args.number_of_pool_nodes,
-        cardano_slot_length: args.cardano_slot_length,
-        cardano_epoch_length: args.cardano_epoch_length,
-        cardano_node_version: args.cardano_node_version.to_owned(),
-        cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
-        skip_cardano_bin_download: args.skip_cardano_bin_download,
-    })
-    .await?;
+    let mut app = App::new();
+    let mut app_stopper = AppStopper::new(&app);
+    let mut join_set = JoinSet::new();
+    with_gracefull_shutdown(&mut join_set);
 
-    let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
-        server_port,
-        devnet: devnet.clone(),
-        artifacts_dir,
-        work_dir,
-        bin_dir: args.bin_directory,
-        cardano_node_version: args.cardano_node_version,
-        mithril_run_interval: args.mithril_run_interval,
-        mithril_era: args.mithril_era,
-        mithril_era_reader_adapter: args.mithril_era_reader_adapter,
-        signed_entity_types: args.signed_entity_types.clone(),
-        run_only_mode,
-        use_p2p_network_mode,
-        use_p2p_passive_relays,
-        use_era_specific_work_dir: args.mithril_next_era.is_some(),
-    })
-    .await?;
+    join_set.spawn(async move { app.run(args, work_dir, artifacts_dir).await });
 
-    let runner: StdResult<()> = match run_only_mode {
-        true => {
-            let mut run_only = RunOnly::new(&mut infrastructure);
-            run_only.start().await
-        }
-        false => {
-            let mut spec = Spec::new(
-                &mut infrastructure,
-                args.signed_entity_types,
-                args.mithril_next_era,
-                args.mithril_era_regenesis_on_switch,
-            );
-            spec.run().await
-        }
+    let res = match join_set.join_next().await {
+        Some(Ok(tasks_result)) => tasks_result,
+        Some(Err(join_set_error)) => Err(anyhow!(join_set_error)).with_context(|| "JoinSet error"),
+        None => Ok(()),
     };
 
-    match runner {
-        Ok(_) if run_only_mode => run_until_cancelled(infrastructure, devnet).await,
-        Ok(_) => {
-            infrastructure.stop_nodes().await?;
-            devnet.stop().await?;
-            Ok(())
+    app_stopper.stop().await;
+    join_set.shutdown().await;
+    res
+}
+
+struct App {
+    devnet: Arc<Mutex<Option<Devnet>>>,
+    infrastructure: Arc<Mutex<Option<MithrilInfrastructure>>>,
+}
+
+impl App {
+    fn new() -> Self {
+        Self {
+            devnet: Arc::new(Mutex::new(None)),
+            infrastructure: Arc::new(Mutex::new(None)),
         }
-        Err(error) => {
-            let has_written_logs = infrastructure.tail_logs(40).await;
-            error!("Mithril End to End test in failed: {}", error);
-            infrastructure.stop_nodes().await?;
-            devnet.stop().await?;
-            has_written_logs?;
-            Err(error)
+    }
+
+    async fn tail_logs(&self) {
+        if let Some(infrastructure) = self.infrastructure.lock().await.as_ref() {
+            let _ = infrastructure.tail_logs(40).await.inspect_err(|e| {
+                error!("Failed to tail logs: {}", e);
+            });
+        }
+    }
+
+    pub async fn run(
+        &mut self,
+        args: Args,
+        work_dir: PathBuf,
+        artifacts_dir: PathBuf,
+    ) -> StdResult<()> {
+        let server_port = 8080;
+        let run_only_mode = args.run_only;
+        let use_p2p_network_mode = args.use_p2p_network;
+        let use_p2p_passive_relays = args.use_p2p_passive_relays;
+
+        let devnet = Devnet::bootstrap(&DevnetBootstrapArgs {
+            devnet_scripts_dir: args.devnet_scripts_directory,
+            artifacts_target_dir: work_dir.join("devnet"),
+            number_of_pool_nodes: args.number_of_pool_nodes,
+            cardano_slot_length: args.cardano_slot_length,
+            cardano_epoch_length: args.cardano_epoch_length,
+            cardano_node_version: args.cardano_node_version.to_owned(),
+            cardano_hard_fork_latest_era_at_epoch: args.cardano_hard_fork_latest_era_at_epoch,
+            skip_cardano_bin_download: args.skip_cardano_bin_download,
+        })
+        .await?;
+        *self.devnet.lock().await = Some(devnet.clone());
+
+        let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
+            server_port,
+            devnet: devnet.clone(),
+            artifacts_dir,
+            work_dir,
+            bin_dir: args.bin_directory,
+            cardano_node_version: args.cardano_node_version,
+            mithril_run_interval: args.mithril_run_interval,
+            mithril_era: args.mithril_era,
+            mithril_era_reader_adapter: args.mithril_era_reader_adapter,
+            signed_entity_types: args.signed_entity_types.clone(),
+            run_only_mode,
+            use_p2p_network_mode,
+            use_p2p_passive_relays,
+            use_era_specific_work_dir: args.mithril_next_era.is_some(),
+        })
+        .await?;
+
+        let runner: StdResult<()> = match run_only_mode {
+            true => {
+                let mut run_only = RunOnly::new(&mut infrastructure);
+                run_only.start().await
+            }
+            false => {
+                let mut spec = Spec::new(
+                    &mut infrastructure,
+                    args.signed_entity_types,
+                    args.mithril_next_era,
+                    args.mithril_era_regenesis_on_switch,
+                );
+                spec.run().await
+            }
+        };
+        *self.infrastructure.lock().await = Some(infrastructure);
+
+        match runner.with_context(|| "Mithril End to End test failed") {
+            Ok(()) if run_only_mode => loop {
+                info!("Mithril end to end is running and will remain active until manually stopped...");
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            },
+            Ok(()) => Ok(()),
+            Err(error) => {
+                self.tail_logs().await;
+                Err(error)
+            }
         }
     }
 }
 
-async fn run_until_cancelled(
-    mut mithril_infrastructure: MithrilInfrastructure,
-    devnet: Devnet,
-) -> StdResult<()> {
-    let cancellation_token = CancellationToken::new();
-    let cloned_token = cancellation_token.clone();
+struct AppStopper {
+    devnet: Arc<Mutex<Option<Devnet>>>,
+    infrastructure: Arc<Mutex<Option<MithrilInfrastructure>>>,
+}
 
-    tokio::select! {
-        _ = tokio::spawn(async move {
-            while !cloned_token.is_cancelled() {
-                info!("Mithril end to end is running and will remain active until manually stopped...");
-                tokio::time::sleep(Duration::from_secs(5)).await;
-            }
-        }) => {}
-        _ = tokio::signal::ctrl_c() => {
-            mithril_infrastructure.stop_nodes().await?;
-            cancellation_token.cancel();
-            devnet.stop().await?;
+impl AppStopper {
+    pub fn new(app: &App) -> Self {
+        Self {
+            devnet: app.devnet.clone(),
+            infrastructure: app.infrastructure.clone(),
         }
     }
 
-    Ok(())
+    pub async fn stop(&mut self) {
+        if let Some(infrastructure) = self.infrastructure.lock().await.as_mut() {
+            let _ = infrastructure.stop_nodes().await.inspect_err(|e| {
+                error!("Failed to stop nodes: {}", e);
+            });
+        }
+        if let Some(devnet) = self.devnet.lock().await.as_ref() {
+            let _ = devnet.stop().await.inspect_err(|e| {
+                error!("Failed to stop devnet: {}", e);
+            });
+        }
+    }
 }
 
 fn build_logger(args: &Args) -> Logger {
@@ -284,4 +336,33 @@ fn create_workdir_if_not_exist_clean_otherwise(work_dir: &Path) {
         fs::remove_dir_all(work_dir).expect("Previous work dir removal failed");
     }
     fs::create_dir(work_dir).expect("Work dir creation failure");
+}
+
+fn with_gracefull_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::terminate()).expect("Failed to create SIGTERM signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGTERM"))
+            .inspect(|()| warn!("Received SIGTERM"))
+    });
+
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::interrupt()).expect("Failed to create SIGINT signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGINT"))
+            .inspect(|()| warn!("Received SIGINT"))
+    });
+
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::quit()).expect("Failed to create SIGQUIT signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGQUIT"))
+            .inspect(|()| warn!("Received SIGQUIT"))
+    });
 }
