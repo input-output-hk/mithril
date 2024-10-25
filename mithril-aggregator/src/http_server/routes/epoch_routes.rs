@@ -39,7 +39,9 @@ async fn get_epoch_settings_message(
 
     let epoch = epoch_service.epoch_of_current_data()?;
     let protocol_parameters = epoch_service.next_protocol_parameters()?.clone();
-    let next_protocol_parameters = epoch_service.upcoming_protocol_parameters()?.clone();
+    let signer_registration_protocol_parameters = epoch_service
+        .signer_registration_protocol_parameters()?
+        .clone();
     let current_signers = epoch_service.current_signers()?;
     let next_signers = epoch_service.next_signers()?;
 
@@ -58,7 +60,7 @@ async fn get_epoch_settings_message(
     let epoch_settings_message = EpochSettingsMessage {
         epoch,
         protocol_parameters,
-        next_protocol_parameters,
+        next_protocol_parameters: signer_registration_protocol_parameters,
         current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
         next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
         cardano_transactions_signing_config,
