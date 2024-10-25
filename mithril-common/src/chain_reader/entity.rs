@@ -12,6 +12,6 @@ pub enum ChainBlockNextAction {
     /// RollBackward event (we are on an incorrect fork, we need to get back a point to roll forward again)
     RollBackward {
         /// The rollback point in the chain to read (as a new valid chain point to read from on the main chain, which has already been seen)
-        point: RawCardanoPoint,
+        rollback_point: RawCardanoPoint,
     },
 }

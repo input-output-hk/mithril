@@ -5,11 +5,7 @@ use std::fmt::{Debug, Formatter};
 use crate::cardano_block_scanner::ScannedBlock;
 use crate::entities::{ChainPoint, SlotNumber};
 
-/// Point in the chain that can be intersected.
-///
-/// Internally the point used in Cardano doesn't have a block number like our [ChainPoint]
-/// does, so we need to use a different struct to represent it. Else converting from one to the other
-/// would be lossy.
+/// Point internal representation in the Cardano chain.
 #[derive(Clone, PartialEq)]
 pub struct RawCardanoPoint {
     /// The [slot number](https://docs.cardano.org/learn/cardano-node/#slotsandepochs)

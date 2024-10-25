@@ -52,12 +52,10 @@ impl BlockStreamer for ChainReaderBlockStreamer {
                     }
                 }
                 Some(BlockStreamerNextAction::ChainBlockNextAction(
-                    ChainBlockNextAction::RollBackward {
-                        point: rollback_chain_point,
-                    },
+                    ChainBlockNextAction::RollBackward { rollback_point },
                 )) => {
-                    self.last_polled_point = Some(rollback_chain_point.clone());
-                    let rollback_slot_number = rollback_chain_point.slot_number;
+                    self.last_polled_point = Some(rollback_point.clone());
+                    let rollback_slot_number = rollback_point.slot_number;
                     let index_rollback = roll_forwards
                         .iter()
                         .position(|block| block.slot_number == rollback_slot_number);
@@ -146,10 +144,8 @@ impl ChainReaderBlockStreamer {
                     )))
                 }
             }
-            Some(ChainBlockNextAction::RollBackward {
-                point: rollback_chain_point,
-            }) => {
-                let rollback_slot_number = rollback_chain_point.slot_number;
+            Some(ChainBlockNextAction::RollBackward { rollback_point }) => {
+                let rollback_slot_number = rollback_point.slot_number;
                 trace!(
                     self.logger,
                     "Received a RollBackward({rollback_slot_number:?})"
@@ -158,9 +154,7 @@ impl ChainReaderBlockStreamer {
                     BlockStreamerNextAction::SkipToNextAction
                 } else {
                     BlockStreamerNextAction::ChainBlockNextAction(
-                        ChainBlockNextAction::RollBackward {
-                            point: rollback_chain_point,
-                        },
+                        ChainBlockNextAction::RollBackward { rollback_point },
                     )
                 };
                 Ok(Some(block_streamer_next_action))
@@ -429,7 +423,7 @@ mod tests {
     async fn test_parse_expected_nothing_when_rollbackward_on_same_point() {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward {
-                point: RawCardanoPoint::new(SlotNumber(100), "hash-123"),
+                rollback_point: RawCardanoPoint::new(SlotNumber(100), "hash-123"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -452,7 +446,7 @@ mod tests {
     {
         let chain_reader = Arc::new(Mutex::new(FakeChainReader::new(vec![
             ChainBlockNextAction::RollBackward {
-                point: RawCardanoPoint::new(SlotNumber(100), "hash-10"),
+                rollback_point: RawCardanoPoint::new(SlotNumber(100), "hash-10"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -513,7 +507,7 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                point: RawCardanoPoint::new(SlotNumber(9), "hash-9"),
+                rollback_point: RawCardanoPoint::new(SlotNumber(9), "hash-9"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(
@@ -562,7 +556,7 @@ mod tests {
                 ),
             },
             ChainBlockNextAction::RollBackward {
-                point: RawCardanoPoint::new(SlotNumber(3), "hash-3"),
+                rollback_point: RawCardanoPoint::new(SlotNumber(3), "hash-3"),
             },
         ])));
         let mut block_streamer = ChainReaderBlockStreamer::try_new(

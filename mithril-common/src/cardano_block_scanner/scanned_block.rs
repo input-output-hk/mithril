@@ -18,11 +18,11 @@ pub struct ScannedBlock {
 
 impl ScannedBlock {
     /// Scanned block factory
-    pub fn new<BlkHash: Into<Vec<u8>>, TxHash: Into<TransactionHash>>(
-        block_hash: BlkHash,
+    pub fn new<B: Into<Vec<u8>>, T: Into<TransactionHash>>(
+        block_hash: B,
         block_number: BlockNumber,
         slot_number: SlotNumber,
-        transaction_hashes: Vec<TxHash>,
+        transaction_hashes: Vec<T>,
     ) -> Self {
         Self {
             block_hash: block_hash.into(),
