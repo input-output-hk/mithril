@@ -142,7 +142,6 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
         .with_timezone(&Utc);
     let metadata = CertificateMetadata::new(
         &beacon.network,
-        beacon.immutable_file_number,
         protocol_version,
         protocol_parameters,
         initiated_at,

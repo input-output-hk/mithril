@@ -141,15 +141,8 @@ impl TryFrom<CertificateMessage> for Certificate {
     type Error = StdError;
 
     fn try_from(certificate_message: CertificateMessage) -> Result<Self, Self::Error> {
-        #[allow(deprecated)]
         let metadata = CertificateMetadata {
             network: certificate_message.metadata.network,
-            // This field is deprecated and will be removed in the future so use 0 as default
-            // value is fine.
-            immutable_file_number: certificate_message
-                .beacon
-                .map(|b| b.immutable_file_number)
-                .unwrap_or(0),
             protocol_version: certificate_message.metadata.protocol_version,
             protocol_parameters: certificate_message.metadata.protocol_parameters,
             initiated_at: certificate_message.metadata.initiated_at,

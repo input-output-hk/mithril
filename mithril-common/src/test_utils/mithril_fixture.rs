@@ -14,8 +14,8 @@ use crate::{
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
-        Certificate, Epoch, HexEncodedAggregateVerificationKey, ImmutableFileNumber, PartyId,
-        ProtocolParameters, Signer, SignerWithStake, SingleSignatures, Stake, StakeDistribution,
+        Certificate, Epoch, HexEncodedAggregateVerificationKey, PartyId, ProtocolParameters,
+        Signer, SignerWithStake, SingleSignatures, Stake, StakeDistribution,
         StakeDistributionParty,
     },
     protocol::{SignerBuilder, ToMessage},
@@ -169,13 +169,11 @@ impl MithrilFixture {
         avk.to_json_hex().unwrap()
     }
 
-    era_deprecate!("Remove immutable_file_number");
     /// Create a genesis certificate using the fixture signers for the given beacon
     pub fn create_genesis_certificate<T: Into<String>>(
         &self,
         network: T,
         epoch: Epoch,
-        immutable_file_number: ImmutableFileNumber,
     ) -> Certificate {
         let genesis_avk = self.compute_avk();
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
@@ -194,7 +192,6 @@ impl MithrilFixture {
             self.protocol_parameters.clone(),
             network,
             epoch,
-            immutable_file_number,
             genesis_avk,
             genesis_signature,
         )

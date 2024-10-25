@@ -222,7 +222,6 @@ mod tests {
             Epoch(10),
             CertificateMetadata::new(
                 "testnet",
-                100,
                 "0.1.0",
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,
@@ -339,7 +338,6 @@ mod tests {
             Epoch(10),
             CertificateMetadata::new(
                 "testnet",
-                100,
                 "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,

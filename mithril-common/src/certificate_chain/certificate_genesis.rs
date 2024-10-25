@@ -11,10 +11,9 @@ use crate::{
         PROTOCOL_VERSION,
     },
     entities::{
-        Certificate, CertificateMetadata, CertificateSignature, Epoch, ImmutableFileNumber,
-        ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+        Certificate, CertificateMetadata, CertificateSignature, Epoch, ProtocolMessage,
+        ProtocolMessagePartKey, ProtocolParameters,
     },
-    era_deprecate,
     protocol::ToMessage,
     StdResult,
 };
@@ -74,13 +73,11 @@ impl CertificateGenesisProducer {
             .sign(genesis_message.to_message().as_bytes()))
     }
 
-    era_deprecate!("Remove immutable_file_number");
     /// Create a Genesis Certificate
     pub fn create_genesis_certificate<T: Into<String>>(
         protocol_parameters: ProtocolParameters,
         network: T,
         epoch: Epoch,
-        immutable_file_number: ImmutableFileNumber,
         genesis_avk: ProtocolAggregateVerificationKey,
         genesis_signature: ProtocolGenesisSignature,
     ) -> StdResult<Certificate> {
@@ -90,7 +87,6 @@ impl CertificateGenesisProducer {
         let signers = vec![];
         let metadata = CertificateMetadata::new(
             network,
-            immutable_file_number,
             protocol_version,
             protocol_parameters.clone(),
             initiated_at,

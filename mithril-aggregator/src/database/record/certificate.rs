@@ -170,7 +170,6 @@ impl From<CertificateRecord> for Certificate {
     fn from(other: CertificateRecord) -> Self {
         let certificate_metadata = CertificateMetadata::new(
             other.network,
-            0,
             other.protocol_version,
             other.protocol_parameters,
             other.initiated_at,

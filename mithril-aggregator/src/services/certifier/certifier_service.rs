@@ -287,15 +287,8 @@ impl CertifierService for MithrilCertifierService {
         let protocol_version = PROTOCOL_VERSION.to_string();
         let initiated_at = open_message.created_at;
         let sealed_at = Utc::now();
-        let immutable_file_number = self
-            .ticker_service
-            .get_current_time_point()
-            .await
-            .with_context(|| "Could not retrieve current beacon to create certificate")?
-            .immutable_file_number;
         let metadata = CertificateMetadata::new(
             self.network.to_string(),
-            immutable_file_number,
             protocol_version,
             epoch_service.current_protocol_parameters()?.clone(),
             initiated_at,
@@ -747,7 +740,7 @@ mod tests {
             .unwrap();
 
         let genesis_certificate =
-            fixture.create_genesis_certificate(network.to_string(), beacon.epoch - 1, 1);
+            fixture.create_genesis_certificate(network.to_string(), beacon.epoch - 1);
         certifier_service
             .certificate_repository
             .create_certificate(genesis_certificate)

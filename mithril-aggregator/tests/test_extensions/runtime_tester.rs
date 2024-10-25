@@ -240,11 +240,8 @@ impl RuntimeTester {
         fixture: &MithrilFixture,
     ) -> StdResult<()> {
         let time_point = self.observer.current_time_point().await;
-        let genesis_certificate = fixture.create_genesis_certificate(
-            &self.network,
-            time_point.epoch,
-            time_point.immutable_file_number,
-        );
+        let genesis_certificate =
+            fixture.create_genesis_certificate(&self.network, time_point.epoch);
         debug!("genesis_certificate: {:?}", genesis_certificate);
         self.dependencies
             .certificate_repository
