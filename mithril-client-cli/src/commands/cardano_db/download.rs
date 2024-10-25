@@ -372,12 +372,10 @@ mod tests {
         );
         let beacon = CardanoDbBeacon::new("testnet".to_string(), 10, 100);
 
-        #[allow(deprecated)]
         MithrilCertificate {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch: beacon.epoch,
-            beacon: None,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
             metadata: MithrilCertificateMetadata::dummy(),
             protocol_message: protocol_message.clone(),
