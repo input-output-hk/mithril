@@ -1,19 +1,24 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
-use mithril_common::StdResult;
-use mithril_doc::GenerateDocCommands;
-use mithril_end_to_end::{
-    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
-};
 use slog::{Drain, Level, Logger};
-use slog_scope::{error, info};
+use slog_scope::{error, info, warn};
 use std::{
     fs,
     path::{Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
-use tokio_util::sync::CancellationToken;
+use tokio::{
+    signal::unix::{signal, SignalKind},
+    sync::Mutex,
+    task::JoinSet,
+};
+
+use mithril_common::StdResult;
+use mithril_doc::GenerateDocCommands;
+use mithril_end_to_end::{
+    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
+};
 
 /// Tests args
 #[derive(Parser, Debug, Clone)]
@@ -179,39 +184,38 @@ async fn main() -> StdResult<()> {
     };
 
     let mut app = App::new();
-    let res = app.run(args, work_dir, artifacts_dir).await;
-    app.stop().await;
+    let mut app_stopper = AppStopper::new(&app);
+    let mut join_set = JoinSet::new();
+    with_gracefull_shutdown(&mut join_set);
+
+    join_set.spawn(async move { app.run(args, work_dir, artifacts_dir).await });
+
+    let res = match join_set.join_next().await {
+        Some(Ok(tasks_result)) => tasks_result,
+        Some(Err(join_set_error)) => Err(anyhow!(join_set_error)).with_context(|| "JoinSet error"),
+        None => Ok(()),
+    };
+
+    app_stopper.stop().await;
+    join_set.shutdown().await;
     res
 }
 
 struct App {
-    devnet: Option<Devnet>,
-    infrastructure: Option<MithrilInfrastructure>,
+    devnet: Arc<Mutex<Option<Devnet>>>,
+    infrastructure: Arc<Mutex<Option<MithrilInfrastructure>>>,
 }
 
 impl App {
     fn new() -> Self {
         Self {
-            devnet: None,
-            infrastructure: None,
-        }
-    }
-
-    pub async fn stop(&mut self) {
-        if let Some(infrastructure) = &mut self.infrastructure {
-            let _ = infrastructure.stop_nodes().await.inspect_err(|e| {
-                error!("Failed to stop nodes: {}", e);
-            });
-        }
-        if let Some(devnet) = &self.devnet {
-            let _ = devnet.stop().await.inspect_err(|e| {
-                error!("Failed to stop devnet: {}", e);
-            });
+            devnet: Arc::new(Mutex::new(None)),
+            infrastructure: Arc::new(Mutex::new(None)),
         }
     }
 
     async fn tail_logs(&self) {
-        if let Some(infrastructure) = &self.infrastructure {
+        if let Some(infrastructure) = self.infrastructure.lock().await.as_ref() {
             let _ = infrastructure.tail_logs(40).await.inspect_err(|e| {
                 error!("Failed to tail logs: {}", e);
             });
@@ -240,7 +244,7 @@ impl App {
             skip_cardano_bin_download: args.skip_cardano_bin_download,
         })
         .await?;
-        self.devnet = Some(devnet.clone());
+        *self.devnet.lock().await = Some(devnet.clone());
 
         let mut infrastructure = MithrilInfrastructure::start(&MithrilInfrastructureConfig {
             server_port,
@@ -275,10 +279,13 @@ impl App {
                 spec.run().await
             }
         };
-        self.infrastructure = Some(infrastructure);
+        *self.infrastructure.lock().await = Some(infrastructure);
 
         match runner.with_context(|| "Mithril End to End test failed") {
-            Ok(()) if run_only_mode => run_until_cancelled().await,
+            Ok(()) if run_only_mode => loop {
+                info!("Mithril end to end is running and will remain active until manually stopped...");
+                tokio::time::sleep(Duration::from_secs(5)).await;
+            },
             Ok(()) => Ok(()),
             Err(error) => {
                 self.tail_logs().await;
@@ -288,23 +295,31 @@ impl App {
     }
 }
 
-async fn run_until_cancelled() -> StdResult<()> {
-    let cancellation_token = CancellationToken::new();
-    let cloned_token = cancellation_token.clone();
+struct AppStopper {
+    devnet: Arc<Mutex<Option<Devnet>>>,
+    infrastructure: Arc<Mutex<Option<MithrilInfrastructure>>>,
+}
 
-    tokio::select! {
-        _ = tokio::spawn(async move {
-            while !cloned_token.is_cancelled() {
-                info!("Mithril end to end is running and will remain active until manually stopped...");
-                tokio::time::sleep(Duration::from_secs(5)).await;
-            }
-        }) => {}
-        _ = tokio::signal::ctrl_c() => {
-            cancellation_token.cancel();
+impl AppStopper {
+    pub fn new(app: &App) -> Self {
+        Self {
+            devnet: app.devnet.clone(),
+            infrastructure: app.infrastructure.clone(),
         }
     }
 
-    Ok(())
+    pub async fn stop(&mut self) {
+        if let Some(infrastructure) = self.infrastructure.lock().await.as_mut() {
+            let _ = infrastructure.stop_nodes().await.inspect_err(|e| {
+                error!("Failed to stop nodes: {}", e);
+            });
+        }
+        if let Some(devnet) = self.devnet.lock().await.as_ref() {
+            let _ = devnet.stop().await.inspect_err(|e| {
+                error!("Failed to stop devnet: {}", e);
+            });
+        }
+    }
 }
 
 fn build_logger(args: &Args) -> Logger {
@@ -321,4 +336,33 @@ fn create_workdir_if_not_exist_clean_otherwise(work_dir: &Path) {
         fs::remove_dir_all(work_dir).expect("Previous work dir removal failed");
     }
     fs::create_dir(work_dir).expect("Work dir creation failure");
+}
+
+fn with_gracefull_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::terminate()).expect("Failed to create SIGTERM signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGTERM"))
+            .inspect(|()| warn!("Received SIGTERM"))
+    });
+
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::interrupt()).expect("Failed to create SIGINT signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGINT"))
+            .inspect(|()| warn!("Received SIGINT"))
+    });
+
+    join_set.spawn(async move {
+        let mut sigterm = signal(SignalKind::quit()).expect("Failed to create SIGQUIT signal");
+        sigterm
+            .recv()
+            .await
+            .ok_or(anyhow!("Failed to receive SIGQUIT"))
+            .inspect(|()| warn!("Received SIGQUIT"))
+    });
 }
