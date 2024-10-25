@@ -243,7 +243,6 @@ impl From<CertificateRecord> for Certificate {
 
 impl From<CertificateRecord> for CertificateMessage {
     fn from(value: CertificateRecord) -> Self {
-        let beacon = Some(value.as_cardano_db_beacon());
         let metadata = CertificateMetadataMessagePart {
             network: value.network,
             protocol_version: value.protocol_version,
@@ -264,7 +263,7 @@ impl From<CertificateRecord> for CertificateMessage {
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
             epoch: value.epoch,
             signed_entity_type: value.signed_entity_type,
-            beacon,
+            beacon: None,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,

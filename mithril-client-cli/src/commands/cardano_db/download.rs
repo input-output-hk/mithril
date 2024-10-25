@@ -377,7 +377,7 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch: beacon.epoch,
-            beacon: Some(beacon.clone()),
+            beacon: None,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
             metadata: MithrilCertificateMetadata::dummy(),
             protocol_message: protocol_message.clone(),

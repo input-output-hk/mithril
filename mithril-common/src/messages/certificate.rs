@@ -87,7 +87,7 @@ impl CertificateMessage {
                 previous_hash: "previous_hash".to_string(),
                 epoch,
                 signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
-                beacon: Some(CardanoDbBeacon::new("testnet".to_string(), *epoch, 100)),
+                beacon: None,
                 metadata: CertificateMetadataMessagePart::dummy(),
                 protocol_message: protocol_message.clone(),
                 signed_message: "signed_message".to_string(),
@@ -200,7 +200,6 @@ impl TryFrom<Certificate> for CertificateMessage {
     type Error = StdError;
 
     fn try_from(certificate: Certificate) -> Result<Self, Self::Error> {
-        let beacon = Some(certificate.as_cardano_db_beacon());
         let signed_entity_type = certificate.signed_entity_type();
         let metadata = CertificateMetadataMessagePart {
             network: certificate.metadata.network,
@@ -229,7 +228,7 @@ impl TryFrom<Certificate> for CertificateMessage {
             previous_hash: certificate.previous_hash,
             epoch: certificate.epoch,
             signed_entity_type,
-            beacon,
+            beacon: None,
             metadata,
             protocol_message: certificate.protocol_message,
             signed_message: certificate.signed_message,
