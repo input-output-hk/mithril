@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Fix an issue that caused unnecessary re-scan of the Cardano chain when importing transactions.
 
+- Support for stable Cardano stake distribution client library, CLI and WASM.
+
 - Crates versions:
 
 | Crate | Version |
