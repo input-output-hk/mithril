@@ -12,7 +12,7 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::ToMessage;
-use mithril_common::{CardanoNetwork, StdResult, TickerService};
+use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::database::record::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 use crate::database::repository::{
@@ -32,8 +32,6 @@ pub struct MithrilCertifierService {
     certificate_verifier: Arc<dyn CertificateVerifier>,
     genesis_verifier: Arc<ProtocolGenesisVerifier>,
     multi_signer: Arc<dyn MultiSigner>,
-    // todo: should be removed after removing immutable file number from the certificate metadata
-    ticker_service: Arc<dyn TickerService>,
     epoch_service: EpochServiceWrapper,
     logger: Logger,
 }
@@ -49,7 +47,6 @@ impl MithrilCertifierService {
         certificate_verifier: Arc<dyn CertificateVerifier>,
         genesis_verifier: Arc<ProtocolGenesisVerifier>,
         multi_signer: Arc<dyn MultiSigner>,
-        ticker_service: Arc<dyn TickerService>,
         epoch_service: EpochServiceWrapper,
         logger: Logger,
     ) -> Self {
@@ -61,7 +58,6 @@ impl MithrilCertifierService {
             multi_signer,
             certificate_verifier,
             genesis_verifier,
-            ticker_service,
             epoch_service,
             logger: logger.new_with_component_name::<Self>(),
         }
@@ -415,7 +411,6 @@ mod tests {
             let certificate_verifier = dependency_builder.get_certificate_verifier().await.unwrap();
             let genesis_verifier = dependency_builder.get_genesis_verifier().await.unwrap();
             let multi_signer = dependency_builder.get_multi_signer().await.unwrap();
-            let ticker_service = dependency_builder.get_ticker_service().await.unwrap();
             let epoch_service = dependency_builder.get_epoch_service().await.unwrap();
 
             Self::new(
@@ -426,7 +421,6 @@ mod tests {
                 certificate_verifier,
                 genesis_verifier,
                 multi_signer,
-                ticker_service,
                 epoch_service,
                 TestLogger::stdout(),
             )
