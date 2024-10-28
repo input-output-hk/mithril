@@ -186,7 +186,7 @@ mod tests {
         };
 
         let epoch_service = FakeEpochServiceBuilder {
-            epoch_settings: current_epoch_settings,
+            current_epoch_settings,
             next_epoch_settings: next_epoch_settings.clone(),
             signer_registration_epoch_settings: signer_registration_epoch_settings.clone(),
             current_signers_with_stake: fake_data::signers_with_stakes(5),
@@ -230,7 +230,7 @@ mod tests {
         };
 
         let epoch_service = FakeEpochServiceBuilder {
-            epoch_settings: current_epoch_settings.clone(),
+            current_epoch_settings: current_epoch_settings.clone(),
             next_epoch_settings: next_epoch_settings.clone(),
             signer_registration_epoch_settings: AggregatorEpochSettings::dummy(),
             current_signers_with_stake: fake_data::signers_with_stakes(5),

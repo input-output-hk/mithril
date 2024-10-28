@@ -55,7 +55,7 @@ mod tests {
             ..AggregatorEpochSettings::dummy()
         };
         let epoch_service = FakeEpochServiceBuilder {
-            epoch_settings: epoch_settings.clone(),
+            current_epoch_settings: epoch_settings.clone(),
             current_signers_with_stake: signers_with_stake.clone(),
             next_signers_with_stake: signers_with_stake.clone(),
             ..FakeEpochServiceBuilder::dummy(Epoch(1))

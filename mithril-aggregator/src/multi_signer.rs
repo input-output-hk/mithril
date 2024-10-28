@@ -185,7 +185,7 @@ mod tests {
         let multi_signer = MultiSignerImpl::new(
             Arc::new(RwLock::new(
                 FakeEpochServiceBuilder {
-                    epoch_settings: AggregatorEpochSettings {
+                    current_epoch_settings: AggregatorEpochSettings {
                         protocol_parameters: fixture.protocol_parameters(),
                         ..AggregatorEpochSettings::dummy()
                     },
