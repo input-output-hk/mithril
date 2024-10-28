@@ -2,8 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
 import CertificateModal from "#/CertificateModal";
-import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
+import RawJsonButton from "#/RawJsonButton";
+import SignedEntityType from "#/SignedEntityType";
 import { selectedAggregator } from "@/store/settingsSlice";
 
 export default function CertificatesList(props) {
@@ -77,9 +78,13 @@ export default function CertificatesList(props) {
                             Show
                           </Button>
                         </ListGroup.Item>
-                        <ListGroup.Item>Epoch: {certificate.beacon.epoch}</ListGroup.Item>
+                        <ListGroup.Item>Epoch: {certificate.epoch}</ListGroup.Item>
                         <ListGroup.Item>
-                          Immutable file number: {certificate.beacon.immutable_file_number}
+                          Beacon:{" "}
+                          <SignedEntityType
+                            signedEntityType={certificate.signed_entity_type}
+                            table
+                          />
                         </ListGroup.Item>
                         <ListGroup.Item>
                           Number of signers: {certificate.metadata.total_signers}
@@ -100,7 +105,7 @@ export default function CertificatesList(props) {
                             <Badge bg="primary">Latest</Badge>{" "}
                           </>
                         )}
-                        <Badge bg="secondary">{certificate.beacon.network}</Badge>
+                        <Badge bg="secondary">{certificate.metadata.network}</Badge>
 
                         <RawJsonButton
                           href={`${aggregator}/certificate/${certificate.hash}`}
