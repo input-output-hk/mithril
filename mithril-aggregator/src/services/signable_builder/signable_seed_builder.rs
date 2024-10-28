@@ -80,7 +80,7 @@ mod tests {
                     protocol_parameters: next_fixture.protocol_parameters(),
                     ..AggregatorEpochSettings::dummy()
                 },
-                upcoming_epoch_settings: AggregatorEpochSettings {
+                signer_registration_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: next_fixture.protocol_parameters(),
                     ..AggregatorEpochSettings::dummy()
                 },

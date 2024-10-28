@@ -180,7 +180,7 @@ mod tests {
             protocol_parameters: ProtocolParameters::new(102, 20, 0.5),
             ..AggregatorEpochSettings::dummy()
         };
-        let upcoming_epoch_settings = AggregatorEpochSettings {
+        let signer_registration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters::new(103, 30, 0.5),
             ..AggregatorEpochSettings::dummy()
         };
@@ -188,7 +188,7 @@ mod tests {
         let epoch_service = FakeEpochServiceBuilder {
             epoch_settings: current_epoch_settings,
             next_epoch_settings: next_epoch_settings.clone(),
-            upcoming_epoch_settings: upcoming_epoch_settings.clone(),
+            signer_registration_epoch_settings: signer_registration_epoch_settings.clone(),
             current_signers_with_stake: fake_data::signers_with_stakes(5),
             next_signers_with_stake: fake_data::signers_with_stakes(3),
             ..FakeEpochServiceBuilder::dummy(Epoch(1))
@@ -208,7 +208,7 @@ mod tests {
         );
         assert_eq!(
             message.next_protocol_parameters,
-            upcoming_epoch_settings.protocol_parameters
+            signer_registration_epoch_settings.protocol_parameters
         );
     }
 
@@ -232,7 +232,7 @@ mod tests {
         let epoch_service = FakeEpochServiceBuilder {
             epoch_settings: current_epoch_settings.clone(),
             next_epoch_settings: next_epoch_settings.clone(),
-            upcoming_epoch_settings: AggregatorEpochSettings::dummy(),
+            signer_registration_epoch_settings: AggregatorEpochSettings::dummy(),
             current_signers_with_stake: fake_data::signers_with_stakes(5),
             next_signers_with_stake: fake_data::signers_with_stakes(3),
             ..FakeEpochServiceBuilder::dummy(Epoch(1))

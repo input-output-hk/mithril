@@ -106,7 +106,7 @@ struct EpochData {
     epoch: Epoch,
     epoch_settings: AggregatorEpochSettings,
     next_epoch_settings: AggregatorEpochSettings,
-    upcoming_epoch_settings: AggregatorEpochSettings,
+    signer_registration_epoch_settings: AggregatorEpochSettings,
     current_signers_with_stake: Vec<SignerWithStake>,
     next_signers_with_stake: Vec<SignerWithStake>,
     current_signers: Vec<Signer>,
@@ -236,10 +236,10 @@ impl EpochService for MithrilEpochService {
             .get_epoch_settings(next_signer_retrieval_epoch, "next epoch settings")
             .await?;
 
-        let upcoming_epoch_settings = self
+        let signer_registration_epoch_settings = self
             .get_epoch_settings(
                 next_signer_retrieval_epoch.next(),
-                "upcoming epoch settings",
+                "signer registration epoch settings",
             )
             .await?;
 
@@ -264,7 +264,7 @@ impl EpochService for MithrilEpochService {
             epoch,
             epoch_settings,
             next_epoch_settings,
-            upcoming_epoch_settings,
+            signer_registration_epoch_settings,
             current_signers_with_stake,
             next_signers_with_stake,
             current_signers,
@@ -333,7 +333,7 @@ impl EpochService for MithrilEpochService {
     fn signer_registration_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
         Ok(&self
             .unwrap_data()?
-            .upcoming_epoch_settings
+            .signer_registration_epoch_settings
             .protocol_parameters)
     }
 
@@ -406,7 +406,7 @@ pub struct FakeEpochServiceBuilder {
     pub epoch: Epoch,
     pub epoch_settings: AggregatorEpochSettings,
     pub next_epoch_settings: AggregatorEpochSettings,
-    pub upcoming_epoch_settings: AggregatorEpochSettings,
+    pub signer_registration_epoch_settings: AggregatorEpochSettings,
     pub current_signers_with_stake: Vec<SignerWithStake>,
     pub next_signers_with_stake: Vec<SignerWithStake>,
     pub signed_entity_config: SignedEntityConfig,
@@ -422,7 +422,7 @@ impl FakeEpochServiceBuilder {
             epoch,
             epoch_settings: AggregatorEpochSettings::dummy(),
             next_epoch_settings: AggregatorEpochSettings::dummy(),
-            upcoming_epoch_settings: AggregatorEpochSettings::dummy(),
+            signer_registration_epoch_settings: AggregatorEpochSettings::dummy(),
             current_signers_with_stake: signers.clone(),
             next_signers_with_stake: signers,
             signed_entity_config: SignedEntityConfig::dummy(),
@@ -453,7 +453,7 @@ impl FakeEpochServiceBuilder {
                 epoch: self.epoch,
                 epoch_settings: self.epoch_settings,
                 next_epoch_settings: self.next_epoch_settings,
-                upcoming_epoch_settings: self.upcoming_epoch_settings,
+                signer_registration_epoch_settings: self.signer_registration_epoch_settings,
                 current_signers_with_stake: self.current_signers_with_stake,
                 next_signers_with_stake: self.next_signers_with_stake,
                 current_signers,
@@ -491,7 +491,7 @@ impl FakeEpochService {
             protocol_parameters: fixture.protocol_parameters(),
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
         };
-        let upcoming_epoch_settings = AggregatorEpochSettings {
+        let signer_registration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: fixture.protocol_parameters(),
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
         };
@@ -499,7 +499,7 @@ impl FakeEpochService {
         FakeEpochServiceBuilder {
             epoch_settings,
             next_epoch_settings,
-            upcoming_epoch_settings,
+            signer_registration_epoch_settings,
             current_signers_with_stake: fixture.signers_with_stake(),
             next_signers_with_stake: fixture.signers_with_stake(),
             ..FakeEpochServiceBuilder::dummy(epoch)
@@ -584,7 +584,7 @@ impl EpochService for FakeEpochService {
     fn signer_registration_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
         Ok(&self
             .unwrap_data()?
-            .upcoming_epoch_settings
+            .signer_registration_epoch_settings
             .protocol_parameters)
     }
 
@@ -738,7 +738,7 @@ mod tests {
         next_signers_with_stake: Vec<SignerWithStake>,
         stored_epoch_settings: AggregatorEpochSettings,
         stored_next_epoch_settings: AggregatorEpochSettings,
-        stored_upcoming_epoch_settings: AggregatorEpochSettings,
+        stored_signer_registration_epoch_settings: AggregatorEpochSettings,
     }
 
     impl EpochServiceBuilder {
@@ -759,7 +759,7 @@ mod tests {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
-                stored_upcoming_epoch_settings: AggregatorEpochSettings {
+                stored_signer_registration_epoch_settings: AggregatorEpochSettings {
                     protocol_parameters: epoch_fixture.protocol_parameters(),
                     cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
@@ -782,7 +782,7 @@ mod tests {
                 ),
                 (
                     next_signer_retrieval_epoch.next(),
-                    self.stored_upcoming_epoch_settings.clone(),
+                    self.stored_signer_registration_epoch_settings.clone(),
                 ),
             ]);
             let vkey_store = VerificationKeyStore::new(Box::new(
@@ -828,7 +828,7 @@ mod tests {
                 protocol_parameters: next_epoch_fixture.protocol_parameters(),
                 ..AggregatorEpochSettings::dummy()
             },
-            stored_upcoming_epoch_settings: AggregatorEpochSettings {
+            stored_signer_registration_epoch_settings: AggregatorEpochSettings {
                 protocol_parameters: signer_registration_protocol_parameters.clone(),
                 ..AggregatorEpochSettings::dummy()
             },
