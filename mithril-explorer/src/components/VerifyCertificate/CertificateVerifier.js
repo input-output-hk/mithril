@@ -147,7 +147,7 @@ export default function CertificateVerifier({
               linkVariant="primary"
             />
           </div>
-          <div>Epoch: {certificate.beacon.epoch}</div>
+          <div>Epoch: {certificate.epoch}</div>
           <div className="d-flex justify-content-between">
             <div>
               Sealed at: <LocalDateTime datetime={certificate.metadata.sealed_at} />

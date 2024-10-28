@@ -12,11 +12,11 @@ function CertifiedDataBeacon({ certificate }) {
       <ListGroup horizontal>
         <ListGroup.Item>
           <span className="fst-italic">Epoch: </span>
-          {certificate.beacon.epoch}
+          {certificate.epoch}
         </ListGroup.Item>
         <ListGroup.Item>
-          <span className="fst-italic">Immutable File Number: </span>
-          {certificate.beacon.immutable_file_number}
+          <span className="fst-italic">Block number: </span>
+          {certificate.signed_entity_type.CardanoTransactions[1]}
         </ListGroup.Item>
       </ListGroup>
     </>
