@@ -510,7 +510,7 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         let epoch_settings = SignerEpochSettings {
             epoch: Epoch(3),
-            next_protocol_parameters: fake_data::protocol_parameters(),
+            signer_registration_protocol_parameters: fake_data::protocol_parameters(),
             current_signers: vec![],
             next_signers: vec![],
             cardano_transactions_signing_config: None,

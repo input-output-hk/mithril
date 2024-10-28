@@ -190,7 +190,8 @@ impl EpochService for MithrilEpochService {
 
         self.epoch_data = Some(EpochData {
             epoch,
-            signer_registration_protocol_parameters: epoch_settings.next_protocol_parameters,
+            signer_registration_protocol_parameters: epoch_settings
+                .signer_registration_protocol_parameters,
             protocol_initializer,
             current_signers: epoch_settings.current_signers,
             next_signers: epoch_settings.next_signers,
@@ -704,7 +705,7 @@ mod tests {
             service.epoch_of_current_data().unwrap()
         );
         assert_eq!(
-            epoch_settings.next_protocol_parameters,
+            epoch_settings.signer_registration_protocol_parameters,
             *service.signer_registration_protocol_parameters().unwrap()
         );
         assert!(
