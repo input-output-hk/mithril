@@ -227,14 +227,9 @@ impl ServeCommand {
             .await
             .with_context(|| "Dependencies Builder can not create usage reporter")?;
         join_set.spawn(async move {
-            usage_reporter
-                .run_forever(Duration::from_secs(
-                    // Export interval are in seconds
-                    //config.export_metrics_interval_seconds,
-                    // TODO It's hardcoded until we implement the configuration
-                    3, // TODO The value is low for testing purposes
-                ))
-                .await;
+            let interval_duration =
+                Duration::from_secs(config.persist_usage_report_interval_in_seconds);
+            usage_reporter.run_forever(interval_duration).await;
             Ok(())
         });
 
