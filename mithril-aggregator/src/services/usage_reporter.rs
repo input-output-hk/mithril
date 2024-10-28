@@ -33,14 +33,15 @@ impl UsageReporter {
     fn metrics_delta(
         metrics_before: &HashMap<String, u32>,
         metrics_after: &HashMap<String, u32>,
-    ) -> HashMap<String, u32> {
+    ) -> HashMap<String, i64> {
         metrics_after
             .iter()
             .map(|(name, value)| {
                 let last_value = metrics_before.get(name).unwrap_or(&0);
-                (name.clone(), value - last_value)
+                let delta: i64 = (*value as i64) - (*last_value as i64);
+                (name.clone(), delta)
             })
-            .filter(|(_name, value)| *value > 0)
+            .filter(|(_name, value)| *value != 0)
             .collect()
     }
 
@@ -50,7 +51,7 @@ impl UsageReporter {
         self.last_metrics = metrics;
 
         for (name, value) in delta {
-            let _result = self.transmitter_service.send_event_message::<u32>(
+            let _result = self.transmitter_service.send_event_message::<i64>(
                 "Metrics",
                 &name,
                 &value,
@@ -193,7 +194,7 @@ mod tests {
     }
 
     mod metric_delta {
-        fn build_hashmap(values: &[(&str, u32)]) -> HashMap<String, u32> {
+        fn build_hashmap<T: Copy>(values: &[(&str, T)]) -> HashMap<String, T> {
             let mut metrics = HashMap::new();
             for (name, value) in values {
                 metrics.insert(name.to_string(), *value);
@@ -217,12 +218,26 @@ mod tests {
         }
 
         #[test]
-        fn should_contain_the_difference_of_a_value_increase() {
+        fn should_contain_the_difference_of_an_increased_metric() {
             let metrics_before = build_hashmap(&[("a", 1)]);
 
             let metrics_after = build_hashmap(&[("a", 5)]);
 
             let expected = build_hashmap(&[("a", 4)]);
+
+            assert_eq!(
+                expected,
+                UsageReporter::metrics_delta(&metrics_before, &metrics_after)
+            );
+        }
+
+        #[test]
+        fn should_contain_the_difference_of_a_decreased_metric() {
+            let metrics_before = build_hashmap(&[("a", 5)]);
+
+            let metrics_after = build_hashmap(&[("a", 2)]);
+
+            let expected = build_hashmap(&[("a", -3)]);
 
             assert_eq!(
                 expected,
@@ -243,9 +258,22 @@ mod tests {
                 UsageReporter::metrics_delta(&metrics_before, &metrics_after)
             );
         }
+
+        #[test]
+        fn should_not_panic_with_a_large_delta() {
+            let metrics_at_0 = build_hashmap(&[("a", 0)]);
+            let metrics_at_max = build_hashmap(&[("a", u32::MAX)]);
+
+            assert_eq!(
+                build_hashmap(&[("a", u32::MAX as i64)]),
+                UsageReporter::metrics_delta(&metrics_at_0, &metrics_at_max)
+            );
+            assert_eq!(
+                build_hashmap(&[("a", -(u32::MAX as i64))]),
+                UsageReporter::metrics_delta(&metrics_at_max, &metrics_at_0)
+            );
+        }
     }
 }
 
-// TODO What should we do if the value decrease ?
 // TODO What are the source, action, json content ?
-// TODO In which module usage_reporter should be ? event_store ? service ?
