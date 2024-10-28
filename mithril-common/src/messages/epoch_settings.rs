@@ -24,6 +24,10 @@ pub struct EpochSettingsMessage {
     #[serde(rename = "next_protocol", skip_serializing_if = "Option::is_none")]
     pub next_protocol_parameters: Option<ProtocolParameters>,
 
+    /// Signer Registration Protocol parameters
+    #[serde(rename = "signer_registration_protocol")]
+    pub signer_registration_protocol_parameters: ProtocolParameters,
+
     /// Current Signers
     pub current_signers: Vec<SignerMessagePart>,
 
@@ -56,6 +60,11 @@ impl EpochSettingsMessage {
                     m: 100,
                     phi_f: 0.65,
                 }),
+                signer_registration_protocol_parameters: ProtocolParameters {
+                    k: 5,
+                    m: 100,
+                    phi_f: 0.65,
+                },
                 current_signers: [SignerMessagePart::dummy()].to_vec(),
                 next_signers: [SignerMessagePart::dummy()].to_vec(),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
@@ -76,6 +85,7 @@ mod tests {
         "epoch": 10,
         "protocol":  { "k": 5, "m": 100, "phi_f": 0.65 },
         "next_protocol":  { "k": 50, "m": 1000, "phi_f": 0.65 },
+        "signer_registration_protocol":  { "k": 500, "m": 10000, "phi_f": 0.65 },
         "current_signers":[{
             "party_id":"123",
             "verification_key":"key_123",
@@ -264,6 +274,11 @@ mod tests {
                 m: 1000,
                 phi_f: 0.65,
             }),
+            signer_registration_protocol_parameters: ProtocolParameters {
+                k: 500,
+                m: 10000,
+                phi_f: 0.65,
+            },
             current_signers: vec![SignerMessagePart {
                 party_id: "123".to_string(),
                 verification_key: "key_123".to_string(),
