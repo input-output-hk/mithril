@@ -38,7 +38,7 @@ async fn get_epoch_settings_message(
     let epoch_service = epoch_service.read().await;
 
     let epoch = epoch_service.epoch_of_current_data()?;
-    let protocol_parameters = epoch_service.next_protocol_parameters()?.clone();
+    let protocol_parameters = Some(epoch_service.next_protocol_parameters()?.clone());
     let signer_registration_protocol_parameters = epoch_service
         .signer_registration_protocol_parameters()?
         .clone();
@@ -57,6 +57,7 @@ async fn get_epoch_settings_message(
         .transpose()?
         .cloned();
 
+    #[allow(deprecated)]
     let epoch_settings_message = EpochSettingsMessage {
         epoch,
         protocol_parameters,
@@ -202,8 +203,10 @@ mod tests {
         .await
         .unwrap();
 
+        #[allow(deprecated)]
+        let message_protocol_parameters = message.protocol_parameters.unwrap();
         assert_eq!(
-            message.protocol_parameters,
+            message_protocol_parameters,
             next_epoch_settings.protocol_parameters
         );
         assert_eq!(

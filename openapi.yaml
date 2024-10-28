@@ -719,7 +719,6 @@ components:
       additionalProperties: false
       required:
         - epoch
-        - protocol
         - next_protocol
         - current_signers
         - next_signers
@@ -727,7 +726,9 @@ components:
         epoch:
           $ref: "#/components/schemas/Epoch"
         protocol:
-          $ref: "#/components/schemas/ProtocolParameters"
+          deprecated: true
+          allOf:
+            - $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:
           $ref: "#/components/schemas/ProtocolParameters"
         current_signers:
