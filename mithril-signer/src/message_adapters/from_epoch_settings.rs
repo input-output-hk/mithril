@@ -14,7 +14,6 @@ impl TryFromMessageAdapter<EpochSettingsMessage, SignerEpochSettings> for FromEp
     fn try_adapt(message: EpochSettingsMessage) -> StdResult<SignerEpochSettings> {
         let epoch_settings = SignerEpochSettings {
             epoch: message.epoch,
-            protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
             current_signers: SignerMessagePart::try_into_signers(message.current_signers)
                 .with_context(|| "'FromMessageAdapter' can not convert the current signers")?,

@@ -510,7 +510,6 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         let epoch_settings = SignerEpochSettings {
             epoch: Epoch(3),
-            protocol_parameters: fake_data::protocol_parameters(),
             next_protocol_parameters: fake_data::protocol_parameters(),
             current_signers: vec![],
             next_signers: vec![],

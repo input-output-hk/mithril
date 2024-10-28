@@ -8,9 +8,6 @@ pub struct SignerEpochSettings {
     /// Current Epoch
     pub epoch: Epoch,
 
-    /// Current Protocol parameters
-    pub protocol_parameters: ProtocolParameters,
-
     /// Next Protocol parameters
     pub next_protocol_parameters: ProtocolParameters,
 
@@ -37,8 +34,7 @@ impl SignerEpochSettings {
         let beacon = fake_data::beacon();
 
         // Protocol parameters
-        let protocol_parameters = fake_data::protocol_parameters();
-        let next_protocol_parameters = protocol_parameters.clone();
+        let next_protocol_parameters = fake_data::protocol_parameters();
 
         // Signers
         let signers = fake_data::signers(5);
@@ -53,7 +49,6 @@ impl SignerEpochSettings {
         // Signer Epoch settings
         SignerEpochSettings {
             epoch: beacon.epoch,
-            protocol_parameters,
             next_protocol_parameters,
             current_signers,
             next_signers,
