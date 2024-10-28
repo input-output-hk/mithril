@@ -278,7 +278,7 @@ mod tests {
 
     // Supported structure until OpenAPI version 0.1.32.
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct CertificateMessageUntilV0_1_32 {
+    struct CertificateMessageUntilV0_1_32 {
         pub hash: String,
         pub previous_hash: String,
         pub epoch: Epoch,

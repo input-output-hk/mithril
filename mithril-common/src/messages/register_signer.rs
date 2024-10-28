@@ -104,7 +104,7 @@ mod tests {
 
     // Supported structure until OpenAPI version 0.1.8.
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-    pub struct RegisterSignerMessageUntilV0_1_8 {
+    struct RegisterSignerMessageUntilV0_1_8 {
         pub party_id: PartyId,
         pub verification_key: HexEncodedVerificationKey,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -117,7 +117,7 @@ mod tests {
 
     // Supported structure until OpenAPI version 0.1.32.
     #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-    pub struct RegisterSignerMessageUntilV0_1_32 {
+    struct RegisterSignerMessageUntilV0_1_32 {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub epoch: Option<Epoch>,
         pub party_id: PartyId,

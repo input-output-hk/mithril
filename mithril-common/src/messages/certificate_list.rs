@@ -187,7 +187,7 @@ mod tests {
     type CertificateListMessageUntilV0_1_32 = Vec<CertificateListItemMessageUntilV0_1_32>;
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    pub struct CertificateListItemMessageUntilV0_1_32 {
+    struct CertificateListItemMessageUntilV0_1_32 {
         pub hash: String,
         pub previous_hash: String,
         pub epoch: Epoch,
