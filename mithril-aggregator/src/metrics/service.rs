@@ -12,6 +12,10 @@ build_metrics_service!(
         "mithril_aggregator_artifact_detail_cardano_db_total_served_since_startup",
         "Number of Cardano db artifact details served since startup on a Mithril aggregator node"
     ),
+    cardano_db_total_restoration_since_startup:MetricCounter(
+        "mithril_aggregator_cardano_db_total_restoration_since_startup",
+        "Number of Cardano db restorations since startup on a Mithril aggregator node"
+    ),
     artifact_detail_mithril_stake_distribution_total_served_since_startup:MetricCounter(
         "mithril_aggregator_artifact_detail_mithril_stake_distribution_total_served_since_startup",
         "Number of Mithril stake distribution artifact details served since startup on a Mithril aggregator node"
