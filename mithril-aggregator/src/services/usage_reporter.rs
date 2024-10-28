@@ -84,6 +84,16 @@ mod tests {
     use super::*;
     use crate::test_tools::TestLogger;
 
+    fn received_messages(
+        rx: &mut tokio::sync::mpsc::UnboundedReceiver<EventMessage>,
+    ) -> Vec<EventMessage> {
+        let mut received_messages: Vec<EventMessage> = Vec::new();
+        while let Ok(message) = rx.try_recv() {
+            received_messages.push(message);
+        }
+        received_messages
+    }
+
     #[tokio::test]
     async fn when_no_metrics_no_message_sent() {
         let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
@@ -119,10 +129,7 @@ mod tests {
 
         usage_reporter.send_metrics();
 
-        let mut received_messages: Vec<EventMessage> = Vec::new();
-        received_messages.push(rx.try_recv().unwrap());
-        received_messages.push(rx.try_recv().unwrap());
-        assert!(rx.try_recv().is_err());
+        let received_messages = received_messages(&mut rx);
 
         assert!(received_messages.contains(&EventMessage::new(
             "Metrics",
@@ -155,33 +162,32 @@ mod tests {
             metric_2.increment_by(5);
             usage_reporter.send_metrics();
 
-            assert!(rx.try_recv().is_ok());
-            assert!(rx.try_recv().is_ok());
-            assert!(rx.try_recv().is_err());
+            let received_messages = received_messages(&mut rx);
+            assert_eq!(2, received_messages.len());
         }
         {
             metric_2.increment_by(20);
             metric_2.increment_by(33);
             usage_reporter.send_metrics();
 
-            let message = rx.try_recv().unwrap();
-            assert!(rx.try_recv().is_err());
+            let received_messages = received_messages(&mut rx);
+            assert_eq!(1, received_messages.len());
 
             assert_eq!(
                 EventMessage::new("Metrics", &metric_2.name(), serde_json::json!(53)),
-                message
+                received_messages[0]
             );
         }
         {
             metric_2.increment_by(15);
             usage_reporter.send_metrics();
 
-            let message = rx.try_recv().unwrap();
-            assert!(rx.try_recv().is_err());
+            let received_messages = received_messages(&mut rx);
+            assert_eq!(1, received_messages.len());
 
             assert_eq!(
                 EventMessage::new("Metrics", &metric_2.name(), serde_json::json!(15)),
-                message
+                received_messages[0]
             );
         }
     }
