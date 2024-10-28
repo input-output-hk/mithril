@@ -42,8 +42,8 @@ pub trait EpochService: Sync + Send {
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
 
-    /// Get next protocol parameters used in next epoch (associated with the actual epoch)
-    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
+    /// Get protocol parameters for signer registration.
+    fn signer_registration_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
 
     /// Get the protocol initializer for the current epoch if any
     ///
@@ -81,7 +81,7 @@ pub trait EpochService: Sync + Send {
 
 pub(crate) struct EpochData {
     pub epoch: Epoch,
-    pub next_protocol_parameters: ProtocolParameters,
+    pub signer_registration_protocol_parameters: ProtocolParameters,
     pub protocol_initializer: Option<ProtocolInitializer>,
     pub current_signers: Vec<Signer>,
     pub next_signers: Vec<Signer>,
@@ -190,7 +190,7 @@ impl EpochService for MithrilEpochService {
 
         self.epoch_data = Some(EpochData {
             epoch,
-            next_protocol_parameters: epoch_settings.next_protocol_parameters,
+            signer_registration_protocol_parameters: epoch_settings.next_protocol_parameters,
             protocol_initializer,
             current_signers: epoch_settings.current_signers,
             next_signers: epoch_settings.next_signers,
@@ -207,8 +207,8 @@ impl EpochService for MithrilEpochService {
         Ok(self.unwrap_data()?.epoch)
     }
 
-    fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
-        Ok(&self.unwrap_data()?.next_protocol_parameters)
+    fn signer_registration_protocol_parameters(&self) -> StdResult<&ProtocolParameters> {
+        Ok(&self.unwrap_data()?.signer_registration_protocol_parameters)
     }
 
     fn protocol_initializer(&self) -> StdResult<&Option<ProtocolInitializer>> {
@@ -351,7 +351,7 @@ impl MithrilEpochService {
 
         let epoch_data = EpochData {
             epoch,
-            next_protocol_parameters: fake_data::protocol_parameters(),
+            signer_registration_protocol_parameters: fake_data::protocol_parameters(),
             protocol_initializer: None,
             current_signers: vec![],
             next_signers: vec![],
@@ -391,7 +391,7 @@ pub mod mock_epoch_service {
 
             fn epoch_of_current_data(&self) -> StdResult<Epoch>;
 
-            fn next_protocol_parameters(&self) -> StdResult<&'static ProtocolParameters>;
+            fn signer_registration_protocol_parameters(&self) -> StdResult<&'static ProtocolParameters>;
 
             fn protocol_initializer(&self) -> StdResult<&'static Option<ProtocolInitializer>>;
 
@@ -639,7 +639,7 @@ mod tests {
             TestLogger::stdout(),
         );
         assert!(service.epoch_of_current_data().is_err());
-        assert!(service.next_protocol_parameters().is_err());
+        assert!(service.signer_registration_protocol_parameters().is_err());
         assert!(service.protocol_initializer().is_err());
         assert!(service.current_signers().is_err());
         assert!(service.next_signers().is_err());
@@ -705,7 +705,7 @@ mod tests {
         );
         assert_eq!(
             epoch_settings.next_protocol_parameters,
-            *service.next_protocol_parameters().unwrap()
+            *service.signer_registration_protocol_parameters().unwrap()
         );
         assert!(
             service.protocol_initializer().unwrap().is_none(),
