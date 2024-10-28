@@ -17,8 +17,12 @@ pub struct EpochSettingsMessage {
     pub protocol_parameters: Option<ProtocolParameters>,
 
     /// Next Protocol parameters
-    #[serde(rename = "next_protocol")]
-    pub next_protocol_parameters: ProtocolParameters,
+    #[deprecated(
+        since = "0.4.76",
+        note = "use only signer_registration_protocol_parameters"
+    )]
+    #[serde(rename = "next_protocol", skip_serializing_if = "Option::is_none")]
+    pub next_protocol_parameters: Option<ProtocolParameters>,
 
     /// Current Signers
     pub current_signers: Vec<SignerMessagePart>,
@@ -47,11 +51,11 @@ impl EpochSettingsMessage {
                     m: 100,
                     phi_f: 0.65,
                 }),
-                next_protocol_parameters: ProtocolParameters {
+                next_protocol_parameters: Some(ProtocolParameters {
                     k: 5,
                     m: 100,
                     phi_f: 0.65,
-                },
+                }),
                 current_signers: [SignerMessagePart::dummy()].to_vec(),
                 next_signers: [SignerMessagePart::dummy()].to_vec(),
                 cardano_transactions_signing_config: Some(CardanoTransactionsSigningConfig::dummy()),
@@ -255,11 +259,11 @@ mod tests {
                 m: 100,
                 phi_f: 0.65,
             }),
-            next_protocol_parameters: ProtocolParameters {
+            next_protocol_parameters: Some(ProtocolParameters {
                 k: 50,
                 m: 1000,
                 phi_f: 0.65,
-            },
+            }),
             current_signers: vec![SignerMessagePart {
                 party_id: "123".to_string(),
                 verification_key: "key_123".to_string(),

@@ -39,9 +39,11 @@ async fn get_epoch_settings_message(
 
     let epoch = epoch_service.epoch_of_current_data()?;
     let protocol_parameters = Some(epoch_service.next_protocol_parameters()?.clone());
-    let signer_registration_protocol_parameters = epoch_service
-        .signer_registration_protocol_parameters()?
-        .clone();
+    let signer_registration_protocol_parameters = Some(
+        epoch_service
+            .signer_registration_protocol_parameters()?
+            .clone(),
+    );
     let current_signers = epoch_service.current_signers()?;
     let next_signers = epoch_service.next_signers()?;
 
@@ -209,8 +211,11 @@ mod tests {
             message_protocol_parameters,
             next_epoch_settings.protocol_parameters
         );
+
+        #[allow(deprecated)]
+        let message_next_protocol_parameters = message.next_protocol_parameters.unwrap();
         assert_eq!(
-            message.next_protocol_parameters,
+            message_next_protocol_parameters,
             signer_registration_epoch_settings.protocol_parameters
         );
     }
