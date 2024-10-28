@@ -9,6 +9,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- **BREAKING** changes in Mithril client Lib, CLI, and WASM:
+
+  - Remove deprecated `beacon` field from mithril certificates.
+  - Clients from distribution [`2430`](#mithril-distribution-24300---2024-07-30) and above are compatible with this change.
+
 - Support for Prometheus metrics endpoint in aggregator
 
 - Fix an issue that caused unnecessary re-scan of the Cardano chain when importing transactions.
