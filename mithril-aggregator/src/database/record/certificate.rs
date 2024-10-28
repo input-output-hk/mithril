@@ -1,23 +1,24 @@
 use chrono::{DateTime, Utc};
 
 use mithril_common::entities::{
-    CardanoDbBeacon, Certificate, CertificateMetadata, CertificateSignature, Epoch,
-    HexEncodedAggregateVerificationKey, HexEncodedKey, ImmutableFileNumber, ProtocolMessage,
-    ProtocolParameters, ProtocolVersion, SignedEntityType, StakeDistributionParty,
+    Certificate, CertificateMetadata, CertificateSignature, Epoch,
+    HexEncodedAggregateVerificationKey, HexEncodedKey, ProtocolMessage, ProtocolParameters,
+    ProtocolVersion, SignedEntityType, StakeDistributionParty,
 };
-use mithril_common::era_deprecate;
 use mithril_common::messages::{
     CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateMessage,
     CertificateMetadataMessagePart,
 };
 #[cfg(test)]
-use mithril_common::test_utils::{fake_data, fake_keys};
+use mithril_common::{
+    entities::{CardanoDbBeacon, ImmutableFileNumber},
+    test_utils::{fake_data, fake_keys},
+};
 use mithril_persistence::{
     database::Hydrator,
     sqlite::{HydrationError, Projection, SqLiteEntity},
 };
 
-era_deprecate!("Remove immutable_file_number");
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
 pub struct CertificateRecord {
@@ -44,9 +45,6 @@ pub struct CertificateRecord {
     /// Cardano network of the certificate.
     pub network: String,
 
-    /// Immutable file number at the time the certificate was created
-    pub immutable_file_number: ImmutableFileNumber,
-
     /// Signed entity type of the message
     pub signed_entity_type: SignedEntityType,
 
@@ -71,21 +69,11 @@ pub struct CertificateRecord {
 
 #[cfg(test)]
 impl CertificateRecord {
-    pub fn dummy_genesis(
-        id: &str,
-        epoch: Epoch,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> Self {
+    pub fn dummy_genesis(id: &str, epoch: Epoch) -> Self {
         Self {
             parent_certificate_id: None,
             signature: fake_keys::genesis_signature()[0].to_owned(),
-            ..Self::dummy(
-                id,
-                "",
-                epoch,
-                immutable_file_number,
-                SignedEntityType::genesis(epoch),
-            )
+            ..Self::dummy(id, "", epoch, SignedEntityType::genesis(epoch))
         }
     }
 
@@ -99,7 +87,6 @@ impl CertificateRecord {
             id,
             parent_id,
             epoch,
-            immutable_file_number,
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
                 fake_data::network().to_string(),
                 *epoch,
@@ -108,17 +95,11 @@ impl CertificateRecord {
         )
     }
 
-    pub fn dummy_msd(
-        id: &str,
-        parent_id: &str,
-        epoch: Epoch,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> Self {
+    pub fn dummy_msd(id: &str, parent_id: &str, epoch: Epoch) -> Self {
         Self::dummy(
             id,
             parent_id,
             epoch,
-            immutable_file_number,
             SignedEntityType::MithrilStakeDistribution(epoch),
         )
     }
@@ -127,7 +108,6 @@ impl CertificateRecord {
         id: &str,
         parent_id: &str,
         epoch: Epoch,
-        immutable_file_number: ImmutableFileNumber,
         signed_entity_type: SignedEntityType,
     ) -> Self {
         Self {
@@ -138,7 +118,6 @@ impl CertificateRecord {
             aggregate_verification_key: fake_keys::aggregate_verification_key()[0].to_owned(),
             epoch,
             network: fake_data::network().to_string(),
-            immutable_file_number,
             signed_entity_type,
             protocol_version: "protocol_version".to_string(),
             protocol_parameters: ProtocolParameters {
@@ -158,20 +137,6 @@ impl CertificateRecord {
     }
 }
 
-impl CertificateRecord {
-    era_deprecate!(
-        "remove this method when the immutable_file_number is removed from the metadata"
-    );
-    /// Deduce a [CardanoDbBeacon] from this record values.
-    fn as_cardano_db_beacon(&self) -> CardanoDbBeacon {
-        CardanoDbBeacon::new(
-            self.network.clone(),
-            *self.epoch,
-            self.immutable_file_number,
-        )
-    }
-}
-
 impl From<Certificate> for CertificateRecord {
     fn from(other: Certificate) -> Self {
         let signed_entity_type = other.signed_entity_type();
@@ -182,7 +147,6 @@ impl From<Certificate> for CertificateRecord {
             }
         };
 
-        #[allow(deprecated)]
         CertificateRecord {
             certificate_id: other.hash,
             parent_certificate_id,
@@ -191,7 +155,6 @@ impl From<Certificate> for CertificateRecord {
             aggregate_verification_key: other.aggregate_verification_key.to_json_hex().unwrap(),
             epoch: other.epoch,
             network: other.metadata.network,
-            immutable_file_number: other.metadata.immutable_file_number,
             signed_entity_type,
             protocol_version: other.metadata.protocol_version,
             protocol_parameters: other.metadata.protocol_parameters,
@@ -207,7 +170,6 @@ impl From<CertificateRecord> for Certificate {
     fn from(other: CertificateRecord) -> Self {
         let certificate_metadata = CertificateMetadata::new(
             other.network,
-            other.immutable_file_number,
             other.protocol_version,
             other.protocol_parameters,
             other.initiated_at,
@@ -243,7 +205,6 @@ impl From<CertificateRecord> for Certificate {
 
 impl From<CertificateRecord> for CertificateMessage {
     fn from(value: CertificateRecord) -> Self {
-        let beacon = Some(value.as_cardano_db_beacon());
         let metadata = CertificateMetadataMessagePart {
             network: value.network,
             protocol_version: value.protocol_version,
@@ -258,13 +219,11 @@ impl From<CertificateRecord> for CertificateMessage {
             (value.signature, String::new())
         };
 
-        #[allow(deprecated)]
         CertificateMessage {
             hash: value.certificate_id,
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
             epoch: value.epoch,
             signed_entity_type: value.signed_entity_type,
-            beacon,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,
@@ -277,7 +236,6 @@ impl From<CertificateRecord> for CertificateMessage {
 
 impl From<CertificateRecord> for CertificateListItemMessage {
     fn from(value: CertificateRecord) -> Self {
-        let beacon = Some(value.as_cardano_db_beacon());
         let metadata = CertificateListItemMessageMetadata {
             network: value.network,
             protocol_version: value.protocol_version,
@@ -287,13 +245,11 @@ impl From<CertificateRecord> for CertificateListItemMessage {
             total_signers: value.signers.len(),
         };
 
-        #[allow(deprecated)]
         CertificateListItemMessage {
             hash: value.certificate_id,
             previous_hash: value.parent_certificate_id.unwrap_or_default(),
             epoch: value.epoch,
             signed_entity_type: value.signed_entity_type,
-            beacon,
             metadata,
             protocol_message: value.protocol_message,
             signed_message: value.message,
@@ -314,15 +270,14 @@ impl SqLiteEntity for CertificateRecord {
         let aggregate_verification_key = row.read::<&str, _>(4).to_string();
         let epoch_int = row.read::<i64, _>(5);
         let network = row.read::<&str, _>(6).to_string();
-        let immutable_file_number = row.read::<i64, _>(7);
-        let signed_entity_type_id = row.read::<i64, _>(8);
-        let signed_entity_beacon_string = Hydrator::read_signed_entity_beacon_column(&row, 9);
-        let protocol_version = row.read::<&str, _>(10).to_string();
-        let protocol_parameters_string = row.read::<&str, _>(11);
-        let protocol_message_string = row.read::<&str, _>(12);
-        let signers_string = row.read::<&str, _>(13);
-        let initiated_at = row.read::<&str, _>(14);
-        let sealed_at = row.read::<&str, _>(15);
+        let signed_entity_type_id = row.read::<i64, _>(7);
+        let signed_entity_beacon_string = Hydrator::read_signed_entity_beacon_column(&row, 8);
+        let protocol_version = row.read::<&str, _>(9).to_string();
+        let protocol_parameters_string = row.read::<&str, _>(10);
+        let protocol_message_string = row.read::<&str, _>(11);
+        let signers_string = row.read::<&str, _>(12);
+        let initiated_at = row.read::<&str, _>(13);
+        let sealed_at = row.read::<&str, _>(14);
 
         let certificate_record = Self {
             certificate_id,
@@ -336,11 +291,6 @@ impl SqLiteEntity for CertificateRecord {
                 ))
             })?),
             network,
-            immutable_file_number: immutable_file_number.try_into().map_err(|e| {
-                HydrationError::InvalidData(format!(
-                    "Could not cast i64 ({immutable_file_number}) to u64. Error: '{e}'"
-                ))
-            })?,
             signed_entity_type: Hydrator::hydrate_signed_entity_type(
                 signed_entity_type_id.try_into().map_err(|e| {
                     HydrationError::InvalidData(format!(
@@ -408,11 +358,6 @@ impl SqLiteEntity for CertificateRecord {
         projection.add_field("epoch", "{:certificate:}.epoch", "integer");
         projection.add_field("network", "{:certificate:}.network", "text");
         projection.add_field(
-            "immutable_file_number",
-            "{:certificate:}.immutable_file_number",
-            "integer",
-        );
-        projection.add_field(
             "signed_entity_type_id",
             "{:certificate:}.signed_entity_type_id",
             "integer",
@@ -468,7 +413,7 @@ mod tests {
     #[test]
     fn converting_certificate_record_to_certificate_should_not_recompute_hash() {
         let expected_hash = "my_hash";
-        let record = CertificateRecord::dummy_genesis(expected_hash, Epoch(1), 1);
+        let record = CertificateRecord::dummy_genesis(expected_hash, Epoch(1));
         let certificate: Certificate = record.into();
 
         assert_eq!(expected_hash, &certificate.hash);

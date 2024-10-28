@@ -1,12 +1,9 @@
 use crate::crypto_helper::{
     ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolMultiSignature,
 };
-use crate::entities::{
-    CardanoDbBeacon, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType,
-};
+use crate::entities::{CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType};
 use std::fmt::{Debug, Formatter};
 
-use crate::era_deprecate;
 use sha2::{Digest, Sha256};
 
 /// The signature of a [Certificate]
@@ -133,19 +130,6 @@ impl Certificate {
             CertificateSignature::MultiSignature(entity_type, _) => entity_type.clone(),
         }
     }
-
-    era_deprecate!(
-        "remove this method when the immutable_file_number is removed from the metadata"
-    );
-    /// Deduce a [CardanoDbBeacon] from this certificate values.
-    pub fn as_cardano_db_beacon(&self) -> CardanoDbBeacon {
-        #[allow(deprecated)]
-        CardanoDbBeacon::new(
-            self.metadata.network.clone(),
-            *self.epoch,
-            self.metadata.immutable_file_number,
-        )
-    }
 }
 
 impl PartialEq for Certificate {
@@ -238,7 +222,6 @@ mod tests {
             Epoch(10),
             CertificateMetadata::new(
                 "testnet",
-                100,
                 "0.1.0",
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,
@@ -355,7 +338,6 @@ mod tests {
             Epoch(10),
             CertificateMetadata::new(
                 "testnet",
-                100,
                 "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
                 initiated_at,

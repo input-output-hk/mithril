@@ -1,122 +1,56 @@
 [
   {
-    "epoch": 61,
-    "hash": "d5954a1b69a070ec00f80b2f0de1ac254800a9b3f9cd6820280b214408f1faf0",
-    "certificate_hash": "f8ca3cf68c39f45c29d12e29c3642453ecffcb6d18bfcf5d559b915d8df8c07c",
-    "created_at": "2024-09-09T12:59:45.874287749Z"
+    "epoch": 20,
+    "hash": "d81afbeeb686fa6106ef15e28679ed90353c1f508954cc8a8f87a051b5cf82b0",
+    "certificate_hash": "e71776e71a6246fce8c1e8af66db2230ac27319a3332584f00d15cf318068577",
+    "created_at": "2024-10-28T13:28:51.961906251Z"
   },
   {
-    "epoch": 59,
-    "hash": "dee9e530a862e818aeabd537c2b4c4a425fcb2dac32bb23356fdf1a338612c6b",
-    "certificate_hash": "c91269c75bd83e852f7fcb66496edab6e3e048933d14273c013d4d5b8585a250",
-    "created_at": "2024-09-09T12:59:40.097465599Z"
+    "epoch": 19,
+    "hash": "0eae1931908e7afee632d405a0918a1877ef9d19d5f940b6ee3e4b4f2ad85b31",
+    "certificate_hash": "85c0a33286e1c3d795bcf736ab5480cb37efb26a3158c40ceb78c786b113b3d3",
+    "created_at": "2024-10-28T13:28:48.987889041Z"
   },
   {
-    "epoch": 58,
-    "hash": "1ebf09e41a6b30d21634a503fa5f2b3c1de310264cd1582da6e7e38f8b8dfab8",
-    "certificate_hash": "68c9b5388bb91cc70f83d83d37e457e7dfa425aaa03d04f5788e28ec78c29198",
-    "created_at": "2024-09-09T12:59:37.898660025Z"
+    "epoch": 18,
+    "hash": "2ac7ce215d3a3ee7cf8f4d35aafa4355a12599375a57761e76025c8688e0ab17",
+    "certificate_hash": "40ba57e7b80bc3ea6b0c9e7f94e45c8c07fca2555e6f8f5c5a62d18f96f4e3cb",
+    "created_at": "2024-10-28T13:28:45.832348589Z"
   },
   {
-    "epoch": 57,
-    "hash": "a7b2ef41d8505010ca0151b81c36d9cae76222cd97911732789520cb2a32369f",
-    "certificate_hash": "580dfde6fa34e3e902244f171bd0ca54b27c065d9dadbc95d4b2e2b19a73c07b",
-    "created_at": "2024-09-09T12:59:35.114359256Z"
+    "epoch": 17,
+    "hash": "67ae6d43955c2795b8bf4a5d9e1763a0bbd12d656c266c8652fce7c2c07787b7",
+    "certificate_hash": "dffe3153011c0dc7e4174c5d21b466237ee94ed0c0ff09883c6e82712ab2cd50",
+    "created_at": "2024-10-28T13:28:43.110518511Z"
   },
   {
-    "epoch": 56,
-    "hash": "33f2c6706eccddc3c7ac6dcaf0f2d610e2fd1e04f78e1b951233c4195ac548e8",
-    "certificate_hash": "c36249b5201e0088428f519196dbbe2567c3360627bff520f770df7f98b102ba",
-    "created_at": "2024-09-09T12:59:32.016617846Z"
+    "epoch": 16,
+    "hash": "b3dc966be0fa22184582a492565a17b28d00d9f407c1aaaf306da9b66684a211",
+    "certificate_hash": "a01dd3ea16cfa2183dddc5ef039f360e11d6f02c592af030bb7f82a4e9c4bc13",
+    "created_at": "2024-10-28T13:28:39.867671549Z"
   },
   {
-    "epoch": 55,
-    "hash": "300bffdd93bfacd0e0f298760e9fb7b76b1d074f20d4cc5e627f8a0061e9662a",
-    "certificate_hash": "e3bc0ede9541f5a14e3bf32b9ad5e4c7fa2be2ac88731ea68b13d8b7a62f1fc3",
-    "created_at": "2024-09-09T12:59:29.256953060Z"
+    "epoch": 15,
+    "hash": "87d4fdd4ddc7abb5e9319581734e6e5ae763de326c263a9599c5498ee802d00d",
+    "certificate_hash": "79a35c91533a06319bb4d3a19cd156a3c3550dac0d746e382916fcc18471f216",
+    "created_at": "2024-10-28T13:28:36.950475909Z"
   },
   {
-    "epoch": 54,
-    "hash": "a01b12bac13e43d4c6fb6563bbfc64f8b25c3f7b292b226292c20075532d6012",
-    "certificate_hash": "0d514b2058da12ddc59bb43df71bc9b371155da387d57203281079995f92b899",
-    "created_at": "2024-09-09T12:59:26.458700847Z"
+    "epoch": 14,
+    "hash": "5e041e228d109dd2c34d05ef1060d27921b66df440f84304311f5721ef0fa18f",
+    "certificate_hash": "804eb503576232119c5fb25d5fad134b0aa53d5424223905b8128a421be755b2",
+    "created_at": "2024-10-28T13:28:33.952646009Z"
   },
   {
-    "epoch": 52,
-    "hash": "39a696b7f19e63d535ea669a9702a4c152011be31435daca9696fc1ad56f9c91",
-    "certificate_hash": "68c9cf54825d99e1c7911be12e2bc143a3e329ed1eb6a675f55cf02cd4c85606",
-    "created_at": "2024-09-09T12:59:20.814077733Z"
+    "epoch": 13,
+    "hash": "a42d8b2c5211179d895d7f6238b8b79a08c52b2754d607a150a1d54fbbac6906",
+    "certificate_hash": "906ce13dd79d7a17c8e242fa82357d11924d3cdd6522cd3fc2db812544e73e00",
+    "created_at": "2024-10-28T13:28:30.904094496Z"
   },
   {
-    "epoch": 51,
-    "hash": "0feead0241acdd3f79d3b043260f172e5fd84d51fb89924f5c3936cbaf703551",
-    "certificate_hash": "1e68875bb54cf2cf9a0ab09110175f74bab04de7a30cd799f9990ccbf267652c",
-    "created_at": "2024-09-09T12:59:18.651134134Z"
-  },
-  {
-    "epoch": 50,
-    "hash": "a1d0a7f4cc7398f11dc2a504fbddbf67913824e1f769ed2a217273281ca2ab3b",
-    "certificate_hash": "60c5889afc6018d707b2a38be399497c01b44e35f47a7ee257a8b7bb5406d82b",
-    "created_at": "2024-09-09T12:59:14.920245151Z"
-  },
-  {
-    "epoch": 49,
-    "hash": "de07d4eb943580943b26f961264072322d70a7bbda01201de88b5b660e8de58b",
-    "certificate_hash": "8478f709685731ce68e1cca798087b397f34a2d6849c6aacee8de9d2477fcbf4",
-    "created_at": "2024-09-09T12:59:13.548293764Z"
-  },
-  {
-    "epoch": 48,
-    "hash": "2d9190fb1339d89f4c2ed01f39c9e41af964a18aec45673dfe051ee97da52e31",
-    "certificate_hash": "faaac20f065e09df16ce5699bfe553b142a21b37a7e7e1fd6d6e03d7c04f4f6c",
-    "created_at": "2024-09-09T12:59:09.518805098Z"
-  },
-  {
-    "epoch": 47,
-    "hash": "a41ec1988eae274a3a8437ecc69ab8f2facac741fa2916d082d23a5b415a97b2",
-    "certificate_hash": "8ae6981cc6e17ef561f9466380cf3442d368e1b34d706f0690382ba24cd27299",
-    "created_at": "2024-09-09T12:59:06.955401879Z"
-  },
-  {
-    "epoch": 45,
-    "hash": "cd4282abe8734246c221af4eda449607ca2515ce4be87ba90fadd337124fdace",
-    "certificate_hash": "d3ab661818d6c7109bc5a557118e3987aaccb964d2199ef04650d3504fe67740",
-    "created_at": "2024-09-09T12:59:01.310473738Z"
-  },
-  {
-    "epoch": 44,
-    "hash": "13fda655189ca00c61994fcedfdcbcde8db8f907ca928ea87eaa868f8504edd6",
-    "certificate_hash": "f69d6cd98a633aa01bec877fa38a3023ba43b7e868f0ac4a5be370c9c2f9ac6c",
-    "created_at": "2024-09-09T12:58:59.011007548Z"
-  },
-  {
-    "epoch": 43,
-    "hash": "81a08315d612234f6b11ea54143cc9458e399aa8cf66d894a438f009e99d1a1e",
-    "certificate_hash": "999060ce6efe54123b205e5fa74d312f9d1e9f3c9a4b8c12cc2747b0b6157486",
-    "created_at": "2024-09-09T12:58:55.710679858Z"
-  },
-  {
-    "epoch": 42,
-    "hash": "883101e95532ab70bea47fd97ac610efa2fdbdcca997df6f480d44990baac43a",
-    "certificate_hash": "cc4765b54dcf37ac05024486215ed0aed871f88ce7c63e4de31087d39a3078bd",
-    "created_at": "2024-09-09T12:58:52.796547346Z"
-  },
-  {
-    "epoch": 41,
-    "hash": "aed121edadb4a0d2f8e6c7301d1e875d848fce11c95995b71d016782491c67ed",
-    "certificate_hash": "96c79d6fe626fb73aeb7e4c61083522cd23aa0b5cbfe54fcf5e7bd75ec2c066e",
-    "created_at": "2024-09-09T12:58:50.713441345Z"
-  },
-  {
-    "epoch": 40,
-    "hash": "79f134930c604dc2d2f316ef186cfe68573a682592c20c9e71566be4802798bc",
-    "certificate_hash": "90d3c928a0b60701b6aa6ea0e8aebb646ffefa587ac270b616fc3e3b8a16e441",
-    "created_at": "2024-09-09T12:58:47.464325952Z"
-  },
-  {
-    "epoch": 39,
-    "hash": "d23700b038409a7e634b0b574c7b4e306c3936cb0afbcc9c44ee15fa893f2e31",
-    "certificate_hash": "bb634f5aea5ceb4ece0a807375c17e6326d83102617a71267eb7eb6671041df0",
-    "created_at": "2024-09-09T12:58:44.247841527Z"
+    "epoch": 12,
+    "hash": "c35f9b56a001eb97ba78cfa28a5b9c81df65bb5f427b3881454f2260777a06db",
+    "certificate_hash": "748942b381bd0a55556397f84e4e69e0dace8f29288964f83d3cb382436f69f9",
+    "created_at": "2024-10-28T13:28:27.891908091Z"
   }
 ]

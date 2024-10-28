@@ -331,7 +331,6 @@ impl<'a> CertificateChainBuilder<'a> {
     fn build_base_certificate(&self, context: &CertificateChainBuilderContext) -> Certificate {
         let index_certificate = context.index_certificate;
         let epoch = context.epoch;
-        let immutable_file_number = index_certificate as u64 * 10;
         let certificate_hash = format!("certificate_hash-{index_certificate}");
         let avk = Self::compute_avk_for_signers(&context.fixture.signers_fixture());
         let protocol_parameters = context.fixture.protocol_parameters().to_owned();
@@ -345,9 +344,7 @@ impl<'a> CertificateChainBuilder<'a> {
             previous_hash: "".to_string(),
             protocol_message,
             signed_message,
-            #[allow(deprecated)]
             metadata: CertificateMetadata {
-                immutable_file_number,
                 protocol_parameters,
                 ..base_certificate.metadata
             },
@@ -380,8 +377,6 @@ impl<'a> CertificateChainBuilder<'a> {
             certificate.metadata.protocol_parameters,
             certificate.metadata.network,
             certificate.epoch,
-            #[allow(deprecated)]
-            certificate.metadata.immutable_file_number,
             next_avk,
             genesis_signature,
         )

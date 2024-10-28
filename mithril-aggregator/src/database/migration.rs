@@ -804,5 +804,13 @@ pragma foreign_key_check;
 pragma foreign_keys=true;
         "#,
         ),
+        // Migration 29
+        // Drop `immutable_file_number` column `certificate` table`
+        SqlMigration::new(
+            29,
+            r#"
+alter table certificate drop column immutable_file_number;
+        "#,
+        ),
     ]
 }

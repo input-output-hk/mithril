@@ -3,9 +3,9 @@ mod test_extensions;
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
-        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber,
-        StakeDistributionParty, TimePoint,
+        BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolParameters,
+        SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, StakeDistributionParty,
+        TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -57,10 +57,7 @@ async fn create_certificate_with_buffered_signatures() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
-            fixture.compute_and_encode_avk()
-        )
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
     );
 
     comment!("Increase immutable number");
@@ -90,15 +87,11 @@ async fn create_certificate_with_buffered_signatures() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 2),
+            Epoch(1),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
-                "devnet".to_string(),
-                1,
-                1
-            )),
+            ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
 

@@ -1,5 +1,5 @@
 use mithril_common::entities::{
-    CardanoDbBeacon, HexEncodedAggregateVerificationKey, PartyId, SignedEntityType, Stake,
+    Epoch, HexEncodedAggregateVerificationKey, PartyId, SignedEntityType, Stake,
     StakeDistributionParty,
 };
 use std::collections::BTreeMap;
@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 pub struct ExpectedCertificate {
     identifier: String,
     previous_identifier: Option<String>,
-    beacon: CardanoDbBeacon,
+    epoch: Epoch,
     signers: BTreeMap<PartyId, Stake>,
     avk: HexEncodedAggregateVerificationKey,
     signed_type: Option<SignedEntityType>,
@@ -16,7 +16,7 @@ pub struct ExpectedCertificate {
 
 impl ExpectedCertificate {
     pub fn new(
-        beacon: CardanoDbBeacon,
+        epoch: Epoch,
         signers: &[StakeDistributionParty],
         avk: HexEncodedAggregateVerificationKey,
         signed_type: SignedEntityType,
@@ -25,18 +25,18 @@ impl ExpectedCertificate {
         Self {
             identifier: Self::identifier(&signed_type),
             previous_identifier: Some(previous_identifier),
-            beacon,
+            epoch,
             signers: BTreeMap::from_iter(signers.iter().map(|s| (s.party_id.clone(), s.stake))),
             avk,
             signed_type: Some(signed_type),
         }
     }
 
-    pub fn new_genesis(beacon: CardanoDbBeacon, avk: HexEncodedAggregateVerificationKey) -> Self {
+    pub fn new_genesis(epoch: Epoch, avk: HexEncodedAggregateVerificationKey) -> Self {
         Self {
-            identifier: Self::genesis_identifier(&beacon),
+            identifier: Self::genesis_identifier(epoch),
             previous_identifier: None,
-            beacon,
+            epoch,
             signers: BTreeMap::new(),
             avk,
             signed_type: None,
@@ -44,11 +44,11 @@ impl ExpectedCertificate {
     }
 
     pub fn identifier(signed_types: &SignedEntityType) -> String {
-        format!("certificate-{:?}", signed_types)
+        format!("certificate-{signed_types:?}")
     }
 
-    pub fn genesis_identifier(beacon: &CardanoDbBeacon) -> String {
-        format!("genesis-{:?}", beacon)
+    pub fn genesis_identifier(epoch: Epoch) -> String {
+        format!("genesis-{epoch:?}")
     }
 
     pub fn get_signed_type(&self) -> Option<SignedEntityType> {

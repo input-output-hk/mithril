@@ -287,7 +287,7 @@ mod tests {
         let repository = dep_builder.get_certificate_repository().await.unwrap();
         let service = dep_builder.get_message_service().await.unwrap();
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let genesis_certificate = fixture.create_genesis_certificate("whatever", Epoch(2), 1);
+        let genesis_certificate = fixture.create_genesis_certificate("whatever", Epoch(2));
         repository
             .create_certificate(genesis_certificate.clone())
             .await
@@ -312,7 +312,7 @@ mod tests {
 
         let certificates: Vec<Certificate> = [2, 3]
             .into_iter()
-            .map(|epoch| fixture.create_genesis_certificate("whatever", Epoch(epoch), 1))
+            .map(|epoch| fixture.create_genesis_certificate("whatever", Epoch(epoch)))
             .collect();
         let last_certificate_hash = certificates[1].hash.clone();
         repository

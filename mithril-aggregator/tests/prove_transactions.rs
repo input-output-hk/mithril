@@ -1,9 +1,8 @@
 use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoDbBeacon, CardanoTransactionsSigningConfig, ChainPoint, Epoch,
-        ProtocolMessagePartKey, ProtocolParameters, SignedEntityType,
-        SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
+        BlockNumber, CardanoTransactionsSigningConfig, ChainPoint, Epoch, ProtocolMessagePartKey,
+        ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants, SlotNumber, TimePoint,
     },
     test_utils::MithrilFixtureBuilder,
 };
@@ -62,10 +61,7 @@ async fn prove_transactions() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(
-            CardanoDbBeacon::new("devnet", 1, 1),
-            fixture.compute_and_encode_avk()
-        )
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
     );
 
     // Lock all signed entity types except CardanoTransactions to limit the scope of the test
@@ -106,14 +102,14 @@ async fn prove_transactions() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet", 1, 1),
+            Epoch(1),
             &signers
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(179)),
-            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new("devnet", 1, 1)),
+            ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
 

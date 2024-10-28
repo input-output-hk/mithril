@@ -47,10 +47,7 @@ async fn open_message_newer_exists() {
 
     assert_last_certificate_eq!(
         tester,
-        ExpectedCertificate::new_genesis(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 1),
-            fixture.compute_and_encode_avk()
-        )
+        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
     );
 
     comment!("Increase immutable number");
@@ -81,15 +78,11 @@ async fn open_message_newer_exists() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 2),
+            Epoch(1),
             StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
             fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
-                "devnet".to_string(),
-                1,
-                1
-            )),
+            ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
 
@@ -124,7 +117,7 @@ async fn open_message_newer_exists() {
     assert_last_certificate_eq!(
         tester,
         ExpectedCertificate::new(
-            CardanoDbBeacon::new("devnet".to_string(), 1, 4),
+            Epoch(1),
             &signers_for_immutables
                 .iter()
                 .map(|s| s.signer_with_stake.clone().into())
@@ -135,11 +128,7 @@ async fn open_message_newer_exists() {
                 1,
                 4
             )),
-            ExpectedCertificate::genesis_identifier(&CardanoDbBeacon::new(
-                "devnet".to_string(),
-                1,
-                1
-            )),
+            ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
 

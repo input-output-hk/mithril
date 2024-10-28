@@ -2,10 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::entities::{
-    ImmutableFileNumber, ProtocolParameters, ProtocolVersion, SignerWithStake, StakeDistribution,
-};
-use crate::era_deprecate;
+use crate::entities::{ProtocolParameters, ProtocolVersion, SignerWithStake, StakeDistribution};
 
 use super::{PartyId, Stake};
 
@@ -44,19 +41,11 @@ impl StakeDistributionParty {
     }
 }
 
-era_deprecate!("Remove immutable file number as it's here only for message backward-compatibility");
 /// CertificateMetadata represents the metadata associated to a Certificate
 #[derive(Clone, Debug, PartialEq)]
 pub struct CertificateMetadata {
     /// Cardano network
     pub network: String,
-
-    /// Number of the last included immutable files for the digest computation
-    #[deprecated(
-        since = "0.3.25",
-        note = "Exist only for backward-compatibility, will be removed in the future"
-    )]
-    pub immutable_file_number: ImmutableFileNumber,
 
     /// Protocol Version (semver)
     /// Useful to achieve backward compatibility of the certificates (including of the multi signature)
@@ -86,17 +75,14 @@ impl CertificateMetadata {
     /// CertificateMetadata factory
     pub fn new<T: Into<String>, U: Into<ProtocolVersion>>(
         network: T,
-        immutable_file_number: ImmutableFileNumber,
         protocol_version: U,
         protocol_parameters: ProtocolParameters,
         initiated_at: DateTime<Utc>,
         sealed_at: DateTime<Utc>,
         signers: Vec<StakeDistributionParty>,
     ) -> CertificateMetadata {
-        #[allow(deprecated)]
         CertificateMetadata {
             network: network.into(),
-            immutable_file_number,
             protocol_version: protocol_version.into(),
             protocol_parameters,
             initiated_at,
@@ -161,7 +147,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_certificate_metadata_compute_hash() {
         let hash_expected = "f16631f048b33746aa0141cf607ee53ddb76308725e6912530cc41cc54834206";
 
@@ -173,8 +158,7 @@ mod tests {
         let sealed_at = initiated_at + Duration::try_seconds(100).unwrap();
         let metadata = CertificateMetadata::new(
             "devnet",
-            1,
-            "0.1.0".to_string(),
+            "0.1.0",
             ProtocolParameters::new(1000, 100, 0.123),
             initiated_at,
             sealed_at,
@@ -182,16 +166,6 @@ mod tests {
         );
 
         assert_eq!(hash_expected, metadata.compute_hash());
-
-        // immutable_file_number shouldn't impact the hash since its deprecated
-        assert_eq!(
-            hash_expected,
-            CertificateMetadata {
-                immutable_file_number: metadata.immutable_file_number + 10,
-                ..metadata.clone()
-            }
-            .compute_hash(),
-        );
 
         assert_ne!(
             hash_expected,

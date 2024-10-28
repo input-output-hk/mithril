@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.32
+  version: 0.1.33
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -1265,13 +1265,7 @@ components:
             "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
             "previous_hash": "aa2ddfb87a17103bdf15bfb21a2941b3f3223a3c8d710910496c392b14f8c403",
             "epoch": 329,
-            "beacon":
-              {
-                "network": "mainnet",
-                "epoch": 329,
-                "immutable_file_number": 7060000
-              },
-            signed_entity_type: { "MithrilStakeDistribution": 246 },
+            "signed_entity_type": { "MithrilStakeDistribution": 246 },
             "metadata":
               {
                 "network": "mainnet",
@@ -1318,10 +1312,6 @@ components:
           format: bytes
         epoch:
           $ref: "#/components/schemas/Epoch"
-        beacon:
-          deprecated: true
-          allOf:
-            - $ref: "#/components/schemas/CardanoDbBeacon"
         signed_entity_type:
           $ref: "#/components/schemas/SignedEntityType"
         metadata:
@@ -1341,13 +1331,7 @@ components:
           "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
           "previous_hash": "aa2ddfb87a17103bdf15bfb21a2941b3f3223a3c8d710910496c392b14f8c403",
           "epoch": 32,
-          "beacon":
-            {
-              "network": "mainnet",
-              "epoch": 329,
-              "immutable_file_number": 7060000
-            },
-          signed_entity_type: { "MithrilStakeDistribution": 246 },
+          "signed_entity_type": { "MithrilStakeDistribution": 246 },
           "metadata":
             {
               "network": "mainnet",
@@ -1443,10 +1427,6 @@ components:
           format: bytes
         epoch:
           $ref: "#/components/schemas/Epoch"
-        beacon:
-          deprecated: true
-          allOf:
-            - $ref: "#/components/schemas/CardanoDbBeacon"
         signed_entity_type:
           $ref: "#/components/schemas/SignedEntityType"
         metadata:
@@ -1474,13 +1454,7 @@ components:
           "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
           "previous_hash": "aa2ddfb87a17103bdf15bfb21a2941b3f3223a3c8d710910496c392b14f8c403",
           "epoch": 329,
-          "beacon":
-            {
-              "network": "mainnet",
-              "epoch": 329,
-              "immutable_file_number": 7060000
-            },
-          signed_entity_type: { "MithrilStakeDistribution": 246 },
+          "signed_entity_type": { "MithrilStakeDistribution": 246 },
           "metadata":
             {
               "network": "mainnet",

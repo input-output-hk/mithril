@@ -94,7 +94,7 @@ mod tests {
 
     // Supported structure until OpenAPI version 0.1.28.
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-    pub struct EpochSettingsMessageUntilV0_1_28 {
+    struct EpochSettingsMessageUntilV0_1_28 {
         /// Current Epoch
         pub epoch: Epoch,
 
@@ -109,7 +109,7 @@ mod tests {
 
     // Supported structure until OpenAPI version 0.1.29.
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-    pub struct EpochSettingsMessageUntilV0_1_29 {
+    struct EpochSettingsMessageUntilV0_1_29 {
         /// Current Epoch
         pub epoch: Epoch,
 

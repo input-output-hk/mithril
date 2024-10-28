@@ -181,7 +181,6 @@ impl GenesisTools {
             self.genesis_protocol_parameters.clone(),
             self.network.to_string(),
             self.time_point.epoch,
-            self.time_point.immutable_file_number,
             self.genesis_avk.clone(),
             genesis_signature,
         )?;

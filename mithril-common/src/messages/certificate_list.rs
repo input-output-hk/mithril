@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
 use crate::entities::{
-    CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
-    ProtocolVersion, SignedEntityType,
+    Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, ProtocolVersion,
+    SignedEntityType,
 };
 
 /// Message structure of a certificate list
@@ -64,11 +64,6 @@ pub struct CertificateListItemMessage {
     /// aka BEACON(p,n)
     pub signed_entity_type: SignedEntityType,
 
-    /// Mithril beacon on the Cardano chain
-    #[deprecated(since = "0.3.25", note = "use epoch and/or signed_entity_type instead")]
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub beacon: Option<CardanoDbBeacon>,
-
     /// Certificate metadata
     /// aka METADATA(p,n)
     pub metadata: CertificateListItemMessageMetadata,
@@ -101,13 +96,11 @@ impl CertificateListItemMessage {
         );
         let epoch = Epoch(10);
 
-        #[allow(deprecated)]
         Self {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
-            beacon: Some(CardanoDbBeacon::new("testnet", *epoch, 100)),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),
@@ -160,25 +153,54 @@ impl Debug for CertificateListItemMessage {
 
 #[cfg(test)]
 mod tests {
+    use crate::entities::CardanoDbBeacon;
+
     use super::*;
 
-    type CertificateListMessagePreviousVersion = Vec<CertificateListItemMessagePreviousVersion>;
+    const ACTUAL_JSON: &str = r#"[{
+            "hash": "hash",
+            "previous_hash": "previous_hash",
+            "epoch": 10,
+            "signed_entity_type": { "MithrilStakeDistribution": 10 },
+            "metadata": {
+                "network": "testnet",
+                "version": "0.1.0",
+                "parameters": {
+                    "k": 1000,
+                    "m": 100,
+                    "phi_f": 0.123
+                },
+                "initiated_at": "2024-02-12T13:11:47Z",
+                "sealed_at": "2024-02-12T13:12:57Z",
+                "total_signers": 2
+            },
+            "protocol_message": {
+                "message_parts": {
+                    "snapshot_digest": "snapshot-digest-123",
+                    "next_aggregate_verification_key": "next-avk-123"
+                }
+            },
+            "signed_message": "signed_message",
+            "aggregate_verification_key": "aggregate_verification_key"
+        }]"#;
+
+    type CertificateListMessageUntilV0_1_32 = Vec<CertificateListItemMessageUntilV0_1_32>;
 
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct CertificateListItemMessagePreviousVersion {
+    struct CertificateListItemMessageUntilV0_1_32 {
         pub hash: String,
         pub previous_hash: String,
         pub epoch: Epoch,
         pub signed_entity_type: SignedEntityType,
-        #[deprecated(since = "0.3.25", note = "use epoch and/or signed_entity_type instead")]
-        pub beacon: CardanoDbBeacon,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub beacon: Option<CardanoDbBeacon>,
         pub metadata: CertificateListItemMessageMetadata,
         pub protocol_message: ProtocolMessage,
         pub signed_message: String,
         pub aggregate_verification_key: String,
     }
 
-    fn golden_previous_message() -> CertificateListItemMessagePreviousVersion {
+    fn golden_message_until_open_api_0_1_32() -> CertificateListItemMessageUntilV0_1_32 {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -190,13 +212,12 @@ mod tests {
         );
         let epoch = Epoch(10);
 
-        #[allow(deprecated)]
-        CertificateListItemMessagePreviousVersion {
+        CertificateListItemMessageUntilV0_1_32 {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
-            beacon: CardanoDbBeacon::new("testnet", *epoch, 100),
+            beacon: None,
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),
@@ -227,13 +248,11 @@ mod tests {
         );
         let epoch = Epoch(10);
 
-        #[allow(deprecated)]
         CertificateListItemMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
             signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
-            beacon: Some(CardanoDbBeacon::new("testnet", *epoch, 100)),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),
@@ -252,44 +271,12 @@ mod tests {
         }
     }
 
-    const ACTUAL_JSON: &str = r#"[{
-            "hash": "hash",
-            "previous_hash": "previous_hash",
-            "epoch": 10,
-            "signed_entity_type": { "MithrilStakeDistribution": 10 },
-            "beacon": {
-                "network": "testnet",
-                "epoch": 10,
-                "immutable_file_number": 100
-            },
-            "metadata": {
-                "network": "testnet",
-                "version": "0.1.0",
-                "parameters": {
-                    "k": 1000,
-                    "m": 100,
-                    "phi_f": 0.123
-                },
-                "initiated_at": "2024-02-12T13:11:47Z",
-                "sealed_at": "2024-02-12T13:12:57Z",
-                "total_signers": 2
-            },
-            "protocol_message": {
-                "message_parts": {
-                    "snapshot_digest": "snapshot-digest-123",
-                    "next_aggregate_verification_key": "next-avk-123"
-                }
-            },
-            "signed_message": "signed_message",
-            "aggregate_verification_key": "aggregate_verification_key"
-        }]"#;
-
     #[test]
-    fn test_actual_json_deserialized_into_previous_message() {
+    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_32() {
         let json = ACTUAL_JSON;
-        let message: CertificateListMessagePreviousVersion = serde_json::from_str(json).unwrap();
+        let message: CertificateListMessageUntilV0_1_32 = serde_json::from_str(json).unwrap();
 
-        assert_eq!(vec![golden_previous_message()], message);
+        assert_eq!(vec![golden_message_until_open_api_0_1_32()], message);
     }
 
     #[test]
@@ -298,47 +285,5 @@ mod tests {
         let message: CertificateListMessage = serde_json::from_str(json).unwrap();
 
         assert_eq!(vec![golden_actual_message()], message);
-    }
-
-    #[test]
-    fn test_json_next_version_deserialized_into_actual_message() {
-        let json = r#"[{
-            "hash": "hash",
-            "previous_hash": "previous_hash",
-            "epoch": 10,
-            "signed_entity_type": { "MithrilStakeDistribution": 10 },
-            "metadata": {
-                "network": "testnet",
-                "version": "0.1.0",
-                "parameters": {
-                    "k": 1000,
-                    "m": 100,
-                    "phi_f": 0.123
-                },
-                "initiated_at": "2024-02-12T13:11:47Z",
-                "sealed_at": "2024-02-12T13:12:57Z",
-                "total_signers": 2
-            },
-            "protocol_message": {
-                "message_parts": {
-                    "snapshot_digest": "snapshot-digest-123",
-                    "next_aggregate_verification_key": "next-avk-123"
-                }
-            },
-            "signed_message": "signed_message",
-            "aggregate_verification_key": "aggregate_verification_key"
-        }]"#;
-
-        let message: CertificateListMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be successfully parsed into a CertificateListMessage instance.",
-        );
-
-        #[allow(deprecated)]
-        let golden_message = vec![CertificateListItemMessage {
-            beacon: None,
-            ..golden_actual_message()
-        }];
-
-        assert_eq!(golden_message, message);
     }
 }
