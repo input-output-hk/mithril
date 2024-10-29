@@ -8,8 +8,8 @@ pub struct SignerEpochSettings {
     /// Current Epoch
     pub epoch: Epoch,
 
-    /// Signer registration protocol parameters
-    pub signer_registration_protocol_parameters: ProtocolParameters,
+    /// Registration protocol parameters
+    pub registration_protocol_parameters: ProtocolParameters,
 
     /// Current Signers
     pub current_signers: Vec<Signer>,
@@ -33,8 +33,8 @@ impl SignerEpochSettings {
         // Beacon
         let beacon = fake_data::beacon();
 
-        // Signer registration protocol parameters
-        let signer_registration_protocol_parameters = fake_data::protocol_parameters();
+        // Registration protocol parameters
+        let registration_protocol_parameters = fake_data::protocol_parameters();
 
         // Signers
         let signers = fake_data::signers(5);
@@ -49,7 +49,7 @@ impl SignerEpochSettings {
         // Signer Epoch settings
         SignerEpochSettings {
             epoch: beacon.epoch,
-            signer_registration_protocol_parameters,
+            registration_protocol_parameters,
             current_signers,
             next_signers,
             cardano_transactions_signing_config,
