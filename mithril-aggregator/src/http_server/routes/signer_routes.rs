@@ -1,5 +1,9 @@
+use anyhow::Context;
 use slog::warn;
 use warp::Filter;
+
+use mithril_common::entities::Epoch;
+use mithril_common::StdResult;
 
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::http_server::routes::middlewares;
@@ -52,6 +56,7 @@ fn registered_signers(
     warp::path!("signers" / "registered" / String)
         .and(warp::get())
         .and(middlewares::with_logger(dependency_manager))
+        .and(middlewares::with_epoch_service(dependency_manager))
         .and(middlewares::with_verification_key_store(dependency_manager))
         .and_then(handlers::registered_signers)
 }
@@ -69,6 +74,20 @@ async fn fetch_epoch_header_value(
     }
 }
 
+async fn compute_registration_epoch(
+    registered_at: &str,
+    epoch_service: EpochServiceWrapper,
+) -> StdResult<Epoch> {
+    if registered_at.to_lowercase() == "latest" {
+        epoch_service.read().await.epoch_of_current_data()
+    } else {
+        registered_at
+            .parse::<u64>()
+            .map(Epoch)
+            .with_context(|| "Invalid epoch: must be a number or 'latest'")
+    }
+}
+
 mod handlers {
     use crate::database::repository::SignerGetter;
     use crate::dependency_injection::EpochServiceWrapper;
@@ -76,12 +95,13 @@ mod handlers {
         SignerRegistrationsMessage, SignerTickerListItemMessage, SignersTickersMessage,
     };
     use crate::event_store::{EventMessage, TransmitterService};
-    use crate::http_server::routes::signer_routes::fetch_epoch_header_value;
+    use crate::http_server::routes::signer_routes::{
+        compute_registration_epoch, fetch_epoch_header_value,
+    };
     use crate::{
         http_server::routes::reply, Configuration, SignerRegisterer, SignerRegistrationError,
     };
     use crate::{FromRegisterSignerAdapter, MetricsService, VerificationKeyStorer};
-    use mithril_common::entities::Epoch;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
     use slog::{debug, warn, Logger};
     use std::convert::Infallible;
@@ -175,27 +195,29 @@ mod handlers {
     pub async fn registered_signers(
         registered_at: String,
         logger: Logger,
+        epoch_service: EpochServiceWrapper,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let registered_at = match registered_at.parse::<u64>() {
-            Ok(epoch) => Epoch(epoch),
-            Err(err) => {
-                warn!(logger,"registered_signers::invalid_epoch"; "error" => ?err);
-                return Ok(reply::bad_request(
-                    "invalid_epoch".to_string(),
-                    err.to_string(),
-                ));
-            }
-        };
+        let registered_at_epoch =
+            match compute_registration_epoch(&registered_at, epoch_service).await {
+                Ok(epoch) => epoch,
+                Err(err) => {
+                    warn!(logger,"registered_signers::invalid_epoch"; "error" => ?err);
+                    return Ok(reply::bad_request(
+                        "invalid_epoch".to_string(),
+                        err.to_string(),
+                    ));
+                }
+            };
 
         // The given epoch is the epoch at which the signer registered, the store works on
         // the recording epoch so we need to offset.
         match verification_key_store
-            .get_signers(registered_at.offset_to_recording_epoch())
+            .get_signers(registered_at_epoch.offset_to_recording_epoch())
             .await
         {
             Ok(Some(signers)) => {
-                let message = SignerRegistrationsMessage::new(registered_at, signers);
+                let message = SignerRegistrationsMessage::new(registered_at_epoch, signers);
                 Ok(reply::json(&message, StatusCode::OK))
             }
             Ok(None) => {
@@ -709,5 +731,46 @@ mod tests {
         let epoch_str = fetch_epoch_header_value(epoch_service, &TestLogger::stdout()).await;
 
         assert_eq!(epoch_str, "".to_string());
+    }
+
+    mod registered_signers_registration_epoch {
+        use crate::services::FakeEpochServiceBuilder;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn use_given_epoch_if_valid_number() {
+            let epoch_service = Arc::new(RwLock::new(
+                FakeEpochServiceBuilder::dummy(Epoch(89)).build(),
+            ));
+            let epoch = compute_registration_epoch("456", epoch_service)
+                .await
+                .unwrap();
+
+            assert_eq!(epoch, Epoch(456));
+        }
+
+        #[tokio::test]
+        async fn use_epoch_service_current_epoch_if_latest() {
+            let epoch_service = Arc::new(RwLock::new(
+                FakeEpochServiceBuilder::dummy(Epoch(89)).build(),
+            ));
+            let epoch = compute_registration_epoch("latest", epoch_service)
+                .await
+                .unwrap();
+
+            assert_eq!(epoch, Epoch(89));
+        }
+
+        #[tokio::test]
+        async fn error_if_given_epoch_is_not_a_number_nor_latest() {
+            let epoch_service = Arc::new(RwLock::new(
+                FakeEpochServiceBuilder::dummy(Epoch(89)).build(),
+            ));
+
+            compute_registration_epoch("invalid", epoch_service)
+                .await
+                .expect_err("Should fail if epoch is not a number nor 'latest'");
+        }
     }
 }
