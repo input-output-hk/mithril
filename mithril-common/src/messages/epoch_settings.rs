@@ -10,7 +10,7 @@ pub struct EpochSettingsMessage {
 
     /// Current Protocol parameters
     #[deprecated(
-        since = "0.4.76",
+        since = "0.4.77",
         note = "use only signer_registration_protocol_parameters"
     )]
     #[serde(rename = "protocol", skip_serializing_if = "Option::is_none")]
@@ -18,7 +18,7 @@ pub struct EpochSettingsMessage {
 
     /// Next Protocol parameters
     #[deprecated(
-        since = "0.4.76",
+        since = "0.4.77",
         note = "use only signer_registration_protocol_parameters"
     )]
     #[serde(rename = "next_protocol", skip_serializing_if = "Option::is_none")]
@@ -114,14 +114,9 @@ mod tests {
     // Supported structure until OpenAPI version 0.1.28.
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
     struct EpochSettingsMessageUntilV0_1_28 {
-        /// Current Epoch
         pub epoch: Epoch,
-
-        /// Current Protocol parameters
         #[serde(rename = "protocol")]
         pub protocol_parameters: ProtocolParameters,
-
-        /// Next Protocol parameters
         #[serde(rename = "next_protocol")]
         pub next_protocol_parameters: ProtocolParameters,
     }
@@ -129,49 +124,27 @@ mod tests {
     // Supported structure until OpenAPI version 0.1.29.
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
     struct EpochSettingsMessageUntilV0_1_29 {
-        /// Current Epoch
         pub epoch: Epoch,
-
-        /// Current Protocol parameters
         #[serde(rename = "protocol")]
         pub protocol_parameters: ProtocolParameters,
-
-        /// Next Protocol parameters
         #[serde(rename = "next_protocol")]
         pub next_protocol_parameters: ProtocolParameters,
-
-        /// Current Signers
         pub current_signers: Vec<SignerMessagePart>,
-
-        /// Signers that will be able to sign on the next epoch
         pub next_signers: Vec<SignerMessagePart>,
     }
 
     // Supported structure until OpenAPI version 0.1.32.
     #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-    pub struct EpochSettingsMessageUntilV0_1_32 {
-        /// Current Epoch
+    struct EpochSettingsMessageUntilV0_1_32 {
         pub epoch: Epoch,
-
-        /// Current Protocol parameters
         #[serde(rename = "protocol")]
         pub protocol_parameters: ProtocolParameters,
-
-        /// Next Protocol parameters
         #[serde(rename = "next_protocol")]
         pub next_protocol_parameters: ProtocolParameters,
-
-        /// Current Signers
         pub current_signers: Vec<SignerMessagePart>,
-
-        /// Signers that will be able to sign on the next epoch
         pub next_signers: Vec<SignerMessagePart>,
-
-        /// Cardano transactions signing configuration for the current epoch
         #[serde(skip_serializing_if = "Option::is_none")]
         pub cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
-
-        /// Cardano transactions signing configuration for the next epoch
         #[serde(skip_serializing_if = "Option::is_none")]
         pub next_cardano_transactions_signing_config: Option<CardanoTransactionsSigningConfig>,
     }
