@@ -20,6 +20,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for stable Cardano stake distribution client library, CLI and WASM.
 
+- Deprecate `protocol` and `next_protocol` in favor of `signer_registration_protocol` in the `/epoch-settings` route.
+
 - Crates versions:
 
 | Crate | Version |
