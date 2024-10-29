@@ -177,8 +177,6 @@ mod handlers {
         logger: Logger,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /signers/registered/{registered_at:?}");
-
         let registered_at = match registered_at.parse::<u64>() {
             Ok(epoch) => Epoch(epoch),
             Err(err) => {
@@ -216,7 +214,6 @@ mod handlers {
         configuration: Configuration,
         signer_getter: Arc<dyn SignerGetter>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "GET /signers/tickers");
         let network = configuration.network;
 
         match signer_getter.get_all().await {
