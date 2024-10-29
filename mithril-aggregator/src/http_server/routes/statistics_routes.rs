@@ -17,6 +17,7 @@ fn post_statistics(
         .and(warp::post())
         .and(warp::body::json())
         .and(middlewares::with_event_transmitter(dependency_manager))
+        .and(middlewares::with_metrics_service(dependency_manager))
         .and_then(handlers::post_snapshot_statistics)
 }
 
@@ -28,11 +29,17 @@ mod handlers {
 
     use crate::event_store::{EventMessage, TransmitterService};
     use crate::http_server::routes::reply;
+    use crate::MetricsService;
 
     pub async fn post_snapshot_statistics(
         snapshot_download_message: SnapshotDownloadMessage,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
+        metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
+        metrics_service
+            .get_cardano_db_total_restoration_since_startup()
+            .increment();
+
         let headers: Vec<(&str, &str)> = Vec::new();
 
         match event_transmitter.send_event_message(
@@ -61,7 +68,8 @@ mod tests {
     };
 
     use crate::{
-        dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH, Configuration,
+        dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH,
+        initialize_dependencies, Configuration,
     };
 
     fn setup_router(
@@ -107,5 +115,31 @@ mod tests {
 
         let _ = rx.try_recv().unwrap();
         result.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_post_statistics_increments_cardano_db_total_restoration_since_startup_metric() {
+        let method = Method::POST.as_str();
+        let path = "/statistics/snapshot";
+        let dependency_manager = Arc::new(initialize_dependencies().await);
+        let initial_counter_value = dependency_manager
+            .metrics_service
+            .get_cardano_db_total_restoration_since_startup()
+            .get();
+
+        request()
+            .method(method)
+            .json(&SnapshotDownloadMessage::dummy())
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(dependency_manager.clone()))
+            .await;
+
+        assert_eq!(
+            initial_counter_value + 1,
+            dependency_manager
+                .metrics_service
+                .get_cardano_db_total_restoration_since_startup()
+                .get()
+        );
     }
 }
