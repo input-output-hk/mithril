@@ -17,10 +17,6 @@ export default function MithrilStakeDistributionsList(props) {
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
-    if (!autoUpdate) {
-      return;
-    }
-
     let fetchMithrilStakeDistribution = () => {
       fetch(artifactsEndpoint)
         .then((response) => response.json())
@@ -34,8 +30,10 @@ export default function MithrilStakeDistributionsList(props) {
     // Fetch them once without waiting
     fetchMithrilStakeDistribution();
 
-    const interval = setInterval(fetchMithrilStakeDistribution, updateInterval);
-    return () => clearInterval(interval);
+    if (autoUpdate) {
+      const interval = setInterval(fetchMithrilStakeDistribution, updateInterval);
+      return () => clearInterval(interval);
+    }
   }, [artifactsEndpoint, updateInterval, autoUpdate]);
 
   function handleCertificateHashChange(hash) {

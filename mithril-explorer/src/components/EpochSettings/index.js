@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {Card, Row, Col, Stack, Container} from "react-bootstrap";
+import { Card, Row, Col, Stack, Container } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
@@ -19,10 +19,6 @@ export default function EpochSettings() {
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
 
   useEffect(() => {
-    if (!autoUpdate) {
-      return;
-    }
-
     let fetchEpochSettings = () => {
       fetch(epochSettingsEndpoint)
         .then((response) => (response.status === 200 ? response.json() : {}))
@@ -36,8 +32,10 @@ export default function EpochSettings() {
     // Fetch it once without waiting
     fetchEpochSettings();
 
-    const interval = setInterval(fetchEpochSettings, updateInterval);
-    return () => clearInterval(interval);
+    if (autoUpdate) {
+      const interval = setInterval(fetchEpochSettings, updateInterval);
+      return () => clearInterval(interval);
+    }
   }, [epochSettingsEndpoint, updateInterval, autoUpdate]);
 
   useEffect(() => {
@@ -74,14 +72,21 @@ export default function EpochSettings() {
               </Col>
               <Col xs={12} md="auto">
                 <h5>Registration Protocol Parameters</h5>
-                <ProtocolParameters protocolParameters={epochSettings.signer_registration_protocol ?? epochSettings.next_protocol}/>
+                <ProtocolParameters
+                  protocolParameters={
+                    epochSettings.signer_registration_protocol ?? epochSettings.next_protocol
+                  }
+                />
               </Col>
             </Row>
           </Container>
         </Card.Body>
         {registrationPageUrl && inOutRegistrationsPageUrl && (
           <Card.Footer>
-            <Stack direction="horizontal" gap={1} className="justify-content-md-end align-items-stretch justify-content-sm-center">
+            <Stack
+              direction="horizontal"
+              gap={1}
+              className="justify-content-md-end align-items-stretch justify-content-sm-center">
               <LinkButton href={registrationPageUrl}>
                 <i className="bi bi-pen"></i> Registered Signers
               </LinkButton>
