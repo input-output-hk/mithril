@@ -55,10 +55,10 @@ pub trait EpochService: Sync + Send {
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
 
-    /// Get protocol parameters used for signing the protocol message in the current epoch.
+    /// Get protocol parameters used for signing in the current epoch.
     fn current_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
 
-    /// Get protocol parameters used for signing the protocol message in the next epoch.
+    /// Get protocol parameters used for signing in the next epoch.
     fn next_protocol_parameters(&self) -> StdResult<&ProtocolParameters>;
 
     /// Get protocol parameters for signer registration.
