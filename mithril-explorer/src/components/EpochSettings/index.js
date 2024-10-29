@@ -73,12 +73,8 @@ export default function EpochSettings() {
                 <div className="mb-2 ps-3">{epochSettings.epoch}</div>
               </Col>
               <Col xs={12} md="auto">
-                <h5>Protocol Parameters</h5>
-                <ProtocolParameters className="mb-2" protocolParameters={epochSettings.protocol}/>
-              </Col>
-              <Col xs={12} md="auto">
-                <h5>Next Protocol Parameters</h5>
-                <ProtocolParameters protocolParameters={epochSettings.next_protocol}/>
+                <h5>Registration Protocol Parameters</h5>
+                <ProtocolParameters protocolParameters={epochSettings.signer_registration_protocol ?? epochSettings.next_protocol}/>
               </Col>
             </Row>
           </Container>
