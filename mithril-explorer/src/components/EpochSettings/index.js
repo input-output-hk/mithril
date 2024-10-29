@@ -81,21 +81,23 @@ export default function EpochSettings() {
             </Row>
           </Container>
         </Card.Body>
-        {registrationPageUrl && inOutRegistrationsPageUrl && (
-          <Card.Footer>
-            <Stack
-              direction="horizontal"
-              gap={1}
-              className="justify-content-md-end align-items-stretch justify-content-sm-center">
-              <LinkButton href={registrationPageUrl}>
-                <i className="bi bi-pen"></i> Registered Signers
-              </LinkButton>
-              <LinkButton href={inOutRegistrationsPageUrl} className="">
-                <i className="bi bi-arrow-left-right translate-middle-y"></i> In/Out Registrations
-              </LinkButton>
-            </Stack>
-          </Card.Footer>
-        )}
+        <Card.Footer>
+          <Stack
+            direction="horizontal"
+            gap={1}
+            className="justify-content-md-end align-items-stretch justify-content-sm-center">
+            <LinkButton
+              href={registrationPageUrl ?? "#"}
+              disabled={registrationPageUrl === undefined}>
+              <i className="bi bi-pen"></i> Registered Signers
+            </LinkButton>
+            <LinkButton
+              href={inOutRegistrationsPageUrl ?? "#"}
+              disabled={inOutRegistrationsPageUrl === undefined}>
+              <i className="bi bi-arrow-left-right translate-middle-y"></i> In/Out Registrations
+            </LinkButton>
+          </Stack>
+        </Card.Footer>
       </Card>
     </div>
   );
