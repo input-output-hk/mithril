@@ -479,9 +479,12 @@ paths:
           description: Cardano Epoch at which the signer registrations are registered
           required: true
           schema:
-            type: integer
-            format: int64
-            examples: 419
+            oneOf:
+              - description: Use the latest epoch
+                const: "latest"
+              - type: integer
+                format: int64
+                examples: 419
       responses:
         "200":
           description: Registered Signers found
