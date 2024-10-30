@@ -97,3 +97,17 @@ jobs:
             --work-directory=./artifacts \
             --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
             --cardano-node-version ${{ matrix.cardano_node_version }}
+
+      - name: Upload E2E Tests Artifacts
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-tag_${{ matrix.tag }}-node-${{ matrix.node }}-cardano-${{ matrix.cardano_node_version }}-run_id_${{ matrix.run_id }}
+          path: |
+            ./artifacts/*
+            # including node.sock makes the upload fails so exclude them:
+            !./artifacts/**/node.sock
+            # exclude cardano tools, saving ~50mb of data:
+            !./artifacts/devnet/cardano-cli
+            !./artifacts/devnet/cardano-node
+          if-no-files-found: error
