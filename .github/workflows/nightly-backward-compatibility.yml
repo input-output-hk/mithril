@@ -56,12 +56,7 @@ jobs:
       matrix:
         tag: ${{ fromJSON(needs.prepare-binaries.outputs.tags) }}
         node:
-          [
-            mithril-aggregator,
-            mithril-client-cli,
-            mithril-signer,
-            mithril-relay,
-          ]
+          [mithril-aggregator, mithril-client, mithril-signer, mithril-relay]
         cardano_node_version: ${{ inputs.cardano-node-version }}
         run_id: ["#1"]
 
@@ -78,9 +73,8 @@ jobs:
       - name: Prepare binaries
         run: |
           mkdir -p mithril-binaries/e2e
-          cp ./mithril-binaries/unstable ./mithril-binaries/e2e
-          rm ./mithril-binaries/e2e/${{ matrix.node }}
-          cp ./mithril-binaries/${{ matrix.tag }}/${{ matrix.node }} ./mithril-binaries/e2e/${{ matrix.node }}
+          cp ./mithril-binaries/unstable/* ./mithril-binaries/e2e
+          cp --remove-destination ./mithril-binaries/${{ matrix.tag }}/${{ matrix.node }} ./mithril-binaries/e2e/
 
           chmod +x ./mithril-binaries/e2e/mithril-aggregator
           chmod +x ./mithril-binaries/e2e/mithril-client
