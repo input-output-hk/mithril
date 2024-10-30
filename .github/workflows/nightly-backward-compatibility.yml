@@ -27,6 +27,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download releases artifacts binaries
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./.github/workflows/scripts/download-distribution-binaries.sh ${{ inputs.total-releases }}
 
