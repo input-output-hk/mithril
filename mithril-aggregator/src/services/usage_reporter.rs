@@ -11,7 +11,7 @@ use slog::{info, Logger};
 
 /// Message sent to the event store to report a metric value.
 #[derive(Serialize, Deserialize)]
-struct MetricMessage {
+struct MetricEventMessage {
     counter: i64,
     duration: Duration,
     date: DateTime<Utc>,
@@ -56,7 +56,7 @@ impl UsageReporter {
 
     fn send_metrics(&mut self, duration: &Duration) {
         let metrics = self.metric_service.export_metrics_map();
-        let delta = UsageReporter::metrics_delta(&self.last_metrics, &metrics);
+        let delta = Self::metrics_delta(&self.last_metrics, &metrics);
         let date = Utc::now();
 
         self.last_metrics = metrics;
@@ -64,10 +64,10 @@ impl UsageReporter {
         for (name, value) in delta {
             let _result = self
                 .transmitter_service
-                .send_event_message::<MetricMessage>(
+                .send_event_message::<MetricEventMessage>(
                     "Metrics",
                     &name,
-                    &MetricMessage {
+                    &MetricEventMessage {
                         counter: value,
                         duration: *duration,
                         date,
@@ -130,7 +130,8 @@ mod tests {
     }
 
     fn extract_metric_value(message: &EventMessage) -> (String, i64) {
-        let metric_delta: MetricMessage = serde_json::from_value(message.content.clone()).unwrap();
+        let metric_delta: MetricEventMessage =
+            serde_json::from_value(message.content.clone()).unwrap();
         (message.action.clone(), metric_delta.counter)
     }
 
@@ -156,7 +157,7 @@ mod tests {
         let message = &received_messages[0];
         assert_eq!(message.source, "Metrics");
         assert_eq!(message.action, metric.name());
-        let message_content: MetricMessage =
+        let message_content: MetricEventMessage =
             serde_json::from_value(message.content.clone()).unwrap();
         assert_eq!(3, message_content.counter);
         assert_eq!(Duration::from_secs(10), message_content.duration);

@@ -81,7 +81,7 @@ mod tests {
         fn get_all_metrics(
             connection: Arc<ConnectionThreadSafe>,
         ) -> StdResult<Vec<(String, String, i64)>> {
-            let query = "SELECT date, counter_name, value FROM metrics_per_day";
+            let query = "select date, counter_name, value from metrics_per_day";
             let mut statement = connection.prepare(query)?;
             let mut result = Vec::new();
             while let Ok(sqlite::State::Row) = statement.next() {
@@ -95,7 +95,7 @@ mod tests {
             Ok(result)
         }
 
-        /// Insert a metric evnet in the database.
+        /// Insert a metric event in the database.
         /// date format is "%Y-%m-%d %H:%M:%S %z", example: "2015-09-05 23:56:04 +0000"
         fn insert_metric_event(
             persister: &EventPersister,
