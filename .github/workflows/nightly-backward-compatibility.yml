@@ -32,6 +32,11 @@ jobs:
         run: |
           ./.github/workflows/scripts/download-distribution-binaries.sh ${{ inputs.total-releases }}
 
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
       - name: Build e2e
         run: |
           cargo build --release --bin mithril-end-to-end
