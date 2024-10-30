@@ -3,7 +3,6 @@ const nextConfig = {
   output: "export",
   basePath: "/explorer",
   reactStrictMode: true,
-  swcMinify: true,
   images: {
     unoptimized: true,
   },
