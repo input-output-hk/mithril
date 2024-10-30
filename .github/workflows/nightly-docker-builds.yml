@@ -1,4 +1,4 @@
-name: Scheduled Docker Builds
+name: Nightly Docker Builds
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  docker-scheduled-build:
+  nightly-docker-build:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
