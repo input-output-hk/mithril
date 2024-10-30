@@ -64,7 +64,7 @@ jobs:
         tag: ${{ fromJSON(needs.prepare-binaries.outputs.tags) }}
         node:
           [mithril-aggregator, mithril-client, mithril-signer, mithril-relay]
-        cardano_node_version: ${{ inputs.cardano-node-version }}
+        cardano_node_version: ${{ fromJSON(inputs.cardano-node-version) }}
         run_id: ["#1"]
 
     steps:
