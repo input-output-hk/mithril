@@ -50,6 +50,7 @@ jobs:
 
   e2e:
     runs-on: ubuntu-22.04
+    needs: [prepare-binaries]
     strategy:
       fail-fast: false
       matrix:
@@ -64,34 +65,34 @@ jobs:
         cardano_node_version: ${{ inputs.cardano-node-version }}
         run_id: ["#1"]
 
-        steps:
-          - name: Checkout
-            uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-          - name: Download binaries
-            uses: actions/download-artifact@v4
-            with:
-              name: mithril-binaries
-              path: ./mithril-binaries
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: mithril-binaries
+          path: ./mithril-binaries
 
-          - name: Prepare binaries
-            run: |
-              mkdir -p mithril-binaries/e2e
-              cp ./mithril-binaries/unstable ./mithril-binaries/e2e
-              rm ./mithril-binaries/e2e/${{ matrix.node }}
-              cp ./mithril-binaries/${{ matrix.tag }}/${{ matrix.node }} ./mithril-binaries/e2e/${{ matrix.node }}
+      - name: Prepare binaries
+        run: |
+          mkdir -p mithril-binaries/e2e
+          cp ./mithril-binaries/unstable ./mithril-binaries/e2e
+          rm ./mithril-binaries/e2e/${{ matrix.node }}
+          cp ./mithril-binaries/${{ matrix.tag }}/${{ matrix.node }} ./mithril-binaries/e2e/${{ matrix.node }}
 
-              chmod +x ./mithril-binaries/e2e/mithril-aggregator
-              chmod +x ./mithril-binaries/e2e/mithril-client
-              chmod +x ./mithril-binaries/e2e/mithril-signer
-              chmod +x ./mithril-binaries/e2e/mithril-relay
-              chmod +x ./mithril-binaries/e2e/mithril-end-to-end
-              mkdir artifacts
+          chmod +x ./mithril-binaries/e2e/mithril-aggregator
+          chmod +x ./mithril-binaries/e2e/mithril-client
+          chmod +x ./mithril-binaries/e2e/mithril-signer
+          chmod +x ./mithril-binaries/e2e/mithril-relay
+          chmod +x ./mithril-binaries/e2e/mithril-end-to-end
+          mkdir artifacts
 
-          - name: Run E2E tests
-            run: |
-              ./mithril-binaries/e2e/mithril-end-to-end -vvv \\
-                   --bin-directory ./mithril-binaries/e2e \\
-                   --work-directory=./artifacts \\
-                   --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
-                   --cardano-node-version ${{ matrix.cardano_node_version }}
+      - name: Run E2E tests
+        run: |
+          ./mithril-binaries/e2e/mithril-end-to-end -vvv \\
+                --bin-directory ./mithril-binaries/e2e \\
+                --work-directory=./artifacts \\
+                --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
+                --cardano-node-version ${{ matrix.cardano_node_version }}
