@@ -138,7 +138,7 @@ impl Runner for SignerRunner {
         let (epoch, protocol_parameters) = {
             let epoch_service = self.services.epoch_service.read().await;
             let epoch = epoch_service.epoch_of_current_data()?;
-            let protocol_parameters = epoch_service.next_protocol_parameters()?;
+            let protocol_parameters = epoch_service.registration_protocol_parameters()?;
 
             (epoch, protocol_parameters.clone())
         };

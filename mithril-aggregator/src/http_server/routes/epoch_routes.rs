@@ -38,8 +38,11 @@ async fn get_epoch_settings_message(
     let epoch_service = epoch_service.read().await;
 
     let epoch = epoch_service.epoch_of_current_data()?;
-    let protocol_parameters = epoch_service.next_protocol_parameters()?.clone();
-    let next_protocol_parameters = epoch_service.upcoming_protocol_parameters()?.clone();
+    let protocol_parameters = Some(epoch_service.next_protocol_parameters()?.clone());
+    let signer_registration_protocol_parameters = epoch_service
+        .signer_registration_protocol_parameters()?
+        .clone();
+    let next_protocol_parameters = Some(signer_registration_protocol_parameters.clone());
     let current_signers = epoch_service.current_signers()?;
     let next_signers = epoch_service.next_signers()?;
 
@@ -55,10 +58,12 @@ async fn get_epoch_settings_message(
         .transpose()?
         .cloned();
 
+    #[allow(deprecated)]
     let epoch_settings_message = EpochSettingsMessage {
         epoch,
         protocol_parameters,
         next_protocol_parameters,
+        signer_registration_protocol_parameters,
         current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
         next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
         cardano_transactions_signing_config,
@@ -178,15 +183,15 @@ mod tests {
             protocol_parameters: ProtocolParameters::new(102, 20, 0.5),
             ..AggregatorEpochSettings::dummy()
         };
-        let upcoming_epoch_settings = AggregatorEpochSettings {
+        let signer_registration_epoch_settings = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters::new(103, 30, 0.5),
             ..AggregatorEpochSettings::dummy()
         };
 
         let epoch_service = FakeEpochServiceBuilder {
-            epoch_settings: current_epoch_settings,
+            current_epoch_settings,
             next_epoch_settings: next_epoch_settings.clone(),
-            upcoming_epoch_settings: upcoming_epoch_settings.clone(),
+            signer_registration_epoch_settings: signer_registration_epoch_settings.clone(),
             current_signers_with_stake: fake_data::signers_with_stakes(5),
             next_signers_with_stake: fake_data::signers_with_stakes(3),
             ..FakeEpochServiceBuilder::dummy(Epoch(1))
@@ -200,13 +205,23 @@ mod tests {
         .await
         .unwrap();
 
+        #[allow(deprecated)]
+        let message_protocol_parameters = message.protocol_parameters.unwrap();
         assert_eq!(
-            message.protocol_parameters,
+            message_protocol_parameters,
             next_epoch_settings.protocol_parameters
         );
+
+        #[allow(deprecated)]
+        let message_next_protocol_parameters = message.next_protocol_parameters.unwrap();
         assert_eq!(
-            message.next_protocol_parameters,
-            upcoming_epoch_settings.protocol_parameters
+            message_next_protocol_parameters,
+            signer_registration_epoch_settings.protocol_parameters
+        );
+
+        assert_eq!(
+            message.signer_registration_protocol_parameters,
+            signer_registration_epoch_settings.protocol_parameters
         );
     }
 
@@ -228,9 +243,9 @@ mod tests {
         };
 
         let epoch_service = FakeEpochServiceBuilder {
-            epoch_settings: current_epoch_settings.clone(),
+            current_epoch_settings: current_epoch_settings.clone(),
             next_epoch_settings: next_epoch_settings.clone(),
-            upcoming_epoch_settings: AggregatorEpochSettings::dummy(),
+            signer_registration_epoch_settings: AggregatorEpochSettings::dummy(),
             current_signers_with_stake: fake_data::signers_with_stakes(5),
             next_signers_with_stake: fake_data::signers_with_stakes(3),
             ..FakeEpochServiceBuilder::dummy(Epoch(1))

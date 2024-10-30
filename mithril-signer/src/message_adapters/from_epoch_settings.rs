@@ -12,10 +12,10 @@ pub struct FromEpochSettingsAdapter;
 impl TryFromMessageAdapter<EpochSettingsMessage, SignerEpochSettings> for FromEpochSettingsAdapter {
     /// Method to convert.
     fn try_adapt(message: EpochSettingsMessage) -> StdResult<SignerEpochSettings> {
+        #[allow(deprecated)]
         let epoch_settings = SignerEpochSettings {
             epoch: message.epoch,
-            protocol_parameters: message.protocol_parameters,
-            next_protocol_parameters: message.next_protocol_parameters,
+            registration_protocol_parameters: message.signer_registration_protocol_parameters,
             current_signers: SignerMessagePart::try_into_signers(message.current_signers)
                 .with_context(|| "'FromMessageAdapter' can not convert the current signers")?,
             next_signers: SignerMessagePart::try_into_signers(message.next_signers)
