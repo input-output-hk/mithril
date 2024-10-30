@@ -183,6 +183,9 @@ pub struct Configuration {
 
     /// Metrics HTTP Server listening port.
     pub metrics_server_port: u16,
+
+    /// Time interval at which usage metrics are persisted in event database (in seconds).
+    pub persist_usage_report_interval_in_seconds: u64,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -266,6 +269,7 @@ impl Configuration {
             enable_metrics_server: true,
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
+            persist_usage_report_interval_in_seconds: 10,
         }
     }
 
@@ -395,6 +399,9 @@ pub struct DefaultConfiguration {
 
     /// Metrics HTTP server listening port.
     pub metrics_server_port: u16,
+
+    /// Time interval at which metrics are persisted in event database (in seconds).
+    pub persist_usage_report_interval_in_seconds: u64,
 }
 
 impl Default for DefaultConfiguration {
@@ -426,6 +433,7 @@ impl Default for DefaultConfiguration {
             enable_metrics_server: "false".to_string(),
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
+            persist_usage_report_interval_in_seconds: 10,
         }
     }
 }
@@ -465,7 +473,6 @@ impl Source for DefaultConfiguration {
         }
         let mut result = Map::new();
         let myself = self.clone();
-
         insert_default_configuration!(result, myself.environment);
         insert_default_configuration!(result, myself.server_ip);
         insert_default_configuration!(result, myself.server_port);
@@ -496,6 +503,7 @@ impl Source for DefaultConfiguration {
         insert_default_configuration!(result, myself.enable_metrics_server);
         insert_default_configuration!(result, myself.metrics_server_ip);
         insert_default_configuration!(result, myself.metrics_server_port);
+        insert_default_configuration!(result, myself.persist_usage_report_interval_in_seconds);
         result.insert(
             "cardano_transactions_signing_config".to_string(),
             into_value(HashMap::from([
@@ -513,7 +521,6 @@ impl Source for DefaultConfiguration {
                 ),
             ])),
         );
-
         Ok(result)
     }
 }

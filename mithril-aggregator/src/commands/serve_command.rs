@@ -221,6 +221,18 @@ impl ServeCommand {
                 }
             }
         }
+
+        let mut usage_reporter = dependencies_builder
+            .create_usage_reporter()
+            .await
+            .with_context(|| "Dependencies Builder can not create usage reporter")?;
+        join_set.spawn(async move {
+            let interval_duration =
+                Duration::from_secs(config.persist_usage_report_interval_in_seconds);
+            usage_reporter.run_forever(interval_duration).await;
+            Ok(())
+        });
+
         let metrics_service = dependencies_builder
             .get_metrics_service()
             .await

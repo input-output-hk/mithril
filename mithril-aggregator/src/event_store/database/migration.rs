@@ -20,5 +20,18 @@ create table if not exists event (
 );
             "#,
         ),
+        SqlMigration::new(
+            2,
+            r#"
+create view if not exists metrics_per_day as select metric_date as date, action as counter_name, sum(counter) value from 
+    (
+        select action, json_extract(content, '$.content.counter') counter, date(json_extract(content, '$.content.date')) metric_date 
+        from event 
+        where source='Metrics'
+    ) 
+group by action, date;
+create index metric_date_index on event(date(json_extract(content, '$.content.date')));
+            "#,
+        ),
     ]
 }

@@ -69,7 +69,7 @@ use crate::{
         CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
         MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, StakeDistributionService, UpkeepService,
+        SignedEntityService, StakeDistributionService, UpkeepService, UsageReporter,
     },
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
@@ -1390,6 +1390,17 @@ impl DependenciesBuilder {
         }
 
         Ok(self.metrics_service.as_ref().cloned().unwrap())
+    }
+
+    /// Create a [UsageReporter] instance.
+    pub async fn create_usage_reporter(&mut self) -> Result<UsageReporter> {
+        let usage_reporter = UsageReporter::new(
+            self.get_event_transmitter().await?,
+            self.get_metrics_service().await?,
+            self.root_logger(),
+        );
+
+        Ok(usage_reporter)
     }
 
     /// Return an unconfigured [DependencyContainer]
