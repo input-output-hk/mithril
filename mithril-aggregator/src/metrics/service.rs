@@ -79,14 +79,16 @@ build_metrics_service!(
 
 impl MetricsService {
     /// Export metrics in map.
+    // `get metric` returns a list of Metrics for CounterVec purposes for example.
+    // We therefore add up the values ​​even though we will always only have one value with our Counter type metrics.
     pub fn export_metrics_map(&self) -> HashMap<String, u32> {
         self.registry
             .gather()
             .iter()
-            .map(|metric| {
+            .map(|metric_family| {
                 (
-                    metric.get_name().to_string(),
-                    metric
+                    metric_family.get_name().to_string(),
+                    metric_family
                         .get_metric()
                         .iter()
                         .map(|m| m.get_counter().get_value() as u32)
@@ -137,5 +139,17 @@ mod tests {
 
         let export = metrics_service.export_metrics_map();
         assert_eq!(0, export[&metric_a.name()]);
+    }
+
+    #[test]
+    fn metric_service_should_only_contain_counters_as_export_metrics_map_does_not_yet_support_other_types(
+    ) {
+        let metrics_service = MetricsService::new(TestLogger::stdout()).unwrap();
+
+        for metric_family in metrics_service.registry.gather() {
+            for metric in metric_family.get_metric() {
+                assert!(metric.has_counter());
+            }
+        }
     }
 }
