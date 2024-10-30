@@ -62,8 +62,7 @@ jobs:
       fail-fast: false
       matrix:
         tag: ${{ fromJSON(needs.prepare-binaries.outputs.tags) }}
-        node:
-          [mithril-aggregator, mithril-client, mithril-signer, mithril-relay]
+        node: [mithril-aggregator, mithril-client, mithril-signer]
         cardano_node_version: ${{ fromJSON(inputs.cardano-node-version) }}
         run_id: ["#1"]
 
@@ -92,11 +91,57 @@ jobs:
 
       - name: Run E2E tests
         run: |
+          # TODO: adjust the e2e test parameters for slower execution (slower epochs and slot lengths)
+          # cardano-slot-length 0.25
+          # cardano-epoch-length 45.0
+
           ./mithril-binaries/e2e/mithril-end-to-end -vvv \
             --bin-directory ./mithril-binaries/e2e \
             --work-directory=./artifacts \
             --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
-            --cardano-node-version ${{ matrix.cardano_node_version }}
+            --cardano-node-version ${{ matrix.cardano_node_version }} \
+          && echo "SUCCESS=true" >> $GITHUB_ENV \
+          || (echo "SUCCESS=false" >> $GITHUB_ENV && exit 1)
+
+      - name: Define the JSON file name for the test result
+        if: always()
+        run: echo "RESULT_FILE_NAME=e2e-test-result-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-tag_${{ matrix.tag }}-node-${{ matrix.node }}-cardano-${{ matrix.cardano_node_version }}-run_id_${{ matrix.run_id }}" >> $GITHUB_ENV
+
+      - name: Write test result JSON
+        if: always()
+        run: |
+          AGGREGATOR_TAG="unstable"
+          SIGNER_TAG="unstable"
+          CLIENT_TAG="unstable"
+
+          case "$NODE" in
+            mithril-aggregator)
+              AGGREGATOR_TAG="${{ matrix.tag }}"
+              ;;
+            mithril-signer)
+              SIGNER_TAG="${{ matrix.tag }}"
+              ;;
+            mithril-client)
+              CLIENT_TAG="${{ matrix.tag }}"
+              ;;
+          esac
+
+          jq -n --arg TAG "${{ matrix.tag }}" \
+                --arg NODE "${{ matrix.node }}" \
+                --arg CARDANO_NODE "${{ matrix.cardano_node_version }}" \
+                --arg AGGREGATOR "$AGGREGATOR_TAG" \
+                --arg SIGNER "$SIGNER_TAG" \
+                --arg CLIENT "$CLIENT_TAG" \
+                --argjson SUCCESS "${{ env.SUCCESS }}" \
+                '{tag: $TAG, node: $NODE, mithril_signer: $SIGNER, mithril_aggregator: $AGGREGATOR, mithril_client: $CLIENT, cardano_node_version: $CARDANO_NODE, success: $SUCCESS}' \
+                > ./${{ env.RESULT_FILE_NAME }}.json
+
+      - name: Upload test result JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.RESULT_FILE_NAME }}
+          path: ./${{ env.RESULT_FILE_NAME }}.json
 
       - name: Upload E2E Tests Artifacts
         if: ${{ failure() }}
@@ -111,3 +156,49 @@ jobs:
             !./artifacts/devnet/cardano-cli
             !./artifacts/devnet/cardano-node
           if-no-files-found: error
+
+  summarize-test-results:
+    runs-on: ubuntu-22.04
+    needs: [e2e]
+    if: always()
+
+    steps:
+      - name: Download all test result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./test-results
+          pattern: e2e-test-result*
+          merge-multiple: true
+
+      - name: Concatenate JSON result files into summary.json
+        run: |
+          jq -s '.' ./test-results/e2e-test-result-*.json > ./test-results/summary.json
+
+      - name: Add distributions backward compatibility summary
+        run: |
+          CHECK_MARK=":heavy_check_mark:"
+          CROSS_MARK=":no_entry:"
+
+          echo "## Distributions backward compatibility" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "This is the compatibility report of previous distributions nodes with the current unstable nodes." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "| Compatibility | mithril-signer | mithril-aggregator | mithril-client |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
+
+          # Transform summary.json into Markdown table rows
+          jq -r --arg CHECK_MARK "$CHECK_MARK" --arg CROSS_MARK "$CROSS_MARK" \
+            'group_by(.tag) |
+            sort_by(.[0].tag | tonumber) | reverse |
+            .[] |
+            {
+              tag: .[0].tag, 
+              signer: (map(select(.node == "mithril-signer") | if .success then $CHECK_MARK else $CROSS_MARK end) | join("")),
+              aggregator: (map(select(.node == "mithril-aggregator") | if .success then $CHECK_MARK else $CROSS_MARK end) | join("")),
+              client: (map(select(.node == "mithril-client") | if .success then $CHECK_MARK else $CROSS_MARK end) | join(""))
+            } |
+            "| `\(.tag)` | \(.signer) | \(.aggregator) | \(.client) |"' "./test-results/summary.json" >> $GITHUB_STEP_SUMMARY
+
+          cat "$GITHUB_STEP_SUMMARY"
