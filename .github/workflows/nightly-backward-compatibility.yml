@@ -1,0 +1,97 @@
+name: Nightly backward compatibility
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+    inputs:
+      total-releases:
+        description: "Total number of releases to test"
+        required: true
+        type: number
+        default: 3
+      cardano-node-version:
+        description: "Cardano node version used in e2e"
+        required: true
+        type: string
+        default: "9.2.1"
+
+jobs:
+  prepare-binaries:
+    runs-on: ubuntu-22.04
+    outputs:
+      tags: ${{ steps.tags-test-lab.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download releases artifacts binaries
+        run: |
+          ./.github/workflows/scripts/download-distribution-binaries.sh ${{ inputs.total-releases }
+
+      - name: Build e2e
+        run: |
+          cargo build --release --bin mithril-end-to-end
+          cp ./target/release/mithril-end-to-end ./mithril-binaries/unstable
+
+      - name: Upload Mithril binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: mithril-binaries
+          path: ./mithril-binaries
+
+      - name: Prepare test lab tags
+        id: tags-test-lab
+        run: |
+          TAGS=$(cat ./mithril-binaries/tags.json)
+          echo "Test Lab Tags: $TAGS"
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+
+  e2e:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.prepare-binaries.outputs.tags) }}
+        node:
+          [
+            mithril-aggregator,
+            mithril-client-cli,
+            mithril-signer,
+            mithril-relay,
+          ]
+        cardano_node_version: ${{ inputs.cardano-node-version }}
+        run_id: ["#1"]
+
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v4
+
+          - name: Download binaries
+            uses: actions/download-artifact@v4
+            with:
+              name: mithril-binaries
+              path: ./mithril-binaries
+
+          - name: Prepare binaries
+            run: |
+              mkdir -p mithril-binaries/e2e
+              cp ./mithril-binaries/unstable ./mithril-binaries/e2e
+              rm ./mithril-binaries/e2e/${{ matrix.node }}
+              cp ./mithril-binaries/${{ matrix.tag }}/${{ matrix.node }} ./mithril-binaries/e2e/${{ matrix.node }}
+
+              chmod +x ./mithril-binaries/e2e/mithril-aggregator
+              chmod +x ./mithril-binaries/e2e/mithril-client
+              chmod +x ./mithril-binaries/e2e/mithril-signer
+              chmod +x ./mithril-binaries/e2e/mithril-relay
+              chmod +x ./mithril-binaries/e2e/mithril-end-to-end
+              mkdir artifacts
+
+          - name: Run E2E tests
+            run: |
+              ./mithril-binaries/e2e/mithril-end-to-end -vvv \\
+                   --bin-directory ./mithril-binaries/e2e \\
+                   --work-directory=./artifacts \\
+                   --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
+                   --cardano-node-version ${{ matrix.cardano_node_version }}
