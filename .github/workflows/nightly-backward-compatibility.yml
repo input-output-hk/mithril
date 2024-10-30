@@ -28,7 +28,7 @@ jobs:
 
       - name: Download releases artifacts binaries
         run: |
-          ./.github/workflows/scripts/download-distribution-binaries.sh ${{ inputs.total-releases }
+          ./.github/workflows/scripts/download-distribution-binaries.sh ${{ inputs.total-releases }}
 
       - name: Build e2e
         run: |
