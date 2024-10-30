@@ -25,10 +25,6 @@ export default function CardanoTransactionsSnapshotsList(props) {
   );
 
   useEffect(() => {
-    if (!autoUpdate) {
-      return;
-    }
-
     let fetchSnapshots = () => {
       fetch(artifactsEndpoint)
         .then((response) => response.json())
@@ -42,8 +38,10 @@ export default function CardanoTransactionsSnapshotsList(props) {
     // Fetch them once without waiting
     fetchSnapshots();
 
-    const interval = setInterval(fetchSnapshots, updateInterval);
-    return () => clearInterval(interval);
+    if (autoUpdate) {
+      const interval = setInterval(fetchSnapshots, updateInterval);
+      return () => clearInterval(interval);
+    }
   }, [artifactsEndpoint, updateInterval, autoUpdate]);
 
   function handleCertificateHashChange(hash) {

@@ -17,7 +17,6 @@ import {
 } from "chart.js";
 import initMithrilClient from "@mithril-dev/mithril-client-wasm";
 import EpochSettings from "#/EpochSettings";
-import PendingCertificate from "#/PendingCertificate";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
 import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributionsList";
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
@@ -116,14 +115,9 @@ export default function Explorer() {
           <IntervalSetter />
         </Row>
       </Form>
-      <Row className="row-gap-3">
-        <Col xs={12} sm={4} lg={3} xl={2}>
-          <EpochSettings />
-        </Col>
-        <Col xs={12} sm={8} lg={9} xl={10}>
-          <PendingCertificate />
-        </Col>
-      </Row>
+      <Stack direction="horizontal">
+        <EpochSettings />
+      </Stack>
       <Tabs activeKey={currentTab} onSelect={(key) => setCurrentTab(key)}>
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
           <CardanoDbSnapshotsList />

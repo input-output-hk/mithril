@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Card, ButtonGroup, DropdownButton } from "react-bootstrap";
+import { Card, Row, Col, Stack, Container } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
@@ -19,10 +19,6 @@ export default function EpochSettings() {
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
 
   useEffect(() => {
-    if (!autoUpdate) {
-      return;
-    }
-
     let fetchEpochSettings = () => {
       fetch(epochSettingsEndpoint)
         .then((response) => (response.status === 200 ? response.json() : {}))
@@ -36,8 +32,10 @@ export default function EpochSettings() {
     // Fetch it once without waiting
     fetchEpochSettings();
 
-    const interval = setInterval(fetchEpochSettings, updateInterval);
-    return () => clearInterval(interval);
+    if (autoUpdate) {
+      const interval = setInterval(fetchEpochSettings, updateInterval);
+      return () => clearInterval(interval);
+    }
   }, [epochSettingsEndpoint, updateInterval, autoUpdate]);
 
   useEffect(() => {
@@ -66,25 +64,40 @@ export default function EpochSettings() {
 
       <Card>
         <Card.Body>
-          <Card.Title>Current Epoch</Card.Title>
-          <div className="mb-2 ps-3">{epochSettings.epoch}</div>
-          <Card.Title>Protocol Parameters</Card.Title>
-          <ProtocolParameters className="mb-2" protocolParameters={epochSettings.protocol} />
-          <Card.Title>Next Protocol Parameters</Card.Title>
-          <ProtocolParameters protocolParameters={epochSettings.next_protocol} />
+          <Container>
+            <Row>
+              <Col xs={12} md="auto">
+                <h5>Current Epoch</h5>
+                <div className="mb-2 ps-3">{epochSettings.epoch}</div>
+              </Col>
+              <Col xs={12} md="auto">
+                <h5>Registration Protocol Parameters</h5>
+                <ProtocolParameters
+                  protocolParameters={
+                    epochSettings.signer_registration_protocol ?? epochSettings.next_protocol
+                  }
+                />
+              </Col>
+            </Row>
+          </Container>
         </Card.Body>
-        {registrationPageUrl && inOutRegistrationsPageUrl && (
-          <Card.Footer className="text-center">
-            <ButtonGroup>
-              <LinkButton href={registrationPageUrl}>Registered Signers</LinkButton>
-              <DropdownButton as={ButtonGroup}>
-                <LinkButton href={inOutRegistrationsPageUrl} variant="light">
-                  In/Out Registrations
-                </LinkButton>
-              </DropdownButton>
-            </ButtonGroup>
-          </Card.Footer>
-        )}
+        <Card.Footer>
+          <Stack
+            direction="horizontal"
+            gap={1}
+            className="justify-content-md-end align-items-stretch justify-content-sm-center">
+            <LinkButton
+              href={registrationPageUrl ?? "#"}
+              disabled={registrationPageUrl === undefined}>
+              <i className="bi bi-pen"></i> Registered Signers
+            </LinkButton>
+            <LinkButton
+              href={inOutRegistrationsPageUrl ?? "#"}
+              disabled={inOutRegistrationsPageUrl === undefined}>
+              <i className="bi bi-arrow-left-right translate-middle-y"></i> In/Out Registrations
+            </LinkButton>
+          </Stack>
+        </Card.Footer>
       </Card>
     </div>
   );

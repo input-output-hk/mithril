@@ -17,10 +17,6 @@ export default function CardanoStakeDistributionsList(props) {
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
-    if (!autoUpdate) {
-      return;
-    }
-
     let fetchCardanoStakeDistribution = () => {
       fetch(artifactsEndpoint)
         .then((response) => response.json())
@@ -34,8 +30,10 @@ export default function CardanoStakeDistributionsList(props) {
     // Fetch them once without waiting
     fetchCardanoStakeDistribution();
 
-    const interval = setInterval(fetchCardanoStakeDistribution, updateInterval);
-    return () => clearInterval(interval);
+    if (autoUpdate) {
+      const interval = setInterval(fetchCardanoStakeDistribution, updateInterval);
+      return () => clearInterval(interval);
+    }
   }, [artifactsEndpoint, updateInterval, autoUpdate]);
 
   function handleCertificateHashChange(hash) {

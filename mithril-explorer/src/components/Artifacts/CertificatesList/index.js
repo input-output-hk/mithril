@@ -16,10 +16,6 @@ export default function CertificatesList(props) {
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
-    if (!autoUpdate) {
-      return;
-    }
-
     let fetchCertificates = () => {
       fetch(certificatesEndpoint)
         .then((response) => response.json())
@@ -33,8 +29,10 @@ export default function CertificatesList(props) {
     // Fetch them once without waiting
     fetchCertificates();
 
-    const interval = setInterval(fetchCertificates, updateInterval);
-    return () => clearInterval(interval);
+    if (autoUpdate) {
+      const interval = setInterval(fetchCertificates, updateInterval);
+      return () => clearInterval(interval);
+    }
   }, [certificatesEndpoint, updateInterval, autoUpdate]);
 
   function handleCertificateHashChange(hash) {
