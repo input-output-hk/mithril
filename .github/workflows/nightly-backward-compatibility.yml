@@ -92,8 +92,8 @@ jobs:
 
       - name: Run E2E tests
         run: |
-          ./mithril-binaries/e2e/mithril-end-to-end -vvv \\
-                --bin-directory ./mithril-binaries/e2e \\
-                --work-directory=./artifacts \\
-                --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
-                --cardano-node-version ${{ matrix.cardano_node_version }}
+          ./mithril-binaries/e2e/mithril-end-to-end -vvv \
+            --bin-directory ./mithril-binaries/e2e \
+            --work-directory=./artifacts \
+            --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
+            --cardano-node-version ${{ matrix.cardano_node_version }}
