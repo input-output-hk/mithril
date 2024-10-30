@@ -1,0 +1,35 @@
+name: Nightly Docker Builds
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  nightly-docker-build:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          [
+            mithril-aggregator,
+            mithril-client-cli,
+            mithril-signer,
+            mithril-relay,
+          ]
+
+    env:
+      DOCKER_FILE: ./${{ matrix.project }}/Dockerfile
+      CONTEXT: .
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.CONTEXT }}
+          file: ${{ env.DOCKER_FILE }}
+          push: false
