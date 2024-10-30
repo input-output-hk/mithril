@@ -16,11 +16,11 @@ struct MetricEventMessage {
     duration: Duration,
     date: DateTime<Utc>,
 }
-/// Reporter of metrics about the usage of the application.
+/// Reporter of usage metrics of the application.
 pub struct UsageReporter {
     transmitter_service: Arc<TransmitterService<EventMessage>>,
-    metric_service: Arc<MetricsService>,
-    last_metrics: HashMap<String, u32>,
+    metrics_service: Arc<MetricsService>,
+    last_reported_metrics: HashMap<String, u32>,
     logger: Logger,
 }
 
@@ -28,18 +28,18 @@ impl UsageReporter {
     /// Create a new UsageReporter.
     pub fn new(
         transmitter_service: Arc<TransmitterService<EventMessage>>,
-        metric_service: Arc<MetricsService>,
+        metrics_service: Arc<MetricsService>,
         logger: Logger,
     ) -> Self {
         Self {
             transmitter_service,
-            metric_service,
-            last_metrics: HashMap::new(),
+            metrics_service,
+            last_reported_metrics: HashMap::new(),
             logger: logger.new_with_component_name::<Self>(),
         }
     }
 
-    fn metrics_delta(
+    fn compute_metrics_delta(
         metrics_before: &HashMap<String, u32>,
         metrics_after: &HashMap<String, u32>,
     ) -> HashMap<String, i64> {
@@ -55,11 +55,11 @@ impl UsageReporter {
     }
 
     fn send_metrics(&mut self, duration: &Duration) {
-        let metrics = self.metric_service.export_metrics_map();
-        let delta = Self::metrics_delta(&self.last_metrics, &metrics);
+        let metrics = self.metrics_service.export_metrics_map();
+        let delta = Self::compute_metrics_delta(&self.last_reported_metrics, &metrics);
         let date = Utc::now();
 
-        self.last_metrics = metrics;
+        self.last_reported_metrics = metrics;
 
         for (name, value) in delta {
             let _result = self
@@ -109,14 +109,14 @@ mod tests {
         UnboundedReceiver<EventMessage>,
     ) {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
-        let metric_service = Arc::new(MetricsService::new(TestLogger::stdout()).unwrap());
+        let metrics_service = Arc::new(MetricsService::new(TestLogger::stdout()).unwrap());
         let transmitter_service = Arc::new(TransmitterService::new(tx, TestLogger::stdout()));
         let usage_reporter = UsageReporter::new(
             transmitter_service.clone(),
-            metric_service.clone(),
+            metrics_service.clone(),
             TestLogger::stdout(),
         );
-        (usage_reporter, metric_service, rx)
+        (usage_reporter, metrics_service, rx)
     }
 
     fn received_messages(
@@ -135,9 +135,9 @@ mod tests {
         (message.action.clone(), metric_delta.counter)
     }
 
-    #[tokio::test]
-    async fn when_no_metrics_no_message_sent() {
-        let (mut usage_reporter, _metric_service, mut rx) = build_usage_reporter();
+    #[test]
+    fn when_no_metrics_no_message_sent() {
+        let (mut usage_reporter, _metrics_service, mut rx) = build_usage_reporter();
 
         usage_reporter.send_metrics(&Duration::from_secs(10));
 
@@ -145,11 +145,11 @@ mod tests {
         assert_eq!(0, received_messages.len());
     }
 
-    #[tokio::test]
-    async fn verify_event_content_on_a_metric() {
-        let (mut usage_reporter, metric_service, mut rx) = build_usage_reporter();
+    #[test]
+    fn verify_event_content_on_a_metric() {
+        let (mut usage_reporter, metrics_service, mut rx) = build_usage_reporter();
 
-        let metric = metric_service.get_certificate_total_produced_since_startup();
+        let metric = metrics_service.get_certificate_total_produced_since_startup();
         metric.increment_by(3);
         usage_reporter.send_metrics(&Duration::from_secs(10));
 
@@ -163,12 +163,12 @@ mod tests {
         assert_eq!(Duration::from_secs(10), message_content.duration);
     }
 
-    #[tokio::test]
-    async fn send_one_message_for_each_non_zero_value_metrics() {
-        let (mut usage_reporter, metric_service, mut rx) = build_usage_reporter();
+    #[test]
+    fn send_one_message_for_each_non_zero_value_metrics() {
+        let (mut usage_reporter, metrics_service, mut rx) = build_usage_reporter();
 
-        let metric_1 = metric_service.get_certificate_total_produced_since_startup();
-        let metric_2 = metric_service.get_certificate_detail_total_served_since_startup();
+        let metric_1 = metrics_service.get_certificate_total_produced_since_startup();
+        let metric_2 = metrics_service.get_certificate_detail_total_served_since_startup();
         metric_1.increment();
         metric_2.increment();
 
@@ -182,12 +182,12 @@ mod tests {
         assert!(metric_values.contains(&(metric_2.name(), 1)));
     }
 
-    #[tokio::test]
-    async fn resend_only_delta_since_last_send() {
-        let (mut usage_reporter, metric_service, mut rx) = build_usage_reporter();
+    #[test]
+    fn resend_only_delta_since_last_send() {
+        let (mut usage_reporter, metrics_service, mut rx) = build_usage_reporter();
 
-        let metric_1 = metric_service.get_certificate_total_produced_since_startup();
-        let metric_2 = metric_service.get_certificate_detail_total_served_since_startup();
+        let metric_1 = metrics_service.get_certificate_total_produced_since_startup();
+        let metric_2 = metrics_service.get_certificate_detail_total_served_since_startup();
 
         {
             metric_1.increment_by(12);
@@ -244,7 +244,7 @@ mod tests {
 
             assert_eq!(
                 expected,
-                UsageReporter::metrics_delta(&metrics_before, &metrics_after)
+                UsageReporter::compute_metrics_delta(&metrics_before, &metrics_after)
             );
         }
 
@@ -258,7 +258,7 @@ mod tests {
 
             assert_eq!(
                 expected,
-                UsageReporter::metrics_delta(&metrics_before, &metrics_after)
+                UsageReporter::compute_metrics_delta(&metrics_before, &metrics_after)
             );
         }
 
@@ -272,12 +272,12 @@ mod tests {
 
             assert_eq!(
                 expected,
-                UsageReporter::metrics_delta(&metrics_before, &metrics_after)
+                UsageReporter::compute_metrics_delta(&metrics_before, &metrics_after)
             );
         }
 
         #[test]
-        fn should_contains_new_value_of_a_metric_not_present_before() {
+        fn should_contain_new_value_of_a_metric_not_present_before() {
             let metrics_before = build_hashmap(&[]);
 
             let metrics_after = build_hashmap(&[("a", 5)]);
@@ -286,7 +286,7 @@ mod tests {
 
             assert_eq!(
                 expected,
-                UsageReporter::metrics_delta(&metrics_before, &metrics_after)
+                UsageReporter::compute_metrics_delta(&metrics_before, &metrics_after)
             );
         }
 
@@ -297,11 +297,11 @@ mod tests {
 
             assert_eq!(
                 build_hashmap(&[("a", u32::MAX as i64)]),
-                UsageReporter::metrics_delta(&metrics_at_0, &metrics_at_max)
+                UsageReporter::compute_metrics_delta(&metrics_at_0, &metrics_at_max)
             );
             assert_eq!(
                 build_hashmap(&[("a", -(u32::MAX as i64))]),
-                UsageReporter::metrics_delta(&metrics_at_max, &metrics_at_0)
+                UsageReporter::compute_metrics_delta(&metrics_at_max, &metrics_at_0)
             );
         }
     }
