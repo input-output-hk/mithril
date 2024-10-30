@@ -1,10 +1,10 @@
-openapi: "3.0.0"
+openapi: "3.1.1"
 info:
   # The protocol version is embedded in the code as constant in the
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.34
+  version: 0.1.35
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -137,7 +137,7 @@ paths:
           schema:
             type: string
             format: bytes
-          example: "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572"
+            examples: "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572"
       responses:
         "200":
           description: certificate found
@@ -190,7 +190,7 @@ paths:
           schema:
             type: string
             format: bytes
-          example: "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732"
+            examples: "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732"
       responses:
         "200":
           description: snapshot found
@@ -222,7 +222,7 @@ paths:
           schema:
             type: string
             format: bytes
-          example: "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732"
+            examples: "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732"
       responses:
         "200":
           description: snapshot found
@@ -276,7 +276,7 @@ paths:
           schema:
             type: string
             format: bytes
-          example: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
+            examples: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
       responses:
         "200":
           description: Mithril stake distribution found
@@ -329,7 +329,7 @@ paths:
           schema:
             type: string
             format: bytes
-          example: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
+            examples: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
       responses:
         "200":
           description: Cardano stake distribution found
@@ -361,7 +361,7 @@ paths:
           schema:
             type: integer
             format: int64
-          example: 419
+            examples: 419
       responses:
         "200":
           description: Cardano stake distribution found
@@ -414,7 +414,7 @@ paths:
           schema:
             type: string
             format: bytes
-          example: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
+            examples: "6da2b104ed68481ef829d72d72c2f6a20142916d17985e01774b14ed49f0fea1"
       responses:
         "200":
           description: Cardano transactions set snapshot found
@@ -448,7 +448,7 @@ paths:
             items:
               type: string
               format: bytes
-              example: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f"
+              examples: "6dbb104ed68481ef829a26a20142916d17985e01774d72d72c2f"
           explode: false
       responses:
         "200":
@@ -479,9 +479,12 @@ paths:
           description: Cardano Epoch at which the signer registrations are registered
           required: true
           schema:
-            type: integer
-            format: int64
-          example: 419
+            oneOf:
+              - description: Use the latest epoch
+                const: "latest"
+              - type: integer
+                format: int64
+                examples: 419
       responses:
         "200":
           description: Registered Signers found
@@ -689,7 +692,7 @@ components:
                   description: Number of blocks between signature of Cardano transactions
                   type: integer
                   format: int64
-      example:
+      examples:
         {
           "open_api_version": "0.1.17",
           "documentation_url": "https://mithril.network",
@@ -747,7 +750,7 @@ components:
           $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
         next_cardano_transactions_signing_config:
           $ref: "#/components/schemas/CardanoTransactionsSigningConfig"
-      example:
+      examples:
         {
           "epoch": 329,
           "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
@@ -814,7 +817,7 @@ components:
           description: f in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant
           type: number
           format: double
-      example: { "k": 857, "m": 6172, "phi_f": 0.2 }
+      examples: { "k": 857, "m": 6172, "phi_f": 0.2 }
 
     CardanoTransactionsSigningConfig:
       description: Cardano transactions signing configuration
@@ -832,7 +835,7 @@ components:
           description: Number of blocks between signature of Cardano transactions
           type: integer
           format: int64
-      example: { "security_parameter": 100, "step": 10 }
+      examples: { "security_parameter": 100, "step": 10 }
 
     CardanoDbBeacon:
       description: A point in the Cardano chain at which a Mithril certificate of the Cardano Database should be produced
@@ -852,14 +855,14 @@ components:
           description: Number of the last immutable file that should be included the snapshot
           type: integer
           format: int64
-      example:
+      examples:
         { "network": "mainnet", "epoch": 329, "immutable_file_number": 7060000 }
 
     SignedEntityType:
       description: Entity type of the message that is signed
       type: object
       additionalProperties: true
-      example: { "MithrilStakeDistribution": 246 }
+      examples: { "MithrilStakeDistribution": 246 }
 
     CertificatePendingMessage:
       description: CertificatePendingMessage represents all the information related to the certificate currently expecting to receive quorum of single signatures
@@ -899,7 +902,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Signer"
-      example:
+      examples:
         {
           "epoch": 329,
           "beacon":
@@ -958,7 +961,7 @@ components:
           description: Stake share as computed in the 'stake distribution' by the Cardano Node, multiplied by a billion (1.0e9)
           type: integer
           format: int64
-      example: { "stake": 1234 }
+      examples: { "stake": 1234 }
 
     Signer:
       description: Signer represents a signing participant in the network
@@ -987,7 +990,7 @@ components:
           description: The number of updates of the KES secret key that signed the verification key
           type: integer
           format: int64
-      example:
+      examples:
         {
           "party_id": "1234567890",
           "verification_key": "7b12766b223a5c342b39302c32392c39392c39382c3131313138342c32252c32352c31353",
@@ -1004,7 +1007,7 @@ components:
           $ref: "#/components/schemas/Epoch"
       allOf:
         - $ref: "#/components/schemas/Signer"
-      example:
+      examples:
         {
           "epoch": 329,
           "party_id": "1234567890",
@@ -1020,7 +1023,7 @@ components:
       allOf:
         - $ref: "#/components/schemas/Signer"
         - $ref: "#/components/schemas/Stake"
-      example:
+      examples:
         {
           "party_id": "1234567890",
           "verification_key": "7b12766b223a5c342b39302c32392c39392c39382c3131313138342c32252c32352c31353",
@@ -1043,7 +1046,7 @@ components:
           description: Stake share as computed in the 'stake distribution' by the Cardano Node, multiplied by a billion (1.0e9)
           type: integer
           format: int64
-      example: { "party_id": "1234567890", "stake": 1234 }
+      examples: { "party_id": "1234567890", "stake": 1234 }
 
     SignerRegistrationsMessage:
       description: |
@@ -1059,7 +1062,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SignerRegistrationsListItemMessage"
-      example:
+      examples:
         {
           "registered_at": 420,
           "signing_at": 422,
@@ -1092,7 +1095,7 @@ components:
           description: Known signers
           items:
             $ref: "#/components/schemas/SignerTickerListItemMessage"
-      example:
+      examples:
         {
           "network": "mainnet",
           "signers":
@@ -1123,7 +1126,7 @@ components:
         has_registered:
           description: The signer has registered at least once
           type: boolean
-      example:
+      examples:
         {
           "party_id": "pool1234567890",
           "pool_ticker": "[Pool_Name]",
@@ -1165,7 +1168,7 @@ components:
             signatures for the message.
           type: string
           format: bytes
-      example:
+      examples:
         {
           "entity_type": { "MithrilStakeDistribution": 246 },
           "party_id": "1234567890",
@@ -1192,7 +1195,7 @@ components:
         latest_block_number:
           description: The latest signed block number
           type: string
-      example:
+      examples:
         {
           "snapshot_digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
           "next_aggregate_verification_key": "b132362c3232352c36392c31373133352c31323235392c3235332c3233342c34226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b33382c3382c3138322c3231322c2c363",
@@ -1208,7 +1211,7 @@ components:
       properties:
         message_parts:
           $ref: "#/components/schemas/ProtocolMessageParts"
-      example:
+      examples:
         {
           "message_parts":
             {
@@ -1250,7 +1253,7 @@ components:
           description: The number of the signers with their stakes and verification keys
           type: integer
           format: int64
-      example:
+      examples:
         {
           "network": "mainnet",
           "version": "0.1.0",
@@ -1265,7 +1268,7 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/CertificateListItemMessage"
-      example:
+      examples:
         [
           {
             "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
@@ -1332,7 +1335,7 @@ components:
           description: Aggregate verification key used to verify the multi signature
           type: string
           format: bytes
-      example:
+      examples:
         {
           "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
           "previous_hash": "aa2ddfb87a17103bdf15bfb21a2941b3f3223a3c8d710910496c392b14f8c403",
@@ -1393,7 +1396,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/StakeDistributionParty"
-      example:
+      examples:
         {
           "network": "mainnet",
           "version": "0.1.0",
@@ -1455,7 +1458,7 @@ components:
           description: Genesis signature created to bootstrap the certificate chain with the Cardano Genesis Keys
           type: string
           format: bytes
-      example:
+      examples:
         {
           "hash": "9dc998101590f733f7a50e7c03b5b336e69a751cc02d811395d49618db3ba3d7",
           "previous_hash": "aa2ddfb87a17103bdf15bfb21a2941b3f3223a3c8d710910496c392b14f8c403",
@@ -1507,7 +1510,7 @@ components:
       type: array
       items:
         $ref: "#/components/schemas/Snapshot"
-      example:
+      examples:
         [
           {
             "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
@@ -1571,7 +1574,7 @@ components:
         cardano_node_version:
           description: Version of the Cardano node which is used to create snapshot archives.
           type: string
-      example:
+      examples:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
           "beacon":
@@ -1598,7 +1601,7 @@ components:
       description: This message represents a snapshot file and its metadata.
       allOf:
         - $ref: "#/components/schemas/Snapshot"
-      example:
+      examples:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
           "beacon":
@@ -1654,7 +1657,7 @@ components:
         cardano_node_version:
           description: Version of the Cardano node which is used to create snapshot archives.
           type: string
-      example:
+      examples:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
           "beacon":
@@ -1700,7 +1703,7 @@ components:
             description: Date and time at which the Mithril stake distribution was created
             type: string
             format: date-time,
-        example:
+        examples:
           {
             "epoch": 123,
             "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
@@ -1740,7 +1743,7 @@ components:
           format: date-time,
         protocol_parameters:
           $ref: "#/components/schemas/ProtocolParameters"
-      example:
+      examples:
         {
           "epoch": 123,
           "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
@@ -1775,7 +1778,7 @@ components:
           type: string
         text:
           type: integer
-      example:
+      examples:
         {
           "pool15ka28a4a3qxgcgh60wavkylku4vqjg385jezsrqxlafyrhahf02": 1192520901428,
           "pool1aymf474uv528zafxlpfg3yr55zp267wj5mpu4qt557z5k5frn9p": 1009503382720
@@ -1808,7 +1811,7 @@ components:
             description: Date and time at which the Cardano stake distribution was created
             type: string
             format: date-time,
-        example:
+        examples:
           {
             "epoch": 123,
             "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
@@ -1847,7 +1850,7 @@ components:
           description: Date and time of the entity creation
           type: string
           format: date-time,
-      example:
+      examples:
         {
           "epoch": 123,
           "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
@@ -1896,7 +1899,7 @@ components:
             description: Date and time at which the Cardano transactions set was created
             type: string
             format: date-time,
-        example:
+        examples:
           {
             "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
@@ -1940,7 +1943,7 @@ components:
           description: Date and time at which the Cardano transactions set was created
           type: string
           format: date-time,
-      example:
+      examples:
         {
           "hash": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
@@ -1993,7 +1996,7 @@ components:
           description: Last block number
           type: integer
           format: int64
-      example:
+      examples:
         {
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
           "certified_transactions":
@@ -2025,8 +2028,8 @@ components:
         message:
           description: error message
           type: string
-          example: "An error occurred, the operation could not be completed"
-      example:
+          examples: "An error occurred, the operation could not be completed"
+      examples:
         {
           "label": "Internal error",
           "message": "An error occurred, the operation could not be completed"

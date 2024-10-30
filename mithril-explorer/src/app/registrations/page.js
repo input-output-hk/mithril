@@ -49,14 +49,13 @@ export default function Registrations() {
 
   useEffect(() => {
     const aggregator = searchParams.get(aggregatorSearchParam);
-    const epoch = Number(searchParams.get("epoch"));
+    const epoch = searchParams.get("epoch");
     let error = undefined;
     setAggregator(aggregator);
-    setRegistrationEpoch(epoch);
 
     if (!checkUrl(aggregator)) {
       error = "invalidAggregatorUrl";
-    } else if (!Number.isInteger(epoch)) {
+    } else if (epoch !== "latest" && !Number.isInteger(Number(epoch))) {
       error = "invalidEpoch";
     }
 
@@ -64,6 +63,7 @@ export default function Registrations() {
       fetchRegistrations(aggregator, epoch)
         .then((data) => {
           setSigningEpoch(data.signing_at);
+          setRegistrationEpoch(data.registered_at);
           setRegistrations(data.registrations);
           setCharts({
             stakesBreakdown: computeStakeShapesDataset(data.registrations),
