@@ -12,8 +12,13 @@ use slog::{info, Logger};
 /// Message sent to the event store to report a metric value.
 #[derive(Serialize, Deserialize)]
 struct MetricEventMessage {
-    counter: i64,
-    duration: Duration,
+    /// Name of the metric.
+    name: String,
+    /// Value of the metric.
+    value: i64,
+    /// Period of time during which the metric was collected.
+    period: Duration,
+    /// Date at which the metric was collected.
     date: DateTime<Utc>,
 }
 /// Reporter of usage metrics of the application.
@@ -66,10 +71,11 @@ impl UsageReporter {
                 .transmitter_service
                 .send_event_message::<MetricEventMessage>(
                     "Metrics",
-                    &name,
+                    &name.clone(),
                     &MetricEventMessage {
-                        counter: value,
-                        duration: *duration,
+                        name,
+                        value,
+                        period: *duration,
                         date,
                     },
                     vec![],
@@ -132,7 +138,7 @@ mod tests {
     fn extract_metric_value(message: &EventMessage) -> (String, i64) {
         let metric_delta: MetricEventMessage =
             serde_json::from_value(message.content.clone()).unwrap();
-        (message.action.clone(), metric_delta.counter)
+        (message.action.clone(), metric_delta.value)
     }
 
     #[test]
@@ -159,8 +165,8 @@ mod tests {
         assert_eq!(message.action, metric.name());
         let message_content: MetricEventMessage =
             serde_json::from_value(message.content.clone()).unwrap();
-        assert_eq!(3, message_content.counter);
-        assert_eq!(Duration::from_secs(10), message_content.duration);
+        assert_eq!(3, message_content.value);
+        assert_eq!(Duration::from_secs(10), message_content.period);
     }
 
     #[test]
@@ -225,14 +231,14 @@ mod tests {
     }
 
     mod metric_delta {
-        fn build_hashmap<T: Copy>(values: &[(&str, T)]) -> HashMap<String, T> {
-            let mut metrics = HashMap::new();
-            for (name, value) in values {
-                metrics.insert(name.to_string(), *value);
-            }
-            metrics
-        }
         use super::*;
+
+        fn build_hashmap<T: Copy>(values: &[(&str, T)]) -> HashMap<String, T> {
+            values
+                .iter()
+                .map(|(name, value)| (name.to_string(), *value))
+                .collect()
+        }
 
         #[test]
         fn should_not_contain_metric_that_not_change() {
