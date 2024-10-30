@@ -51,7 +51,7 @@ jobs:
       - name: Prepare test lab tags
         id: tags-test-lab
         run: |
-          TAGS=$(cat ./mithril-binaries/tags.json)
+          TAGS=$(jq -c '.' ./mithril-binaries/tags.json)
           echo "Test Lab Tags: $TAGS"
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
