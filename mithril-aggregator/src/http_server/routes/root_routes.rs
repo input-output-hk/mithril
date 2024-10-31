@@ -15,10 +15,15 @@ fn root(
     warp::path::end()
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_api_version_provider(router_state))
-        .and(middlewares::with_allowed_signed_entity_type_discriminants(
-            router_state,
-        ))
-        .and(middlewares::with_config(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.allowed_discriminants.clone()
+        }))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.cardano_transactions_prover_max_hashes_allowed_by_request
+        }))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.cardano_transactions_signing_config.clone()
+        }))
         .and_then(handlers::root)
 }
 
@@ -30,20 +35,23 @@ mod handlers {
     use warp::http::StatusCode;
 
     use mithril_common::api_version::APIVersionProvider;
-    use mithril_common::entities::SignedEntityTypeDiscriminants;
+    use mithril_common::entities::{
+        CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
+    };
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
 
     use crate::http_server::routes::reply::json;
-    use crate::{unwrap_to_internal_server_error, Configuration};
+    use crate::unwrap_to_internal_server_error;
 
     /// Root
     pub async fn root(
         logger: Logger,
         api_version_provider: Arc<APIVersionProvider>,
         allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-        configuration: Configuration,
+        max_hashes_allowed_by_request: usize,
+        cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     ) -> Result<impl warp::Reply, Infallible> {
         let open_api_version = unwrap_to_internal_server_error!(
             api_version_provider.compute_current_version(),
@@ -62,12 +70,11 @@ mod handlers {
         {
             capabilities.cardano_transactions_prover =
                 Some(CardanoTransactionsProverCapabilities {
-                    max_hashes_allowed_by_request: configuration
-                        .cardano_transactions_prover_max_hashes_allowed_by_request,
+                    max_hashes_allowed_by_request,
                 });
 
             capabilities.cardano_transactions_signing_config =
-                Some(configuration.cardano_transactions_signing_config.clone());
+                Some(cardano_transactions_signing_config);
         }
 
         Ok(json(
@@ -83,9 +90,9 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use crate::dependency_injection::DependenciesBuilder;
+    use crate::http_server::routes::router::RouterConfig;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::Configuration;
+    use crate::initialize_dependencies;
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
     };
@@ -120,17 +127,15 @@ mod tests {
     async fn test_root_route_ok() {
         let method = Method::GET.as_str();
         let path = "/";
-        let config = Configuration {
-            signed_entity_types: Some(format!(
-                "{}, {}, {}",
+        let config = RouterConfig {
+            allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            )),
-            ..Configuration::new_sample()
+            ]),
+            ..RouterConfig::dummy()
         };
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-        let dependency_manager = builder.build_dependency_container().await.unwrap();
+        let dependency_manager = initialize_dependencies().await;
 
         let expected_open_api_version = dependency_manager
             .api_version_provider
@@ -142,9 +147,10 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
-                dependency_manager,
-            ))))
+            .reply(&setup_router(RouterState::new(
+                Arc::new(dependency_manager),
+                config,
+            )))
             .await;
 
         let response_body: AggregatorFeaturesMessage =
@@ -185,32 +191,27 @@ mod tests {
     async fn test_root_route_ok_with_cardano_transactions_enabled() {
         let method = Method::GET.as_str();
         let path = "/";
-        let config = Configuration {
-            signed_entity_types: Some(format!(
-                "{}",
-                SignedEntityTypeDiscriminants::CardanoTransactions
-            )),
-            ..Configuration::new_sample()
-        };
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-        let mut dependency_manager = builder.build_dependency_container().await.unwrap();
-        dependency_manager
-            .config
-            .cardano_transactions_prover_max_hashes_allowed_by_request = 99;
         let signing_config = CardanoTransactionsSigningConfig {
             security_parameter: BlockNumber(70),
             step: BlockNumber(15),
         };
-        dependency_manager
-            .config
-            .cardano_transactions_signing_config = signing_config.clone();
+        let config = RouterConfig {
+            allowed_discriminants: BTreeSet::from([
+                SignedEntityTypeDiscriminants::CardanoTransactions,
+            ]),
+            cardano_transactions_prover_max_hashes_allowed_by_request: 99,
+            cardano_transactions_signing_config: signing_config.clone(),
+            ..RouterConfig::dummy()
+        };
+        let dependency_manager = initialize_dependencies().await;
 
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
-                dependency_manager,
-            ))))
+            .reply(&setup_router(RouterState::new(
+                Arc::new(dependency_manager),
+                config,
+            )))
             .await;
 
         let response_body: AggregatorFeaturesMessage =

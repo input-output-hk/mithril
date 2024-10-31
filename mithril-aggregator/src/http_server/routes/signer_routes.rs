@@ -44,7 +44,9 @@ fn signers_tickers(
     warp::path!("signers" / "tickers")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
-        .and(middlewares::with_config(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.network.to_string()
+        }))
         .and(middlewares::with_signer_getter(router_state))
         .and_then(handlers::signers_tickers)
 }
@@ -98,9 +100,7 @@ mod handlers {
     use crate::http_server::routes::signer_routes::{
         compute_registration_epoch, fetch_epoch_header_value,
     };
-    use crate::{
-        http_server::routes::reply, Configuration, SignerRegisterer, SignerRegistrationError,
-    };
+    use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use crate::{FromRegisterSignerAdapter, MetricsService, VerificationKeyStorer};
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
     use slog::{debug, warn, Logger};
@@ -233,11 +233,9 @@ mod handlers {
 
     pub async fn signers_tickers(
         logger: Logger,
-        configuration: Configuration,
+        network: String,
         signer_getter: Arc<dyn SignerGetter>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let network = configuration.network;
-
         match signer_getter.get_all().await {
             Ok(signers) => {
                 let signers: Vec<_> = signers

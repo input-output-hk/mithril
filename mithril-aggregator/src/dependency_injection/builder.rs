@@ -1410,7 +1410,6 @@ impl DependenciesBuilder {
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
-            allowed_discriminants: self.get_allowed_signed_entity_types_discriminants()?,
             root_logger: self.root_logger(),
             sqlite_connection: self.get_sqlite_connection().await?,
             sqlite_connection_cardano_transaction_pool: self
@@ -1494,7 +1493,22 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
-        let router_state = RouterState::new(dependency_container.clone(), RouterConfig {});
+        let router_state = RouterState::new(
+            dependency_container.clone(),
+            RouterConfig {
+                network: self.configuration.get_network()?,
+                server_url: self.configuration.get_server_url(),
+                allowed_discriminants: self.get_allowed_signed_entity_types_discriminants()?,
+                cardano_transactions_prover_max_hashes_allowed_by_request: self
+                    .configuration
+                    .cardano_transactions_prover_max_hashes_allowed_by_request,
+                cardano_transactions_signing_config: self
+                    .configuration
+                    .cardano_transactions_signing_config
+                    .clone(),
+                snapshot_directory: self.configuration.snapshot_directory.clone(),
+            },
+        );
 
         Ok(router::routes(Arc::new(router_state)))
     }

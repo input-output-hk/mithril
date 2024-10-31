@@ -6,9 +6,12 @@ use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::MITHRIL_API_VERSION_HEADER;
+use mithril_common::entities::{CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants};
+use mithril_common::{CardanoNetwork, MITHRIL_API_VERSION_HEADER};
 
 use slog::{warn, Logger};
+use std::collections::BTreeSet;
+use std::path::PathBuf;
 use std::sync::Arc;
 use warp::http::Method;
 use warp::http::StatusCode;
@@ -28,12 +31,29 @@ pub struct VersionParseError;
 impl Reject for VersionParseError {}
 
 /// HTTP Server configuration
-pub struct RouterConfig {}
+pub struct RouterConfig {
+    pub network: CardanoNetwork,
+    pub server_url: String,
+    pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
+    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+    pub snapshot_directory: PathBuf,
+}
 
 #[cfg(test)]
 impl RouterConfig {
     pub fn dummy() -> Self {
-        Self {}
+        Self {
+            network: CardanoNetwork::DevNet(87),
+            server_url: "http://0.0.0.0:8000/".to_string(),
+            allowed_discriminants: BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            ]),
+            cardano_transactions_prover_max_hashes_allowed_by_request: 1_000,
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            snapshot_directory: PathBuf::from("/dummy/snapshot/directory"),
+        }
     }
 }
 

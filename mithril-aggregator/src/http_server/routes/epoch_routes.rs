@@ -25,9 +25,9 @@ fn epoch_settings(
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_epoch_service(router_state))
-        .and(middlewares::with_allowed_signed_entity_type_discriminants(
-            router_state,
-        ))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.allowed_discriminants.clone()
+        }))
         .and_then(handlers::epoch_settings)
 }
 

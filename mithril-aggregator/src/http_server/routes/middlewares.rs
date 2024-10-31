@@ -1,22 +1,29 @@
 use slog::{debug, Logger};
-use std::collections::BTreeSet;
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::entities::SignedEntityTypeDiscriminants;
 
 use crate::database::repository::SignerGetter;
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::event_store::{EventMessage, TransmitterService};
 use crate::http_server::routes::http_server_child_logger;
-use crate::http_server::routes::router::RouterState;
+use crate::http_server::routes::router::{RouterConfig, RouterState};
 use crate::services::{CertifierService, MessageService, ProverService, SignedEntityService};
 use crate::{
-    CertificatePendingStore, Configuration, MetricsService, SignerRegisterer,
-    SingleSignatureAuthenticator, VerificationKeyStorer,
+    CertificatePendingStore, MetricsService, SignerRegisterer, SingleSignatureAuthenticator,
+    VerificationKeyStorer,
 };
+
+/// Extract a value from the configuration
+pub fn extract_config<D: Clone + Send>(
+    state: &RouterState,
+    extract: fn(&RouterConfig) -> D,
+) -> impl Filter<Extract = (D,), Error = Infallible> + Clone {
+    let config_value = extract(&state.configuration);
+    warp::any().map(move || config_value.clone())
+}
 
 /// With logger middleware
 pub(crate) fn with_logger(
@@ -66,22 +73,6 @@ pub fn with_signer_getter(
 ) -> impl Filter<Extract = (Arc<dyn SignerGetter>,), Error = Infallible> + Clone {
     let signer_getter = router_state.dependencies.signer_getter.clone();
     warp::any().map(move || signer_getter.clone())
-}
-
-/// With config middleware
-pub fn with_config(
-    router_state: &RouterState,
-) -> impl Filter<Extract = (Configuration,), Error = Infallible> + Clone {
-    let config = router_state.dependencies.config.clone();
-    warp::any().map(move || config.clone())
-}
-
-/// With allowed signed entity discriminants middleware
-pub fn with_allowed_signed_entity_type_discriminants(
-    router_state: &RouterState,
-) -> impl Filter<Extract = (BTreeSet<SignedEntityTypeDiscriminants>,), Error = Infallible> + Clone {
-    let allowed_discriminants = router_state.dependencies.allowed_discriminants.clone();
-    warp::any().map(move || allowed_discriminants.clone())
 }
 
 /// With Event transmitter middleware
@@ -177,8 +168,7 @@ pub mod validators {
         router_state: &RouterState,
     ) -> impl Filter<Extract = (ProverTransactionsHashValidator,), Error = Infallible> + Clone {
         let max_hashes = router_state
-            .dependencies
-            .config
+            .configuration
             .cardano_transactions_prover_max_hashes_allowed_by_request;
 
         warp::any().map(move || ProverTransactionsHashValidator::new(max_hashes))

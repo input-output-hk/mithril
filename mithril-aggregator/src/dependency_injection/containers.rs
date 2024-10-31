@@ -1,5 +1,5 @@
 use slog::Logger;
-use std::{collections::BTreeSet, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::{
@@ -10,8 +10,8 @@ use mithril_common::{
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
     entities::{
-        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityTypeDiscriminants,
-        SignerWithStake, StakeDistribution,
+        CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignerWithStake,
+        StakeDistribution,
     },
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
@@ -51,9 +51,6 @@ pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 pub struct DependencyContainer {
     /// Configuration structure.
     pub config: Configuration,
-
-    /// List of signed entity discriminants that are allowed to be processed
-    pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
 
     /// Application root logger
     pub root_logger: Logger,
