@@ -62,21 +62,18 @@ mod tests {
     mod metrics_per_day_view {
         use std::time::Duration;
 
-        use crate::event_store::database::test_helper::event_store_db_connection;
-        use chrono::{DateTime, Utc};
-        use serde::{Deserialize, Serialize};
+        use crate::{
+            event_store::{database::test_helper::event_store_db_connection, TransmitterService},
+            services::UsageReporter,
+            test_tools::TestLogger,
+        };
+        use chrono::DateTime;
 
         use mithril_common::StdResult;
 
         use sqlite::ConnectionThreadSafe;
 
         use super::*;
-        #[derive(Serialize, Deserialize)]
-        struct MetricMessage {
-            counter: i64,
-            duration: Duration,
-            date: DateTime<Utc>,
-        }
 
         fn get_all_metrics(
             connection: Arc<ConnectionThreadSafe>,
@@ -106,15 +103,17 @@ mod tests {
             let metric_date =
                 DateTime::parse_from_str(&format!("{date} +0000"), "%Y-%m-%d %H:%M:%S %z").unwrap();
 
-            let message = EventMessage::new(
-                "Metrics",
-                metric_name,
-                serde_json::json!(MetricMessage {
-                    counter: value,
-                    duration: Duration::from_secs(3),
-                    date: metric_date.into(),
-                }),
+            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
+            let transmitter_service = Arc::new(TransmitterService::new(tx, TestLogger::stdout()));
+            let _result = UsageReporter::send_metric_event(
+                &transmitter_service,
+                metric_name.to_string(),
+                value,
+                Duration::from_secs(5),
+                metric_date.into(),
             );
+
+            let message: EventMessage = rx.try_recv().unwrap();
 
             let _event = persister.persist(message).unwrap();
         }
