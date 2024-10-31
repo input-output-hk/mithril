@@ -1,26 +1,26 @@
 use crate::http_server::routes::middlewares;
-use crate::DependencyContainer;
+use crate::http_server::routes::router::RouterState;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    register_signatures(dependency_manager)
+    register_signatures(router_state)
 }
 
 /// POST /register-signatures
 fn register_signatures(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signatures")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_certifier_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_certifier_service(router_state))
         .and(middlewares::with_single_signature_authenticator(
-            dependency_manager,
+            router_state,
         ))
-        .and(middlewares::with_metrics_service(dependency_manager))
+        .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::register_signatures)
 }
 
@@ -131,7 +131,7 @@ mod tests {
     use super::*;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyContainer>,
+        state: RouterState,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
@@ -140,7 +140,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&dependency_manager).with(cors))
+            .and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -158,7 +158,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&RegisterSignatureMessage::dummy())
-            .reply(&setup_router(dependency_manager.clone()))
+            .reply(&setup_router(RouterState::new_with_dummy_config(
+                dependency_manager.clone(),
+            )))
             .await;
 
         assert_eq!(
@@ -195,7 +197,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
     }
 
@@ -222,7 +226,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -255,7 +261,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -288,7 +296,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -322,7 +332,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -357,7 +369,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -392,7 +406,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -425,7 +441,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&message)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(

@@ -1,51 +1,47 @@
 use crate::http_server::routes::middlewares;
-use crate::DependencyContainer;
+use crate::http_server::routes::router::RouterState;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    artifact_cardano_stake_distributions(dependency_manager)
-        .or(artifact_cardano_stake_distribution_by_id(
-            dependency_manager,
-        ))
-        .or(artifact_cardano_stake_distribution_by_epoch(
-            dependency_manager,
-        ))
+    artifact_cardano_stake_distributions(router_state)
+        .or(artifact_cardano_stake_distribution_by_id(router_state))
+        .or(artifact_cardano_stake_distribution_by_epoch(router_state))
 }
 
 /// GET /artifact/cardano-stake-distributions
 fn artifact_cardano_stake_distributions(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distributions")
         .and(warp::get())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_http_message_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
 }
 
 /// GET /artifact/cardano-stake-distribution/:id
 fn artifact_cardano_stake_distribution_by_id(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distribution" / String)
         .and(warp::get())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_http_message_service(dependency_manager))
-        .and(middlewares::with_metrics_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_http_message_service(router_state))
+        .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
 /// GET /artifact/cardano-stake-distribution/epoch/:epoch
 fn artifact_cardano_stake_distribution_by_epoch(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "cardano-stake-distribution" / "epoch" / String)
         .and(warp::get())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_http_message_service(dependency_manager))
-        .and(middlewares::with_metrics_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_http_message_service(router_state))
+        .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::get_artifact_by_epoch)
 }
 
@@ -170,7 +166,7 @@ pub mod tests {
     use super::*;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyContainer>,
+        state: RouterState,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
@@ -179,7 +175,7 @@ pub mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&dependency_manager).with(cors))
+            .and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -199,7 +195,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -230,7 +228,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -260,7 +260,9 @@ pub mod tests {
             request()
                 .method(method)
                 .path(&format!("/{SERVER_BASE_PATH}{path}"))
-                .reply(&setup_router(dependency_manager.clone()))
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
                 .await;
 
             assert_eq!(
@@ -278,7 +280,9 @@ pub mod tests {
             request()
                 .method(method)
                 .path(&format!("/{SERVER_BASE_PATH}{base_path}/123"))
-                .reply(&setup_router(dependency_manager.clone()))
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
                 .await;
 
             assert_eq!(
@@ -308,7 +312,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -339,7 +345,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -370,7 +378,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -402,7 +412,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{base_path}/123"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -429,7 +441,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{base_path}/invalid-epoch"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -460,7 +474,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{base_path}/123"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -491,7 +507,9 @@ pub mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{base_path}/123"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(

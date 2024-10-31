@@ -1,25 +1,24 @@
-use crate::DependencyContainer;
+use super::middlewares;
+use crate::http_server::routes::router::RouterState;
 use warp::Filter;
 
-use super::middlewares;
-
 pub fn routes(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    root(dependency_manager)
+    root(router_state)
 }
 
 /// GET /
 fn root(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path::end()
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_api_version_provider(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_api_version_provider(router_state))
         .and(middlewares::with_allowed_signed_entity_type_discriminants(
-            dependency_manager,
+            router_state,
         ))
-        .and(middlewares::with_config(dependency_manager))
+        .and(middlewares::with_config(router_state))
         .and_then(handlers::root)
 }
 
@@ -86,7 +85,7 @@ mod handlers {
 mod tests {
     use crate::dependency_injection::DependenciesBuilder;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::{Configuration, DependencyContainer};
+    use crate::Configuration;
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
     };
@@ -105,7 +104,7 @@ mod tests {
     use super::*;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyContainer>,
+        state: RouterState,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
@@ -114,7 +113,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&dependency_manager).with(cors))
+            .and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -143,7 +142,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         let response_body: AggregatorFeaturesMessage =
@@ -207,7 +208,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         let response_body: AggregatorFeaturesMessage =

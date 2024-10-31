@@ -63,7 +63,10 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    http_server::routes::router,
+    http_server::routes::{
+        router,
+        router::{RouterConfig, RouterState},
+    },
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
         CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
@@ -1491,8 +1494,9 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
+        let router_state = RouterState::new(dependency_container.clone(), RouterConfig {});
 
-        Ok(router::routes(dependency_container))
+        Ok(router::routes(Arc::new(router_state)))
     }
 
     /// Create a [CardanoTransactionsPreloader] instance.
