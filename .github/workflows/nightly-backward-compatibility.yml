@@ -1,9 +1,10 @@
 name: Nightly backward compatibility
 
 on:
+  # Important note about scheduled workflows:
+  # Notifications for scheduled workflows are sent to the user who last modified the cron syntax in the workflow file.
   schedule:
-    - cron: "0 2 * * *"
-    - cron: "0 14 * * *"
+    - cron: "30 2 * * *"
   workflow_dispatch:
     inputs:
       total-releases:
