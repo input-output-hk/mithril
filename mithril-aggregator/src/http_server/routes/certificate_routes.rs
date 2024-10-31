@@ -18,6 +18,9 @@ fn certificate_pending(
     warp::path!("certificate-pending")
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.network
+        }))
         .and(middlewares::with_certificate_pending_store(router_state))
         .and_then(handlers::certificate_pending)
 }
@@ -52,6 +55,7 @@ mod handlers {
         ToCertificatePendingMessageAdapter,
     };
 
+    use mithril_common::CardanoNetwork;
     use slog::{warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -62,11 +66,12 @@ mod handlers {
     /// Certificate Pending
     pub async fn certificate_pending(
         logger: Logger,
+        network: CardanoNetwork,
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(
-                &ToCertificatePendingMessageAdapter::adapt(certificate_pending),
+                &ToCertificatePendingMessageAdapter::adapt(network, certificate_pending),
                 StatusCode::OK,
             )),
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
