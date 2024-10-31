@@ -196,7 +196,8 @@ mod file {
     use super::*;
     use mithril_client::{MessageBuilder, Snapshot, SnapshotListItem};
     use mithril_common::digesters::DummyImmutableDb;
-    use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm, SignedEntityType};
+    use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm};
+    use mithril_common::messages::SignedEntityTypeMessagePart;
     use mithril_common::test_utils::fake_data;
     use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
     use std::path::{Path, PathBuf};
@@ -245,7 +246,10 @@ mod file {
             let mut certificate = MithrilCertificate {
                 hash: certificate_hash.to_string(),
                 epoch: beacon.epoch,
-                signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
+                signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
+                    // Note: network doesn't matter here and will be removed in the future
+                    (beacon, "whatever").into(),
+                ),
                 ..MithrilCertificate::dummy()
             };
             certificate.signed_message = MessageBuilder::new()
