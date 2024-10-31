@@ -586,6 +586,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::dependency_injection::DependenciesBuilder;
     use crate::entities::AggregatorEpochSettings;
     use crate::services::{FakeEpochService, FakeEpochServiceBuilder, MockUpkeepService};
     use crate::{
@@ -593,7 +594,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        DependencyContainer, MithrilSignerRegisterer, SignerRegistrationRound,
+        Configuration, DependencyContainer, MithrilSignerRegisterer, SignerRegistrationRound,
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
@@ -1029,16 +1030,13 @@ pub mod tests {
             .returning(|_| Ok(()))
             .times(1);
 
-        let mut deps = initialize_dependencies().await;
+        let config = Configuration::new_sample();
+        let mut deps = DependenciesBuilder::new_with_stdout_logger(config.clone())
+            .build_dependency_container()
+            .await
+            .unwrap();
         deps.certifier_service = Arc::new(mock_certifier_service);
         let epoch_settings_storer = deps.epoch_settings_storer.clone();
-        let expected_epoch_settings = AggregatorEpochSettings {
-            protocol_parameters: deps.config.protocol_parameters.clone(),
-            cardano_transactions_signing_config: deps
-                .config
-                .cardano_transactions_signing_config
-                .clone(),
-        };
         let current_epoch = deps.ticker_service.get_current_epoch().await.unwrap();
         let insert_epoch = current_epoch.offset_to_epoch_settings_recording_epoch();
 
@@ -1055,7 +1053,15 @@ pub mod tests {
             .unwrap()
             .unwrap_or_else(|| panic!("should have epoch settings for epoch {insert_epoch}",));
 
-        assert_eq!(expected_epoch_settings, saved_epoch_settings);
+        assert_eq!(
+            AggregatorEpochSettings {
+                protocol_parameters: config.protocol_parameters.clone(),
+                cardano_transactions_signing_config: config
+                    .cardano_transactions_signing_config
+                    .clone(),
+            },
+            saved_epoch_settings
+        );
     }
 
     #[tokio::test]
