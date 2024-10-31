@@ -18,8 +18,26 @@ on:
         default: "10.1.1"
 
 jobs:
+  prepare-env-variables:
+    runs-on: ubuntu-22.04
+    outputs:
+      total_releases: ${{ steps.set-env.outputs.total_releases }}
+      cardano_node_version: ${{ steps.set-env.outputs.cardano_node_version }}
+    steps:
+      - name: Prepare env variables
+        id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "total_releases=3" >> $GITHUB_OUTPUT
+            echo 'cardano_node_version=["10.1.1"]' >> $GITHUB_OUTPUT
+          else
+            echo "total_releases=${{ inputs.total-releases }}" >> $GITHUB_OUTPUT
+            echo "cardano_node_version=[\"${{ inputs.cardano-node-version }}\"]" >> $GITHUB_OUTPUT
+          fi
+
   prepare-binaries:
     runs-on: ubuntu-22.04
+    needs: [prepare-env-variables]
     outputs:
       tags: ${{ steps.tags-test-lab.outputs.tags }}
     steps:
@@ -30,7 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./.github/workflows/scripts/download-distribution-binaries.sh ${{ inputs.total-releases }}
+          ./.github/workflows/scripts/download-distribution-binaries.sh ${{ needs.prepare-env-variables.outputs.total_releases }}
 
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@master
@@ -57,13 +75,13 @@ jobs:
 
   e2e:
     runs-on: ubuntu-22.04
-    needs: [prepare-binaries]
+    needs: [prepare-env-variables, prepare-binaries]
     strategy:
       fail-fast: false
       matrix:
         tag: ${{ fromJSON(needs.prepare-binaries.outputs.tags) }}
         node: [mithril-aggregator, mithril-client, mithril-signer]
-        cardano_node_version: ${{ fromJSON(inputs.cardano-node-version) }}
+        cardano_node_version: ${{ fromJSON(needs.prepare-env-variables.outputs.cardano_node_version) }}
         run_id: ["#1"]
 
     steps:
