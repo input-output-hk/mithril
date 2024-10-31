@@ -91,15 +91,13 @@ jobs:
 
       - name: Run E2E tests
         run: |
-          # TODO: adjust the e2e test parameters for slower execution (slower epochs and slot lengths)
-          # cardano-slot-length 0.25
-          # cardano-epoch-length 45.0
-
           ./mithril-binaries/e2e/mithril-end-to-end -vvv \
             --bin-directory ./mithril-binaries/e2e \
             --work-directory=./artifacts \
             --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
             --cardano-node-version ${{ matrix.cardano_node_version }} \
+            --cardano-slot-length 0.25 \
+            --cardano-epoch-length 45.0 \
           && echo "SUCCESS=true" >> $GITHUB_ENV \
           || (echo "SUCCESS=false" >> $GITHUB_ENV && exit 1)
 
