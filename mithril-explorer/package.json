@@ -27,7 +27,7 @@
     "react-redux": "^9.1.2"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.2",
+    "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.0.1",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.0.2",
