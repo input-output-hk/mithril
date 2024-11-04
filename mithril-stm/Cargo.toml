@@ -20,8 +20,8 @@ blst = { version = "0.3.13", features = ["portable"] }
 digest = { version = "0.10.7", features = ["alloc"] }
 rand_core = "0.6.4"
 rayon = "1.10.0"
-serde = { version = "1.0.210", features = ["rc", "derive"] }
-thiserror = "1.0.64"
+serde = { version = "1.0.214", features = ["rc", "derive"] }
+thiserror = "1.0.67"
 
 [target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]
 # only unix supports the rug backend

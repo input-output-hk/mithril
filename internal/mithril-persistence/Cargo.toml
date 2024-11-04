@@ -12,21 +12,21 @@ repository = { workspace = true }
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
-anyhow = "1.0.89"
+anyhow = "1.0.92"
 async-trait = "0.1.83"
 chrono = { version = "0.4.38", features = ["serde"] }
 hex = "0.4.3"
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
 semver = "1.0.23"
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = "1.0.132"
 sha2 = "0.10.8"
 slog = "2.7.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
-thiserror = "1.0.64"
-tokio = { version = "1.40.0", features = ["sync"] }
+thiserror = "1.0.67"
+tokio = { version = "1.41.0", features = ["sync"] }
 
 [dev-dependencies]
 mithril-common = { path = "../../mithril-common", features = ["test_tools"] }
 mockall = "0.13.0"
-tokio = { version = "1.40.0", features = ["macros", "time"] }
+tokio = { version = "1.41.0", features = ["macros", "time"] }
