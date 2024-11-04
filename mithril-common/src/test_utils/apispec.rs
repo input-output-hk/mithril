@@ -219,14 +219,14 @@ impl<'a> APISpec<'a> {
                 schema.insert(String::from("components"), components);
 
                 let validator = Validator::new(&json!(schema)).unwrap();
-                match validator.validate(value).map_err(|errs| {
-                    errs.into_iter()
-                        .map(|e| e.to_string())
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                }) {
-                    Ok(_) => Ok(self),
-                    Err(e) => Err(e),
+                let errors = validator
+                    .iter_errors(value)
+                    .map(|e| e.to_string())
+                    .collect::<Vec<String>>();
+                if errors.is_empty() {
+                    Ok(self)
+                } else {
+                    Err(errors.join(", "))
                 }
             }
         }
