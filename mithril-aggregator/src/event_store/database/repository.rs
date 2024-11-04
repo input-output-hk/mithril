@@ -279,5 +279,21 @@ mod tests {
             assert!(result.contains(&(9, "1.0.2".to_string(), 40, 28, "70 %".to_string(), 1)));
             assert!(result.contains(&(9, "1.0.4".to_string(), 40, 12, "30 %".to_string(), 1)));
         }
+
+        #[test]
+        fn with_multi_registrations_for_an_epoch_only_the_last_recorded_one_is_retained() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "8", "A", 6, "1.0.2");
+            insert_registration_event(&persister, "8", "A", 8, "1.0.2");
+            insert_registration_event(&persister, "8", "A", 10, "1.0.4");
+            insert_registration_event(&persister, "8", "A", 7, "1.0.3");
+
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&(8, "1.0.3".to_string(), 7, 7, "100 %".to_string(), 1)));
+            assert!(result.len() == 1);
+        }
     }
 }
