@@ -16,7 +16,7 @@ on:
         description: "Cardano node version used in e2e"
         required: true
         type: string
-        default: "10.1.1"
+        default: "10.1.2"
 
 jobs:
   prepare-env-variables:
@@ -30,7 +30,7 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             echo "total_releases=3" >> $GITHUB_OUTPUT
-            echo 'cardano_node_version=["10.1.1"]' >> $GITHUB_OUTPUT
+            echo 'cardano_node_version=["10.1.2"]' >> $GITHUB_OUTPUT
           else
             echo "total_releases=${{ inputs.total-releases }}" >> $GITHUB_OUTPUT
             echo "cardano_node_version=[\"${{ inputs.cardano-node-version }}\"]" >> $GITHUB_OUTPUT
@@ -121,11 +121,11 @@ jobs:
           || (echo "SUCCESS=false" >> $GITHUB_ENV && exit 1)
 
       - name: Define the JSON file name for the test result
-        if: always()
+        if: success() || failure()
         run: echo "RESULT_FILE_NAME=e2e-test-result-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-tag_${{ matrix.tag }}-node-${{ matrix.node }}-cardano-${{ matrix.cardano_node_version }}-run_id_${{ matrix.run_id }}" >> $GITHUB_ENV
 
       - name: Write test result JSON
-        if: always()
+        if: success() || failure()
         run: |
           AGGREGATOR_TAG="unstable"
           SIGNER_TAG="unstable"
@@ -154,7 +154,7 @@ jobs:
                 > ./${{ env.RESULT_FILE_NAME }}.json
 
       - name: Upload test result JSON
-        if: always()
+        if: success() || failure()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.RESULT_FILE_NAME }}
@@ -177,7 +177,7 @@ jobs:
   summarize-test-results:
     runs-on: ubuntu-22.04
     needs: [e2e]
-    if: always()
+    if: success() || failure()
 
     steps:
       - name: Download all test result artifacts
