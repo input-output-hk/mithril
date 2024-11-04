@@ -15,6 +15,8 @@ use crate::crypto_helper::{encode_bech32, KESPeriod, OpCert, SerDeShelleyFileFor
 use crate::entities::{BlockNumber, ChainPoint, Epoch, SlotNumber, StakeDistribution};
 use crate::{CardanoNetwork, StdResult};
 
+const CARDANO_ERA: &str = "latest";
+
 /// `CliRunner` trait defines the asynchronous methods
 /// for interaction with the Cardano CLI.
 #[async_trait]
@@ -66,7 +68,7 @@ impl CardanoCliRunner {
     fn command_for_utxo(&self, address: &str, out_file: PathBuf) -> Command {
         let mut command = self.get_command();
         command
-            .arg("latest")
+            .arg(CARDANO_ERA)
             .arg("query")
             .arg("utxo")
             .arg("--address")
@@ -80,7 +82,10 @@ impl CardanoCliRunner {
 
     fn command_for_stake_distribution(&self) -> Command {
         let mut command = self.get_command();
-        command.arg("latest").arg("query").arg("stake-distribution");
+        command
+            .arg(CARDANO_ERA)
+            .arg("query")
+            .arg("stake-distribution");
         self.post_config_command(&mut command);
 
         command
@@ -89,7 +94,7 @@ impl CardanoCliRunner {
     fn command_for_stake_snapshot(&self, stake_pool_id: &str) -> Command {
         let mut command = self.get_command();
         command
-            .arg("latest")
+            .arg(CARDANO_ERA)
             .arg("query")
             .arg("stake-snapshot")
             .arg("--stake-pool-id")
@@ -102,7 +107,7 @@ impl CardanoCliRunner {
     fn command_for_stake_snapshot_all_pools(&self) -> Command {
         let mut command = self.get_command();
         command
-            .arg("latest")
+            .arg(CARDANO_ERA)
             .arg("query")
             .arg("stake-snapshot")
             .arg("--all-stake-pools");
@@ -113,7 +118,7 @@ impl CardanoCliRunner {
 
     fn command_for_epoch(&self) -> Command {
         let mut command = self.get_command();
-        command.arg("latest").arg("query").arg("tip");
+        command.arg(CARDANO_ERA).arg("query").arg("tip");
         self.post_config_command(&mut command);
 
         command
@@ -121,7 +126,7 @@ impl CardanoCliRunner {
 
     fn command_for_chain_point(&self) -> Command {
         let mut command = self.get_command();
-        command.arg("latest").arg("query").arg("tip");
+        command.arg(CARDANO_ERA).arg("query").arg("tip");
         self.post_config_command(&mut command);
 
         command
@@ -130,7 +135,7 @@ impl CardanoCliRunner {
     fn command_for_kes_period(&self, opcert_file: &str) -> Command {
         let mut command = self.get_command();
         command
-            .arg("latest")
+            .arg(CARDANO_ERA)
             .arg("query")
             .arg("kes-period-info")
             .arg("--op-cert-file")
