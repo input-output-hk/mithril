@@ -22,7 +22,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Deprecate `protocol` and `next_protocol` in favor of `signer_registration_protocol` in the `/epoch-settings` route.
 
-- Support for `Cardano node` `10.1.1` in the signer and the aggregator.
+- Support for `Cardano node` `10.1.2` in the signer and the aggregator.
 
 - Crates versions:
 

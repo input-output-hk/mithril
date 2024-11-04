@@ -61,7 +61,7 @@ pub struct Args {
     cardano_epoch_length: f64,
 
     /// Cardano node version
-    #[clap(long, default_value = "10.1.1")]
+    #[clap(long, default_value = "10.1.2")]
     cardano_node_version: String,
 
     /// Epoch at which hard fork to the latest Cardano era will be made (starts with the latest era by default)
