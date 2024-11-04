@@ -131,7 +131,7 @@ Commands:
   cardano-db                  Cardano db management (alias: cdb)
   mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
-  cardano-stake-distribution  [unstable] Cardano stake distribution management (alias: csd)
+  cardano-stake-distribution  Cardano stake distribution management (alias: csd)
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -148,7 +148,7 @@ Options:
       --log-output <LOG_OUTPUT>
           Redirect the logs to a file
       --unstable
-          Enable unstable commands (such as Cardano Stake Distribution)
+          Enable unstable commands
   -h, --help
           Print help
   -V, --version
@@ -262,10 +262,10 @@ mithril_client cardano-transaction snapshot show $CARDANO_TRANSACTION_SNAPSHOT_H
 mithril_client cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
 
 # 10- List Cardano stake distributions
-mithril_client --unstable cardano-stake-distribution list
+mithril_client cardano-stake-distribution list
 
 # 11 - Download and verify the given Cardano stake distribution from its hash or epoch
-mithril_client --unstable cardano-stake-distribution download $UNIQUE_IDENTIFIER
+mithril_client cardano-stake-distribution download $UNIQUE_IDENTIFIER
 ```
 
 ### Local image
