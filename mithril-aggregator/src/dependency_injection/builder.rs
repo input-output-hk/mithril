@@ -1408,6 +1408,7 @@ impl DependenciesBuilder {
 
     /// Return an unconfigured [DependencyContainer]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyContainer> {
+        #[allow(deprecated)]
         let dependency_manager = DependencyContainer {
             config: self.configuration.clone(),
             root_logger: self.root_logger(),

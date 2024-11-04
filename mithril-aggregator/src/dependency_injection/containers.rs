@@ -50,6 +50,8 @@ pub type EpochServiceWrapper = Arc<RwLock<dyn EpochService>>;
 /// DependencyManager handles the dependencies
 pub struct DependencyContainer {
     /// Configuration structure.
+    // TODO: remove this field and only use the `Configuration` in the dependencies builder
+    #[deprecated]
     pub config: Configuration,
 
     /// Application root logger
@@ -206,6 +208,7 @@ impl DependencyContainer {
             self.epoch_settings_storer
                 .save_epoch_settings(
                     *epoch,
+                    #[allow(deprecated)]
                     AggregatorEpochSettings {
                         protocol_parameters: fixture.protocol_parameters(),
                         cardano_transactions_signing_config: self
