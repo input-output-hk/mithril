@@ -1,6 +1,6 @@
 {
   "name": "mithril-doc",
-  "version": "0.1.43",
+  "version": "0.1.44",
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
