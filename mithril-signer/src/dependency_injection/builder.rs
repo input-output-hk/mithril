@@ -254,6 +254,7 @@ impl<'a> DependenciesBuilder<'a> {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
         let aggregator_client = Arc::new(AggregatorHTTPClient::new(
+            network,
             self.config.aggregator_endpoint.clone(),
             self.config.relay_endpoint.clone(),
             api_version_provider.clone(),
