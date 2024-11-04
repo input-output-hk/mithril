@@ -66,6 +66,7 @@ impl CardanoCliRunner {
     fn command_for_utxo(&self, address: &str, out_file: PathBuf) -> Command {
         let mut command = self.get_command();
         command
+            .arg("latest")
             .arg("query")
             .arg("utxo")
             .arg("--address")
@@ -79,7 +80,7 @@ impl CardanoCliRunner {
 
     fn command_for_stake_distribution(&self) -> Command {
         let mut command = self.get_command();
-        command.arg("query").arg("stake-distribution");
+        command.arg("latest").arg("query").arg("stake-distribution");
         self.post_config_command(&mut command);
 
         command
@@ -88,6 +89,7 @@ impl CardanoCliRunner {
     fn command_for_stake_snapshot(&self, stake_pool_id: &str) -> Command {
         let mut command = self.get_command();
         command
+            .arg("latest")
             .arg("query")
             .arg("stake-snapshot")
             .arg("--stake-pool-id")
@@ -100,6 +102,7 @@ impl CardanoCliRunner {
     fn command_for_stake_snapshot_all_pools(&self) -> Command {
         let mut command = self.get_command();
         command
+            .arg("latest")
             .arg("query")
             .arg("stake-snapshot")
             .arg("--all-stake-pools");
@@ -110,7 +113,7 @@ impl CardanoCliRunner {
 
     fn command_for_epoch(&self) -> Command {
         let mut command = self.get_command();
-        command.arg("query").arg("tip");
+        command.arg("latest").arg("query").arg("tip");
         self.post_config_command(&mut command);
 
         command
@@ -118,7 +121,7 @@ impl CardanoCliRunner {
 
     fn command_for_chain_point(&self) -> Command {
         let mut command = self.get_command();
-        command.arg("query").arg("tip");
+        command.arg("latest").arg("query").arg("tip");
         self.post_config_command(&mut command);
 
         command
@@ -127,6 +130,7 @@ impl CardanoCliRunner {
     fn command_for_kes_period(&self, opcert_file: &str) -> Command {
         let mut command = self.get_command();
         command
+            .arg("latest")
             .arg("query")
             .arg("kes-period-info")
             .arg("--op-cert-file")
@@ -556,8 +560,8 @@ mod tests {
             CardanoNetwork::TestNet(10),
         );
 
-        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
-        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"tip\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
+        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"stake-distribution\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
     }
 
     #[tokio::test]
@@ -568,8 +572,8 @@ mod tests {
             CardanoNetwork::DevNet(25),
         );
 
-        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"query\" \"tip\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
-        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"query\" \"stake-distribution\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"tip\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
+        assert_eq!("Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"stake-distribution\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
     }
 
     #[tokio::test]
@@ -581,11 +585,11 @@ mod tests {
         );
 
         assert_eq!(
-            "Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"query\" \"tip\" \"--mainnet\", kill_on_drop: false }",
+            "Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"tip\" \"--mainnet\", kill_on_drop: false }",
             format!("{:?}", runner.command_for_epoch())
         );
         assert_eq!(
-            "Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"query\" \"stake-distribution\" \"--mainnet\", kill_on_drop: false }",
+            "Command { std: CARDANO_NODE_SOCKET_PATH=\"/tmp/whatever.sock\" \"cardano-cli\" \"latest\" \"query\" \"stake-distribution\" \"--mainnet\", kill_on_drop: false }",
             format!("{:?}", runner.command_for_stake_distribution())
         );
     }
