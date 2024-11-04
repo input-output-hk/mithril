@@ -146,4 +146,142 @@ mod tests {
             assert!(result.contains(&("2024-10-30".to_string(), "metric_1".to_string(), 16)));
         }
     }
+
+    mod stake_signer_version {
+        use std::sync::Arc;
+
+        use crate::event_store::{
+            database::test_helper::event_store_db_connection, TransmitterService,
+        };
+        use crate::test_tools::TestLogger;
+        use mithril_common::entities::Stake;
+        use mithril_common::{entities::SignerWithStake, test_utils::fake_data, StdResult};
+        use sqlite::ConnectionThreadSafe;
+
+        use super::{EventMessage, EventPersister};
+
+        /// Insert a signer registration event in the database.
+        fn insert_registration_event(
+            persister: &EventPersister,
+            epoch: &str,
+            party_id: &str,
+            stake: Stake,
+            signer_node_version: &str,
+        ) {
+            let headers = vec![
+                ("signer-node-version", signer_node_version),
+                ("epoch", epoch),
+            ];
+
+            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
+            let transmitter_service = Arc::new(TransmitterService::new(tx, TestLogger::stdout()));
+
+            let signers = fake_data::signers_with_stakes(1);
+            let signer = SignerWithStake {
+                party_id: party_id.to_string(),
+                stake,
+                ..signers[0].clone()
+            };
+
+            let _result = transmitter_service.send_event_message::<SignerWithStake>(
+                "HTTP::signer_register",
+                "register_signer",
+                &signer,
+                headers,
+            );
+
+            let message: EventMessage = rx.try_recv().unwrap();
+
+            let _event = persister.persist(message).unwrap();
+        }
+
+        fn get_all_registrations(
+            connection: Arc<ConnectionThreadSafe>,
+        ) -> StdResult<Vec<(i64, String, i64, i64, String, i64)>> {
+            let query = "select
+                    epoch,
+                    version,
+                    total_epoch_stakes,
+                    stakes_version,
+                    stakes_ratio,
+                    pool_count 
+                from stake_signer_version;";
+            let mut statement = connection.prepare(query)?;
+            let mut result = Vec::new();
+            while let Ok(sqlite::State::Row) = statement.next() {
+                result.push((
+                    statement.read::<i64, _>("epoch")?,
+                    statement.read::<String, _>("version")?,
+                    statement.read::<i64, _>("total_epoch_stakes")?,
+                    statement.read::<i64, _>("stakes_version")?,
+                    statement.read::<String, _>("stakes_ratio")?,
+                    statement.read::<i64, _>("pool_count")?,
+                ));
+            }
+
+            Ok(result)
+        }
+
+        #[test]
+        fn retrieved_node_version() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "3", "A", 15, "0.2.234");
+            insert_registration_event(&persister, "4", "A", 15, "15.24.32");
+            insert_registration_event(&persister, "5", "A", 15, "0.4.789+ef0c28a");
+
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&(3, "0.2.234".to_string(), 15, 15, "100 %".to_string(), 1)));
+            assert!(result.contains(&(4, "15.24.32".to_string(), 15, 15, "100 %".to_string(), 1)));
+            assert!(result.contains(&(5, "0.4.789".to_string(), 15, 15, "100 %".to_string(), 1)));
+        }
+
+        #[test]
+        fn retrieved_total_by_epoch() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "8", "A", 20, "1.0.2");
+            insert_registration_event(&persister, "8", "B", 15, "1.0.2");
+            insert_registration_event(&persister, "9", "A", 56, "1.0.2");
+            insert_registration_event(&persister, "9", "B", 31, "1.0.2");
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&(8, "1.0.2".to_string(), 35, 35, "100 %".to_string(), 2)));
+            assert!(result.contains(&(9, "1.0.2".to_string(), 87, 87, "100 %".to_string(), 2)));
+        }
+
+        #[test]
+        fn retrieved_percentage_per_version() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "8", "A", 90, "1.0.2");
+            insert_registration_event(&persister, "8", "B", 30, "1.0.2");
+            insert_registration_event(&persister, "8", "C", 80, "1.0.4");
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&(8, "1.0.2".to_string(), 200, 120, "60 %".to_string(), 2)));
+            assert!(result.contains(&(8, "1.0.4".to_string(), 200, 80, "40 %".to_string(), 1)));
+        }
+
+        #[test]
+        fn retrieved_percentage_per_epoch() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "8", "A", 6, "1.0.2");
+            insert_registration_event(&persister, "8", "B", 4, "1.0.4");
+            insert_registration_event(&persister, "9", "A", 28, "1.0.2");
+            insert_registration_event(&persister, "9", "B", 12, "1.0.4");
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&(8, "1.0.2".to_string(), 10, 6, "60 %".to_string(), 1)));
+            assert!(result.contains(&(8, "1.0.4".to_string(), 10, 4, "40 %".to_string(), 1)));
+            assert!(result.contains(&(9, "1.0.2".to_string(), 40, 28, "70 %".to_string(), 1)));
+            assert!(result.contains(&(9, "1.0.4".to_string(), 40, 12, "30 %".to_string(), 1)));
+        }
+    }
 }
