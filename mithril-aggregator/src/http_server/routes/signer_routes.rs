@@ -90,7 +90,7 @@ async fn compute_registration_epoch(
     }
 }
 
-mod handlers {
+pub(crate) mod handlers {
     use crate::database::repository::SignerGetter;
     use crate::dependency_injection::EpochServiceWrapper;
     use crate::entities::{
@@ -102,11 +102,35 @@ mod handlers {
     };
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use crate::{FromRegisterSignerAdapter, MetricsService, VerificationKeyStorer};
+    use mithril_common::entities::SignerWithStake;
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
     use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
+
+    pub(crate) fn send_registration_event(
+        transmitter: &TransmitterService<EventMessage>,
+        signer_with_stake: &SignerWithStake,
+        signer_node_version: Option<String>,
+        epoch_str: &str,
+    ) -> Result<(), String> {
+        let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
+            Some(version) => vec![("signer-node-version", version)],
+            None => Vec::new(),
+        };
+
+        if !epoch_str.is_empty() {
+            headers.push(("epoch", epoch_str));
+        }
+
+        transmitter.send_event_message::<SignerWithStake>(
+            "HTTP::signer_register",
+            "register_signer",
+            &signer_with_stake,
+            headers,
+        )
+    }
 
     /// Register Signer
     pub async fn register_signer(
@@ -137,37 +161,30 @@ mod handlers {
             }
         };
 
-        let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
-            Some(version) => vec![("signer-node-version", version)],
-            None => Vec::new(),
-        };
-
         let epoch_str = fetch_epoch_header_value(epoch_service, &logger).await;
-        if !epoch_str.is_empty() {
-            headers.push(("epoch", epoch_str.as_str()));
-        }
 
         match signer_registerer
             .register_signer(registration_epoch, &signer)
             .await
         {
             Ok(signer_with_stake) => {
-                let _ = event_transmitter.send_event_message(
-                    "HTTP::signer_register",
-                    "register_signer",
+                let _ = send_registration_event(
+                    &event_transmitter,
                     &signer_with_stake,
-                    headers,
+                    signer_node_version,
+                    epoch_str.as_str(),
                 );
 
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::ExistingSigner(signer_with_stake)) => {
                 debug!(logger, "register_signer::already_registered");
-                let _ = event_transmitter.send_event_message(
-                    "HTTP::signer_register",
-                    "register_signer",
+
+                let _ = send_registration_event(
+                    &event_transmitter,
                     &signer_with_stake,
-                    headers,
+                    signer_node_version,
+                    epoch_str.as_str(),
                 );
                 Ok(reply::empty(StatusCode::CREATED))
             }

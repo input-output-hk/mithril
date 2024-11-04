@@ -7,7 +7,7 @@ pub(crate) mod reply;
 mod root_routes;
 pub mod router;
 mod signatures_routes;
-mod signer_routes;
+pub(crate) mod signer_routes;
 mod statistics_routes;
 
 /// Match the given result and do an early return with an internal server error (500)
