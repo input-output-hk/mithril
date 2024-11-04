@@ -191,9 +191,38 @@ mod tests {
             let _event = persister.persist(message).unwrap();
         }
 
+        #[derive(PartialEq)]
+        struct StakeSignerVersion {
+            epoch: i64,
+            version: String,
+            total_epoch_stakes: i64,
+            stakes_version: i64,
+            stakes_ratio: String,
+            pool_count: i64,
+        }
+        impl StakeSignerVersion {
+            fn new(
+                epoch: i64,
+                version: &str,
+                total_epoch_stakes: i64,
+                stakes_version: i64,
+                stakes_ratio: &str,
+                pool_count: i64,
+            ) -> Self {
+                Self {
+                    epoch,
+                    version: version.to_string(),
+                    total_epoch_stakes,
+                    stakes_version,
+                    stakes_ratio: stakes_ratio.to_string(),
+                    pool_count,
+                }
+            }
+        }
+
         fn get_all_registrations(
             connection: Arc<ConnectionThreadSafe>,
-        ) -> StdResult<Vec<(i64, String, i64, i64, String, i64)>> {
+        ) -> StdResult<Vec<StakeSignerVersion>> {
             let query = "select
                     epoch,
                     version,
@@ -205,12 +234,12 @@ mod tests {
             let mut statement = connection.prepare(query)?;
             let mut result = Vec::new();
             while let Ok(sqlite::State::Row) = statement.next() {
-                result.push((
+                result.push(StakeSignerVersion::new(
                     statement.read::<i64, _>("epoch")?,
-                    statement.read::<String, _>("version")?,
+                    &statement.read::<String, _>("version")?,
                     statement.read::<i64, _>("total_epoch_stakes")?,
                     statement.read::<i64, _>("stakes_version")?,
-                    statement.read::<String, _>("stakes_ratio")?,
+                    &statement.read::<String, _>("stakes_ratio")?,
                     statement.read::<i64, _>("pool_count")?,
                 ));
             }
@@ -229,9 +258,9 @@ mod tests {
 
             let result = get_all_registrations(connection).unwrap();
 
-            assert!(result.contains(&(3, "0.2.234".to_string(), 15, 15, "100 %".to_string(), 1)));
-            assert!(result.contains(&(4, "15.24.32".to_string(), 15, 15, "100 %".to_string(), 1)));
-            assert!(result.contains(&(5, "0.4.789".to_string(), 15, 15, "100 %".to_string(), 1)));
+            assert!(result.contains(&StakeSignerVersion::new(3, "0.2.234", 15, 15, "100 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(4, "15.24.32", 15, 15, "100 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(5, "0.4.789", 15, 15, "100 %", 1)));
         }
 
         #[test]
@@ -245,8 +274,8 @@ mod tests {
             insert_registration_event(&persister, "9", "B", 31, "1.0.2");
             let result = get_all_registrations(connection).unwrap();
 
-            assert!(result.contains(&(8, "1.0.2".to_string(), 35, 35, "100 %".to_string(), 2)));
-            assert!(result.contains(&(9, "1.0.2".to_string(), 87, 87, "100 %".to_string(), 2)));
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.2", 35, 35, "100 %", 2)));
+            assert!(result.contains(&StakeSignerVersion::new(9, "1.0.2", 87, 87, "100 %", 2)));
         }
 
         #[test]
@@ -259,8 +288,8 @@ mod tests {
             insert_registration_event(&persister, "8", "C", 80, "1.0.4");
             let result = get_all_registrations(connection).unwrap();
 
-            assert!(result.contains(&(8, "1.0.2".to_string(), 200, 120, "60 %".to_string(), 2)));
-            assert!(result.contains(&(8, "1.0.4".to_string(), 200, 80, "40 %".to_string(), 1)));
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.2", 200, 120, "60 %", 2)));
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.4", 200, 80, "40 %", 1)));
         }
 
         #[test]
@@ -274,10 +303,10 @@ mod tests {
             insert_registration_event(&persister, "9", "B", 12, "1.0.4");
             let result = get_all_registrations(connection).unwrap();
 
-            assert!(result.contains(&(8, "1.0.2".to_string(), 10, 6, "60 %".to_string(), 1)));
-            assert!(result.contains(&(8, "1.0.4".to_string(), 10, 4, "40 %".to_string(), 1)));
-            assert!(result.contains(&(9, "1.0.2".to_string(), 40, 28, "70 %".to_string(), 1)));
-            assert!(result.contains(&(9, "1.0.4".to_string(), 40, 12, "30 %".to_string(), 1)));
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.2", 10, 6, "60 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.4", 10, 4, "40 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(9, "1.0.2", 40, 28, "70 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(9, "1.0.4", 40, 12, "30 %", 1)));
         }
 
         #[test]
@@ -292,7 +321,7 @@ mod tests {
 
             let result = get_all_registrations(connection).unwrap();
 
-            assert!(result.contains(&(8, "1.0.3".to_string(), 7, 7, "100 %".to_string(), 1)));
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.3", 7, 7, "100 %", 1)));
             assert!(result.len() == 1);
         }
     }

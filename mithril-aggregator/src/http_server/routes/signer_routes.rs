@@ -127,7 +127,7 @@ pub(crate) mod handlers {
         transmitter.send_event_message::<SignerWithStake>(
             "HTTP::signer_register",
             "register_signer",
-            &signer_with_stake,
+            signer_with_stake,
             headers,
         )
     }
