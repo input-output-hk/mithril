@@ -483,7 +483,6 @@ mod tests {
     use mithril_common::messages::TryFromMessageAdapter;
     use mithril_common::test_utils::fake_data;
 
-    use crate::configuration::Configuration;
     use crate::test_tools::TestLogger;
 
     use super::*;
@@ -499,24 +498,18 @@ mod tests {
         };
     }
 
-    fn setup_test() -> (MockServer, Configuration, APIVersionProvider) {
+    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
         let server = MockServer::start();
-        let config = Configuration {
-            aggregator_endpoint: server.url(""),
-            ..Configuration::new_sample("0")
-        };
+        let aggregator_endpoint = server.url("");
+        let relay_endpoint = None;
         let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
         let api_version_provider = APIVersionProvider::new(Arc::new(era_checker));
-        (server, config, api_version_provider)
-    }
 
-    fn setup_server_and_client() -> (MockServer, AggregatorHTTPClient) {
-        let (server, config, api_version_provider) = setup_test();
         (
             server,
             AggregatorHTTPClient::new(
-                config.aggregator_endpoint,
-                config.relay_endpoint,
+                aggregator_endpoint,
+                relay_endpoint,
                 Arc::new(api_version_provider),
                 None,
                 TestLogger::stdout(),
@@ -618,10 +611,10 @@ mod tests {
     #[tokio::test]
     async fn test_aggregator_features_timeout() {
         let (server, mut client) = setup_server_and_client();
-        client.timeout_duration = Some(Duration::from_millis(50));
+        client.timeout_duration = Some(Duration::from_millis(10));
         let _server_mock = server.mock(|when, then| {
             when.path("/");
-            then.delay(Duration::from_millis(200));
+            then.delay(Duration::from_millis(100));
         });
 
         let error = client.retrieve_aggregator_features().await.unwrap_err();
@@ -631,21 +624,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_epoch_settings_ok_200() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let epoch_settings_expected = EpochSettingsMessage::dummy();
         let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(200)
                 .body(json!(epoch_settings_expected).to_string());
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
+
+        let epoch_settings = client.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
         assert_eq!(
             FromEpochSettingsAdapter::try_adapt(epoch_settings_expected).unwrap(),
@@ -655,47 +642,27 @@ mod tests {
 
     #[tokio::test]
     async fn test_epoch_settings_ko_412() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        let epoch_settings = certificate_handler
-            .retrieve_epoch_settings()
-            .await
-            .unwrap_err();
+
+        let epoch_settings = client.retrieve_epoch_settings().await.unwrap_err();
 
         assert!(epoch_settings.is_api_version_mismatch());
     }
 
     #[tokio::test]
     async fn test_epoch_settings_ko_500() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
 
-        match certificate_handler
-            .retrieve_epoch_settings()
-            .await
-            .unwrap_err()
-        {
+        match client.retrieve_epoch_settings().await.unwrap_err() {
             AggregatorClientError::RemoteServerTechnical(_) => (),
             e => panic!("Expected Aggregator::RemoteServerTechnical error, got '{e:?}'."),
         };
@@ -703,20 +670,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_epoch_settings_timeout() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, mut client) = setup_server_and_client();
+        client.timeout_duration = Some(Duration::from_millis(10));
         let _server_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
-            then.delay(Duration::from_millis(200));
+            then.delay(Duration::from_millis(100));
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            Some(Duration::from_millis(50)),
-            TestLogger::stdout(),
-        );
 
-        let error = certificate_handler
+        let error = client
             .retrieve_epoch_settings()
             .await
             .expect_err("retrieve_epoch_settings should fail");
@@ -732,28 +693,20 @@ mod tests {
         let epoch = Epoch(1);
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(201);
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        let register_signer = certificate_handler
-            .register_signer(epoch, single_signer)
-            .await;
+
+        let register_signer = client.register_signer(epoch, single_signer).await;
         register_signer.expect("unexpected error");
     }
 
     #[tokio::test]
     async fn test_register_signer_ko_412() {
         let epoch = Epoch(1);
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(412)
@@ -761,14 +714,8 @@ mod tests {
         });
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        let error = certificate_handler
+
+        let error = client
             .register_signer(epoch, single_signer)
             .await
             .unwrap_err();
@@ -781,7 +728,7 @@ mod tests {
         let epoch = Epoch(1);
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(400).body(
@@ -792,15 +739,8 @@ mod tests {
                 .unwrap(),
             );
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
 
-        match certificate_handler
+        match client
             .register_signer(epoch, single_signer)
             .await
             .unwrap_err()
@@ -819,20 +759,13 @@ mod tests {
         let epoch = Epoch(1);
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
 
-        match certificate_handler
+        match client
             .register_signer(epoch, single_signer)
             .await
             .unwrap_err()
@@ -847,20 +780,14 @@ mod tests {
         let epoch = Epoch(1);
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let (server, config, api_version_provider) = setup_test();
+        let (server, mut client) = setup_server_and_client();
+        client.timeout_duration = Some(Duration::from_millis(10));
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
-            then.delay(Duration::from_millis(200));
+            then.delay(Duration::from_millis(100));
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            Some(Duration::from_millis(50)),
-            TestLogger::stdout(),
-        );
 
-        let error = certificate_handler
+        let error = client
             .register_signer(epoch, single_signer)
             .await
             .expect_err("register_signer should fail");
@@ -874,19 +801,13 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ok_201() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(201);
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        let register_signatures = certificate_handler
+
+        let register_signatures = client
             .register_signatures(
                 &SignedEntityType::dummy(),
                 &single_signatures,
@@ -899,19 +820,13 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ok_202() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(202);
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        let register_signatures = certificate_handler
+
+        let register_signatures = client
             .register_signatures(
                 &SignedEntityType::dummy(),
                 &single_signatures,
@@ -923,21 +838,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_ko_412() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        let error = certificate_handler
+
+        let error = client
             .register_signatures(
                 &SignedEntityType::dummy(),
                 &single_signatures,
@@ -952,7 +861,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ko_400() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(400).body(
@@ -963,14 +872,8 @@ mod tests {
                 .unwrap(),
             );
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        match certificate_handler
+
+        match client
             .register_signatures(
                 &SignedEntityType::dummy(),
                 &single_signatures,
@@ -987,7 +890,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ok_410() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(410).body(
@@ -998,14 +901,8 @@ mod tests {
                 .unwrap(),
             );
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        certificate_handler
+
+        client
             .register_signatures(
                 &SignedEntityType::dummy(),
                 &single_signatures,
@@ -1018,19 +915,13 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ko_409() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(409);
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        match certificate_handler
+
+        match client
             .register_signatures(
                 &SignedEntityType::dummy(),
                 &single_signatures,
@@ -1047,19 +938,13 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ko_500() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config, api_version_provider) = setup_test();
+        let (server, client) = setup_server_and_client();
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            None,
-            TestLogger::stdout(),
-        );
-        match certificate_handler
+
+        match client
             .register_signatures(
                 &SignedEntityType::dummy(),
                 &single_signatures,
@@ -1076,20 +961,14 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_timeout() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config, api_version_provider) = setup_test();
+        let (server, mut client) = setup_server_and_client();
+        client.timeout_duration = Some(Duration::from_millis(10));
         let _server_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
-            then.delay(Duration::from_millis(200));
+            then.delay(Duration::from_millis(100));
         });
-        let certificate_handler = AggregatorHTTPClient::new(
-            config.aggregator_endpoint,
-            config.relay_endpoint,
-            Arc::new(api_version_provider),
-            Some(Duration::from_millis(50)),
-            TestLogger::stdout(),
-        );
 
-        let error = certificate_handler
+        let error = client
             .register_signatures(
                 &SignedEntityType::dummy(),
                 &single_signatures,
