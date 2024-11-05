@@ -101,7 +101,7 @@ mod tests {
             let metric_date =
                 DateTime::parse_from_str(&format!("{date} +0000"), "%Y-%m-%d %H:%M:%S %z").unwrap();
 
-            let message = UsageReporter::create_metric_event(
+            let message = UsageReporter::create_metrics_event_message(
                 metric_name.to_string(),
                 value,
                 Duration::from_secs(5),

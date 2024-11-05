@@ -67,7 +67,7 @@ impl UsageReporter {
         self.last_reported_metrics = metrics;
 
         for (name, value) in delta {
-            let message = Self::create_metric_event(name, value, *duration, date);
+            let message = Self::create_metrics_event_message(name, value, *duration, date);
             let _result = self.transmitter_service.send(message);
         }
     }
@@ -87,7 +87,9 @@ impl UsageReporter {
             );
         }
     }
-    pub fn create_metric_event(
+
+    /// Create a new EventMessage for a metrics.
+    pub fn create_metrics_event_message(
         name: String,
         value: i64,
         period: Duration,

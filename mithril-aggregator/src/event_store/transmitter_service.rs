@@ -1,4 +1,3 @@
-use serde::Serialize;
 use slog::{warn, Logger};
 use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
@@ -36,24 +35,9 @@ where
 }
 
 impl TransmitterService<EventMessage> {
-    /// Craft and send an [EventMessage] given the serializable data.
-    /// This method is done in a way to make as simple as possible to send a
-    /// message and make any error not to cause a business failure. A warning is
+    /// Send an [EventMessage].
+    /// This method make any error not to cause a business failure. A warning is
     /// issued so the resulting error may be discarded.
-    pub fn send_event_message<T>(
-        &self,
-        source: &str,
-        action: &str,
-        content: &T,
-        headers: Vec<(&str, &str)>,
-    ) -> Result<(), String>
-    where
-        T: Serialize,
-    {
-        let message = EventMessage::new(source, action, content, headers);
-        self.send(message)
-    }
-
     pub fn send(&self, message: EventMessage) -> Result<(), String> {
         self.get_transmitter().send(message.clone()).map_err(|e| {
             let error_msg =

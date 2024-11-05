@@ -42,12 +42,14 @@ mod handlers {
 
         let headers: Vec<(&str, &str)> = Vec::new();
 
-        match event_transmitter.send_event_message(
+        let message = EventMessage::new(
             "HTTP::statistics",
             "snapshot_downloaded",
             &snapshot_download_message,
             headers,
-        ) {
+        );
+
+        match event_transmitter.send(message) {
             Err(e) => Ok(reply::internal_server_error(e)),
             Ok(_) => Ok(reply::empty(StatusCode::CREATED)),
         }
