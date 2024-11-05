@@ -144,24 +144,25 @@ mod handlers {
             .await
         {
             Ok(signer_with_stake) => {
-                let _ = event_transmitter.send_signer_registration_event(
+                let _ = event_transmitter.send(EventMessage::signer_registration(
                     "HTTP::signer_register",
                     &signer_with_stake,
                     signer_node_version,
                     epoch_str.as_str(),
-                );
+                ));
 
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::ExistingSigner(signer_with_stake)) => {
                 debug!(logger, "register_signer::already_registered");
 
-                let _ = event_transmitter.send_signer_registration_event(
+                let _ = event_transmitter.send(EventMessage::signer_registration(
                     "HTTP::signer_register",
                     &signer_with_stake,
                     signer_node_version,
                     epoch_str.as_str(),
-                );
+                ));
+
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::FailedSignerRegistration(err)) => {

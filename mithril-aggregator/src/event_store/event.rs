@@ -1,4 +1,6 @@
 use chrono::{DateTime, Utc};
+use mithril_common::entities::SignerWithStake;
+use serde::Serialize;
 
 use std::collections::HashMap;
 
@@ -31,6 +33,42 @@ impl EventMessage {
             content,
             headers: HashMap::new(),
         }
+    }
+
+    pub fn create<T>(source: &str, action: &str, content: &T, headers: Vec<(&str, &str)>) -> Self
+    where
+        T: Serialize,
+    {
+        let content = serde_json::json!(content);
+
+        EventMessage {
+            source: source.to_string(),
+            action: action.to_string(),
+            content,
+            headers: headers
+                .into_iter()
+                .map(|(h, v)| (h.to_string(), v.to_string()))
+                .collect(),
+        }
+    }
+
+    /// Create a signer registration event message.
+    pub fn signer_registration(
+        source: &str,
+        signer_with_stake: &SignerWithStake,
+        signer_node_version: Option<String>,
+        epoch_str: &str,
+    ) -> Self {
+        let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
+            Some(version) => vec![("signer-node-version", version)],
+            None => Vec::new(),
+        };
+
+        if !epoch_str.is_empty() {
+            headers.push(("epoch", epoch_str));
+        }
+
+        Self::create::<SignerWithStake>(source, "register_signer", signer_with_stake, headers)
     }
 }
 

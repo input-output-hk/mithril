@@ -3,7 +3,7 @@ use slog::{warn, Logger};
 use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
 
-use mithril_common::{entities::SignerWithStake, logging::LoggerExtensions};
+use mithril_common::logging::LoggerExtensions;
 
 use super::EventMessage;
 
@@ -50,17 +50,11 @@ impl TransmitterService<EventMessage> {
     where
         T: Serialize,
     {
-        let content = serde_json::json!(content);
+        let message = EventMessage::create(source, action, content, headers);
+        self.send(message)
+    }
 
-        let message = EventMessage {
-            source: source.to_string(),
-            action: action.to_string(),
-            content,
-            headers: headers
-                .into_iter()
-                .map(|(h, v)| (h.to_string(), v.to_string()))
-                .collect(),
-        };
+    pub fn send(&self, message: EventMessage) -> Result<(), String> {
         self.get_transmitter().send(message.clone()).map_err(|e| {
             let error_msg =
                 format!("An error occurred when sending message {message:?} to monitoring: '{e}'.");
@@ -68,30 +62,5 @@ impl TransmitterService<EventMessage> {
 
             error_msg
         })
-    }
-
-    /// Send signer registration event.
-    pub fn send_signer_registration_event(
-        &self,
-        source: &str,
-        signer_with_stake: &SignerWithStake,
-        signer_node_version: Option<String>,
-        epoch_str: &str,
-    ) -> Result<(), String> {
-        let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
-            Some(version) => vec![("signer-node-version", version)],
-            None => Vec::new(),
-        };
-
-        if !epoch_str.is_empty() {
-            headers.push(("epoch", epoch_str));
-        }
-
-        self.send_event_message::<SignerWithStake>(
-            source,
-            "register_signer",
-            signer_with_stake,
-            headers,
-        )
     }
 }
