@@ -1,23 +1,23 @@
 use warp::Filter;
 
 use crate::http_server::routes::middlewares;
-use crate::DependencyContainer;
+use crate::http_server::routes::router::RouterState;
 
 pub fn routes(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    post_statistics(dependency_manager)
+    post_statistics(router_state)
 }
 
 /// POST /statistics/snapshot
 fn post_statistics(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_event_transmitter(dependency_manager))
-        .and(middlewares::with_metrics_service(dependency_manager))
+        .and(middlewares::with_event_transmitter(router_state))
+        .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_snapshot_statistics)
 }
 
@@ -73,7 +73,7 @@ mod tests {
     };
 
     fn setup_router(
-        dependency_manager: Arc<DependencyContainer>,
+        state: RouterState,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
@@ -82,7 +82,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&dependency_manager).with(cors))
+            .and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -100,7 +100,9 @@ mod tests {
             .method(method)
             .json(&snapshot_download_message)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         let result = APISpec::verify_conformity(
@@ -131,7 +133,9 @@ mod tests {
             .method(method)
             .json(&SnapshotDownloadMessage::dummy())
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(dependency_manager.clone()))
+            .reply(&setup_router(RouterState::new_with_dummy_config(
+                dependency_manager.clone(),
+            )))
             .await;
 
         assert_eq!(

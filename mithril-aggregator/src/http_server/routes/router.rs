@@ -6,9 +6,12 @@ use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::MITHRIL_API_VERSION_HEADER;
+use mithril_common::entities::{CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants};
+use mithril_common::{CardanoNetwork, MITHRIL_API_VERSION_HEADER};
 
 use slog::{warn, Logger};
+use std::collections::BTreeSet;
+use std::path::PathBuf;
 use std::sync::Arc;
 use warp::http::Method;
 use warp::http::StatusCode;
@@ -27,10 +30,63 @@ pub struct VersionParseError;
 
 impl Reject for VersionParseError {}
 
+/// HTTP Server configuration
+pub struct RouterConfig {
+    pub network: CardanoNetwork,
+    pub server_url: String,
+    pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
+    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
+    pub snapshot_directory: PathBuf,
+}
+
+#[cfg(test)]
+impl RouterConfig {
+    pub fn dummy() -> Self {
+        Self {
+            network: CardanoNetwork::DevNet(87),
+            server_url: "http://0.0.0.0:8000/".to_string(),
+            allowed_discriminants: BTreeSet::from([
+                SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                SignedEntityTypeDiscriminants::CardanoStakeDistribution,
+            ]),
+            cardano_transactions_prover_max_hashes_allowed_by_request: 1_000,
+            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
+            snapshot_directory: PathBuf::from("/dummy/snapshot/directory"),
+        }
+    }
+}
+
+/// Shared state for the router
+pub struct RouterState {
+    pub dependencies: Arc<DependencyContainer>,
+    pub configuration: RouterConfig,
+}
+
+impl RouterState {
+    /// `RouterState` factory
+    pub fn new(dependencies: Arc<DependencyContainer>, configuration: RouterConfig) -> Self {
+        Self {
+            dependencies,
+            configuration,
+        }
+    }
+}
+
+#[cfg(test)]
+impl RouterState {
+    pub fn new_with_dummy_config(dependencies: Arc<DependencyContainer>) -> Self {
+        Self {
+            dependencies,
+            configuration: RouterConfig::dummy(),
+        }
+    }
+}
+
 /// Routes
 pub fn routes(
-    dependency_manager: Arc<DependencyContainer>,
-) -> impl Filter<Extract = (impl Reply,), Error = warp::Rejection> + Clone {
+    state: Arc<RouterState>,
+) -> impl Filter<Extract = (impl Reply,), Error = Rejection> + Clone {
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["content-type", MITHRIL_API_VERSION_HEADER])
@@ -38,32 +94,26 @@ pub fn routes(
 
     warp::any()
         .and(header_must_be(
-            dependency_manager.api_version_provider.clone(),
-            http_server_child_logger(&dependency_manager.root_logger),
+            state.dependencies.api_version_provider.clone(),
+            http_server_child_logger(&state.dependencies.root_logger),
         ))
         .and(warp::path(SERVER_BASE_PATH))
         .and(
-            certificate_routes::routes(&dependency_manager)
-                .or(artifact_routes::snapshot::routes(&dependency_manager))
-                .or(artifact_routes::mithril_stake_distribution::routes(
-                    &dependency_manager,
-                ))
-                .or(artifact_routes::cardano_stake_distribution::routes(
-                    &dependency_manager,
-                ))
-                .or(artifact_routes::cardano_transaction::routes(
-                    &dependency_manager,
-                ))
-                .or(proof_routes::routes(&dependency_manager))
-                .or(signer_routes::routes(&dependency_manager))
-                .or(signatures_routes::routes(&dependency_manager))
-                .or(epoch_routes::routes(&dependency_manager))
-                .or(statistics_routes::routes(&dependency_manager))
-                .or(root_routes::routes(&dependency_manager))
+            certificate_routes::routes(&state)
+                .or(artifact_routes::snapshot::routes(&state))
+                .or(artifact_routes::mithril_stake_distribution::routes(&state))
+                .or(artifact_routes::cardano_stake_distribution::routes(&state))
+                .or(artifact_routes::cardano_transaction::routes(&state))
+                .or(proof_routes::routes(&state))
+                .or(signer_routes::routes(&state))
+                .or(signatures_routes::routes(&state))
+                .or(epoch_routes::routes(&state))
+                .or(statistics_routes::routes(&state))
+                .or(root_routes::routes(&state))
                 .with(cors),
         )
         .recover(handle_custom)
-        .and(middlewares::with_api_version_provider(&dependency_manager))
+        .and(middlewares::with_api_version_provider(&state))
         .map(|reply, api_version_provider: Arc<APIVersionProvider>| {
             warp::reply::with_header(
                 reply,
@@ -74,7 +124,7 @@ pub fn routes(
                     .to_string(),
             )
         })
-        .with(middlewares::log_route_call(&dependency_manager))
+        .with(middlewares::log_route_call(&state))
 }
 
 /// API Version verification
@@ -93,11 +143,11 @@ fn header_must_be(
                     None => Ok(()),
                     Some(version) => match semver::Version::parse(&version) {
                         Ok(version)
-                            if (api_version_provider
+                            if api_version_provider
                                 .compute_current_version_requirement()
                                 .unwrap()
-                                .matches(&version))
-                            .to_owned() =>
+                                .matches(&version)
+                                .to_owned() =>
                         {
                             Ok(())
                         }

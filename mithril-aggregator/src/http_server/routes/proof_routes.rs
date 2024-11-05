@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use warp::Filter;
 
 use crate::http_server::routes::middlewares;
-use crate::DependencyContainer;
+use crate::http_server::routes::router::RouterState;
 
 #[derive(Deserialize, Serialize, Debug)]
 struct CardanoTransactionProofQueryParams {
@@ -26,23 +26,23 @@ impl CardanoTransactionProofQueryParams {
 }
 
 pub fn routes(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    proof_cardano_transaction(dependency_manager)
+    proof_cardano_transaction(router_state)
 }
 
 /// GET /proof/cardano-transaction
 fn proof_cardano_transaction(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("proof" / "cardano-transaction")
         .and(warp::get())
         .and(warp::query::<CardanoTransactionProofQueryParams>())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_signed_entity_service(dependency_manager))
-        .and(middlewares::validators::with_prover_transactions_hash_validator(dependency_manager))
-        .and(middlewares::with_prover_service(dependency_manager))
-        .and(middlewares::with_metrics_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_signed_entity_service(router_state))
+        .and(middlewares::validators::with_prover_transactions_hash_validator(router_state))
+        .and(middlewares::with_prover_service(router_state))
+        .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::proof_cardano_transaction)
 }
 
@@ -154,16 +154,13 @@ mod tests {
         test_utils::{apispec::APISpec, assert_equivalent, fake_data},
     };
 
-    use crate::{
-        dependency_injection::DependenciesBuilder, http_server::SERVER_BASE_PATH,
-        services::MockProverService, Configuration,
-    };
+    use crate::{http_server::SERVER_BASE_PATH, services::MockProverService};
     use crate::{initialize_dependencies, services::MockSignedEntityService};
 
     use super::*;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyContainer>,
+        state: RouterState,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
@@ -172,7 +169,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&dependency_manager).with(cors))
+            .and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -227,7 +224,9 @@ mod tests {
                 fake_data::transaction_hashes()[1],
                 fake_data::transaction_hashes()[2]
             ))
-            .reply(&setup_router(dependency_manager.clone()))
+            .reply(&setup_router(RouterState::new_with_dummy_config(
+                dependency_manager.clone(),
+            )))
             .await;
 
         assert_eq!(
@@ -248,9 +247,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_ok() {
-        let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-        let mut dependency_manager = builder.build_dependency_container().await.unwrap();
+        let mut dependency_manager = initialize_dependencies().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_last_cardano_transaction_snapshot()
@@ -273,7 +270,9 @@ mod tests {
                 fake_data::transaction_hashes()[0],
                 fake_data::transaction_hashes()[1]
             ))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -290,9 +289,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_not_found() {
-        let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-        let dependency_manager = builder.build_dependency_container().await.unwrap();
+        let dependency_manager = initialize_dependencies().await;
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
@@ -304,7 +301,9 @@ mod tests {
                 fake_data::transaction_hashes()[0],
                 fake_data::transaction_hashes()[1]
             ))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -321,9 +320,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_ko() {
-        let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-        let mut dependency_manager = builder.build_dependency_container().await.unwrap();
+        let mut dependency_manager = initialize_dependencies().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_last_cardano_transaction_snapshot()
@@ -340,7 +337,9 @@ mod tests {
                 fake_data::transaction_hashes()[0],
                 fake_data::transaction_hashes()[1]
             ))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -357,9 +356,7 @@ mod tests {
 
     #[tokio::test]
     async fn proof_cardano_transaction_return_bad_request_with_invalid_hashes() {
-        let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-        let dependency_manager = builder.build_dependency_container().await.unwrap();
+        let dependency_manager = initialize_dependencies().await;
 
         let method = Method::GET.as_str();
         let path = "/proof/cardano-transaction";
@@ -369,7 +366,9 @@ mod tests {
             .path(&format!(
                 "/{SERVER_BASE_PATH}{path}?transaction_hashes=invalid%3A%2F%2Fid,,tx-456"
             ))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -387,9 +386,7 @@ mod tests {
     #[tokio::test]
     async fn proof_cardano_transaction_route_deduplicate_hashes() {
         let tx = fake_data::transaction_hashes()[0].to_string();
-        let config = Configuration::new_sample();
-        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-        let mut dependency_manager = builder.build_dependency_container().await.unwrap();
+        let mut dependency_manager = initialize_dependencies().await;
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
             .expect_get_last_cardano_transaction_snapshot()
@@ -412,7 +409,9 @@ mod tests {
             .path(&format!(
                 "/{SERVER_BASE_PATH}{path}?transaction_hashes={tx},{tx}",
             ))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         assert_eq!(StatusCode::OK, response.status());

@@ -1,36 +1,34 @@
 use crate::http_server::routes::middlewares;
+use crate::http_server::routes::router::RouterState;
 use crate::http_server::SERVER_BASE_PATH;
-use crate::DependencyContainer;
 use warp::hyper::Uri;
 use warp::Filter;
 
 pub fn routes(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    artifact_cardano_full_immutable_snapshots(dependency_manager)
-        .or(artifact_cardano_full_immutable_snapshot_by_id(
-            dependency_manager,
-        ))
-        .or(serve_snapshots_dir(dependency_manager))
-        .or(snapshot_download(dependency_manager))
+    artifact_cardano_full_immutable_snapshots(router_state)
+        .or(artifact_cardano_full_immutable_snapshot_by_id(router_state))
+        .or(serve_snapshots_dir(router_state))
+        .or(snapshot_download(router_state))
         .or(artifact_cardano_full_immutable_snapshots_legacy())
         .or(artifact_cardano_full_immutable_snapshot_by_id_legacy())
 }
 
 /// GET /artifact/snapshots
 fn artifact_cardano_full_immutable_snapshots(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_http_message_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_http_message_service(router_state))
         .and_then(handlers::list_artifacts)
 }
 
 /// GET /artifact/snapshot/:id
 fn artifact_cardano_full_immutable_snapshot_by_id(
-    dependency_manager: &DependencyContainer,
+    dependency_manager: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
@@ -42,25 +40,27 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
 
 /// GET /artifact/snapshots/{digest}/download
 fn snapshot_download(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get().or(warp::head()).unify())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_config(dependency_manager))
-        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.server_url.clone()
+        }))
+        .and(middlewares::with_signed_entity_service(router_state))
         .and_then(handlers::snapshot_download)
 }
 
 fn serve_snapshots_dir(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    let config = dependency_manager.config.clone();
-
     warp::path("snapshot_download")
-        .and(warp::fs::dir(config.snapshot_directory))
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and(warp::fs::dir(
+            router_state.configuration.snapshot_directory.clone(),
+        ))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_signed_entity_service(router_state))
         .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
 }
 
@@ -96,8 +96,8 @@ mod handlers {
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
     use crate::services::MessageService;
+    use crate::services::SignedEntityService;
     use crate::MetricsService;
-    use crate::{services::SignedEntityService, Configuration};
     use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::str::FromStr;
@@ -189,7 +189,7 @@ mod handlers {
     pub async fn snapshot_download(
         digest: String,
         logger: Logger,
-        config: Configuration,
+        server_url: String,
         signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
         match signed_entity_service
@@ -206,12 +206,8 @@ mod handlers {
                     snapshot.digest,
                     snapshot.compression_algorithm.tar_file_extension()
                 );
-                let snapshot_uri = format!(
-                    "{}{}/snapshot_download/{}",
-                    config.get_server_url(),
-                    SERVER_BASE_PATH,
-                    filename
-                );
+                let snapshot_uri =
+                    format!("{server_url}{SERVER_BASE_PATH}/snapshot_download/{filename}",);
                 let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
 
                 Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
@@ -230,7 +226,9 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::http_server::routes::artifact_routes::test_utils::*;
+    use crate::http_server::routes::router::RouterConfig;
     use crate::{
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
@@ -250,10 +248,8 @@ mod tests {
         test::request,
     };
 
-    use super::*;
-
     fn setup_router(
-        dependency_manager: Arc<DependencyContainer>,
+        state: RouterState,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
@@ -262,7 +258,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&dependency_manager).with(cors))
+            .and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -286,7 +282,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -317,7 +315,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -345,7 +345,9 @@ mod tests {
         request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(dependency_manager.clone()))
+            .reply(&setup_router(RouterState::new_with_dummy_config(
+                dependency_manager.clone(),
+            )))
             .await;
 
         assert_eq!(
@@ -381,7 +383,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -412,7 +416,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -443,7 +449,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -478,11 +486,18 @@ mod tests {
 
         let method = Method::GET.as_str();
         let path = "/artifact/snapshot/{digest}/download";
+        let server_url = "https://1.2.3.4:5552/".to_string();
 
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new(
+                Arc::new(dependency_manager),
+                RouterConfig {
+                    server_url: server_url.clone(),
+                    ..RouterConfig::dummy()
+                },
+            )))
             .await;
 
         assert_eq!(response.status(), StatusCode::FOUND);
@@ -490,8 +505,8 @@ mod tests {
             .unwrap()
             .to_string();
         assert!(
-            location.contains(&format!("/{SERVER_BASE_PATH}/snapshot_download/{network}")),
-            "Expected value '/{SERVER_BASE_PATH}/snapshot_download/testnet' not found in {location}",
+            location.contains(&format!("{server_url}{SERVER_BASE_PATH}/snapshot_download/{network}")),
+            "Expected value '{server_url}{SERVER_BASE_PATH}/snapshot_download/testnet' not found in {location}",
         );
     }
 
@@ -511,7 +526,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -542,7 +559,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(

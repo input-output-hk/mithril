@@ -7,21 +7,21 @@ use mithril_common::StdResult;
 
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::http_server::routes::middlewares;
-use crate::DependencyContainer;
+use crate::http_server::routes::router::RouterState;
 
 const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 
 pub fn routes(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    register_signer(dependency_manager)
-        .or(registered_signers(dependency_manager))
-        .or(signers_tickers(dependency_manager))
+    register_signer(router_state)
+        .or(registered_signers(router_state))
+        .or(signers_tickers(router_state))
 }
 
 /// POST /register-signer
 fn register_signer(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signer")
         .and(warp::post())
@@ -29,35 +29,37 @@ fn register_signer(
             MITHRIL_SIGNER_VERSION_HEADER,
         ))
         .and(warp::body::json())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_signer_registerer(dependency_manager))
-        .and(middlewares::with_event_transmitter(dependency_manager))
-        .and(middlewares::with_epoch_service(dependency_manager))
-        .and(middlewares::with_metrics_service(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_signer_registerer(router_state))
+        .and(middlewares::with_event_transmitter(router_state))
+        .and(middlewares::with_epoch_service(router_state))
+        .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::register_signer)
 }
 
 /// Get /signers/tickers
 fn signers_tickers(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "tickers")
         .and(warp::get())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_config(dependency_manager))
-        .and(middlewares::with_signer_getter(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.network.to_string()
+        }))
+        .and(middlewares::with_signer_getter(router_state))
         .and_then(handlers::signers_tickers)
 }
 
 /// Get /signers/registered/:epoch
 fn registered_signers(
-    dependency_manager: &DependencyContainer,
+    router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("signers" / "registered" / String)
         .and(warp::get())
-        .and(middlewares::with_logger(dependency_manager))
-        .and(middlewares::with_epoch_service(dependency_manager))
-        .and(middlewares::with_verification_key_store(dependency_manager))
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_epoch_service(router_state))
+        .and(middlewares::with_verification_key_store(router_state))
         .and_then(handlers::registered_signers)
 }
 
@@ -98,9 +100,7 @@ mod handlers {
     use crate::http_server::routes::signer_routes::{
         compute_registration_epoch, fetch_epoch_header_value,
     };
-    use crate::{
-        http_server::routes::reply, Configuration, SignerRegisterer, SignerRegistrationError,
-    };
+    use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use crate::{FromRegisterSignerAdapter, MetricsService, VerificationKeyStorer};
     use mithril_common::messages::{RegisterSignerMessage, TryFromMessageAdapter};
     use slog::{debug, warn, Logger};
@@ -233,11 +233,9 @@ mod handlers {
 
     pub async fn signers_tickers(
         logger: Logger,
-        configuration: Configuration,
+        network: String,
         signer_getter: Arc<dyn SignerGetter>,
     ) -> Result<impl warp::Reply, Infallible> {
-        let network = configuration.network;
-
         match signer_getter.get_all().await {
             Ok(signers) => {
                 let signers: Vec<_> = signers
@@ -296,7 +294,7 @@ mod tests {
     use super::*;
 
     fn setup_router(
-        dependency_manager: Arc<DependencyContainer>,
+        state: RouterState,
     ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
@@ -305,7 +303,7 @@ mod tests {
 
         warp::any()
             .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&dependency_manager).with(cors))
+            .and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -327,7 +325,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&signer)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -357,7 +357,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&RegisterSignerMessage::dummy())
-            .reply(&setup_router(dependency_manager.clone()))
+            .reply(&setup_router(RouterState::new_with_dummy_config(
+                dependency_manager.clone(),
+            )))
             .await;
 
         assert_eq!(
@@ -392,7 +394,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&signer)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -429,7 +433,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&signer)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -465,7 +471,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&signer)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -497,7 +505,9 @@ mod tests {
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .json(&signer)
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -531,7 +541,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{base_path}/{}", asked_epoch))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         assert!(
@@ -556,7 +568,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{base_path}/1"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -587,7 +601,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{base_path}/3"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -617,7 +633,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{base_path}/1"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -665,7 +683,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
@@ -696,7 +716,9 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
             .await;
 
         APISpec::verify_conformity(
