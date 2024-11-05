@@ -27,6 +27,7 @@ jobs:
     steps:
       - name: Prepare env variables
         id: set-env
+        shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             echo "total_releases=3" >> $GITHUB_OUTPUT
@@ -48,6 +49,7 @@ jobs:
       - name: Download releases artifacts binaries
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
         run: |
           ./.github/workflows/scripts/download-distribution-binaries.sh ${{ needs.prepare-env-variables.outputs.total_releases }}
 
@@ -57,6 +59,7 @@ jobs:
           toolchain: stable
 
       - name: Build e2e
+        shell: bash
         run: |
           cargo build --release --bin mithril-end-to-end
           cp ./target/release/mithril-end-to-end ./mithril-binaries/unstable
@@ -69,6 +72,7 @@ jobs:
 
       - name: Prepare test lab tags
         id: tags-test-lab
+        shell: bash
         run: |
           TAGS=$(jq -c '.' ./mithril-binaries/tags.json)
           echo "Test Lab Tags: $TAGS"
@@ -96,6 +100,7 @@ jobs:
           path: ./mithril-binaries
 
       - name: Prepare binaries
+        shell: bash
         run: |
           mkdir -p mithril-binaries/e2e
           cp ./mithril-binaries/unstable/* ./mithril-binaries/e2e
@@ -109,6 +114,7 @@ jobs:
           mkdir artifacts
 
       - name: Run E2E tests
+        shell: bash
         run: |
           ./mithril-binaries/e2e/mithril-end-to-end -vvv \
             --bin-directory ./mithril-binaries/e2e \
@@ -121,11 +127,13 @@ jobs:
           || (echo "SUCCESS=false" >> $GITHUB_ENV && exit 1)
 
       - name: Define the JSON file name for the test result
+        shell: bash
         if: success() || failure()
         run: echo "RESULT_FILE_NAME=e2e-test-result-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-tag_${{ matrix.tag }}-node-${{ matrix.node }}-cardano-${{ matrix.cardano_node_version }}-run_id_${{ matrix.run_id }}" >> $GITHUB_ENV
 
       - name: Write test result JSON
         if: success() || failure()
+        shell: bash
         run: |
           AGGREGATOR_TAG="unstable"
           SIGNER_TAG="unstable"
@@ -188,10 +196,12 @@ jobs:
           merge-multiple: true
 
       - name: Concatenate JSON result files into summary.json
+        shell: bash
         run: |
           jq -s '.' ./test-results/e2e-test-result-*.json > ./test-results/summary.json
 
       - name: Add distributions backward compatibility summary
+        shell: bash
         run: |
           CHECK_MARK=":heavy_check_mark:"
           CROSS_MARK=":no_entry:"
