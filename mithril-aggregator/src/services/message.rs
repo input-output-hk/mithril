@@ -243,32 +243,79 @@ impl MessageService for MithrilMessageService {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use mithril_common::entities::{
-        CardanoStakeDistribution, CardanoTransactionsSnapshot, Certificate, Epoch,
+        CardanoStakeDistribution, CardanoTransactionsSnapshot, Certificate,
         MithrilStakeDistribution, SignedEntity, SignedEntityType, Snapshot,
     };
     use mithril_common::messages::ToMessageAdapter;
-    use mithril_common::test_utils::MithrilFixtureBuilder;
+    use mithril_common::signable_builder::Artifact;
+    use mithril_common::test_utils::fake_data;
 
     use crate::database::record::SignedEntityRecord;
-    use crate::database::repository::MockSignedEntityStorer;
-    use crate::dependency_injection::DependenciesBuilder;
+    use crate::database::repository::SignedEntityStore;
+    use crate::database::test_helper::main_db_connection;
     use crate::message_adapters::{
         ToCardanoStakeDistributionListMessageAdapter, ToCardanoStakeDistributionMessageAdapter,
         ToCardanoTransactionListMessageAdapter, ToCardanoTransactionMessageAdapter,
         ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
         ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter,
     };
-    use crate::Configuration;
+
+    use super::*;
+
+    struct MessageServiceBuilder {
+        certificates: Vec<Certificate>,
+        signed_entity_records: Vec<SignedEntityRecord>,
+    }
+
+    impl MessageServiceBuilder {
+        fn new() -> Self {
+            Self {
+                certificates: Vec::new(),
+                signed_entity_records: Vec::new(),
+            }
+        }
+
+        fn with_certificates(mut self, certificates: &[Certificate]) -> Self {
+            self.certificates.extend_from_slice(certificates);
+            self
+        }
+
+        fn with_signed_entity_records(
+            mut self,
+            signed_entity_record: &[SignedEntityRecord],
+        ) -> Self {
+            self.signed_entity_records
+                .extend_from_slice(signed_entity_record);
+            self
+        }
+
+        async fn build(self) -> MithrilMessageService {
+            let connection = Arc::new(main_db_connection().unwrap());
+            let certificate_repository = CertificateRepository::new(connection.clone());
+            let signed_entity_store = SignedEntityStore::new(connection);
+
+            certificate_repository
+                .create_many_certificates(self.certificates)
+                .await
+                .unwrap();
+            for record in self.signed_entity_records {
+                signed_entity_store
+                    .store_signed_entity(&record)
+                    .await
+                    .unwrap();
+            }
+
+            MithrilMessageService::new(
+                Arc::new(certificate_repository),
+                Arc::new(signed_entity_store),
+            )
+        }
+    }
 
     #[tokio::test]
     async fn get_no_certificate() {
-        // setup
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let service = dep_builder.get_message_service().await.unwrap();
+        let service = MessageServiceBuilder::new().build().await;
 
         // test
         let certificate_hash = "whatever";
@@ -282,16 +329,11 @@ mod tests {
     #[tokio::test]
     async fn get_certificate() {
         // setup
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let repository = dep_builder.get_certificate_repository().await.unwrap();
-        let service = dep_builder.get_message_service().await.unwrap();
-        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let genesis_certificate = fixture.create_genesis_certificate("whatever", Epoch(2));
-        repository
-            .create_certificate(genesis_certificate.clone())
-            .await
-            .unwrap();
+        let genesis_certificate = fake_data::genesis_certificate("genesis_hash");
+        let service = MessageServiceBuilder::new()
+            .with_certificates(&[genesis_certificate.clone()])
+            .build()
+            .await;
 
         // test
         let certificate_message = service
@@ -304,21 +346,15 @@ mod tests {
 
     #[tokio::test]
     async fn get_last_certificates() {
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let repository = dep_builder.get_certificate_repository().await.unwrap();
-        let service = dep_builder.get_message_service().await.unwrap();
-        let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-
-        let certificates: Vec<Certificate> = [2, 3]
-            .into_iter()
-            .map(|epoch| fixture.create_genesis_certificate("whatever", Epoch(epoch)))
-            .collect();
+        let certificates = [
+            fake_data::genesis_certificate("certificate_1"),
+            fake_data::genesis_certificate("certificate_2"),
+        ];
+        let service = MessageServiceBuilder::new()
+            .with_certificates(&certificates.clone())
+            .build()
+            .await;
         let last_certificate_hash = certificates[1].hash.clone();
-        repository
-            .create_many_certificates(certificates.clone())
-            .await
-            .unwrap();
 
         // test
         let certificate_messages = service.get_certificate_list_message(5).await.unwrap();
@@ -329,9 +365,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_snapshot_not_exist() {
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let service = dep_builder.get_message_service().await.unwrap();
+        let service = MessageServiceBuilder::new().build().await;
         let snapshot = service.get_snapshot_message("whatever").await.unwrap();
 
         assert!(snapshot.is_none());
@@ -350,17 +384,13 @@ mod tests {
         let message = ToSnapshotMessageAdapter::adapt(entity);
 
         // setup
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_signed_entity()
-            .return_once(|_| Ok(Some(record)))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&[record.clone()])
+            .build()
+            .await;
+
         let response = service
-            .get_snapshot_message("whatever")
+            .get_snapshot_message(&record.signed_entity_id)
             .await
             .unwrap()
             .expect("A SnapshotMessage was expected.");
@@ -382,15 +412,11 @@ mod tests {
         let message = ToSnapshotListMessageAdapter::adapt(entities);
 
         // setup
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_last_signed_entities_by_type()
-            .return_once(|_, _| Ok(records))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&records)
+            .build()
+            .await;
+
         let response = service.get_snapshot_list_message(3).await.unwrap();
 
         assert_eq!(message, response);
@@ -407,17 +433,14 @@ mod tests {
             created_at: entity.created_at,
         };
         let message = ToMithrilStakeDistributionMessageAdapter::adapt(entity);
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_signed_entity()
-            .return_once(|_| Ok(Some(record)))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&[record.clone()])
+            .build()
+            .await;
+
         let response = service
-            .get_mithril_stake_distribution_message("whatever")
+            .get_mithril_stake_distribution_message(&record.signed_entity_id)
             .await
             .unwrap()
             .expect("A MithrilStakeDistributionMessage was expected.");
@@ -427,15 +450,8 @@ mod tests {
 
     #[tokio::test]
     async fn get_mithril_stake_distribution_not_exist() {
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_signed_entity()
-            .return_once(|_| Ok(None))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+        let service = MessageServiceBuilder::new().build().await;
+
         let response = service
             .get_mithril_stake_distribution_message("whatever")
             .await
@@ -455,15 +471,12 @@ mod tests {
             created_at: entity.created_at,
         }];
         let message = ToMithrilStakeDistributionListMessageAdapter::adapt(vec![entity]);
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_last_signed_entities_by_type()
-            .return_once(|_, _| Ok(records))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&records)
+            .build()
+            .await;
+
         let response = service
             .get_mithril_stake_distribution_list_message(10)
             .await
@@ -486,17 +499,14 @@ mod tests {
             created_at: entity.created_at,
         };
         let message = ToCardanoTransactionMessageAdapter::adapt(entity);
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_signed_entity()
-            .return_once(|_| Ok(Some(record)))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&[record.clone()])
+            .build()
+            .await;
+
         let response = service
-            .get_cardano_transaction_message("whatever")
+            .get_cardano_transaction_message(&record.signed_entity_id)
             .await
             .unwrap()
             .expect("A CardanoTransactionMessage was expected.");
@@ -506,15 +516,8 @@ mod tests {
 
     #[tokio::test]
     async fn get_cardano_transaction_not_exist() {
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_signed_entity()
-            .return_once(|_| Ok(None))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+        let service = MessageServiceBuilder::new().build().await;
+
         let response = service
             .get_cardano_transaction_message("whatever")
             .await
@@ -537,15 +540,12 @@ mod tests {
             created_at: entity.created_at,
         }];
         let message = ToCardanoTransactionListMessageAdapter::adapt(vec![entity]);
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_last_signed_entities_by_type()
-            .return_once(|_, _| Ok(records))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&records)
+            .build()
+            .await;
+
         let response = service
             .get_cardano_transaction_list_message(10)
             .await
@@ -565,17 +565,14 @@ mod tests {
             created_at: entity.created_at,
         };
         let message = ToCardanoStakeDistributionMessageAdapter::adapt(entity);
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_signed_entity()
-            .return_once(|_| Ok(Some(record)))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&[record.clone()])
+            .build()
+            .await;
+
         let response = service
-            .get_cardano_stake_distribution_message("whatever")
+            .get_cardano_stake_distribution_message(&record.signed_entity_id)
             .await
             .unwrap()
             .expect("A CardanoStakeDistributionMessage was expected.");
@@ -585,15 +582,8 @@ mod tests {
 
     #[tokio::test]
     async fn get_cardano_stake_distribution_not_exist() {
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_signed_entity()
-            .return_once(|_| Ok(None))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+        let service = MessageServiceBuilder::new().build().await;
+
         let response = service
             .get_cardano_stake_distribution_message("whatever")
             .await
@@ -613,17 +603,14 @@ mod tests {
             created_at: entity.created_at,
         };
         let message = ToCardanoStakeDistributionMessageAdapter::adapt(entity.clone());
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_cardano_stake_distribution_signed_entity_by_epoch()
-            .return_once(|_| Ok(Some(record)))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&[record.clone()])
+            .build()
+            .await;
+
         let response = service
-            .get_cardano_stake_distribution_message_by_epoch(Epoch(999))
+            .get_cardano_stake_distribution_message_by_epoch(record.signed_entity_type.get_epoch())
             .await
             .unwrap()
             .expect("A CardanoStakeDistributionMessage was expected.");
@@ -633,15 +620,8 @@ mod tests {
 
     #[tokio::test]
     async fn get_cardano_stake_distribution_by_epoch_not_exist() {
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_cardano_stake_distribution_signed_entity_by_epoch()
-            .return_once(|_| Ok(None))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+        let service = MessageServiceBuilder::new().build().await;
+
         let response = service
             .get_cardano_stake_distribution_message_by_epoch(Epoch(999))
             .await
@@ -661,15 +641,12 @@ mod tests {
             created_at: entity.created_at,
         }];
         let message = ToCardanoStakeDistributionListMessageAdapter::adapt(vec![entity]);
-        let configuration = Configuration::new_sample();
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-        let mut storer = MockSignedEntityStorer::new();
-        storer
-            .expect_get_last_signed_entities_by_type()
-            .return_once(|_, _| Ok(records))
-            .once();
-        dep_builder.signed_entity_storer = Some(Arc::new(storer));
-        let service = dep_builder.get_message_service().await.unwrap();
+
+        let service = MessageServiceBuilder::new()
+            .with_signed_entity_records(&records)
+            .build()
+            .await;
+
         let response = service
             .get_cardano_stake_distribution_list_message(10)
             .await

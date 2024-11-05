@@ -108,18 +108,20 @@ pub fn certificate_pending() -> entities::CertificatePending {
 }
 
 /// Fake Genesis Certificate
-pub fn genesis_certificate(certificate_hash: &str) -> entities::Certificate {
+pub fn genesis_certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificate {
     let multi_signature = fake_keys::genesis_signature()[1].to_string();
 
     entities::Certificate {
         previous_hash: String::new(),
         signature: CertificateSignature::GenesisSignature(multi_signature.try_into().unwrap()),
-        ..certificate(certificate_hash.to_string())
+        ..certificate(certificate_hash)
     }
 }
 
 /// Fake Certificate
-pub fn certificate(certificate_hash: String) -> entities::Certificate {
+pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificate {
+    let hash = certificate_hash.into();
+
     // Beacon
     let beacon = beacon();
 
@@ -160,7 +162,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     );
 
     // Certificate
-    let previous_hash = format!("{certificate_hash}0");
+    let previous_hash = format!("{hash}0");
     let aggregate_verification_key = fake_keys::aggregate_verification_key()[1]
         .try_into()
         .unwrap();
@@ -168,7 +170,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
         fake_keys::multi_signature()[0].try_into().unwrap();
 
     entities::Certificate {
-        hash: certificate_hash,
+        hash,
         previous_hash,
         epoch: beacon.epoch,
         metadata,
