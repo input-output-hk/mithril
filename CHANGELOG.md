@@ -9,20 +9,28 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-- **BREAKING** changes in Mithril client Lib, CLI, and WASM:
+- Crates versions:
 
-  - Remove deprecated `beacon` field from mithril certificates.
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2445.0] - UNRELEASED
+
+- **BREAKING** changes in Mithril client library, CLI, and WASM:
+
+  - Remove deprecated `beacon` field from Mithril certificates.
   - Clients from distribution [`2430`](#mithril-distribution-24300---2024-07-30) and above are compatible with this change.
 
-- Support for Prometheus metrics endpoint in aggregator
-
-- Fix an issue that caused unnecessary re-scan of the Cardano chain when importing transactions.
+- Support for Prometheus metrics endpoint in aggregator.
 
 - Support for stable Cardano stake distribution client library, CLI and WASM.
 
+- Support for `Cardano node` `10.1.2` in the signer and the aggregator.
+
 - Deprecate `protocol` and `next_protocol` in favor of `signer_registration_protocol` in the `/epoch-settings` route.
 
-- Support for `Cardano node` `10.1.2` in the signer and the aggregator.
+- Fix an issue that caused unnecessary re-scan of the Cardano chain when importing transactions.
 
 - Crates versions:
 
