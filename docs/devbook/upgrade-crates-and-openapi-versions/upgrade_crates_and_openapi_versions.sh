@@ -106,7 +106,7 @@ else
 
   if [ true = $COMMIT ]
   then
-    git add $OPEN_API_FILE Cargo.lock ./*/Cargo.toml ./internal/*/Cargo.toml ./mithril-test-lab/*/Cargo.toml
+    git add --update $OPEN_API_FILE Cargo.lock ./*/Cargo.toml ./internal/*/Cargo.toml ./mithril-test-lab/*/Cargo.toml
     git commit -m "$COMMIT_MESSAGE"
   fi
 fi
