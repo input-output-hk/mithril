@@ -13,6 +13,7 @@ git commit -am "chore: update Rust dependencies"
 
 # Upgrade Rust outdated dependencies
 cargo upgrade "${CARGO_UPGRADE_OPTIONS}" --verbose
+cargo update
 # Let the CI run the tests at the end of the script
 # cargo test --all-features
 git commit -am "chore: upgrade Rust dependencies"
@@ -20,6 +21,11 @@ git commit -am "chore: upgrade Rust dependencies"
 # Bump Rust crates versions
 cargo set-version --bump patch
 git commit -am "chore: bump crates versions"
+
+# Build mithril-client wasm (to have latest version used in the explorer)
+pushd mithril-client-wasm || exit
+make build
+popd || exit
 
 # Upgrade the documentation website dependencies
 pushd docs/website || exit
