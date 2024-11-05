@@ -93,7 +93,7 @@ impl UsageReporter {
         period: Duration,
         date: DateTime<Utc>,
     ) -> EventMessage {
-        EventMessage::create(
+        EventMessage::new(
             "Metrics",
             &name.clone(),
             &MetricEventMessage {

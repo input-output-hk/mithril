@@ -42,7 +42,7 @@ mod tests {
         let connection = Arc::new(event_store_db_connection().unwrap());
 
         let persister = EventPersister::new(connection);
-        let message = EventMessage::new("source", "action", serde_json::json!("content"));
+        let message = EventMessage::new("source", "action", &"content".to_string(), Vec::new());
 
         let _event = persister.persist(message)?;
         Ok(())
@@ -53,7 +53,7 @@ mod tests {
         let connection = Arc::new(event_store_db_connection().unwrap());
 
         let persister = EventPersister::new(connection);
-        let message = EventMessage::new("source", "action", serde_json::json!("content"));
+        let message = EventMessage::new("source", "action", &"content".to_string(), Vec::new());
 
         let _event = persister.persist(message)?;
         Ok(())

@@ -50,7 +50,7 @@ impl TransmitterService<EventMessage> {
     where
         T: Serialize,
     {
-        let message = EventMessage::create(source, action, content, headers);
+        let message = EventMessage::new(source, action, content, headers);
         self.send(message)
     }
 

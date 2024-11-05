@@ -26,16 +26,7 @@ pub struct EventMessage {
 
 impl EventMessage {
     /// Instantiate a new EventMessage.
-    pub fn new(source: &str, action: &str, content: serde_json::Value) -> Self {
-        Self {
-            source: source.to_string(),
-            action: action.to_string(),
-            content,
-            headers: HashMap::new(),
-        }
-    }
-
-    pub fn create<T>(source: &str, action: &str, content: &T, headers: Vec<(&str, &str)>) -> Self
+    pub fn new<T>(source: &str, action: &str, content: &T, headers: Vec<(&str, &str)>) -> Self
     where
         T: Serialize,
     {
@@ -68,7 +59,7 @@ impl EventMessage {
             headers.push(("epoch", epoch_str));
         }
 
-        Self::create::<SignerWithStake>(source, "register_signer", signer_with_stake, headers)
+        Self::new::<SignerWithStake>(source, "register_signer", signer_with_stake, headers)
     }
 }
 
