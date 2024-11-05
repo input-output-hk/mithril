@@ -3,7 +3,7 @@ use slog::{warn, Logger};
 use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
 
-use mithril_common::logging::LoggerExtensions;
+use mithril_common::{entities::SignerWithStake, logging::LoggerExtensions};
 
 use super::EventMessage;
 
@@ -68,5 +68,30 @@ impl TransmitterService<EventMessage> {
 
             error_msg
         })
+    }
+
+    /// Send signer registration event.
+    pub fn send_signer_registration_event(
+        &self,
+        source: &str,
+        signer_with_stake: &SignerWithStake,
+        signer_node_version: Option<String>,
+        epoch_str: &str,
+    ) -> Result<(), String> {
+        let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
+            Some(version) => vec![("signer-node-version", version)],
+            None => Vec::new(),
+        };
+
+        if !epoch_str.is_empty() {
+            headers.push(("epoch", epoch_str));
+        }
+
+        self.send_event_message::<SignerWithStake>(
+            source,
+            "register_signer",
+            signer_with_stake,
+            headers,
+        )
     }
 }

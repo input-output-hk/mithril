@@ -153,7 +153,6 @@ mod tests {
         use crate::event_store::{
             database::test_helper::event_store_db_connection, TransmitterService,
         };
-        use crate::http_server::routes::signer_routes;
         use crate::test_tools::TestLogger;
         use mithril_common::entities::Stake;
         use mithril_common::{entities::SignerWithStake, test_utils::fake_data, StdResult};
@@ -179,8 +178,8 @@ mod tests {
                 ..signers[0].clone()
             };
 
-            let _ = signer_routes::handlers::send_registration_event(
-                &transmitter_service,
+            let _ = transmitter_service.send_signer_registration_event(
+                "Test",
                 &signer,
                 Some(signer_node_version.to_string()),
                 epoch,
