@@ -4,12 +4,12 @@
 
 In order to set the epoch of Era changes, it is required to know the
 distribution of the stakes that run a compatible Signer node. There is a SQL
-query for that.
+view for that.
 
 ```sh
 $> sqlite3 -table -batch \
        $DATA_STORES_DIRECTORY/monitoring.sqlite3 \
-       <  stake_signer_version.sql
+        `select epoch, version, total_epoch_stakes, stakes_version, stakes_ratio, pool_count from signer_registration_summary;`
 ```
 
 The variable `$DATA_STORES_DIRECTORY` should point to the directory where the

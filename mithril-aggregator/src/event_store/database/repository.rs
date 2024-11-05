@@ -146,4 +146,182 @@ mod tests {
             assert!(result.contains(&("2024-10-30".to_string(), "metric_1".to_string(), 16)));
         }
     }
+
+    mod signer_registration_summary {
+        use std::sync::Arc;
+
+        use crate::event_store::{
+            database::test_helper::event_store_db_connection, TransmitterService,
+        };
+        use crate::test_tools::TestLogger;
+        use mithril_common::entities::Stake;
+        use mithril_common::{entities::SignerWithStake, test_utils::fake_data, StdResult};
+        use sqlite::ConnectionThreadSafe;
+
+        use super::{EventMessage, EventPersister};
+
+        /// Insert a signer registration event in the database.
+        fn insert_registration_event(
+            persister: &EventPersister,
+            epoch: &str,
+            party_id: &str,
+            stake: Stake,
+            signer_node_version: &str,
+        ) {
+            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
+            let transmitter_service = Arc::new(TransmitterService::new(tx, TestLogger::stdout()));
+
+            let signers = fake_data::signers_with_stakes(1);
+            let signer = SignerWithStake {
+                party_id: party_id.to_string(),
+                stake,
+                ..signers[0].clone()
+            };
+
+            let _ = transmitter_service.send_signer_registration_event(
+                "Test",
+                &signer,
+                Some(signer_node_version.to_string()),
+                epoch,
+            );
+
+            let message: EventMessage = rx.try_recv().unwrap();
+
+            let _event = persister.persist(message).unwrap();
+        }
+
+        #[derive(PartialEq)]
+        struct StakeSignerVersion {
+            epoch: i64,
+            version: String,
+            total_epoch_stakes: i64,
+            stakes_version: i64,
+            stakes_ratio: String,
+            pool_count: i64,
+        }
+        impl StakeSignerVersion {
+            fn new(
+                epoch: i64,
+                version: &str,
+                total_epoch_stakes: i64,
+                stakes_version: i64,
+                stakes_ratio: &str,
+                pool_count: i64,
+            ) -> Self {
+                Self {
+                    epoch,
+                    version: version.to_string(),
+                    total_epoch_stakes,
+                    stakes_version,
+                    stakes_ratio: stakes_ratio.to_string(),
+                    pool_count,
+                }
+            }
+        }
+
+        fn get_all_registrations(
+            connection: Arc<ConnectionThreadSafe>,
+        ) -> StdResult<Vec<StakeSignerVersion>> {
+            let query = "select
+                    epoch,
+                    version,
+                    total_epoch_stakes,
+                    stakes_version,
+                    stakes_ratio,
+                    pool_count 
+                from signer_registration_summary;";
+            let mut statement = connection.prepare(query)?;
+            let mut result = Vec::new();
+            while let Ok(sqlite::State::Row) = statement.next() {
+                result.push(StakeSignerVersion::new(
+                    statement.read::<i64, _>("epoch")?,
+                    &statement.read::<String, _>("version")?,
+                    statement.read::<i64, _>("total_epoch_stakes")?,
+                    statement.read::<i64, _>("stakes_version")?,
+                    &statement.read::<String, _>("stakes_ratio")?,
+                    statement.read::<i64, _>("pool_count")?,
+                ));
+            }
+
+            Ok(result)
+        }
+
+        #[test]
+        fn retrieved_node_version() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "3", "A", 15, "0.2.234");
+            insert_registration_event(&persister, "4", "A", 15, "15.24.32");
+            insert_registration_event(&persister, "5", "A", 15, "0.4.789+ef0c28a");
+
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&StakeSignerVersion::new(3, "0.2.234", 15, 15, "100 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(4, "15.24.32", 15, 15, "100 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(5, "0.4.789", 15, 15, "100 %", 1)));
+        }
+
+        #[test]
+        fn retrieved_total_by_epoch() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "8", "A", 20, "1.0.2");
+            insert_registration_event(&persister, "8", "B", 15, "1.0.2");
+            insert_registration_event(&persister, "9", "A", 56, "1.0.2");
+            insert_registration_event(&persister, "9", "B", 31, "1.0.2");
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.2", 35, 35, "100 %", 2)));
+            assert!(result.contains(&StakeSignerVersion::new(9, "1.0.2", 87, 87, "100 %", 2)));
+        }
+
+        #[test]
+        fn retrieved_percentage_per_version() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "8", "A", 90, "1.0.2");
+            insert_registration_event(&persister, "8", "B", 30, "1.0.2");
+            insert_registration_event(&persister, "8", "C", 80, "1.0.4");
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.2", 200, 120, "60 %", 2)));
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.4", 200, 80, "40 %", 1)));
+        }
+
+        #[test]
+        fn retrieved_percentage_per_epoch() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "8", "A", 6, "1.0.2");
+            insert_registration_event(&persister, "8", "B", 4, "1.0.4");
+            insert_registration_event(&persister, "9", "A", 28, "1.0.2");
+            insert_registration_event(&persister, "9", "B", 12, "1.0.4");
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.2", 10, 6, "60 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.4", 10, 4, "40 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(9, "1.0.2", 40, 28, "70 %", 1)));
+            assert!(result.contains(&StakeSignerVersion::new(9, "1.0.4", 40, 12, "30 %", 1)));
+        }
+
+        #[test]
+        fn with_multi_registrations_for_an_epoch_only_the_last_recorded_one_is_retained() {
+            let connection = Arc::new(event_store_db_connection().unwrap());
+            let persister = EventPersister::new(connection.clone());
+
+            insert_registration_event(&persister, "8", "A", 6, "1.0.2");
+            insert_registration_event(&persister, "8", "A", 8, "1.0.2");
+            insert_registration_event(&persister, "8", "A", 10, "1.0.4");
+            insert_registration_event(&persister, "8", "A", 7, "1.0.3");
+
+            let result = get_all_registrations(connection).unwrap();
+
+            assert!(result.contains(&StakeSignerVersion::new(8, "1.0.3", 7, 7, "100 %", 1)));
+            assert!(result.len() == 1);
+        }
+    }
 }

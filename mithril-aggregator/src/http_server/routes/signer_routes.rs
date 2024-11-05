@@ -137,37 +137,30 @@ mod handlers {
             }
         };
 
-        let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
-            Some(version) => vec![("signer-node-version", version)],
-            None => Vec::new(),
-        };
-
         let epoch_str = fetch_epoch_header_value(epoch_service, &logger).await;
-        if !epoch_str.is_empty() {
-            headers.push(("epoch", epoch_str.as_str()));
-        }
 
         match signer_registerer
             .register_signer(registration_epoch, &signer)
             .await
         {
             Ok(signer_with_stake) => {
-                let _ = event_transmitter.send_event_message(
+                let _ = event_transmitter.send_signer_registration_event(
                     "HTTP::signer_register",
-                    "register_signer",
                     &signer_with_stake,
-                    headers,
+                    signer_node_version,
+                    epoch_str.as_str(),
                 );
 
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::ExistingSigner(signer_with_stake)) => {
                 debug!(logger, "register_signer::already_registered");
-                let _ = event_transmitter.send_event_message(
+
+                let _ = event_transmitter.send_signer_registration_event(
                     "HTTP::signer_register",
-                    "register_signer",
                     &signer_with_stake,
-                    headers,
+                    signer_node_version,
+                    epoch_str.as_str(),
                 );
                 Ok(reply::empty(StatusCode::CREATED))
             }
