@@ -193,7 +193,7 @@ jobs:
 
   summarize-test-results:
     runs-on: ubuntu-22.04
-    needs: [e2e]
+    needs: [prepare-env-variables, e2e]
     if: success() || failure()
 
     steps:
@@ -219,6 +219,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "This is the compatibility report of previous distributions nodes with the current unstable nodes." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "**Signed entity types**: ${{ needs.prepare-env-variables.outputs.signed-entity-types }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Cardano nodes**: ${{ needs.prepare-env-variables.outputs.cardano_node_version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "| Compatibility | mithril-signer | mithril-aggregator | mithril-client |" >> $GITHUB_STEP_SUMMARY
