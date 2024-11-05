@@ -17,6 +17,11 @@ on:
         required: true
         type: string
         default: "10.1.2"
+      signed-entity-types:
+        description: "Signed entity types parameters (discriminants names in an ordered comma separated list)"
+        required: true
+        type: string
+        default: "CardanoTransactions,CardanoStakeDistribution"
 
 jobs:
   prepare-env-variables:
@@ -24,6 +29,7 @@ jobs:
     outputs:
       total_releases: ${{ steps.set-env.outputs.total_releases }}
       cardano_node_version: ${{ steps.set-env.outputs.cardano_node_version }}
+      signed-entity-types: ${{ steps.set-env.outputs.signed-entity-types }}
     steps:
       - name: Prepare env variables
         id: set-env
@@ -32,9 +38,11 @@ jobs:
           if [[ "${{ github.event_name }}" == "schedule" ]]; then
             echo "total_releases=3" >> $GITHUB_OUTPUT
             echo 'cardano_node_version=["10.1.2"]' >> $GITHUB_OUTPUT
+            echo 'signed-entity-types=CardanoTransactions,CardanoStakeDistribution' >> $GITHUB_OUTPUT
           else
             echo "total_releases=${{ inputs.total-releases }}" >> $GITHUB_OUTPUT
             echo "cardano_node_version=[\"${{ inputs.cardano-node-version }}\"]" >> $GITHUB_OUTPUT
+            echo 'signed-entity-types=${{ inputs.signed-entity-types }}' >> $GITHUB_OUTPUT
           fi
 
   prepare-binaries:
@@ -123,6 +131,7 @@ jobs:
             --cardano-node-version ${{ matrix.cardano_node_version }} \
             --cardano-slot-length 0.25 \
             --cardano-epoch-length 45.0 \
+            --signed-entity-types ${{ needs.prepare-env-variables.outputs.signed-entity-types }} \
           && echo "SUCCESS=true" >> $GITHUB_ENV \
           || (echo "SUCCESS=false" >> $GITHUB_ENV && exit 1)
 
@@ -184,7 +193,7 @@ jobs:
 
   summarize-test-results:
     runs-on: ubuntu-22.04
-    needs: [e2e]
+    needs: [prepare-env-variables, e2e]
     if: success() || failure()
 
     steps:
@@ -210,6 +219,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "This is the compatibility report of previous distributions nodes with the current unstable nodes." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "**Signed entity types**: ${{ needs.prepare-env-variables.outputs.signed-entity-types }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Cardano nodes**: ${{ needs.prepare-env-variables.outputs.cardano_node_version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "| Compatibility | mithril-signer | mithril-aggregator | mithril-client |" >> $GITHUB_STEP_SUMMARY
