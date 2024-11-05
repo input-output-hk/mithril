@@ -33,6 +33,9 @@ pub trait ChainObserver: Sync + Send {
         address: &ChainAddress,
     ) -> Result<Vec<TxDatum>, ChainObserverError>;
 
+    /// Retrieve the current era of the Cardano network
+    async fn get_current_era(&self) -> Result<Option<String>, ChainObserverError>;
+
     /// Retrieve the current epoch of the Cardano network
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError>;
 

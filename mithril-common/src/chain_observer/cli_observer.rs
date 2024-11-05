@@ -29,6 +29,8 @@ pub trait CliRunner {
     async fn launch_stake_snapshot(&self, stake_pool_id: &str) -> StdResult<String>;
     /// Launches the stake snapshot for all pools.
     async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String>;
+    /// Launches the era info.
+    async fn launch_era(&self) -> StdResult<String>;
     /// Launches the epoch info.
     async fn launch_epoch(&self) -> StdResult<String>;
     /// Launches the chain point.
@@ -111,6 +113,14 @@ impl CardanoCliRunner {
             .arg("query")
             .arg("stake-snapshot")
             .arg("--all-stake-pools");
+        self.post_config_command(&mut command);
+
+        command
+    }
+
+    fn command_for_era(&self) -> Command {
+        let mut command = self.get_command();
+        command.arg(CARDANO_ERA).arg("query").arg("tip");
         self.post_config_command(&mut command);
 
         command
@@ -238,6 +248,22 @@ impl CliRunner for CardanoCliRunner {
             Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_stake_snapshot_all_pools(),
+                message
+            ))
+        }
+    }
+
+    async fn launch_era(&self) -> StdResult<String> {
+        let output = self.command_for_era().output().await?;
+
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
+            Err(anyhow!(
+                "Error launching command {:?}, error = '{}'",
+                self.command_for_era(),
                 message
             ))
         }
@@ -425,6 +451,23 @@ impl CardanoCliChainObserver {
 
 #[async_trait]
 impl ChainObserver for CardanoCliChainObserver {
+    async fn get_current_era(&self) -> Result<Option<String>, ChainObserverError> {
+        let output = self
+            .cli_runner
+            .launch_era()
+            .await
+            .map_err(ChainObserverError::General)?;
+        let v: Value = serde_json::from_str(&output)
+            .with_context(|| format!("output was = '{output}'"))
+            .map_err(ChainObserverError::InvalidContent)?;
+
+        if let Value::String(era) = &v["era"] {
+            Ok(Some(era.to_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         let output = self
             .cli_runner
@@ -532,6 +575,14 @@ mod tests {
     use crate::{chain_observer::test_cli_runner::TestCliRunner, crypto_helper::ColdKeyGenerator};
 
     use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
+
+    #[tokio::test]
+    async fn test_get_current_era() {
+        let observer = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
+        let era = observer.get_current_era().await.unwrap().unwrap();
+
+        assert_eq!("Conway".to_string(), era);
+    }
 
     #[tokio::test]
     async fn test_get_current_epoch() {

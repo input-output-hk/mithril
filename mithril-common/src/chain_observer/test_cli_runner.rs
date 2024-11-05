@@ -154,6 +154,21 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         }
     }
 
+    /// launches the era info.
+    async fn launch_era(&self) -> StdResult<String> {
+        let output = r#"
+    {
+        "era": "Conway",
+        "syncProgress": "100.00",
+        "hash": "f6d1b8c328697c7a4a8e7f718c79510acbcd411ff4ca19401ded13534d45a38d",
+        "epoch": 735,
+        "slot": 0,
+        "block": 0
+    }"#;
+
+        Ok(output.to_string())
+    }
+
     /// launches the epoch info.
     async fn launch_epoch(&self) -> StdResult<String> {
         let output = r#"
