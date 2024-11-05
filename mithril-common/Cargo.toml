@@ -1,6 +1,6 @@
 [package]
 name = "mithril-common"
-version = "0.4.77"
+version = "0.4.78"
 description = "Common types, interfaces, and utilities for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -30,7 +30,7 @@ name = "merkle_map"
 harness = false
 
 [dependencies]
-anyhow = "1.0.89"
+anyhow = "1.0.92"
 async-trait = "0.1.83"
 bech32 = "0.11.0"
 blake2 = "0.10.6"
@@ -42,7 +42,7 @@ ed25519-dalek = { version = "2.1.1", features = ["rand_core", "serde"] }
 fixed = "1.28.0"
 glob = { version = "0.3.1", optional = true }
 hex = "0.4.3"
-jsonschema = { version = "0.23.0", optional = true }
+jsonschema = { version = "0.26.1", optional = true }
 kes-summed-ed25519 = { version = "0.2.1", features = [
     "serde_enabled",
     "sk_clone_enabled",
@@ -58,18 +58,18 @@ pallas-traverse = { version = "0.30.2", optional = true }
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 rayon = "1.10.0"
-reqwest = { version = "0.12.8", optional = true }
+reqwest = { version = "0.12.9", optional = true }
 semver = "1.0.23"
-serde = { version = "1.0.210", features = ["derive"] }
+serde = { version = "1.0.214", features = ["derive"] }
 serde_bytes = "0.11.15"
-serde_json = "1.0.128"
+serde_json = "1.0.132"
 serde_with = "3.11.0"
 serde_yaml = "0.9.34"
 sha2 = "0.10.8"
 slog = "2.7.0"
 strum = { version = "0.26.3", features = ["derive"] }
-thiserror = "1.0.64"
-tokio = { version = "1.40.0", features = ["io-util", "rt", "sync"] }
+thiserror = "1.0.67"
+tokio = { version = "1.41.0", features = ["io-util", "rt", "sync"] }
 typetag = "0.2.18"
 walkdir = "2.5.0"
 warp = { version = "0.3.7", optional = true }
@@ -82,10 +82,10 @@ criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 mockall = "0.13.0"
 pallas-crypto = "0.30.2"
 rand_core = { version = "0.6.4", features = ["getrandom"] }
-reqwest = { version = "0.12.8", features = ["json"] }
+reqwest = { version = "0.12.9", features = ["json"] }
 slog-async = "2.8.0"
 slog-term = "2.9.1"
-tokio = { version = "1.40.0", features = ["macros", "rt-multi-thread", "time"] }
+tokio = { version = "1.41.0", features = ["macros", "rt-multi-thread", "time"] }
 
 [build-dependencies]
 mithril-build-script = { path = "../internal/mithril-build-script", version = "=0.2" }

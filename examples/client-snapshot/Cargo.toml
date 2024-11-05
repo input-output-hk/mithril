@@ -1,7 +1,7 @@
 [package]
 name = "client-snapshot"
 description = "Mithril client snapshot example"
-version = "0.1.17"
+version = "0.1.18"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
@@ -10,10 +10,10 @@ license = "Apache-2.0"
 repository = "https://github.com/input-output-hk/mithril/"
 
 [dependencies]
-anyhow = "1.0.89"
+anyhow = "1.0.92"
 async-trait = "0.1.83"
 clap = { version = "4.5.20", features = ["derive", "env"] }
 futures = "0.3.31"
 indicatif = "0.17.8"
 mithril-client = { path = "../../mithril-client", features = ["fs"] }
-tokio = { version = "1.40.0", features = ["full"] }
+tokio = { version = "1.41.0", features = ["full"] }

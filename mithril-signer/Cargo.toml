@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.207"
+version = "0.2.208"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -14,26 +14,26 @@ name = "mktree_store_sqlite"
 harness = false
 
 [dependencies]
-anyhow = "1.0.89"
+anyhow = "1.0.92"
 async-trait = "0.1.83"
 axum = "0.7.7"
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.20", features = ["derive", "env"] }
-config = "0.14.0"
+config = "0.14.1"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
-openssl = { version = "0.10.66", features = ["vendored"], optional = true }
+openssl = { version = "0.10.68", features = ["vendored"], optional = true }
 openssl-probe = { version = "0.1.5", optional = true }
 paste = "1.0.15"
 prometheus = "0.13.4"
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
-reqwest = { version = "0.12.8", features = ["json", "stream"] }
-serde = { version = "1.0.210", features = ["derive"] }
-serde_json = "1.0.128"
+reqwest = { version = "0.12.9", features = ["json", "stream"] }
+serde = { version = "1.0.214", features = ["derive"] }
+serde_json = "1.0.132"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_debug",
@@ -41,8 +41,8 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
-thiserror = "1.0.64"
-tokio = { version = "1.40.0", features = ["full"] }
+thiserror = "1.0.67"
+tokio = { version = "1.41.0", features = ["full"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
 tikv-jemallocator = { version = "0.6.0", optional = true }
