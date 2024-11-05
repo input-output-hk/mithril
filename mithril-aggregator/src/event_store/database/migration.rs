@@ -39,11 +39,12 @@ create index metric_date_index on event(date(json_extract(content, '$.content.da
 create view stake_signer_version as with
   signer_version as (
     select
-       content->>'$.content.party_id' as party_id,
-       content->>'$.headers.signer-node-version' as node_version,
-       content->>'$.headers.epoch' as epoch,
-       content->>'$.content.stake' as stakes
+      json_extract(content, '$.content.party_id') as party_id,
+      json_extract(content, '$.headers.signer-node-version') as node_version,
+      json_extract(content, '$.headers.epoch') as epoch,
+      json_extract(content, '$.content.stake') as stakes
     from event
+    where action='register_signer'
     order by created_at desc
   ),
   stakes_version as (
