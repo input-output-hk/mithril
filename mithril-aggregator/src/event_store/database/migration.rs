@@ -36,7 +36,7 @@ create index metric_date_index on event(date(json_extract(content, '$.content.da
         SqlMigration::new(
             3,
             r#"
-create view stake_signer_version as with
+create view signer_registration_summary as with
   signer_version as (
     select
       json_extract(content, '$.content.party_id') as party_id,

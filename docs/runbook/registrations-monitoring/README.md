@@ -9,7 +9,7 @@ view for that.
 ```sh
 $> sqlite3 -table -batch \
        $DATA_STORES_DIRECTORY/monitoring.sqlite3 \
-        `select epoch, version, total_epoch_stakes, stakes_version, stakes_ratio, pool_count from stake_signer_version;`
+        `select epoch, version, total_epoch_stakes, stakes_version, stakes_ratio, pool_count from signer_registration_summary;`
 ```
 
 The variable `$DATA_STORES_DIRECTORY` should point to the directory where the

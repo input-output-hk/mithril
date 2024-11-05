@@ -147,7 +147,7 @@ mod tests {
         }
     }
 
-    mod stake_signer_version {
+    mod signer_registration_summary {
         use std::sync::Arc;
 
         use crate::event_store::{
@@ -229,7 +229,7 @@ mod tests {
                     stakes_version,
                     stakes_ratio,
                     pool_count 
-                from stake_signer_version;";
+                from signer_registration_summary;";
             let mut statement = connection.prepare(query)?;
             let mut result = Vec::new();
             while let Ok(sqlite::State::Row) = statement.next() {
