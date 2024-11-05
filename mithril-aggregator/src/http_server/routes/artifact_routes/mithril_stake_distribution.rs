@@ -91,26 +91,21 @@ pub mod handlers {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::http_server::routes::artifact_routes::test_utils::*;
-    use crate::{
-        http_server::SERVER_BASE_PATH,
-        initialize_dependencies,
-        message_adapters::{
-            ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
-        },
-        services::MockMessageService,
-    };
-    use mithril_common::{
-        entities::{Epoch, SignedEntityType},
-        messages::ToMessageAdapter,
-        test_utils::{apispec::APISpec, fake_data},
-    };
-    use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
     use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
+    };
+
+    use mithril_common::messages::{
+        MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
+    };
+    use mithril_common::test_utils::apispec::APISpec;
+    use mithril_persistence::sqlite::HydrationError;
+
+    use crate::{
+        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockMessageService,
     };
 
     use super::*;
@@ -130,15 +125,10 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distributions_get_ok() {
-        let signed_entity_records = create_signed_entities(
-            SignedEntityType::MithrilStakeDistribution(Epoch::default()),
-            fake_data::mithril_stake_distributions(5),
-        );
-        let message = ToMithrilStakeDistributionListMessageAdapter::adapt(signed_entity_records);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_list_message()
-            .return_once(|_| Ok(message))
+            .return_once(|_| Ok(vec![MithrilStakeDistributionListItemMessage::dummy()]))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
@@ -229,18 +219,10 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_get_ok() {
-        let signed_entity = create_signed_entities(
-            SignedEntityType::MithrilStakeDistribution(Epoch::default()),
-            fake_data::mithril_stake_distributions(1),
-        )
-        .first()
-        .unwrap()
-        .to_owned();
-        let message = ToMithrilStakeDistributionMessageAdapter::adapt(signed_entity);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_mithril_stake_distribution_message()
-            .return_once(|_| Ok(Some(message)))
+            .return_once(|_| Ok(Some(MithrilStakeDistributionMessage::dummy())))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);

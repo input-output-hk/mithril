@@ -91,26 +91,21 @@ pub mod handlers {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::http_server::routes::artifact_routes::test_utils::*;
-    use crate::{
-        http_server::SERVER_BASE_PATH,
-        initialize_dependencies,
-        message_adapters::{
-            ToCardanoTransactionListMessageAdapter, ToCardanoTransactionMessageAdapter,
-        },
-        services::MockMessageService,
-    };
-    use mithril_common::{
-        entities::{BlockNumber, Epoch, SignedEntityType},
-        messages::ToMessageAdapter,
-        test_utils::{apispec::APISpec, fake_data},
-    };
-    use mithril_persistence::sqlite::HydrationError;
     use serde_json::Value::Null;
     use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
+    };
+
+    use mithril_common::messages::{
+        CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
+    };
+    use mithril_common::test_utils::apispec::APISpec;
+    use mithril_persistence::sqlite::HydrationError;
+
+    use crate::{
+        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockMessageService,
     };
 
     use super::*;
@@ -130,15 +125,10 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_cardano_transactions_get_ok() {
-        let signed_entity_records = create_signed_entities(
-            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(120)),
-            fake_data::cardano_transactions_snapshot(5),
-        );
-        let message = ToCardanoTransactionListMessageAdapter::adapt(signed_entity_records);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_transaction_list_message()
-            .return_once(|_| Ok(message))
+            .return_once(|_| Ok(vec![CardanoTransactionSnapshotListItemMessage::dummy()]))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
@@ -229,18 +219,10 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_cardano_transaction_get_ok() {
-        let signed_entity = create_signed_entities(
-            SignedEntityType::CardanoTransactions(Epoch(1), BlockNumber(100)),
-            fake_data::cardano_transactions_snapshot(1),
-        )
-        .first()
-        .unwrap()
-        .to_owned();
-        let message = ToCardanoTransactionMessageAdapter::adapt(signed_entity);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_transaction_message()
-            .return_once(|_| Ok(Some(message)))
+            .return_once(|_| Ok(Some(CardanoTransactionSnapshotMessage::dummy())))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
