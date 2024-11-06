@@ -103,6 +103,18 @@ impl Display for CardanoNetwork {
     }
 }
 
+impl From<CardanoNetwork> for String {
+    fn from(network: CardanoNetwork) -> Self {
+        network.to_string()
+    }
+}
+
+impl From<&CardanoNetwork> for String {
+    fn from(network: &CardanoNetwork) -> Self {
+        network.to_string()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -221,5 +233,22 @@ mod tests {
             .compute_allow_unparsable_block(true)
             .unwrap();
         assert!(allow_unparsable_block);
+    }
+
+    #[test]
+    fn network_to_string() {
+        fn assert_all_conversions_eq(network: CardanoNetwork, expected: &str) {
+            assert_eq!(network.to_string(), expected);
+            assert_eq!(String::from(network), expected);
+            assert_eq!(String::from(&network), expected);
+        }
+
+        assert_all_conversions_eq(CardanoNetwork::MainNet, "mainnet");
+        assert_all_conversions_eq(CardanoNetwork::DevNet(123456), "devnet");
+        assert_all_conversions_eq(CardanoNetwork::TestNet(TESTNET_MAGIC_ID), "testnet");
+        assert_all_conversions_eq(CardanoNetwork::TestNet(PREVIEW_MAGIC_ID), "preview");
+        assert_all_conversions_eq(CardanoNetwork::TestNet(PREPROD_MAGIC_ID), "preprod");
+        assert_all_conversions_eq(CardanoNetwork::TestNet(SANCHONET_MAGIC_ID), "sanchonet");
+        assert_all_conversions_eq(CardanoNetwork::TestNet(123456), "private");
     }
 }

@@ -284,7 +284,7 @@ impl CertifierService for MithrilCertifierService {
         let initiated_at = open_message.created_at;
         let sealed_at = Utc::now();
         let metadata = CertificateMetadata::new(
-            self.network.to_string(),
+            self.network,
             protocol_version,
             epoch_service.current_protocol_parameters()?.clone(),
             initiated_at,
@@ -715,7 +715,7 @@ mod tests {
     #[tokio::test]
     async fn should_create_certificate_when_multi_signature_produced() {
         let network = fake_data::network();
-        let beacon = CardanoDbBeacon::new(network.to_string(), 3, 1);
+        let beacon = CardanoDbBeacon::new(network, 3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
         let protocol_message = ProtocolMessage::new();
         let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
@@ -733,8 +733,7 @@ mod tests {
             .await
             .unwrap();
 
-        let genesis_certificate =
-            fixture.create_genesis_certificate(network.to_string(), beacon.epoch - 1);
+        let genesis_certificate = fixture.create_genesis_certificate(network, beacon.epoch - 1);
         certifier_service
             .certificate_repository
             .create_certificate(genesis_certificate)

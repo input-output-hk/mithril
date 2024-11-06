@@ -76,7 +76,7 @@ impl SignedEntityConfig {
             }
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
                 SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                    self.network.to_string(),
+                    self.network,
                     *time_point.epoch,
                     time_point.immutable_file_number,
                 ))
