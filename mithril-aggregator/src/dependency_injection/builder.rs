@@ -63,14 +63,11 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    http_server::routes::{
-        router,
-        router::{RouterConfig, RouterState},
-    },
+    http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
-        CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
-        MithrilEpochService, MithrilMessageService, MithrilProverService,
+        CardanoTransactionsImporter, CertifierService, EpochServiceDependencies, MessageService,
+        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
         SignedEntityService, StakeDistributionService, UpkeepService, UsageReporter,
     },
@@ -1266,9 +1263,11 @@ impl DependenciesBuilder {
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             epoch_settings,
-            epoch_settings_storer,
-            verification_key_store,
-            chain_observer,
+            EpochServiceDependencies::new(
+                epoch_settings_storer,
+                verification_key_store,
+                chain_observer,
+            ),
             network,
             allowed_discriminants,
             self.root_logger(),

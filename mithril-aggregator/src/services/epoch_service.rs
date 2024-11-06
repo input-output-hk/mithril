@@ -126,6 +126,28 @@ struct ComputedEpochData {
     next_protocol_multi_signer: ProtocolMultiSigner,
 }
 
+/// Dependencies required by the [MithrilEpochService].
+pub struct EpochServiceDependencies {
+    epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
+    verification_key_store: Arc<dyn VerificationKeyStorer>,
+    chain_observer: Arc<dyn ChainObserver>,
+}
+
+impl EpochServiceDependencies {
+    /// Create a new instance of [EpochServiceDependencies].
+    pub fn new(
+        epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
+        verification_key_store: Arc<dyn VerificationKeyStorer>,
+        chain_observer: Arc<dyn ChainObserver>,
+    ) -> Self {
+        Self {
+            epoch_settings_storer,
+            verification_key_store,
+            chain_observer,
+        }
+    }
+}
+
 /// Implementation of the [epoch service][EpochService].
 pub struct MithrilEpochService {
     /// Epoch settings that will be inserted when inform_epoch is called
@@ -144,9 +166,7 @@ impl MithrilEpochService {
     /// Create a new service instance
     pub fn new(
         future_epoch_settings: AggregatorEpochSettings,
-        epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
-        verification_key_store: Arc<dyn VerificationKeyStorer>,
-        chain_observer: Arc<dyn ChainObserver>,
+        dependencies: EpochServiceDependencies,
         network: CardanoNetwork,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         logger: Logger,
@@ -155,9 +175,9 @@ impl MithrilEpochService {
             future_epoch_settings,
             epoch_data: None,
             computed_epoch_data: None,
-            epoch_settings_storer,
-            verification_key_store,
-            chain_observer,
+            epoch_settings_storer: dependencies.epoch_settings_storer,
+            verification_key_store: dependencies.verification_key_store,
+            chain_observer: dependencies.chain_observer,
             network,
             allowed_signed_entity_discriminants: allowed_discriminants,
             logger: logger.new_with_component_name::<Self>(),
@@ -849,9 +869,11 @@ mod tests {
                     protocol_parameters: self.future_protocol_parameters,
                     cardano_transactions_signing_config: self.cardano_transactions_signing_config,
                 },
-                Arc::new(epoch_settings_storer),
-                Arc::new(vkey_store),
-                Arc::new(chain_observer),
+                EpochServiceDependencies::new(
+                    Arc::new(epoch_settings_storer),
+                    Arc::new(vkey_store),
+                    Arc::new(chain_observer),
+                ),
                 self.network,
                 self.allowed_discriminants,
                 TestLogger::stdout(),
