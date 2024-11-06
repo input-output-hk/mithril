@@ -1,5 +1,6 @@
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
+use mithril_common::chain_observer::ChainObserver;
 use slog::{debug, Logger};
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -52,6 +53,9 @@ pub trait EpochService: Sync + Send {
     /// Note: must be called after `inform_epoch`.
     async fn precompute_epoch_data(&mut self) -> StdResult<()>;
 
+    /// Get the current Cardano era.
+    fn cardano_era(&self) -> StdResult<String>;
+
     /// Get the current epoch for which the data stored in this service are computed.
     fn epoch_of_current_data(&self) -> StdResult<Epoch>;
 
@@ -103,6 +107,7 @@ pub trait EpochService: Sync + Send {
 }
 
 struct EpochData {
+    cardano_era: String,
     epoch: Epoch,
     current_epoch_settings: AggregatorEpochSettings,
     next_epoch_settings: AggregatorEpochSettings,
@@ -129,6 +134,7 @@ pub struct MithrilEpochService {
     computed_epoch_data: Option<ComputedEpochData>,
     epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
     verification_key_store: Arc<dyn VerificationKeyStorer>,
+    chain_observer: Arc<dyn ChainObserver>,
     network: CardanoNetwork,
     allowed_signed_entity_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     logger: Logger,
@@ -140,6 +146,7 @@ impl MithrilEpochService {
         future_epoch_settings: AggregatorEpochSettings,
         epoch_settings_storer: Arc<dyn EpochSettingsStorer>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
+        chain_observer: Arc<dyn ChainObserver>,
         network: CardanoNetwork,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         logger: Logger,
@@ -150,10 +157,21 @@ impl MithrilEpochService {
             computed_epoch_data: None,
             epoch_settings_storer,
             verification_key_store,
+            chain_observer,
             network,
             allowed_signed_entity_discriminants: allowed_discriminants,
             logger: logger.new_with_component_name::<Self>(),
         }
+    }
+
+    async fn get_cardano_era(&self) -> StdResult<String> {
+        let cardano_era = self
+            .chain_observer
+            .get_current_era()
+            .await?
+            .ok_or_else(|| anyhow!("No Cardano era returned by the chain observer".to_string()))?;
+
+        Ok(cardano_era)
     }
 
     async fn get_signers_with_stake_at_epoch(
@@ -222,6 +240,8 @@ impl EpochService for MithrilEpochService {
     async fn inform_epoch(&mut self, epoch: Epoch) -> StdResult<()> {
         debug!(self.logger, ">> inform_epoch(epoch: {epoch:?})");
 
+        let cardano_era = self.get_cardano_era().await?;
+
         let signer_retrieval_epoch =
             epoch.offset_to_signer_retrieval_epoch().with_context(|| {
                 format!("EpochService could not compute signer retrieval epoch from epoch: {epoch}")
@@ -261,6 +281,7 @@ impl EpochService for MithrilEpochService {
         };
 
         self.epoch_data = Some(EpochData {
+            cardano_era,
             epoch,
             current_epoch_settings,
             next_epoch_settings,
@@ -316,6 +337,10 @@ impl EpochService for MithrilEpochService {
         });
 
         Ok(())
+    }
+
+    fn cardano_era(&self) -> StdResult<String> {
+        Ok(self.unwrap_data()?.cardano_era.clone())
     }
 
     fn epoch_of_current_data(&self) -> StdResult<Epoch> {
@@ -406,6 +431,7 @@ pub struct FakeEpochService {
 
 #[cfg(test)]
 pub struct FakeEpochServiceBuilder {
+    pub cardano_era: String,
     pub epoch: Epoch,
     pub current_epoch_settings: AggregatorEpochSettings,
     pub next_epoch_settings: AggregatorEpochSettings,
@@ -422,6 +448,7 @@ impl FakeEpochServiceBuilder {
         let signers = fake_data::signers_with_stakes(3);
 
         Self {
+            cardano_era: "DummyEra".to_string(),
             epoch,
             current_epoch_settings: AggregatorEpochSettings::dummy(),
             next_epoch_settings: AggregatorEpochSettings::dummy(),
@@ -453,6 +480,7 @@ impl FakeEpochServiceBuilder {
 
         FakeEpochService {
             epoch_data: Some(EpochData {
+                cardano_era: self.cardano_era,
                 epoch: self.epoch,
                 current_epoch_settings: self.current_epoch_settings,
                 next_epoch_settings: self.next_epoch_settings,
@@ -572,6 +600,10 @@ impl EpochService for FakeEpochService {
         Ok(())
     }
 
+    fn cardano_era(&self) -> StdResult<String> {
+        Ok(self.unwrap_data()?.cardano_era.clone())
+    }
+
     fn epoch_of_current_data(&self) -> StdResult<Epoch> {
         Ok(self.unwrap_data()?.epoch)
     }
@@ -651,6 +683,7 @@ impl EpochService for FakeEpochService {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::chain_observer::FakeObserver;
     use mithril_common::entities::{BlockNumber, CardanoTransactionsSigningConfig, PartyId};
     use mithril_common::test_utils::{fake_data, MithrilFixture, MithrilFixtureBuilder};
     use mithril_persistence::store::adapter::MemoryAdapter;
@@ -664,6 +697,7 @@ mod tests {
 
     #[derive(Debug, Clone, PartialEq)]
     struct ExpectedEpochData {
+        cardano_era: String,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
@@ -686,6 +720,7 @@ mod tests {
     impl ExpectedEpochData {
         async fn from_service(service: &MithrilEpochService) -> StdResult<Self> {
             Ok(Self {
+                cardano_era: service.cardano_era()?,
                 epoch: service.epoch_of_current_data()?,
                 protocol_parameters: service.current_protocol_parameters()?.clone(),
                 next_protocol_parameters: service.next_protocol_parameters()?.clone(),
@@ -739,6 +774,7 @@ mod tests {
         future_protocol_parameters: ProtocolParameters,
         network: CardanoNetwork,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+        cardano_era: String,
         current_epoch: Epoch,
         signers_with_stake: Vec<SignerWithStake>,
         next_signers_with_stake: Vec<SignerWithStake>,
@@ -754,6 +790,7 @@ mod tests {
                 future_protocol_parameters: epoch_fixture.protocol_parameters(),
                 network: CardanoNetwork::TestNet(0),
                 allowed_discriminants: BTreeSet::new(),
+                cardano_era: String::new(),
                 current_epoch: epoch,
                 signers_with_stake: epoch_fixture.signers_with_stake(),
                 next_signers_with_stake: epoch_fixture.signers_with_stake(),
@@ -772,7 +809,7 @@ mod tests {
             }
         }
 
-        fn build(self) -> MithrilEpochService {
+        async fn build(self) -> MithrilEpochService {
             let signer_retrieval_epoch = self
                 .current_epoch
                 .offset_to_signer_retrieval_epoch()
@@ -804,6 +841,9 @@ mod tests {
                 ]))
                 .unwrap(),
             ));
+            let chain_observer = FakeObserver::default();
+            chain_observer.set_current_era(self.cardano_era).await;
+
             MithrilEpochService::new(
                 AggregatorEpochSettings {
                     protocol_parameters: self.future_protocol_parameters,
@@ -811,6 +851,7 @@ mod tests {
                 },
                 Arc::new(epoch_settings_storer),
                 Arc::new(vkey_store),
+                Arc::new(chain_observer),
                 self.network,
                 self.allowed_discriminants,
                 TestLogger::stdout(),
@@ -840,10 +881,11 @@ mod tests {
             },
             network: SignedEntityConfig::dummy().network,
             allowed_discriminants: SignedEntityConfig::dummy().allowed_discriminants,
+            cardano_era: "CardanoEra".to_string(),
             ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
         };
 
-        let mut service = builder.build();
+        let mut service = builder.build().await;
 
         service
             .inform_epoch(epoch)
@@ -857,6 +899,7 @@ mod tests {
         assert_eq!(
             data.clone(),
             ExpectedEpochData {
+                cardano_era: "CardanoEra".to_string(),
                 epoch,
                 protocol_parameters: current_epoch_fixture.protocol_parameters(),
                 next_protocol_parameters: next_epoch_fixture.protocol_parameters(),
@@ -899,7 +942,8 @@ mod tests {
             },
             ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
         }
-        .build();
+        .build()
+        .await;
 
         service
             .inform_epoch(epoch)
@@ -937,7 +981,8 @@ mod tests {
             next_signers_with_stake: next_epoch_fixture.signers_with_stake().clone(),
             ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
         }
-        .build();
+        .build()
+        .await;
 
         service
             .inform_epoch(epoch)
@@ -966,7 +1011,9 @@ mod tests {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let avk = fixture.compute_avk();
         let epoch = Epoch(4);
-        let mut service = EpochServiceBuilder::new(epoch, fixture.clone()).build();
+        let mut service = EpochServiceBuilder::new(epoch, fixture.clone())
+            .build()
+            .await;
         let signer_builder = SignerBuilder::new(
             &fixture.signers_with_stake(),
             &fixture.protocol_parameters(),
@@ -995,7 +1042,8 @@ mod tests {
             future_protocol_parameters: future_protocol_parameters.clone(),
             ..EpochServiceBuilder::new(epoch, MithrilFixtureBuilder::default().build())
         }
-        .build();
+        .build()
+        .await;
 
         service
             .inform_epoch(epoch)
@@ -1027,9 +1075,12 @@ mod tests {
     #[tokio::test]
     async fn cant_get_data_if_inform_epoch_has_not_been_called() {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let service = EpochServiceBuilder::new(Epoch(4), fixture.clone()).build();
+        let service = EpochServiceBuilder::new(Epoch(4), fixture.clone())
+            .build()
+            .await;
 
         for (name, res) in [
+            ("cardano_era", service.cardano_era().err()),
             (
                 "epoch_of_current_data",
                 service.epoch_of_current_data().err(),
@@ -1096,9 +1147,12 @@ mod tests {
     async fn can_only_get_non_computed_data_if_inform_epoch_has_been_called_but_not_precompute_epoch_data(
     ) {
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
-        let mut service = EpochServiceBuilder::new(Epoch(4), fixture.clone()).build();
+        let mut service = EpochServiceBuilder::new(Epoch(4), fixture.clone())
+            .build()
+            .await;
         service.inform_epoch(Epoch(4)).await.unwrap();
 
+        assert!(service.cardano_era().is_ok());
         assert!(service.epoch_of_current_data().is_ok());
         assert!(service.current_protocol_parameters().is_ok());
         assert!(service.next_protocol_parameters().is_ok());

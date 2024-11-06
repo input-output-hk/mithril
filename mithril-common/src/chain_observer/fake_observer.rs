@@ -22,6 +22,11 @@ pub struct FakeObserver {
     ///
     /// [get_current_datums]: ChainObserver::get_current_datums
     pub datums: RwLock<Vec<TxDatum>>,
+
+    /// A Cardano era, used by [get_current_era]
+    ///
+    /// [get_current_era]: ChainObserver::get_current_era
+    pub current_era: RwLock<String>,
 }
 
 impl FakeObserver {
@@ -31,6 +36,7 @@ impl FakeObserver {
             signers: RwLock::new(vec![]),
             current_time_point: RwLock::new(current_time_point.clone()),
             datums: RwLock::new(vec![]),
+            current_era: RwLock::new(String::new()),
         }
     }
 
@@ -130,6 +136,13 @@ impl FakeObserver {
         let mut datums = self.datums.write().await;
         *datums = new_datums;
     }
+
+    /// Set the current Era
+    /// [get_current_era][ChainObserver::get_current_era].
+    pub async fn set_current_era(&self, new_current_era: String) {
+        let mut current_era = self.current_era.write().await;
+        *current_era = new_current_era;
+    }
 }
 
 impl Default for FakeObserver {
@@ -152,7 +165,7 @@ impl ChainObserver for FakeObserver {
     }
 
     async fn get_current_era(&self) -> Result<Option<String>, ChainObserverError> {
-        Ok(Some(String::new()))
+        Ok(Some(self.current_era.read().await.clone()))
     }
 
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
@@ -342,5 +355,23 @@ mod tests {
             chain_point,
             "get current chain point should not fail"
         );
+    }
+
+    #[tokio::test]
+    async fn test_get_current_era() {
+        let fake_observer = FakeObserver::new(None);
+
+        let current_era = fake_observer
+            .get_current_era()
+            .await
+            .expect("get_current_era should not fail");
+        assert_ne!(Some("Conway".to_string()), current_era);
+
+        fake_observer.set_current_era("Conway".to_string()).await;
+        let current_era = fake_observer
+            .get_current_era()
+            .await
+            .expect("get_current_era should not fail");
+        assert_eq!(Some("Conway".to_string()), current_era);
     }
 }

@@ -1259,6 +1259,7 @@ impl DependenciesBuilder {
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
         let verification_key_store = self.get_verification_key_store().await?;
         let epoch_settings_storer = self.get_epoch_settings_storer().await?;
+        let chain_observer = self.get_chain_observer().await?;
         let epoch_settings = self.get_epoch_settings_configuration()?;
         let network = self.configuration.get_network()?;
         let allowed_discriminants = self.get_allowed_signed_entity_types_discriminants()?;
@@ -1267,6 +1268,7 @@ impl DependenciesBuilder {
             epoch_settings,
             epoch_settings_storer,
             verification_key_store,
+            chain_observer,
             network,
             allowed_discriminants,
             self.root_logger(),
