@@ -200,7 +200,7 @@ mod handlers {
                 let snapshot = signed_entity.artifact;
                 let filename = format!(
                     "{}-e{}-i{}.{}.{}",
-                    snapshot.beacon.network,
+                    snapshot.network,
                     snapshot.beacon.epoch,
                     snapshot.beacon.immutable_file_number,
                     snapshot.digest,

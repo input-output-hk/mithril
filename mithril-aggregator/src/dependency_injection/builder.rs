@@ -1204,6 +1204,7 @@ impl DependenciesBuilder {
             .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version), error: Some(e.into()) })?;
         let cardano_immutable_files_full_artifact_builder =
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
+                self.configuration.get_network()?,
                 &cardano_node_version,
                 snapshotter,
                 snapshot_uploader,
