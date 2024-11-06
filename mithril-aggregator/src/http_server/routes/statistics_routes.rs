@@ -54,11 +54,8 @@ mod handlers {
 
         match event_transmitter.try_send(message.clone()) {
             Err(e) => {
-                let error_msg = format!(
-                    "An error occurred when sending message {message:?} to monitoring: '{e}'."
-                );
-                warn!(logger, "Event message error"; "error" => &error_msg);
-                Ok(reply::internal_server_error(error_msg))
+                warn!(logger, "Event message error"; "error" => ?e);
+                Ok(reply::internal_server_error(e))
             }
             Ok(_) => Ok(reply::empty(StatusCode::CREATED)),
         }

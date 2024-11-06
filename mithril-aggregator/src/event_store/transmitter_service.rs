@@ -1,8 +1,9 @@
+use anyhow::Context;
 use slog::{warn, Logger};
 use std::fmt::Debug;
 use tokio::sync::mpsc::UnboundedSender;
 
-use mithril_common::logging::LoggerExtensions;
+use mithril_common::{logging::LoggerExtensions, StdResult};
 
 use super::EventMessage;
 
@@ -36,11 +37,12 @@ where
 
 impl TransmitterService<EventMessage> {
     /// Send an [EventMessage].
-    pub fn try_send(
-        &self,
-        message: EventMessage,
-    ) -> Result<(), tokio::sync::mpsc::error::SendError<EventMessage>> {
-        self.get_transmitter().send(message)
+    pub fn try_send(&self, message: EventMessage) -> StdResult<()> {
+        self.get_transmitter()
+            .send(message.clone())
+            .with_context(|| {
+                format!("An error occurred when sending message {message:?} to monitoring.")
+            })
     }
 
     /// Send an [EventMessage].
@@ -49,9 +51,7 @@ impl TransmitterService<EventMessage> {
     /// If there is one, a warning is issued so the resulting error may be safely ignored by the caller.
     pub fn send(&self, message: EventMessage) {
         if let Err(e) = self.try_send(message.clone()) {
-            let error_msg =
-                format!("An error occurred when sending message {message:?} to monitoring: '{e}'.");
-            warn!(self.logger, "Event message error"; "error" => &error_msg);
+            warn!(self.logger, "Event message error"; "error" => ?e);
         };
     }
 }
