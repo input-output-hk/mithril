@@ -19,7 +19,7 @@ Mithril signer is responsible for producing individual signatures that are colle
 
 - For more information about the **Mithril signer** node, please see [this overview](../../../mithril/mithril-network/signer.md).
 
-- Check out the [`Run a Mithril signer node as an SPO`](../../getting-started/run-mithril-devnet.md) guide.
+- Check out the [`Run a Mithril signer node`](../../operate/run-signer-node.md) guide.
 
 :::
 

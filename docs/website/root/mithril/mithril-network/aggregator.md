@@ -15,7 +15,7 @@ A **Mithril aggregator** is a trustless node responsible for coordinating the ac
 
 - For more information about the **Mithril protocol**, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
 
-- For more information about the **Mithril aggregator**, see the [developer manual](../../manual/developer-docs/nodes/mithril-aggregator.md).
+- For more information about the **Mithril aggregator**, see the [developer manual](../../manual/develop/nodes/mithril-aggregator.md).
 
 :::
 

@@ -1,8 +1,8 @@
 ---
-sidebar_position: 4
+sidebar_position: 2
 ---
 
-# Run a private Mithril network
+# Run a private network
 
 :::info
 

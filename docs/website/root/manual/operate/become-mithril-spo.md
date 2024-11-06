@@ -2,10 +2,9 @@
 sidebar_position: 1
 ---
 
-import NetworksMatrix from '../../networks-matrix.md';
 import CompiledBinaries from '../../compiled-binaries.md'
 
-# SPO onboarding guide
+# Become a Mithril SPO
 
 ## The journey with Mithril toward `mainnet`
 
@@ -39,7 +38,7 @@ To participate in the Pioneer Program, you will need to:
 - :warning: Follow our [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/input-output-hk/mithril/releases?q=pre) for new pre-releases to install.
 - If you have any technical issues or would like to provide feedback, feel free to ask questions on the [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel.
 
-Each **Mithril network** has its own configuration, which can be found in the [Configuration parameters](#configuration-parameters) section of this guide.
+Each **Mithril network** has its own configuration, which can be found in the [Network configurations](../getting-started/network-configurations.md) page.
 
 ## Step 2: Get Mithril ready for `mainnet`
 
@@ -59,7 +58,7 @@ To get ready for `mainnet`, you need to:
 - :warning: Follow our [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/input-output-hk/mithril/releases/latest) for new releases to install.
 - If you have any technical issues or would like to provide feedback, feel free to ask questions on the [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel.
 
-Each **Mithril network** has its own configuration, which can be found in the [Configuration parameters](#configuration-parameters) section of this guide.
+Each **Mithril network** has its own configuration, which can be found in the [Network configurations](../getting-started/network-configurations.md) page.
 
 ## Step 3: Run Mithril on `mainnet`
 
@@ -79,12 +78,4 @@ To run **Mithril** on `mainnet`, you need to:
 - :warning: Follow our [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel or our [**GitHub repository**](https://github.com/input-output-hk/mithril/releases/latest) for new releases to install.
 - If you have any technical issues or would like to provide feedback, feel free to ask questions on the [**#ask-mithril**](https://discord.gg/5kaErDKDRq) Discord channel.
 
-Each **Mithril network** has its own configuration, which can be found in the [Configuration parameters](#configuration-parameters) section of this guide.
-
-## Configuration parameters
-
-:::note Mithril networks
-
-<NetworksMatrix />
-
-:::
+Each **Mithril network** has its own configuration, which can be found in the [Network configurations](../getting-started/network-configurations.md) page.

@@ -1,9 +1,8 @@
 ---
 sidebar_position: 3
-sidebar_label: Simulation
 ---
 
-# Mithril protocol simulation
+# Protocol simulation
 
 :::info
 
@@ -295,6 +294,6 @@ Party #0: aggregate signature not found 7724e03fb8d84a376a43b8f41518a11c
 
 :::tip
 
-For more information about the Mithril protocol, refer to the [about Mithril](../mithril-protocol/protocol.md) section.
+For more information about the Mithril protocol, refer to the [about Mithril](../../mithril/mithril-protocol/protocol.md) section.
 
 :::

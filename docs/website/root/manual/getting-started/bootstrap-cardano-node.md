@@ -1,8 +1,7 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 ---
 
-import NetworksMatrix from '../../networks-matrix.md';
 import CompiledBinaries from '../../compiled-binaries.md'
 
 # Bootstrap a Cardano node
@@ -10,12 +9,6 @@ import CompiledBinaries from '../../compiled-binaries.md'
 :::info
 
 With the **Mithril client** connected to a **Mithril aggregator**, you can restore a full Cardano node on the `mainnet` in less than **20 minutes**!
-
-:::
-
-:::note Mithril networks
-
-<NetworksMatrix />
 
 :::
 
