@@ -1,7 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
+use crate::entities::{CompressionAlgorithm, Epoch};
+use crate::messages::CardanoDbBeaconMessagePart;
 
 /// Message structure of a snapshot
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -13,7 +14,7 @@ pub struct SnapshotMessage {
     pub network: String,
 
     /// Mithril beacon on the Cardano chain
-    pub beacon: CardanoDbBeacon,
+    pub beacon: CardanoDbBeaconMessagePart,
 
     /// Hash of the associated certificate
     pub certificate_hash: String,
@@ -42,8 +43,8 @@ impl SnapshotMessage {
         Self {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             network: "preview".to_string(),
-            beacon: CardanoDbBeacon {
-                network: "preview".to_string(),
+            beacon: CardanoDbBeaconMessagePart {
+                network: Some("preview".to_string()),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
             },
@@ -85,7 +86,7 @@ mod tests {
     #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
     pub struct SnapshotMessageUntilV0_1_35 {
         pub digest: String,
-        pub beacon: CardanoDbBeacon,
+        pub beacon: CardanoDbBeaconMessagePart,
         pub certificate_hash: String,
         pub size: u64,
         pub created_at: DateTime<Utc>,
@@ -99,8 +100,8 @@ mod tests {
     fn golden_message_until_open_api_0_1_35() -> SnapshotMessageUntilV0_1_35 {
         SnapshotMessageUntilV0_1_35 {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            beacon: CardanoDbBeacon {
-                network: "preview".to_string(),
+            beacon: CardanoDbBeaconMessagePart {
+                network: Some("preview".to_string()),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
             },
@@ -120,8 +121,8 @@ mod tests {
         SnapshotMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             network: "preview".to_string(),
-            beacon: CardanoDbBeacon {
-                network: "preview".to_string(),
+            beacon: CardanoDbBeaconMessagePart {
+                network: Some("preview".to_string()),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
             },

@@ -1,13 +1,14 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
+use crate::entities::{CompressionAlgorithm, Epoch};
+use crate::messages::CardanoDbBeaconMessagePart;
 
 /// Message structure of a snapshot list
 pub type SnapshotListMessage = Vec<SnapshotListItemMessage>;
 
 /// Message structure of a snapshot list item
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnapshotListItemMessage {
     /// Digest that is signed by the signer participants
     pub digest: String,
@@ -16,7 +17,7 @@ pub struct SnapshotListItemMessage {
     pub network: String,
 
     /// Mithril beacon on the Cardano chain
-    pub beacon: CardanoDbBeacon,
+    pub beacon: CardanoDbBeaconMessagePart,
 
     /// Hash of the associated certificate
     pub certificate_hash: String,
@@ -45,8 +46,8 @@ impl SnapshotListItemMessage {
         Self {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             network: "preview".to_string(),
-            beacon: CardanoDbBeacon {
-                network: "preview".to_string(),
+            beacon: CardanoDbBeaconMessagePart {
+                network: Some("preview".to_string()),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
             },
@@ -87,10 +88,10 @@ mod tests {
 
     pub type SnapshotListMessageUntilV0_1_35 = Vec<SnapshotListItemMessageUntilV0_1_35>;
 
-    #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+    #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
     pub struct SnapshotListItemMessageUntilV0_1_35 {
         pub digest: String,
-        pub beacon: CardanoDbBeacon,
+        pub beacon: CardanoDbBeaconMessagePart,
         pub certificate_hash: String,
         pub size: u64,
         pub created_at: DateTime<Utc>,
@@ -104,8 +105,8 @@ mod tests {
     fn golden_message_until_open_api_0_1_35() -> SnapshotListMessageUntilV0_1_35 {
         vec![SnapshotListItemMessageUntilV0_1_35 {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
-            beacon: CardanoDbBeacon {
-                network: "preview".to_string(),
+            beacon: CardanoDbBeaconMessagePart {
+                network: Some("preview".to_string()),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
             },
@@ -125,8 +126,8 @@ mod tests {
         vec![SnapshotListItemMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             network: "preview".to_string(),
-            beacon: CardanoDbBeacon {
-                network: "preview".to_string(),
+            beacon: CardanoDbBeaconMessagePart {
+                network: Some("preview".to_string()),
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
             },

@@ -156,7 +156,7 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
         let snapshot_message = SnapshotMessage {
             digest: artifact.digest,
             network: artifact.network.clone(),
-            beacon: artifact.beacon,
+            beacon: (artifact.beacon, artifact.network).into(),
             certificate_hash: value.certificate_id,
             size: artifact.size,
             created_at: value.created_at,
@@ -271,7 +271,7 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
         let message = SnapshotListItemMessage {
             digest: artifact.digest,
             network: artifact.network.clone(),
-            beacon: artifact.beacon,
+            beacon: (artifact.beacon, artifact.network).into(),
             certificate_hash: value.certificate_id,
             size: artifact.size,
             created_at: value.created_at,

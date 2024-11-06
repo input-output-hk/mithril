@@ -197,7 +197,7 @@ mod file {
     use mithril_client::{MessageBuilder, Snapshot, SnapshotListItem};
     use mithril_common::digesters::DummyImmutableDb;
     use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm};
-    use mithril_common::messages::SignedEntityTypeMessagePart;
+    use mithril_common::messages::{CardanoDbBeaconMessagePart, SignedEntityTypeMessagePart};
     use mithril_common::test_utils::fake_data;
     use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
     use std::path::{Path, PathBuf};
@@ -217,6 +217,8 @@ mod file {
                 immutable_file_number: immutable_db.last_immutable_number().unwrap(),
                 ..fake_data::beacon()
             };
+            // Note: network doesn't matter here and will be removed in the future
+            let beacon_message = CardanoDbBeaconMessagePart::from((beacon.clone(), "whatever"));
 
             // Ugly horror needed to update the snapshot location after the server is started, server
             // which need said snapshot to start and run in another thread.
@@ -225,7 +227,7 @@ mod file {
             let snapshot = Arc::new(RwLock::new(Snapshot {
                 digest: snapshot_digest.to_string(),
                 certificate_hash: certificate_hash.to_string(),
-                beacon: beacon.clone(),
+                beacon: beacon_message.clone(),
                 compression_algorithm: Some(CompressionAlgorithm::Zstandard),
                 ..Snapshot::dummy()
             }));
@@ -235,7 +237,7 @@ mod file {
                 SnapshotListItem {
                     digest: snapshot_digest.to_string(),
                     certificate_hash: certificate_hash.to_string(),
-                    beacon: beacon.clone(),
+                    beacon: beacon_message.clone(),
                     compression_algorithm: Some(CompressionAlgorithm::Zstandard),
                     ..SnapshotListItem::dummy()
                 },
@@ -247,8 +249,7 @@ mod file {
                 hash: certificate_hash.to_string(),
                 epoch: beacon.epoch,
                 signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                    // Note: network doesn't matter here and will be removed in the future
-                    (beacon, "whatever").into(),
+                    beacon_message.clone(),
                 ),
                 ..MithrilCertificate::dummy()
             };
