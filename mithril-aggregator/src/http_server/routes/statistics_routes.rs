@@ -16,12 +16,14 @@ fn post_statistics(
     warp::path!("statistics" / "snapshot")
         .and(warp::post())
         .and(warp::body::json())
+        .and(middlewares::with_logger(router_state))
         .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_snapshot_statistics)
 }
 
 mod handlers {
+    use slog::warn;
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
@@ -33,6 +35,7 @@ mod handlers {
 
     pub async fn post_snapshot_statistics(
         snapshot_download_message: SnapshotDownloadMessage,
+        logger: slog::Logger,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -49,8 +52,14 @@ mod handlers {
             headers,
         );
 
-        match event_transmitter.send(message) {
-            Err(e) => Ok(reply::internal_server_error(e)),
+        match event_transmitter.try_send(message.clone()) {
+            Err(e) => {
+                let error_msg = format!(
+                    "An error occurred when sending message {message:?} to monitoring: '{e}'."
+                );
+                warn!(logger, "Event message error"; "error" => &error_msg);
+                Ok(reply::internal_server_error(error_msg))
+            }
             Ok(_) => Ok(reply::empty(StatusCode::CREATED)),
         }
     }

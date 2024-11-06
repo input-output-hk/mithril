@@ -68,7 +68,7 @@ impl UsageReporter {
 
         for (name, value) in delta {
             let message = Self::create_metrics_event_message(name, value, *duration, date);
-            let _result = self.transmitter_service.send(message);
+            self.transmitter_service.send(message);
         }
     }
 

@@ -36,15 +36,22 @@ where
 
 impl TransmitterService<EventMessage> {
     /// Send an [EventMessage].
-    /// This method make any error not to cause a business failure. A warning is
-    /// issued so the resulting error may be discarded.
-    pub fn send(&self, message: EventMessage) -> Result<(), String> {
-        self.get_transmitter().send(message.clone()).map_err(|e| {
+    pub fn try_send(
+        &self,
+        message: EventMessage,
+    ) -> Result<(), tokio::sync::mpsc::error::SendError<EventMessage>> {
+        self.get_transmitter().send(message)
+    }
+
+    /// Send an [EventMessage].
+    ////
+    /// An error when sending a message has no impact on the business.
+    /// If there is one, a warning is issued so the resulting error may be safely ignored by the caller.
+    pub fn send(&self, message: EventMessage) {
+        if let Err(e) = self.try_send(message.clone()) {
             let error_msg =
                 format!("An error occurred when sending message {message:?} to monitoring: '{e}'.");
             warn!(self.logger, "Event message error"; "error" => &error_msg);
-
-            error_msg
-        })
+        };
     }
 }
