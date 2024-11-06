@@ -232,12 +232,11 @@ mod tests {
     use crate::{
         http_server::SERVER_BASE_PATH,
         initialize_dependencies,
-        message_adapters::{ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter},
         services::{MockMessageService, MockSignedEntityService},
     };
+    use mithril_common::messages::{SnapshotListItemMessage, SnapshotMessage};
     use mithril_common::{
         entities::{CardanoDbBeacon, SignedEntityType, Snapshot},
-        messages::ToMessageAdapter,
         test_utils::{apispec::APISpec, fake_data},
     };
     use mithril_persistence::sqlite::HydrationError;
@@ -263,15 +262,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshots_get_ok() {
-        let signed_entities = create_signed_entities(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
-            fake_data::snapshots(5),
-        );
-        let message = ToSnapshotListMessageAdapter::adapt(signed_entities);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_list_message()
-            .return_once(|_| Ok(message))
+            .return_once(|_| Ok(vec![SnapshotListItemMessage::dummy()]))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
@@ -361,18 +355,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ok() {
-        let signed_entity = create_signed_entities(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
-            fake_data::snapshots(1),
-        )
-        .first()
-        .unwrap()
-        .to_owned();
-        let message = ToSnapshotMessageAdapter::adapt(signed_entity);
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_snapshot_message()
-            .return_once(|_| Ok(Some(message)))
+            .return_once(|_| Ok(Some(SnapshotMessage::dummy())))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.message_service = Arc::new(mock_http_message_service);
