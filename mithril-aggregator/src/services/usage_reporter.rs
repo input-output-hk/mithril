@@ -59,26 +59,6 @@ impl UsageReporter {
             .collect()
     }
 
-    pub(crate) fn send_metric_event(
-        transmitter: &TransmitterService<EventMessage>,
-        name: String,
-        value: i64,
-        period: Duration,
-        date: DateTime<Utc>,
-    ) -> Result<(), String> {
-        transmitter.send_event_message::<MetricEventMessage>(
-            "Metrics",
-            &name.clone(),
-            &MetricEventMessage {
-                name,
-                value,
-                period,
-                date,
-            },
-            vec![],
-        )
-    }
-
     fn send_metrics(&mut self, duration: &Duration) {
         let metrics = self.metrics_service.export_metrics_map();
         let delta = Self::compute_metrics_delta(&self.last_reported_metrics, &metrics);
@@ -87,8 +67,8 @@ impl UsageReporter {
         self.last_reported_metrics = metrics;
 
         for (name, value) in delta {
-            let _result =
-                Self::send_metric_event(&self.transmitter_service, name, value, *duration, date);
+            let message = Self::create_metrics_event_message(name, value, *duration, date);
+            self.transmitter_service.send(message);
         }
     }
 
@@ -106,6 +86,26 @@ impl UsageReporter {
                 run_interval.as_secs()
             );
         }
+    }
+
+    /// Create a new EventMessage for a metrics.
+    pub fn create_metrics_event_message(
+        name: String,
+        value: i64,
+        period: Duration,
+        date: DateTime<Utc>,
+    ) -> EventMessage {
+        EventMessage::new(
+            "Metrics",
+            &name.clone(),
+            &MetricEventMessage {
+                name,
+                value,
+                period,
+                date,
+            },
+            vec![],
+        )
     }
 }
 

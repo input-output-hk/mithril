@@ -48,7 +48,7 @@ mod tests {
 
     #[test]
     fn provider_sql() {
-        let message = EventMessage::new("source", "action", serde_json::json!("content"));
+        let message = EventMessage::new("source", "action", &"content".to_string(), Vec::new());
 
         let (final_expression, parameters) =
             InsertEventQuery::one(message).unwrap().filters().expand();
@@ -62,15 +62,16 @@ mod tests {
 
     #[test]
     fn build_a_json_for_content_field_with_content_and_headers() {
-        let content = serde_json::json!({
-            "attr1": "content".to_string(),
-            "attr2": 123,
-        });
-
-        let mut message = EventMessage::new("source", "action", content);
-        message
-            .headers
-            .insert("key".to_string(), "value".to_string());
+        #[derive(serde::Serialize)]
+        struct Content {
+            attr1: String,
+            attr2: i32,
+        }
+        let content = Content {
+            attr1: "content".to_string(),
+            attr2: 123,
+        };
+        let message = EventMessage::new("source", "action", &content, [("key", "value")].to_vec());
 
         let (_, parameters) = InsertEventQuery::one(message).unwrap().filters().expand();
 

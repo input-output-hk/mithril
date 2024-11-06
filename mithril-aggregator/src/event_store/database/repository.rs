@@ -42,7 +42,7 @@ mod tests {
         let connection = Arc::new(event_store_db_connection().unwrap());
 
         let persister = EventPersister::new(connection);
-        let message = EventMessage::new("source", "action", serde_json::json!("content"));
+        let message = EventMessage::new("source", "action", &"content".to_string(), Vec::new());
 
         let _event = persister.persist(message)?;
         Ok(())
@@ -53,7 +53,7 @@ mod tests {
         let connection = Arc::new(event_store_db_connection().unwrap());
 
         let persister = EventPersister::new(connection);
-        let message = EventMessage::new("source", "action", serde_json::json!("content"));
+        let message = EventMessage::new("source", "action", &"content".to_string(), Vec::new());
 
         let _event = persister.persist(message)?;
         Ok(())
@@ -63,9 +63,7 @@ mod tests {
         use std::time::Duration;
 
         use crate::{
-            event_store::{database::test_helper::event_store_db_connection, TransmitterService},
-            services::UsageReporter,
-            test_tools::TestLogger,
+            event_store::database::test_helper::event_store_db_connection, services::UsageReporter,
         };
         use chrono::DateTime;
 
@@ -103,17 +101,12 @@ mod tests {
             let metric_date =
                 DateTime::parse_from_str(&format!("{date} +0000"), "%Y-%m-%d %H:%M:%S %z").unwrap();
 
-            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
-            let transmitter_service = Arc::new(TransmitterService::new(tx, TestLogger::stdout()));
-            let _result = UsageReporter::send_metric_event(
-                &transmitter_service,
+            let message = UsageReporter::create_metrics_event_message(
                 metric_name.to_string(),
                 value,
                 Duration::from_secs(5),
                 metric_date.into(),
             );
-
-            let message: EventMessage = rx.try_recv().unwrap();
 
             let _event = persister.persist(message).unwrap();
         }
@@ -150,12 +143,9 @@ mod tests {
     mod signer_registration_summary {
         use std::sync::Arc;
 
-        use crate::event_store::{
-            database::test_helper::event_store_db_connection, TransmitterService,
-        };
-        use crate::test_tools::TestLogger;
-        use mithril_common::entities::Stake;
-        use mithril_common::{entities::SignerWithStake, test_utils::fake_data, StdResult};
+        use crate::event_store::database::test_helper::event_store_db_connection;
+        use mithril_common::entities::{SignerWithStake, Stake};
+        use mithril_common::{test_utils::fake_data, StdResult};
         use sqlite::ConnectionThreadSafe;
 
         use super::{EventMessage, EventPersister};
@@ -168,9 +158,6 @@ mod tests {
             stake: Stake,
             signer_node_version: &str,
         ) {
-            let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
-            let transmitter_service = Arc::new(TransmitterService::new(tx, TestLogger::stdout()));
-
             let signers = fake_data::signers_with_stakes(1);
             let signer = SignerWithStake {
                 party_id: party_id.to_string(),
@@ -178,14 +165,12 @@ mod tests {
                 ..signers[0].clone()
             };
 
-            let _ = transmitter_service.send_signer_registration_event(
+            let message = EventMessage::signer_registration(
                 "Test",
                 &signer,
                 Some(signer_node_version.to_string()),
                 epoch,
             );
-
-            let message: EventMessage = rx.try_recv().unwrap();
 
             let _event = persister.persist(message).unwrap();
         }
