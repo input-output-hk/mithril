@@ -13,7 +13,7 @@ use crate::crypto_helper::{
     ProtocolMultiSignature,
 };
 use crate::entities::{
-    Certificate, CertificateSignature, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+    Certificate, CertificateSignature, ProtocolMessagePartKey, ProtocolParameters,
 };
 use crate::logging::LoggerExtensions;
 use crate::StdResult;
@@ -42,9 +42,14 @@ pub enum CertificateVerifierError {
     CertificateChainPreviousHashUnmatch,
 
     /// Error raised when validating the certificate chain if the current [Certificate]
-    /// `aggregate_verification_key` doesn't match the previous `aggregate_verification_key` (if
-    /// the certificates are on the same epoch) or the previous `next_aggregate_verification_key`
-    /// (if the certificates are on different epoch).
+    /// `signed_message` doesn't match the hash of the `protocol_message` of the current certificate
+    #[error("certificate protocol message unmatch error")]
+    CertificateProtocolMessageUnmatch,
+
+    /// Error raised when validating the certificate chain if the current [Certificate]
+    /// `aggregate_verification_key` doesn't match the signed `next_aggregate_verification_key` of the previous certificate
+    /// (if the certificates are on different epoch) or the `aggregate_verification_key` of the previous certificate
+    /// (if the certificates are on the same epoch).
     #[error("certificate chain AVK unmatch error")]
     CertificateChainAVKUnmatch,
 
@@ -56,6 +61,11 @@ pub enum CertificateVerifierError {
     /// certificate that's not a genesis certificate.
     #[error("can't validate genesis certificate: given certificate isn't a genesis certificate")]
     InvalidGenesisCertificateProvided,
+
+    /// Error raised when [CertificateVerifier::verify_standard_certificate] was called with a
+    /// certificate that's not a standard certificate.
+    #[error("can't validate standard certificate: given certificate isn't a standard certificate")]
+    InvalidStandardCertificateProvided,
 }
 
 /// CertificateVerifier is the cryptographic engine in charge of verifying multi signatures and
@@ -71,10 +81,14 @@ pub trait CertificateVerifier: Send + Sync {
         genesis_verification_key: &ProtocolGenesisVerificationKey,
     ) -> StdResult<()>;
 
+    /// Verify Standard certificate
+    async fn verify_standard_certificate(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()>;
+
     /// Verify if a Certificate is valid and returns the previous Certificate in the chain if exists
-    /// Step 1: Check if the hash is valid (i.e. the Certificate has not been tampered by modifying its content)
-    /// Step 2: Check that the multi signature is valid if it is a Standard Certificate (i.e verification of the Mithril multi signature)
-    /// Step 3: Check that the aggregate verification key of the Certificate is registered in the previous Certificate in the chain
     async fn verify_certificate(
         &self,
         certificate: &Certificate,
@@ -82,7 +96,6 @@ pub trait CertificateVerifier: Send + Sync {
     ) -> StdResult<Option<Certificate>>;
 
     /// Verify that the Certificate Chain associated to a Certificate is valid
-    /// TODO: see if we can borrow the certificate instead.
     async fn verify_certificate_chain(
         &self,
         certificate: Certificate,
@@ -98,22 +111,10 @@ pub trait CertificateVerifier: Send + Sync {
 
         Ok(())
     }
-
-    /// still a dirty hack to mock the protocol message
-    /// verify that the protocol message is equal to the signed message of the certificate.
-    /// TODO: Remove this method.
-    fn verify_protocol_message(
-        &self,
-        protocol_message: &ProtocolMessage,
-        certificate: &Certificate,
-    ) -> bool {
-        protocol_message.compute_hash() == certificate.signed_message
-    }
 }
 
 /// MithrilCertificateVerifier is an implementation of the CertificateVerifier
 pub struct MithrilCertificateVerifier {
-    /// The logger where the logs should be written
     logger: Logger,
     certificate_retriever: Arc<dyn CertificateRetriever>,
 }
@@ -128,7 +129,17 @@ impl MithrilCertificateVerifier {
         }
     }
 
-    /// Verify a multi signature
+    async fn fetch_previous_certificate(
+        &self,
+        certificate: &Certificate,
+    ) -> StdResult<Certificate> {
+        self.certificate_retriever
+            .get_certificate_details(&certificate.previous_hash)
+            .await
+            .map_err(|e| anyhow!(e))
+            .with_context(|| "Can not retrieve previous certificate during verification")
+    }
+
     fn verify_multi_signature(
         &self,
         message: &[u8],
@@ -151,93 +162,97 @@ impl MithrilCertificateVerifier {
             .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
     }
 
-    /// Verify Standard certificate
-    async fn verify_standard_certificate(
+    fn verify_is_not_in_infinite_loop(&self, certificate: &Certificate) -> StdResult<()> {
+        if certificate.is_chaining_to_itself() {
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateChainInfiniteLoop
+            ));
+        }
+
+        Ok(())
+    }
+
+    fn verify_hash_matches_content(&self, certificate: &Certificate) -> StdResult<()> {
+        if certificate.compute_hash() != certificate.hash {
+            return Err(anyhow!(CertificateVerifierError::CertificateHashUnmatch));
+        }
+
+        Ok(())
+    }
+
+    fn verify_previous_hash_matches_previous_certificate_hash(
         &self,
         certificate: &Certificate,
-        signature: &ProtocolMultiSignature,
-    ) -> StdResult<Option<Certificate>> {
-        self.verify_multi_signature(
-            certificate.signed_message.as_bytes(),
-            signature,
-            &certificate.aggregate_verification_key,
-            &certificate.metadata.protocol_parameters,
-        )?;
-        let previous_certificate = self
-            .certificate_retriever
-            .get_certificate_details(&certificate.previous_hash)
-            .await
-            .map_err(|e| anyhow!(e))
-            .with_context(|| "Can not retrieve previous certificate during verification")?;
-
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
         if previous_certificate.hash != certificate.previous_hash {
             return Err(anyhow!(
                 CertificateVerifierError::CertificateChainPreviousHashUnmatch
             ));
         }
 
-        let current_certificate_avk: String = certificate
-            .aggregate_verification_key
-            .to_json_hex()
-            .with_context(|| {
-                format!(
-                    "avk to string conversion error for certificate: `{}`",
-                    certificate.hash
-                )
-            })?;
+        Ok(())
+    }
 
-        let previous_certificate_avk: String = previous_certificate
-            .aggregate_verification_key
-            .to_json_hex()
-            .with_context(|| {
-                format!(
-                    "avk to string conversion error for previous certificate: `{}`",
-                    certificate.hash
-                )
-            })?;
-
-        let valid_certificate_has_different_epoch_as_previous =
-            |next_aggregate_verification_key: &str| -> bool {
-                next_aggregate_verification_key == current_certificate_avk
-                    && previous_certificate.epoch != certificate.epoch
-            };
-        let valid_certificate_has_same_epoch_as_previous = || -> bool {
-            previous_certificate_avk == current_certificate_avk
-                && previous_certificate.epoch == certificate.epoch
-        };
-
-        match previous_certificate
-            .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
-        {
-            Some(next_aggregate_verification_key)
-                if valid_certificate_has_different_epoch_as_previous(
-                    next_aggregate_verification_key,
-                ) =>
-            {
-                Ok(Some(previous_certificate.to_owned()))
-            }
-            Some(_) if valid_certificate_has_same_epoch_as_previous() => {
-                Ok(Some(previous_certificate.to_owned()))
-            }
-            None => Ok(None),
-            _ => {
-                debug!(
-                    self.logger, "Certificate chain AVK unmatch";
-                    "previous_certificate" => #?previous_certificate
-                );
-                Err(anyhow!(
-                    CertificateVerifierError::CertificateChainAVKUnmatch
-                ))
-            }
+    fn verify_signed_message_matches_hashed_protocol_message(
+        &self,
+        certificate: &Certificate,
+    ) -> StdResult<()> {
+        if certificate.protocol_message.compute_hash() != certificate.signed_message {
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateProtocolMessageUnmatch
+            ));
         }
+
+        Ok(())
+    }
+    fn verify_aggregate_verification_key_chaining(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
+        let previous_certificate_has_same_epoch = previous_certificate.epoch == certificate.epoch;
+        let certificate_has_valid_aggregate_verification_key =
+            if previous_certificate_has_same_epoch {
+                previous_certificate.aggregate_verification_key
+                    == certificate.aggregate_verification_key
+            } else {
+                match &previous_certificate
+                    .protocol_message
+                    .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
+                {
+                    Some(previous_certificate_next_aggregate_verification_key) => {
+                        **previous_certificate_next_aggregate_verification_key
+                            == certificate
+                                .aggregate_verification_key
+                                .to_json_hex()
+                                .with_context(|| {
+                                    format!(
+                                    "aggregate verification key to string conversion error for certificate: `{}`",
+                                    certificate.hash
+                                )
+                                })?
+                    }
+                    None => false,
+                }
+            };
+        if !certificate_has_valid_aggregate_verification_key {
+            debug!(
+                self.logger,
+                "Previous certificate {:#?}", previous_certificate
+            );
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateChainAVKUnmatch
+            ));
+        }
+
+        Ok(())
     }
 }
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl CertificateVerifier for MithrilCertificateVerifier {
-    /// Verify Genesis certificate
     async fn verify_genesis_certificate(
         &self,
         genesis_certificate: &Certificate,
@@ -247,13 +262,40 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             CertificateSignature::GenesisSignature(signature) => Ok(signature),
             _ => Err(CertificateVerifierError::InvalidGenesisCertificateProvided),
         }?;
-
+        self.verify_hash_matches_content(genesis_certificate)?;
+        self.verify_signed_message_matches_hashed_protocol_message(genesis_certificate)?;
         genesis_verification_key
             .verify(
                 genesis_certificate.signed_message.as_bytes(),
                 genesis_signature,
             )
             .with_context(|| "Certificate verifier failed verifying a genesis certificate")?;
+        Ok(())
+    }
+
+    async fn verify_standard_certificate(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
+        let multi_signature = match &certificate.signature {
+            CertificateSignature::MultiSignature(_, signature) => Ok(signature),
+            _ => Err(CertificateVerifierError::InvalidStandardCertificateProvided),
+        }?;
+        self.verify_is_not_in_infinite_loop(certificate)?;
+        self.verify_hash_matches_content(certificate)?;
+        self.verify_signed_message_matches_hashed_protocol_message(certificate)?;
+        self.verify_multi_signature(
+            certificate.signed_message.as_bytes(),
+            multi_signature,
+            &certificate.aggregate_verification_key,
+            &certificate.metadata.protocol_parameters,
+        )?;
+        self.verify_previous_hash_matches_previous_certificate_hash(
+            certificate,
+            previous_certificate,
+        )?;
+        self.verify_aggregate_verification_key_chaining(certificate, previous_certificate)?;
 
         Ok(())
     }
@@ -272,27 +314,19 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             "certificate_signed_entity_type" => ?certificate.signed_entity_type(),
         );
 
-        certificate
-            .hash
-            .eq(&certificate.compute_hash())
-            .then(|| certificate.hash.clone())
-            .ok_or(CertificateVerifierError::CertificateHashUnmatch)?;
+        match &certificate.signature {
+            CertificateSignature::GenesisSignature(_) => {
+                self.verify_genesis_certificate(certificate, genesis_verification_key)
+                    .await?;
 
-        if certificate.is_chaining_to_itself() {
-            Err(anyhow!(
-                CertificateVerifierError::CertificateChainInfiniteLoop
-            ))
-        } else {
-            match &certificate.signature {
-                CertificateSignature::GenesisSignature(_signature) => {
-                    self.verify_genesis_certificate(certificate, genesis_verification_key)
-                        .await?;
-                    Ok(None)
-                }
-                CertificateSignature::MultiSignature(_, signature) => {
-                    self.verify_standard_certificate(certificate, signature)
-                        .await
-                }
+                Ok(None)
+            }
+            CertificateSignature::MultiSignature(_, _) => {
+                let previous_certificate = self.fetch_previous_certificate(certificate).await?;
+                self.verify_standard_certificate(certificate, &previous_certificate)
+                    .await?;
+
+                Ok(Some(previous_certificate))
             }
         }
     }
