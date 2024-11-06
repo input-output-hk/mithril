@@ -905,7 +905,8 @@ mod tests {
 
         let (_, client_res) = tokio::join!(server, client);
         let era = client_res.expect("Client failed");
-        assert_eq!(era, Era::Mary.to_string());
+        let expected_era = Era::try_from(4).unwrap().to_string();
+        assert_eq!(era, expected_era);
     }
 
     #[tokio::test]
