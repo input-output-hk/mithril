@@ -842,11 +842,11 @@ components:
       type: object
       additionalProperties: true
       required:
-        - network
         - epoch
         - immutable_file_number
       properties:
         network:
+          deprecated: true
           description: Cardano network
           type: string
         epoch:
@@ -855,8 +855,7 @@ components:
           description: Number of the last immutable file that should be included the snapshot
           type: integer
           format: int64
-      examples:
-        { "network": "mainnet", "epoch": 329, "immutable_file_number": 7060000 }
+      examples: { "epoch": 329, "immutable_file_number": 7060000 }
 
     SignedEntityType:
       description: Entity type of the message that is signed
@@ -905,12 +904,7 @@ components:
       examples:
         {
           "epoch": 329,
-          "beacon":
-            {
-              "network": "mainnet",
-              "epoch": 329,
-              "immutable_file_number": 7060000
-            },
+          "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
           "entity_type": { "MithrilStakeDistribution": 246 },
           "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
           "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 },
@@ -1514,12 +1508,7 @@ components:
         [
           {
             "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
-            "beacon":
-              {
-                "network": "mainnet",
-                "epoch": 329,
-                "immutable_file_number": 7060000
-              },
+            "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "size": 26058531636,
             "created_at": "2022-07-21T17:32:28Z",
@@ -1604,12 +1593,7 @@ components:
       examples:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
-          "beacon":
-            {
-              "network": "mainnet",
-              "epoch": 329,
-              "immutable_file_number": 7060000
-            },
+          "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
           "size": 26058531636,
           "created_at": "2022-07-21T17:32:28Z",
@@ -1660,12 +1644,7 @@ components:
       examples:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
-          "beacon":
-            {
-              "network": "mainnet",
-              "epoch": 329,
-              "immutable_file_number": 7060000
-            },
+          "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
           "size": 26058531636,
           "locations":
             [
