@@ -1258,6 +1258,7 @@ impl DependenciesBuilder {
         let epoch_settings_storer = self.get_epoch_settings_storer().await?;
         let chain_observer = self.get_chain_observer().await?;
         let era_checker = self.get_era_checker().await?;
+        let stake_distribution_service = self.get_stake_distribution_service().await?;
         let epoch_settings = self.get_epoch_settings_configuration()?;
         let network = self.configuration.get_network()?;
         let allowed_discriminants = self.get_allowed_signed_entity_types_discriminants()?;
@@ -1269,6 +1270,7 @@ impl DependenciesBuilder {
                 verification_key_store,
                 chain_observer,
                 era_checker,
+                stake_distribution_service,
             ),
             network,
             allowed_discriminants,
