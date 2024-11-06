@@ -36,9 +36,9 @@ pub struct CertificateChainBuilderContext<'a> {
     pub total_certificates: usize,
     /// The epoch of the certificate.
     pub epoch: Epoch,
-    /// The fixtures of the epoch.
+    /// The fixture of the epoch.
     pub fixture: &'a MithrilFixture,
-    /// The fixtures of the next epoch.
+    /// The fixture of the next epoch.
     pub next_fixture: &'a MithrilFixture,
 }
 

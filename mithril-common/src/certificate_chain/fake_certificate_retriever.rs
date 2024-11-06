@@ -64,7 +64,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_fake_certificate_fails_retrieving_unknow_certificate() {
+    async fn test_fake_certificate_fails_retrieving_unknown_certificate() {
         let certificate = fake_data::certificate("certificate-hash-123".to_string());
         let certificate_retriever = FakeCertificaterRetriever::from_certificates(&[certificate]);
 
@@ -72,6 +72,6 @@ mod tests {
             .get_certificate_details("certificate-hash-not-found")
             .await;
 
-        retrieved_certificate.expect_err("get_certificate_details shoudl fail");
+        retrieved_certificate.expect_err("get_certificate_details should fail");
     }
 }
