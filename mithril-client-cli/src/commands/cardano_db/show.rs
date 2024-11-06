@@ -66,7 +66,7 @@ impl CardanoDbShowCommand {
                     "Immutable File Number".cell(),
                     format!("{}", &cardano_db_message.beacon.immutable_file_number).cell(),
                 ],
-                vec!["Network".cell(), cardano_db_message.beacon.network.cell()],
+                vec!["Network".cell(), cardano_db_message.network.cell()],
                 vec!["Digest".cell(), cardano_db_message.digest.cell()],
                 vec![
                     "Size".cell(),

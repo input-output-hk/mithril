@@ -310,7 +310,7 @@ impl CardanoDbDownloadCommand {
                 db_dir.display(),
                 cardano_node_version,
                 canonicalized_filepath.display(),
-                cardano_db.beacon.network,
+                cardano_db.network,
                 cardano_node_version
             );
         }

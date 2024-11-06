@@ -155,6 +155,7 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
         let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
         let snapshot_message = SnapshotMessage {
             digest: artifact.digest,
+            network: artifact.beacon.network.clone(),
             beacon: artifact.beacon,
             certificate_hash: value.certificate_id,
             size: artifact.size,
@@ -269,6 +270,7 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
         let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
         let message = SnapshotListItemMessage {
             digest: artifact.digest,
+            network: artifact.beacon.network.clone(),
             beacon: artifact.beacon,
             certificate_hash: value.certificate_id,
             size: artifact.size,

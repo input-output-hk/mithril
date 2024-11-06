@@ -1508,6 +1508,7 @@ components:
         [
           {
             "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+            "network": "mainnet",
             "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
             "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
             "size": 26058531636,
@@ -1528,6 +1529,7 @@ components:
       additionalProperties: false
       required:
         - digest
+        - network
         - beacon
         - certificate_hash
         - size
@@ -1538,6 +1540,9 @@ components:
           description: Digest that is signed by the signer participants
           type: string
           format: bytes
+        network:
+          description: Cardano network
+          type: string
         beacon:
           $ref: "#/components/schemas/CardanoDbBeacon"
         certificate_hash:
@@ -1566,6 +1571,7 @@ components:
       examples:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+          "network": "mainnet",
           "beacon":
             {
               "network": "mainnet",
@@ -1593,6 +1599,7 @@ components:
       examples:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+          "network": "mainnet",
           "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
           "certificate_hash": "7905e83ab5d7bc082c1bbc3033bfd19c539078830d19080d1f241c70aa532572",
           "size": 26058531636,
@@ -1614,6 +1621,7 @@ components:
       additionalProperties: false
       required:
         - digest
+        - network
         - beacon
         - size
         - locations
@@ -1624,6 +1632,9 @@ components:
           description: Digest that is signed by the signer participants
           type: string
           format: bytes
+        network:
+          description: Cardano network
+          type: string
         beacon:
           $ref: "#/components/schemas/CardanoDbBeacon"
         size:
@@ -1644,6 +1655,7 @@ components:
       examples:
         {
           "digest": "6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732",
+          "network": "mainnet",
           "beacon": { "epoch": 329, "immutable_file_number": 7060000 },
           "size": 26058531636,
           "locations":
