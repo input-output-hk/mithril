@@ -334,8 +334,11 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use async_trait::async_trait;
     use mockall::mock;
+    use tokio::sync::Mutex;
 
     use super::CertificateRetriever;
     use super::*;
@@ -754,6 +757,79 @@ mod tests {
             .await;
 
         verify.expect("verify_certificate should not fail");
+    }
+
+    #[tokio::test]
+    async fn verify_certificate_chain_verifies_all_chained_certificates() {
+        struct CertificateVerifierTest {
+            certificates_unverified: Mutex<HashMap<String, Certificate>>,
+        }
+
+        impl CertificateVerifierTest {
+            fn from_certificates(certificates: &[Certificate]) -> Self {
+                Self {
+                    certificates_unverified: Mutex::new(HashMap::from_iter(
+                        certificates
+                            .iter()
+                            .map(|c| (c.hash.to_owned(), c.to_owned())),
+                    )),
+                }
+            }
+
+            async fn has_unverified_certificates(&self) -> bool {
+                !self.certificates_unverified.lock().await.is_empty()
+            }
+        }
+
+        #[async_trait]
+        impl CertificateVerifier for CertificateVerifierTest {
+            async fn verify_genesis_certificate(
+                &self,
+                _genesis_certificate: &Certificate,
+                _genesis_verification_key: &ProtocolGenesisVerificationKey,
+            ) -> StdResult<()> {
+                unimplemented!()
+            }
+
+            async fn verify_standard_certificate(
+                &self,
+                _certificate: &Certificate,
+                _previous_certificate: &Certificate,
+            ) -> StdResult<()> {
+                unimplemented!()
+            }
+
+            async fn verify_certificate(
+                &self,
+                certificate: &Certificate,
+                _genesis_verification_key: &ProtocolGenesisVerificationKey,
+            ) -> StdResult<Option<Certificate>> {
+                let mut certificates_unverified = self.certificates_unverified.lock().await;
+                let _verified_certificate = (*certificates_unverified).remove(&certificate.hash);
+                let previous_certificate = (*certificates_unverified)
+                    .get(&certificate.previous_hash)
+                    .cloned();
+
+                Ok(previous_certificate)
+            }
+        }
+
+        let (total_certificates, certificates_per_epoch) = (10, 1);
+        let (fake_certificates, genesis_verifier) =
+            setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let fake_certificate_to_verify = fake_certificates[0].clone();
+        let verifier = CertificateVerifierTest::from_certificates(&fake_certificates);
+        assert!(verifier.has_unverified_certificates().await);
+
+        let verify = verifier
+            .verify_certificate_chain(
+                fake_certificate_to_verify,
+                &genesis_verifier.to_verification_key(),
+            )
+            .await;
+
+        verify.expect("verify_certificate_chain should not fail");
+        assert!(!verifier.has_unverified_certificates().await);
     }
 
     #[tokio::test]
