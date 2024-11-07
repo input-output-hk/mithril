@@ -113,7 +113,6 @@ impl StateMachineTester {
         })?;
         let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
         let config = Configuration::new_sample(&selected_signer_party_id);
-        let network = config.get_network()?;
 
         let logger = stdout_logger();
         let logs_guard = slog_scope::set_global_logger(logger.clone());
@@ -154,7 +153,6 @@ impl StateMachineTester {
         let certificate_handler = Arc::new(FakeAggregator::new(
             SignedEntityConfig {
                 allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-                network,
                 cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
             },
             ticker_service.clone(),
@@ -261,10 +259,7 @@ impl StateMachineTester {
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None));
         let certifier = Arc::new(SignerCertifierService::new(
             signed_beacon_repository.clone(),
-            Arc::new(SignerSignedEntityConfigProvider::new(
-                network,
-                epoch_service.clone(),
-            )),
+            Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
             signed_entity_type_lock.clone(),
             single_signer.clone(),
             certificate_handler.clone(),

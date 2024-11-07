@@ -14,7 +14,7 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
-use mithril_common::{CardanoNetwork, StdResult};
+use mithril_common::StdResult;
 
 use crate::{
     entities::AggregatorEpochSettings, services::StakeDistributionService, EpochSettingsStorer,
@@ -188,7 +188,6 @@ pub struct MithrilEpochService {
     chain_observer: Arc<dyn ChainObserver>,
     era_checker: Arc<EraChecker>,
     stake_distribution_service: Arc<dyn StakeDistributionService>,
-    network: CardanoNetwork,
     allowed_signed_entity_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     logger: Logger,
 }
@@ -198,7 +197,6 @@ impl MithrilEpochService {
     pub fn new(
         future_epoch_settings: AggregatorEpochSettings,
         dependencies: EpochServiceDependencies,
-        network: CardanoNetwork,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         logger: Logger,
     ) -> Self {
@@ -211,7 +209,6 @@ impl MithrilEpochService {
             chain_observer: dependencies.chain_observer,
             era_checker: dependencies.era_checker,
             stake_distribution_service: dependencies.stake_distribution_service,
-            network,
             allowed_signed_entity_discriminants: allowed_discriminants,
             logger: logger.new_with_component_name::<Self>(),
         }
@@ -346,7 +343,6 @@ impl EpochService for MithrilEpochService {
 
         let signed_entity_config = SignedEntityConfig {
             allowed_discriminants: self.allowed_signed_entity_discriminants.clone(),
-            network: self.network,
             cardano_transactions_signing_config: current_epoch_settings
                 .cardano_transactions_signing_config
                 .clone(),
@@ -932,7 +928,6 @@ mod tests {
     struct EpochServiceBuilder {
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
         future_protocol_parameters: ProtocolParameters,
-        network: CardanoNetwork,
         allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         cardano_era: CardanoEra,
         mithril_era: SupportedEra,
@@ -951,7 +946,6 @@ mod tests {
             Self {
                 cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 future_protocol_parameters: epoch_fixture.protocol_parameters(),
-                network: CardanoNetwork::TestNet(0),
                 allowed_discriminants: BTreeSet::new(),
                 cardano_era: String::new(),
                 mithril_era: SupportedEra::dummy(),
@@ -1041,7 +1035,6 @@ mod tests {
                     Arc::new(era_checker),
                     Arc::new(stake_distribution_service),
                 ),
-                self.network,
                 self.allowed_discriminants,
                 TestLogger::stdout(),
             )
@@ -1068,7 +1061,6 @@ mod tests {
                 protocol_parameters: signer_registration_protocol_parameters.clone(),
                 ..AggregatorEpochSettings::dummy()
             },
-            network: SignedEntityConfig::dummy().network,
             allowed_discriminants: SignedEntityConfig::dummy().allowed_discriminants,
             cardano_era: "CardanoEra".to_string(),
             mithril_era: SupportedEra::eras()[1],
@@ -1122,14 +1114,12 @@ mod tests {
 
         let cardano_transactions_signing_config =
             CardanoTransactionsSigningConfig::new(BlockNumber(29), BlockNumber(986));
-        let network = CardanoNetwork::TestNet(27);
         let allowed_discriminants = BTreeSet::from([
             SignedEntityTypeDiscriminants::CardanoTransactions,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
         ]);
 
         let mut service = EpochServiceBuilder {
-            network,
             allowed_discriminants: allowed_discriminants.clone(),
             stored_current_epoch_settings: AggregatorEpochSettings {
                 cardano_transactions_signing_config: cardano_transactions_signing_config.clone(),
@@ -1153,7 +1143,6 @@ mod tests {
             signed_entity_config.clone(),
             SignedEntityConfig {
                 allowed_discriminants,
-                network,
                 cardano_transactions_signing_config,
             }
         );

@@ -16,7 +16,7 @@ use mithril_common::entities::{
     SignedEntityTypeDiscriminants, Signer, SignerWithStake,
 };
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::{CardanoNetwork, StdResult};
+use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
 
 /// Errors dedicated to the EpochService.
@@ -289,17 +289,13 @@ impl EpochService for MithrilEpochService {
 /// Needed because the epoch service is wrapped in an Arc<RwLock<>> in the dependencies, making
 /// direct usage of implemented traits methods difficult.
 pub struct SignerSignedEntityConfigProvider {
-    cardano_network: CardanoNetwork,
     epoch_service: EpochServiceWrapper,
 }
 
 impl SignerSignedEntityConfigProvider {
     /// Create a new instance of the `SignerSignedEntityConfigProvider`.
-    pub fn new(cardano_network: CardanoNetwork, epoch_service: EpochServiceWrapper) -> Self {
-        Self {
-            cardano_network,
-            epoch_service,
-        }
+    pub fn new(epoch_service: EpochServiceWrapper) -> Self {
+        Self { epoch_service }
     }
 }
 
@@ -315,7 +311,6 @@ impl SignedEntityConfigProvider for SignerSignedEntityConfigProvider {
 
         Ok(SignedEntityConfig {
             allowed_discriminants: epoch_service.allowed_discriminants()?.clone(),
-            network: self.cardano_network,
             cardano_transactions_signing_config,
         })
     }
@@ -861,7 +856,6 @@ mod tests {
             TestLogger::stdout(),
         )));
         let config_provider = SignerSignedEntityConfigProvider {
-            cardano_network: fake_data::network(),
             epoch_service: epoch_service.clone(),
         };
 
@@ -918,7 +912,6 @@ mod tests {
             assert_eq!(
                 SignedEntityConfig {
                     allowed_discriminants,
-                    network: fake_data::network(),
                     cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
                 },
                 config

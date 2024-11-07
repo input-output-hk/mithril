@@ -6,7 +6,7 @@ use crate::entities::{
     BlockNumber, BlockRange, CardanoDbBeacon, SignedEntityType, SignedEntityTypeDiscriminants,
     TimePoint,
 };
-use crate::{CardanoNetwork, StdResult};
+use crate::StdResult;
 
 /// Convert [TimePoint] to [SignedEntityType] and list allowed signed entity types and
 /// discriminants.
@@ -14,8 +14,6 @@ use crate::{CardanoNetwork, StdResult};
 pub struct SignedEntityConfig {
     /// List of discriminants that the node is allowed to sign
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
-    /// Cardano network
-    pub network: CardanoNetwork,
     /// Cardano transactions signing configuration
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
 }
@@ -26,7 +24,6 @@ impl SignedEntityConfig {
         pub fn dummy() -> Self {
             Self {
                 allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-                network: CardanoNetwork::DevNet(12),
                 cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
             }
         }
@@ -193,7 +190,6 @@ mod tests {
         };
         let config = SignedEntityConfig {
             allowed_discriminants: SignedEntityTypeDiscriminants::all(),
-            network: CardanoNetwork::DevNet(12),
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
                 step: BlockNumber(15),
@@ -425,7 +421,6 @@ mod tests {
 
     #[test]
     fn test_list_allowed_signed_entity_types_with_specific_configuration() {
-        let network = CardanoNetwork::DevNet(12);
         let beacon = fake_data::beacon();
         let chain_point = ChainPoint {
             block_number: BlockNumber(45),
@@ -441,7 +436,6 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
             ]),
-            network,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
                 security_parameter: BlockNumber(0),
                 step: BlockNumber(15),

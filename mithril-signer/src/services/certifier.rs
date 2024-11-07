@@ -513,8 +513,6 @@ mod tests {
         use std::collections::BTreeSet;
         use tokio::sync::RwLock;
 
-        use mithril_common::CardanoNetwork;
-
         use crate::test_tools::TestLogger;
 
         use super::*;
@@ -547,7 +545,6 @@ mod tests {
                 Self {
                     config: SignedEntityConfig {
                         cardano_transactions_signing_config: config,
-                        network: CardanoNetwork::TestNet(42),
                         allowed_discriminants,
                     },
                 }
