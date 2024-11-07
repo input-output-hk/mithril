@@ -1343,6 +1343,7 @@ impl DependenciesBuilder {
                 .await?,
             self.get_event_store_sqlite_connection().await?,
             self.get_signed_entity_lock().await?,
+            vec![], // TODO XXX Add pruning tasks here
             self.root_logger(),
         ));
 

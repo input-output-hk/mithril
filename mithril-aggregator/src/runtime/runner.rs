@@ -110,7 +110,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn inform_new_epoch(&self, epoch: Epoch) -> StdResult<()>;
 
     /// Perform the upkeep tasks.
-    async fn upkeep(&self) -> StdResult<()>;
+    async fn upkeep(&self, epoch: Epoch) -> StdResult<()>;
 
     /// Precompute what doesn't change for the actual epoch
     async fn precompute_epoch_data(&self) -> StdResult<()>;
@@ -522,9 +522,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
-    async fn upkeep(&self) -> StdResult<()> {
+    async fn upkeep(&self, epoch: Epoch) -> StdResult<()> {
         debug!(self.logger, ">> upkeep");
-        self.dependencies.upkeep_service.run().await
+        self.dependencies.upkeep_service.run(epoch).await
     }
 
     async fn create_open_message(
@@ -1010,16 +1010,20 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_upkeep() {
+    async fn test_upkeep_calls_run_on_upkeep_service() {
         let mut upkeep_service = MockUpkeepService::new();
-        upkeep_service.expect_run().returning(|| Ok(())).times(1);
+        upkeep_service
+            .expect_run()
+            .with(eq(Epoch(5)))
+            .returning(|_| Ok(()))
+            .times(1);
 
         let mut deps = initialize_dependencies().await;
         deps.upkeep_service = Arc::new(upkeep_service);
 
         let runner = AggregatorRunner::new(Arc::new(deps));
 
-        runner.upkeep().await.unwrap();
+        runner.upkeep(Epoch(5)).await.unwrap();
     }
 
     #[tokio::test]
