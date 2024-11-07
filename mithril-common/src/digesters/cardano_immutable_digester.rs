@@ -120,7 +120,7 @@ fn compute_hash(
         total: entries.len(),
     };
 
-    hasher.update(beacon.compute_hash().as_bytes());
+    hasher.update(compute_beacon_hash(&beacon.network, beacon).as_bytes());
 
     for (ix, (entry, cache)) in entries.iter().enumerate() {
         match cache {
@@ -140,6 +140,14 @@ fn compute_hash(
     }
 
     Ok((hasher.finalize().into(), new_cached_entries))
+}
+
+fn compute_beacon_hash(network: &str, cardano_db_beacon: &CardanoDbBeacon) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(network.as_bytes());
+    hasher.update(cardano_db_beacon.epoch.to_be_bytes());
+    hasher.update(cardano_db_beacon.immutable_file_number.to_be_bytes());
+    hex::encode(hasher.finalize())
 }
 
 struct Progress {
@@ -166,26 +174,59 @@ impl std::fmt::Display for Progress {
 
 #[cfg(test)]
 mod tests {
-    use super::Progress;
-    use crate::{
-        digesters::{
-            cache::{
-                ImmutableDigesterCacheGetError, ImmutableDigesterCacheProviderError,
-                ImmutableDigesterCacheStoreError, ImmutableFileDigestCacheProvider,
-                MemoryImmutableFileDigestCacheProvider, MockImmutableFileDigestCacheProvider,
-            },
-            CardanoImmutableDigester, DummyImmutablesDbBuilder, ImmutableDigester,
-            ImmutableDigesterError,
-        },
-        entities::{CardanoDbBeacon, ImmutableFileNumber},
-        test_utils::TestLogger,
-    };
     use sha2::Sha256;
     use std::{collections::BTreeMap, io, sync::Arc};
     use tokio::time::Instant;
 
+    use crate::{
+        digesters::{
+            cache::{
+                ImmutableDigesterCacheGetError, ImmutableDigesterCacheProviderError,
+                ImmutableDigesterCacheStoreError, MemoryImmutableFileDigestCacheProvider,
+                MockImmutableFileDigestCacheProvider,
+            },
+            DummyImmutablesDbBuilder,
+        },
+        entities::ImmutableFileNumber,
+        test_utils::TestLogger,
+    };
+
+    use super::*;
+
     fn db_builder(dir_name: &str) -> DummyImmutablesDbBuilder {
         DummyImmutablesDbBuilder::new(&format!("cardano_immutable_digester/{dir_name}"))
+    }
+
+    #[test]
+    fn test_compute_beacon_hash() {
+        let hash_expected = "48cbf709b56204d8315aefd3a416b45398094f6fd51785c5b7dcaf7f35aacbfb";
+        let (network, epoch, immutable_file_number) = ("testnet", 10, 100);
+
+        assert_eq!(
+            hash_expected,
+            compute_beacon_hash(
+                network,
+                &CardanoDbBeacon::new("whatever", epoch, immutable_file_number)
+            )
+        );
+        assert_ne!(
+            hash_expected,
+            compute_beacon_hash(
+                "mainnet",
+                &CardanoDbBeacon::new("whatever", epoch, immutable_file_number)
+            )
+        );
+        assert_ne!(
+            hash_expected,
+            compute_beacon_hash(
+                network,
+                &CardanoDbBeacon::new("whatever", 20, immutable_file_number)
+            )
+        );
+        assert_ne!(
+            hash_expected,
+            compute_beacon_hash(network, &CardanoDbBeacon::new("whatever", epoch, 200))
+        );
     }
 
     #[test]
