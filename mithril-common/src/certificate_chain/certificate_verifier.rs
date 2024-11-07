@@ -1073,4 +1073,88 @@ mod tests {
 
         assert_error_matches!(CertificateVerifierError::CertificateHashUnmatch, error)
     }
+
+    #[tokio::test]
+    async fn verify_certificate_chain_fails_when_adversarial_with_registered_signer_forgery_through_protocol_parameters(
+    ) {
+        // Create an adversarial certificate with a forged multi signature:
+        // - with the valid signed message
+        // - with the valid aggregate verification key (valid stake distribution)
+        // - by a legit adversarial registered signer in the signing stake distribution
+        // - with adversarial protocol parameters (phi_f = 1.0, i.e. all lotteries are won by the adversarial signer and quorum is reached)
+        fn forge_certificate(
+            certificate: Certificate,
+            context: &CertificateChainBuilderContext,
+        ) -> Certificate {
+            assert_ne!(
+                1.0, certificate.metadata.protocol_parameters.phi_f,
+                "Adversarial protocol parameters phi_f should be different from 1.0"
+            );
+            let fixture = context.fixture;
+            let signed_message = certificate.signed_message.to_owned();
+            let mut forged_certificate = certificate;
+            let mut forged_protocol_parameters = fixture.protocol_parameters();
+            forged_protocol_parameters.phi_f = 1.0;
+            let forged_single_signatures = fixture
+                .signers_fixture()
+                .iter()
+                .take(1)
+                .filter_map(|s| {
+                    let s_adversary = s
+                        .to_owned()
+                        .try_new_with_protocol_parameters(forged_protocol_parameters.clone())
+                        .unwrap();
+                    let signature = s_adversary.protocol_signer.sign(signed_message.as_bytes());
+
+                    signature
+                })
+                .collect::<Vec<_>>();
+            let forged_clerk = ProtocolClerk::from_registration(
+                &forged_protocol_parameters.clone().into(),
+                &fixture.signers_fixture()[0].protocol_closed_key_registration,
+            );
+            let forged_multi_signature = forged_clerk
+                .aggregate(&forged_single_signatures, signed_message.as_bytes())
+                .unwrap();
+            forged_certificate.signature = CertificateSignature::MultiSignature(
+                forged_certificate.signed_entity_type(),
+                forged_multi_signature.into(),
+            );
+            forged_certificate.metadata.protocol_parameters = forged_protocol_parameters;
+
+            forged_certificate
+        }
+
+        let (total_certificates, certificates_per_epoch) = (7, 2);
+        let (fake_certificates, genesis_verifier) = CertificateChainBuilder::new()
+            .with_total_certificates(total_certificates)
+            .with_certificates_per_epoch(certificates_per_epoch)
+            .with_standard_certificate_processor(&|certificate, context| {
+                if context.is_last_certificate() {
+                    forge_certificate(certificate, context)
+                } else {
+                    certificate
+                }
+            })
+            .build();
+        let certificate_to_verify = fake_certificates[0].clone();
+        let mock_container = MockDependencyInjector::new();
+        let mut verifier = mock_container.build_certificate_verifier();
+        verifier.certificate_retriever = Arc::new(FakeCertificaterRetriever::from_certificates(
+            &fake_certificates,
+        ));
+
+        let error = verifier
+            .verify_certificate(
+                &certificate_to_verify,
+                &genesis_verifier.to_verification_key(),
+            )
+            .await
+            .expect_err("verify_certificate_chain should fail");
+
+        assert_error_matches!(
+            CertificateVerifierError::CertificateChainProtocolParametersUnmatch,
+            error
+        )
+    }
 }
