@@ -58,6 +58,11 @@ pub enum CertificateVerifierError {
     #[error("certificate epoch unmatch error")]
     CertificateEpochUnmatch,
 
+    /// Error raised when validating the certificate chain if the current [Certificate]
+    /// `epoch` is neither equal to the previous certificate `epoch` nor to the previous certificate `epoch - 1`
+    #[error("certificate chain missing epoch error")]
+    CertificateChainMissingEpoch,
+
     /// Error raised when validating the certificate chain if the chain loops.
     #[error("certificate chain infinite loop error")]
     CertificateChainInfiniteLoop,
@@ -224,6 +229,21 @@ impl MithrilCertificateVerifier {
 
         Err(anyhow!(CertificateVerifierError::CertificateEpochUnmatch))
     }
+
+    fn verify_epoch_chaining(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
+        if certificate.epoch.has_gap_with(&previous_certificate.epoch) {
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateChainMissingEpoch
+            ));
+        }
+
+        Ok(())
+    }
+
     fn verify_aggregate_verification_key_chaining(
         &self,
         certificate: &Certificate,
@@ -312,6 +332,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             &certificate.metadata.protocol_parameters,
         )?;
         self.verify_epoch_matches_protocol_message(certificate)?;
+        self.verify_epoch_chaining(certificate, previous_certificate)?;
         self.verify_previous_hash_matches_previous_certificate_hash(
             certificate,
             previous_certificate,
@@ -366,7 +387,9 @@ mod tests {
 
     use crate::certificate_chain::{CertificateRetrieverError, FakeCertificaterRetriever};
     use crate::crypto_helper::{tests_setup::*, ProtocolClerk};
-    use crate::test_utils::{MithrilFixtureBuilder, TestLogger};
+    use crate::test_utils::{
+        CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder, TestLogger,
+    };
 
     macro_rules! assert_error_matches {
         ( $expected_error:path, $error:expr ) => {{
@@ -689,6 +712,87 @@ mod tests {
 
         assert_error_matches!(
             CertificateVerifierError::CertificateProtocolMessageUnmatch,
+            error
+        )
+    }
+
+    #[tokio::test]
+    async fn verify_standard_certificate_fails_if_epoch_unmatch() {
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let (fake_certificates, _) =
+            setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let mut certificate = fake_certificates[0].clone();
+        certificate.epoch -= 1;
+        certificate.hash = certificate.compute_hash();
+        let previous_certificate = fake_certificates[1].clone();
+
+        let error = verifier
+            .verify_standard_certificate(&certificate, &previous_certificate)
+            .await
+            .expect_err("verify_standard_certificate should fail");
+
+        assert_error_matches!(CertificateVerifierError::CertificateEpochUnmatch, error)
+    }
+
+    #[tokio::test]
+    async fn verify_standard_certificate_fails_if_has_missing_epoch() {
+        fn create_epoch_gap_certificate(
+            certificate: Certificate,
+            context: &CertificateChainBuilderContext,
+        ) -> Certificate {
+            let fixture = context.fixture;
+            let modified_epoch = certificate.epoch + 1;
+            let mut protocol_message = certificate.protocol_message.to_owned();
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::CurrentEpoch,
+                modified_epoch.to_string(),
+            );
+            let signed_message = protocol_message.compute_hash();
+            let mut modified_certificate = certificate;
+            modified_certificate.epoch = modified_epoch;
+            modified_certificate.protocol_message = protocol_message;
+            modified_certificate.signed_message = signed_message.clone();
+            let single_signatures = fixture
+                .signers_fixture()
+                .iter()
+                .filter_map(|s| s.protocol_signer.sign(signed_message.as_bytes()))
+                .collect::<Vec<_>>();
+            let clerk = ProtocolClerk::from_signer(&fixture.signers_fixture()[0].protocol_signer);
+            let modified_multi_signature = clerk
+                .aggregate(&single_signatures, signed_message.as_bytes())
+                .unwrap();
+            modified_certificate.signature = CertificateSignature::MultiSignature(
+                modified_certificate.signed_entity_type(),
+                modified_multi_signature.into(),
+            );
+
+            modified_certificate
+        }
+
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let (fake_certificates, _) = CertificateChainBuilder::new()
+            .with_total_certificates(total_certificates)
+            .with_certificates_per_epoch(certificates_per_epoch)
+            .with_standard_certificate_processor(&|certificate, context| {
+                if context.is_last_certificate() {
+                    create_epoch_gap_certificate(certificate, context)
+                } else {
+                    certificate
+                }
+            })
+            .build();
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let certificate = fake_certificates[0].clone();
+        let previous_certificate = fake_certificates[1].clone();
+
+        let error = verifier
+            .verify_standard_certificate(&certificate, &previous_certificate)
+            .await
+            .expect_err("verify_standard_certificate should fail");
+
+        assert_error_matches!(
+            CertificateVerifierError::CertificateChainMissingEpoch,
             error
         )
     }
