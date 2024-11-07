@@ -7,13 +7,12 @@ use mithril_aggregator::{
 use mithril_common::entities::{CardanoTransactionsSnapshot, Certificate, SignedEntity};
 use mithril_common::{
     entities::{Epoch, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint},
-    CardanoNetwork, StdResult, TickerService,
+    StdResult, TickerService,
 };
 use std::sync::Arc;
 
 // An observer that allow to inspect currently available open messages.
 pub struct AggregatorObserver {
-    network: CardanoNetwork,
     certifier_service: Arc<dyn CertifierService>,
     signed_entity_service: Arc<dyn SignedEntityService>,
     ticker_service: Arc<dyn TickerService>,
@@ -24,7 +23,6 @@ impl AggregatorObserver {
     // [AggregatorObserver] factory
     pub async fn new(deps_builder: &mut DependenciesBuilder) -> Self {
         Self {
-            network: deps_builder.configuration.get_network().unwrap(),
             certifier_service: deps_builder.get_certifier_service().await.unwrap(),
             signed_entity_service: deps_builder.get_signed_entity_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
