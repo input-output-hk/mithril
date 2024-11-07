@@ -54,6 +54,13 @@ pub enum CertificateVerifierError {
     CertificateChainAVKUnmatch,
 
     /// Error raised when validating the certificate chain if the current [Certificate]
+    /// `protocol_parameters` don't match the signed `next_protocol_parameters` of the previous certificate
+    /// (if the certificates are on different epoch) or the `protocol_parameters` of the previous certificate
+    /// (if the certificates are on the same epoch).
+    #[error("certificate chain protocol parameters unmatch error")]
+    CertificateChainProtocolParametersUnmatch,
+
+    /// Error raised when validating the certificate chain if the current [Certificate]
     /// `epoch` doesn't match the signed `current_epoch` of the current certificate
     #[error("certificate epoch unmatch error")]
     CertificateEpochUnmatch,
@@ -286,6 +293,40 @@ impl MithrilCertificateVerifier {
 
         Ok(())
     }
+
+    fn verify_protocol_parameters_chaining(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
+        let previous_certificate_has_same_epoch = previous_certificate.epoch == certificate.epoch;
+        let certificate_has_valid_protocol_parameters = if previous_certificate_has_same_epoch {
+            previous_certificate.metadata.protocol_parameters
+                == certificate.metadata.protocol_parameters
+        } else {
+            match &previous_certificate
+                .protocol_message
+                .get_message_part(&ProtocolMessagePartKey::NextProtocolParameters)
+            {
+                Some(previous_certificate_next_protocol_parameters) => {
+                    **previous_certificate_next_protocol_parameters
+                        == certificate.metadata.protocol_parameters.compute_hash()
+                }
+                None => false,
+            }
+        };
+        if !certificate_has_valid_protocol_parameters {
+            debug!(
+                self.logger,
+                "Previous certificate {:#?}", previous_certificate
+            );
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateChainProtocolParametersUnmatch
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
@@ -338,6 +379,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             previous_certificate,
         )?;
         self.verify_aggregate_verification_key_chaining(certificate, previous_certificate)?;
+        self.verify_protocol_parameters_chaining(certificate, previous_certificate)?;
 
         Ok(())
     }
@@ -846,22 +888,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verify_certificate_ko_certificate_hash_not_matching() {
+    async fn verify_standard_certificate_fails_if_certificate_chain_protocol_parameters_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let (fake_certificates, _) =
             setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
         let mut certificate = fake_certificates[0].clone();
-        certificate.hash = "another-hash".to_string();
-        let previous_certificate = fake_certificates[1].clone();
-        let mock_container = MockDependencyInjector::new();
-        let verifier = mock_container.build_certificate_verifier();
+        let mut previous_certificate = fake_certificates[1].clone();
+        previous_certificate.protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            "protocol-params-hash-123".to_string(),
+        );
+        previous_certificate.hash = previous_certificate.compute_hash();
+        certificate
+            .previous_hash
+            .clone_from(&previous_certificate.hash);
+        certificate.hash = certificate.compute_hash();
 
         let error = verifier
             .verify_standard_certificate(&certificate, &previous_certificate)
             .await
             .expect_err("verify_standard_certificate should fail");
 
-        assert_error_matches!(CertificateVerifierError::CertificateHashUnmatch, error)
+        assert_error_matches!(
+            CertificateVerifierError::CertificateChainProtocolParametersUnmatch,
+            error
+        )
     }
 
     #[tokio::test]
