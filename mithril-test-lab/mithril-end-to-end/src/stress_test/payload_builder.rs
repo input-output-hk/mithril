@@ -109,7 +109,8 @@ pub async fn compute_immutable_files_signatures(
                 // Minus one because the last immutable isn't "finished"
                 immutable_db.last_immutable_number().unwrap() - 1,
             );
-            let digester = CardanoImmutableDigester::new(None, slog_scope::logger());
+            let digester =
+                CardanoImmutableDigester::new("devnet".to_string(), None, slog_scope::logger());
             let digest = digester
                 .compute_digest(&immutable_db.dir, &beacon)
                 .await

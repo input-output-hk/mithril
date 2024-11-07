@@ -221,6 +221,7 @@ impl<'a> DependenciesBuilder<'a> {
             self.config.store_retention_limit,
         ));
         let digester = Arc::new(CardanoImmutableDigester::new(
+            network.to_string(),
             self.build_digester_cache_provider().await?,
             self.root_logger(),
         ));

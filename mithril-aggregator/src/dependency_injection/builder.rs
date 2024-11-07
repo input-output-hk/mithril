@@ -822,7 +822,11 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
             _ => None,
         };
-        let digester = CardanoImmutableDigester::new(immutable_digester_cache, self.root_logger());
+        let digester = CardanoImmutableDigester::new(
+            self.configuration.get_network()?.to_string(),
+            immutable_digester_cache,
+            self.root_logger(),
+        );
 
         Ok(Arc::new(digester))
     }

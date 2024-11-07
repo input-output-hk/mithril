@@ -18,6 +18,8 @@ type CacheComputationResult =
 
 /// A digester working directly on a Cardano DB immutables files
 pub struct CardanoImmutableDigester {
+    cardano_network: String,
+
     /// A [ImmutableFileDigestCacheProvider] instance
     cache_provider: Option<Arc<dyn ImmutableFileDigestCacheProvider>>,
 
@@ -28,10 +30,12 @@ pub struct CardanoImmutableDigester {
 impl CardanoImmutableDigester {
     /// ImmutableDigester factory
     pub fn new(
+        cardano_network: String,
         cache_provider: Option<Arc<dyn ImmutableFileDigestCacheProvider>>,
         logger: Logger,
     ) -> Self {
         Self {
+            cardano_network,
             cache_provider,
             logger: logger.new_with_component_name::<Self>(),
         }
@@ -82,10 +86,16 @@ impl ImmutableDigester for CardanoImmutableDigester {
 
                 // digest is done in a separate thread because it is blocking the whole task
                 let logger = self.logger.clone();
+                let thread_cardano_network = self.cardano_network.clone();
                 let thread_beacon = beacon.clone();
                 let (hash, new_cache_entries) =
                     tokio::task::spawn_blocking(move || -> CacheComputationResult {
-                        compute_hash(logger, &thread_beacon, cached_values)
+                        compute_hash(
+                            logger,
+                            thread_cardano_network,
+                            &thread_beacon,
+                            cached_values,
+                        )
                     })
                     .await
                     .map_err(|e| ImmutableDigesterError::DigestComputationError(e.into()))??;
@@ -110,6 +120,7 @@ impl ImmutableDigester for CardanoImmutableDigester {
 
 fn compute_hash(
     logger: Logger,
+    cardano_network: String,
     beacon: &CardanoDbBeacon,
     entries: BTreeMap<ImmutableFile, Option<HexEncodedDigest>>,
 ) -> CacheComputationResult {
@@ -120,7 +131,7 @@ fn compute_hash(
         total: entries.len(),
     };
 
-    hasher.update(compute_beacon_hash(&beacon.network, beacon).as_bytes());
+    hasher.update(compute_beacon_hash(&cardano_network, beacon).as_bytes());
 
     for (ix, (entry, cache)) in entries.iter().enumerate() {
         match cache {
@@ -258,7 +269,8 @@ mod tests {
     #[tokio::test]
     async fn fail_if_no_file_in_folder() {
         let immutable_db = db_builder("fail_if_no_file_in_folder").build();
-        let digester = CardanoImmutableDigester::new(None, TestLogger::stdout());
+        let digester =
+            CardanoImmutableDigester::new("devnet".to_string(), None, TestLogger::stdout());
         let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
 
         let result = digester
@@ -284,7 +296,8 @@ mod tests {
         let immutable_db = db_builder("fail_if_no_immutable_exist")
             .with_non_immutables(&["not_immutable"])
             .build();
-        let digester = CardanoImmutableDigester::new(None, TestLogger::stdout());
+        let digester =
+            CardanoImmutableDigester::new("devnet".to_string(), None, TestLogger::stdout());
         let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
 
         assert!(digester
@@ -298,7 +311,8 @@ mod tests {
         let immutable_db = db_builder("fail_if_theres_only_the_uncompleted_immutable_trio")
             .append_immutable_trio()
             .build();
-        let digester = CardanoImmutableDigester::new(None, TestLogger::stdout());
+        let digester =
+            CardanoImmutableDigester::new("devnet".to_string(), None, TestLogger::stdout());
         let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 1);
 
         let result = digester
@@ -325,7 +339,8 @@ mod tests {
             .with_immutables(&[1, 2, 3, 4, 5])
             .append_immutable_trio()
             .build();
-        let digester = CardanoImmutableDigester::new(None, TestLogger::stdout());
+        let digester =
+            CardanoImmutableDigester::new("devnet".to_string(), None, TestLogger::stdout());
         let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 10);
 
         let result = digester
@@ -354,6 +369,7 @@ mod tests {
             .build();
         let logger = TestLogger::stdout();
         let digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
             Some(Arc::new(MemoryImmutableFileDigestCacheProvider::default())),
             logger.clone(),
         );
@@ -379,7 +395,11 @@ mod tests {
         let immutables = immutable_db.immutables_files;
         let cache = Arc::new(MemoryImmutableFileDigestCacheProvider::default());
         let logger = TestLogger::stdout();
-        let digester = CardanoImmutableDigester::new(Some(cache.clone()), logger.clone());
+        let digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
+            Some(cache.clone()),
+            logger.clone(),
+        );
         let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 2);
 
         digester
@@ -411,8 +431,10 @@ mod tests {
         .append_immutable_trio()
         .build();
         let logger = TestLogger::stdout();
-        let no_cache_digester = CardanoImmutableDigester::new(None, logger.clone());
+        let no_cache_digester =
+            CardanoImmutableDigester::new("devnet".to_string(), None, logger.clone());
         let cache_digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
             Some(Arc::new(MemoryImmutableFileDigestCacheProvider::default())),
             logger.clone(),
         );
@@ -453,7 +475,11 @@ mod tests {
             .build();
         let cache = MemoryImmutableFileDigestCacheProvider::default();
         let logger = TestLogger::stdout();
-        let digester = CardanoImmutableDigester::new(Some(Arc::new(cache)), logger.clone());
+        let digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
+            Some(Arc::new(cache)),
+            logger.clone(),
+        );
         let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 50);
 
         let now = Instant::now();
@@ -495,7 +521,11 @@ mod tests {
             ))
         });
         let logger = TestLogger::stdout();
-        let digester = CardanoImmutableDigester::new(Some(Arc::new(cache)), logger.clone());
+        let digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
+            Some(Arc::new(cache)),
+            logger.clone(),
+        );
         let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 3);
 
         digester
@@ -518,7 +548,11 @@ mod tests {
         });
         cache.expect_store().returning(|_| Ok(()));
         let logger = TestLogger::stdout();
-        let digester = CardanoImmutableDigester::new(Some(Arc::new(cache)), logger.clone());
+        let digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
+            Some(Arc::new(cache)),
+            logger.clone(),
+        );
         let beacon = CardanoDbBeacon::new("devnet".to_string(), 1, 3);
 
         digester

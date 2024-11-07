@@ -45,9 +45,9 @@ impl MessageBuilder {
     }
 
     cfg_fs! {
-        fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
+        fn get_immutable_digester(&self, network: &str) -> Arc<dyn ImmutableDigester> {
             match self.immutable_digester.as_ref() {
-                None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
+                None => Arc::new(CardanoImmutableDigester::new(network.to_owned(),None, self.logger.clone())),
                 Some(digester) => digester.clone(),
             }
         }
@@ -71,7 +71,7 @@ impl MessageBuilder {
             snapshot_certificate: &MithrilCertificate,
             unpacked_snapshot_directory: &Path,
         ) -> MithrilResult<ProtocolMessage> {
-            let digester = self.get_immutable_digester();
+            let digester = self.get_immutable_digester(&snapshot_certificate.metadata.network);
             let beacon =
                 match &snapshot_certificate.signed_entity_type {
                 SignedEntityTypeMessagePart::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
