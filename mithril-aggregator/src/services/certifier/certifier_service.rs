@@ -717,7 +717,8 @@ mod tests {
         let network = fake_data::network();
         let beacon = CardanoDbBeacon::new(3, 1);
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
-        let protocol_message = ProtocolMessage::new();
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, "3".to_string());
         let epochs_with_signers = (1..=3).map(Epoch).collect::<Vec<_>>();
         let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
         let certifier_service = setup_certifier_service_with_network(

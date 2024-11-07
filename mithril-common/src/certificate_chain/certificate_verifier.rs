@@ -53,6 +53,11 @@ pub enum CertificateVerifierError {
     #[error("certificate chain AVK unmatch error")]
     CertificateChainAVKUnmatch,
 
+    /// Error raised when validating the certificate chain if the current [Certificate]
+    /// `epoch` doesn't match the signed `current_epoch` of the current certificate
+    #[error("certificate epoch unmatch error")]
+    CertificateEpochUnmatch,
+
     /// Error raised when validating the certificate chain if the chain loops.
     #[error("certificate chain infinite loop error")]
     CertificateChainInfiniteLoop,
@@ -206,6 +211,19 @@ impl MithrilCertificateVerifier {
 
         Ok(())
     }
+
+    fn verify_epoch_matches_protocol_message(&self, certificate: &Certificate) -> StdResult<()> {
+        if let Some(signed_epoch) = &certificate
+            .protocol_message
+            .get_message_part(&ProtocolMessagePartKey::CurrentEpoch)
+        {
+            if **signed_epoch == certificate.epoch.to_string() {
+                return Ok(());
+            }
+        }
+
+        Err(anyhow!(CertificateVerifierError::CertificateEpochUnmatch))
+    }
     fn verify_aggregate_verification_key_chaining(
         &self,
         certificate: &Certificate,
@@ -270,6 +288,8 @@ impl CertificateVerifier for MithrilCertificateVerifier {
                 genesis_signature,
             )
             .with_context(|| "Certificate verifier failed verifying a genesis certificate")?;
+        self.verify_epoch_matches_protocol_message(genesis_certificate)?;
+
         Ok(())
     }
 
@@ -291,6 +311,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             &certificate.aggregate_verification_key,
             &certificate.metadata.protocol_parameters,
         )?;
+        self.verify_epoch_matches_protocol_message(certificate)?;
         self.verify_previous_hash_matches_previous_certificate_hash(
             certificate,
             previous_certificate,
@@ -530,6 +551,27 @@ mod tests {
             CertificateVerifierError::CertificateProtocolMessageUnmatch,
             error
         )
+    }
+
+    #[tokio::test]
+    async fn verify_genesis_certificate_fails_if_epoch_unmatch() {
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let (fake_certificates, genesis_verifier) =
+            setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let mut genesis_certificate = fake_certificates.last().unwrap().clone();
+        genesis_certificate.epoch -= 1;
+        genesis_certificate.hash = genesis_certificate.compute_hash();
+
+        let error = verifier
+            .verify_genesis_certificate(
+                &genesis_certificate,
+                &genesis_verifier.to_verification_key(),
+            )
+            .await
+            .expect_err("verify_genesis_certificate should fail");
+
+        assert_error_matches!(CertificateVerifierError::CertificateEpochUnmatch, error)
     }
 
     #[tokio::test]
