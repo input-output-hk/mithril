@@ -143,15 +143,17 @@ pub fn setup_signers_from_stake_distribution(
         .into_iter()
         .map(
             |(signer_with_stake, protocol_initializer, kes_secret_key_path)| {
+                let protocol_closed_key_registration = closed_key_registration.clone();
                 let protocol_signer = protocol_initializer
                     .clone()
-                    .new_signer(closed_key_registration.clone())
+                    .new_signer(protocol_closed_key_registration.clone())
                     .expect("creating a new protocol signer should not fail");
 
                 SignerFixture {
                     signer_with_stake,
                     protocol_signer,
                     protocol_initializer,
+                    protocol_closed_key_registration,
                     kes_secret_key_path,
                 }
             },
