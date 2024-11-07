@@ -12,6 +12,9 @@ all: test build
 build:
 	wasm-pack build --target web --release --out-name index
 
+build-nodejs: 
+	wasm-pack build --target nodejs --release --out-name index
+
 test:
 	pkill -f "mithril-aggregator-fake" || true
 	${CARGO} run -p mithril-aggregator-fake -- -p 8000 &
