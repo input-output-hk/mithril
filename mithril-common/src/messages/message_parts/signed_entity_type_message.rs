@@ -173,30 +173,48 @@ impl<N: Into<String>> From<(SignedEntityType, N)> for SignedEntityTypeMessagePar
 
 #[cfg(test)]
 mod tests {
+    use std::fmt::Debug;
+
     use super::*;
+
+    fn assert_commutative_eq<TL: PartialEq<TR> + Debug, TR: PartialEq<TL> + Debug>(
+        left: TL,
+        right: TR,
+    ) {
+        assert_eq!(left, right);
+        assert_eq!(right, left);
+    }
+
+    fn assert_commutative_ne<TL: PartialEq<TR> + Debug, TR: PartialEq<TL> + Debug>(
+        left: TL,
+        right: TR,
+    ) {
+        assert_ne!(left, right);
+        assert_ne!(right, left);
+    }
 
     #[test]
     fn convert_message_to_cardano_db_beacon_entity() {
         assert_eq!(
-            CardanoDbBeacon::new("whatever", 12, 48),
-            CardanoDbBeacon::from(CardanoDbBeaconMessagePart::new("whatever", Epoch(12), 48))
+            CardanoDbBeacon::new("devnet", 12, 48),
+            CardanoDbBeacon::from(CardanoDbBeaconMessagePart::new("devnet", Epoch(12), 48))
         );
     }
 
     #[test]
     fn convert_cardano_db_beacon_entity_to_message() {
         assert_eq!(
-            CardanoDbBeaconMessagePart::new("whatever", Epoch(12), 48),
-            CardanoDbBeaconMessagePart::from((CardanoDbBeacon::new("unused", 12, 48), "whatever"))
+            CardanoDbBeaconMessagePart::new("devnet", Epoch(12), 48),
+            CardanoDbBeaconMessagePart::from((CardanoDbBeacon::new("unused", 12, 48), "devnet"))
         );
     }
 
     #[test]
     fn convert_message_to_signed_entity_type_entity() {
         assert_eq!(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("whatever", 12, 48)),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 12, 48)),
             SignedEntityType::from(SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new("whatever", Epoch(12), 48)
+                CardanoDbBeaconMessagePart::new("devnet", Epoch(12), 48)
             ))
         );
         assert_eq!(
@@ -224,11 +242,11 @@ mod tests {
     fn convert_signed_entity_type_entity_to_message() {
         assert_eq!(
             SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new("whatever", Epoch(12), 48)
+                CardanoDbBeaconMessagePart::new("devnet", Epoch(12), 48)
             ),
             SignedEntityTypeMessagePart::from((
                 SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("unused", 12, 48)),
-                "whatever"
+                "devnet"
             ))
         );
         assert_eq!(
@@ -256,164 +274,118 @@ mod tests {
 
     #[test]
     fn comparing_message_to_cardano_db_beacon_entity() {
-        let (epoch, immutable, network) = (Epoch(10), 50, "whatever".to_string());
-        assert_eq!(
+        let (epoch, immutable, network) = (Epoch(10), 50, "devnet".to_string());
+        assert_commutative_eq(
             CardanoDbBeacon::new(&network, *epoch, immutable),
             CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
-        );
-        assert_eq!(
-            CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
-            CardanoDbBeacon::new(&network, *epoch, immutable),
         );
 
         // Changing epoch should make them not equal
-        assert_ne!(
+        assert_commutative_ne(
             CardanoDbBeacon::new(&network, *epoch + 1, immutable),
             CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
         );
-        assert_ne!(
-            CardanoDbBeaconMessagePart::new(&network, epoch + 1, immutable),
-            CardanoDbBeacon::new(&network, *epoch, immutable),
-        );
 
         // Changing immutable file number should make them not equal
-        assert_ne!(
+        assert_commutative_ne(
             CardanoDbBeacon::new(&network, *epoch, immutable + 1),
             CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
         );
-        assert_ne!(
-            CardanoDbBeaconMessagePart::new(&network, epoch, immutable + 1),
-            CardanoDbBeacon::new(&network, *epoch, immutable),
-        );
 
         // Changing network should not matter
-        assert_eq!(
+        assert_commutative_eq(
             CardanoDbBeacon::new("another network", *epoch, immutable),
             CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
         );
-        assert_eq!(
-            CardanoDbBeaconMessagePart::new("another network", epoch, immutable),
-            CardanoDbBeacon::new(&network, *epoch, immutable),
-        );
 
         // Missing network should not matter too
-        assert_eq!(
+        assert_commutative_eq(
             CardanoDbBeacon::new(&network, *epoch, immutable),
             CardanoDbBeaconMessagePart {
                 network: None,
                 ..CardanoDbBeaconMessagePart::new(&network, epoch, immutable)
             },
-        );
-        assert_eq!(
-            CardanoDbBeaconMessagePart {
-                network: None,
-                ..CardanoDbBeaconMessagePart::new(&network, epoch, immutable)
-            },
-            CardanoDbBeacon::new(&network, *epoch, immutable),
         );
     }
 
     #[test]
     fn comparing_message_to_signed_entity_type_entity() {
         let (epoch, immutable) = (Epoch(10), 50);
-        let (block_number, network) = (BlockNumber(4678), "whatever".to_string());
+        let (block_number, network) = (BlockNumber(4678), "devnet".to_string());
 
         // CardanoImmutableFilesFull
-        assert_eq!(
+        assert_commutative_eq(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                &network, *epoch, immutable
+                &network, *epoch, immutable,
             )),
             SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new("whatever", epoch, immutable)
+                CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
             ),
         );
-        assert_eq!(
-            SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new(&network, epoch, immutable)
-            ),
+        // Changing network should not matter
+        assert_commutative_eq(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                &network, *epoch, immutable
+                "another network",
+                *epoch,
+                immutable,
             )),
+            SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
+                CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
+            ),
         );
-        assert_ne!(
+        assert_commutative_ne(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
                 &network,
                 *epoch + 10,
-                immutable
+                immutable,
             )),
             SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new("whatever", epoch, immutable)
+                CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
             ),
         );
-        assert_ne!(
-            SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new(&network, epoch + 10, immutable)
-            ),
+        assert_commutative_ne(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                &network, *epoch, immutable
+                &network,
+                *epoch,
+                immutable + 30,
             )),
+            SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
+                CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
+            ),
         );
 
         // MithrilStakeDistribution
-        assert_eq!(
+        assert_commutative_eq(
             SignedEntityType::MithrilStakeDistribution(epoch),
             SignedEntityTypeMessagePart::MithrilStakeDistribution(epoch),
         );
-        assert_eq!(
-            SignedEntityTypeMessagePart::MithrilStakeDistribution(epoch),
-            SignedEntityType::MithrilStakeDistribution(epoch),
-        );
-        assert_ne!(
+        assert_commutative_ne(
             SignedEntityType::MithrilStakeDistribution(epoch + 1),
             SignedEntityTypeMessagePart::MithrilStakeDistribution(epoch),
         );
-        assert_ne!(
-            SignedEntityTypeMessagePart::MithrilStakeDistribution(epoch + 1),
-            SignedEntityType::MithrilStakeDistribution(epoch),
-        );
 
         // CardanoStakeDistribution
-        assert_eq!(
+        assert_commutative_eq(
             SignedEntityType::CardanoStakeDistribution(epoch),
             SignedEntityTypeMessagePart::CardanoStakeDistribution(epoch),
         );
-        assert_eq!(
-            SignedEntityTypeMessagePart::CardanoStakeDistribution(epoch),
-            SignedEntityType::CardanoStakeDistribution(epoch),
-        );
-        assert_ne!(
+        assert_commutative_ne(
             SignedEntityType::CardanoStakeDistribution(epoch + 5),
             SignedEntityTypeMessagePart::CardanoStakeDistribution(epoch),
         );
-        assert_ne!(
-            SignedEntityTypeMessagePart::CardanoStakeDistribution(epoch + 5),
-            SignedEntityType::CardanoStakeDistribution(epoch),
-        );
 
         // CardanoTransactions
-        assert_eq!(
+        assert_commutative_eq(
             SignedEntityType::CardanoTransactions(epoch, block_number),
             SignedEntityTypeMessagePart::CardanoTransactions(epoch, block_number),
         );
-        assert_eq!(
-            SignedEntityTypeMessagePart::CardanoTransactions(epoch, block_number),
-            SignedEntityType::CardanoTransactions(epoch, block_number),
-        );
-        assert_ne!(
+        assert_commutative_ne(
             SignedEntityType::CardanoTransactions(epoch + 1, block_number),
             SignedEntityTypeMessagePart::CardanoTransactions(epoch, block_number),
         );
-        assert_ne!(
-            SignedEntityTypeMessagePart::CardanoTransactions(epoch + 1, block_number),
-            SignedEntityType::CardanoTransactions(epoch, block_number),
-        );
-        assert_ne!(
+        assert_commutative_ne(
             SignedEntityType::CardanoTransactions(epoch, block_number + 3),
             SignedEntityTypeMessagePart::CardanoTransactions(epoch, block_number),
-        );
-        assert_ne!(
-            SignedEntityTypeMessagePart::CardanoTransactions(epoch, block_number + 3),
-            SignedEntityType::CardanoTransactions(epoch, block_number),
         );
     }
 }
