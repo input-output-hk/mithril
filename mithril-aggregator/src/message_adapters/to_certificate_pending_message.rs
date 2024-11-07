@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn adapt_on_other_than_cardano_immutable_files_full_signed_entity_type_ok() {
         let mut certificate_pending = fake_data::certificate_pending();
-        let beacon = CardanoDbBeacon::new("", 0, 0);
+        let beacon = CardanoDbBeacon::new(0, 0);
         certificate_pending.signed_entity_type =
             SignedEntityType::MithrilStakeDistribution(Epoch(15));
 

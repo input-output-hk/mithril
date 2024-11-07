@@ -123,11 +123,7 @@ async fn create_certificate() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                "devnet".to_string(),
-                1,
-                3
-            )),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 3)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );

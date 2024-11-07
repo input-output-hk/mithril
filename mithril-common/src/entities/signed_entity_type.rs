@@ -132,7 +132,6 @@ impl SignedEntityType {
                 hasher.update(&epoch.to_be_bytes())
             }
             SignedEntityType::CardanoImmutableFilesFull(db_beacon) => {
-                hasher.update(db_beacon.network.as_bytes());
                 hasher.update(&db_beacon.epoch.to_be_bytes());
                 hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
             }
@@ -255,7 +254,7 @@ mod tests {
     fn get_epoch_when_signed_entity_type_is_signed_for_cardano_immutable_files_full_return_epoch_stored_in_signed_entity_type(
     ) {
         let signed_entity_type =
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("network", 3, 100));
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(3, 100));
         assert_eq!(
             signed_entity_type.get_epoch_when_signed_entity_type_is_signed(),
             Epoch(3)
@@ -293,24 +292,18 @@ mod tests {
         );
 
         let reference_hash = hash(SignedEntityType::CardanoImmutableFilesFull(
-            CardanoDbBeacon::new("network", 5, 100),
+            CardanoDbBeacon::new(5, 100),
         ));
         assert_ne!(
             reference_hash,
             hash(SignedEntityType::CardanoImmutableFilesFull(
-                CardanoDbBeacon::new("other_network", 5, 100)
+                CardanoDbBeacon::new(20, 100)
             ))
         );
         assert_ne!(
             reference_hash,
             hash(SignedEntityType::CardanoImmutableFilesFull(
-                CardanoDbBeacon::new("network", 20, 100)
-            ))
-        );
-        assert_ne!(
-            reference_hash,
-            hash(SignedEntityType::CardanoImmutableFilesFull(
-                CardanoDbBeacon::new("network", 5, 507)
+                CardanoDbBeacon::new(5, 507)
             ))
         );
 
@@ -351,11 +344,11 @@ mod tests {
         );
 
         let cardano_immutable_files_full_json =
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("network", 5, 100))
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(5, 100))
                 .get_json_beacon()
                 .unwrap();
         assert_same_json!(
-            r#"{"network":"network","epoch":5,"immutable_file_number":100}"#,
+            r#"{"epoch":5,"immutable_file_number":100}"#,
             &cardano_immutable_files_full_json
         );
 

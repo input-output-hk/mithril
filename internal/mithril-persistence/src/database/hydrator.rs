@@ -18,7 +18,7 @@ impl Hydrator {
         column_index: U,
     ) -> String {
         // We need to check first that the cell can be read as a string first
-        // (e.g. when beacon json is '{"network": "dev", "epoch": 1, "immutable_file_number": 2}').
+        // (e.g. when beacon json is '{"epoch": 1, "immutable_file_number": 2}').
         // If it fails, we fallback on reading the cell as an integer (e.g. when beacon json is '5').
         // TODO: Maybe there is a better way of doing this.
         match row.try_read::<&str, _>(column_index.clone()) {

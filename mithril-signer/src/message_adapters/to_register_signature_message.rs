@@ -72,7 +72,7 @@ mod tests {
     #[test]
     fn adapt_cardano_immutable_files_full_message() {
         let signed_entity_type =
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("unused", 6, 54));
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(6, 54));
         let message: RegisterSignatureMessage = ToRegisterSignatureMessageAdapter::try_adapt((
             signed_entity_type.clone(),
             fake_data::single_signatures([1, 3].to_vec()),

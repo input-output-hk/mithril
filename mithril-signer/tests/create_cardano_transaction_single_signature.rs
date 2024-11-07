@@ -67,7 +67,7 @@ async fn test_create_cardano_transaction_single_signature() {
         .cycle_ready_to_sign_with_signature_registration(MithrilStakeDistribution(Epoch(3))).await.unwrap()
         
         .comment("signer signs a single signature for CardanoImmutableFilesFull = ReadyToSign")
-        .cycle_ready_to_sign_with_signature_registration(CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 3, 1))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(CardanoImmutableFilesFull(CardanoDbBeacon::new(3, 1))).await.unwrap()
         
         .comment("creating a new certificate pending with a cardano transaction signed entity → ReadyToSign")
         .increase_block_number_and_slot_number(70, SlotNumber(80), BlockNumber(170)).await.unwrap()

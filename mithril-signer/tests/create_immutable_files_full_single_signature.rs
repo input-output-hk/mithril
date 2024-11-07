@@ -100,14 +100,14 @@ async fn test_create_immutable_files_full_single_signature() {
         .cycle_ready_to_sign_with_signature_registration(CardanoStakeDistribution(Epoch(3))).await.unwrap()
 
         .comment("signer signs a single signature for CardanoImmutableFilesFull = ReadyToSign")
-        .cycle_ready_to_sign_with_signature_registration(CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 4, 8))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(CardanoImmutableFilesFull(CardanoDbBeacon::new(4, 8))).await.unwrap()
 
         .comment("more cycles do not change the state = ReadyToSign")
         .cycle_ready_to_sign_without_signature_registration().await.unwrap()
 
         .comment("new immutable means a new signature with the same stake distribution → ReadyToSign")
         .increase_immutable(1, 9).await.unwrap()
-        .cycle_ready_to_sign_with_signature_registration(CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 4, 9))).await.unwrap()
+        .cycle_ready_to_sign_with_signature_registration(CardanoImmutableFilesFull(CardanoDbBeacon::new(4, 9))).await.unwrap()
 
         .comment("changing epoch changes the state → Unregistered")
         .increase_epoch(5).await.unwrap()

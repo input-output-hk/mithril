@@ -76,7 +76,6 @@ impl SignedEntityConfig {
             }
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull => {
                 SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                    self.network,
                     *time_point.epoch,
                     time_point.immutable_file_number,
                 ))
@@ -223,7 +222,7 @@ mod tests {
         );
 
         assert_eq!(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 1, 5)),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 5)),
             config
                 .time_point_to_signed_entity(
                     SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
@@ -427,10 +426,7 @@ mod tests {
     #[test]
     fn test_list_allowed_signed_entity_types_with_specific_configuration() {
         let network = CardanoNetwork::DevNet(12);
-        let beacon = CardanoDbBeacon {
-            network: network.to_string(),
-            ..fake_data::beacon()
-        };
+        let beacon = fake_data::beacon();
         let chain_point = ChainPoint {
             block_number: BlockNumber(45),
             ..ChainPoint::dummy()

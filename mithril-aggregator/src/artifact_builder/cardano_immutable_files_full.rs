@@ -256,7 +256,7 @@ mod tests {
     #[tokio::test]
     async fn snapshot_archive_name_after_beacon_values() {
         let network = fake_data::network();
-        let beacon = CardanoDbBeacon::new("network".to_string(), 20, 145);
+        let beacon = CardanoDbBeacon::new(20, 145);
         let digest = "test+digest";
 
         let cardano_immutable_files_full_artifact_builder =
