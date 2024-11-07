@@ -161,8 +161,8 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
             size: artifact.size,
             created_at: value.created_at,
             locations: artifact.locations,
-            compression_algorithm: Some(artifact.compression_algorithm),
-            cardano_node_version: Some(artifact.cardano_node_version),
+            compression_algorithm: artifact.compression_algorithm,
+            cardano_node_version: artifact.cardano_node_version,
         };
 
         Ok(snapshot_message)
@@ -276,8 +276,8 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
             size: artifact.size,
             created_at: value.created_at,
             locations: artifact.locations,
-            compression_algorithm: Some(artifact.compression_algorithm),
-            cardano_node_version: Some(artifact.cardano_node_version),
+            compression_algorithm: artifact.compression_algorithm,
+            cardano_node_version: artifact.cardano_node_version,
         };
 
         Ok(message)

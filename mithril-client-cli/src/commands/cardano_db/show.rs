@@ -74,12 +74,7 @@ impl CardanoDbShowCommand {
                 ],
                 vec![
                     "Cardano node version".cell(),
-                    cardano_db_message
-                        .cardano_node_version
-                        .as_ref()
-                        .unwrap_or(&"NA".to_string())
-                        .to_string()
-                        .cell(),
+                    cardano_db_message.cardano_node_version.cell(),
                 ],
                 vec![
                     "Location".cell(),
@@ -91,11 +86,7 @@ impl CardanoDbShowCommand {
                 ],
                 vec![
                     "Compression Algorithm".cell(),
-                    format!(
-                        "{}",
-                        &cardano_db_message.compression_algorithm.unwrap_or_default()
-                    )
-                    .cell(),
+                    format!("{}", &cardano_db_message.compression_algorithm).cell(),
                 ],
             ]
             .table();

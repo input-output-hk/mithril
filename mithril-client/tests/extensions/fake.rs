@@ -228,7 +228,7 @@ mod file {
                 digest: snapshot_digest.to_string(),
                 certificate_hash: certificate_hash.to_string(),
                 beacon: beacon_message.clone(),
-                compression_algorithm: Some(CompressionAlgorithm::Zstandard),
+                compression_algorithm: CompressionAlgorithm::Zstandard,
                 ..Snapshot::dummy()
             }));
             let snapshot_clone = snapshot.clone();
@@ -238,7 +238,7 @@ mod file {
                     digest: snapshot_digest.to_string(),
                     certificate_hash: certificate_hash.to_string(),
                     beacon: beacon_message.clone(),
-                    compression_algorithm: Some(CompressionAlgorithm::Zstandard),
+                    compression_algorithm: CompressionAlgorithm::Zstandard,
                     ..SnapshotListItem::dummy()
                 },
                 SnapshotListItem::dummy(),

@@ -29,12 +29,10 @@ pub struct SnapshotMessage {
     pub locations: Vec<String>,
 
     /// Compression algorithm of the snapshot archive
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub compression_algorithm: Option<CompressionAlgorithm>,
+    pub compression_algorithm: CompressionAlgorithm,
 
     /// Cardano node version
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cardano_node_version: Option<String>,
+    pub cardano_node_version: String,
 }
 
 impl SnapshotMessage {
@@ -55,8 +53,8 @@ impl SnapshotMessage {
                 .unwrap()
                 .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
-            compression_algorithm: Some(CompressionAlgorithm::Gzip),
-            cardano_node_version: Some("0.0.1".to_string()),
+            compression_algorithm: CompressionAlgorithm::Gzip,
+            cardano_node_version: "0.0.1".to_string(),
         }
     }
 }
@@ -133,8 +131,8 @@ mod tests {
                 .unwrap()
                 .with_timezone(&Utc),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
-            compression_algorithm: Some(CompressionAlgorithm::Gzip),
-            cardano_node_version: Some("0.0.1".to_string()),
+            compression_algorithm: CompressionAlgorithm::Gzip,
+            cardano_node_version: "0.0.1".to_string(),
         }
     }
 
