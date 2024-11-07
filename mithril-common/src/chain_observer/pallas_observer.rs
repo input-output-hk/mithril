@@ -19,6 +19,7 @@ use pallas_network::{
     },
 };
 use pallas_primitives::ToCanonicalJson;
+use pallas_traverse::Era;
 
 use crate::{
     chain_observer::{interface::*, ChainAddress, TxDatum},
@@ -64,6 +65,22 @@ impl PallasChainObserver {
             .await
             .map_err(|err| anyhow!(err))
             .with_context(|| "PallasChainObserver failed to create new client")
+    }
+
+    /// Fetches the current era using the provided `statequery` client.
+    async fn get_era(&self, statequery: &mut Client) -> StdResult<u16> {
+        statequery
+            .acquire(None)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to acquire statequery")?;
+
+        let era = queries_v16::get_current_era(statequery)
+            .await
+            .map_err(|err| anyhow!(err))
+            .with_context(|| "PallasChainObserver failed to get current era")?;
+
+        Ok(era)
     }
 
     /// Fetches the current epoch number using the provided `statequery` client.
@@ -404,6 +421,21 @@ impl PallasChainObserver {
 
 #[async_trait]
 impl ChainObserver for PallasChainObserver {
+    async fn get_current_era(&self) -> Result<Option<String>, ChainObserverError> {
+        let mut client = self.get_client().await?;
+
+        let era = self.get_era(client.statequery()).await?;
+
+        let era = Era::try_from(era)
+            .with_context(|| "PallasChainObserver failed to convert: '{era}' to Era")?;
+
+        self.post_process_statequery(&mut client).await?;
+
+        client.abort().await;
+
+        Ok(Some(era.to_string()))
+    }
+
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         let mut client = self.get_client().await?;
 
@@ -838,7 +870,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_current_era() {
+    async fn fetch_current_era_from_state_query() {
         let socket_path = create_temp_dir("get_current_era").join("node.socket");
         let server = setup_server(socket_path.clone(), 1).await;
         let client = tokio::spawn(async move {
@@ -859,6 +891,22 @@ mod tests {
         let (_, client_res) = tokio::join!(server, client);
         let era = client_res.expect("Client failed");
         assert_eq!(era, 4);
+    }
+
+    #[tokio::test]
+    async fn get_current_era() {
+        let socket_path = create_temp_dir("get_current_era_as_string").join("node.socket");
+        let server = setup_server(socket_path.clone(), 1).await;
+        let client = tokio::spawn(async move {
+            let observer =
+                PallasChainObserver::new(socket_path.as_path(), CardanoNetwork::TestNet(10));
+            observer.get_current_era().await.unwrap().unwrap()
+        });
+
+        let (_, client_res) = tokio::join!(server, client);
+        let era = client_res.expect("Client failed");
+        let expected_era = Era::try_from(4).unwrap().to_string();
+        assert_eq!(era, expected_era);
     }
 
     #[tokio::test]

@@ -14,6 +14,8 @@ mock! {
             address: &ChainAddress,
         ) -> Result<Vec<TxDatum>, ChainObserverError>;
 
+        async fn get_current_era(&self) -> Result<Option<String>, ChainObserverError>;
+
         async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError>;
 
         async fn get_current_chain_point(&self) -> Result<Option<ChainPoint>, ChainObserverError>;

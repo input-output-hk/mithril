@@ -151,6 +151,10 @@ impl ChainObserver for FakeObserver {
         Ok(datums.to_vec())
     }
 
+    async fn get_current_era(&self) -> Result<Option<String>, ChainObserverError> {
+        Ok(Some(String::new()))
+    }
+
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         Ok(self
             .current_time_point

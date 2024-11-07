@@ -122,6 +122,10 @@ mod tests {
             Ok(Vec::new())
         }
 
+        async fn get_current_era(&self) -> Result<Option<String>, ChainObserverError> {
+            Ok(Some(String::new()))
+        }
+
         async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
             Ok(Some(Epoch(42)))
         }

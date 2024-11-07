@@ -29,6 +29,8 @@ pub trait CliRunner {
     async fn launch_stake_snapshot(&self, stake_pool_id: &str) -> StdResult<String>;
     /// Launches the stake snapshot for all pools.
     async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String>;
+    /// Launches the era info.
+    async fn launch_era(&self) -> StdResult<String>;
     /// Launches the epoch info.
     async fn launch_epoch(&self) -> StdResult<String>;
     /// Launches the chain point.
@@ -111,6 +113,14 @@ impl CardanoCliRunner {
             .arg("query")
             .arg("stake-snapshot")
             .arg("--all-stake-pools");
+        self.post_config_command(&mut command);
+
+        command
+    }
+
+    fn command_for_era(&self) -> Command {
+        let mut command = self.get_command();
+        command.arg(CARDANO_ERA).arg("query").arg("tip");
         self.post_config_command(&mut command);
 
         command
@@ -238,6 +248,22 @@ impl CliRunner for CardanoCliRunner {
             Err(anyhow!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_stake_snapshot_all_pools(),
+                message
+            ))
+        }
+    }
+
+    async fn launch_era(&self) -> StdResult<String> {
+        let output = self.command_for_era().output().await?;
+
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
+            Err(anyhow!(
+                "Error launching command {:?}, error = '{}'",
+                self.command_for_era(),
                 message
             ))
         }
@@ -425,6 +451,23 @@ impl CardanoCliChainObserver {
 
 #[async_trait]
 impl ChainObserver for CardanoCliChainObserver {
+    async fn get_current_era(&self) -> Result<Option<String>, ChainObserverError> {
+        let output = self
+            .cli_runner
+            .launch_era()
+            .await
+            .map_err(ChainObserverError::General)?;
+        let v: Value = serde_json::from_str(&output)
+            .with_context(|| format!("output was = '{output}'"))
+            .map_err(ChainObserverError::InvalidContent)?;
+
+        if let Value::String(era) = &v["era"] {
+            Ok(Some(era.to_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         let output = self
             .cli_runner
@@ -529,16 +572,27 @@ mod tests {
     use std::collections::BTreeMap;
 
     use super::*;
-    use crate::{chain_observer::test_cli_runner::TestCliRunner, crypto_helper::ColdKeyGenerator};
+    use crate::{
+        chain_observer::test_cli_runner::{test_expected, TestCliRunner},
+        crypto_helper::ColdKeyGenerator,
+    };
 
     use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
+
+    #[tokio::test]
+    async fn test_get_current_era() {
+        let observer = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
+        let era = observer.get_current_era().await.unwrap().unwrap();
+
+        assert_eq!(test_expected::launch_era::ERA.to_string(), era);
+    }
 
     #[tokio::test]
     async fn test_get_current_epoch() {
         let observer = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
         let epoch = observer.get_current_epoch().await.unwrap().unwrap();
 
-        assert_eq!(Epoch(120), epoch);
+        assert_eq!(test_expected::launch_epoch::EPOCH, epoch);
     }
 
     #[tokio::test]
@@ -548,10 +602,9 @@ mod tests {
 
         assert_eq!(
             ChainPoint {
-                slot_number: SlotNumber(25886617),
-                block_number: BlockNumber(1270276),
-                block_hash: "7383b17d7b05b0953cf0649abff60173995eb9febe556889333e20e1e5b7ca84"
-                    .to_string(),
+                slot_number: test_expected::launch_chain_point::SLOT_NUMBER,
+                block_number: test_expected::launch_chain_point::BLOCK_NUMBER,
+                block_hash: test_expected::launch_chain_point::BLOCK_HASH.to_string(),
             },
             chain_point
         );
@@ -604,7 +657,16 @@ mod tests {
         let observer = CardanoCliChainObserver::new(Box::<TestCliRunner>::default());
         let address = "addrtest_123456".to_string();
         let datums = observer.get_current_datums(&address).await.unwrap();
-        assert_eq!(vec![TxDatum(r#"{"constructor":0,"fields":[{"bytes":"5b0a20207b0a20202020226e616d65223a20227468616c6573222c0a202020202265706f6368223a203132330a20207d2c0a20207b0a20202020226e616d65223a20227079746861676f726173222c0a202020202265706f6368223a206e756c6c0a20207d0a5d0a"}]}"#.to_string())], datums);
+        assert_eq!(
+            vec![TxDatum(
+                format!(
+                    r#"{{"constructor":0,"fields":[{{"bytes":"{}"}}]}}"#,
+                    test_expected::launch_utxo::BYTES
+                )
+                .to_string()
+            )],
+            datums
+        );
     }
 
     #[tokio::test]
@@ -614,13 +676,19 @@ mod tests {
             .get_current_stake_value("pool1qqyjr9pcrv97gwrueunug829fs5znw6p2wxft3fvqkgu5f4qlrg")
             .await
             .expect("get current stake value should not fail");
-        assert_eq!(3_000_000, stake);
+        assert_eq!(
+            test_expected::launch_stake_snapshot::DEFAULT_POOL_STAKE_MARK,
+            stake
+        );
 
         let stake = observer
-            .get_current_stake_value("pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8")
+            .get_current_stake_value(test_expected::launch_stake_snapshot::POOL_ID_SPECIFIC)
             .await
             .expect("get current stake value should not fail");
-        assert_eq!(0, stake);
+        assert_eq!(
+            test_expected::launch_stake_snapshot::POOL_STAKE_MARK_FOR_POOL_ID_SPECIFIC,
+            stake
+        );
     }
 
     #[tokio::test]
@@ -658,15 +726,15 @@ mod tests {
         let mut expected_stake_distribution = StakeDistribution::new();
         expected_stake_distribution.insert(
             "pool1qqqqqdk4zhsjuxxd8jyvwncf5eucfskz0xjjj64fdmlgj735lr9".to_string(),
-            300000000001,
+            test_expected::launch_stake_snapshot_all_pools::STAKE_MARK_POOL_1,
         );
         expected_stake_distribution.insert(
             "pool1qqqqpanw9zc0rzh0yp247nzf2s35uvnsm7aaesfl2nnejaev0uc".to_string(),
-            600000000001,
+            test_expected::launch_stake_snapshot_all_pools::STAKE_MARK_POOL_2,
         );
         expected_stake_distribution.insert(
             "pool1qqqqzyqf8mlm70883zht60n4q6uqxg4a8x266sewv8ad2grkztl".to_string(),
-            1200000000001,
+            test_expected::launch_stake_snapshot_all_pools::STAKE_MARK_POOL_3,
         );
         assert_eq!(
             BTreeMap::from_iter(
@@ -755,6 +823,6 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
-        assert_eq!(404, kes_period);
+        assert_eq!(test_expected::launch_kes_period::KES_PERIOD, kes_period);
     }
 }
