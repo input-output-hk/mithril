@@ -155,13 +155,14 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
         let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
         let snapshot_message = SnapshotMessage {
             digest: artifact.digest,
-            beacon: artifact.beacon,
+            network: artifact.network.clone(),
+            beacon: (artifact.beacon, artifact.network).into(),
             certificate_hash: value.certificate_id,
             size: artifact.size,
             created_at: value.created_at,
             locations: artifact.locations,
-            compression_algorithm: Some(artifact.compression_algorithm),
-            cardano_node_version: Some(artifact.cardano_node_version),
+            compression_algorithm: artifact.compression_algorithm,
+            cardano_node_version: artifact.cardano_node_version,
         };
 
         Ok(snapshot_message)
@@ -269,13 +270,14 @@ impl TryFrom<SignedEntityRecord> for SnapshotListItemMessage {
         let artifact = serde_json::from_str::<Snapshot>(&value.artifact)?;
         let message = SnapshotListItemMessage {
             digest: artifact.digest,
-            beacon: artifact.beacon,
+            network: artifact.network.clone(),
+            beacon: (artifact.beacon, artifact.network).into(),
             certificate_hash: value.certificate_id,
             size: artifact.size,
             created_at: value.created_at,
             locations: artifact.locations,
-            compression_algorithm: Some(artifact.compression_algorithm),
-            cardano_node_version: Some(artifact.cardano_node_version),
+            compression_algorithm: artifact.compression_algorithm,
+            cardano_node_version: artifact.cardano_node_version,
         };
 
         Ok(message)

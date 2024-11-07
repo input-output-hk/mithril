@@ -4,8 +4,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::entities::{
     Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, ProtocolVersion,
-    SignedEntityType,
 };
+use crate::messages::SignedEntityTypeMessagePart;
 
 /// Message structure of a certificate list
 pub type CertificateListMessage = Vec<CertificateListItemMessage>;
@@ -62,7 +62,7 @@ pub struct CertificateListItemMessage {
 
     /// The signed entity type of the message.
     /// aka BEACON(p,n)
-    pub signed_entity_type: SignedEntityType,
+    pub signed_entity_type: SignedEntityTypeMessagePart,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
@@ -100,7 +100,7 @@ impl CertificateListItemMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+            signed_entity_type: SignedEntityTypeMessagePart::MithrilStakeDistribution(epoch),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),
@@ -154,6 +154,7 @@ impl Debug for CertificateListItemMessage {
 #[cfg(test)]
 mod tests {
     use crate::entities::CardanoDbBeacon;
+    use crate::messages::CardanoDbBeaconMessagePart;
 
     use super::*;
 
@@ -161,7 +162,13 @@ mod tests {
             "hash": "hash",
             "previous_hash": "previous_hash",
             "epoch": 10,
-            "signed_entity_type": { "MithrilStakeDistribution": 10 },
+            "signed_entity_type": {
+                "CardanoImmutableFilesFull": {
+                    "network": "testnet",
+                    "epoch": 10,
+                    "immutable_file_number": 1728
+                }
+            },
             "metadata": {
                 "network": "testnet",
                 "version": "0.1.0",
@@ -191,7 +198,7 @@ mod tests {
         pub hash: String,
         pub previous_hash: String,
         pub epoch: Epoch,
-        pub signed_entity_type: SignedEntityType,
+        pub signed_entity_type: SignedEntityTypeMessagePart,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub beacon: Option<CardanoDbBeacon>,
         pub metadata: CertificateListItemMessageMetadata,
@@ -216,7 +223,9 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+            signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
+                CardanoDbBeaconMessagePart::new("testnet", epoch, 1728),
+            ),
             beacon: None,
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
@@ -252,7 +261,9 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+            signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
+                CardanoDbBeaconMessagePart::new("testnet", epoch, 1728),
+            ),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),

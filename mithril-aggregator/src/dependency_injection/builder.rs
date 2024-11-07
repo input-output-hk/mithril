@@ -822,7 +822,11 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
             _ => None,
         };
-        let digester = CardanoImmutableDigester::new(immutable_digester_cache, self.root_logger());
+        let digester = CardanoImmutableDigester::new(
+            self.configuration.get_network()?.to_string(),
+            immutable_digester_cache,
+            self.root_logger(),
+        );
 
         Ok(Arc::new(digester))
     }
@@ -1204,6 +1208,7 @@ impl DependenciesBuilder {
             .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version), error: Some(e.into()) })?;
         let cardano_immutable_files_full_artifact_builder =
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
+                self.configuration.get_network()?,
                 &cardano_node_version,
                 snapshotter,
                 snapshot_uploader,

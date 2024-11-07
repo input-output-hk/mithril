@@ -37,7 +37,7 @@ impl CardanoDbListCommand {
                     vec![
                         format!("{}", item.beacon.epoch).cell(),
                         format!("{}", item.beacon.immutable_file_number).cell(),
-                        item.beacon.network.cell(),
+                        item.network.cell(),
                         item.digest.cell(),
                         item.size.cell(),
                         format!("{}", item.locations.len()).cell(),

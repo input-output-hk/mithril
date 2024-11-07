@@ -179,7 +179,7 @@ impl GenesisTools {
     ) -> StdResult<()> {
         let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
             self.genesis_protocol_parameters.clone(),
-            self.network.to_string(),
+            self.network,
             self.time_point.epoch,
             self.genesis_avk.clone(),
             genesis_signature,

@@ -1,62 +1,50 @@
 [
   {
     "epoch": 19,
-    "hash": "ca136fbd690a9e5b25bdc8c76bd90f1917820591aeb2ccfa1772d49497e93660",
-    "certificate_hash": "09747204f0c3c8854493070d6106f6fcc508d2f1f0a75cb7bef6b8d572eeb959",
-    "created_at": "2024-10-29T13:34:12.991405Z"
+    "hash": "d33d8ba9bb186e211f9d9aefa4a133d75eeec589e7886f912952f5a3e25fb5f4",
+    "certificate_hash": "c5f580da512ce920bb366d256851455d6196449ccbe05b2c952893eea15fe1d3",
+    "created_at": "2024-11-07T14:55:02.710455717Z"
   },
   {
     "epoch": 18,
-    "hash": "53d478d1f05e94040e21a3a76064d5b395171bc74fc6dcc9fc09531e22f0a74f",
-    "certificate_hash": "260a055504cb833d887138043b7a282b090ecc799018ec0497ab1100d8738e44",
-    "created_at": "2024-10-29T13:34:05.542963Z"
+    "hash": "71804ff8d08805d55f334c84db467243bb8622d054015c42ba2efabb48e9c03a",
+    "certificate_hash": "41723b254ef8c8001c887a40b44ced382c3aaa7cd6b8f6089343d071b017148b",
+    "created_at": "2024-11-07T14:54:59.642387311Z"
   },
   {
     "epoch": 17,
-    "hash": "cc00d11ca9ff2771fdffb07cd6912be1a4cf589bae126611ca534431a06872d0",
-    "certificate_hash": "d13c3e19b764a543f32c95f80ba772c4fc91df83601e1f515a34411b05702be6",
-    "created_at": "2024-10-29T13:33:58.129542Z"
+    "hash": "b8f887e56b76bc544df7e52faa0a8cbf0f9467d84e616ae476b6302286ddcb0e",
+    "certificate_hash": "95b83b14492e1dca5f007d31f4c15e7ff06afc57a49ea308d68dcbb4551a3824",
+    "created_at": "2024-11-07T14:54:56.589346180Z"
   },
   {
     "epoch": 16,
-    "hash": "eda9a97a73c4b6d88a8bb3dfaa49271a6d6606ed3f2869072b2f4e50d461316a",
-    "certificate_hash": "430f6e772105cb9e67fd4f12e6badd05ec67b6738e360bcf7fd2d81d023d06f2",
-    "created_at": "2024-10-29T13:33:50.477210Z"
+    "hash": "6d049c154f8ef3ed89c364a3c46a7075e86618ea44d97bb087a016c0001382fe",
+    "certificate_hash": "a4a9906e97145578e1988c624fa7f2d8477e4ad6d598cacbedc2d95032d2baec",
+    "created_at": "2024-11-07T14:54:53.674429510Z"
   },
   {
     "epoch": 15,
-    "hash": "27c6aa633638968240206d9791a4de03ef3ba373373860fe2949c36a63e3eec1",
-    "certificate_hash": "50506d6921f06f611196cc4f09be11401271a4b2342a1aae0fd683f4c7112c0e",
-    "created_at": "2024-10-29T13:33:43.057086Z"
+    "hash": "574a1e77726d63c13a95ae82ebfce73fbb000781764a6d36823b9a4be20b2f01",
+    "certificate_hash": "df2496cb3cdaf89efa2a481d83a03d0ac88e66d47646c1b2d48d8a6afb8dbeeb",
+    "created_at": "2024-11-07T14:54:50.621115249Z"
   },
   {
     "epoch": 14,
-    "hash": "ba93bc8b9e63b3a7cd1032339232618b37628d867c87f828b013e3285f98b61d",
-    "certificate_hash": "b2dd2e9a012d25dfe01edbf63272ddbdf75c3784003be121e9c663ec596cc71f",
-    "created_at": "2024-10-29T13:33:35.520533Z"
+    "hash": "cd3e48874721ef5e365d53820b1932da4c9d3f7aad9389da08f0cc0f0f12cd88",
+    "certificate_hash": "1e916d6e17cb08697acff2b2c0c89af4e582a253947de373458ffc506f963806",
+    "created_at": "2024-11-07T14:54:47.556239803Z"
   },
   {
     "epoch": 13,
-    "hash": "8596a91df9e2f437142ce1155ec86d0e3432d864250d0c5e5664c764d2e65b2c",
-    "certificate_hash": "1d8adccb46782b8ac850f4261dcc7daf76a28742401a2a1e2e41018ef5ddbf4f",
-    "created_at": "2024-10-29T13:33:28.055583Z"
+    "hash": "fb1b61c1bb52d46ab484ef0779a016c12e2c3127353d4fd9222b143a709561b5",
+    "certificate_hash": "f765b6a6885beabeb498b48dfbc2b75d5bc759f15a280787e7b6d25f28d521a5",
+    "created_at": "2024-11-07T14:54:44.627670833Z"
   },
   {
     "epoch": 12,
-    "hash": "db26f6527adfd926b8258bd91b6ba45f1b0affb1f29adf2ce61a29f611cc4c2e",
-    "certificate_hash": "5f2cd5efc759d993e931dc1fa07f109b18e8d476619c420bfc7d8298cc451f12",
-    "created_at": "2024-10-29T13:33:20.500571Z"
-  },
-  {
-    "epoch": 11,
-    "hash": "137c00c4b2e053869ea0bd87a6750ee31ddb4f7bd4ff508745426e44ffbc8055",
-    "certificate_hash": "450126dee7b31168beecbb22dec040889944f6866e24942071e3beef9d9ec32c",
-    "created_at": "2024-10-29T13:33:13.188419Z"
-  },
-  {
-    "epoch": 10,
-    "hash": "04132589b6dd4f4ead88547f51c6335a18dbf41152f33ae2f7e26288b3961a07",
-    "certificate_hash": "3d52e622b2a3edb93a75724a28f717475cef06fc4cb3a87a1e7dc2549c2e7627",
-    "created_at": "2024-10-29T13:33:05.425509Z"
+    "hash": "5a90c90b16d02065f11cebce8a7bac4ee64a585177d9b6d82f6d8a73a1d32109",
+    "certificate_hash": "d676c90e8fe9800676974bef49c029824bcebaea46fd4cdef690cf24c872b1c1",
+    "created_at": "2024-11-07T14:54:41.547227360Z"
   }
 ]

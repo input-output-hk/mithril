@@ -53,7 +53,7 @@ mod handlers {
             .get_signature_registration_total_received_since_startup()
             .increment();
 
-        let signed_entity_type = message.signed_entity_type.clone();
+        let signed_entity_type = message.signed_entity_type.clone().into();
         let signed_message = message.signed_message.clone();
 
         let mut signatures = match FromRegisterSingleSignatureAdapter::try_adapt(message) {

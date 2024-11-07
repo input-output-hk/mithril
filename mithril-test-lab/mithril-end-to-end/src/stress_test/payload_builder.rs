@@ -54,7 +54,7 @@ pub fn generate_register_signature_message(
     signatures
         .iter()
         .map(|s| RegisterSignatureMessage {
-            signed_entity_type: signed_entity_type.clone(),
+            signed_entity_type: (signed_entity_type.clone(), "devnet").into(),
             party_id: s.party_id.clone(),
             signature: s.signature.clone().to_json_hex().unwrap(),
             won_indexes: s.won_indexes.clone(),
@@ -109,7 +109,8 @@ pub async fn compute_immutable_files_signatures(
                 // Minus one because the last immutable isn't "finished"
                 immutable_db.last_immutable_number().unwrap() - 1,
             );
-            let digester = CardanoImmutableDigester::new(None, slog_scope::logger());
+            let digester =
+                CardanoImmutableDigester::new("devnet".to_string(), None, slog_scope::logger());
             let digest = digester
                 .compute_digest(&immutable_db.dir, &beacon)
                 .await

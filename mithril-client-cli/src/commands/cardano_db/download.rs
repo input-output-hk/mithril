@@ -152,7 +152,7 @@ impl CardanoDbDownloadCommand {
         if let Err(e) = CardanoDbDownloadChecker::check_prerequisites(
             db_dir,
             cardano_db.size,
-            cardano_db.compression_algorithm.unwrap_or_default(),
+            cardano_db.compression_algorithm,
         ) {
             progress_printer
                 .report_step(step_number, &CardanoDbUtils::check_disk_space_error(e)?)?;
@@ -292,26 +292,21 @@ impl CardanoDbDownloadCommand {
                 canonicalized_filepath.display()
             );
         } else {
-            let cardano_node_version = cardano_db
-                .cardano_node_version
-                .clone()
-                .unwrap_or("latest".to_string());
+            let cardano_node_version = &cardano_db.cardano_node_version;
             println!(
                 r###"Cardano db '{}' has been unpacked and successfully checked against Mithril multi-signature contained in the certificate.
                     
-    Files in the directory '{}' can be used to run a Cardano node with version >= {}.
+    Files in the directory '{}' can be used to run a Cardano node with version >= {cardano_node_version}.
     
     If you are using Cardano Docker image, you can restore a Cardano Node with:
     
-    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{}
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} ghcr.io/intersectmbo/cardano-node:{cardano_node_version}
     
     "###,
                 cardano_db.digest,
                 db_dir.display(),
-                cardano_node_version,
                 canonicalized_filepath.display(),
-                cardano_db.beacon.network,
-                cardano_node_version
+                cardano_db.network,
             );
         }
 
@@ -355,7 +350,7 @@ mod tests {
         common::{CardanoDbBeacon, ProtocolMessagePartKey},
         MithrilCertificateMetadata,
     };
-    use mithril_common::entities::SignedEntityType;
+    use mithril_common::messages::SignedEntityTypeMessagePart;
     use mithril_common::test_utils::TempDir;
 
     use super::*;
@@ -376,7 +371,9 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch: beacon.epoch,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon),
+            signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
+                (beacon, "testnet").into(),
+            ),
             metadata: MithrilCertificateMetadata::dummy(),
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),

@@ -812,5 +812,20 @@ pragma foreign_keys=true;
 alter table certificate drop column immutable_file_number;
         "#,
         ),
+        // Migration 30
+        // Alter `signed_entity` table to add `network` in `artifact` JSON field (for snapshot only).
+        SqlMigration::new(
+            30,
+            r#"
+update signed_entity
+    set artifact = json_insert(
+        json_insert(
+            artifact,
+            '$.network', 
+            json_extract(beacon, '$.network'))
+    ) 
+where signed_entity.signed_entity_type_id = 2;
+        "#,
+        ),
     ]
 }

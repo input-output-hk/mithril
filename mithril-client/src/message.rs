@@ -11,7 +11,7 @@ use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 #[cfg(feature = "fs")]
 use mithril_common::{
     digesters::{CardanoImmutableDigester, ImmutableDigester},
-    entities::SignedEntityType,
+    messages::SignedEntityTypeMessagePart,
 };
 
 use crate::{
@@ -45,9 +45,9 @@ impl MessageBuilder {
     }
 
     cfg_fs! {
-        fn get_immutable_digester(&self) -> Arc<dyn ImmutableDigester> {
+        fn get_immutable_digester(&self, network: &str) -> Arc<dyn ImmutableDigester> {
             match self.immutable_digester.as_ref() {
-                None => Arc::new(CardanoImmutableDigester::new(None, self.logger.clone())),
+                None => Arc::new(CardanoImmutableDigester::new(network.to_owned(),None, self.logger.clone())),
                 Some(digester) => digester.clone(),
             }
         }
@@ -71,10 +71,10 @@ impl MessageBuilder {
             snapshot_certificate: &MithrilCertificate,
             unpacked_snapshot_directory: &Path,
         ) -> MithrilResult<ProtocolMessage> {
-            let digester = self.get_immutable_digester();
+            let digester = self.get_immutable_digester(&snapshot_certificate.metadata.network);
             let beacon =
                 match &snapshot_certificate.signed_entity_type {
-                SignedEntityType::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
+                SignedEntityTypeMessagePart::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
                 other => {
                     Err(anyhow::anyhow!(
                             "Can't compute message: Given certificate `{}` does not certify a snapshot, certificate signed entity: {:?}",
@@ -87,7 +87,7 @@ impl MessageBuilder {
             let mut message = snapshot_certificate.protocol_message.clone();
 
             let digest = digester
-                .compute_digest(unpacked_snapshot_directory, beacon)
+                .compute_digest(unpacked_snapshot_directory, &beacon.clone().into())
                 .await
                 .with_context(|| {
                     format!(

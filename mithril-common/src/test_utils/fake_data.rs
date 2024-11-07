@@ -224,6 +224,7 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
 
             entities::Snapshot::new(
                 digest,
+                network(),
                 beacon,
                 size,
                 locations,

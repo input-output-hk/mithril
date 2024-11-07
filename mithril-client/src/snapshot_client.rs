@@ -210,7 +210,7 @@ impl SnapshotClient {
                         .download_unpack(
                             location,
                             target_dir,
-                            snapshot.compression_algorithm.unwrap_or_default(),
+                            snapshot.compression_algorithm,
                             &download_id,
                             snapshot.size,
                         )

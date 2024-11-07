@@ -16,7 +16,7 @@ use mithril_common::{
     messages::{
         AggregatorFeaturesMessage, EpochSettingsMessage, TryFromMessageAdapter, TryToMessageAdapter,
     },
-    StdError, StdResult, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
+    CardanoNetwork, StdError, StdResult, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
 use crate::entities::SignerEpochSettings;
@@ -181,6 +181,7 @@ impl<T: AggregatorClient> SignaturePublisher for T {
 
 /// AggregatorHTTPClient is a http client for an aggregator
 pub struct AggregatorHTTPClient {
+    cardano_network: CardanoNetwork,
     aggregator_endpoint: String,
     relay_endpoint: Option<String>,
     api_version_provider: Arc<APIVersionProvider>,
@@ -191,6 +192,7 @@ pub struct AggregatorHTTPClient {
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
     pub fn new(
+        cardano_network: CardanoNetwork,
         aggregator_endpoint: String,
         relay_endpoint: Option<String>,
         api_version_provider: Arc<APIVersionProvider>,
@@ -200,6 +202,7 @@ impl AggregatorHTTPClient {
         let logger = logger.new_with_component_name::<Self>();
         debug!(logger, "New AggregatorHTTPClient created");
         Self {
+            cardano_network,
             aggregator_endpoint,
             relay_endpoint,
             api_version_provider,
@@ -326,6 +329,7 @@ impl AggregatorClient for AggregatorHTTPClient {
             signed_entity_type.to_owned(),
             signatures.to_owned(),
             protocol_message,
+            self.cardano_network,
         ))
         .map_err(|e| AggregatorClientError::Adapter(anyhow!(e)))?;
         let response = self
@@ -508,6 +512,7 @@ mod tests {
         (
             server,
             AggregatorHTTPClient::new(
+                fake_data::network(),
                 aggregator_endpoint,
                 relay_endpoint,
                 Arc::new(api_version_provider),

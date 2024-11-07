@@ -9,6 +9,9 @@ pub struct Snapshot {
     /// Digest that is signed by the signer participants
     pub digest: String,
 
+    /// Cardano network
+    pub network: String,
+
     /// Mithril beacon on the Cardano chain
     pub beacon: CardanoDbBeacon,
 
@@ -64,8 +67,9 @@ impl CompressionAlgorithm {
 
 impl Snapshot {
     /// Snapshot factory
-    pub fn new(
+    pub fn new<N: Into<String>>(
         digest: String,
+        network: N,
         beacon: CardanoDbBeacon,
         size: u64,
         locations: Vec<String>,
@@ -76,6 +80,7 @@ impl Snapshot {
 
         Snapshot {
             digest,
+            network: network.into(),
             beacon,
             size,
             locations,
