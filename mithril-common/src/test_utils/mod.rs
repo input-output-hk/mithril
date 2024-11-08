@@ -25,7 +25,7 @@ mod temp_dir;
 pub mod test_http_server;
 
 pub use cardano_transactions_builder::CardanoTransactionsBuilder;
-pub use certificate_chain_builder::CertificateChainBuilder;
+pub use certificate_chain_builder::{CertificateChainBuilder, CertificateChainBuilderContext};
 pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
