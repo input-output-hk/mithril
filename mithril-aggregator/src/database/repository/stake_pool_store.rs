@@ -91,9 +91,7 @@ impl StakeStorer for StakePoolStore {
 #[async_trait]
 impl StakeDistributionRetriever for StakePoolStore {
     async fn retrieve(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
-        let stake_distribution = self.get_stakes(epoch).await?;
-
-        Ok(stake_distribution)
+        self.get_stakes(epoch).await
     }
 }
 
