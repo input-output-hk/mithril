@@ -1,0 +1,27 @@
+---
+title: Develop
+---
+
+import DocCardList from "@theme/DocCardList";
+
+The Mithril network consists of three main components:
+
+- **Mithril aggregator**:
+
+This node coordinates the production of the Cardano snapshot archives, working alongside the Mithril signer and Cardano nodes to generate associated certificates using Mithril multi-signatures.
+
+- **Mithril signer**:
+
+This node produces individual signatures, which the Mithril aggregator combines into a multi-signature. It operates in conjunction with a Cardano node (run by an SPO) holding stake in the network.
+
+- **Mithril client**:
+
+This node verifies and restores a snapshot along with other types of data, facilitating lightning-fast bootstrapping of a Cardano full node.
+
+<DocCardList />
+
+:::tip
+
+For more information about the Mithril protocol, refer to the [about Mithril](../../mithril/mithril-protocol/protocol.md) section.
+
+:::

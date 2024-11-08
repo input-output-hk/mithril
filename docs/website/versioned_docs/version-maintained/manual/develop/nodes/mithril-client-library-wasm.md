@@ -2,7 +2,6 @@
 sidebar_position: 5
 ---
 
-import NetworksMatrix from '../../../networks-matrix.md';
 import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril client library WASM
@@ -11,12 +10,12 @@ import CompiledBinaries from '../../../compiled-binaries.md'
 
 Mithril client library WASM can be used by Javascript developers to use the Mithril network in their web applications.
 
-It is responsible for handling the different types of data certified by Mithril, and available through a Mithril aggregator:
+It is responsible for handling the different types of data certified by Mithril and available through a Mithril aggregator:
 
-- [**Snapshot**](../../../glossary.md#snapshot): list and get.
-- [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get.
-- [**Cardano transaction**](../../../glossary.md#cardano-transaction): list & get snapshots, get proofs.
-- [**Cardano stake distribution**](../../../glossary.md#stake-distribution): list, get and get by epoch.
+- [**Snapshot**](../../../glossary.md#snapshot): list and get
+- [**Mithril stake distribution**](../../../glossary.md#stake-distribution): list and get
+- [**Cardano transaction**](../../../glossary.md#cardano-transaction): list and get snapshots, get proofs
+- [**Cardano stake distribution**](../../../glossary.md#stake-distribution): list, get and get by epoch
 - [**Certificate**](../../../glossary.md#certificate): list, get, and chain validation.
 
 :::
@@ -27,17 +26,17 @@ It is responsible for handling the different types of data certified by Mithril,
 
 :::
 
-:::note Mithril networks
+:::info
 
-<NetworksMatrix />
+The Mithril network configurations are available in the [**Network configurations**](../../getting-started/network-configurations.md) section of the user manual.
 
 :::
 
 ## Resources
 
-|          Node           |                                        Source repository                                        |                                   Rust documentation                                   |
-| :---------------------: | :---------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: |
-| **Mithril client WASM** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-wasm) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_wasm/index.html) |
+|          Node           |                                        Source repository                                        |                                   Rust documentation                                   |                         Network configurations                         |
+| :---------------------: | :---------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril client WASM** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-wasm) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_wasm/index.html) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
 ## Installation
 
@@ -224,7 +223,7 @@ You can verify that the aggregator signs **CardanoStakeDistribution** by running
 wget -q -O - YOUR_AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])'
 ```
 
-For example with the aggregator on `testing-preview` Mithril network:
+For example, with the aggregator on the `testing-preview` Mithril network:
 
 ```bash
 wget -q -O - https://aggregator.testing-preview.api.mithril.network/aggregator | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])'

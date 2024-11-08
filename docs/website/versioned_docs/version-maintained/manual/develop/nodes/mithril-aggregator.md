@@ -2,7 +2,6 @@
 sidebar_position: 1
 ---
 
-import NetworksMatrix from '../../../networks-matrix.md';
 import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril aggregator node
@@ -21,17 +20,17 @@ Mithril aggregator is responsible for collecting individual signatures from the 
 
 :::
 
-:::note Mithril networks
+:::info
 
-<NetworksMatrix />
+The Mithril network configurations are available in the [**Network configurations**](../../getting-started/network-configurations.md) section of the user manual.
 
 :::
 
 ## Resources
 
-|          Node          |                                       Source repository                                        |                                  Rust documentation                                   |                                           Docker packages                                           |                  REST API                  |
-| :--------------------: | :--------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :----------------------------------------: |
-| **Mithril aggregator** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-aggregator) | [:arrow_upper_right:](/doc/aggregator-api) |
+|          Node          |                                       Source repository                                        |                                  Rust documentation                                   |                                           Docker packages                                           |                  REST API                  |                         Network configurations                         |
+| :--------------------: | :--------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :----------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril aggregator** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-aggregator) | [:arrow_upper_right:](/doc/aggregator-api) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
 ## Prerequisites
 
@@ -59,7 +58,7 @@ Switch to the desired branch/tag:
 
 ```bash
 # Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
-# Please refer to the **Build from** column of the **Mithril networks** section
+# Please refer to the [**Network configurations**](http://mithril.network/manual/getting-started/network-configurations) section of the user manual
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
@@ -365,7 +364,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril a
 - Add `-v` for some logs (WARN)
 - Add `-vv` for more logs (INFO)
 - Add `-vvv` for even more logs (DEBUG)
-- Add `-vvvv` for all logs (TRACE)
+- Add `-vvvv` for all logs (TRACE).
 
 :::
 

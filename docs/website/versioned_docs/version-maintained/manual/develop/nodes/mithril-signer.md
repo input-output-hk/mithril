@@ -2,7 +2,6 @@
 sidebar_position: 2
 ---
 
-import NetworksMatrix from '../../../networks-matrix.md';
 import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril signer node
@@ -15,33 +14,33 @@ Mithril signer is responsible for producing individual signatures that are colle
 
 :::tip
 
-- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
+- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview
 
-- For more information about the **Mithril signer** node, please see [this overview](../../../mithril/mithril-network/signer.md).
+- For more information about the **Mithril signer** node, please see [this overview](../../../mithril/mithril-network/signer.md)
 
-- Check out the [`Run a Mithril signer node as an SPO`](../../getting-started/run-mithril-devnet.md) guide.
+- Check out the [`Run a Mithril signer node`](../../operate/run-signer-node.md) guide.
 
 :::
 
-:::note Mithril networks
+:::info
 
-<NetworksMatrix />
+The Mithril network configurations are available in the [**Network configurations**](../../getting-started/network-configurations.md) section of the user manual.
 
 :::
 
 ## Resources
 
-|        Node        |                                     Source repository                                      |                                Rust documentation                                 |                                         Docker packages                                         |
-| :----------------: | :----------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: |
-| **Mithril signer** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-signer) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_signer/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-signer) |
+|        Node        |                                     Source repository                                      |                                Rust documentation                                 |                                         Docker packages                                         |                         Network configurations                         |
+| :----------------: | :----------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril signer** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-signer) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_signer/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-signer) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
-## Pre-requisites
+## Prerequisites
 
-- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
+- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain
 
-- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install build tools `build-essential` and `m4`; for example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`
 
-- Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
+- Install OpenSSL development libraries; for example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 ## Download the source file
 
@@ -61,7 +60,7 @@ Switch to the desired branch/tag:
 
 ```bash
 # Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
-# Please refer to the **Build from** column of the **Mithril networks** table above
+# Please refer to the [**Network configurations**](http://mithril.network/manual/getting-started/network-configurations) section of the user manual
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
@@ -120,7 +119,7 @@ Display the help menu:
 You should see:
 
 ```bash
-An implementation of a Mithril Signer
+An implementation of a Mithril signer
 
 Usage: mithril-signer [OPTIONS]
 
@@ -201,7 +200,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril s
 - Add `-v` for some logs (WARN)
 - Add `-vv` for more logs (INFO)
 - Add `-vvv` for even more logs (DEBUG)
-- Add `-vvvv` for all logs (TRACE)
+- Add `-vvvv` for all logs (TRACE).
 
 :::
 

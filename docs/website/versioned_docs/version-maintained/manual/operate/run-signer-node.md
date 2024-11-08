@@ -2,20 +2,13 @@
 sidebar_position: 3
 ---
 
-import NetworksMatrix from '../../networks-matrix.md';
 import CompiledBinaries from '../../compiled-binaries.md'
 
-# Run a Mithril signer as an SPO
-
-:::note Mithril networks
-
-<NetworksMatrix />
-
-:::
+# Run a Mithril signer node
 
 :::tip
 
-For more information about the **Mithril protocol**, see the section [About Mithril](../../mithril/intro.md).
+For more information about the **Mithril protocol**, see the [About Mithril](../../mithril/intro.md) section.
 
 :::
 
@@ -60,30 +53,30 @@ The **Mithril signer** uses your Cardano `operational certificate` and `KES secr
 
 - Automatic computation of the `PoolId`
 - Verification of your `PoolId` ownership and the associated stake used by the Mithril protocol
-- Verification of your Mithril `signer secret key` ownership, which allows you to participate in the multi-signature process for certificate production on the Mithril network
+- Verification of your Mithril `signer secret key` ownership, which allows you to participate in the multi-signature process for certificate production on the Mithril network.
 
 ## Mithril signer footprint
 
 The **Mithril signer** has been designed to have the lowest footprint possible in terms of CPU, memory, disk i/o and storage.
-Thus, there are no extra requirements on the recommended hardware than for running a Cardano stake pool, as detailed in this [guide](https://developers.cardano.org/docs/operate-a-stake-pool/hardware-requirements).
+Thus, there are no extra requirements on the recommended hardware for running a Cardano stake pool, as detailed in this [guide](https://developers.cardano.org/docs/operate-a-stake-pool/hardware-requirements).
 
 :::info
 
-Here are some figures about the Mithril signer node running on the `mainnet` Cardano network:
+Here are some figures about the Mithril signer node running on Cardano `mainnet`:
 
-- It is **idle** most of the time with a very low **CPU** usage of less than `5%`.
-- It is using less than `200 MB` of **resident memory**.
-- It sends to the aggregator a **new signature** roughly every `10 minutes` and a **new registration** every `5 days` (`<1 MB` per day).
-- When launched for the **first time**, a **pre-loading** phase occurs where the Cardano transactions will be imported with a spike of `50-70%` CPU on one core for `~5 hours`.
-- When signing for the **first time**, the Cardano database digest cache needs to be built with a spike of `50-70%` CPU on one core for `~1 hour`.
-- Also, the full Cardano database files will be **read from disk once** during this cache building process.
-- Only **stake distributions**, **Mithril keys** and some **cache** (for the **Cardano database** and the **Cardano transactions**) are stored on the disk (`<200 MB`).
+- It is **idle** most of the time with a very low **CPU** usage of less than `5%`
+- It uses less than `200 MB` of **resident memory**
+- It sends a **new signature** to the aggregator roughly every `10 minutes` and a **new registration** every `5 days` (`<1 MB` per day)
+  When launched for the **first time**, a **pre-loading** phase occurs, during which the Cardano transactions are imported with a spike of `50-70%` CPU on one core for `~5 hours`
+- When signing for the **first time**, the Cardano database digest cache needs to be built with a spike of `50-70%` CPU on one core for `~1 hour`
+- Also, the full Cardano database files will be **read from disk once** during this cache building process
+- Only **stake distributions**, **Mithril keys**, and some **cache** (for the **Cardano database** and **Cardano transactions**) are stored on the disk (`<200 MB`).
 
 :::
 
 ### Cardano transactions certification footprint
 
-Here is detailed view of the impact of the signature of the Cardano transactions (the most resource intensive part of Mithril) on the SPO infrastructure on the `mainnet`:
+Here is a detailed view of the impact of the signature of the Cardano transactions (the most resource-intensive part of Mithril) on the SPO infrastructure on the `mainnet`:
 
 #### CPU
 
@@ -97,7 +90,7 @@ Here is detailed view of the impact of the signature of the Cardano transactions
 
 [![Cardano Transaction Signer CPU](images/cardano-transaction-signer-disk-usage.png)](images/cardano-transaction-signer-disk-usage.png)
 
-## Pre-requisites
+## Prerequisites
 
 :::info
 
@@ -115,15 +108,15 @@ Note that this guide works on a Linux machine only.
   - Read rights on the `Database` folder (specified by the `--database-path` setting of the **Cardano node**)
   - Read and write rights on the `Inter Process Communication` file (typically defined by the `CARDANO_NODE_SOCKET_PATH` environment variable used to launch the **Cardano node**)
 
-- Install a recent version of [`cardano-cli`](https://github.com/IntersectMBO/cardano-node/releases/tag/8.9.1) (version 8.9.1+).
+- Install a recent version of [`cardano-cli`](https://github.com/IntersectMBO/cardano-node/releases/tag/8.9.1) (version 8.9.1+)
 
-- Install a correctly configured Rust toolchain (latest stable version). You can follow the instructions provided [here](https://www.rust-lang.org/learn/get-started).
+- Install a correctly configured Rust toolchain (latest stable version); you can follow the instructions provided [here](https://www.rust-lang.org/learn/get-started)
 
-- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install build tools `build-essential` and `m4`; for example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`
 
-- Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
+- Install OpenSSL development libraries; for example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
 
-- Install a recent version of `jq` (version 1.6+). You can install it by running `apt install jq`.
+- Install a recent version of `jq` (version 1.6+) by running `apt install jq`
 
 - Only for the **production** deployment, install a recent version of [`squid-cache`](http://www.squid-cache.org/) (version 6.9+).
 
@@ -131,7 +124,7 @@ Note that this guide works on a Linux machine only.
 
 :::caution
 
-- For **production** deployment, the **Mithril signer** setup is performed on the **Cardano block producer** machine.
+- For **production** deployment, the **Mithril signer** setup is performed on the **Cardano block producer** machine
 
 - For **naive** deployment, the **Mithril signer** setup is performed on the **Cardano relay** machine.
 
@@ -139,7 +132,7 @@ Note that this guide works on a Linux machine only.
 
 :::info
 
-Compare the version of your Cardano node with the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) to verify its compatibility with the Mithril signer.
+Compare the version of your Cardano node with the minimum supported versions listed in the [`networks.json`](https://github.com/input-output-hk/mithril/blob/main/networks.json) file to verify its compatibility with the Mithril signer.
 
 First, check the version of your Cardano node by running the following command:
 
@@ -185,7 +178,7 @@ First, switch to build a branch/tag:
 
 ```bash
 # **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target,
-# please refer to the **Build from** column of the above **Mithril networks** table
+# please refer to the **Build from** column of the **Mithril networks** section
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
@@ -227,7 +220,7 @@ You should see something like:
 mithril-signer 0.2.0
 ```
 
-:warning: Please verify that the displayed version matches the version described in the release/pre-release notes (refer to the **Build from** column in the **Mithril networks** table above).
+:warning: Please verify that the displayed version matches the version described in the release/pre-release notes (refer to the **Build from** column in the **Mithril networks** section).
 
 #### Verify the build
 
@@ -268,7 +261,7 @@ If you wish to delve deeper, you can access logs at various levels from the Mith
 - Add `-v` for some logs (WARN)
 - Add `-vv` for more logs (INFO)
 - Add `-vvv` for even more logs (DEBUG)
-- Add `-vvvv` for all logs (TRACE)
+- Add `-vvvv` for all logs (TRACE).
 
 :::
 
@@ -296,8 +289,8 @@ sudo mv mithril-signer /opt/mithril
   - `DB_DIRECTORY=/cardano/db`: replace `/cardano/db` with the path to the database folder of the **Cardano node** (the one in `--database-path`)
   - `CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket`: replace with the path to the IPC file (`CARDANO_NODE_SOCKET_PATH` env var)
   - `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
-  - `DATA_STORES_DIRECTORY=/opt/mithril/stores`: replace with the path to a folder where the **Mithril signer** will store its data (`/opt/mithril/stores` e.g.)
-  - `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit).
+  - `DATA_STORES_DIRECTORY=/opt/mithril/stores`: replace with the path to a folder where the **Mithril signer** will store its data (eg, `/opt/mithril/stores`)
+  - `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit)
   - `ERA_READER_ADAPTER_TYPE=cardano-chain`: replace `cardano-chain` with the era reader adapter type used in your Mithril network
   - `ERA_READER_ADAPTER_PARAMS={"address": "...", "verification_key": "..."}`: replace `{"address": "...", "verification_key": "..."}` with the era reader parameters that you need to compute by running the command `jq -nc --arg address $(wget -q -O - **YOUR_ERA_READER_ADDRESS**) --arg verification_key $(wget -q -O - **YOUR_ERA_READER_VERIFICATION_KEY**) '{"address": $address, "verification_key": $verification_key}'`
   - `RELAY_ENDPOINT=http://192.168.1.50:3132` **(optional)**: this is the endpoint of the **Mithril relay**, which is required for **production** deployment only. For **naive** deployment, do not set this variable in your environment file.
@@ -322,7 +315,7 @@ Here is an **example** set of values for **release-preprod** that will be used i
 
 :::
 
-First, create an environment file that will be used by the service:
+First, create an environment file that the service will use:
 
 - for **production** deployment:
 
@@ -476,7 +469,7 @@ The Mithril signer node can expose basic metrics on a Prometheus endpoint, which
 | **mithril_signer_runtime_cycle_success_since_startup**          | Number of successful runtime cycles since startup on a Mithril signer node          |
 | **mithril_signer_runtime_cycle_total_since_startup**            | Number of runtime cycles since startup on a Mithril signer node                     |
 
-In order to expose metrics on the endpoint, you need to append the following environment variable to your environment file. In that case, the metrics server will listen on the `9090` port:
+To expose metrics on the endpoint, append the following environment variable to your environment file. In that case, the metrics server will listen on the `9090` port:
 
 ```bash
 sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
@@ -484,7 +477,7 @@ ENABLE_METRICS_SERVER=true
 EOF`
 ```
 
-You can also specify custom listen IP address and port for the metrics server:
+You can also specify a custom listen IP address and port for the metrics server:
 
 ```bash
 sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
@@ -496,7 +489,7 @@ EOF`
 
 :::tip
 
-Here is an example that reproduces the default configuration for the prometheus server:
+Here is an example that reproduces the default configuration for the Prometheus server:
 
 ```bash
 sudo bash -c 'cat >> /opt/mithril/mithril-signer.env << EOF
@@ -510,13 +503,13 @@ EOF`
 
 :::info
 
-When activated, the metrics endpoint will be accessible to the location `http://**YOUR_METRICS_SERVER_IP**:**YOUR_METRICS_SERVER_PORT**/metrics`, which translates to [`http://0.0.0.0:9090/metrics`](http://0.0.0.0:9090/metrics) with the default configuration.
+When activated, the metrics endpoint will be accessible to the `http://**YOUR_METRICS_SERVER_IP**:**YOUR_METRICS_SERVER_PORT**/metrics` location, which translates to [`http://0.0.0.0:9090/metrics`](http://0.0.0.0:9090/metrics) with the default configuration.
 
 :::
 
 :::info
 
-Additionally, a **Grafana template** has been created to easily setup a dashboard for this Prometheus endpoint (ID 20776): https://grafana.com/grafana/dashboards/20776-mithril-signer/
+Additionally, a **Grafana template** has been created to easily set up a dashboard for this Prometheus endpoint (ID 20776): https://grafana.com/grafana/dashboards/20776-mithril-signer/
 
 :::
 
@@ -524,14 +517,14 @@ Additionally, a **Grafana template** has been created to easily setup a dashboar
 
 :::danger
 
-When the KES keys expire, the Mithril signer is unable to register with the Mithril protocol.
+When the KES keys expire, the Mithril signer cannot register with the Mithril protocol.
 
 :::
 
 After rotating the KES keys on your Cardano block producer, we recommend following this upgrade procedure for your Mithril signer node:
 
-1. Update the `KES_SECRET_KEY_PATH` entry of your environment file to reflect the location of the **new KES secret key file**.
-2. Update the `OPERATIONAL_CERTIFICATE_PATH` entry of your environment file to reflect the location of the **new operational certificate file**.
+1. Update the `KES_SECRET_KEY_PATH` entry of your environment file to reflect the location of the **new KES secret key file**
+2. Update the `OPERATIONAL_CERTIFICATE_PATH` entry of your environment file to reflect the location of the **new operational certificate file**
 3. Restart your Mithril signer service with the following command:
 
 ```bash
@@ -544,9 +537,9 @@ sudo systemctl restart mithril-signer
 
 :::caution
 
-- For **production** deployment, the setup of the **Mithril relay** is performed on the **Cardano relay** machine.
+- For **production** deployment, the setup of the **Mithril relay** is performed on the **Cardano relay** machine
 
-- For **naive** deployment: this step is not necessary.
+- For **naive** deployment, this step is not necessary.
 
 :::
 
@@ -558,21 +551,21 @@ sudo systemctl restart mithril-signer
 
   - `sudo systemctl stop squid`
   - `sudo apt remove squid`
-  - `sudo apt autoremove`
+  - `sudo apt autoremove`.
 
 - The FAQ for compiling `Squid` is available [here](https://wiki.squid-cache.org/SquidFaq/CompilingSquid).
 
-- You will need a C++ compiler that can be installed with `sudo apt install build-essential` command.
+- You will need a C++ compiler that can be installed with the `sudo apt install build-essential` command.
 
 :::
 
-On the [Squid page listing released versions](https://www.squid-cache.org/Versions/) identify the latest stable released version (currently `6.9`) and download it:
+On the [Squid page listing released versions](https://www.squid-cache.org/Versions/), identify the latest stable released version (currently `6.9`) and download it:
 
 ```bash
 wget https://www.squid-cache.org/Versions/v6/squid-6.9.tar.gz
 ```
 
-Uncompress the downloaded archive, and change directory:
+Uncompress the downloaded archive and change the directory:
 
 ```bash
 tar xzf squid-6.9.tar.gz
@@ -747,7 +740,7 @@ EOF'
 
 :::tip
 
-In case you are using the same Cardano relay for multiple Cardano block producers, you will need to add a new line per block producer for authorizing its internal IP:
+In case you are using the same Cardano relay for multiple Cardano block producers, you will need to add a new line per block producer to authorize its internal IP:
 
 ```bash
 # ACL for internal IP of your block producer node
@@ -763,8 +756,8 @@ With this configuration, the proxy will:
 - accept incoming traffic originating from the internal IP of the block-producing machine
 - accept incoming traffic directed to the listening port of the proxy
 - accept incoming HTTPS traffic proxied to `mithril.network` domain hosts
-- anonymize completely the traffic and avoid disclosing any information about the block-producing machine
-- deny all other traffic
+- anonymize the traffic completely and avoid disclosing any information about the block-producing machine
+- deny all other traffic.
 
 :::info
 
@@ -772,7 +765,7 @@ With this configuration, the proxy will:
 
 ### Installing the service
 
-Create (or re-use) an unpriviledged system user on the machine:
+Create (or re-use) an unprivileged system user on the machine:
 
 ```bash
 sudo adduser --system --no-create-home --group squid
@@ -856,7 +849,7 @@ If your **Squid service** does not start properly and you have the error message
 
 :::info
 
-We assume that the **Cardano relay** machine is protected by a firewall. It is necessary to allow the proxied traffic, originating from the **Cardano block producer**, through this firewall.
+We assume that the **Cardano relay** machine is protected by a firewall. Therefore, it is necessary to allow the proxied traffic originating from the **Cardano block producer** through this firewall.
 :::
 
 #### About the Cardano relay machine
@@ -902,7 +895,7 @@ sudo service netfilter-persistent save
 ## Verify the Mithril signer deployment
 
 :::tip
-There is a delay of `2` epochs between the registration of the signer node and its ability to generate individual signatures. This delay is further explained in the [Mithril certificate chain in depth](https://mithril.network/doc/mithril/mithril-protocol/certificates) documentation.
+There is a delay of `2` epochs between the signer node's registration and its ability to generate individual signatures. This delay is further explained in the [Mithril certificate chain in depth](https://mithril.network/doc/mithril/mithril-protocol/certificates) documentation.
 
 Once this delay has passed, you should be able to observe your `PoolId` listed in some of the certificates accessible on the [`Mithril Explorer`](https://mithril.network/explorer).
 :::

@@ -2,7 +2,6 @@
 sidebar_position: 3
 ---
 
-import NetworksMatrix from '../../../networks-matrix.md';
 import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril client node
@@ -16,35 +15,35 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 :::tip
 
 - For more information about the **Mithril network**, please see
-  the [architecture](../../../mithril/mithril-network/architecture.md) overview.
+  the [architecture](../../../mithril/mithril-network/architecture.md) overview
 
 - For more information about the **Mithril client** node, please
-  see [this overview](../../../mithril/mithril-network/client.md).
+  see [this overview](../../../mithril/mithril-network/client.md)
 
 - Check out the [`Bootstrap a Cardano node`](../../getting-started/bootstrap-cardano-node.md) guide.
 
 :::
 
-:::note Mithril networks
+:::info
 
-<NetworksMatrix />
+The Mithril network configurations are available in the [**Network configurations**](../../getting-started/network-configurations.md) section of the user manual.
 
 :::
 
 ## Resources
 
-|          Node          |                                       Source repository                                        |                                  Rust documentation                                   |                                         Docker packages                                         |
-| :--------------------: | :--------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: |
-| **Mithril client CLI** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_cli/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client) |
+|          Node          |                                       Source repository                                        |                                  Rust documentation                                   |                                         Docker packages                                         |                         Network configurations                         |
+| :--------------------: | :--------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril client CLI** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-cli) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_cli/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
-## Pre-requisites
+## Prerequisites
 
 - Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust
-  toolchain.
+  toolchain
 
-- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install build tools `build-essential` and `m4`; for example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`
 
-- Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`
+- Install OpenSSL development libraries; for example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 ## Download the source file
 
@@ -64,7 +63,7 @@ Switch to the desired branch/tag:
 
 ```bash
 # Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
-# Please refer to the **Build from** column of the **Mithril networks** table above
+# Please refer to the [**Network configurations**](http://mithril.network/manual/getting-started/network-configurations) section of the user manual
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
@@ -123,13 +122,13 @@ Display the help menu:
 You should see:
 
 ```bash
-This program shows, downloads and verifies certified blockchain artifacts.
+This program shows, downloads, and verifies certified blockchain artifacts.
 
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
   cardano-db                  Cardano db management (alias: cdb)
-  mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
+  mithril-stake-distribution  Mithril stake distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  Cardano stake distribution management (alias: csd)
   help                        Print this message or the help of the given subcommand(s)
@@ -190,7 +189,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 - Add `-v` for some logs (WARN)
 - Add `-vv` for more logs (INFO)
 - Add `-vvv` for even more logs (DEBUG)
-- Add `-vvvv` for all logs (TRACE)
+- Add `-vvvv` for all logs (TRACE).
 
 :::
 
@@ -205,7 +204,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 A list of available images on the registry can be
 found [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client).
 
-To prepare the environment variables, retrieve the values from the above **Mithril networks** table.
+To prepare the environment variables, retrieve the values from the **Mithril networks** section.
 
 ```bash
 export MITHRIL_IMAGE_ID=**YOUR_MITHRIL_IMAGE_ID**
@@ -237,13 +236,13 @@ Now you can use the `mithril_client` functions:
 # 1- Help
 mithril_client help
 
-# 2- List cardano db snapshots
+# 2- List Cardano db snapshots
 mithril_client cardano-db snapshot list
 
-# 3- Show detailed information about a cardano db snapshot
+# 3- Show detailed information about a Cardano db snapshot
 mithril_client cardano-db snapshot show $CARDANO_DB_DIGEST
 
-# 4- Download the given cardano db and verify the certificate
+# 4- Download the given Cardano db and verify the certificate
 mithril_client cardano-db download $CARDANO_DB_DIGEST
 
 # 5- List Mithril stake distributions
@@ -258,7 +257,7 @@ mithril_client cardano-transaction snapshot list
 # 8- Show detailed information about a Cardano transaction snapshot
 mithril_client cardano-transaction snapshot show $CARDANO_TRANSACTION_SNAPSHOT_HASH
 
-# 9- Certify that given list of transactions hashes are included in the Cardano transactions set
+# 9- Certify that the given list of transactions hashes are included in the Cardano transactions set
 mithril_client cardano-transaction certify $TRANSACTION_HASH_1,$TRANSACTION_HASH_2
 
 # 10- List Cardano stake distributions

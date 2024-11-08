@@ -33,7 +33,7 @@ The network is composed of the following nodes:
 
 - **Mithril relay**:
 
-> A forward proxy that is used to secure communications between the Mithril signer and the Mithril aggregator. More information is available in the [Mithril signer deployment model](../../manual/getting-started/run-signer-node#mithril-signer-deployment-model) section.
+> A forward proxy that is used to secure communications between the Mithril signer and the Mithril aggregator. More information is available in the [Mithril signer deployment model](../../manual/operate/run-signer-node.md#mithril-signer-deployment-model) section.
 
 :::tip
 
