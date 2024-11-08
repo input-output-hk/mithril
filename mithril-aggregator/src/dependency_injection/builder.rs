@@ -1337,13 +1337,15 @@ impl DependenciesBuilder {
     }
 
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
+        let stake_pool_pruning_task = self.get_stake_store().await?;
+
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(
             self.get_sqlite_connection().await?,
             self.get_sqlite_connection_cardano_transaction_pool()
                 .await?,
             self.get_event_store_sqlite_connection().await?,
             self.get_signed_entity_lock().await?,
-            vec![], // TODO XXX Add pruning tasks here
+            vec![stake_pool_pruning_task],
             self.root_logger(),
         ));
 
