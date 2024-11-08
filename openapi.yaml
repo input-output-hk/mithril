@@ -48,6 +48,31 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /status:
+    get:
+      summary: Get information about the aggregator status
+      description: |
+        Returns the informations related to the aggregator status:
+          * Current epoch
+          * Current Cardano era
+          * Current Mithril era
+          * Cardano node version
+      responses:
+        "200":
+          description: aggregator status found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregatorStatusMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: root error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /epoch-settings:
     get:
       summary: Get current epoch settings
@@ -626,6 +651,17 @@ paths:
 
 components:
   schemas:
+    AggregatorStatusMessage:
+      description: Represents the information related to the aggregator status
+      type: object
+      additionalProperties: false
+      required:
+        - epoch
+      properties:
+        epoch:
+          $ref: "#/components/schemas/Epoch"
+      examples: { "epoch": 329 }
+
     AggregatorFeaturesMessage:
       description: Represents general information about Aggregator public information and signing capabilities
       type: object
