@@ -133,8 +133,8 @@ pub struct DependenciesBuilder {
     /// Verification key store.
     pub verification_key_store: Option<Arc<dyn VerificationKeyStorer>>,
 
-    /// Epoch settings storer.
-    pub epoch_settings_storer: Option<Arc<dyn EpochSettingsStorer>>,
+    /// Epoch settings store.
+    pub epoch_settings_store: Option<Arc<EpochSettingsStore>>,
 
     /// Cardano CLI Runner for the [ChainObserver]
     pub cardano_cli_runner: Option<Box<CardanoCliRunner>>,
@@ -261,7 +261,7 @@ impl DependenciesBuilder {
             certificate_repository: None,
             open_message_repository: None,
             verification_key_store: None,
-            epoch_settings_storer: None,
+            epoch_settings_store: None,
             cardano_cli_runner: None,
             chain_observer: None,
             chain_block_reader: None,
@@ -587,7 +587,7 @@ impl DependenciesBuilder {
         Ok(self.verification_key_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_epoch_settings_storer(&mut self) -> Result<Arc<dyn EpochSettingsStorer>> {
+    async fn build_epoch_settings_store(&mut self) -> Result<Arc<EpochSettingsStore>> {
         let logger = self.root_logger();
         let epoch_settings_store = EpochSettingsStore::new(
             self.get_sqlite_connection().await?,
@@ -638,12 +638,12 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [EpochSettingsStorer].
-    pub async fn get_epoch_settings_storer(&mut self) -> Result<Arc<dyn EpochSettingsStorer>> {
-        if self.epoch_settings_storer.is_none() {
-            self.epoch_settings_storer = Some(self.build_epoch_settings_storer().await?);
+    pub async fn get_epoch_settings_store(&mut self) -> Result<Arc<EpochSettingsStore>> {
+        if self.epoch_settings_store.is_none() {
+            self.epoch_settings_store = Some(self.build_epoch_settings_store().await?);
         }
 
-        Ok(self.epoch_settings_storer.as_ref().cloned().unwrap())
+        Ok(self.epoch_settings_store.as_ref().cloned().unwrap())
     }
 
     async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
@@ -1255,7 +1255,7 @@ impl DependenciesBuilder {
 
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
         let verification_key_store = self.get_verification_key_store().await?;
-        let epoch_settings_storer = self.get_epoch_settings_storer().await?;
+        let epoch_settings_storer = self.get_epoch_settings_store().await?;
         let chain_observer = self.get_chain_observer().await?;
         let era_checker = self.get_era_checker().await?;
         let stake_distribution_service = self.get_stake_distribution_service().await?;
@@ -1338,6 +1338,7 @@ impl DependenciesBuilder {
 
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
         let stake_pool_pruning_task = self.get_stake_store().await?;
+        let epoch_settings_pruning_task = self.get_epoch_settings_store().await?;
 
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(
             self.get_sqlite_connection().await?,
@@ -1345,7 +1346,7 @@ impl DependenciesBuilder {
                 .await?,
             self.get_event_store_sqlite_connection().await?,
             self.get_signed_entity_lock().await?,
-            vec![stake_pool_pruning_task],
+            vec![stake_pool_pruning_task, epoch_settings_pruning_task],
             self.root_logger(),
         ));
 
@@ -1436,7 +1437,7 @@ impl DependenciesBuilder {
             certificate_repository: self.get_certificate_repository().await?,
             open_message_repository: self.get_open_message_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,
-            epoch_settings_storer: self.get_epoch_settings_storer().await?,
+            epoch_settings_storer: self.get_epoch_settings_store().await?,
             chain_observer: self.get_chain_observer().await?,
             immutable_file_observer: self.get_immutable_file_observer().await?,
             digester: self.get_immutable_digester().await?,
@@ -1563,7 +1564,7 @@ impl DependenciesBuilder {
             certificate_repository: self.get_certificate_repository().await?,
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
-            epoch_settings_storer: self.get_epoch_settings_storer().await?,
+            epoch_settings_storer: self.get_epoch_settings_store().await?,
             verification_key_store: self.get_verification_key_store().await?,
         };
 
