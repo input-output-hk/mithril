@@ -1,17 +1,53 @@
-# Monitoring
+# Signer registration monitoring
 
-## Stakes vs Signer Version distribution
+A view `signer_registration_summary` is available to compute the aggregated signer versions and total stake by epoch.
 
-In order to set the epoch of Era changes, it is required to know the
-distribution of the stakes that run a compatible Signer node. There is a SQL
-view for that.
+The following request displays the aggregated value of each metric by day:
 
 ```sh
-$> sqlite3 -table -batch \
-       $DATA_STORES_DIRECTORY/monitoring.sqlite3 \
+sqlite3 -table -batch \
+       <DATA_STORES_DIRECTORY>/monitoring.sqlite3 \
         `select epoch, version, total_epoch_stakes, stakes_version, stakes_ratio, pool_count from signer_registration_summary;`
 ```
 
-The variable `$DATA_STORES_DIRECTORY` should point to the directory where the
+The result looks like:
+
+```
++-------+---------+--------------------+-----------------+--------------+------------+
+| epoch | version | total_epoch_stakes | stakes_version  | stakes_ratio | pool_count |
++-------+---------+--------------------+-----------------+--------------+------------+
+| 744   | 0.2.209 | 52450437146164     | 3812327831838   | 07 %         | 4          |
+| 744   | 0.2.200 | 52450437146164     | 33366778009855  | 64 %         | 9          |
+| 744   | 0.2.182 | 52450437146164     | 12863967782631  | 25 %         | 3          |
+| 744   | 0.2.161 | 52450437146164     | 2407363521840   | 05 %         | 1          |
+| 743   | 0.2.209 | 310197073989660    | 253809728067133 | 82 %         | 4          |
+| 743   | 0.2.200 | 310197073989660    | 33353353956901  | 11 %         | 9          |
+| 743   | 0.2.182 | 310197073989660    | 20627638503738  | 07 %         | 4          |
+| 743   | 0.2.161 | 310197073989660    | 2406353461888   | 01 %         | 1          |
+| 742   | 0.2.209 | 331826003409496    | 9497628870      | 00 %         | 1          |
+| 742   | 0.2.200 | 331826003409496    | 302738838096957 | 91 %         | 14         |
+| 742   | 0.2.182 | 331826003409496    | 24923416990212  | 08 %         | 5          |
+| 742   | 0.2.170 | 331826003409496    | 1758973108212   | 01 %         | 1          |
+| 742   | 0.2.161 | 331826003409496    | 2395277585245   | 01 %         | 1          |
+| 741   | 0.2.200 | 75965070455291     | 46911249090979  | 62 %         | 14         |
+| 741   | 0.2.182 | 75965070455291     | 24911579945327  | 33 %         | 5          |
+| 741   | 0.2.170 | 75965070455291     | 1757752764012   | 02 %         | 1          |
+| 741   | 0.2.161 | 75965070455291     | 2384488654973   | 03 %         | 1          |
+| 740   | 0.2.200 | 75886327123374     | 33269952693607  | 44 %         | 13         |
+| 740   | 0.2.182 | 75886327123374     | 38486213918661  | 51 %         | 6          |
+| 740   | 0.2.170 | 75886327123374     | 1746964369361   | 02 %         | 1          |
+| 740   | 0.2.161 | 75886327123374     | 2383196141745   | 03 %         | 1          |
+| 739   | 0.2.200 | 74576243846549     | 31617851706983  | 42 %         | 12         |
+| 739   | 0.2.182 | 74576243846549     | 38840828593610  | 52 %         | 6          |
+| 739   | 0.2.170 | 74576243846549     | 1745795980355   | 02 %         | 1          |
+| 739   | 0.2.161 | 74576243846549     | 2371767565601   | 03 %         | 1          |
+| 738   | 0.2.200 | 75808343712929     | 25746507335947  | 34 %         | 11         |
+| 738   | 0.2.182 | 75808343712929     | 40119362549555  | 53 %         | 7          |
+| 738   | 0.2.170 | 75808343712929     | 7581914972989   | 10 %         | 2          |
+| 738   | 0.2.161 | 75808343712929     | 2360558854438   | 03 %         | 1          |
++-------+---------+--------------------+-----------------+--------------+------------+
+```
+
+The variable `<DATA_STORES_DIRECTORY>` should point to the directory where the
 databases files are stored (see files in `mithril-aggregator/config` using the
 key `data_stores_directory` to know where they are).
