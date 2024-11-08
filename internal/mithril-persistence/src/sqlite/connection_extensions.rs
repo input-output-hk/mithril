@@ -30,6 +30,12 @@ pub trait ConnectionExtensions {
     fn fetch_collect<Q: Query, B: FromIterator<Q::Entity>>(&self, query: Q) -> StdResult<B> {
         Ok(self.fetch(query)?.collect::<B>())
     }
+
+    /// Apply a query that do not return data from the database(ie: insert, delete, ...).
+    fn apply<Q: Query>(&self, query: Q) -> StdResult<()> {
+        self.fetch(query)?.count();
+        Ok(())
+    }
 }
 
 impl ConnectionExtensions for SqliteConnection {
@@ -79,6 +85,8 @@ fn prepare_statement<'conn>(
 mod tests {
     use sqlite::Connection;
 
+    use crate::sqlite::{HydrationError, SqLiteEntity, WhereCondition};
+
     use super::*;
 
     #[test]
@@ -114,5 +122,57 @@ mod tests {
             .unwrap();
 
         assert_eq!(value, 45);
+    }
+
+    #[test]
+    fn test_apply_execute_the_query() {
+        struct DummySqLiteEntity {}
+        impl SqLiteEntity for DummySqLiteEntity {
+            fn hydrate(_row: sqlite::Row) -> Result<Self, HydrationError>
+            where
+                Self: Sized,
+            {
+                unimplemented!()
+            }
+
+            fn get_projection() -> crate::sqlite::Projection {
+                unimplemented!()
+            }
+        }
+
+        struct FakeQuery {
+            sql: String,
+        }
+        impl Query for FakeQuery {
+            type Entity = DummySqLiteEntity;
+
+            fn filters(&self) -> WhereCondition {
+                WhereCondition::default()
+            }
+
+            fn get_definition(&self, _condition: &str) -> String {
+                self.sql.clone()
+            }
+        }
+
+        let connection = Connection::open_thread_safe(":memory:").unwrap();
+        connection
+            .execute("create table query_test(text_data);")
+            .unwrap();
+
+        let value: i64 = connection
+            .query_single_cell("select count(*) from query_test", &[])
+            .unwrap();
+        assert_eq!(value, 0);
+
+        let query = FakeQuery {
+            sql: "insert into query_test(text_data) values ('row 1')".to_string(),
+        };
+        connection.apply(query).unwrap();
+
+        let value: i64 = connection
+            .query_single_cell("select count(*) from query_test", &[])
+            .unwrap();
+        assert_eq!(value, 1);
     }
 }
