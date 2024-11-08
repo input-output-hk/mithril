@@ -13,6 +13,12 @@ pub struct AggregatorStatusMessage {
 
     /// Current Mithril era
     pub mithril_era: SupportedEra,
+
+    /// Cardano node version
+    pub cardano_node_version: String,
+
+    /// Aggregator node version
+    pub aggregator_node_version: String,
 }
 
 #[cfg(test)]
@@ -22,7 +28,9 @@ mod tests {
     const ACTUAL_JSON: &str = r#"{
         "epoch": 48,
         "cardano_era": "conway",
-        "mithril_era": "pythagoras"
+        "mithril_era": "pythagoras",
+        "cardano_node_version": "1.2.3",
+        "aggregator_node_version": "4.5.6"
         }"#;
 
     fn golden_actual_message() -> AggregatorStatusMessage {
@@ -30,6 +38,8 @@ mod tests {
             epoch: Epoch(48),
             cardano_era: "conway".to_string(),
             mithril_era: SupportedEra::Pythagoras,
+            cardano_node_version: "1.2.3".to_string(),
+            aggregator_node_version: "4.5.6".to_string(),
         }
     }
 

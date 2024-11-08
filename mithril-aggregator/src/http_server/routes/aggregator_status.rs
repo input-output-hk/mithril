@@ -21,22 +21,29 @@ fn status(
         .and(warp::get())
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_epoch_service(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.cardano_node_version.clone()
+        }))
         .and_then(handlers::status)
 }
 
 async fn get_aggregator_status_message(
     epoch_service: EpochServiceWrapper,
+    cardano_node_version: String,
 ) -> StdResult<AggregatorStatusMessage> {
     let epoch_service = epoch_service.read().await;
 
     let epoch = epoch_service.epoch_of_current_data()?;
     let cardano_era = epoch_service.cardano_era()?;
     let mithril_era = epoch_service.mithril_era()?;
+    let aggregator_node_version = env!("CARGO_PKG_VERSION").to_string();
 
     let message = AggregatorStatusMessage {
         epoch,
         cardano_era,
         mithril_era,
+        cardano_node_version,
+        aggregator_node_version,
     };
 
     Ok(message)
@@ -57,8 +64,10 @@ mod handlers {
     pub async fn status(
         logger: Logger,
         epoch_service: EpochServiceWrapper,
+        cardano_node_version: String,
     ) -> Result<impl warp::Reply, Infallible> {
-        let aggregator_status_message = get_aggregator_status_message(epoch_service).await;
+        let aggregator_status_message =
+            get_aggregator_status_message(epoch_service, cardano_node_version).await;
 
         match aggregator_status_message {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),

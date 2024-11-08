@@ -57,6 +57,7 @@ paths:
           * Current Cardano era
           * Current Mithril era
           * Cardano node version
+          * Aggregator node version
       responses:
         "200":
           description: aggregator status found
@@ -659,6 +660,8 @@ components:
         - epoch
         - cardano_era
         - mithril_era
+        - cardano_node_version
+        - aggregator_node_version
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
@@ -668,8 +671,20 @@ components:
         mithril_era:
           description: Mithril era
           type: string
+        cardano_node_version:
+          description: Version of the Cardano node
+          type: string
+        aggregator_node_version:
+          description: Version of the Aggregator node
+          type: string
       examples:
-        { "epoch": 329, "cardano_era": "conway", "mithril_era": "pythagoras" }
+        {
+          "epoch": 329,
+          "cardano_era": "conway",
+          "mithril_era": "pythagoras",
+          "cardano_node_version": "1.2.3",
+          "aggregator_node_version": "4.5.6"
+        }
 
     AggregatorFeaturesMessage:
       description: Represents general information about Aggregator public information and signing capabilities

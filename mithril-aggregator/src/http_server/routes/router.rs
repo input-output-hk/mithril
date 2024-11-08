@@ -38,6 +38,7 @@ pub struct RouterConfig {
     pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     pub snapshot_directory: PathBuf,
+    pub cardano_node_version: String,
 }
 
 #[cfg(test)]
@@ -53,6 +54,7 @@ impl RouterConfig {
             cardano_transactions_prover_max_hashes_allowed_by_request: 1_000,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
             snapshot_directory: PathBuf::from("/dummy/snapshot/directory"),
+            cardano_node_version: "1.2.3".to_string(),
         }
     }
 }
