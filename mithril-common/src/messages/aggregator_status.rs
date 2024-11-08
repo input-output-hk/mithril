@@ -1,12 +1,18 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::Epoch;
+use crate::{entities::Epoch, era::SupportedEra};
 
 /// Message advertised by an Aggregator to inform about its status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AggregatorStatusMessage {
     /// Current epoch
     pub epoch: Epoch,
+
+    /// Current Cardano era
+    pub cardano_era: String,
+
+    /// Current Mithril era
+    pub mithril_era: SupportedEra,
 }
 
 #[cfg(test)]
@@ -14,11 +20,17 @@ mod tests {
     use super::*;
 
     const ACTUAL_JSON: &str = r#"{
-        "epoch": 48
+        "epoch": 48,
+        "cardano_era": "conway",
+        "mithril_era": "pythagoras"
         }"#;
 
     fn golden_actual_message() -> AggregatorStatusMessage {
-        AggregatorStatusMessage { epoch: Epoch(48) }
+        AggregatorStatusMessage {
+            epoch: Epoch(48),
+            cardano_era: "conway".to_string(),
+            mithril_era: SupportedEra::Pythagoras,
+        }
     }
 
     // Test the compatibility with current structure.

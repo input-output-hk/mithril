@@ -657,10 +657,19 @@ components:
       additionalProperties: false
       required:
         - epoch
+        - cardano_era
+        - mithril_era
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
-      examples: { "epoch": 329 }
+        cardano_era:
+          description: Cardano era
+          type: string
+        mithril_era:
+          description: Mithril era
+          type: string
+      examples:
+        { "epoch": 329, "cardano_era": "conway", "mithril_era": "pythagoras" }
 
     AggregatorFeaturesMessage:
       description: Represents general information about Aggregator public information and signing capabilities

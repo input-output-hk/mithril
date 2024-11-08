@@ -30,8 +30,14 @@ async fn get_aggregator_status_message(
     let epoch_service = epoch_service.read().await;
 
     let epoch = epoch_service.epoch_of_current_data()?;
+    let cardano_era = epoch_service.cardano_era()?;
+    let mithril_era = epoch_service.mithril_era()?;
 
-    let message = AggregatorStatusMessage { epoch };
+    let message = AggregatorStatusMessage {
+        epoch,
+        cardano_era,
+        mithril_era,
+    };
 
     Ok(message)
 }
