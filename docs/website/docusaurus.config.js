@@ -94,6 +94,57 @@ const config = {
         sortPosts: "descending",
       },
     ],
+    [
+      "@docusaurus/plugin-client-redirects",
+      {
+        redirects: [
+          {
+            to: "/manual/develop/protocol-simulation",
+            from: ["/mithril/mithril-protocol/simulation"],
+          },
+          {
+            to: "/manual/operate/become-mithril-spo",
+            from: ["/manual/getting-started/SPO-on-boarding-guide"],
+          },
+          {
+            to: "/manual/operate/run-signer-node",
+            from: ["/manual/getting-started/run-signer-node"],
+          },
+          {
+            to: "/manual/develop/run-mithril-devnet",
+            from: ["/manual/getting-started/run-mithril-devnet"],
+          },
+          {
+            to: "/manual/develop/",
+            from: ["/category/developer-docs"],
+          },
+          {
+            to: "/manual/develop/nodes/mithril-aggregator",
+            from: ["/manual/developer-docs/nodes/mithril-aggregator"],
+          },
+          {
+            to: "/manual/develop/nodes/mithril-signer",
+            from: ["/manual/developer-docs/nodes/mithril-signer"],
+          },
+          {
+            to: "/manual/develop/nodes/mithril-client",
+            from: ["/manual/developer-docs/nodes/mithril-client"],
+          },
+          {
+            to: "/manual/develop/nodes/mithril-client-library",
+            from: ["/manual/developer-docs/nodes/mithril-client-library"],
+          },
+          {
+            to: "/manual/develop/nodes/mithril-client-library-wasm",
+            from: ["/manual/developer-docs/nodes/mithril-client-library-wasm"],
+          },
+          {
+            to: "/manual/develop/references",
+            from: ["/manual/developer-docs/references"],
+          },
+        ],
+      },
+    ],
   ],
 
   themeConfig:
