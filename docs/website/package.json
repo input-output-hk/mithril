@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@docusaurus/core": "^3.6.0",
+    "@docusaurus/plugin-sitemap": "^3.6.0",
+    "@docusaurus/plugin-client-redirects": "^3.6.0",
     "@docusaurus/preset-classic": "^3.6.0",
     "@docusaurus/theme-mermaid": "^3.6.0",
     "clsx": "^2.1.1",
