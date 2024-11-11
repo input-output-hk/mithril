@@ -6,13 +6,13 @@ sidebar_position: 3
 
 :::info
 
-- This demo will improve your understanding of the **Mithril protocol**. By engaging with it, you will gain insights into how participants interact to create a multi-signature and understand the impact of the protocol parameters.
+- This demo will improve your understanding of the **Mithril protocol**. By engaging with it, you will gain insights into how participants interact to create a multi-signature and understand the impact of the protocol parameters
 
-- This simulation is run by a CLI that you will build and run, and that will ultimately generate real Mithril multi-signatures.
+- This simulation is run by a CLI that you will build and run, ultimately generating real Mithril multi-signatures
 
-- For reproducibility of the results, the simulation uses a deterministic source of randomness.
+- For reproducibility of the results, the simulation uses a deterministic source of randomness
 
-- During the simulation, some artifacts will be written to an `artifacts` folder, such as `verification keys`, `individual signatures` and `multi signatures`.
+During the simulation, some artifacts, such as `verification keys`, `individual signatures`, and `multi signatures`, will be written to an `artifacts` folder.
 
 :::
 
@@ -90,9 +90,9 @@ OPTIONS:
 
 A friendly reminder about the protocol parameters:
 
-- `k`: the `quorum` parameter represents the minimum number of individual signatures (gathered from multiple participants) required to be aggregated in a multi-signature.
-- `m`: the `security` parameter represents the total number of `lotteries` in which each participant can participate to sign the message.
-- `phi-f`: the parameter that controls the probability of a participant winning a `lottery`. It varies between `0.0` (less chance) and `1.0` (more chance).
+- `k`: the `quorum` parameter represents the minimum number of individual signatures (gathered from multiple participants) required to be aggregated in a multi-signature
+- `m`: the `security` parameter represents the total number of `lotteries` in which each participant can participate to sign the message
+- `phi-f`: the parameter that controls the probability of a participant winning a `lottery`; it varies between `0.0` (less chance) and `1.0` (more chance).
 
 :::
 
