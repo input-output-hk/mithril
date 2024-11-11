@@ -15,7 +15,7 @@ Mithril aggregator is responsible for collecting individual signatures from the 
 
 :::tip
 
-- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
+- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview
 
 - For more information about the **Mithril aggregator**, please see the [aggregator node](../../../mithril/mithril-network/aggregator.md) overview.
 
@@ -33,13 +33,13 @@ Mithril aggregator is responsible for collecting individual signatures from the 
 | :--------------------: | :--------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :----------------------------------------: |
 | **Mithril aggregator** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-aggregator) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_aggregator/index.html) | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/pkgs/container/mithril-aggregator) | [:arrow_upper_right:](/doc/aggregator-api) |
 
-## Pre-requisites
+## Prerequisites
 
-- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain.
+- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain
 
-- Install Build Tools `build-essential` and `m4`. For example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
+- Install build tools `build-essential` and `m4`; for example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`
 
-- Install OpenSSL development libraries. For example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
+- Install OpenSSL development libraries; for example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
 
 ## Download the source file
 
@@ -59,7 +59,7 @@ Switch to the desired branch/tag:
 
 ```bash
 # Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
-# Please refer to the **Build from** column of the **Mithril networks** table above
+# Please refer to the **Build from** column of the **Mithril networks** section
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
@@ -137,7 +137,7 @@ Options:
       --db-directory <DB_DIRECTORY>
           Directory of the Cardano node files
       --config-directory <CONFIG_DIRECTORY>
-          Directory where configuration file is located [default: ./config]
+          Directory where the configuration file is located [default: ./config]
   -h, --help
           Print help
   -V, --version
@@ -186,7 +186,7 @@ USAGE:
 OPTIONS:
     -h, --help    Print help information
 SUBCOMMANDS:
-    bootstrap    Bootstrap a genesis certificate Test only usage
+    bootstrap    Bootstrap a genesis certificate test-only usage
     export       Export payload to sign with genesis secret key
     help         Print this message or the help of the given subcommand(s)
     import       Import payload signed with genesis secret key and create & import a genesis certificate
@@ -194,7 +194,7 @@ SUBCOMMANDS:
 
 ### Bootstrap sub-command (test-only)
 
-You can run the 'genesis bootstrap' command in release mode with the default configuration, but **only in test mode**. This will enable the Mithril aggregator node to bootstrap a `genesis certificate`. After completing this operation, the Mithril aggregator will be capable of producing new snapshots and certificates.
+You can run the 'genesis bootstrap' command in release mode with the default configuration, but **only in test mode**. This will enable the Mithril aggregator node to bootstrap a `genesis certificate`. After completing this operation, the Mithril aggregator will be able to produce new snapshots and certificates.
 
 ```bash
 ./mithril-aggregator genesis bootstrap
