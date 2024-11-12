@@ -5,6 +5,11 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
 
+use crate::dependency_injection::EpochServiceWrapper;
+use crate::entities::SignerEpochSettings;
+use crate::services::SignedEntityConfigProvider;
+use crate::store::ProtocolInitializerStorer;
+use crate::RunnerError;
 use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::{
     CardanoTransactionsSigningConfig, Epoch, PartyId, ProtocolParameters, SignedEntityConfig,
@@ -13,12 +18,6 @@ use mithril_common::entities::{
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::{CardanoNetwork, StdResult};
 use mithril_persistence::store::StakeStorer;
-
-use crate::dependency_injection::EpochServiceWrapper;
-use crate::entities::SignerEpochSettings;
-use crate::services::SignedEntityConfigProvider;
-use crate::store::ProtocolInitializerStorer;
-use crate::RunnerError;
 
 /// Errors dedicated to the EpochService.
 #[derive(Debug, Error)]
@@ -327,9 +326,9 @@ impl MithrilEpochService {
     /// `TEST ONLY` - Create a new instance of the service using dumb dependencies.
     pub fn new_with_dumb_dependencies() -> Self {
         use crate::store::ProtocolInitializerStore;
+        use crate::store::StakeStore;
         use crate::test_tools::TestLogger;
         use mithril_persistence::store::adapter::DumbStoreAdapter;
-        use mithril_persistence::store::StakeStore;
 
         let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
@@ -437,11 +436,10 @@ mod tests {
     use mithril_common::entities::{Epoch, StakeDistribution};
     use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
-    use mithril_persistence::store::{StakeStore, StakeStorer};
 
     use crate::entities::SignerEpochSettings;
     use crate::services::MithrilProtocolInitializerBuilder;
-    use crate::store::ProtocolInitializerStore;
+    use crate::store::{ProtocolInitializerStore, StakeStore};
     use crate::test_tools::TestLogger;
 
     use super::*;

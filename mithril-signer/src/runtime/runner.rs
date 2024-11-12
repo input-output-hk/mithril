@@ -358,7 +358,7 @@ mod tests {
         MithrilTickerService, TickerService,
     };
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
-    use mithril_persistence::store::{StakeStore, StakeStorer};
+    use mithril_persistence::store::StakeStorer;
 
     use crate::database::repository::SignedBeaconRepository;
     use crate::database::test_helper::main_db_connection;
@@ -368,7 +368,7 @@ mod tests {
         MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignerCertifierService,
         SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
     };
-    use crate::store::ProtocolInitializerStore;
+    use crate::store::{ProtocolInitializerStore, StakeStore};
     use crate::test_tools::TestLogger;
 
     use super::*;

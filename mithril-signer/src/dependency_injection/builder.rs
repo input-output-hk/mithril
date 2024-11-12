@@ -33,7 +33,6 @@ use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
 use mithril_persistence::store::adapter::SQLiteAdapter;
-use mithril_persistence::store::StakeStore;
 
 use crate::database::repository::SignedBeaconRepository;
 use crate::dependency_injection::SignerDependencyContainer;
@@ -44,7 +43,7 @@ use crate::services::{
     SignerUpkeepService, TransactionsImporterByChunk, TransactionsImporterWithPruner,
     TransactionsImporterWithVacuum,
 };
-use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore};
+use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore, StakeStore};
 use crate::{
     Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
     SQLITE_FILE_CARDANO_TRANSACTION,

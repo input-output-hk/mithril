@@ -176,10 +176,9 @@ mod tests {
     use mithril_common::entities::{Epoch, ProtocolMessagePartKey};
     use mithril_common::test_utils::MithrilFixtureBuilder;
     use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
-    use mithril_persistence::store::StakeStore;
 
     use crate::services::MithrilEpochService;
-    use crate::store::ProtocolInitializerStore;
+    use crate::store::{ProtocolInitializerStore, StakeStore};
     use crate::test_tools::TestLogger;
 
     use super::*;
