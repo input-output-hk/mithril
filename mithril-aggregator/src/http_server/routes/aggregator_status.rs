@@ -37,6 +37,8 @@ async fn get_aggregator_status_message(
     let cardano_era = epoch_service.cardano_era()?;
     let mithril_era = epoch_service.mithril_era()?;
     let aggregator_node_version = env!("CARGO_PKG_VERSION").to_string();
+    let protocol_parameters = epoch_service.current_protocol_parameters()?.clone();
+    let next_protocol_parameters = epoch_service.next_protocol_parameters()?.clone();
 
     let message = AggregatorStatusMessage {
         epoch,
@@ -44,6 +46,8 @@ async fn get_aggregator_status_message(
         mithril_era,
         cardano_node_version,
         aggregator_node_version,
+        protocol_parameters,
+        next_protocol_parameters,
     };
 
     Ok(message)
@@ -91,11 +95,15 @@ mod tests {
     };
 
     use mithril_common::{
-        entities::Epoch, test_utils::apispec::APISpec, test_utils::MithrilFixtureBuilder,
+        entities::{Epoch, ProtocolParameters},
+        test_utils::{apispec::APISpec, MithrilFixtureBuilder},
     };
 
     use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies, services::FakeEpochService,
+        entities::AggregatorEpochSettings,
+        http_server::SERVER_BASE_PATH,
+        initialize_dependencies,
+        services::{FakeEpochService, FakeEpochServiceBuilder},
     };
 
     use super::*;
@@ -167,5 +175,44 @@ mod tests {
             &StatusCode::OK,
         )
         .unwrap();
+    }
+
+    #[tokio::test]
+    async fn retrieves_correct_protocol_parameters_from_epoch_service() {
+        let current_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(101, 10, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let next_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(102, 20, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+        let signer_registration_epoch_settings = AggregatorEpochSettings {
+            protocol_parameters: ProtocolParameters::new(103, 30, 0.5),
+            ..AggregatorEpochSettings::dummy()
+        };
+
+        let epoch_service = FakeEpochServiceBuilder {
+            current_epoch_settings: current_epoch_settings.clone(),
+            next_epoch_settings: next_epoch_settings.clone(),
+            signer_registration_epoch_settings,
+            ..FakeEpochServiceBuilder::dummy(Epoch(3))
+        }
+        .build();
+
+        let message =
+            get_aggregator_status_message(Arc::new(RwLock::new(epoch_service)), String::new())
+                .await
+                .unwrap();
+
+        assert_eq!(
+            message.protocol_parameters,
+            current_epoch_settings.protocol_parameters
+        );
+
+        assert_eq!(
+            message.next_protocol_parameters,
+            next_epoch_settings.protocol_parameters
+        );
     }
 }

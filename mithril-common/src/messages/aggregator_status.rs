@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{entities::Epoch, era::SupportedEra};
+use crate::{
+    entities::{Epoch, ProtocolParameters},
+    era::SupportedEra,
+};
 
 /// Message advertised by an Aggregator to inform about its status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -19,6 +22,14 @@ pub struct AggregatorStatusMessage {
 
     /// Aggregator node version
     pub aggregator_node_version: String,
+
+    /// Current Protocol parameters
+    #[serde(rename = "protocol")]
+    pub protocol_parameters: ProtocolParameters,
+
+    /// Next Protocol parameters
+    #[serde(rename = "next_protocol")]
+    pub next_protocol_parameters: ProtocolParameters,
 }
 
 #[cfg(test)]
@@ -30,7 +41,9 @@ mod tests {
         "cardano_era": "conway",
         "mithril_era": "pythagoras",
         "cardano_node_version": "1.2.3",
-        "aggregator_node_version": "4.5.6"
+        "aggregator_node_version": "4.5.6",
+        "protocol": { "k": 5, "m": 100, "phi_f": 0.65 },
+        "next_protocol": { "k": 50, "m": 1000, "phi_f": 0.65 }
         }"#;
 
     fn golden_actual_message() -> AggregatorStatusMessage {
@@ -40,6 +53,16 @@ mod tests {
             mithril_era: SupportedEra::Pythagoras,
             cardano_node_version: "1.2.3".to_string(),
             aggregator_node_version: "4.5.6".to_string(),
+            protocol_parameters: ProtocolParameters {
+                k: 5,
+                m: 100,
+                phi_f: 0.65,
+            },
+            next_protocol_parameters: ProtocolParameters {
+                k: 50,
+                m: 1000,
+                phi_f: 0.65,
+            },
         }
     }
 

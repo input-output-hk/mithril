@@ -58,6 +58,8 @@ paths:
           * Current Mithril era
           * Cardano node version
           * Aggregator node version
+          * Protocol parameters for current epoch
+          * Protocol parameters for next epoch
       responses:
         "200":
           description: aggregator status found
@@ -662,6 +664,8 @@ components:
         - mithril_era
         - cardano_node_version
         - aggregator_node_version
+        - protocol
+        - next_protocol
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
@@ -677,13 +681,19 @@ components:
         aggregator_node_version:
           description: Version of the Aggregator node
           type: string
+        protocol:
+          $ref: "#/components/schemas/ProtocolParameters"
+        next_protocol:
+          $ref: "#/components/schemas/ProtocolParameters"
       examples:
         {
           "epoch": 329,
           "cardano_era": "conway",
           "mithril_era": "pythagoras",
           "cardano_node_version": "1.2.3",
-          "aggregator_node_version": "4.5.6"
+          "aggregator_node_version": "4.5.6",
+          "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
+          "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 }
         }
 
     AggregatorFeaturesMessage:
