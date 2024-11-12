@@ -56,3 +56,9 @@ pub type HexEncodedDigest = HexEncodedKey;
 
 /// Hex encoded Era Markers Secret Key
 pub type HexEncodedEraMarkersSecretKey = HexEncodedKey;
+
+/// Number of SPOs
+pub type TotalSPOs = u32;
+
+/// Cardano Era
+pub type CardanoEra = String;

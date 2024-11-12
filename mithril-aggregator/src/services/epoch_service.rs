@@ -9,8 +9,8 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
-    SignedEntityTypeDiscriminants, Signer, SignerWithStake, Stake,
+    CardanoEra, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
+    SignedEntityTypeDiscriminants, Signer, SignerWithStake, Stake, TotalSPOs,
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
@@ -20,9 +20,6 @@ use crate::{
     entities::AggregatorEpochSettings, services::StakeDistributionService, EpochSettingsStorer,
     VerificationKeyStorer,
 };
-
-type TotalSPOs = u32;
-type CardanoEra = String;
 
 /// Errors dedicated to the CertifierService.
 #[derive(Debug, Error)]
