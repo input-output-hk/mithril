@@ -2,7 +2,6 @@
 sidebar_position: 5
 ---
 
-import NetworksMatrix from '../../../networks-matrix.md';
 import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril client library WASM
@@ -27,17 +26,17 @@ It is responsible for handling the different types of data certified by Mithril 
 
 :::
 
-:::note Mithril networks
+:::info
 
-<NetworksMatrix />
+The Mithril network configurations are available in the [**Network configurations**](../../getting-started/network-configurations.md) section of the user manual.
 
 :::
 
 ## Resources
 
-|          Node           |                                        Source repository                                        |                                   Rust documentation                                   |
-| :---------------------: | :---------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: |
-| **Mithril client WASM** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-wasm) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_wasm/index.html) |
+|          Node           |                                        Source repository                                        |                                   Rust documentation                                   |                         Network configurations                         |
+| :---------------------: | :---------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------: | :--------------------------------------------------------------------: |
+| **Mithril client WASM** | [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main/mithril-client-wasm) | [:arrow_upper_right:](https://mithril.network/rust-doc/mithril_client_wasm/index.html) | [:arrow_upper_right:](../../getting-started/network-configurations.md) |
 
 ## Installation
 

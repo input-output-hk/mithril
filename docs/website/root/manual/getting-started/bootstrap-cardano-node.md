@@ -52,7 +52,7 @@ To build the Mithril client binary, switch to the desired branch/tag:
 
 ```bash
 # Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
-# Please refer to the **Build from** column of the **Mithril networks** section 
+# Please refer to the [**Network configurations**](http://mithril.network/manual/getting-started/network-configurations) section of the user manual
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
