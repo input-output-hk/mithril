@@ -51,6 +51,8 @@ async fn get_aggregator_status_message(
         .iter()
         .map(|s| s.stake)
         .sum();
+    let total_cardano_spo = epoch_service.total_spo()?;
+    let total_cardano_stake = epoch_service.total_stake()?;
 
     let message = AggregatorStatusMessage {
         epoch,
@@ -64,6 +66,8 @@ async fn get_aggregator_status_message(
         total_next_signers,
         total_stakes_signers,
         total_next_stakes_signers,
+        total_cardano_spo,
+        total_cardano_stake,
     };
 
     Ok(message)

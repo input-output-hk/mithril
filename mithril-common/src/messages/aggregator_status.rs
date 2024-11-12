@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{Epoch, ProtocolParameters, Stake},
+    entities::{CardanoEra, Epoch, ProtocolParameters, Stake, TotalSPOs},
     era::SupportedEra,
 };
 
@@ -12,7 +12,7 @@ pub struct AggregatorStatusMessage {
     pub epoch: Epoch,
 
     /// Current Cardano era
-    pub cardano_era: String,
+    pub cardano_era: CardanoEra,
 
     /// Current Mithril era
     pub mithril_era: SupportedEra,
@@ -42,6 +42,12 @@ pub struct AggregatorStatusMessage {
 
     /// The total stakes of the signers that will be able to sign on the next epoch
     pub total_next_stakes_signers: Stake,
+
+    /// The number of Cardano SPOs
+    pub total_cardano_spo: TotalSPOs,
+
+    /// The total stake in Cardano
+    pub total_cardano_stake: Stake,
 }
 
 #[cfg(test)]
@@ -59,7 +65,9 @@ mod tests {
         "total_signers": 1234,
         "total_next_signers": 56789,
         "total_stakes_signers": 123456789,
-        "total_next_stakes_signers": 987654321
+        "total_next_stakes_signers": 987654321,
+        "total_cardano_spo": 7777,
+        "total_cardano_stake": 888888888
         }"#;
 
     fn golden_actual_message() -> AggregatorStatusMessage {
@@ -83,6 +91,8 @@ mod tests {
             total_next_signers: 56789,
             total_stakes_signers: 123456789,
             total_next_stakes_signers: 987654321,
+            total_cardano_spo: 7777,
+            total_cardano_stake: 888888888,
         }
     }
 

@@ -64,6 +64,8 @@ paths:
           * Total number of signers for next epoch
           * Total stakes of signers for current epoch
           * Total stakes of signers for next epoch
+          * Total of Cardano SPOs
+          * Total stake in Cardano
       responses:
         "200":
           description: aggregator status found
@@ -674,6 +676,8 @@ components:
         - total_next_signers
         - total_stakes_signers
         - total_next_stakes_signers
+        - total_cardano_spo
+        - total_cardano_stake
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
@@ -709,6 +713,14 @@ components:
           description: The total stakes of signers for the next epoch
           type: integer
           format: int64
+        total_cardano_spo:
+          description: The number of Cardano SPOs
+          type: integer
+          format: int64
+        total_cardano_stake:
+          description: The total stake in Cardano
+          type: integer
+          format: int64
       examples:
         {
           "epoch": 329,
@@ -721,7 +733,9 @@ components:
           "total_signers": 3,
           "total_next_signers": 72,
           "total_stakes_signers": 123456789,
-          "total_next_stakes_signers": 987654321
+          "total_next_stakes_signers": 987654321,
+          "total_cardano_spo": 5738,
+          "total_cardano_stake": 999999999
         }
 
     AggregatorFeaturesMessage:
