@@ -370,7 +370,11 @@ impl<'a> DependenciesBuilder<'a> {
             sqlite_connection.clone(),
             sqlite_connection_cardano_transaction_pool,
             signed_entity_type_lock.clone(),
-            vec![signed_beacon_repository.clone(), stake_store.clone()],
+            vec![
+                signed_beacon_repository.clone(),
+                stake_store.clone(),
+                protocol_initializer_store.clone(),
+            ],
             self.root_logger(),
         ));
         let certifier = Arc::new(SignerCertifierService::new(
