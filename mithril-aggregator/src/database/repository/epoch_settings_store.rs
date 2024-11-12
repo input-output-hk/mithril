@@ -12,6 +12,7 @@ use crate::database::query::{
     DeleteEpochSettingsQuery, GetEpochSettingsQuery, UpdateEpochSettingsQuery,
 };
 use crate::entities::AggregatorEpochSettings;
+use crate::services::EpochPruningTask;
 use crate::EpochSettingsStorer;
 
 /// Service to deal with epoch settings (read & write).
@@ -68,17 +69,6 @@ impl EpochSettingsStorer for EpochSettingsStore {
             .map_err(|e| AdapterError::GeneralError(e.context("persist epoch settings failure")))?
             .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
 
-        // Prune useless old epoch settings.
-        if let Some(threshold) = self.retention_limit {
-            let _ = self
-                .connection
-                .fetch(DeleteEpochSettingsQuery::below_epoch_threshold(
-                    epoch - threshold,
-                ))
-                .map_err(AdapterError::QueryError)?
-                .count();
-        }
-
         Ok(Some(epoch_settings_record.into()))
     }
 
@@ -99,6 +89,25 @@ impl EpochSettingsStorer for EpochSettingsStore {
             return Ok(Some(epoch_settings_record.into()));
         }
         Ok(None)
+    }
+}
+
+#[async_trait]
+impl EpochPruningTask for EpochSettingsStore {
+    fn pruned_data(&self) -> &'static str {
+        "Epoch settings"
+    }
+
+    /// Prune useless old epoch settings.
+    async fn prune(&self, epoch: Epoch) -> StdResult<()> {
+        if let Some(threshold) = self.retention_limit {
+            self.connection
+                .apply(DeleteEpochSettingsQuery::below_epoch_threshold(
+                    epoch - threshold,
+                ))
+                .map_err(AdapterError::QueryError)?;
+        }
+        Ok(())
     }
 }
 
@@ -172,7 +181,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn save_epoch_settings_prune_older_epoch_settings() {
+    async fn prune_epoch_settings_older_than_threshold() {
         const EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD: u64 = 5;
 
         let connection = main_db_connection().unwrap();
@@ -183,17 +192,36 @@ mod tests {
         );
 
         store
-            .save_epoch_settings(
-                Epoch(2) + EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD,
-                AggregatorEpochSettings::dummy(),
-            )
+            .prune(Epoch(2) + EPOCH_SETTINGS_PRUNE_EPOCH_THRESHOLD)
             .await
-            .expect("saving epoch settings should not fails");
+            .unwrap();
+
         let epoch1_params = store.get_epoch_settings(Epoch(1)).await.unwrap();
         let epoch2_params = store.get_epoch_settings(Epoch(2)).await.unwrap();
 
         assert!(
             epoch1_params.is_none(),
+            "Epoch settings at epoch 1 should have been pruned",
+        );
+        assert!(
+            epoch2_params.is_some(),
+            "Epoch settings at epoch 2 should still exist",
+        );
+    }
+
+    #[tokio::test]
+    async fn without_threshold_nothing_is_pruned() {
+        let connection = main_db_connection().unwrap();
+        insert_epoch_settings(&connection, &[1, 2]).unwrap();
+        let store = EpochSettingsStore::new(Arc::new(connection), None);
+
+        store.prune(Epoch(100)).await.unwrap();
+
+        let epoch1_params = store.get_epoch_settings(Epoch(1)).await.unwrap();
+        let epoch2_params = store.get_epoch_settings(Epoch(2)).await.unwrap();
+
+        assert!(
+            epoch1_params.is_some(),
             "Epoch settings at epoch 1 should have been pruned",
         );
         assert!(

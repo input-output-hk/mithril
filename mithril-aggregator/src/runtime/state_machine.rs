@@ -245,7 +245,7 @@ impl AggregatorRuntime {
         trace!(self.logger, "Trying transition from IDLE to READY state");
 
         if maybe_current_time_point.is_none()
-            || maybe_current_time_point.unwrap().epoch < new_time_point.epoch
+            || maybe_current_time_point.as_ref().unwrap().epoch < new_time_point.epoch
         {
             self.runner.close_signer_registration_round().await?;
             self.runner
@@ -256,7 +256,7 @@ impl AggregatorRuntime {
                 .update_stake_distribution(&new_time_point)
                 .await?;
             self.runner.inform_new_epoch(new_time_point.epoch).await?;
-            self.runner.upkeep().await?;
+            self.runner.upkeep(new_time_point.epoch).await?;
             self.runner
                 .open_signer_registration_round(&new_time_point)
                 .await?;
@@ -450,7 +450,11 @@ mod tests {
             .expect_precompute_epoch_data()
             .once()
             .returning(|| Ok(()));
-        runner.expect_upkeep().once().returning(|| Ok(()));
+        runner
+            .expect_upkeep()
+            .with(predicate::eq(TimePoint::dummy().epoch))
+            .once()
+            .returning(|_| Ok(()));
         runner
             .expect_increment_runtime_cycle_total_since_startup_counter()
             .once()
@@ -514,7 +518,11 @@ mod tests {
             .expect_precompute_epoch_data()
             .once()
             .returning(|| Ok(()));
-        runner.expect_upkeep().once().returning(|| Ok(()));
+        runner
+            .expect_upkeep()
+            .with(predicate::eq(TimePoint::dummy().epoch))
+            .once()
+            .returning(|_| Ok(()));
         runner
             .expect_increment_runtime_cycle_total_since_startup_counter()
             .once()

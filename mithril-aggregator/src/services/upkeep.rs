@@ -9,21 +9,32 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
-use slog::{info, Logger};
-
+use mithril_common::entities::Epoch;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
     SqliteCleaner, SqliteCleaningTask, SqliteConnection, SqliteConnectionPool,
 };
+use slog::{info, Logger};
 
 /// Define the service responsible for the upkeep of the application.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait UpkeepService: Send + Sync {
     /// Run the upkeep service.
-    async fn run(&self) -> StdResult<()>;
+    async fn run(&self, epoch: Epoch) -> StdResult<()>;
+}
+
+/// Define the task responsible for pruning a datasource below a certain epoch threshold.
+#[cfg_attr(test, mockall::automock)]
+#[async_trait]
+pub trait EpochPruningTask: Send + Sync {
+    /// Get the name of the data that will be pruned.
+    fn pruned_data(&self) -> &'static str;
+
+    /// Prune the datasource based on the given current epoch.
+    async fn prune(&self, current_epoch: Epoch) -> StdResult<()>;
 }
 
 /// Implementation of the upkeep service for the aggregator.
@@ -35,6 +46,7 @@ pub struct AggregatorUpkeepService {
     cardano_tx_connection_pool: Arc<SqliteConnectionPool>,
     event_store_connection: Arc<SqliteConnection>,
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+    pruning_tasks: Vec<Arc<dyn EpochPruningTask>>,
     logger: Logger,
 }
 
@@ -45,6 +57,7 @@ impl AggregatorUpkeepService {
         cardano_tx_connection_pool: Arc<SqliteConnectionPool>,
         event_store_connection: Arc<SqliteConnection>,
         signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+        pruning_tasks: Vec<Arc<dyn EpochPruningTask>>,
         logger: Logger,
     ) -> Self {
         Self {
@@ -52,8 +65,21 @@ impl AggregatorUpkeepService {
             cardano_tx_connection_pool,
             event_store_connection,
             signed_entity_type_lock,
+            pruning_tasks,
             logger: logger.new_with_component_name::<Self>(),
         }
+    }
+
+    async fn execute_pruning_tasks(&self, current_epoch: Epoch) -> StdResult<()> {
+        for task in &self.pruning_tasks {
+            info!(
+                self.logger, "Pruning stale data";
+                "pruned_data" => task.pruned_data(), "current_epoch" => ?current_epoch
+            );
+            task.prune(current_epoch).await?;
+        }
+
+        Ok(())
     }
 
     async fn upkeep_all_databases(&self) -> StdResult<()> {
@@ -105,8 +131,12 @@ impl AggregatorUpkeepService {
 
 #[async_trait]
 impl UpkeepService for AggregatorUpkeepService {
-    async fn run(&self) -> StdResult<()> {
+    async fn run(&self, current_epoch: Epoch) -> StdResult<()> {
         info!(self.logger, "Start upkeep of the application");
+
+        self.execute_pruning_tasks(current_epoch)
+            .await
+            .with_context(|| "Pruning tasks failed")?;
 
         self.upkeep_all_databases()
             .await
@@ -121,6 +151,7 @@ impl UpkeepService for AggregatorUpkeepService {
 mod tests {
     use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::test_utils::TempDir;
+    use mockall::predicate::eq;
 
     use crate::database::test_helper::{
         cardano_tx_db_connection, cardano_tx_db_file_connection, main_db_connection,
@@ -132,6 +163,26 @@ mod tests {
     use crate::test_tools::TestLogger;
 
     use super::*;
+
+    fn mock_epoch_pruning_task(
+        mock_config: impl FnOnce(&mut MockEpochPruningTask),
+    ) -> Arc<dyn EpochPruningTask> {
+        let mut task_mock = MockEpochPruningTask::new();
+        task_mock.expect_pruned_data().return_const("mock_data");
+        mock_config(&mut task_mock);
+        Arc::new(task_mock)
+    }
+
+    fn default_upkeep_service() -> AggregatorUpkeepService {
+        AggregatorUpkeepService::new(
+            Arc::new(main_db_connection().unwrap()),
+            Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
+            Arc::new(event_store_db_connection().unwrap()),
+            Arc::new(SignedEntityTypeLock::default()),
+            vec![],
+            TestLogger::stdout(),
+        )
+    }
 
     #[tokio::test]
     async fn test_cleanup_database() {
@@ -158,10 +209,11 @@ mod tests {
                 )),
                 Arc::new(event_store_connection),
                 Arc::new(SignedEntityTypeLock::default()),
+                vec![],
                 TestLogger::file(&log_path),
             );
 
-            service.run().await.expect("Upkeep service failed");
+            service.run(Epoch(5)).await.expect("Upkeep service failed");
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -195,14 +247,12 @@ mod tests {
 
         // Separate block to force log flushing by dropping the service that owns the logger
         {
-            let service = AggregatorUpkeepService::new(
-                Arc::new(main_db_connection().unwrap()),
-                Arc::new(SqliteConnectionPool::build(1, cardano_tx_db_connection).unwrap()),
-                Arc::new(event_store_db_connection().unwrap()),
-                signed_entity_type_lock.clone(),
-                TestLogger::file(&log_path),
-            );
-            service.run().await.expect("Upkeep service failed");
+            let service = AggregatorUpkeepService {
+                signed_entity_type_lock: signed_entity_type_lock.clone(),
+                logger: TestLogger::file(&log_path),
+                ..default_upkeep_service()
+            };
+            service.run(Epoch(5)).await.expect("Upkeep service failed");
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -217,5 +267,27 @@ mod tests {
                 .count(),
             0,
         );
+    }
+    #[tokio::test]
+    async fn test_execute_all_pruning_tasks() {
+        let task1 = mock_epoch_pruning_task(|mock| {
+            mock.expect_prune()
+                .once()
+                .with(eq(Epoch(14)))
+                .returning(|_| Ok(()));
+        });
+        let task2 = mock_epoch_pruning_task(|mock| {
+            mock.expect_prune()
+                .once()
+                .with(eq(Epoch(14)))
+                .returning(|_| Ok(()));
+        });
+
+        let service = AggregatorUpkeepService {
+            pruning_tasks: vec![task1, task2],
+            ..default_upkeep_service()
+        };
+
+        service.run(Epoch(14)).await.expect("Upkeep service failed");
     }
 }

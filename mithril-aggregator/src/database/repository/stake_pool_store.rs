@@ -15,6 +15,7 @@ use crate::database::query::{
     DeleteStakePoolQuery, GetStakePoolQuery, InsertOrReplaceStakePoolQuery,
 };
 use crate::database::record::StakePool;
+use crate::services::EpochPruningTask;
 
 /// Service to deal with stake pools (read & write).
 pub struct StakePoolStore {
@@ -53,17 +54,6 @@ impl StakeStorer for StakePoolStore {
             .with_context(|| format!("persist stakes failure, epoch: {epoch}"))
             .map_err(AdapterError::GeneralError)?;
 
-        // Prune useless old stake distributions.
-        if let Some(threshold) = self.retention_limit {
-            let _ = self
-                .connection
-                .fetch(DeleteStakePoolQuery::below_epoch_threshold(
-                    epoch - threshold,
-                ))
-                .map_err(AdapterError::QueryError)?
-                .count();
-        }
-
         Ok(Some(StakeDistribution::from_iter(
             pools.into_iter().map(|p| (p.stake_pool_id, p.stake)),
         )))
@@ -91,9 +81,25 @@ impl StakeStorer for StakePoolStore {
 #[async_trait]
 impl StakeDistributionRetriever for StakePoolStore {
     async fn retrieve(&self, epoch: Epoch) -> StdResult<Option<StakeDistribution>> {
-        let stake_distribution = self.get_stakes(epoch).await?;
+        self.get_stakes(epoch).await
+    }
+}
 
-        Ok(stake_distribution)
+#[async_trait]
+impl EpochPruningTask for StakePoolStore {
+    fn pruned_data(&self) -> &'static str {
+        "Stake pool"
+    }
+
+    async fn prune(&self, epoch: Epoch) -> StdResult<()> {
+        if let Some(threshold) = self.retention_limit {
+            self.connection
+                .apply(DeleteStakePoolQuery::below_epoch_threshold(
+                    epoch - threshold,
+                ))
+                .map_err(AdapterError::QueryError)?;
+        }
+        Ok(())
     }
 }
 
@@ -104,7 +110,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn save_protocol_parameters_prune_older_epoch_settings() {
+    async fn prune_epoch_settings_older_than_threshold() {
         let connection = main_db_connection().unwrap();
         const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: u64 = 10;
         insert_stake_pool(&connection, &[1, 2]).unwrap();
@@ -112,17 +118,36 @@ mod tests {
             StakePoolStore::new(Arc::new(connection), Some(STAKE_POOL_PRUNE_EPOCH_THRESHOLD));
 
         store
-            .save_stakes(
-                Epoch(2) + STAKE_POOL_PRUNE_EPOCH_THRESHOLD,
-                StakeDistribution::from_iter([("pool1".to_string(), 100)]),
-            )
+            .prune(Epoch(2) + STAKE_POOL_PRUNE_EPOCH_THRESHOLD)
             .await
-            .expect("saving stakes should not fails");
+            .unwrap();
+
         let epoch1_stakes = store.get_stakes(Epoch(1)).await.unwrap();
         let epoch2_stakes = store.get_stakes(Epoch(2)).await.unwrap();
 
         assert_eq!(
             None, epoch1_stakes,
+            "Stakes at epoch 1 should have been pruned",
+        );
+        assert!(
+            epoch2_stakes.is_some(),
+            "Stakes at epoch 2 should still exist",
+        );
+    }
+
+    #[tokio::test]
+    async fn without_threshold_nothing_is_pruned() {
+        let connection = main_db_connection().unwrap();
+        insert_stake_pool(&connection, &[1, 2]).unwrap();
+        let store = StakePoolStore::new(Arc::new(connection), None);
+
+        store.prune(Epoch(100)).await.unwrap();
+
+        let epoch1_stakes = store.get_stakes(Epoch(1)).await.unwrap();
+        let epoch2_stakes = store.get_stakes(Epoch(2)).await.unwrap();
+
+        assert!(
+            epoch1_stakes.is_some(),
             "Stakes at epoch 1 should have been pruned",
         );
         assert!(

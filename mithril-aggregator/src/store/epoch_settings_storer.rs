@@ -6,11 +6,11 @@ use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
 
-use crate::entities::AggregatorEpochSettings;
+use crate::{entities::AggregatorEpochSettings, services::EpochPruningTask};
 
 /// Store and get [aggregator epoch settings][AggregatorEpochSettings] for given epoch.
 #[async_trait]
-pub trait EpochSettingsStorer: Sync + Send {
+pub trait EpochSettingsStorer: EpochPruningTask + Sync + Send {
     /// Save the given `AggregatorEpochSettings` for the given [Epoch].
     async fn save_epoch_settings(
         &self,
@@ -80,6 +80,17 @@ impl EpochSettingsStorer for FakeEpochSettingsStorer {
         let epoch_settings = self.epoch_settings.read().await;
 
         Ok(epoch_settings.get(&epoch).cloned())
+    }
+}
+
+#[async_trait]
+impl EpochPruningTask for FakeEpochSettingsStorer {
+    fn pruned_data(&self) -> &'static str {
+        "Fake epoch settings"
+    }
+
+    async fn prune(&self, _epoch: Epoch) -> StdResult<()> {
+        Ok(())
     }
 }
 
