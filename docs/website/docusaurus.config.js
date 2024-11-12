@@ -154,7 +154,7 @@ const config = {
       announcementBar: {
         id: "announcement",
         content:
-          'Participate in Mithril Protocol’s Mainnet Beta Launch! Follow our SPO on-boarding guide  <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/getting-started/SPO-on-boarding-guide">here</a> if you are interested!',
+          'Participate in Mithril Protocol’s Mainnet Beta! Follow our SPO on-boarding guide  <a rel="noopener noreferrer" href="https://mithril.network/doc/manual/operate/become-mithril-spo">here</a>!',
         backgroundColor: "#2e8555",
         textColor: "#f1f1f1",
         isCloseable: true,
