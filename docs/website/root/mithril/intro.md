@@ -7,7 +7,7 @@ sidebar_label: Introduction
 
 :::info
 
-Explore the Mithril protocol through our [protocol simulation](./mithril-protocol/simulation.md). This interactive experience will provide you with insights into how participants collaborate to generate a **multi-signature**, and you'll also gain a clearer understanding of the protocol parameters.
+Explore the Mithril protocol through our [protocol simulation](../manual/develop/protocol-simulation.md). This interactive experience will provide you with insights into how participants collaborate to generate a **multi-signature**, and you'll also gain a clearer understanding of the protocol parameters.
 
 :::
 
@@ -31,7 +31,7 @@ In this guide, you will find:
 
   - [Mithril certificate chain in depth](./mithril-protocol/certificates.md)
 
-  - An interactive protocol discovery through the [Mithril simulation](./mithril-protocol/simulation.md)
+  - An interactive protocol discovery through the [Mithril simulation](../manual/develop/protocol-simulation.md)
 
 - The **Mithril network** documentation:
 

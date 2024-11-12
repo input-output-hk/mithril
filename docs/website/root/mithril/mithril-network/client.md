@@ -18,7 +18,7 @@ The Mithril client node is used to list, show or verify artifacts certified by M
 
 - For more information about the Mithril protocol, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
 
-- For more information about the Mithril client, see the [developer manual](../../manual/developer-docs/nodes/mithril-client.md).
+- For more information about the Mithril client, see the [developer manual](../../manual/develop/nodes/mithril-client.md).
 
 :::
 

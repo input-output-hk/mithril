@@ -1,8 +1,7 @@
 ---
-sidebar_position: 2
+sidebar_position: 3
 ---
 
-import NetworksMatrix from '../../networks-matrix.md';
 import CompiledBinaries from '../../compiled-binaries.md'
 
 # Bootstrap a Cardano node
@@ -13,27 +12,21 @@ With the **Mithril client** connected to a **Mithril aggregator**, you can resto
 
 :::
 
-:::note Mithril networks
+## Set up the environment
 
-<NetworksMatrix />
+Before proceeding with the installation, ensure that you have the following prerequisites in place:
 
-:::
+1. **Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain**: make sure you have the latest stable version of Rust installed.
 
-## Pre-requisites
+2. **Install build tools `build-essential` and `m4`**: on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
 
-Before proceeding with the installation, ensure that you have the following pre-requisites in place:
-
-1. **Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain**: make sure you have the latest stable version of Rust installed
-
-2. **Install Build Tools `build-essential` and `m4`**: On Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`.
-
-3. **Install OpenSSL development libraries**: On Ubuntu/Debian/Mint, run the following command to install the required OpenSSL development libraries:
+3. **Install OpenSSL development libraries**: on Ubuntu/Debian/Mint, run the following command to install the required OpenSSL development libraries:
 
 ```
 sudo apt install libssl-dev
 ```
 
-3. **Install other requirements**: Make sure you have all the additional dependencies and requirements specified for the project:
+3. **Install other requirements**: make sure you have all the additional dependencies and requirements specified for the project:
 
 ```bash
 sudo apt-get install make build-essential m4 docker jq
@@ -59,7 +52,7 @@ To build the Mithril client binary, switch to the desired branch/tag:
 
 ```bash
 # Replace **YOUR_BUILD_BRANCH_OR_TAG** with the appropriate branch or tag name
-# Please refer to the **Build from** column of the **Mithril networks** table above
+# Please refer to the [**Network configurations**](http://mithril.network/manual/getting-started/network-configurations) section of the user manual
 git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
@@ -97,7 +90,7 @@ You should see something like:
 mithril-client 0.7.6
 ```
 
-:warning: Verify that the version displayed corresponds to the version specified in the content of the Release/Pre-release notes (refer to the **Build from** column in the 'Mithril networks' table above).
+:warning: Verify that the version displayed corresponds to the version specified in the content of the release/pre-release notes (refer to the **Build from** column in the 'Mithril networks' section).
 
 ### Verify the build
 
@@ -110,13 +103,13 @@ To verify that the Mithril client binary is functioning correctly, run the follo
 You should see:
 
 ```bash
-This program shows, downloads and verifies certified blockchain artifacts.
+This program shows, downloads, and verifies certified blockchain artifacts.
 
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
   cardano-db                  Cardano db management (alias: cdb)
-  mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
+  mithril-stake-distribution  Mithril stake distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  Cardano stake distribution management (alias: csd)
   help                        Print this message or the help of the given subcommand(s)
@@ -127,9 +120,9 @@ Options:
   -v, --verbose...
           Verbosity level (-v=warning, -vv=info, -vvv=debug)
       --config-directory <CONFIG_DIRECTORY>
-          Directory where configuration file is located [default: ./config]
+          Directory where the configuration file is located [default: ./config]
       --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-          Override configuration Aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
+          Override configuration aggregator endpoint URL [env: AGGREGATOR_ENDPOINT=]
       --log-format-json
           Enable JSON output for logs displayed according to verbosity level
       --log-output <LOG_OUTPUT>
@@ -159,7 +152,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 - Add `-v` for some logs (WARN)
 - Add `-vv` for more logs (INFO)
 - Add `-vvv` for even more logs (DEBUG)
-- Add `-vvvv` for all logs (TRACE)
+- Add `-vvvv` for all logs (TRACE).
 
 :::
 
@@ -209,7 +202,7 @@ In the following part of the document, you will need to replace the `./mithril-c
 
 ## MSYS2 Windows build
 
-In order to build the `mithril-client` executable on MSYS2 (see
+To build the `mithril-client` executable on MSYS2 (see
 [MSYS2's webpage](https://www.msys2.org/) for installation instructions), the
 following packages have to be installed:
 
@@ -218,7 +211,7 @@ pacman --noconfirm -S base-devel mingw-w64-<env>-x86_64-toolchain mingw-w64-<env
 ```
 
 Where `env` has to be replaced with your particular
-[environment](https://www.msys2.org/docs/environments/) of choice, for example
+[environment](https://www.msys2.org/docs/environments/) of choice, for example,
 `ucrt` if running in the `UCRT64` environment. Use `pacman -Ss <package name>`
 to search for packages if unsure.
 
@@ -228,7 +221,7 @@ If you encounter the following error:
 
 ```
     This perl implementation doesn't produce Unix like paths (with forward slash
-    directory separators).  Please use an implementation that matches your
+    directory separators). Please use an implementation that matches your
     building platform.
 ```
 
@@ -238,13 +231,13 @@ before the `perl` in `/<env>/bin/perl.exe` (from the
 
 :::
 
-From here you have to run the `rustup-init.exe` binary from
+From here, you have to run the `rustup-init.exe` binary from
 [rustup](https://rustup.rs/) and follow along these steps:
 
 ```bash
 Rust Visual C++ prerequisites
 
-Rust requires a linker and Windows API libraries but they don't seem to be
+Rust requires a linker and Windows API libraries, but they don't seem to be
 available.
 
 These components can be acquired through a Visual Studio installer.
@@ -303,7 +296,7 @@ Current installation options:
 3) Cancel installation
 >2
 
-I'm going to ask you the value of each of these installation options.
+I'm going to ask you about the value of each of these installation options.
 You may simply press the Enter key to leave unchanged.
 
 Default host triple? [x86_64-pc-windows-msvc]
@@ -384,7 +377,7 @@ export SNAPSHOT_DIGEST=latest
 
 ### Step 2: Select a Cardano DB snapshot
 
-List the available cardano db snapshots with which you can bootstrap a Cardano node:
+List the available Cardano db snapshots with which you can bootstrap a Cardano node:
 
 ```bash
 ./mithril-client cardano-db snapshot list
@@ -410,7 +403,7 @@ You will see a list of snapshots:
 
 :::warning
 
-If you restore a Cardano node with a version not included in the advertised range of compatible versions, it may cause extra time to restore the node due to ledger computations, or even crash the node.
+If you restore a Cardano node with a version not included in the advertised range of compatible versions, it may take extra time due to ledger computations or even crash the node.
 
 :::
 
@@ -454,7 +447,7 @@ To download the selected snapshot from the remote location to your remote locati
 ./mithril-client cardano-db download $SNAPSHOT_DIGEST
 ```
 
-You will see that the selected snapshot archive has been downloaded locally, unpacked, and that the associated certificate is valid:
+You will see that the selected snapshot archive has been downloaded locally unpacked and that the associated certificate is valid:
 
 ```bash
 1/5 - Checking local disk info…
@@ -466,7 +459,7 @@ Cardano db 'db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667' ha
 
     Files in the directory '/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db' can be used to run a Cardano node with version >= 10.1.2.
 
-    If you are using Cardano Docker image, you can restore a Cardano Node with:
+    If you are using a Cardano Docker image, you can restore a Cardano node with:
 
     docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="/home/mithril/data/testnet/db5f50a060d4b813125c4263b700ecc96e5d8c8710f0430e5c80d2f0fa79b667/db",target=/data/db/ -e NETWORK=preview ghcr.io/intersectmbo/cardano-node:10.1.2
 ```

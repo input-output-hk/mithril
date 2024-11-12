@@ -172,7 +172,7 @@ Their storage is not currently encrypted (Should probably be?)
 - **integrity**: Yes (invalid key is useless obviously)
 - **availability**: Yes (Signer needs Key at every signing round, unavailability will lead to inability to sign)
 
-#### Mithril signer registration
+#### Mithril signers registration
 
 Mithril signer needs to register new verification key every epoch with aggregator (and ultimately other signers).
 
@@ -316,7 +316,7 @@ Mithril genesis verification key is stored in [GitHub](https://github.com/input-
 
 - DoS of a `mithril-aggregator`
 - Assets at risk:
-  - [Mithril signing keys registration](#mithril-signing-keys-registration)
+  - [Mithril signers registration](#mithril-signers-registration)
   - [Mithril signatures diffusion](#mithril-signatures-diffusion)
   - [Mithril certificates](#mithril-certificates)
   - [Mithril artifacts](#mithril-artifacts)
