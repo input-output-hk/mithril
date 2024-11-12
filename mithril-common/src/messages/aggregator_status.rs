@@ -30,6 +30,12 @@ pub struct AggregatorStatusMessage {
     /// Next Protocol parameters
     #[serde(rename = "next_protocol")]
     pub next_protocol_parameters: ProtocolParameters,
+
+    /// The number of signers for the current epoch
+    pub total_signers: usize,
+
+    /// The number of signers that will be able to sign on the next epoch
+    pub total_next_signers: usize,
 }
 
 #[cfg(test)]
@@ -43,7 +49,9 @@ mod tests {
         "cardano_node_version": "1.2.3",
         "aggregator_node_version": "4.5.6",
         "protocol": { "k": 5, "m": 100, "phi_f": 0.65 },
-        "next_protocol": { "k": 50, "m": 1000, "phi_f": 0.65 }
+        "next_protocol": { "k": 50, "m": 1000, "phi_f": 0.65 },
+        "total_signers": 1234,
+        "total_next_signers": 56789
         }"#;
 
     fn golden_actual_message() -> AggregatorStatusMessage {
@@ -63,6 +71,8 @@ mod tests {
                 m: 1000,
                 phi_f: 0.65,
             },
+            total_signers: 1234,
+            total_next_signers: 56789,
         }
     }
 

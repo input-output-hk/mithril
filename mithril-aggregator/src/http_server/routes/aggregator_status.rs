@@ -39,6 +39,8 @@ async fn get_aggregator_status_message(
     let aggregator_node_version = env!("CARGO_PKG_VERSION").to_string();
     let protocol_parameters = epoch_service.current_protocol_parameters()?.clone();
     let next_protocol_parameters = epoch_service.next_protocol_parameters()?.clone();
+    let total_signers = epoch_service.current_signers()?.len();
+    let total_next_signers = epoch_service.next_signers()?.len();
 
     let message = AggregatorStatusMessage {
         epoch,
@@ -48,6 +50,8 @@ async fn get_aggregator_status_message(
         aggregator_node_version,
         protocol_parameters,
         next_protocol_parameters,
+        total_signers,
+        total_next_signers,
     };
 
     Ok(message)
@@ -96,7 +100,7 @@ mod tests {
 
     use mithril_common::{
         entities::{Epoch, ProtocolParameters},
-        test_utils::{apispec::APISpec, MithrilFixtureBuilder},
+        test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
     };
 
     use crate::{
@@ -214,5 +218,25 @@ mod tests {
             message.next_protocol_parameters,
             next_epoch_settings.protocol_parameters
         );
+    }
+
+    #[tokio::test]
+    async fn retrieves_correct_total_signers_from_epoch_service() {
+        let total_signers = 12;
+        let total_next_signers = 345;
+        let epoch_service = FakeEpochServiceBuilder {
+            current_signers_with_stake: fake_data::signers_with_stakes(total_signers),
+            next_signers_with_stake: fake_data::signers_with_stakes(total_next_signers),
+            ..FakeEpochServiceBuilder::dummy(Epoch(3))
+        }
+        .build();
+        let epoch_service = Arc::new(RwLock::new(epoch_service));
+
+        let message = get_aggregator_status_message(epoch_service.clone(), String::new())
+            .await
+            .unwrap();
+
+        assert_eq!(message.total_signers, total_signers);
+        assert_eq!(message.total_next_signers, total_next_signers);
     }
 }

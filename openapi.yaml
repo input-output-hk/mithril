@@ -60,6 +60,8 @@ paths:
           * Aggregator node version
           * Protocol parameters for current epoch
           * Protocol parameters for next epoch
+          * Total number of signers for current epoch
+          * Total number of signers for next epoch
       responses:
         "200":
           description: aggregator status found
@@ -666,6 +668,8 @@ components:
         - aggregator_node_version
         - protocol
         - next_protocol
+        - total_signers
+        - total_next_signers
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
@@ -685,6 +689,14 @@ components:
           $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:
           $ref: "#/components/schemas/ProtocolParameters"
+        total_signers:
+          description: The number of signers for the current epoch
+          type: integer
+          format: int64
+        total_next_signers:
+          description: The number of signers that will be able to sign on the next epoch
+          type: integer
+          format: int64
       examples:
         {
           "epoch": 329,
@@ -693,7 +705,9 @@ components:
           "cardano_node_version": "1.2.3",
           "aggregator_node_version": "4.5.6",
           "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
-          "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 }
+          "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 },
+          "total_signers": 3,
+          "total_next_signers": 72
         }
 
     AggregatorFeaturesMessage:
