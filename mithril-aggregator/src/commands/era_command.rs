@@ -99,7 +99,7 @@ pub struct GenerateTxDatumEraSubCommand {
     #[clap(long, env = "ERA_MARKERS_SECRET_KEY")]
     era_markers_secret_key: HexEncodedEraMarkersSecretKey,
 
-    /// Target Path
+    /// Target path
     #[clap(long)]
     target_path: PathBuf,
 }

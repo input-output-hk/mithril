@@ -46,7 +46,7 @@ pub enum GenesisSubCommand {
     /// Genesis certificate bootstrap command.
     Bootstrap(BootstrapGenesisSubCommand),
 
-    /// Genesis certificate keypair generation command.
+    /// Genesis keypair generation command.
     GenerateKeypair(GenerateKeypairGenesisSubCommand),
 }
 
@@ -69,7 +69,7 @@ impl GenesisSubCommand {
 /// Genesis certificate export command
 #[derive(Parser, Debug, Clone)]
 pub struct ExportGenesisSubCommand {
-    /// Target Path
+    /// Target path
     #[clap(long)]
     target_path: PathBuf,
 }
@@ -234,10 +234,10 @@ impl BootstrapGenesisSubCommand {
     }
 }
 
-/// Genesis certificate keypair generation command.
+/// Genesis keypair generation command.
 #[derive(Parser, Debug, Clone)]
 pub struct GenerateKeypairGenesisSubCommand {
-    /// Target Path for the generated keypair
+    /// Target path for the generated keypair
     #[clap(long)]
     target_path: PathBuf,
 }
