@@ -63,14 +63,11 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    http_server::routes::{
-        router,
-        router::{RouterConfig, RouterState},
-    },
+    http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
-        CardanoTransactionsImporter, CertifierService, MessageService, MithrilCertifierService,
-        MithrilEpochService, MithrilMessageService, MithrilProverService,
+        CardanoTransactionsImporter, CertifierService, EpochServiceDependencies, MessageService,
+        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
         SignedEntityService, StakeDistributionService, UpkeepService, UsageReporter,
     },
@@ -1259,14 +1256,22 @@ impl DependenciesBuilder {
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
         let verification_key_store = self.get_verification_key_store().await?;
         let epoch_settings_storer = self.get_epoch_settings_storer().await?;
+        let chain_observer = self.get_chain_observer().await?;
+        let era_checker = self.get_era_checker().await?;
+        let stake_distribution_service = self.get_stake_distribution_service().await?;
         let epoch_settings = self.get_epoch_settings_configuration()?;
         let network = self.configuration.get_network()?;
         let allowed_discriminants = self.get_allowed_signed_entity_types_discriminants()?;
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             epoch_settings,
-            epoch_settings_storer,
-            verification_key_store,
+            EpochServiceDependencies::new(
+                epoch_settings_storer,
+                verification_key_store,
+                chain_observer,
+                era_checker,
+                stake_distribution_service,
+            ),
             network,
             allowed_discriminants,
             self.root_logger(),

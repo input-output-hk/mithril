@@ -252,10 +252,10 @@ impl AggregatorRuntime {
                 .update_era_checker(new_time_point.epoch)
                 .await
                 .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
-            self.runner.inform_new_epoch(new_time_point.epoch).await?;
             self.runner
                 .update_stake_distribution(&new_time_point)
                 .await?;
+            self.runner.inform_new_epoch(new_time_point.epoch).await?;
             self.runner.upkeep().await?;
             self.runner
                 .open_signer_registration_round(&new_time_point)
