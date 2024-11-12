@@ -7,6 +7,8 @@ use tokio::sync::RwLock;
 
 use mithril_persistence::store::{adapter::StoreAdapter, StorePruner};
 
+use crate::services::EpochPruningTask;
+
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = StakeDistribution>>;
 
 /// A [StakeStorer] that uses a [StoreAdapter] to store data.
@@ -22,6 +24,17 @@ impl StakeStore {
             adapter: RwLock::new(adapter),
             retention_limit,
         }
+    }
+}
+
+#[async_trait]
+impl EpochPruningTask for StakeStore {
+    fn pruned_data(&self) -> &'static str {
+        "Stake"
+    }
+
+    async fn prune(&self, _epoch: Epoch) -> StdResult<()> {
+        mithril_persistence::store::StorePruner::prune(self).await
     }
 }
 
@@ -55,9 +68,6 @@ impl StakeStorer for StakeStore {
 
             signers
         };
-        // it is important the adapter gets out of the scope to free the write lock it holds.
-        // Otherwise the method below will hang forever waiting for the lock.
-        self.prune().await?;
 
         Ok(signers)
     }
@@ -157,12 +167,14 @@ mod tests {
 
     #[tokio::test]
     async fn check_retention_limit() {
-        let store = init_store(2, 2, Some(2));
-        let _res = store
-            .save_stakes(Epoch(3), StakeDistribution::from([("1".to_string(), 123)]))
-            .await
-            .unwrap();
+        let store = init_store(3, 2, Some(2));
+        assert!(store.get_stakes(Epoch(1)).await.unwrap().is_some());
+
+        // Whatever the epoch, it's the retention limit that matters.
+        EpochPruningTask::prune(&store, Epoch(99)).await.unwrap();
         assert!(store.get_stakes(Epoch(1)).await.unwrap().is_none());
+        assert!(store.get_stakes(Epoch(2)).await.unwrap().is_some());
+        assert!(store.get_stakes(Epoch(3)).await.unwrap().is_some());
     }
 
     #[tokio::test]
