@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    entities::{Epoch, ProtocolParameters},
+    entities::{Epoch, ProtocolParameters, Stake},
     era::SupportedEra,
 };
 
@@ -36,6 +36,12 @@ pub struct AggregatorStatusMessage {
 
     /// The number of signers that will be able to sign on the next epoch
     pub total_next_signers: usize,
+
+    /// The total stakes of the signers for the current epoch
+    pub total_stakes_signers: Stake,
+
+    /// The total stakes of the signers that will be able to sign on the next epoch
+    pub total_next_stakes_signers: Stake,
 }
 
 #[cfg(test)]
@@ -51,7 +57,9 @@ mod tests {
         "protocol": { "k": 5, "m": 100, "phi_f": 0.65 },
         "next_protocol": { "k": 50, "m": 1000, "phi_f": 0.65 },
         "total_signers": 1234,
-        "total_next_signers": 56789
+        "total_next_signers": 56789,
+        "total_stakes_signers": 123456789,
+        "total_next_stakes_signers": 987654321
         }"#;
 
     fn golden_actual_message() -> AggregatorStatusMessage {
@@ -73,6 +81,8 @@ mod tests {
             },
             total_signers: 1234,
             total_next_signers: 56789,
+            total_stakes_signers: 123456789,
+            total_next_stakes_signers: 987654321,
         }
     }
 

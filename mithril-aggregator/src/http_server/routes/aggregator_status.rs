@@ -41,6 +41,16 @@ async fn get_aggregator_status_message(
     let next_protocol_parameters = epoch_service.next_protocol_parameters()?.clone();
     let total_signers = epoch_service.current_signers()?.len();
     let total_next_signers = epoch_service.next_signers()?.len();
+    let total_stakes_signers = epoch_service
+        .current_signers_with_stake()?
+        .iter()
+        .map(|s| s.stake)
+        .sum();
+    let total_next_stakes_signers = epoch_service
+        .next_signers_with_stake()?
+        .iter()
+        .map(|s| s.stake)
+        .sum();
 
     let message = AggregatorStatusMessage {
         epoch,
@@ -52,6 +62,8 @@ async fn get_aggregator_status_message(
         next_protocol_parameters,
         total_signers,
         total_next_signers,
+        total_stakes_signers,
+        total_next_stakes_signers,
     };
 
     Ok(message)
@@ -99,7 +111,7 @@ mod tests {
     };
 
     use mithril_common::{
-        entities::{Epoch, ProtocolParameters},
+        entities::{Epoch, ProtocolParameters, Stake},
         test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
     };
 
@@ -238,5 +250,31 @@ mod tests {
 
         assert_eq!(message.total_signers, total_signers);
         assert_eq!(message.total_next_signers, total_next_signers);
+    }
+
+    #[tokio::test]
+    async fn retrieves_correct_total_stakes_from_epoch_service() {
+        let current_signers_with_stake = fake_data::signers_with_stakes(4);
+        let next_signers_with_stake = fake_data::signers_with_stakes(7);
+        let total_stakes_signers: Stake = current_signers_with_stake.iter().map(|s| s.stake).sum();
+        let total_next_stakes_signers: Stake =
+            next_signers_with_stake.iter().map(|s| s.stake).sum();
+
+        assert_ne!(total_stakes_signers, total_next_stakes_signers);
+
+        let epoch_service = FakeEpochServiceBuilder {
+            current_signers_with_stake,
+            next_signers_with_stake,
+            ..FakeEpochServiceBuilder::dummy(Epoch(3))
+        }
+        .build();
+        let epoch_service = Arc::new(RwLock::new(epoch_service));
+
+        let message = get_aggregator_status_message(epoch_service.clone(), String::new())
+            .await
+            .unwrap();
+
+        assert_eq!(message.total_stakes_signers, total_stakes_signers);
+        assert_eq!(message.total_next_stakes_signers, total_next_stakes_signers);
     }
 }

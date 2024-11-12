@@ -62,6 +62,8 @@ paths:
           * Protocol parameters for next epoch
           * Total number of signers for current epoch
           * Total number of signers for next epoch
+          * Total stakes of signers for current epoch
+          * Total stakes of signers for next epoch
       responses:
         "200":
           description: aggregator status found
@@ -670,6 +672,8 @@ components:
         - next_protocol
         - total_signers
         - total_next_signers
+        - total_stakes_signers
+        - total_next_stakes_signers
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
@@ -697,6 +701,14 @@ components:
           description: The number of signers that will be able to sign on the next epoch
           type: integer
           format: int64
+        total_stakes_signers:
+          description: The total stakes of signers for the current epoch
+          type: integer
+          format: int64
+        total_next_stakes_signers:
+          description: The total stakes of signers for the next epoch
+          type: integer
+          format: int64
       examples:
         {
           "epoch": 329,
@@ -707,7 +719,9 @@ components:
           "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
           "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 },
           "total_signers": 3,
-          "total_next_signers": 72
+          "total_next_signers": 72,
+          "total_stakes_signers": 123456789,
+          "total_next_stakes_signers": 987654321
         }
 
     AggregatorFeaturesMessage:
