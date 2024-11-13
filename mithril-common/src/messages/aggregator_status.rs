@@ -5,7 +5,7 @@ use crate::{
     era::SupportedEra,
 };
 
-/// Message advertised by an Aggregator to inform about its status
+/// Message advertised by an aggregator to inform about its status
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AggregatorStatusMessage {
     /// Current epoch

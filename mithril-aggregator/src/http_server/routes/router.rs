@@ -1,6 +1,6 @@
 use crate::http_server::routes::{
-    aggregator_status, artifact_routes, certificate_routes, epoch_routes, http_server_child_logger,
-    root_routes, signatures_routes, signer_routes, statistics_routes,
+    artifact_routes, certificate_routes, epoch_routes, http_server_child_logger, root_routes,
+    signatures_routes, signer_routes, statistics_routes, status,
 };
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
@@ -112,7 +112,7 @@ pub fn routes(
                 .or(epoch_routes::routes(&state))
                 .or(statistics_routes::routes(&state))
                 .or(root_routes::routes(&state))
-                .or(aggregator_status::routes(&state))
+                .or(status::routes(&state))
                 .with(cors),
         )
         .recover(handle_custom)

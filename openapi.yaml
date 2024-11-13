@@ -52,7 +52,7 @@ paths:
     get:
       summary: Get information about the aggregator status
       description: |
-        Returns the informations related to the aggregator status:
+        Returns the aggregator status information:
           * Current epoch
           * Current Cardano era
           * Current Mithril era
@@ -65,7 +65,7 @@ paths:
           * Total stakes of signers for current epoch
           * Total stakes of signers for next epoch
           * Total of Cardano SPOs
-          * Total stake in Cardano
+          * Total stakes in Cardano
       responses:
         "200":
           description: aggregator status found
@@ -718,13 +718,13 @@ components:
           type: integer
           format: int64
         total_cardano_stake:
-          description: The total stake in Cardano
+          description: The total stakes in Cardano
           type: integer
           format: int64
       examples:
         {
           "epoch": 329,
-          "cardano_era": "conway",
+          "cardano_era": "Conway",
           "mithril_era": "pythagoras",
           "cardano_node_version": "1.2.3",
           "aggregator_node_version": "4.5.6",

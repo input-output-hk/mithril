@@ -81,7 +81,7 @@ mod handlers {
 
     use crate::{
         dependency_injection::EpochServiceWrapper,
-        http_server::routes::{aggregator_status::get_aggregator_status_message, reply},
+        http_server::routes::{reply, status::get_aggregator_status_message},
     };
 
     /// Status
