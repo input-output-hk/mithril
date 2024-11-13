@@ -70,5 +70,30 @@ update signed_beacon
     where signed_beacon.signed_entity_type_id = 2;
         "#,
         ),
+        // Migration 5
+        // Add the `stake_pool` table and migration data from the previous
+        // `stake_store` JSON format.
+        SqlMigration::new(
+            5,
+            r#"
+create table stake_pool (
+    stake_pool_id text      not null,
+    epoch         integer   not null,
+    stake         integer   not null,
+    created_at    text      not null,
+    primary key (epoch, stake_pool_id)
+);
+create table if not exists stake (key_hash text primary key, key json not null, value json not null);
+insert into stake_pool (epoch, stake_pool_id, stake, created_at) 
+    select 
+        stake.key as epoch, 
+        stake_dis.key as stake_pool_id, 
+        stake_dis.value as stake,
+        strftime('%Y-%m-%dT%H:%M:%fZ', current_timestamp)
+    from stake, json_each(stake.value) as stake_dis 
+    order by epoch asc;
+drop table stake;
+"#,
+        ),
     ]
 }

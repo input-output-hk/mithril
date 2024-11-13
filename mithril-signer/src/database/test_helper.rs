@@ -1,11 +1,14 @@
 use std::path::Path;
 
+use chrono::Utc;
+use mithril_common::entities::Epoch;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
-    ConnectionBuilder, ConnectionExtensions, ConnectionOptions, SqliteConnection,
+    ConnectionBuilder, ConnectionExtensions, ConnectionOptions, Query, SqliteConnection,
 };
+use sqlite::Value;
 
-use crate::database::query::InsertSignedBeaconRecordQuery;
+use crate::database::query::{InsertOrReplaceStakePoolQuery, InsertSignedBeaconRecordQuery};
 use crate::database::record::SignedBeaconRecord;
 
 /// In-memory sqlite database without foreign key support with migrations applied
@@ -60,4 +63,42 @@ pub fn insert_signed_beacons(connection: &SqliteConnection, records: Vec<SignedB
             .fetch_first(InsertSignedBeaconRecordQuery::one(record.clone()).unwrap())
             .unwrap();
     }
+}
+
+pub fn insert_stake_pool(
+    connection: &SqliteConnection,
+    epoch_to_insert_stake_pools: &[i64],
+) -> StdResult<()> {
+    let query = {
+        // leverage the expanded parameter from this query which is unit
+        // tested on its own above.
+        let (sql_values, _) =
+            InsertOrReplaceStakePoolQuery::many(vec![("pool_id".to_string(), Epoch(1), 1000)])
+                .filters()
+                .expand();
+
+        format!("insert into stake_pool {sql_values}")
+    };
+
+    // Note: decreasing stakes for pool3 so we can test that the order has changed
+    for (pool_id, epoch, stake) in epoch_to_insert_stake_pools.iter().flat_map(|epoch| {
+        [
+            ("pool1", *epoch, 1000 + (epoch - 1) * 40),
+            ("pool2", *epoch, 1100 + (epoch - 1) * 45),
+            ("pool3", *epoch, 1200 - (epoch - 1) * 50),
+        ]
+    }) {
+        let mut statement = connection.prepare(&query)?;
+        statement
+            .bind::<&[(_, Value)]>(&[
+                (1, pool_id.to_string().into()),
+                (2, Value::Integer(epoch)),
+                (3, Value::Integer(stake)),
+                (4, Utc::now().to_rfc3339().into()),
+            ])
+            .unwrap();
+        statement.next().unwrap();
+    }
+
+    Ok(())
 }

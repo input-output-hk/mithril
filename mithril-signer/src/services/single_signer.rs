@@ -172,14 +172,16 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
+    use crate::database::repository::StakePoolStore;
+    use crate::database::test_helper::main_db_connection;
+    use crate::services::MithrilEpochService;
+    use crate::store::ProtocolInitializerStore;
+    use crate::test_tools::TestLogger;
     use mithril_common::crypto_helper::ProtocolClerk;
     use mithril_common::entities::{Epoch, ProtocolMessagePartKey};
     use mithril_common::test_utils::MithrilFixtureBuilder;
-    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
-
-    use crate::services::MithrilEpochService;
-    use crate::store::{ProtocolInitializerStore, StakeStore};
-    use crate::test_tools::TestLogger;
+    use mithril_persistence::store::adapter::DumbStoreAdapter;
+    use mithril_persistence::store::StakeStorer;
 
     use super::*;
 
@@ -191,16 +193,20 @@ mod tests {
         let clerk = ProtocolClerk::from_signer(&current_signer.protocol_signer);
         let avk = clerk.compute_avk();
         let logger = TestLogger::stdout();
-        let stake_store = Arc::new(StakeStore::new(
-            Box::new(
-                MemoryAdapter::new(Some(vec![(
+        let stake_store = {
+            let store = Arc::new(StakePoolStore::new(
+                Arc::new(main_db_connection().unwrap()),
+                None,
+            ));
+            store
+                .save_stakes(
                     Epoch(10).offset_to_signer_retrieval_epoch().unwrap(),
                     fixture.stake_distribution(),
-                )]))
-                .unwrap(),
-            ),
-            None,
-        ));
+                )
+                .await
+                .unwrap();
+            store
+        };
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(DumbStoreAdapter::new()),
             None,

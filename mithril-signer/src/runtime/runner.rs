@@ -10,7 +10,6 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
-use mithril_persistence::store::StakeStorer;
 
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::entities::{BeaconToSign, SignerEpochSettings};
@@ -357,10 +356,9 @@ mod tests {
         test_utils::{fake_data, MithrilFixtureBuilder},
         MithrilTickerService, TickerService,
     };
-    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
-    use mithril_persistence::store::StakeStorer;
+    use mithril_persistence::store::adapter::MemoryAdapter;
 
-    use crate::database::repository::SignedBeaconRepository;
+    use crate::database::repository::{SignedBeaconRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
     use crate::metrics::MetricsService;
     use crate::services::{
@@ -368,7 +366,7 @@ mod tests {
         MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignerCertifierService,
         SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
     };
-    use crate::store::{ProtocolInitializerStore, StakeStore};
+    use crate::store::ProtocolInitializerStore;
     use crate::test_tools::TestLogger;
 
     use super::*;
@@ -447,7 +445,7 @@ mod tests {
             transactions_importer.clone(),
             block_range_root_retriever,
         ));
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone(), None));
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
