@@ -9,8 +9,8 @@ use std::{
 use mithril_common::{
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolGenesisSigner,
-        ProtocolGenesisVerifier,
+        ProtocolAggregateVerificationKey, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
+        ProtocolGenesisSigner, ProtocolGenesisVerifier,
     },
     entities::{ProtocolParameters, TimePoint},
     protocol::SignerBuilder,
@@ -155,14 +155,8 @@ impl GenesisTools {
         target_signed_payload_path: &Path,
         genesis_secret_key_path: &Path,
     ) -> StdResult<()> {
-        let mut genesis_secret_key_file = File::open(genesis_secret_key_path).unwrap();
-        let mut genesis_secret_key_serialized = String::new();
-        genesis_secret_key_file.read_to_string(&mut genesis_secret_key_serialized)?;
-
-        let genesis_secret_key = genesis_secret_key_serialized
-            .trim()
-            .try_into()
-            .with_context(|| "Genesis secret key decode error")?;
+        let genesis_secret_key =
+            ProtocolGenesisSecretKey::read_json_hex_from_file(genesis_secret_key_path)?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
 
         let mut to_sign_payload_file = File::open(to_sign_payload_path).unwrap();
@@ -210,21 +204,14 @@ impl GenesisTools {
     /// Export the genesis keypair to a folder and returns the paths to the files (secret key, verification_key)
     pub fn create_and_save_genesis_keypair(keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
         let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_genesis_signer();
-
         let genesis_secret_key_path = keypair_path.join("genesis.sk");
-        {
-            let genesis_secret_key_payload = genesis_signer.secret_key().to_json_hex().unwrap();
-            let mut genesis_secret_key_file = File::create(&genesis_secret_key_path)?;
-            genesis_secret_key_file.write_all(genesis_secret_key_payload.as_bytes())?;
-        }
-
+        genesis_signer
+            .secret_key()
+            .write_json_hex_to_file(&genesis_secret_key_path)?;
         let genesis_verification_key_path = keypair_path.join("genesis.vk");
-        {
-            let genesis_verification_key = genesis_signer.verification_key();
-            let genesis_verification_key_payload = genesis_verification_key.to_json_hex().unwrap();
-            let mut genesis_verification_key_file = File::create(&genesis_verification_key_path)?;
-            genesis_verification_key_file.write_all(genesis_verification_key_payload.as_bytes())?;
-        }
+        genesis_signer
+            .verification_key()
+            .write_json_hex_to_file(&genesis_verification_key_path)?;
 
         Ok((genesis_secret_key_path, genesis_verification_key_path))
     }
