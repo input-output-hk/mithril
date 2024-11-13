@@ -1,6 +1,6 @@
 use crate::http_server::routes::{
     artifact_routes, certificate_routes, epoch_routes, http_server_child_logger, root_routes,
-    signatures_routes, signer_routes, statistics_routes,
+    signatures_routes, signer_routes, statistics_routes, status,
 };
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyContainer;
@@ -38,6 +38,7 @@ pub struct RouterConfig {
     pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     pub snapshot_directory: PathBuf,
+    pub cardano_node_version: String,
 }
 
 #[cfg(test)]
@@ -53,6 +54,7 @@ impl RouterConfig {
             cardano_transactions_prover_max_hashes_allowed_by_request: 1_000,
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
             snapshot_directory: PathBuf::from("/dummy/snapshot/directory"),
+            cardano_node_version: "1.2.3".to_string(),
         }
     }
 }
@@ -110,6 +112,7 @@ pub fn routes(
                 .or(epoch_routes::routes(&state))
                 .or(statistics_routes::routes(&state))
                 .or(root_routes::routes(&state))
+                .or(status::routes(&state))
                 .with(cors),
         )
         .recover(handle_custom)

@@ -11,6 +11,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implement a new `genesis generate-keypair` command in aggregator CLI to generate a new genesis keypair.
 
+- Implement the `/status` route on the aggregator's REST API to provide information about its current status.
+
 - Crates versions:
 
 | Crate | Version |

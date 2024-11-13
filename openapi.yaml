@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.36
+  version: 0.1.37
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -39,6 +39,40 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/AggregatorFeaturesMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: root error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /status:
+    get:
+      summary: Get information about the aggregator status
+      description: |
+        Returns the aggregator status information:
+          * Current epoch
+          * Current Cardano era
+          * Current Mithril era
+          * Cardano node version
+          * Aggregator node version
+          * Protocol parameters for current epoch
+          * Protocol parameters for next epoch
+          * Total number of signers for current epoch
+          * Total number of signers for next epoch
+          * Total stakes of signers for current epoch
+          * Total stakes of signers for next epoch
+          * Total of Cardano SPOs
+          * Total stakes in Cardano
+      responses:
+        "200":
+          description: aggregator status found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AggregatorStatusMessage"
         "412":
           description: API version mismatch
         default:
@@ -626,6 +660,84 @@ paths:
 
 components:
   schemas:
+    AggregatorStatusMessage:
+      description: Represents the information related to the aggregator status
+      type: object
+      additionalProperties: false
+      required:
+        - epoch
+        - cardano_era
+        - mithril_era
+        - cardano_node_version
+        - aggregator_node_version
+        - protocol
+        - next_protocol
+        - total_signers
+        - total_next_signers
+        - total_stakes_signers
+        - total_next_stakes_signers
+        - total_cardano_spo
+        - total_cardano_stake
+      properties:
+        epoch:
+          $ref: "#/components/schemas/Epoch"
+        cardano_era:
+          description: Cardano era
+          type: string
+        mithril_era:
+          description: Mithril era
+          type: string
+        cardano_node_version:
+          description: Version of the Cardano node
+          type: string
+        aggregator_node_version:
+          description: Version of the Aggregator node
+          type: string
+        protocol:
+          $ref: "#/components/schemas/ProtocolParameters"
+        next_protocol:
+          $ref: "#/components/schemas/ProtocolParameters"
+        total_signers:
+          description: The number of signers for the current epoch
+          type: integer
+          format: int64
+        total_next_signers:
+          description: The number of signers that will be able to sign on the next epoch
+          type: integer
+          format: int64
+        total_stakes_signers:
+          description: The total stakes of signers for the current epoch
+          type: integer
+          format: int64
+        total_next_stakes_signers:
+          description: The total stakes of signers for the next epoch
+          type: integer
+          format: int64
+        total_cardano_spo:
+          description: The number of Cardano SPOs
+          type: integer
+          format: int64
+        total_cardano_stake:
+          description: The total stakes in Cardano
+          type: integer
+          format: int64
+      examples:
+        {
+          "epoch": 329,
+          "cardano_era": "Conway",
+          "mithril_era": "pythagoras",
+          "cardano_node_version": "1.2.3",
+          "aggregator_node_version": "4.5.6",
+          "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
+          "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 },
+          "total_signers": 3,
+          "total_next_signers": 72,
+          "total_stakes_signers": 123456789,
+          "total_next_stakes_signers": 987654321,
+          "total_cardano_spo": 5738,
+          "total_cardano_stake": 999999999
+        }
+
     AggregatorFeaturesMessage:
       description: Represents general information about Aggregator public information and signing capabilities
       type: object

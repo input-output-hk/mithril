@@ -9,8 +9,8 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::ProtocolAggregateVerificationKey;
 use mithril_common::entities::{
-    CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
-    SignedEntityTypeDiscriminants, Signer, SignerWithStake, Stake,
+    CardanoEra, CardanoTransactionsSigningConfig, Epoch, ProtocolParameters, SignedEntityConfig,
+    SignedEntityTypeDiscriminants, Signer, SignerWithStake, Stake, TotalSPOs,
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
@@ -20,9 +20,6 @@ use crate::{
     entities::AggregatorEpochSettings, services::StakeDistributionService, EpochSettingsStorer,
     VerificationKeyStorer,
 };
-
-type TotalSPOs = u32;
-type CardanoEra = String;
 
 /// Errors dedicated to the CertifierService.
 #[derive(Debug, Error)]
@@ -105,6 +102,12 @@ pub trait EpochService: Sync + Send {
     /// Get signers for the next epoch
     fn next_signers(&self) -> StdResult<&Vec<Signer>>;
 
+    /// Get the total stakes of signers for the current epoch
+    fn total_stakes_signers(&self) -> StdResult<Stake>;
+
+    /// Get the total stakes of signers for the next epoch
+    fn total_next_stakes_signers(&self) -> StdResult<Stake>;
+
     /// Get the [protocol multi signer][ProtocolMultiSigner] for the current epoch
     fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner>;
 
@@ -132,6 +135,8 @@ struct EpochData {
     next_signers_with_stake: Vec<SignerWithStake>,
     current_signers: Vec<Signer>,
     next_signers: Vec<Signer>,
+    total_stakes_signers: Stake,
+    total_next_stakes_signers: Stake,
     signed_entity_config: SignedEntityConfig,
     total_spo: TotalSPOs,
     total_stake: Stake,
@@ -336,6 +341,8 @@ impl EpochService for MithrilEpochService {
             .await?;
         let current_signers = Signer::vec_from(current_signers_with_stake.clone());
         let next_signers = Signer::vec_from(next_signers_with_stake.clone());
+        let total_stakes_signers = current_signers_with_stake.iter().map(|s| s.stake).sum();
+        let total_next_stakes_signers = next_signers_with_stake.iter().map(|s| s.stake).sum();
 
         let signed_entity_config = SignedEntityConfig {
             allowed_discriminants: self.allowed_signed_entity_discriminants.clone(),
@@ -358,6 +365,8 @@ impl EpochService for MithrilEpochService {
             next_signers_with_stake,
             current_signers,
             next_signers,
+            total_stakes_signers,
+            total_next_stakes_signers,
             signed_entity_config,
             total_spo,
             total_stake,
@@ -481,6 +490,14 @@ impl EpochService for MithrilEpochService {
         Ok(&self.unwrap_data()?.next_signers)
     }
 
+    fn total_stakes_signers(&self) -> StdResult<Stake> {
+        Ok(self.unwrap_data()?.total_stakes_signers)
+    }
+
+    fn total_next_stakes_signers(&self) -> StdResult<Stake> {
+        Ok(self.unwrap_data()?.total_next_stakes_signers)
+    }
+
     fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {
         Ok(&self.unwrap_computed_data()?.protocol_multi_signer)
     }
@@ -550,6 +567,12 @@ impl FakeEpochServiceBuilder {
     pub fn build(self) -> FakeEpochService {
         let current_signers = Signer::vec_from(self.current_signers_with_stake.clone());
         let next_signers = Signer::vec_from(self.next_signers_with_stake.clone());
+        let total_stakes_signers = self
+            .current_signers_with_stake
+            .iter()
+            .map(|s| s.stake)
+            .sum();
+        let total_next_stakes_signers = self.next_signers_with_stake.iter().map(|s| s.stake).sum();
 
         let protocol_multi_signer = SignerBuilder::new(
             &self.current_signers_with_stake,
@@ -578,6 +601,8 @@ impl FakeEpochServiceBuilder {
                 next_signers_with_stake: self.next_signers_with_stake,
                 current_signers,
                 next_signers,
+                total_stakes_signers,
+                total_next_stakes_signers,
                 signed_entity_config: self.signed_entity_config,
                 total_spo: self.total_spo,
                 total_stake: self.total_stake,
@@ -761,6 +786,14 @@ impl EpochService for FakeEpochService {
 
     fn next_signers(&self) -> StdResult<&Vec<Signer>> {
         Ok(&self.unwrap_data()?.next_signers)
+    }
+
+    fn total_stakes_signers(&self) -> StdResult<Stake> {
+        Ok(self.unwrap_data()?.total_stakes_signers)
+    }
+
+    fn total_next_stakes_signers(&self) -> StdResult<Stake> {
+        Ok(self.unwrap_data()?.total_next_stakes_signers)
     }
 
     fn protocol_multi_signer(&self) -> StdResult<&ProtocolMultiSigner> {

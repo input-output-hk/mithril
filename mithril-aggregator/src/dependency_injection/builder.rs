@@ -1522,6 +1522,7 @@ impl DependenciesBuilder {
                     .cardano_transactions_signing_config
                     .clone(),
                 snapshot_directory: self.configuration.snapshot_directory.clone(),
+                cardano_node_version: self.configuration.cardano_node_version.clone(),
             },
         );
 

@@ -9,6 +9,7 @@ pub mod router;
 mod signatures_routes;
 mod signer_routes;
 mod statistics_routes;
+mod status;
 
 /// Match the given result and do an early return with an internal server error (500)
 /// if it was an Error. Else return the unwrapped value.
