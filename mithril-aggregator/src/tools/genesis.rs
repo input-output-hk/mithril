@@ -211,7 +211,22 @@ impl GenesisTools {
     pub fn create_and_save_genesis_keypair(keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
         let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_genesis_signer();
 
-        genesis_signer.export_keypair_to_files(keypair_path)
+        let genesis_secret_key_path = keypair_path.join("genesis.sk");
+        {
+            let genesis_secret_key_payload = genesis_signer.secret_key().to_json_hex().unwrap();
+            let mut genesis_secret_key_file = File::create(&genesis_secret_key_path)?;
+            genesis_secret_key_file.write_all(genesis_secret_key_payload.as_bytes())?;
+        }
+
+        let genesis_verification_key_path = keypair_path.join("genesis.vk");
+        {
+            let genesis_verification_key = genesis_signer.verification_key();
+            let genesis_verification_key_payload = genesis_verification_key.to_json_hex().unwrap();
+            let mut genesis_verification_key_file = File::create(&genesis_verification_key_path)?;
+            genesis_verification_key_file.write_all(genesis_verification_key_payload.as_bytes())?;
+        }
+
+        Ok((genesis_secret_key_path, genesis_verification_key_path))
     }
 }
 
@@ -280,13 +295,17 @@ mod tests {
         let test_dir = get_temp_dir("export_payload_to_sign");
         let payload_path = test_dir.join("payload.txt");
         let signed_payload_path = test_dir.join("payload-signed.txt");
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+        let (genesis_secret_key_path, _) = GenesisTools::create_and_save_genesis_keypair(&test_dir)
+            .expect("exporting the keypair should not fail");
+        let genesis_secret_key = ProtocolGenesisSecretKey::from_json_hex(
+            &read_to_string(&genesis_secret_key_path)
+                .expect("reading genesis secret key file should not fail"),
+        )
+        .expect("parsing genesis secret key should not fail");
+        let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
         let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
             build_tools(&genesis_signer);
 
-        let (genesis_secret_key_path, _) = genesis_signer
-            .export_keypair_to_files(&test_dir)
-            .expect("exporting the keypair should not fail");
         genesis_tools
             .export_payload_to_sign(&payload_path)
             .expect("export_payload_to_sign should not fail");

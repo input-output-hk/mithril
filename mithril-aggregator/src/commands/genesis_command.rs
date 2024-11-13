@@ -250,7 +250,7 @@ impl GenerateKeypairGenesisSubCommand {
     ) -> StdResult<()> {
         debug!(root_logger, "GENERATE KEYPAIR GENESIS command");
         println!(
-            "Generating genesis keypair to {}",
+            "Genesis generate keypair to {}",
             self.target_path.to_string_lossy()
         );
 

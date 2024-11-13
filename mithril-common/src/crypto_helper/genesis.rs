@@ -6,11 +6,6 @@ use rand_chacha::rand_core;
 use rand_chacha::rand_core::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::File,
-    io::Write,
-    path::{Path, PathBuf},
-};
 use thiserror::Error;
 
 use super::{ProtocolGenesisSecretKey, ProtocolGenesisSignature, ProtocolGenesisVerificationKey};
@@ -25,7 +20,7 @@ pub struct ProtocolGenesisError(#[source] StdError);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtocolGenesisSigner {
     /// Protocol Genesis secret key
-    pub(crate) secret_key: ProtocolGenesisSecretKey,
+    secret_key: ProtocolGenesisSecretKey,
 }
 
 impl ProtocolGenesisSigner {
@@ -52,6 +47,16 @@ impl ProtocolGenesisSigner {
         }
     }
 
+    /// Get the [ProtocolGenesisSecretKey]
+    pub fn secret_key(&self) -> ProtocolGenesisSecretKey {
+        self.secret_key.clone()
+    }
+
+    /// Get the [ProtocolGenesisVerificationKey]
+    pub fn verification_key(&self) -> ProtocolGenesisVerificationKey {
+        self.secret_key.verifying_key().into()
+    }
+
     /// [ProtocolGenesisSigner] from [ProtocolGenesisSecretKey]
     pub fn from_secret_key(secret_key: ProtocolGenesisSecretKey) -> Self {
         Self { secret_key }
@@ -59,33 +64,12 @@ impl ProtocolGenesisSigner {
 
     /// Create a [ProtocolGenesisVerifier]
     pub fn create_genesis_verifier(&self) -> ProtocolGenesisVerifier {
-        ProtocolGenesisVerifier::from_verification_key(self.secret_key.verifying_key().into())
+        ProtocolGenesisVerifier::from_verification_key(self.verification_key())
     }
 
     /// Signs a message and returns a [ProtocolGenesisSignature]
     pub fn sign(&self, message: &[u8]) -> ProtocolGenesisSignature {
         self.secret_key.sign(message).into()
-    }
-
-    /// Export the keypair from the genesis verifier to files
-    pub fn export_keypair_to_files(&self, keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
-        let genesis_secret_key_path = keypair_path.join("genesis.sk");
-        {
-            let genesis_secret_key_payload = self.secret_key.to_json_hex().unwrap();
-            let mut genesis_secret_key_file = File::create(&genesis_secret_key_path)?;
-            genesis_secret_key_file.write_all(genesis_secret_key_payload.as_bytes())?;
-        }
-
-        let genesis_verification_key_path = keypair_path.join("genesis.vk");
-        {
-            let genesis_verification_key: ProtocolGenesisVerificationKey =
-                self.secret_key.verifying_key().into();
-            let genesis_verification_key_payload = genesis_verification_key.to_json_hex().unwrap();
-            let mut genesis_verification_key_file = File::create(&genesis_verification_key_path)?;
-            genesis_verification_key_file.write_all(genesis_verification_key_payload.as_bytes())?;
-        }
-
-        Ok((genesis_secret_key_path, genesis_verification_key_path))
     }
 }
 
