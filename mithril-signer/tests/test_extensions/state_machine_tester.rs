@@ -36,9 +36,8 @@ use mithril_common::{
     MithrilTickerService, StdError, TickerService,
 };
 use mithril_persistence::{
-    database::repository::CardanoTransactionRepository,
-    sqlite::SqliteConnectionPool,
-    store::{adapter::SQLiteAdapter, StakeStore, StakeStorer},
+    database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
+    store::adapter::SQLiteAdapter, store::StakeStorer,
 };
 
 use mithril_signer::{
@@ -49,7 +48,7 @@ use mithril_signer::{
         SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
         SignerUpkeepService,
     },
-    store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer},
+    store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer, StakeStore},
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
 };
 

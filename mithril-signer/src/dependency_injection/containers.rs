@@ -8,13 +8,12 @@ use mithril_common::era::{EraChecker, EraReader};
 use mithril_common::signable_builder::SignableBuilderService;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::TickerService;
-use mithril_persistence::store::StakeStore;
 use tokio::sync::RwLock;
 
 use crate::services::{
     AggregatorClient, CertifierService, EpochService, SingleSigner, UpkeepService,
 };
-use crate::store::ProtocolInitializerStorer;
+use crate::store::{ProtocolInitializerStorer, StakeStore};
 use crate::MetricsService;
 
 type StakeStoreService = Arc<StakeStore>;

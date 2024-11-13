@@ -4,6 +4,8 @@ use tokio::sync::RwLock;
 use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch, StdResult};
 use mithril_persistence::store::{adapter::StoreAdapter, StorePruner};
 
+use crate::services::EpochPruningTask;
+
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolInitializer>>;
 
 #[cfg_attr(test, mockall::automock)]
@@ -47,6 +49,17 @@ impl ProtocolInitializerStore {
 }
 
 #[async_trait]
+impl EpochPruningTask for ProtocolInitializerStore {
+    fn pruned_data(&self) -> &'static str {
+        "Protocol initializer"
+    }
+
+    async fn prune(&self, _epoch: Epoch) -> StdResult<()> {
+        mithril_persistence::store::StorePruner::prune(self).await
+    }
+}
+
+#[async_trait]
 impl StorePruner for ProtocolInitializerStore {
     type Key = Epoch;
     type Record = ProtocolInitializer;
@@ -75,7 +88,6 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
             .await
             .store_record(&epoch, &protocol_initializer)
             .await?;
-        self.prune().await?;
 
         Ok(previous_protocol_initializer)
     }
@@ -180,20 +192,28 @@ mod tests {
 
     #[tokio::test]
     async fn check_retention_limit() {
-        let store = init_store(4, Some(2));
-        let protocol_initializers = setup_protocol_initializers(1);
-        let _ = store
-            .save_protocol_initializer(
-                protocol_initializers[0].0,
-                protocol_initializers[0].1.clone(),
-            )
+        let store = init_store(3, Some(2));
+        let _protocol_initializers = setup_protocol_initializers(1);
+
+        assert!(store
+            .get_protocol_initializer(Epoch(1))
             .await
-            .unwrap();
+            .unwrap()
+            .is_some());
+
+        // Whatever the epoch, it's the retention limit that matters.
+        EpochPruningTask::prune(&store, Epoch(99)).await.unwrap();
 
         assert!(store
             .get_protocol_initializer(Epoch(1))
             .await
             .unwrap()
             .is_none());
+
+        assert!(store
+            .get_protocol_initializer(Epoch(2))
+            .await
+            .unwrap()
+            .is_some());
     }
 }
