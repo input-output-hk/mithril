@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Implement a new `genesis generate-keypair` command in aggregator CLI to generate a new genesis keypair.
+
 - Crates versions:
 
 | Crate | Version |

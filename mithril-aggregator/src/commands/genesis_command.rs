@@ -45,6 +45,9 @@ pub enum GenesisSubCommand {
 
     /// Genesis certificate bootstrap command.
     Bootstrap(BootstrapGenesisSubCommand),
+
+    /// Genesis keypair generation command.
+    GenerateKeypair(GenerateKeypairGenesisSubCommand),
 }
 
 impl GenesisSubCommand {
@@ -58,6 +61,7 @@ impl GenesisSubCommand {
             Self::Export(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Import(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Sign(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::GenerateKeypair(cmd) => cmd.execute(root_logger, config_builder).await,
         }
     }
 }
@@ -65,7 +69,7 @@ impl GenesisSubCommand {
 /// Genesis certificate export command
 #[derive(Parser, Debug, Clone)]
 pub struct ExportGenesisSubCommand {
-    /// Target Path
+    /// Target path
     #[clap(long)]
     target_path: PathBuf,
 }
@@ -226,6 +230,33 @@ impl BootstrapGenesisSubCommand {
             .bootstrap_test_genesis_certificate(genesis_signer)
             .await
             .with_context(|| "genesis-tools: bootstrap error")?;
+        Ok(())
+    }
+}
+
+/// Genesis keypair generation command.
+#[derive(Parser, Debug, Clone)]
+pub struct GenerateKeypairGenesisSubCommand {
+    /// Target path for the generated keypair
+    #[clap(long)]
+    target_path: PathBuf,
+}
+
+impl GenerateKeypairGenesisSubCommand {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        _config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
+        debug!(root_logger, "GENERATE KEYPAIR GENESIS command");
+        println!(
+            "Genesis generate keypair to {}",
+            self.target_path.to_string_lossy()
+        );
+
+        GenesisTools::create_and_save_genesis_keypair(&self.target_path)
+            .with_context(|| "genesis-tools: keypair generation error")?;
+
         Ok(())
     }
 }

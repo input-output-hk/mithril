@@ -6,7 +6,6 @@ use rand_chacha::rand_core;
 use rand_chacha::rand_core::{CryptoRng, RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
-use std::{fs::File, io::Write, path::Path};
 use thiserror::Error;
 
 use super::{ProtocolGenesisSecretKey, ProtocolGenesisSignature, ProtocolGenesisVerificationKey};
@@ -21,7 +20,7 @@ pub struct ProtocolGenesisError(#[source] StdError);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProtocolGenesisSigner {
     /// Protocol Genesis secret key
-    pub(crate) secret_key: ProtocolGenesisSecretKey,
+    secret_key: ProtocolGenesisSecretKey,
 }
 
 impl ProtocolGenesisSigner {
@@ -48,6 +47,16 @@ impl ProtocolGenesisSigner {
         }
     }
 
+    /// Get the [ProtocolGenesisSecretKey]
+    pub fn secret_key(&self) -> ProtocolGenesisSecretKey {
+        self.secret_key.clone()
+    }
+
+    /// Get the [ProtocolGenesisVerificationKey]
+    pub fn verification_key(&self) -> ProtocolGenesisVerificationKey {
+        self.secret_key.verifying_key().into()
+    }
+
     /// [ProtocolGenesisSigner] from [ProtocolGenesisSecretKey]
     pub fn from_secret_key(secret_key: ProtocolGenesisSecretKey) -> Self {
         Self { secret_key }
@@ -55,21 +64,12 @@ impl ProtocolGenesisSigner {
 
     /// Create a [ProtocolGenesisVerifier]
     pub fn create_genesis_verifier(&self) -> ProtocolGenesisVerifier {
-        ProtocolGenesisVerifier::from_verification_key(self.secret_key.verifying_key().into())
+        ProtocolGenesisVerifier::from_verification_key(self.verification_key())
     }
 
     /// Signs a message and returns a [ProtocolGenesisSignature]
     pub fn sign(&self, message: &[u8]) -> ProtocolGenesisSignature {
         self.secret_key.sign(message).into()
-    }
-
-    /// Export the secret key from the genesis verifier to a file. TEST ONLY
-    #[doc(hidden)]
-    pub fn export_to_file(&self, secret_key_path: &Path) -> StdResult<()> {
-        let mut genesis_secret_key_file = File::create(secret_key_path)?;
-        genesis_secret_key_file.write_all(self.secret_key.to_json_hex().unwrap().as_bytes())?;
-
-        Ok(())
     }
 }
 

@@ -1,11 +1,16 @@
 use anyhow::{anyhow, Context};
-use std::{fs::File, io::prelude::*, io::Write, path::Path, sync::Arc};
+use std::{
+    fs::File,
+    io::{prelude::*, Write},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use mithril_common::{
     certificate_chain::{CertificateGenesisProducer, CertificateVerifier},
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolGenesisSignature, ProtocolGenesisSigner,
-        ProtocolGenesisVerifier,
+        ProtocolAggregateVerificationKey, ProtocolGenesisSecretKey, ProtocolGenesisSignature,
+        ProtocolGenesisSigner, ProtocolGenesisVerifier,
     },
     entities::{ProtocolParameters, TimePoint},
     protocol::SignerBuilder,
@@ -150,14 +155,8 @@ impl GenesisTools {
         target_signed_payload_path: &Path,
         genesis_secret_key_path: &Path,
     ) -> StdResult<()> {
-        let mut genesis_secret_key_file = File::open(genesis_secret_key_path).unwrap();
-        let mut genesis_secret_key_serialized = String::new();
-        genesis_secret_key_file.read_to_string(&mut genesis_secret_key_serialized)?;
-
-        let genesis_secret_key = genesis_secret_key_serialized
-            .trim()
-            .try_into()
-            .with_context(|| "Genesis secret key decode error")?;
+        let genesis_secret_key =
+            ProtocolGenesisSecretKey::read_json_hex_from_file(genesis_secret_key_path)?;
         let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
 
         let mut to_sign_payload_file = File::open(to_sign_payload_path).unwrap();
@@ -201,16 +200,33 @@ impl GenesisTools {
             })?;
         Ok(())
     }
+
+    /// Export the genesis keypair to a folder and returns the paths to the files (secret key, verification_key)
+    pub fn create_and_save_genesis_keypair(keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
+        let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_genesis_signer();
+        let genesis_secret_key_path = keypair_path.join("genesis.sk");
+        genesis_signer
+            .secret_key()
+            .write_json_hex_to_file(&genesis_secret_key_path)?;
+        let genesis_verification_key_path = keypair_path.join("genesis.vk");
+        genesis_signer
+            .verification_key()
+            .write_json_hex_to_file(&genesis_verification_key_path)?;
+
+        Ok((genesis_secret_key_path, genesis_verification_key_path))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
-        crypto_helper::ProtocolGenesisSigner,
+        crypto_helper::{
+            ProtocolGenesisSecretKey, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
+        },
         test_utils::{fake_data, MithrilFixtureBuilder, TempDir},
     };
-    use std::path::PathBuf;
+    use std::{fs::read_to_string, path::PathBuf};
 
     use crate::database::test_helper::main_db_connection;
     use crate::test_tools::TestLogger;
@@ -266,14 +282,17 @@ mod tests {
         let test_dir = get_temp_dir("export_payload_to_sign");
         let payload_path = test_dir.join("payload.txt");
         let signed_payload_path = test_dir.join("payload-signed.txt");
-        let genesis_secret_key_path = test_dir.join("genesis.sk");
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+        let (genesis_secret_key_path, _) = GenesisTools::create_and_save_genesis_keypair(&test_dir)
+            .expect("exporting the keypair should not fail");
+        let genesis_secret_key = ProtocolGenesisSecretKey::from_json_hex(
+            &read_to_string(&genesis_secret_key_path)
+                .expect("reading genesis secret key file should not fail"),
+        )
+        .expect("parsing genesis secret key should not fail");
+        let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
         let (genesis_tools, certificate_store, genesis_verifier, certificate_verifier) =
             build_tools(&genesis_signer);
 
-        genesis_signer
-            .export_to_file(&genesis_secret_key_path)
-            .expect("exporting the secret key should not fail");
         genesis_tools
             .export_payload_to_sign(&payload_path)
             .expect("export_payload_to_sign should not fail");
@@ -326,5 +345,28 @@ mod tests {
             .expect(
                 "verify_genesis_certificate should successfully validate the genesis certificate",
             );
+    }
+
+    #[test]
+    fn test_create_and_save_genesis_keypair() {
+        let temp_dir = get_temp_dir("test_create_and_save_genesis_keypair");
+        let (genesis_secret_key_path, genesis_verification_key_path) =
+            GenesisTools::create_and_save_genesis_keypair(&temp_dir)
+                .expect("Failed to create and save genesis keypair");
+        let genesis_secret_key = ProtocolGenesisSecretKey::from_json_hex(
+            &read_to_string(&genesis_secret_key_path)
+                .expect("Failed to read genesis secret key file"),
+        )
+        .expect("Failed to parse genesis secret key");
+        let genesis_verification_key = ProtocolGenesisVerificationKey::from_json_hex(
+            &read_to_string(&genesis_verification_key_path)
+                .expect("Failed to read genesis verification key file"),
+        )
+        .expect("Failed to parse genesis verification key");
+        let genesis_verifier =
+            ProtocolGenesisSigner::from_secret_key(genesis_secret_key).create_genesis_verifier();
+
+        let expected_genesis_verification_key = genesis_verifier.to_verification_key();
+        assert_eq!(expected_genesis_verification_key, genesis_verification_key);
     }
 }
