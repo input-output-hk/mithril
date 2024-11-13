@@ -1,7 +1,13 @@
+use std::{
+    any::type_name,
+    fs::{read_to_string, File},
+    io::Write,
+    ops::Deref,
+    path::Path,
+};
+
 use anyhow::Context;
 use serde::{de::DeserializeOwned, Deserialize, Serialize, Serializer};
-use std::any::type_name;
-use std::ops::Deref;
 
 use crate::crypto_helper::{key_decode_hex, key_encode_hex};
 use crate::StdResult;
@@ -67,6 +73,22 @@ where
                 type_name::<T>()
             )
         })
+    }
+
+    /// Write to file in JSON hex format
+    pub fn write_json_hex_to_file(&self, path: &Path) -> StdResult<()> {
+        let key_payload = self.to_json_hex()?;
+        let mut key_file = File::create(path)?;
+        key_file.write_all(key_payload.as_bytes())?;
+
+        Ok(())
+    }
+
+    /// Read from file in JSON hex format
+    pub fn read_json_hex_from_file(path: &Path) -> StdResult<Self> {
+        let key_bytes = read_to_string(path)?;
+
+        Self::from_json_hex(&key_bytes)
     }
 }
 
@@ -248,5 +270,19 @@ mod test {
         let deserialized: Container =
             serde_json::from_str(&serialized).expect("Deserialization should not fail");
         assert_eq!(expected, deserialized);
+    }
+
+    #[test]
+    fn can_read_and_write_to_file_a_verification_key() {
+        let expected_key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY.try_into().unwrap();
+        let key_path = std::env::temp_dir().join("can_read_and_write_to_file_a_verification_key");
+
+        expected_key
+            .write_json_hex_to_file(&key_path)
+            .expect("Writing to file should not fail");
+        let read_key = ProtocolKey::<StmVerificationKeyPoP>::read_json_hex_from_file(&key_path)
+            .expect("Reading from file should not fail");
+
+        assert_eq!(expected_key, read_key);
     }
 }
