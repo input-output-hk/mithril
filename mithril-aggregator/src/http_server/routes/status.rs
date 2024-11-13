@@ -41,16 +41,8 @@ async fn get_aggregator_status_message(
     let next_protocol_parameters = epoch_service.next_protocol_parameters()?.clone();
     let total_signers = epoch_service.current_signers()?.len();
     let total_next_signers = epoch_service.next_signers()?.len();
-    let total_stakes_signers = epoch_service
-        .current_signers_with_stake()?
-        .iter()
-        .map(|s| s.stake)
-        .sum();
-    let total_next_stakes_signers = epoch_service
-        .next_signers_with_stake()?
-        .iter()
-        .map(|s| s.stake)
-        .sum();
+    let total_stakes_signers = epoch_service.total_stakes_signers()?;
+    let total_next_stakes_signers = epoch_service.total_next_stakes_signers()?;
     let total_cardano_spo = epoch_service.total_spo()?;
     let total_cardano_stake = epoch_service.total_stake()?;
 
