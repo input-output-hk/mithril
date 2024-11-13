@@ -54,59 +54,62 @@ impl CardanoDbBeacon {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::cmp::Ordering;
 
-    #[test]
-    fn test_beacon_partial_ord_equal() {
-        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
-            epoch: Epoch(0),
-            immutable_file_number: 0,
-        };
-
-        assert_eq!(Some(Ordering::Equal), beacon1.partial_cmp(&beacon1));
-    }
+    use super::*;
 
     #[test]
-    fn test_beacon_partial_ord_same_epoch_less() {
-        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
-            epoch: Epoch(0),
-            immutable_file_number: 0,
-        };
-        let beacon2: CardanoDbBeacon = CardanoDbBeacon {
-            epoch: Epoch(0),
-            immutable_file_number: 1,
+    fn test_order() {
+        let beacon: CardanoDbBeacon = CardanoDbBeacon {
+            epoch: Epoch(10),
+            immutable_file_number: 75,
         };
 
-        assert_eq!(Some(Ordering::Less), beacon1.partial_cmp(&beacon2));
-    }
+        assert_eq!(Ordering::Equal, beacon.cmp(&beacon));
+        assert_eq!(
+            Ordering::Less,
+            beacon.cmp(&CardanoDbBeacon {
+                epoch: beacon.epoch + 1,
+                ..beacon.clone()
+            })
+        );
+        assert_eq!(
+            Ordering::Greater,
+            beacon.cmp(&CardanoDbBeacon {
+                epoch: beacon.epoch - 1,
+                ..beacon.clone()
+            })
+        );
+        assert_eq!(
+            Ordering::Less,
+            beacon.cmp(&CardanoDbBeacon {
+                immutable_file_number: beacon.immutable_file_number + 1,
+                ..beacon.clone()
+            })
+        );
+        assert_eq!(
+            Ordering::Greater,
+            beacon.cmp(&CardanoDbBeacon {
+                immutable_file_number: beacon.immutable_file_number - 1,
+                ..beacon.clone()
+            })
+        );
 
-    #[test]
-    fn test_beacon_partial_ord_same_epoch_greater() {
-        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
-            epoch: Epoch(0),
-            immutable_file_number: 1,
-        };
-        let beacon2: CardanoDbBeacon = CardanoDbBeacon {
-            epoch: Epoch(0),
-            immutable_file_number: 0,
-        };
-
-        assert_eq!(Some(Ordering::Greater), beacon1.partial_cmp(&beacon2));
-    }
-
-    #[test]
-    fn test_beacon_partial_ord_cmp_epochs_less() {
-        let beacon1: CardanoDbBeacon = CardanoDbBeacon {
-            epoch: Epoch(0),
-            immutable_file_number: 99,
-        };
-        let beacon2: CardanoDbBeacon = CardanoDbBeacon {
-            epoch: Epoch(1),
-            immutable_file_number: 99,
-        };
-
-        assert_eq!(Some(Ordering::Less), beacon1.partial_cmp(&beacon2));
+        // Epoch has higher priority than immutable_file_number
+        assert_eq!(
+            Ordering::Less,
+            beacon.cmp(&CardanoDbBeacon {
+                epoch: beacon.epoch + 1,
+                immutable_file_number: beacon.immutable_file_number - 1,
+            })
+        );
+        assert_eq!(
+            Ordering::Greater,
+            beacon.cmp(&CardanoDbBeacon {
+                epoch: beacon.epoch - 1,
+                immutable_file_number: beacon.immutable_file_number + 1,
+            })
+        )
     }
 
     #[test]
