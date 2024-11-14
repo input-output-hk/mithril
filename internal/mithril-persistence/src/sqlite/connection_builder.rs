@@ -90,6 +90,19 @@ impl ConnectionBuilder {
                 )
             })?;
 
+        let migrations = self.sql_migrations.clone();
+        self.apply_migrations(&connection, migrations)?;
+
+        Ok(connection)
+    }
+
+    /// Apply a list of migration to the connection.
+    pub fn apply_migrations(
+        self,
+        connection: &ConnectionThreadSafe,
+        sql_migrations: Vec<SqlMigration>,
+    ) -> StdResult<()> {
+        let logger = self.base_logger.new_with_component_name::<Self>();
         if self
             .options
             .contains(&ConnectionOptions::EnableWriteAheadLog)
@@ -107,13 +120,13 @@ impl ConnectionBuilder {
                 .with_context(|| "SQLite initialization: could not enable FOREIGN KEY support.")?;
         }
 
-        if self.sql_migrations.is_empty().not() {
+        if sql_migrations.is_empty().not() {
             // Check database migrations
             debug!(logger, "Applying database migrations");
             let mut db_checker =
                 DatabaseVersionChecker::new(self.base_logger, self.node_type, &connection);
 
-            for migration in self.sql_migrations {
+            for migration in sql_migrations {
                 db_checker.add_migration(migration);
             }
 
@@ -131,8 +144,7 @@ impl ConnectionBuilder {
                 .execute("pragma foreign_keys=false")
                 .with_context(|| "SQLite initialization: could not disable FOREIGN KEY support.")?;
         }
-
-        Ok(connection)
+        Ok(())
     }
 }
 
