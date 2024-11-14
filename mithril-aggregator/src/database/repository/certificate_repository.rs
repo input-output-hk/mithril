@@ -176,7 +176,7 @@ mod tests {
                 142,
                 'preview',
                 2,
-                '{"network":"preview","epoch":142,"immutable_file_number":2838}',
+                '{"epoch":142,"immutable_file_number":2838}',
                 '0.1.0',
                 '{"k":2422,"m":20973,"phi_f":0.2}',
                 '{"message_parts":{

@@ -60,5 +60,15 @@ create index signed_beacon_epoch on signed_beacon(epoch);
 create index signed_beacon_signed_entity_type_id on signed_beacon(signed_entity_type_id);
             ",
         ),
+        // Migration 4
+        // Remove `network` from cardano immutable files full beacons in `signed_beacon` table
+        SqlMigration::new(
+            31,
+            r#"
+update signed_beacon
+    set beacon = json_remove(beacon, '$.network')
+    where signed_beacon.signed_entity_type_id = 2;
+        "#,
+        ),
     ]
 }
