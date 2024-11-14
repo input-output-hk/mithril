@@ -13,6 +13,11 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Implement the `/status` route on the aggregator's REST API to provide information about its current status.
 
+- Deprecate the `network` field in all messages that contain a `CardanoDbBeacon` field.
+
+- **BREAKING** Remove the `network` field from the internal `CardanoDbBeacon` struct, Certificates of types `CardanoImmutableFilesFull`
+  must have their hashes recomputed in order to stay valid (procedure detailed in the [`recompute-certificates-hash`](./docs/runbook/recompute-certificates-hash) runbook).
+
 - Crates versions:
 
 | Crate | Version |
