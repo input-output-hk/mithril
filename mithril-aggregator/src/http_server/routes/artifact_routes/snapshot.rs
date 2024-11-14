@@ -458,7 +458,7 @@ mod tests {
         let signed_entity = create_signed_entity(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default()),
             Snapshot {
-                beacon: CardanoDbBeacon::new(network, 1, 10),
+                beacon: CardanoDbBeacon::new(1, 10),
                 ..fake_data::snapshots(1)[0].clone()
             },
         );

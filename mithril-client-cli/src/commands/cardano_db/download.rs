@@ -365,7 +365,7 @@ mod tests {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             "whatever".to_string(),
         );
-        let beacon = CardanoDbBeacon::new("testnet".to_string(), 10, 100);
+        let beacon = CardanoDbBeacon::new(10, 100);
 
         MithrilCertificate {
             hash: "hash".to_string(),

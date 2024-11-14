@@ -62,10 +62,7 @@ async fn compute_digest(
     let digester =
         CardanoImmutableDigester::new("devnet".to_string(), cache_provider, create_logger());
     digester
-        .compute_digest(
-            &db_dir(),
-            &CardanoDbBeacon::new("devnet".to_string(), 1, number_of_immutables),
-        )
+        .compute_digest(&db_dir(), &CardanoDbBeacon::new(1, number_of_immutables))
         .await
         .expect("digest computation should not fail");
 }

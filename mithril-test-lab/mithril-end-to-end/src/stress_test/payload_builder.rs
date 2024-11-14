@@ -104,7 +104,6 @@ pub async fn compute_immutable_files_signatures(
     spin_while_waiting!(
         {
             let beacon = CardanoDbBeacon::new(
-                "devnet".to_string(),
                 *epoch,
                 // Minus one because the last immutable isn't "finished"
                 immutable_db.last_immutable_number().unwrap() - 1,

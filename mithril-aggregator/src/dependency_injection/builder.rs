@@ -1260,7 +1260,6 @@ impl DependenciesBuilder {
         let era_checker = self.get_era_checker().await?;
         let stake_distribution_service = self.get_stake_distribution_service().await?;
         let epoch_settings = self.get_epoch_settings_configuration()?;
-        let network = self.configuration.get_network()?;
         let allowed_discriminants = self.get_allowed_signed_entity_types_discriminants()?;
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
@@ -1272,7 +1271,6 @@ impl DependenciesBuilder {
                 era_checker,
                 stake_distribution_service,
             ),
-            network,
             allowed_discriminants,
             self.root_logger(),
         )));

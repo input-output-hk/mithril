@@ -407,7 +407,6 @@ mod tests {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
-        let network = fake_data::network();
         let fake_observer = FakeObserver::default();
         fake_observer.set_signers(stake_distribution_signers).await;
         let chain_observer = Arc::new(fake_observer);
@@ -492,10 +491,7 @@ mod tests {
         let aggregator_client = Arc::new(DumbAggregatorClient::default());
         let certifier = Arc::new(SignerCertifierService::new(
             Arc::new(SignedBeaconRepository::new(sqlite_connection.clone(), None)),
-            Arc::new(SignerSignedEntityConfigProvider::new(
-                network,
-                epoch_service.clone(),
-            )),
+            Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
             signed_entity_type_lock.clone(),
             single_signer.clone(),
             aggregator_client.clone(),

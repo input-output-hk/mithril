@@ -20,9 +20,8 @@ pub fn network() -> crate::CardanoNetwork {
 
 /// Fake Beacon
 pub fn beacon() -> entities::CardanoDbBeacon {
-    let network = network().to_string();
     let time_point = entities::TimePoint::dummy();
-    entities::CardanoDbBeacon::new(network, *time_point.epoch, time_point.immutable_file_number)
+    entities::CardanoDbBeacon::new(*time_point.epoch, time_point.immutable_file_number)
 }
 
 /// Fake ChainPoint
@@ -32,16 +31,6 @@ pub fn chain_point() -> entities::ChainPoint {
         block_number: BlockNumber(42),
         block_hash: "1b69b3202fbe500".to_string(),
     }
-}
-
-/// Fake Digest
-pub fn digest(beacon: &entities::CardanoDbBeacon) -> Vec<u8> {
-    format!(
-        "digest-{}-{}-{}",
-        beacon.network, beacon.epoch, beacon.immutable_file_number
-    )
-    .as_bytes()
-    .to_vec()
 }
 
 /// Fake ProtocolParameters
@@ -143,7 +132,7 @@ pub fn certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificat
         .unwrap()
         .with_timezone(&Utc);
     let metadata = CertificateMetadata::new(
-        &beacon.network,
+        network(),
         protocol_version,
         protocol_parameters,
         initiated_at,

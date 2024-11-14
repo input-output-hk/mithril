@@ -73,11 +73,7 @@ impl CardanoDbBeaconMessagePart {
 
 impl From<CardanoDbBeaconMessagePart> for CardanoDbBeacon {
     fn from(message: CardanoDbBeaconMessagePart) -> Self {
-        Self::new(
-            message.network.unwrap_or_default(),
-            *message.epoch,
-            message.immutable_file_number,
-        )
+        Self::new(*message.epoch, message.immutable_file_number)
     }
 }
 
@@ -196,7 +192,7 @@ mod tests {
     #[test]
     fn convert_message_to_cardano_db_beacon_entity() {
         assert_eq!(
-            CardanoDbBeacon::new("devnet", 12, 48),
+            CardanoDbBeacon::new(12, 48),
             CardanoDbBeacon::from(CardanoDbBeaconMessagePart::new("devnet", Epoch(12), 48))
         );
     }
@@ -205,14 +201,14 @@ mod tests {
     fn convert_cardano_db_beacon_entity_to_message() {
         assert_eq!(
             CardanoDbBeaconMessagePart::new("devnet", Epoch(12), 48),
-            CardanoDbBeaconMessagePart::from((CardanoDbBeacon::new("unused", 12, 48), "devnet"))
+            CardanoDbBeaconMessagePart::from((CardanoDbBeacon::new(12, 48), "devnet"))
         );
     }
 
     #[test]
     fn convert_message_to_signed_entity_type_entity() {
         assert_eq!(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", 12, 48)),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(12, 48)),
             SignedEntityType::from(SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
                 CardanoDbBeaconMessagePart::new("devnet", Epoch(12), 48)
             ))
@@ -245,7 +241,7 @@ mod tests {
                 CardanoDbBeaconMessagePart::new("devnet", Epoch(12), 48)
             ),
             SignedEntityTypeMessagePart::from((
-                SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("unused", 12, 48)),
+                SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(12, 48)),
                 "devnet"
             ))
         );
@@ -276,31 +272,31 @@ mod tests {
     fn comparing_message_to_cardano_db_beacon_entity() {
         let (epoch, immutable, network) = (Epoch(10), 50, "devnet".to_string());
         assert_commutative_eq(
-            CardanoDbBeacon::new(&network, *epoch, immutable),
+            CardanoDbBeacon::new(*epoch, immutable),
             CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
         );
 
         // Changing epoch should make them not equal
         assert_commutative_ne(
-            CardanoDbBeacon::new(&network, *epoch + 1, immutable),
+            CardanoDbBeacon::new(*epoch + 1, immutable),
             CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
         );
 
         // Changing immutable file number should make them not equal
         assert_commutative_ne(
-            CardanoDbBeacon::new(&network, *epoch, immutable + 1),
+            CardanoDbBeacon::new(*epoch, immutable + 1),
             CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
         );
 
         // Changing network should not matter
         assert_commutative_eq(
-            CardanoDbBeacon::new("another network", *epoch, immutable),
-            CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
+            CardanoDbBeacon::new(*epoch, immutable),
+            CardanoDbBeaconMessagePart::new("another network", epoch, immutable),
         );
 
         // Missing network should not matter too
         assert_commutative_eq(
-            CardanoDbBeacon::new(&network, *epoch, immutable),
+            CardanoDbBeacon::new(*epoch, immutable),
             CardanoDbBeaconMessagePart {
                 network: None,
                 ..CardanoDbBeaconMessagePart::new(&network, epoch, immutable)
@@ -315,27 +311,20 @@ mod tests {
 
         // CardanoImmutableFilesFull
         assert_commutative_eq(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                &network, *epoch, immutable,
-            )),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(*epoch, immutable)),
             SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
                 CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
             ),
         );
         // Changing network should not matter
         assert_commutative_eq(
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                "another network",
-                *epoch,
-                immutable,
-            )),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(*epoch, immutable)),
             SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new(&network, epoch, immutable),
+                CardanoDbBeaconMessagePart::new("another network", epoch, immutable),
             ),
         );
         assert_commutative_ne(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                &network,
                 *epoch + 10,
                 immutable,
             )),
@@ -345,7 +334,6 @@ mod tests {
         );
         assert_commutative_ne(
             SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                &network,
                 *epoch,
                 immutable + 30,
             )),

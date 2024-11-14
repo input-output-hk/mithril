@@ -379,10 +379,7 @@ impl<'a> DependenciesBuilder<'a> {
         ));
         let certifier = Arc::new(SignerCertifierService::new(
             signed_beacon_repository,
-            Arc::new(SignerSignedEntityConfigProvider::new(
-                network,
-                epoch_service.clone(),
-            )),
+            Arc::new(SignerSignedEntityConfigProvider::new(epoch_service.clone())),
             signed_entity_type_lock.clone(),
             single_signer.clone(),
             aggregator_client.clone(),

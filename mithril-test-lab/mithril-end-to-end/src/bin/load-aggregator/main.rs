@@ -226,7 +226,6 @@ async fn main_scenario(
         &parameters.aggregator,
         Duration::from_secs(60),
         &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-            "devnet".to_string(),
             *current_epoch.deref(),
             parameters.immutable_db.last_immutable_number().unwrap() - 1,
         )),

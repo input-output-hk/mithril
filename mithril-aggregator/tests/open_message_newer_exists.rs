@@ -123,11 +123,7 @@ async fn open_message_newer_exists() {
                 .map(|s| s.signer_with_stake.clone().into())
                 .collect::<Vec<_>>(),
             fixture.compute_and_encode_avk(),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-                "devnet".to_string(),
-                1,
-                4
-            )),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(1, 4)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );

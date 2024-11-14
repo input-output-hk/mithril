@@ -183,7 +183,7 @@ mod tests {
 
         for signed_entity_type in [
             SignedEntityType::MithrilStakeDistribution(epoch),
-            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new("devnet", *epoch, 1)),
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(*epoch, 1)),
             SignedEntityType::CardanoTransactions(epoch, BlockNumber(100)),
         ] {
             repository
