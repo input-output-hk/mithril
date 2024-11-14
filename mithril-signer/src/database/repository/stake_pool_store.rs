@@ -105,9 +105,15 @@ impl EpochPruningTask for StakePoolStore {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
+    use mithril_persistence::{
+        database::SqlMigration,
+        sqlite::{ConnectionBuilder, ConnectionOptions},
+        store::adapter::SQLiteAdapter,
+    };
 
     use super::*;
+    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
+    use mithril_persistence::store::adapter::StoreAdapter;
 
     #[tokio::test]
     async fn prune_epoch_settings_older_than_threshold() {
@@ -179,6 +185,65 @@ mod tests {
 
         let stake_distribution = store.retrieve(Epoch(1)).await.unwrap();
 
+        assert_eq!(stake_distribution, Some(stake_distribution_to_retrieve));
+    }
+
+    #[tokio::test]
+    async fn should_migrate_data_from_adapter() {
+        let migrations = crate::database::migration::get_migrations();
+
+        // TODO: Do it in test_helper (it is done by build_main_db_connection)
+        fn create_connection_builder() -> ConnectionBuilder {
+            ConnectionBuilder::open_memory()
+                .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
+        }
+        let connection = Arc::new(create_connection_builder().build().unwrap());
+
+        // The adapter will create the table.
+        let mut adapter =
+            SQLiteAdapter::<Epoch, StakeDistribution>::new("stake", connection.clone()).unwrap();
+
+        assert!(connection.prepare("select * from stake;").is_ok());
+        assert!(connection.prepare("select * from db_version;").is_err());
+        assert!(connection.prepare("select * from stake_pool;").is_err());
+
+        // TODO: We recreate a Builder (because it was consume by the build) to have same option but we don't use a new connection.
+        // builder is needed for options, base_logger and node_type.
+        create_connection_builder()
+            .apply_migrations(
+                &connection.clone(),
+                migrations
+                    .clone()
+                    .into_iter()
+                    .filter(|migration| migration.version <= 1)
+                    .collect::<Vec<SqlMigration>>(),
+            )
+            .unwrap();
+        assert!(connection.prepare("select * from db_version;").is_ok());
+        assert!(connection.prepare("select * from stake_pool;").is_err());
+
+        // Here we can add some data with the old schema.
+        let stake_distribution_to_retrieve =
+            StakeDistribution::from([("pool-123".to_string(), 123)]);
+
+        // If we don't want to use the adapter anymore, we can execute request directly.
+        assert!(adapter.get_record(&Epoch(5)).await.unwrap().is_none());
+        adapter
+            .store_record(&Epoch(5), &stake_distribution_to_retrieve)
+            .await
+            .unwrap();
+        assert!(adapter.get_record(&Epoch(5)).await.unwrap().is_some());
+
+        // We finish the migration
+        create_connection_builder()
+            .apply_migrations(&connection, migrations)
+            .unwrap();
+        assert!(connection.prepare("select * from stake;").is_err());
+        assert!(connection.prepare("select * from stake_pool;").is_ok());
+
+        // We can check that data are migrated.
+        let store = StakePoolStore::new(connection, None);
+        let stake_distribution = store.retrieve(Epoch(5)).await.unwrap();
         assert_eq!(stake_distribution, Some(stake_distribution_to_retrieve));
     }
 }
