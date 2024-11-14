@@ -827,5 +827,25 @@ update signed_entity
 where signed_entity.signed_entity_type_id = 2;
         "#,
         ),
+        // Migration 31
+        // Remove `network` from cardano immutable files full beacons in `open_message`,
+        // `signed_entity`, and `certificate` tables
+        SqlMigration::new(
+            31,
+            r#"
+update open_message
+    set beacon = json_remove(beacon, '$.network')
+    where open_message.signed_entity_type_id = 2;
+
+update signed_entity
+    set beacon = json_remove(beacon, '$.network'),
+        artifact = json_remove(artifact, '$.beacon.network')
+    where signed_entity.signed_entity_type_id = 2;
+
+update certificate
+    set signed_entity_beacon = json_remove(signed_entity_beacon, '$.network')
+    where certificate.signed_entity_type_id = 2;
+        "#,
+        ),
     ]
 }
