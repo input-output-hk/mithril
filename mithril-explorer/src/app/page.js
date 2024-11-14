@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Col, Form, Row, Stack, Tab, Tabs } from "react-bootstrap";
+import { Form, Row, Stack, Tab, Tabs } from "react-bootstrap";
 import {
   ArcElement,
   BarElement,
@@ -30,6 +30,7 @@ import {
   selectedAggregatorSignedEntities as currentAggregatorSignedEntities,
 } from "@/store/settingsSlice";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
+import AggregatorStatus from "@/components/AggregatorStatus";
 
 // Disable SSR for the following components since they use data from the store that are not
 // available server sides (because those data can be read from the local storage).
@@ -115,8 +116,11 @@ export default function Explorer() {
           <IntervalSetter />
         </Row>
       </Form>
-      <Stack direction="horizontal">
+      {/* <Stack direction="horizontal">
         <EpochSettings />
+      </Stack> */}
+      <Stack direction="horizontal">
+        <AggregatorStatus />
       </Stack>
       <Tabs activeKey={currentTab} onSelect={(key) => setCurrentTab(key)}>
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
