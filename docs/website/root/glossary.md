@@ -8,7 +8,7 @@ Below is a comprehensive list of definitions for some common terms used in the M
 
 ## Beacon
 
-A beacon represents a point of the blockchain for which a [Mithril certificate](#certificate) is created. It embeds at least the version of the [Cardano network](#cardano-network) that is targeted, the associated [epoch](#epoch), and the [immutable file number](#immutable-file-number).
+A beacon represents a point of the blockchain for which a [Mithril certificate](#certificate) is created. It embeds the [epoch](#epoch) of the [Cardano network](#cardano-network) that is targeted, and either the block number or the [immutable file number](#immutable-file-number).
 
 ## Cardano network
 

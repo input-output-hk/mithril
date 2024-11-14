@@ -102,22 +102,79 @@ You should see the following information displayed:
  Bootstrap Mithril/Cardano devnet
 =====================================================================
 
->> Directory: artifacts
->> Cardano Full nodes: 1
->> Cardano SPO nodes: 2
->> Info: Mithril aggregator will be attached to the first Cardano Full node
->> Info: Mithril signers will be attached to each Cardano SPO node
+>> The artifacts directory was force deleted
+>> Devnet Version: 0.4.6
+>> Artifacts Directory[env::ARTIFACTS_DIR]: artifacts
+>> Cardano Full nodes [env::NUM_FULL_NODES]: 1
+>> Cardano SPO nodes [env::NUM_POOL_NODES]: 2
+>> Cardano Node Version [env::CARDANO_NODE_VERSION]: 10.1.2
+>> Cardano Network Magic [env::NETWORK_MAGIC]: 42
+>> Cardano Hard Fork Babbage At Epoch [env::HARD_FORK_BABBAGE_AT_EPOCH]: 0
+>> Cardano Hard Fork Conway At Epoch [env::HARD_FORK_CONWAY_AT_EPOCH]: 0
+>> Cardano Slot Length [env::SLOT_LENGTH]: 0.75s
+>> Cardano Epoch Length [env::EPOCH_LENGTH]: 100s
+>> Cardano Listening Address [env::LISTENING_ADDR]: 127.0.0.1
+>> Creating artifacts directory...
+>> Downloading cardano-cli & cardano-node...
+>> Extracting cardano-cli & cardano-node...
+generated genesis with: 3 genesis keys, 2 non-delegating UTxO keys, 2 stake pools, 2 delegating UTxO keys, 2 delegation map entries,
 
 =====================================================================
  Start Cardano nodes
 =====================================================================
 
 >> Start Cardano network
-cardano-node: no process found
+cardano-cli 10.1.1.0 - linux-x86_64 - ghc-8.10
+git rev 01bda2e2cb0a70cd95067d696dbb44665f1d680a
+cardano-node 10.1.2 - linux-x86_64 - ghc-8.10
+git rev 01bda2e2cb0a70cd95067d696dbb44665f1d680a
 >> Starting Cardano node 'node-full1'
 >> Starting Cardano node 'node-pool1'
 >> Starting Cardano node 'node-pool2'
->> Wait for the Cardano network to be ready
+>> Wait for Cardano network to be ready
+>>>> Cardano network is not ready yet... [attempt 1]
+>>>> Cardano network is not ready yet... [attempt 2]
+>>>> Cardano network is not ready yet... [attempt 3]
+>>>> Cardano network is ready!
+>> Wait for Cardano nodes to have enough immutable files
+>> Wait for node-full1 to have enough immutable files
+>>>> node-full1 has not enough immutable files yet... [attempt 1]
+>>>> node-full1 has not enough immutable files yet... [attempt 2]
+>>>> node-full1 has not enough immutable files yet... [attempt 3]
+>>>> node-full1 has not enough immutable files yet... [attempt 4]
+>>>> node-full1 has not enough immutable files yet... [attempt 5]
+>>>> node-full1 has not enough immutable files yet... [attempt 6]
+>>>> node-full1 has not enough immutable files yet... [attempt 7]
+>>>> node-full1 has not enough immutable files yet... [attempt 8]
+>>>> node-full1 has not enough immutable files yet... [attempt 9]
+>>>> node-full1 has not enough immutable files yet... [attempt 10]
+>>>> node-full1 has not enough immutable files yet... [attempt 11]
+>>>> node-full1 has enough immutable files!
+>> Wait for node-pool1 to have enough immutable files
+>>>> node-pool1 has enough immutable files!
+>> Wait for node-pool2 to have enough immutable files
+>>>> node-pool2 has enough immutable files!
+
+>> Info: Mithril Aggregator will be attached to the first Cardano Full node
+>> Info: Mithril Signers will be attached to each Cardano SPO node
+=====================================================================
+ Start Mithril nodes
+=====================================================================
+
+>> Start Mithril network
+Going to remove artifacts_mithril-aggregator-genesis_run_48d3af826a41
+[+] Running 1/0
+ ⠿ Container artifacts_mithril-aggregator-genesis_run_48d3af826a41  Removed                                                       0.0s
+[+] Running 4/4
+ ⠿ Network artifacts_mithril_network                Created                                                                       0.1s
+ ⠿ Container artifacts-mithril-signer-node-pool1-1  Started                                                                       0.4s
+ ⠿ Container artifacts-mithril-aggregator-1         Started                                                                       0.5s
+ ⠿ Container artifacts-mithril-signer-node-pool2-1  Started                                                                       0.5s
+>> List of Mithril signers
+--------  --------------------------------------------------------  -----------------------------------
+Signer 1  pool1vtck0eeqq2x3d5avpxhd904y73syn4l00yurvl0teg7u6nh3afv  Certified PoolId
+Signer 2  pool1y3pxhtqytcwy3mmnawqf2ej0x9sz5frkkwkz6scfqmzyyw8u38v  Certified PoolId
+>> Wait for Mithril signers to be registered
 >>>> Not ready yet
 >>>> Not ready yet
 >>>> Not ready yet
@@ -131,76 +188,25 @@ cardano-node: no process found
 >>>> Not ready yet
 >>>> Not ready yet
 >>>> Ready!
->> Activate Cardano pools
-Estimated transaction fee: Lovelace 843
-Transaction successfully submitted.
-Estimated transaction fee: Lovelace 843
-Transaction successfully submitted.
->> Wait for Cardano pools to be activated
->>>> Not activated yet
->>>> Not activated yet
->>>> Not activated yet
->>>> Not activated yet
->>>> Not activated yet
->>>> Not activated yet
->>>> Not activated yet
->>>> Not activated yet
->>>> Not activated yet
->>>> Not activated yet
->>>> Activated!
->>>> Found PoolId: pool1v55rfy864kslz86u45w4juahtuqr7cy282rffdnpc9exjlguvys
->>>> Found PoolId: pool1c56jqj5qsala8c24829sxqp0fcrtrrtcmezgrs6w60hl2nwsvav
+>> Bootstrap the Genesis certificate
+{"msg":"Started","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.953666896Z","hostname":"c993b6b764f2","pid":1,"node_version":"0.5.110+e2fa1e0","run_mode":"dev"}
+{Genesis bootstrap for test only!
+"msg":"BOOTSTRAP GENESIS command","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.95394937Z","hostname":"c993b6b764f2","pid":1,"config":"Configuration { environment: Production, cardano_cli_path: \"/app/bin/cardano-cli\", cardano_node_socket_path: \"/data/ipc/node.sock\", cardano_node_version: \"10.1.2\", network_magic: Some(42), network: \"devnet\", chain_observer_type: Pallas, protocol_parameters: ProtocolParameters { k: 5, m: 100, phi_f: 0.65 }, snapshot_uploader_type: Local, snapshot_bucket_name: None, snapshot_use_cdn_domain: false, server_ip: \"0.0.0.0\", server_port: 8080, run_interval: 1000, db_directory: \"/data/db\", snapshot_directory: \".\", data_stores_directory: \"/data/mithril/aggregator/stores\", genesis_verification_key: \"5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d\", reset_digests_cache: false, disable_digests_cache: false, store_retention_limit: None, era_reader_adapter_type: Bootstrap, era_reader_adapter_params: None, signed_entity_types: None, snapshot_compression_algorithm: Zstandard, zstandard_parameters: None, cexplorer_pools_url: None, signer_importer_run_interval: 720, allow_unparsable_block: false, cardano_transactions_prover_cache_pool_size: 10, cardano_transactions_database_connection_pool_size: 10, cardano_transactions_signing_config: CardanoTransactionsSigningConfig { security_parameter: BlockNumber(3000), step: BlockNumber(120) }, cardano_transactions_prover_max_hashes_allowed_by_request: 100, cardano_transactions_block_streamer_max_roll_forwards_per_poll: 10000, enable_metrics_server: false, metrics_server_ip: \"0.0.0.0\", metrics_server_port: 9090, persist_usage_report_interval_in_seconds: 10 }"}
+{"msg":"Opening SQLite connection","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954098066Z","hostname":"c993b6b764f2","pid":1,"src":"ConnectionBuilder","path":"/data/mithril/aggregator/stores/aggregator.sqlite3"}
+{"msg":"Enabling SQLite Write Ahead Log journal mode","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954185725Z","hostname":"c993b6b764f2","pid":1,"src":"ConnectionBuilder"}
+{"msg":"Enabling SQLite foreign key support","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954483371Z","hostname":"c993b6b764f2","pid":1,"src":"ConnectionBuilder"}
+{"msg":"Applying database migrations","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954561009Z","hostname":"c993b6b764f2","pid":1,"src":"ConnectionBuilder"}
+{"msg":"Check database version","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954635652Z","hostname":"c993b6b764f2","pid":1,"src":"DatabaseVersionChecker"}
+{"msg":"database up to date","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954704978Z","hostname":"c993b6b764f2","pid":1,"src":"DatabaseVersionChecker"}
+{"msg":"New MithrilCertificateVerifier created","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.954756269Z","hostname":"c993b6b764f2","pid":1}
+{"msg":"Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch 3","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:29:07.956326275Z","hostname":"c993b6b764f2","pid":1,"epoch_settings_configuration":"AggregatorEpochSettings { protocol_parameters: ProtocolParameters { k: 5, m: 100, phi_f: 0.65 }, cardano_transactions_signing_config: CardanoTransactionsSigningConfig { security_parameter: BlockNumber(3000), step: BlockNumber(120) } }"}
 
 =====================================================================
- Start Mithril nodes
+ Schedule Cardano Stake Delegation
 =====================================================================
 
->> Start the Mithril network
->> Build Mithril node Docker images
->>>> Building Mithril aggregator node Docker image
->>>> Building Mithril client node Docker image
->>>> Building Mithril signer node Docker image
-No stopped containers
-Creating network "artifacts_cardano_network" with driver "bridge"
-Creating network "artifacts_mithril_network" with driver "bridge"
-Creating artifacts_mithril-aggregator_1        ... done
-Creating artifacts_mithril-signer-node-pool1_1 ... done
-Creating artifacts_mithril-signer-node-pool2_1 ... done
-Creating artifacts_mithril-aggregator-genesis_run ... done
-{"msg":"Started","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925641527Z","hostname":"e932dff845aa","pid":1,"config":"Configuration { cardano_cli_path: \"/app/bin/cardano-cli\", cardano_node_socket_path: \"/data/ipc/node.sock\", network_magic: Some(42), network: \"devnet\", protocol_parameters: ProtocolParameters { k: 5, m: 100, phi_f: 0.65 }, snapshot_store_type: Local, snapshot_uploader_type: Local, server_url: \"http://0.0.0.0:8080/\", run_interval: 1000, db_directory: \"/data/db\", snapshot_directory: \"/data/mithril/aggregator\", data_stores_directory: \"/data/mithril/aggregator/stores\", genesis_verification_key: \"5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d\" }","run_mode":"dev"}
-{"msg":"New LocalSnapshotUploader created","v":0,"name":"slog-rs","level":20Genesis bootstrap for test only
-,"time":"2022-09-06T09:24:31.925683285Z","hostname":"e932dff845aa","pid":1,"snapshot_server_url":"http://0.0.0.0:8080/"}
-{"msg":"New MultiSignerImpl created","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925711468Z","hostname":"e932dff845aa","pid":1}
-{"msg":"New MithrilCertificateVerifier created","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925736796Z","hostname":"e932dff845aa","pid":1}
-{"msg":"Update current_beacon to Beacon { network: \"devnet\", epoch: Epoch(10), immutable_file_number: 47 }","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938337155Z","hostname":"e932dff845aa","pid":1}
-{"msg":"Get next signers with stake","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938384324Z","hostname":"e932dff845aa","pid":1}
-{"msg":"Get next stake distribution","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938422585Z","hostname":"e932dff845aa","pid":1}
-{"msg":"Get stake distribution with epoch offset","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938459565Z","hostname":"e932dff845aa","pid":1,"epoch_offset":0}
-{"msg":"Get next protocol parameters","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938500461Z","hostname":"e932dff845aa","pid":1}
-{"msg":"Get protocol parameters with epoch offset","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938535367Z","hostname":"e932dff845aa","pid":1,"epoch_offset":0}
-{"msg":"Create clerk","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.93856896Z","hostname":"e932dff845aa","pid":1}
-Verify genesis certificate #86a4c56d957636740a75c250fdd9d3b9a9f1539dc93449b1f80fcab49e279d6d @ epoch #10
-
-=====================================================================
- Schedule Cardano stake delegation
-=====================================================================
-
->> Begin scheduled delegation
->> 11:24:32: Wait 180s until next delegation round...
->> Run delegation round #1!
->>>> Current Epoch: 12
-Estimated transaction fee: Lovelace 436
-Transaction successfully submitted.
-Estimated transaction fee: Lovelace 436
-Transaction successfully submitted.
->> 11:27:32: Wait 180s until next delegation round...
->> Run delegation round #2!
->>>> Current Epoch: 14
-Estimated transaction fee: Lovelace 436
-Transaction successfully submitted.
-Estimated transaction fee: Lovelace 436
-Transaction successfully submitted.
->> 11:30:32: Wait 180s until next delegation round...
+>> Begin scheduled stakes delegation
+>> 11:29:08: Wait 180s until next stakes delegation round...
 ```
 
 ### Step 2: Query the devnet
@@ -222,87 +228,194 @@ The networks will be queried every second and will display:
 =====================================================================
 
 =====================================================================
-=== Mithril network
+=== Mithril Network
 =====================================================================
 
 >> Query pending certificate
-{
-  "beacon": {
-    "network": "devnet",
-    "epoch": 2,
-    "immutable_file_number": 6
-  },
-  "protocol": {
-    "k": 5,
-    "m": 100,
-    "phi_f": 0.65
-  },
-  "signers": []
-}
 
->> Query snapshots
+>> Query latest certificates
 [
   {
-    "digest": "224b77ad9cbe7fc81e6808940d391b299c27e77d9978641025f382e2e5ddd2ac",
-    "certificate_hash": "5b29543c4af0f369d40e1da53451ebd8a39c4263df1585eb072f54511c1e3333",
-    "size": 7986,
-    "created_at": "2022-07-05T11:26:55.855498395Z",
-    "locations": [
-      "http://0.0.0.0:8080/aggregator/snapshot/224b77ad9cbe7fc81e6808940d391b299c27e77d9978641025f382e2e5ddd2ac/download"
-    ]
+    "hash": "cbbf3fc1165ff41f2f0691643febe7f8c2d4f99b5c551d01d5f6cca538db0cd4",
+    "previous_hash": "3d1ceee23e79b1f510c7a6ce4503552495c6f7134afd04a88042d99264da8515",
+    "epoch": 15,
+    "signed_entity_type": {
+      "CardanoTransactions": [
+        15,
+        1589
+      ]
+    },
+    "metadata": {
+      "network": "devnet",
+      "version": "0.1.0",
+      "parameters": {
+        "k": 5,
+        "m": 100,
+        "phi_f": 0.65
+      },
+      "initiated_at": "2024-11-14T10:45:15.434075727Z",
+      "sealed_at": "2024-11-14T10:45:16.441653366Z",
+      "total_signers": 2
+    },
+    "protocol_message": {
+      "message_parts": {
+        "cardano_transactions_merkle_root": "ecfeb3584f505906de1fadcc6f4acaa9fda55da82c771073a83bbb288bb62b6e",
+        "next_aggregate_verification_key": "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3137382c39342c33322c3132392c3132302c3132382c31372c3232352c37332c3135372c3136362c3132342c3234362c3130362c35352c33362c3135372c332c3137372c3231392c35332c3139342c3139322c39342c3133382c36332c3134332c3233312c3230332c3138362c36342c3134335d2c226e725f6c6561766573223a322c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a3230323830313337303631347d",
+        "latest_block_number": "1589"
+      }
+    },
+    "signed_message": "3b2242e276f1d1e8f28e5ffeb0f0c666ef3d5a5b2c8bf827576d4a513ab2de29",
+    "aggregate_verification_key": "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3233322c33332c3132362c38392c3134332c3138312c32362c3130362c3131362c37392c3230392c34382c3232302c3136332c3133322c3232302c33312c3136392c3131312c3133382c3130332c39382c37332c37312c3135322c3235352c34352c3138322c39362c32382c3137362c3136355d2c226e725f6c6561766573223a322c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a3139303036353437303735387d"
   },
   {
-    "digest": "1a39f57c906133421ab7b5c782762b6abff4771b5e9158a977e58db1edc26bd0",
-    "certificate_hash": "be758b84a4b495e82af48747356946efb509ccbc4b44a9c985e3cb3099e35c94",
-    "size": 6743,
-    "created_at": "2022-07-05T11:26:35.658661878Z",
-    "locations": [
-      "http://0.0.0.0:8080/aggregator/snapshot/1a39f57c906133421ab7b5c782762b6abff4771b5e9158a977e58db1edc26bd0/download"
-    ]
-  },
-  {
-    "digest": "fd1a39d28998ba18c96547f62d308c57612ed348be058f615c14db5228a947c1",
-    "certificate_hash": "4254a6176afbe17967ad1671e4619e9a3f3412115a63dd0eb0f5e8b64094128a",
-    "size": 6199,
-    "created_at": "2022-07-05T11:26:20.470029035Z",
-    "locations": [
-      "http://0.0.0.0:8080/aggregator/snapshot/fd1a39d28998ba18c96547f62d308c57612ed348be058f615c14db5228a947c1/download"
-    ]
+    "hash": "47068954d8600c214a194be00790a6108c7b397fc91f950f063c7877d8121b92",
+    "previous_hash": "3d1ceee23e79b1f510c7a6ce4503552495c6f7134afd04a88042d99264da8515",
+    "epoch": 15,
+    "signed_entity_type": {
+      "CardanoTransactions": [
+        15,
+        1574
+      ]
+    },
+    "metadata": {
+      "network": "devnet",
+      "version": "0.1.0",
+      "parameters": {
+        "k": 5,
+        "m": 100,
+        "phi_f": 0.65
+      },
+      "initiated_at": "2024-11-14T10:45:04.382631109Z",
+      "sealed_at": "2024-11-14T10:45:05.394615861Z",
+      "total_signers": 2
+    },
+    "protocol_message": {
+      "message_parts": {
+        "cardano_transactions_merkle_root": "ecfeb3584f505906de1fadcc6f4acaa9fda55da82c771073a83bbb288bb62b6e",
+        "next_aggregate_verification_key": "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3137382c39342c33322c3132392c3132302c3132382c31372c3232352c37332c3135372c3136362c3132342c3234362c3130362c35352c33362c3135372c332c3137372c3231392c35332c3139342c3139322c39342c3133382c36332c3134332c3233312c3230332c3138362c36342c3134335d2c226e725f6c6561766573223a322c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a3230323830313337303631347d",
+        "latest_block_number": "1574"
+      }
+    },
+    "signed_message": "ed76b5a8b41e4800fd4babc5bcffe483fe9daf43342aaddefe1f197907f0af06",
+    "aggregate_verification_key": "7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3233322c33332c3132362c38392c3134332c3138312c32362c3130362c3131362c37392c3230392c34382c3232302c3136332c3133322c3232302c33312c3136392c3131312c3133382c3130332c39382c37332c37312c3135322c3235352c34352c3138322c39362c32382c3137362c3136355d2c226e725f6c6561766573223a322c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a3139303036353437303735387d"
   }
 ]
 
+>> Query latest mithril stake distributions
+[
+  {
+    "epoch": 15,
+    "hash": "61239e7ea3388238aae9336ccbce50c477ad42478f6fc1642210708118c7ca00",
+    "certificate_hash": "3d1ceee23e79b1f510c7a6ce4503552495c6f7134afd04a88042d99264da8515",
+    "created_at": "2024-11-14T10:44:11.099191475Z"
+  },
+  {
+    "epoch": 14,
+    "hash": "0c1962696593e52c21683287df30f47027ae5d5f669384f5534784e6f51cdd33",
+    "certificate_hash": "fa6fc82a1a2bf93a81f5920f1d0ac143aa73183b4b8226a54f3e16741f3705a1",
+    "created_at": "2024-11-14T10:42:55.567493973Z"
+  }
+]
+
+>> Query latest snapshots
+[
+  {
+    "digest": "4c7b06dd2bef1416391b92a46dae7d2f606ced2954b628f844b021ba5b52b15f",
+    "network": "devnet",
+    "beacon": {
+      "network": "devnet",
+      "epoch": 15,
+      "immutable_file_number": 14
+    },
+    "certificate_hash": "f601ab107b546d8791075916b9fd6ba374b30a7ce6030549e140bac04078b3b6",
+    "size": 519351,
+    "created_at": "2024-11-14T10:44:17.153390171Z",
+    "locations": [
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/4c7b06dd2bef1416391b92a46dae7d2f606ced2954b628f844b021ba5b52b15f/download"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.1.2"
+  },
+  {
+    "digest": "b98b25f505401e967df1012a4c13385290db15d157d0292e9f8290bd9933a66e",
+    "network": "devnet",
+    "beacon": {
+      "network": "devnet",
+      "epoch": 14,
+      "immutable_file_number": 13
+    },
+    "certificate_hash": "1ec38ed6f158664bf792fb2fddd08e49b52232023b4130b3ebd92e90d659f200",
+    "size": 469807,
+    "created_at": "2024-11-14T10:43:01.620428990Z",
+    "locations": [
+      "http://0.0.0.0:8080/aggregator/artifact/snapshot/b98b25f505401e967df1012a4c13385290db15d157d0292e9f8290bd9933a66e/download"
+    ],
+    "compression_algorithm": "zstandard",
+    "cardano_node_version": "10.1.2"
+  }
+]
+
+
 =====================================================================
-=== Cardano network
+=== Cardano Network
 =====================================================================
 
 >> Query chain tip
 {
-    "era": "Alonzo",
-    "syncProgress": "100.00",
-    "hash": "075fc8366d353b45debedfc6faa92148c8fad584d81dbb4ea7b8b4d121489452",
-    "epoch": 2,
-    "slot": 219,
-    "block": 9
+  "block": 1599,
+  "epoch": 15,
+  "era": "Conway",
+  "hash": "1d46bbd5179968366568822961f8df9d0e0ea0d74bcf1b371402ddeee315ea41",
+  "slot": 1599,
+  "slotInEpoch": 99,
+  "slotsToEpochEnd": 1,
+  "syncProgress": "100.00"
 }
 
->> Query the whole UTXO
+>> Query whole utxo
                            TxHash                                 TxIx        Amount
 --------------------------------------------------------------------------------------
-4980fb7c90bc003f6af65778008732cd1b1a8c0873b7d622bfb7442f1312c9b5     0        447999157 lovelace + TxOutDatumNone
-4980fb7c90bc003f6af65778008732cd1b1a8c0873b7d622bfb7442f1312c9b5     1        2000000 lovelace + TxOutDatumNone
-c31e535531c9eb32bdd8f05e25204186333262674d24c6a770b6b120f020d9a9     0        448999157 lovelace + TxOutDatumNone
-c31e535531c9eb32bdd8f05e25204186333262674d24c6a770b6b120f020d9a9     1        1000000 lovelace + TxOutDatumNone
-ed265b672873192ea1e9c19092e8f41947c28977438bcff580312de37cfbd46c     0        1002000000 lovelace + TxOutDatumNone
+0227b08e4971e69af83e4f7f37f9b6db11a4e5b0293259bcbc18b960cca2aa34     0        2000003 lovelace + TxOutDatumNone
+07ccbb09c88f1789512879adc5c46b70f746d27fc77a938d879b0235ffd06e10     0        20000000001 lovelace + TxOutDatumNone
+08823e13632b63dcd2eaf6f064c960b94f1d51652dc218e306305ee13fec5d9f     0        2000002 lovelace + TxOutDatumNone
+099b200f28beedd811298150f55f96e3f9c100975dd1b978040e8cc667d44093     0        1000001 lovelace + TxOutDatumNone
+13c36c25cbd8afb893813f996907ab13f9f89fd46b5c9a79710996869311ae83     0        6000000 lovelace + TxOutDatumNone
+22d4daa27b05d1045f788ae981297ec6038c0856c974f8042be7209b8e6d94db     0        1000002 lovelace + TxOutDatumNone
+46e00ecedaa75c64bf23b9c4d95b74e1432570feb800ecb0ab5eb1de05a6e4f1     0        2000004 lovelace + TxOutDatumNone
+4a1c33bb474d27398bcd2d79ffca99e675850cba01655a7a7fc1110b3a0b85e3     0        1000003 lovelace + TxOutDatumNone
+993b375acdd9f28ce1e7eab5a870d382d090b6ec1ce3372581c7c8b03e356d3b     0        2000001 lovelace + TxOutDatumNone
+b9b28ace208bd3fb5feda08e6978ea274be8c2f8d8852ac8ea08dd27cd99133e     0        6000000 lovelace + TxOutDatumNone
+bf208279833e96f02cf5d91805898b40784a9516f7f122edcf1fb2c773019861     0        1000005 lovelace + TxOutDatumNone
+bf208279833e96f02cf5d91805898b40784a9516f7f122edcf1fb2c773019861     1        899993679904 lovelace + TxOutDatumNone
+e0e68233e335f20b319d220a4e3e0fbca8f4b0c493a2ba216fa81a17520de4a4     0        20000000001 lovelace + TxOutDatumNone
+e9ca751d4fc6bd00203d36184de814f6687f017ec6a4c6e481e1e188208c8b1f     0        2000005 lovelace + TxOutDatumNone
+e9ca751d4fc6bd00203d36184de814f6687f017ec6a4c6e481e1e188208c8b1f     1        899988679904 lovelace + TxOutDatumNone
+f5f61cdd76949003172e85941f4aae85ce99764b4a66e378dfb1e1f7fd1abde7     0        1000004 lovelace + TxOutDatumNone
 
 >> Query stake pools
-pool1v55rfy864kslz86u45w4juahtuqr7cy282rffdnpc9exjlguvys
-pool1c56jqj5qsala8c24829sxqp0fcrtrrtcmezgrs6w60hl2nwsvav
+pool1y3pxhtqytcwy3mmnawqf2ej0x9sz5frkkwkz6scfqmzyyw8u38v
+pool1vtck0eeqq2x3d5avpxhd904y73syn4l00yurvl0teg7u6nh3afv
 
 >> Query stake distribution
-                           PoolId                                 Stake frac
-------------------------------------------------------------------------------
-pool1v55rfy864kslz86u45w4juahtuqr7cy282rffdnpc9exjlguvys   1.052e-3
-pool1c56jqj5qsala8c24829sxqp0fcrtrrtcmezgrs6w60hl2nwsvav   5.258e-4
+{
+  "pools": {
+    "24426bac045e1c48ef73eb8095664f31602a2476b3ac2d430906c442": {
+      "stakeGo": 96954320166,
+      "stakeMark": 110102978737,
+      "stakeSet": 103772355610
+    },
+    "62f167e720028d16d3ac09aed2bea4f46049d7ef7938367debca3dcd": {
+      "stakeGo": 93111150592,
+      "stakeMark": 105309514088,
+      "stakeSet": 99029015004
+    }
+  },
+  "total": {
+    "stakeGo": 190065470758,
+    "stakeMark": 215412492825,
+    "stakeSet": 202801370614
+  }
+}
 ```
 
 ### Step 3: Observe the devnet
@@ -310,7 +423,7 @@ pool1c56jqj5qsala8c24829sxqp0fcrtrrtcmezgrs6w60hl2nwsvav   5.258e-4
 Open a third terminal window. Watch the logs of each devnet node:
 
 ```bash
-watch -n 1 LINES=5 ./devnet-log.sh
+watch -n 1 `LINES=5 ./devnet-log.sh`
 ```
 
 The nodes will be queried every second and will display thus:
@@ -321,106 +434,73 @@ The nodes will be queried every second and will display thus:
 =====================================================================
 
 =====================================================================
---  docker compose logs --tail=5
-=====================================================================
-Attaching to artifacts_mithril-signer-node-pool1_1, artifacts_mithril-signer-node-pool2_1, artifacts_mithril-aggregator_1
-mithril-aggregator_1         | {"msg":"Epoch computation is not final and needs to be fixed: 4","v":0,"name":"slog-rs","level":40,"time":"2022-07-05T11:29:32.726760492Z","hostname":"ba17593540ac","pid":1}
-mithril-aggregator_1         | {"msg":"Get signer pool1c56jqj5qsala8c24829sxqp0fcrtrrtcmezgrs6w60hl2nwsvav","v":0,"name":"slog-rs","level":20,"time":"2022-07-05T11:29:32.72678048Z","hostname":"ba17593540ac","pid":1}
-mithril-aggregator_1         | {"msg":"Epoch computation is not final and needs to be fixed: 4","v":0,"name":"slog-rs","level":40,"time":"2022-07-05T11:29:32.72679661Z","hostname":"ba17593540ac","pid":1}
-mithril-aggregator_1         | {"msg":"Get signer pool1v55rfy864kslz86u45w4juahtuqr7cy282rffdnpc9exjlguvys","v":0,"name":"slog-rs","level":20,"time":"2022-07-05T11:29:32.734529107Z","hostname":"ba17593540ac","pid":1}
-mithril-aggregator_1         | {"msg":"Epoch computation is not final and needs to be fixed: 4","v":0,"name":"slog-rs","level":40,"time":"2022-07-05T11:29:32.734553714Z","hostname":"ba17593540ac","pid":1}
-mithril-signer-node-pool1_1  | {"msg":"Signing digest","v":0,"name":"slog-rs","level":30,"time":"2022-07-05T11:29:32.744124074Z","hostname":"4fc53f5ce413","pid":1,"digester_result":"DigesterResult {\n    digest: \"e5ac1579a3fff12bf19ef88b0d9ec9d8a1c53e4d74c38c023b2e33638f454d67\",\n    last_immutable_file_number: 17,\n}"}
-mithril-signer-node-pool1_1  | {"msg":"Register signatures","v":0,"name":"slog-rs","level":30,"time":"2022-07-05T11:29:32.744140625Z","hostname":"4fc53f5ce413","pid":1}
-mithril-signer-node-pool1_1  | {"msg":"Epoch computation is not final and needs to be fixed: 4","v":0,"name":"slog-rs","level":40,"time":"2022-07-05T11:29:32.744155293Z","hostname":"4fc53f5ce413","pid":1}
-mithril-signer-node-pool1_1  | {"msg":"SingleSignaturesComputeFailed(UnregisteredVerificationKey)","v":0,"name":"slog-rs","level":50,"time":"2022-07-05T11:29:32.744336041Z","hostname":"4fc53f5ce413","pid":1}
-mithril-signer-node-pool1_1  | {"msg":"Sleeping for 1000","v":0,"name":"slog-rs","level":30,"time":"2022-07-05T11:29:32.744352051Z","hostname":"4fc53f5ce413","pid":1}
-mithril-signer-node-pool2_1  | {"msg":"Signing digest","v":0,"name":"slog-rs","level":30,"time":"2022-07-05T11:29:32.73359119Z","hostname":"1c671096ee3f","pid":1,"digester_result":"DigesterResult {\n    digest: \"e5ac1579a3fff12bf19ef88b0d9ec9d8a1c53e4d74c38c023b2e33638f454d67\",\n    last_immutable_file_number: 17,\n}"}
-mithril-signer-node-pool2_1  | {"msg":"Register signatures","v":0,"name":"slog-rs","level":30,"time":"2022-07-05T11:29:32.733607821Z","hostname":"1c671096ee3f","pid":1}
-mithril-signer-node-pool2_1  | {"msg":"Epoch computation is not final and needs to be fixed: 4","v":0,"name":"slog-rs","level":40,"time":"2022-07-05T11:29:32.733623511Z","hostname":"1c671096ee3f","pid":1}
-mithril-signer-node-pool2_1  | {"msg":"SingleSignaturesComputeFailed(UnregisteredVerificationKey)","v":0,"name":"slog-rs","level":50,"time":"2022-07-05T11:29:32.733786246Z","hostname":"1c671096ee3f","pid":1}
-mithril-signer-node-pool2_1  | {"msg":"Sleeping for 1000","v":0,"name":"slog-rs","level":30,"time":"2022-07-05T11:29:32.733802416Z","hostname":"1c671096ee3f","pid":1}
-
-=====================================================================
-=====================================================================
-tail -n 22 ./node-full1/node.log
-=====================================================================
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:28.01 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 219, dsSuffix = Nothing} at 075fc8366d353b45debedfc6faa92148c8fad584d81dbb4ea7b8b4d121489452 at slot 219
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:40.76 UTC] Chain extended, new tip: af93c6964de49d0696bf194c222f6e5a40e5123ef688a20613a33a705b6b736a at slot 253
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:40.76 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 228, dsSuffix = Nothing} at 720c625a259a23f21926fe7a30dad9b7a4b50958a508c8cfdc96a94625fbf00d at slot 228
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:43.75 UTC] Chain extended, new tip: 9f141fe78c0baa433c2554d3a09a9b43c47faa7b740be254893000310e5bad3b at slot 257
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:52.76 UTC] Chain extended, new tip: bfc0b2c1c4d06699efcdf6ad7b33c48cea722fb4bb5c5d6761a3768609cf77a4 at slot 269
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:52.76 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 253, dsSuffix = Nothing} at af93c6964de49d0696bf194c222f6e5a40e5123ef688a20613a33a705b6b736a at slot 253
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:03.26 UTC] Chain extended, new tip: c6238e98f186278eeef86d13f3482ebfb9b1d01d2a28da78282bfd241524eccd at slot 283
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:03.26 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 257, dsSuffix = Nothing} at 9f141fe78c0baa433c2554d3a09a9b43c47faa7b740be254893000310e5bad3b at slot 257
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:04.75 UTC] Chain extended, new tip: ac332aea5f043b3fd5ac68a04225932a21935ad7e5c5cfbb7e5b0b00df713bff at slot 285
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:16.00 UTC] Chain extended, new tip: e68d08e0c127a5346a74dd06713d8de0b4e37e338a0e03987da356bb70892b99 at slot 300
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:16.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 283, dsSuffix = Nothing} at c6238e98f186278eeef86d13f3482ebfb9b1d01d2a28da78282bfd241524eccd at slot 283
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:18.25 UTC] Chain extended, new tip: bc07b985d7f76bacc0a726b2dc5aa76a7254f1e4548a633cdfd62c31e022b3a5 at slot 303
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:37.00 UTC] Chain extended, new tip: 7d53c5eba9679c96ba32d79a02cfd953280b3477f1dd8eeb18447638c8a30e20 at slot 328
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:37.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 300, dsSuffix = Nothing} at e68d08e0c127a5346a74dd06713d8de0b4e37e338a0e03987da356bb70892b99 at slot 300
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:58.75 UTC] Chain extended, new tip: 3e9734018c585eea160a33accf82f758713f0e7aae1fab4dc40bccd859b8066f at slot 357
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:58.75 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 303, dsSuffix = Nothing} at bc07b985d7f76bacc0a726b2dc5aa76a7254f1e4548a633cdfd62c31e022b3a5 at slot 303
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:05.50 UTC] Chain extended, new tip: 8876850840ae52ca240d517def4b9c8a5db98e2e7db17f8abf87e4f12db13d15 at slot 366
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:05.50 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 328, dsSuffix = Nothing} at 7d53c5eba9679c96ba32d79a02cfd953280b3477f1dd8eeb18447638c8a30e20 at slot 328
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:19.75 UTC] Chain extended, new tip: 5733ec701db5c9dc253dd4b611421de0c2d223e6ee99c8d61010a9fea42d504b at slot 385
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:19.75 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 357, dsSuffix = Nothing} at 3e9734018c585eea160a33accf82f758713f0e7aae1fab4dc40bccd859b8066f at slot 357
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:31.00 UTC] Chain extended, new tip: 331c824ebee92dee7717f7bcc1457ac89b0de33d76073e6edd97a28770fa364b at slot 400
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:31.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 366, dsSuffix = Nothing} at 8876850840ae52ca240d517def4b9c8a5db98e2e7db17f8abf87e4f12db13d15 at slot 366
+=== Mithril Network
 =====================================================================
 
-=====================================================================
-tail -n 22 ./node-pool1/node.log
-=====================================================================
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:28.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 219, dsSuffix = Nothing} at 075fc8366d353b45debedfc6faa92148c8fad584d81dbb4ea7b8b4d121489452 at slot 219
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:40.76 UTC] Chain extended, new tip: af93c6964de49d0696bf194c222f6e5a40e5123ef688a20613a33a705b6b736a at slot 253
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:40.76 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 228, dsSuffix = Nothing} at 720c625a259a23f21926fe7a30dad9b7a4b50958a508c8cfdc96a94625fbf00d at slot 228
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:43.76 UTC] Chain extended, new tip: 9f141fe78c0baa433c2554d3a09a9b43c47faa7b740be254893000310e5bad3b at slot 257
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:52.75 UTC] Chain extended, new tip: bfc0b2c1c4d06699efcdf6ad7b33c48cea722fb4bb5c5d6761a3768609cf77a4 at slot 269
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:52.75 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 253, dsSuffix = Nothing} at af93c6964de49d0696bf194c222f6e5a40e5123ef688a20613a33a705b6b736a at slot 253
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:03.26 UTC] Chain extended, new tip: c6238e98f186278eeef86d13f3482ebfb9b1d01d2a28da78282bfd241524eccd at slot 283
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:03.26 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 257, dsSuffix = Nothing} at 9f141fe78c0baa433c2554d3a09a9b43c47faa7b740be254893000310e5bad3b at slot 257
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:04.75 UTC] Chain extended, new tip: ac332aea5f043b3fd5ac68a04225932a21935ad7e5c5cfbb7e5b0b00df713bff at slot 285
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:16.00 UTC] Chain extended, new tip: e68d08e0c127a5346a74dd06713d8de0b4e37e338a0e03987da356bb70892b99 at slot 300
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:16.01 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 283, dsSuffix = Nothing} at c6238e98f186278eeef86d13f3482ebfb9b1d01d2a28da78282bfd241524eccd at slot 283
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:18.25 UTC] Chain extended, new tip: bc07b985d7f76bacc0a726b2dc5aa76a7254f1e4548a633cdfd62c31e022b3a5 at slot 303
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:37.00 UTC] Chain extended, new tip: 7d53c5eba9679c96ba32d79a02cfd953280b3477f1dd8eeb18447638c8a30e20 at slot 328
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:37.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 300, dsSuffix = Nothing} at e68d08e0c127a5346a74dd06713d8de0b4e37e338a0e03987da356bb70892b99 at slot 300
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:58.76 UTC] Chain extended, new tip: 3e9734018c585eea160a33accf82f758713f0e7aae1fab4dc40bccd859b8066f at slot 357
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:58.76 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 303, dsSuffix = Nothing} at bc07b985d7f76bacc0a726b2dc5aa76a7254f1e4548a633cdfd62c31e022b3a5 at slot 303
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:05.50 UTC] Chain extended, new tip: 8876850840ae52ca240d517def4b9c8a5db98e2e7db17f8abf87e4f12db13d15 at slot 366
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:05.51 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 328, dsSuffix = Nothing} at 7d53c5eba9679c96ba32d79a02cfd953280b3477f1dd8eeb18447638c8a30e20 at slot 328
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:19.75 UTC] Chain extended, new tip: 5733ec701db5c9dc253dd4b611421de0c2d223e6ee99c8d61010a9fea42d504b at slot 385
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:19.76 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 357, dsSuffix = Nothing} at 3e9734018c585eea160a33accf82f758713f0e7aae1fab4dc40bccd859b8066f at slot 357
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:31.00 UTC] Chain extended, new tip: 331c824ebee92dee7717f7bcc1457ac89b0de33d76073e6edd97a28770fa364b at slot 400
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:31.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 366, dsSuffix = Nothing} at 8876850840ae52ca240d517def4b9c8a5db98e2e7db17f8abf87e4f12db13d15 at slot 366
-=====================================================================
+---------------------------------------------------------------------
+docker logs -n 5 artifacts-mithril-aggregator-1
+---------------------------------------------------------------------
+{"msg":"Marked expired open messages","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:45:00.368456608Z","hostname":"bd8372c8c9d5","pid":1,"src":"AggregatorRunner","expired_open_message":"None"}
+{"msg":">> get_open_message(signed_entity_type: CardanoTransactions(Epoch(15), BlockNumber(1559)))","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:45:00.368471645Z","hostname":"bd8372c8c9d5","pid":1,"src":"MithrilCertifierService"}
+{"msg":" ⋅ No open message to certify, waiting…","v":0,"name":"mithril-aggregator","level":30,"time":"2024-11-14T10:45:00.36863267Z","hostname":"bd8372c8c9d5","pid":1,"src":"AggregatorRuntime","time_point":"TimePoint { epoch: Epoch(15), immutable_file_number: 14, chain_point: ChainPoint { slot_number: SlotNumber(1569), block_number: BlockNumber(1569), block_hash: \"6aadd9a1c21c53f79b703cabfc2a49032dcde2464b94ab578719b6aadb222f23\" } }"}
+{"msg":"Incrementing 'mithril_aggregator_runtime_cycle_success_since_startup' counter","v":0,"name":"mithril-aggregator","level":20,"time":"2024-11-14T10:45:00.368647673Z","hostname":"bd8372c8c9d5","pid":1,"src":"MetricsService"}
+{"msg":"… Cycle finished, Sleeping for 1000 ms","v":0,"name":"mithril-aggregator","level":30,"time":"2024-11-14T10:45:00.368664195Z","hostname":"bd8372c8c9d5","pid":1,"src":"AggregatorRuntime"}
+---------------------------------------------------------------------
+
+---------------------------------------------------------------------
+docker logs -n 5 artifacts-mithril-signer-node-pool1-1
+---------------------------------------------------------------------
+{"msg":">> get_current_time_point","v":0,"name":"mithril-signer","level":20,"time":"2024-11-14T10:45:00.5408476Z","hostname":"143e20c318ed","pid":1,"src":"SignerRunner"}
+{"msg":">> get_beacon_to_sign(time_point: TimePoint (epoch: 15, immutable_file_number: 14, chain_point: ChainPoint (slot_number: 1571, block_number: 1571, block_hash: 50640d2cbcc7a36cda9bb42b127769448b3799b95613ebcc021b0b416b793942)))","v":0,"name":"mithril-signer","level":20,"time":"2024-11-14T10:45:00.541841221Z","hostname":"143e20c318ed","pid":1,"src":"SignerRunner"}
+{"msg":" ⋅ No beacon to sign, waiting…","v":0,"name":"mithril-signer","level":30,"time":"2024-11-14T10:45:00.541994982Z","hostname":"143e20c318ed","pid":1,"src":"StateMachine"}
+{"msg":"Incrementing 'mithril_signer_runtime_cycle_success_since_startup' counter","v":0,"name":"mithril-signer","level":20,"time":"2024-11-14T10:45:00.542006483Z","hostname":"143e20c318ed","pid":1,"src":"MetricsService"}
+{"msg":"… Cycle finished, Sleeping for 700 ms","v":0,"name":"mithril-signer","level":30,"time":"2024-11-14T10:45:00.542022062Z","hostname":"143e20c318ed","pid":1,"src":"StateMachine"}
+---------------------------------------------------------------------
+
+---------------------------------------------------------------------
+docker logs -n 5 artifacts-mithril-signer-node-pool2-1
+---------------------------------------------------------------------
+{"msg":">> get_current_time_point","v":0,"name":"mithril-signer","level":20,"time":"2024-11-14T10:45:00.526442506Z","hostname":"b675f9c9de52","pid":1,"src":"SignerRunner"}
+{"msg":">> get_beacon_to_sign(time_point: TimePoint (epoch: 15, immutable_file_number: 14, chain_point: ChainPoint (slot_number: 1571, block_number: 1571, block_hash: 50640d2cbcc7a36cda9bb42b127769448b3799b95613ebcc021b0b416b793942)))","v":0,"name":"mithril-signer","level":20,"time":"2024-11-14T10:45:00.527386742Z","hostname":"b675f9c9de52","pid":1,"src":"SignerRunner"}
+{"msg":" ⋅ No beacon to sign, waiting…","v":0,"name":"mithril-signer","level":30,"time":"2024-11-14T10:45:00.527529799Z","hostname":"b675f9c9de52","pid":1,"src":"StateMachine"}
+{"msg":"Incrementing 'mithril_signer_runtime_cycle_success_since_startup' counter","v":0,"name":"mithril-signer","level":20,"time":"2024-11-14T10:45:00.527539103Z","hostname":"b675f9c9de52","pid":1,"src":"MetricsService"}
+{"msg":"… Cycle finished, Sleeping for 700 ms","v":0,"name":"mithril-signer","level":30,"time":"2024-11-14T10:45:00.527547906Z","hostname":"b675f9c9de52","pid":1,"src":"StateMachine"}
+---------------------------------------------------------------------
+
 
 =====================================================================
-tail -n 22 ./node-pool2/node.log
+=== Cardano Network
 =====================================================================
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:28.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 219, dsSuffix = Nothing} at 075fc8366d353b45debedfc6faa92148c8fad584d81dbb4ea7b8b4d121489452 at slot 219
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:40.75 UTC] Chain extended, new tip: af93c6964de49d0696bf194c222f6e5a40e5123ef688a20613a33a705b6b736a at slot 253
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:40.75 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 228, dsSuffix = Nothing} at 720c625a259a23f21926fe7a30dad9b7a4b50958a508c8cfdc96a94625fbf00d at slot 228
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:43.76 UTC] Chain extended, new tip: 9f141fe78c0baa433c2554d3a09a9b43c47faa7b740be254893000310e5bad3b at slot 257
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:27:52.75 UTC] Chain extended, new tip: bfc0b2c1c4d06699efcdf6ad7b33c48cea722fb4bb5c5d6761a3768609cf77a4 at slot 269
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:27:52.76 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 253, dsSuffix = Nothing} at af93c6964de49d0696bf194c222f6e5a40e5123ef688a20613a33a705b6b736a at slot 253
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:03.25 UTC] Chain extended, new tip: c6238e98f186278eeef86d13f3482ebfb9b1d01d2a28da78282bfd241524eccd at slot 283
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:03.25 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 257, dsSuffix = Nothing} at 9f141fe78c0baa433c2554d3a09a9b43c47faa7b740be254893000310e5bad3b at slot 257
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:04.75 UTC] Chain extended, new tip: ac332aea5f043b3fd5ac68a04225932a21935ad7e5c5cfbb7e5b0b00df713bff at slot 285
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:16.00 UTC] Chain extended, new tip: e68d08e0c127a5346a74dd06713d8de0b4e37e338a0e03987da356bb70892b99 at slot 300
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:16.01 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 283, dsSuffix = Nothing} at c6238e98f186278eeef86d13f3482ebfb9b1d01d2a28da78282bfd241524eccd at slot 283
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:18.25 UTC] Chain extended, new tip: bc07b985d7f76bacc0a726b2dc5aa76a7254f1e4548a633cdfd62c31e022b3a5 at slot 303
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:37.00 UTC] Chain extended, new tip: 7d53c5eba9679c96ba32d79a02cfd953280b3477f1dd8eeb18447638c8a30e20 at slot 328
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:37.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 300, dsSuffix = Nothing} at e68d08e0c127a5346a74dd06713d8de0b4e37e338a0e03987da356bb70892b99 at slot 300
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:28:58.76 UTC] Chain extended, new tip: 3e9734018c585eea160a33accf82f758713f0e7aae1fab4dc40bccd859b8066f at slot 357
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:28:58.76 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 303, dsSuffix = Nothing} at bc07b985d7f76bacc0a726b2dc5aa76a7254f1e4548a633cdfd62c31e022b3a5 at slot 303
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:05.50 UTC] Chain extended, new tip: 8876850840ae52ca240d517def4b9c8a5db98e2e7db17f8abf87e4f12db13d15 at slot 366
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:05.50 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 328, dsSuffix = Nothing} at 7d53c5eba9679c96ba32d79a02cfd953280b3477f1dd8eeb18447638c8a30e20 at slot 328
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:19.75 UTC] Chain extended, new tip: 5733ec701db5c9dc253dd4b611421de0c2d223e6ee99c8d61010a9fea42d504b at slot 385
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:19.76 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 357, dsSuffix = Nothing} at 3e9734018c585eea160a33accf82f758713f0e7aae1fab4dc40bccd859b8066f at slot 357
-[jp:cardano.node.ChainDB:Notice:21] [2022-07-05 11:29:31.00 UTC] Chain extended, new tip: 331c824ebee92dee7717f7bcc1457ac89b0de33d76073e6edd97a28770fa364b at slot 400
-[jp:cardano.node.ChainDB:Info:25] [2022-07-05 11:29:31.00 UTC] Took ledger snapshot DiskSnapshot {dsNumber = 366, dsSuffix = Nothing} at 8876850840ae52ca240d517def4b9c8a5db98e2e7db17f8abf87e4f12db13d15 at slot 366
-=====================================================================
+
+---------------------------------------------------------------------
+tail -n 5 ./node-full1/node.log
+---------------------------------------------------------------------
+[denis-XP:cardano.node.LocalErrorPolicy:Error:63] [2024-11-14 10:45:00.36 UTC] IP LocalAddress "node-full1/ipc/node.sock@2660" ErrorPolicyUnhandledApplicationException (MuxError MuxBearerClosed "<socket: 28> closed when reading data, waiting on next header True")
+[denis-XP:cardano.node.LocalErrorPolicy:Error:63] [2024-11-14 10:45:00.36 UTC] IP LocalAddress "node-full1/ipc/node.sock@2659" ErrorPolicyUnhandledApplicationException (MuxError MuxBearerClosed "<socket: 27> closed when reading data, waiting on next header True")
+[denis-XP:cardano.node.ChainDB:Notice:23] [2024-11-14 10:45:01.00 UTC] Chain extended, new tip: d710c33fa606ae604b9de61eb10e83cd937ef4ab33cfb5afdce42e782b752a0a at slot 1572
+[denis-XP:cardano.node.Mempool:Info:31] [2024-11-14 10:45:01.00 UTC] fromList [("enclosingTime",Object (fromList [("tag",String "RisingEdge")])),("kind",String "TraceMempoolSynced")]
+[denis-XP:cardano.node.Mempool:Info:31] [2024-11-14 10:45:01.00 UTC] fromList [("enclosingTime",Object (fromList [("contents",Number 6.8471e-5),("tag",String "FallingEdgeWith")])),("kind",String "TraceMempoolSynced")]
+---------------------------------------------------------------------
+
+---------------------------------------------------------------------
+tail -n 5 ./node-pool1/node.log
+---------------------------------------------------------------------
+[denis-XP:cardano.node.LocalErrorPolicy:Error:64] [2024-11-14 10:45:00.83 UTC] IP LocalAddress "node-pool1/ipc/node.sock@3353" ErrorPolicyUnhandledApplicationException (MuxError MuxBearerClosed "<socket: 31> closed when reading data, waiting on next header True")
+[denis-XP:cardano.node.LocalErrorPolicy:Error:64] [2024-11-14 10:45:00.83 UTC] IP LocalAddress "node-pool1/ipc/node.sock@3352" ErrorPolicyUnhandledApplicationException (MuxError MuxBearerClosed "<socket: 30> closed when reading data, waiting on next header True")
+[denis-XP:cardano.node.ChainDB:Notice:22] [2024-11-14 10:45:01.00 UTC] Chain extended, new tip: d710c33fa606ae604b9de61eb10e83cd937ef4ab33cfb5afdce42e782b752a0a at slot 1572
+[denis-XP:cardano.node.Mempool:Info:30] [2024-11-14 10:45:01.00 UTC] fromList [("enclosingTime",Object (fromList [("tag",String "RisingEdge")])),("kind",String "TraceMempoolSynced")]
+[denis-XP:cardano.node.Mempool:Info:30] [2024-11-14 10:45:01.00 UTC] fromList [("enclosingTime",Object (fromList [("contents",Number 6.2125e-5),("tag",String "FallingEdgeWith")])),("kind",String "TraceMempoolSynced")]
+---------------------------------------------------------------------
+
+---------------------------------------------------------------------
+tail -n 5 ./node-pool2/node.log
+---------------------------------------------------------------------
+[denis-XP:cardano.node.Mempool:Info:30] [2024-11-14 10:45:01.00 UTC] fromList [("enclosingTime",Object (fromList [("contents",Number 5.1172e-5),("tag",String "FallingEdgeWith")])),("kind",String "TraceMempoolSynced")]
+[denis-XP:cardano.node.ChainDB:Info:22] [2024-11-14 10:45:01.00 UTC] Block fits onto some fork: d710c33fa606ae604b9de61eb10e83cd937ef4ab33cfb5afdce42e782b752a0a at slot 1572
+[denis-XP:cardano.node.ChainDB:Notice:22] [2024-11-14 10:45:01.00 UTC] Switched to a fork, new tip: d710c33fa606ae604b9de61eb10e83cd937ef4ab33cfb5afdce42e782b752a0a at slot 1572
+[denis-XP:cardano.node.Mempool:Info:30] [2024-11-14 10:45:01.00 UTC] fromList [("enclosingTime",Object (fromList [("tag",String "RisingEdge")])),("kind",String "TraceMempoolSynced")]
+[denis-XP:cardano.node.Mempool:Info:30] [2024-11-14 10:45:01.00 UTC] fromList [("enclosingTime",Object (fromList [("contents",Number 4.089e-5),("tag",String "FallingEdgeWith")])),("kind",String "TraceMempoolSynced")]
+---------------------------------------------------------------------
 
 ```
 
