@@ -30,6 +30,10 @@ use crate::{
 
 use super::model::{try_inspect, Datum, Datums};
 
+// The era value returned from the queries_v16::get_current_era has an offset of -1 with the era value of the pallas_traverse::Era due to Cardano node implementation.
+// It needs to be compensated to get the correct era display name.
+const ERA_OFFSET: u16 = 1;
+
 /// A runner that uses Pallas library to interact with a Cardano node using N2C Ouroboros mini-protocols
 pub struct PallasChainObserver {
     socket: PathBuf,
@@ -426,7 +430,7 @@ impl ChainObserver for PallasChainObserver {
 
         let era = self.get_era(client.statequery()).await?;
 
-        let era = Era::try_from(era)
+        let era = Era::try_from(era + ERA_OFFSET)
             .with_context(|| "PallasChainObserver failed to convert: '{era}' to Era")?;
 
         self.post_process_statequery(&mut client).await?;
@@ -905,7 +909,8 @@ mod tests {
 
         let (_, client_res) = tokio::join!(server, client);
         let era = client_res.expect("Client failed");
-        let expected_era = Era::try_from(4).unwrap().to_string();
+
+        let expected_era = Era::try_from(4 + ERA_OFFSET).unwrap().to_string();
         assert_eq!(era, expected_era);
     }
 
