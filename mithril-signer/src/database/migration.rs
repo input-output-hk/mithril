@@ -95,5 +95,29 @@ insert into stake_pool (epoch, stake_pool_id, stake, created_at)
 drop table stake;
 "#,
         ),
+        // Migration 5
+        // Add the `protocol_initializer` table and migration data from the previous
+        // `protocol_initializer` JSON format.
+        SqlMigration::new(
+            5,
+            r#"
+create table new_protocol_initializer (
+    epoch         integer   not null,
+    protocol      json      not null,
+    created_at    text      not null,
+    primary key (epoch)
+);
+create table if not exists protocol_initializer (key_hash text primary key, key json not null, value json not null);
+insert into new_protocol_initializer (epoch, protocol, created_at) 
+    select 
+        protocol_initializer.key as epoch, 
+        protocol_initializer.value, 
+        strftime('%Y-%m-%dT%H:%M:%fZ', current_timestamp)
+    from protocol_initializer
+    order by epoch asc;
+drop table protocol_initializer;
+alter table new_protocol_initializer rename to protocol_initializer;
+"#,
+        ),
     ]
 }

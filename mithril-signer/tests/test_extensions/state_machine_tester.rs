@@ -448,7 +448,7 @@ impl StateMachineTester {
             .map_err(TestError::SubsystemError)?;
 
         self.assert(maybe_protocol_initializer.is_some(), format!(
-                "there should be a protocol intializer in store for Epoch {}, here is the last 3 in store: {:?}",
+                "there should be a protocol initializer in store for Epoch {}, here is the last 3 in store: {:?}",
                 epoch,
                 self.protocol_initializer_store
                     .get_last_protocol_initializer(2)
