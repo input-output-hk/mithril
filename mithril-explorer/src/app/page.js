@@ -16,7 +16,6 @@ import {
   Tooltip,
 } from "chart.js";
 import initMithrilClient from "@mithril-dev/mithril-client-wasm";
-import EpochSettings from "#/EpochSettings";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
 import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributionsList";
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
@@ -116,9 +115,6 @@ export default function Explorer() {
           <IntervalSetter />
         </Row>
       </Form>
-      {/* <Stack direction="horizontal">
-        <EpochSettings />
-      </Stack> */}
       <Stack direction="horizontal">
         <AggregatorStatus />
       </Stack>

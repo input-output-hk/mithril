@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, Row, Col, Container, OverlayTrigger, Stack, Tooltip } from "react-bootstrap";
 import { useSelector } from "react-redux";
+import EpochSettings from "#/EpochSettings";
 import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
@@ -54,15 +55,21 @@ export default function AggregatorStatus() {
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
+  const [fallbackToEpochSetting, setFallbackToEpochSetting] = useState(false);
 
   useEffect(() => {
     let fetchAggregatorStatus = () => {
       fetch(aggregatorStatusEndpoint)
         .then((response) => (response.status === 200 ? response.json() : {}))
-        .then((data) => setAggregatorStatus(data))
+        .then((data) => {
+          setAggregatorStatus(data);
+          setFallbackToEpochSetting(false);
+        })
         .catch((error) => {
           setAggregatorStatus({});
-          console.error("Fetch status error:", error);
+          setFallbackToEpochSetting(true);
+          // todo: uncomment when the fallback is removed
+          // console.error("Fetch status error:", error);
         });
     };
 
@@ -110,7 +117,9 @@ export default function AggregatorStatus() {
     return string.charAt(0).toUpperCase() + string.slice(1);
   }
 
-  return (
+  return fallbackToEpochSetting ? (
+    <EpochSettings />
+  ) : (
     <Container fluid>
       <Row className="d-flex flex-wrap justify-content-md-center">
         <InfoGroupCard title={`Epoch ${aggregatorStatus.epoch}`}>
