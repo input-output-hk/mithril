@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Card, Row, Col, Container, OverlayTrigger, Tooltip } from "react-bootstrap";
+import { Card, Row, Col, Container, OverlayTrigger, Stack, Tooltip } from "react-bootstrap";
 import { useSelector } from "react-redux";
+import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
 import Stake from "#/Stake";
@@ -49,6 +50,8 @@ export default function AggregatorStatus() {
   const [aggregatorVersion, setAggregatorVersion] = useState({});
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const aggregatorStatusEndpoint = useSelector((state) => `${selectedAggregator(state)}/status`);
+  const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
+  const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -84,6 +87,18 @@ export default function AggregatorStatus() {
       number: split_version[0] ?? "0.0.0",
       sha: split_version[1] ?? undefined,
     });
+
+    const params = new URLSearchParams();
+    params.set("aggregator", currentAggregator);
+    setInOutRegistrationsPageUrl(`/registrations-in-out?${params.toString()}`);
+
+    if (Number.isInteger(aggregatorStatus?.epoch)) {
+      const params = new URLSearchParams();
+      params.set("aggregator", currentAggregator);
+      params.set("epoch", aggregatorStatus.epoch);
+
+      setRegistrationPageUrl(`/registrations?${params.toString()}`);
+    }
   }, [currentAggregator, aggregatorStatus]);
 
   // Calculate percentage without decimal
@@ -97,78 +112,83 @@ export default function AggregatorStatus() {
 
   return (
     <Container fluid>
-      <div>
-        <h2>
-          Status
-          <RawJsonButton href={aggregatorStatusEndpoint} variant="outline-light" size="sm" />
-        </h2>
+      <Row className="d-flex flex-wrap justify-content-md-center">
+        <InfoGroupCard title={`Epoch ${aggregatorStatus.epoch}`}>
+          <InfoRow label="Cardano Era">{aggregatorStatus.cardano_era}</InfoRow>
+          <InfoRow label="Mithril Era">
+            {aggregatorStatus.mithril_era
+              ? capitalizeFirstLetter(aggregatorStatus.mithril_era)
+              : ""}
+          </InfoRow>
+        </InfoGroupCard>
 
-        <Container fluid>
-          <Row className="d-flex flex-wrap justify-content-md-center">
-            <InfoGroupCard title={`Epoch ${aggregatorStatus.epoch}`}>
-              <InfoRow label="Cardano Era">{aggregatorStatus.cardano_era}</InfoRow>
-              <InfoRow label="Mithril Era">
-                {aggregatorStatus.mithril_era
-                  ? capitalizeFirstLetter(aggregatorStatus.mithril_era)
-                  : ""}
-              </InfoRow>
-            </InfoGroupCard>
+        <InfoGroupCard title="SPOs">
+          <InfoRow label="Current Signers">{aggregatorStatus.total_signers ?? 0}</InfoRow>
+          <InfoRow label="Next Signers">{aggregatorStatus.total_next_signers ?? 0}</InfoRow>
+          <InfoRow label="Cardano Adoption">
+            {percent(aggregatorStatus.total_signers, aggregatorStatus.total_cardano_spo)}%{" "}
+            <PercentTooltip
+              value={aggregatorStatus.total_signers ?? 0}
+              total={aggregatorStatus.total_cardano_spo ?? 0}
+            />
+          </InfoRow>
+        </InfoGroupCard>
 
-            <InfoGroupCard title="SPOs">
-              <InfoRow label="Current Signers">{aggregatorStatus.total_signers ?? 0}</InfoRow>
-              <InfoRow label="Next Signers">{aggregatorStatus.total_next_signers ?? 0}</InfoRow>
-              <InfoRow label="Cardano Adoption">
-                {percent(aggregatorStatus.total_signers, aggregatorStatus.total_cardano_spo)}%{" "}
-                <PercentTooltip
-                  value={aggregatorStatus.total_signers ?? 0}
-                  total={aggregatorStatus.total_cardano_spo ?? 0}
-                />
-              </InfoRow>
-            </InfoGroupCard>
+        <InfoGroupCard title="Stakes">
+          <InfoRow label="Current Signers">
+            <Stake lovelace={aggregatorStatus.total_stakes_signers ?? 0} />
+          </InfoRow>
+          <InfoRow label="Next Signers">
+            <Stake lovelace={aggregatorStatus.total_next_stakes_signers ?? 0} />
+          </InfoRow>
+          <InfoRow label="Cardano Adoption">
+            {percent(aggregatorStatus.total_stakes_signers, aggregatorStatus.total_cardano_stake)}%{" "}
+            <PercentTooltip
+              value={formatStake(aggregatorStatus.total_stakes_signers) ?? 0}
+              total={formatStake(aggregatorStatus.total_cardano_stake) ?? 0}
+            />
+          </InfoRow>
+        </InfoGroupCard>
 
-            <InfoGroupCard title="Stakes">
-              <InfoRow label="Current Signers">
-                <Stake lovelace={aggregatorStatus.total_stakes_signers ?? 0} />
-              </InfoRow>
-              <InfoRow label="Next Signers">
-                <Stake lovelace={aggregatorStatus.total_next_stakes_signers ?? 0} />
-              </InfoRow>
-              <InfoRow label="Cardano Adoption">
-                {percent(
-                  aggregatorStatus.total_stakes_signers,
-                  aggregatorStatus.total_cardano_stake,
-                )}
-                %{" "}
-                {/* <IconBadge
-                  tooltip={`${formatStake(aggregatorStatus.total_stakes_signers) ?? 0} out of ${formatStake(aggregatorStatus.total_cardano_stake) ?? 0}`}
-                  icon="question-circle"
-                  className="p-0"
-                  variant="body-secondary"
-                /> */}
-                <PercentTooltip
-                  value={formatStake(aggregatorStatus.total_stakes_signers) ?? 0}
-                  total={formatStake(aggregatorStatus.total_cardano_stake) ?? 0}
-                />
-              </InfoRow>
-            </InfoGroupCard>
+        <InfoGroupCard title="Protocol Parameters">
+          <em>Current:</em>
+          <ProtocolParameters protocolParameters={aggregatorStatus.protocol} padding={2} />
+          <em>Next:</em>
+          <ProtocolParameters protocolParameters={aggregatorStatus.next_protocol} padding={2} />
+        </InfoGroupCard>
 
-            <InfoGroupCard title="Protocol Parameters">
-              <em>Current:</em>
-              <ProtocolParameters protocolParameters={aggregatorStatus.protocol} padding={2} />
-              <em>Next:</em>
-              <ProtocolParameters protocolParameters={aggregatorStatus.next_protocol} padding={2} />
-            </InfoGroupCard>
-
-            <InfoGroupCard title="Versions">
-              <InfoRow label="Aggregator">
-                {aggregatorVersion.number}
-                {aggregatorVersion.sha && <em> ({aggregatorVersion.sha})</em>}
-              </InfoRow>
-              <InfoRow label="Cardano">{aggregatorStatus.cardano_node_version}</InfoRow>
-            </InfoGroupCard>
-          </Row>
-        </Container>
-      </div>
+        <InfoGroupCard title="Versions">
+          <InfoRow label="Aggregator">
+            {aggregatorVersion.number}
+            {aggregatorVersion.sha && <em> ({aggregatorVersion.sha})</em>}
+          </InfoRow>
+          <InfoRow label="Cardano">{aggregatorStatus.cardano_node_version}</InfoRow>
+        </InfoGroupCard>
+      </Row>
+      <Row>
+        <Stack
+          direction="horizontal"
+          gap={1}
+          className="align-items-stretch justify-content-sm-center border bg-light rounded p-2">
+          <LinkButton
+            className="ms-auto"
+            href={registrationPageUrl ?? "#"}
+            disabled={registrationPageUrl === undefined}>
+            <i className="bi bi-pen"></i> Registered Signers
+          </LinkButton>
+          <LinkButton
+            href={inOutRegistrationsPageUrl ?? "#"}
+            disabled={inOutRegistrationsPageUrl === undefined}>
+            <i className="bi bi-arrow-left-right translate-middle-y"></i> In/Out Registrations
+          </LinkButton>
+          <RawJsonButton
+            href={aggregatorStatusEndpoint}
+            variant="outline-secondary"
+            tooltip="Aggregator Status Raw JSON"
+            className="ms-auto"
+          />
+        </Stack>
+      </Row>
     </Container>
   );
 }
