@@ -244,7 +244,7 @@ const config = {
               },
               {
                 label: "Mithril Protocol Insights",
-                href: "https://lookerstudio.google.com/s/oi6CR5eZrnQ",
+                href: "https://lookerstudio.google.com/s/mbL23-8gibI",
               },
               {
                 label: "Logbook",
