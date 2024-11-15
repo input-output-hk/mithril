@@ -4,7 +4,7 @@ import styles from "./styles.module.css";
 
 const FeatureList = [
   {
-    title: "User Manual",
+    title: "User manual",
     Svg: require("@site/static/img/card-get-started.svg").default,
     description: (
       <>
@@ -15,7 +15,7 @@ const FeatureList = [
     link: "/doc/manual/welcome",
   },
   {
-    title: "The Mithril Protocol",
+    title: "The Mithril protocol",
     Svg: require("@site/static/img/card-native-tokens.svg").default,
     description: (
       <>Discover how the Mithril protocol works and find more about the Mithril multi signature.</>
@@ -23,7 +23,7 @@ const FeatureList = [
     link: "/doc/mithril/mithril-protocol/protocol",
   },
   {
-    title: "The Mithril Network",
+    title: "The Mithril network",
     Svg: require("@site/static/img/card-operate-a-stake-pool.svg").default,
     description: (
       <>Learn about the Mithril network and find more about its nodes and architecture.</>

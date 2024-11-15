@@ -1,6 +1,6 @@
 ---
 sidebar_position: 2
-sidebar_label: Certificate Chain in depth
+sidebar_label: Certificate chain in depth
 ---
 
 # Mithril certificate chain in depth
