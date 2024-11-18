@@ -13,7 +13,7 @@ use crate::{
 };
 use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch, StdResult};
 use mithril_persistence::sqlite::ConnectionExtensions;
-use mithril_persistence::{sqlite::SqliteConnection, store::adapter::StoreAdapter};
+use mithril_persistence::{sqlite::SqliteConnection /*store::adapter::StoreAdapter*/};
 
 /// Implementation of the ProtocolInitializerStorer
 pub struct ProtocolInitializerRepository {
@@ -95,13 +95,9 @@ impl ProtocolInitializerStorer for ProtocolInitializerRepository {
 
 #[cfg(test)]
 mod tests {
+    use crate::database::test_helper::{main_db_connection, FakeStoreAdapter};
     use mithril_common::test_utils::fake_data;
-    use mithril_persistence::{
-        sqlite::{ConnectionBuilder, ConnectionOptions},
-        store::adapter::SQLiteAdapter,
-    };
-
-    use crate::database::test_helper::main_db_connection;
+    use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions};
 
     use super::*;
 
@@ -263,29 +259,25 @@ mod tests {
                 .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
         }
         let connection = Arc::new(create_connection_builder().build().unwrap());
-
+        let protocol_initializer_adapter =
+            FakeStoreAdapter::new(connection.clone(), "protocol_initializer");
         // The adapter will create the table.
-        let mut adapter = SQLiteAdapter::<Epoch, ProtocolInitializer>::new(
-            "protocol_initializer",
-            connection.clone(),
-        )
-        .unwrap();
+        protocol_initializer_adapter.create_table();
 
         assert!(connection
             .prepare("select key_hash from protocol_initializer;")
             .is_ok());
-        assert!(connection.prepare("select * from db_version;").is_err());
 
         // Here we can add some data with the old schema.
         let (_, protocol_initializer_to_retrieve) = &setup_protocol_initializers(1)[0];
 
-        // If we don't want to use the adapter anymore, we can execute request directly.
-        assert!(adapter.get_record(&Epoch(5)).await.unwrap().is_none());
-        adapter
-            .store_record(&Epoch(5), &protocol_initializer_to_retrieve)
-            .await
+        assert!(!protocol_initializer_adapter.is_key_hash_exist("HashEpoch5"));
+
+        protocol_initializer_adapter
+            .store_record("HashEpoch5", &Epoch(5), protocol_initializer_to_retrieve)
             .unwrap();
-        assert!(adapter.get_record(&Epoch(5)).await.unwrap().is_some());
+
+        assert!(protocol_initializer_adapter.is_key_hash_exist("HashEpoch5"));
 
         // We finish the migration
         create_connection_builder()

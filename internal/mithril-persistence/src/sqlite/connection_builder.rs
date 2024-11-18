@@ -124,7 +124,7 @@ impl ConnectionBuilder {
             // Check database migrations
             debug!(logger, "Applying database migrations");
             let mut db_checker =
-                DatabaseVersionChecker::new(self.base_logger, self.node_type, &connection);
+                DatabaseVersionChecker::new(self.base_logger, self.node_type, connection);
 
             for migration in sql_migrations {
                 db_checker.add_migration(migration);

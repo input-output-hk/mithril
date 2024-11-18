@@ -5,7 +5,6 @@ use std::collections::BTreeSet;
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::database::repository::ProtocolInitializerRepository;
 use crate::dependency_injection::EpochServiceWrapper;
 use crate::entities::SignerEpochSettings;
 use crate::services::SignedEntityConfigProvider;
@@ -318,6 +317,9 @@ impl SignedEntityConfigProvider for SignerSignedEntityConfigProvider {
 }
 
 #[cfg(test)]
+use crate::database::repository::ProtocolInitializerRepository;
+
+#[cfg(test)]
 impl MithrilEpochService {
     /// `TEST ONLY` - Create a new instance of the service using dumb dependencies.
     pub fn new_with_dumb_dependencies() -> Self {
@@ -430,7 +432,7 @@ mod tests {
     use mithril_common::entities::{Epoch, StakeDistribution};
     use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
 
-    use crate::database::repository::StakePoolStore;
+    use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
     use crate::database::test_helper::main_db_connection;
     use crate::entities::SignerEpochSettings;
     use crate::services::MithrilProtocolInitializerBuilder;

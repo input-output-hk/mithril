@@ -8,7 +8,6 @@ use mithril_common::entities::{Epoch, StakeDistribution};
 use mithril_common::signable_builder::StakeDistributionRetriever;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
-use mithril_persistence::store::adapter::AdapterError;
 use mithril_persistence::store::StakeStorer;
 
 use crate::database::query::{
@@ -51,8 +50,7 @@ impl StakeStorer for StakePoolStore {
                     .map(|(pool_id, stake)| (pool_id, epoch, stake))
                     .collect(),
             ))
-            .with_context(|| format!("persist stakes failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("persist stakes failure, epoch: {epoch}"))?;
 
         Ok(Some(StakeDistribution::from_iter(
             pools.into_iter().map(|p| (p.stake_pool_id, p.stake)),
@@ -63,8 +61,7 @@ impl StakeStorer for StakePoolStore {
         let cursor = self
             .connection
             .fetch(GetStakePoolQuery::by_epoch(epoch)?)
-            .with_context(|| format!("get stakes failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("get stakes failure, epoch: {epoch}"))?;
         let mut stake_distribution = StakeDistribution::new();
 
         for stake_pool in cursor {
@@ -96,8 +93,7 @@ impl EpochPruningTask for StakePoolStore {
             self.connection
                 .apply(DeleteStakePoolQuery::below_epoch_threshold(
                     epoch - threshold,
-                ))
-                .map_err(AdapterError::QueryError)?;
+                ))?;
         }
         Ok(())
     }
@@ -105,15 +101,10 @@ impl EpochPruningTask for StakePoolStore {
 
 #[cfg(test)]
 mod tests {
-    use mithril_persistence::{
-        database::SqlMigration,
-        sqlite::{ConnectionBuilder, ConnectionOptions},
-        store::adapter::SQLiteAdapter,
-    };
+    use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions};
 
     use super::*;
-    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
-    use mithril_persistence::store::adapter::StoreAdapter;
+    use crate::database::test_helper::{insert_stake_pool, main_db_connection, FakeStoreAdapter};
 
     #[tokio::test]
     async fn prune_epoch_settings_older_than_threshold() {
@@ -200,26 +191,12 @@ mod tests {
         let connection = Arc::new(create_connection_builder().build().unwrap());
 
         // The adapter will create the table.
-        let mut adapter =
-            SQLiteAdapter::<Epoch, StakeDistribution>::new("stake", connection.clone()).unwrap();
+        let stake_adapter = FakeStoreAdapter::new(connection.clone(), "stake");
+        // The adapter will create the table.
+        stake_adapter.create_table();
 
         assert!(connection.prepare("select * from stake;").is_ok());
         assert!(connection.prepare("select * from db_version;").is_err());
-        assert!(connection.prepare("select * from stake_pool;").is_err());
-
-        // TODO: We recreate a Builder (because it was consume by the build) to have same option but we don't use a new connection.
-        // builder is needed for options, base_logger and node_type.
-        create_connection_builder()
-            .apply_migrations(
-                &connection.clone(),
-                migrations
-                    .clone()
-                    .into_iter()
-                    .filter(|migration| migration.version <= 1)
-                    .collect::<Vec<SqlMigration>>(),
-            )
-            .unwrap();
-        assert!(connection.prepare("select * from db_version;").is_ok());
         assert!(connection.prepare("select * from stake_pool;").is_err());
 
         // Here we can add some data with the old schema.
@@ -227,12 +204,11 @@ mod tests {
             StakeDistribution::from([("pool-123".to_string(), 123)]);
 
         // If we don't want to use the adapter anymore, we can execute request directly.
-        assert!(adapter.get_record(&Epoch(5)).await.unwrap().is_none());
-        adapter
-            .store_record(&Epoch(5), &stake_distribution_to_retrieve)
-            .await
+        assert!(!stake_adapter.is_key_hash_exist("HashEpoch5"));
+        stake_adapter
+            .store_record("HashEpoch5", &Epoch(5), &stake_distribution_to_retrieve)
             .unwrap();
-        assert!(adapter.get_record(&Epoch(5)).await.unwrap().is_some());
+        assert!(stake_adapter.is_key_hash_exist("HashEpoch5"));
 
         // We finish the migration
         create_connection_builder()

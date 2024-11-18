@@ -37,18 +37,18 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
-    store::adapter::SQLiteAdapter, store::StakeStorer,
+    store::StakeStorer,
 };
 
 use mithril_signer::{
-    database::repository::{SignedBeaconRepository, StakePoolStore},
+    database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     services::{
         AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
         SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
         SignerUpkeepService,
     },
-    store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer},
+    store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
 };
 
@@ -77,7 +77,7 @@ pub struct StateMachineTester {
     immutable_observer: Arc<DumbImmutableFileObserver>,
     chain_observer: Arc<FakeObserver>,
     certificate_handler: Arc<FakeAggregator>,
-    protocol_initializer_store: Arc<ProtocolInitializerStore>,
+    protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
     stake_store: Arc<dyn StakeStorer>,
     era_checker: Arc<EraChecker>,
     era_reader_adapter: Arc<EraReaderDummyAdapter>,
@@ -158,11 +158,9 @@ impl StateMachineTester {
             ticker_service.clone(),
         ));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(
-                SQLiteAdapter::new("protocol_initializer", sqlite_connection.clone()).unwrap(),
-            ),
-            config.store_retention_limit,
+        let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
+            sqlite_connection.clone(),
+            config.store_retention_limit.map(|limit| limit as u64),
         ));
         let stake_store = Arc::new(StakePoolStore::new(
             sqlite_connection.clone(),

@@ -95,11 +95,11 @@ insert into stake_pool (epoch, stake_pool_id, stake, created_at)
 drop table stake;
 "#,
         ),
-        // Migration 5
+        // Migration 6
         // Add the `protocol_initializer` table and migration data from the previous
         // `protocol_initializer` JSON format.
         SqlMigration::new(
-            5,
+            6,
             r#"
 create table new_protocol_initializer (
     epoch         integer   not null,
