@@ -1,5 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Card, Row, Col, Container, OverlayTrigger, Stack, Tooltip } from "react-bootstrap";
+import {
+  Card,
+  Row,
+  Col,
+  Collapse,
+  Container,
+  OverlayTrigger,
+  Stack,
+  Tooltip,
+} from "react-bootstrap";
 import { useSelector } from "react-redux";
 import EpochSettings from "#/EpochSettings";
 import LinkButton from "#/LinkButton";
@@ -56,6 +65,7 @@ export default function AggregatorStatus() {
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
   const [fallbackToEpochSetting, setFallbackToEpochSetting] = useState(false);
+  const [showContent, setShowContent] = useState(true);
 
   useEffect(() => {
     let fetchAggregatorStatus = () => {
@@ -121,59 +131,77 @@ export default function AggregatorStatus() {
     <EpochSettings />
   ) : (
     <Container fluid>
-      <Row className="d-flex flex-wrap justify-content-md-center">
-        <InfoGroupCard title={`Epoch ${aggregatorStatus.epoch}`}>
-          <InfoRow label="Cardano Era">{aggregatorStatus.cardano_era}</InfoRow>
-          <InfoRow label="Mithril Era">
-            {aggregatorStatus.mithril_era
-              ? capitalizeFirstLetter(aggregatorStatus.mithril_era)
-              : ""}
-          </InfoRow>
-        </InfoGroupCard>
+      <h3>
+        <a
+          role="button"
+          onClick={() => setShowContent(!showContent)}
+          aria-expanded={showContent}
+          aria-controls="contentRow">
+          Aggregator Status <i className={`bi bi-chevron-${showContent ? "up" : "down"}`}></i>
+        </a>
+      </h3>
 
-        <InfoGroupCard title="SPOs">
-          <InfoRow label="Current Signers">{aggregatorStatus.total_signers ?? 0}</InfoRow>
-          <InfoRow label="Next Signers">{aggregatorStatus.total_next_signers ?? 0}</InfoRow>
-          <InfoRow label="Cardano Adoption">
-            {percent(aggregatorStatus.total_signers, aggregatorStatus.total_cardano_spo)}%{" "}
-            <PercentTooltip
-              value={aggregatorStatus.total_signers ?? 0}
-              total={aggregatorStatus.total_cardano_spo ?? 0}
-            />
-          </InfoRow>
-        </InfoGroupCard>
+      <Collapse in={showContent}>
+        <div id="contentRow">
+          <Row className="d-flex flex-wrap justify-content-md-center">
+            <InfoGroupCard title={`Epoch ${aggregatorStatus.epoch}`}>
+              <InfoRow label="Cardano Era">{aggregatorStatus.cardano_era}</InfoRow>
+              <InfoRow label="Mithril Era">
+                {aggregatorStatus.mithril_era
+                  ? capitalizeFirstLetter(aggregatorStatus.mithril_era)
+                  : ""}
+              </InfoRow>
+            </InfoGroupCard>
 
-        <InfoGroupCard title="Stakes">
-          <InfoRow label="Current Signers">
-            <Stake lovelace={aggregatorStatus.total_stakes_signers ?? 0} />
-          </InfoRow>
-          <InfoRow label="Next Signers">
-            <Stake lovelace={aggregatorStatus.total_next_stakes_signers ?? 0} />
-          </InfoRow>
-          <InfoRow label="Cardano Adoption">
-            {percent(aggregatorStatus.total_stakes_signers, aggregatorStatus.total_cardano_stake)}%{" "}
-            <PercentTooltip
-              value={formatStake(aggregatorStatus.total_stakes_signers) ?? 0}
-              total={formatStake(aggregatorStatus.total_cardano_stake) ?? 0}
-            />
-          </InfoRow>
-        </InfoGroupCard>
+            <InfoGroupCard title="SPOs">
+              <InfoRow label="Current Signers">{aggregatorStatus.total_signers ?? 0}</InfoRow>
+              <InfoRow label="Next Signers">{aggregatorStatus.total_next_signers ?? 0}</InfoRow>
+              <InfoRow label="Cardano Adoption">
+                {percent(aggregatorStatus.total_signers, aggregatorStatus.total_cardano_spo)}%{" "}
+                <PercentTooltip
+                  value={aggregatorStatus.total_signers ?? 0}
+                  total={aggregatorStatus.total_cardano_spo ?? 0}
+                />
+              </InfoRow>
+            </InfoGroupCard>
 
-        <InfoGroupCard title="Protocol Parameters">
-          <em>Current:</em>
-          <ProtocolParameters protocolParameters={aggregatorStatus.protocol} padding={2} />
-          <em>Next:</em>
-          <ProtocolParameters protocolParameters={aggregatorStatus.next_protocol} padding={2} />
-        </InfoGroupCard>
+            <InfoGroupCard title="Stakes">
+              <InfoRow label="Current Signers">
+                <Stake lovelace={aggregatorStatus.total_stakes_signers ?? 0} />
+              </InfoRow>
+              <InfoRow label="Next Signers">
+                <Stake lovelace={aggregatorStatus.total_next_stakes_signers ?? 0} />
+              </InfoRow>
+              <InfoRow label="Cardano Adoption">
+                {percent(
+                  aggregatorStatus.total_stakes_signers,
+                  aggregatorStatus.total_cardano_stake,
+                )}
+                %{" "}
+                <PercentTooltip
+                  value={formatStake(aggregatorStatus.total_stakes_signers) ?? 0}
+                  total={formatStake(aggregatorStatus.total_cardano_stake) ?? 0}
+                />
+              </InfoRow>
+            </InfoGroupCard>
 
-        <InfoGroupCard title="Versions">
-          <InfoRow label="Aggregator">
-            {aggregatorVersion.number}
-            {aggregatorVersion.sha && <em> ({aggregatorVersion.sha})</em>}
-          </InfoRow>
-          <InfoRow label="Cardano">{aggregatorStatus.cardano_node_version}</InfoRow>
-        </InfoGroupCard>
-      </Row>
+            <InfoGroupCard title="Protocol Parameters">
+              <em>Current:</em>
+              <ProtocolParameters protocolParameters={aggregatorStatus.protocol} padding={2} />
+              <em>Next:</em>
+              <ProtocolParameters protocolParameters={aggregatorStatus.next_protocol} padding={2} />
+            </InfoGroupCard>
+
+            <InfoGroupCard title="Versions">
+              <InfoRow label="Aggregator">
+                {aggregatorVersion.number}
+                {aggregatorVersion.sha && <em> ({aggregatorVersion.sha})</em>}
+              </InfoRow>
+              <InfoRow label="Cardano">{aggregatorStatus.cardano_node_version}</InfoRow>
+            </InfoGroupCard>
+          </Row>
+        </div>
+      </Collapse>
       <Row>
         <Stack
           direction="horizontal"
