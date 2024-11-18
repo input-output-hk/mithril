@@ -52,7 +52,7 @@ const config = {
         blog: {
           path: "blog/",
           routeBasePath: "dev-blog",
-          blogTitle: "Dev Blog",
+          blogTitle: "Dev blog",
           blogSidebarTitle: "Dev blog",
           sortPosts: "descending",
           showReadingTime: true,
@@ -170,7 +170,7 @@ const config = {
             type: "doc",
             docId: "manual/welcome",
             position: "left",
-            label: "User Manual",
+            label: "User manual",
           },
           {
             type: "doc",
@@ -193,7 +193,7 @@ const config = {
             label: "Glossary",
             position: "right",
           },
-          { to: "/dev-blog", label: "Dev Blog", position: "right" },
+          { to: "/dev-blog", label: "Dev blog", position: "right" },
           { to: "/adr", label: "ADRs", position: "right" },
           {
             className: "header-github-link",
@@ -244,7 +244,7 @@ const config = {
               },
               {
                 label: "Mithril Protocol Insights",
-                href: "https://lookerstudio.google.com/s/oi6CR5eZrnQ",
+                href: "https://lookerstudio.google.com/s/mbL23-8gibI",
               },
               {
                 label: "Logbook",

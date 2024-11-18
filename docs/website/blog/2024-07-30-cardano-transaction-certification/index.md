@@ -19,7 +19,7 @@ We have shipped stable support for the **Cardano transaction certification** wit
 
 A threshold of at least **70%** of the stake running version `0.2.182` (within **10** days after the distribution `2437` is released) is mandatory in order to activate the certification of the Cardano transactions on the `release-mainnet` network.
 
-The [Mithril Protocol Insights](https://lookerstudio.google.com/u/0/reporting/8b05ea4b-6a43-45ea-aef2-237906ec7a42?s=oi6CR5eZrnQ) dashboard displays the adoption rate of the different signer versions on the `release-mainnet` network.
+The [Mithril Protocol Insights](https://lookerstudio.google.com/s/mbL23-8gibI) dashboard displays the adoption rate of the different signer versions on the `release-mainnet` network.
 
 :::
 
