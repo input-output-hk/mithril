@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
-import { Col, Form, Row, Stack, Tab, Tabs } from "react-bootstrap";
+import { Form, Row, Stack, Tab, Tabs } from "react-bootstrap";
 import {
   ArcElement,
   BarElement,
@@ -16,7 +16,6 @@ import {
   Tooltip,
 } from "chart.js";
 import initMithrilClient from "@mithril-dev/mithril-client-wasm";
-import EpochSettings from "#/EpochSettings";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
 import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributionsList";
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
@@ -30,6 +29,7 @@ import {
   selectedAggregatorSignedEntities as currentAggregatorSignedEntities,
 } from "@/store/settingsSlice";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
+import AggregatorStatus from "@/components/AggregatorStatus";
 
 // Disable SSR for the following components since they use data from the store that are not
 // available server sides (because those data can be read from the local storage).
@@ -116,7 +116,7 @@ export default function Explorer() {
         </Row>
       </Form>
       <Stack direction="horizontal">
-        <EpochSettings />
+        <AggregatorStatus />
       </Stack>
       <Tabs activeKey={currentTab} onSelect={(key) => setCurrentTab(key)}>
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
