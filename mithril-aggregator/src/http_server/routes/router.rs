@@ -112,8 +112,7 @@ pub fn routes(
                 .or(epoch_routes::routes(&state))
                 .or(statistics_routes::routes(&state))
                 .or(root_routes::routes(&state))
-                .or(status::routes(&state))
-                .with(cors),
+                .or(status::routes(&state)),
         )
         .recover(handle_custom)
         .and(middlewares::with_api_version_provider(&state))
@@ -127,6 +126,7 @@ pub fn routes(
                     .to_string(),
             )
         })
+        .with(cors)
         .with(middlewares::log_route_call(&state))
 }
 
@@ -169,6 +169,8 @@ fn header_must_be(
 pub async fn handle_custom(reject: Rejection) -> Result<impl Reply, Rejection> {
     if reject.find::<VersionMismatchError>().is_some() {
         Ok(StatusCode::PRECONDITION_FAILED)
+    } else if reject.is_not_found() {
+        Ok(StatusCode::NOT_FOUND)
     } else {
         Err(reject)
     }
@@ -184,7 +186,9 @@ mod tests {
         era::{EraChecker, SupportedEra},
     };
 
+    use crate::dependency_injection::DependenciesBuilder;
     use crate::test_tools::TestLogger;
+    use crate::Configuration;
 
     use super::*;
 
@@ -247,5 +251,37 @@ mod tests {
             .filter(&filters)
             .await
             .expect(r#"request with the good version "0.1.2" should not be rejected"#);
+    }
+
+    #[tokio::test]
+    async fn test_404_response_should_include_status_code_and_headers() {
+        let container = Arc::new(
+            DependenciesBuilder::new_with_stdout_logger(Configuration::new_sample())
+                .build_dependency_container()
+                .await
+                .unwrap(),
+        );
+        let state = RouterState::new_with_dummy_config(container);
+        let routes = routes(Arc::new(state));
+
+        let response = warp::test::request()
+            .path("/aggregator/a-route-that-does-not-exist")
+            // We need to set the Origin header to trigger the CORS middleware
+            .header("Origin", "http://localhost")
+            .reply(&routes)
+            .await;
+        let response_headers = response.headers();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+        assert!(
+            response_headers.get(MITHRIL_API_VERSION_HEADER).is_some(),
+            "API version header should be present, headers: {response_headers:?}",
+        );
+        assert!(
+            response_headers
+                .get("access-control-allow-origin")
+                .is_some(),
+            "CORS headers should be present, headers: {response_headers:?}",
+        );
     }
 }
