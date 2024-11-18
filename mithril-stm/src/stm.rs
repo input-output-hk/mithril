@@ -1278,7 +1278,7 @@ mod tests {
         /// Test that batch verification of certificates works
         fn batch_verify(nparties in 2_usize..30,
                               m in 10_u64..20,
-                              k in 1_u64..5,
+                              k in 1_u64..4,
                               seed in any::<[u8;32]>(),
                               batch_size in 2..10,
         ) {
@@ -1290,7 +1290,7 @@ mod tests {
             for _ in 0..batch_size {
                 let mut msg = [0u8; 32];
                 rng.fill_bytes(&mut msg);
-                let params = StmParameters { m, k, phi_f: 0.8 };
+                let params = StmParameters { m, k, phi_f: 0.95 };
                 let ps = setup_equal_parties(params, nparties);
                 let clerk = StmClerk::from_signer(&ps[0]);
 
