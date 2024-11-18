@@ -1,10 +1,7 @@
 name: Nightly Docker Builds
 
 on:
-  # Important note about scheduled workflows:
-  # Notifications for scheduled workflows are sent to the user who last modified the cron syntax in the workflow file.
-  schedule:
-    - cron: "30 2 * * *"
+  workflow_call:
   workflow_dispatch:
 
 jobs:
