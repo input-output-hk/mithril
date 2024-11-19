@@ -2,6 +2,7 @@
 
 mod buffered_single_signature_record;
 mod certificate;
+mod certificate_pending;
 mod epoch_settings;
 mod open_message;
 mod open_message_with_single_signatures;
@@ -13,6 +14,7 @@ mod stake_pool;
 
 pub use buffered_single_signature_record::*;
 pub use certificate::*;
+pub use certificate_pending::*;
 pub use epoch_settings::*;
 pub use open_message::*;
 pub use open_message_with_single_signatures::*;

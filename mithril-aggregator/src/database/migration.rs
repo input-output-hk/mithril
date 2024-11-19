@@ -854,7 +854,22 @@ update certificate
             r#"
 insert into signed_entity_type (signed_entity_type_id, name) 
     values  (4, 'Cardano Database');
-"#,
+        "#,
+        ),
+        // Migration 33
+        // Add the `certificate_pending` table and migration data from the previous
+        // `certificate_pending` JSON format.
+        // TODO rename new_pending_certificate to pending_certificate when migration is done
+        SqlMigration::new(
+            33,
+            r#"
+create table new_pending_certificate (
+    epoch                           integer     not null,
+    content                         text        not null,
+    created_at                      text        not null,
+    primary key (epoch)
+);
+        "#,
         ),
     ]
 }
