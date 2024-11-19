@@ -21,8 +21,7 @@ export default function AggregatorSetter(props) {
     <>
       <AddAggregatorModal show={showAddModal} onAskClose={() => toggleAddModal(false)} />
 
-      <Form.Group as={Col} className={props.className}>
-        <Form.Label>Aggregator:</Form.Label>
+      <Form.Group as={Col} {...props}>
         <InputGroup>
           <Button variant="outline-success" onClick={() => toggleAddModal(true)}>
             <i className="bi bi-plus-circle"></i>

@@ -7,8 +7,7 @@ export default function IntervalSetter(props) {
   const dispatch = useDispatch();
 
   return (
-    <Form.Group as={Col} className={props.className}>
-      <Form.Label>Auto refresh:</Form.Label>
+    <Form.Group as={Col} {...props}>
       <InputGroup>
         <Button type="button" onClick={() => dispatch(changeRefreshSeed())} variant="primary">
           Refresh
