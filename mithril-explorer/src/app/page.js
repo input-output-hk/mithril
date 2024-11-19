@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "chart.js";
 import initMithrilClient from "@mithril-dev/mithril-client-wasm";
-import AggregatorStatus from "#/AggregatorStatus";
+import ControlPanel from "#/ControlPanel";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
 import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributionsList";
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
@@ -101,7 +101,7 @@ export default function Explorer() {
 
   return (
     <Stack gap={3}>
-      <AggregatorStatus />
+      <ControlPanel />
       <Tabs activeKey={currentTab} onSelect={(key) => setCurrentTab(key)}>
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
           <CardanoDbSnapshotsList />

@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { initStore } from "./helpers";
 import { Provider } from "react-redux";
-import AggregatorSetter from "#/AggregatorSetter";
+import AggregatorSetter from "#/ControlPanel/AggregatorSetter";
 import default_available_aggregators from "@/aggregators-list";
 import { settingsSlice } from "@/store/settingsSlice";
 
