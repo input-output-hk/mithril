@@ -13,7 +13,7 @@ export default function EpochSettings() {
   const epochSettingsEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/epoch-settings`,
   );
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
   const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
@@ -32,11 +32,11 @@ export default function EpochSettings() {
     // Fetch it once without waiting
     fetchEpochSettings();
 
-    if (autoUpdate) {
+    if (updateInterval) {
       const interval = setInterval(fetchEpochSettings, updateInterval);
       return () => clearInterval(interval);
     }
-  }, [epochSettingsEndpoint, updateInterval, autoUpdate]);
+  }, [epochSettingsEndpoint, updateInterval, refreshSeed]);
 
   useEffect(() => {
     if (checkUrl(currentAggregator)) {

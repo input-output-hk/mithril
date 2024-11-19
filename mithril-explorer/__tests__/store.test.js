@@ -2,11 +2,11 @@ import default_available_aggregators from "@/aggregators-list";
 import { signedEntityType } from "@/constants";
 import { poolsSlice } from "@/store/poolsSlice";
 import {
+  changeRefreshSeed,
   removeSelectedAggregator,
   selectAggregator,
   settingsSlice,
   setUpdateInterval,
-  toggleAutoUpdate,
 } from "@/store/settingsSlice";
 import { saveToLocalStorage, storeBuilder } from "@/store/store";
 import { waitFor } from "@testing-library/react";
@@ -67,23 +67,46 @@ describe("Store Initialization", () => {
     expect(store.getState()).toEqual(expected);
   });
 
-  it("Can toggle autoUpdate", () => {
-    const store = initStore();
+  it("Can change refreshSeed", () => {
+    const initialSeed = 123;
+    const store = initStore({
+      settings: {
+        refreshSeed: initialSeed,
+        ...settingsSlice.getInitialState(),
+      },
+    });
 
-    store.dispatch(toggleAutoUpdate());
-    expect(store.getState().settings.autoUpdate).toEqual(false);
-
-    store.dispatch(toggleAutoUpdate());
-    expect(store.getState().settings.autoUpdate).toEqual(true);
+    store.dispatch(changeRefreshSeed());
+    expect(store.getState().settings.refreshSeed).not.toEqual(initialSeed);
   });
 
-  it("Can change updateInterval", () => {
-    const store = initStore();
+  it("Set updateInterval to a number", () => {
+    const store = initStore({
+      settings: {
+        updateInterval: 0,
+        ...settingsSlice.getInitialState(),
+      },
+    });
     const expected = 124325;
 
     store.dispatch(setUpdateInterval(expected));
     expect(store.getState().settings.updateInterval).toEqual(expected);
   });
+
+  it.each(["string", 1.123, "143", null, undefined])(
+    "Set updateInterval to something that is not an integer should yield undefined ('%s')",
+    (value) => {
+      const store = initStore({
+        settings: {
+          updateInterval: 1000,
+          ...settingsSlice.getInitialState(),
+        },
+      });
+
+      store.dispatch(setUpdateInterval(value));
+      expect(store.getState().settings.updateInterval).toEqual(undefined);
+    },
+  );
 
   it("Can change selectedAggregator", () => {
     const store = initStore();

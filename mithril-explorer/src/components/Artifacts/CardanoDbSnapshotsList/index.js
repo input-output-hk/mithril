@@ -14,7 +14,7 @@ export default function CardanoDbSnapshotsList(props) {
   const artifactsEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/artifact/snapshots`,
   );
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
@@ -31,11 +31,11 @@ export default function CardanoDbSnapshotsList(props) {
     // Fetch them once without waiting
     fetchSnapshots();
 
-    if (autoUpdate) {
+    if (updateInterval) {
       const interval = setInterval(fetchSnapshots, updateInterval);
       return () => clearInterval(interval);
     }
-  }, [artifactsEndpoint, updateInterval, autoUpdate]);
+  }, [artifactsEndpoint, updateInterval, refreshSeed]);
 
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);

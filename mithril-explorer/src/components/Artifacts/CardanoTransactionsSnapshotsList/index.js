@@ -18,7 +18,7 @@ export default function CardanoTransactionsSnapshotsList(props) {
   const artifactsEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/artifact/cardano-transactions`,
   );
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
   const currentAggregatorCapabilities = useSelector((state) =>
     selectedAggregatorCapabilities(state),
@@ -38,11 +38,11 @@ export default function CardanoTransactionsSnapshotsList(props) {
     // Fetch them once without waiting
     fetchSnapshots();
 
-    if (autoUpdate) {
+    if (updateInterval) {
       const interval = setInterval(fetchSnapshots, updateInterval);
       return () => clearInterval(interval);
     }
-  }, [artifactsEndpoint, updateInterval, autoUpdate]);
+  }, [artifactsEndpoint, updateInterval, refreshSeed]);
 
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);

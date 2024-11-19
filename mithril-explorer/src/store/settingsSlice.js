@@ -5,8 +5,8 @@ import { checkUrl } from "@/utils";
 import { defaultAggregatorCapabilities } from "@/constants";
 
 export const initialState = {
-  autoUpdate: true,
   updateInterval: 10000,
+  refreshSeed: 0,
   selectedAggregator: default_available_aggregators[0],
   availableAggregators: default_available_aggregators,
   aggregatorCapabilities: defaultAggregatorCapabilities,
@@ -18,10 +18,12 @@ export const settingsSlice = createSlice({
   initialState: initialState,
   reducers: {
     setUpdateInterval: (state, action) => {
-      state.updateInterval = action.payload;
+      const interval = action.payload;
+      state.updateInterval =
+        !Number.isNaN(interval) && Number.isInteger(interval) ? interval : undefined;
     },
-    toggleAutoUpdate: (state) => {
-      state.autoUpdate = !state.autoUpdate;
+    changeRefreshSeed: (state) => {
+      state.refreshSeed = Math.random();
     },
     selectAggregator: (state, action) => {
       if (!checkUrl(action.payload)) {
@@ -80,7 +82,7 @@ export const addSettingsListeners = (listenerMiddleware) => {
 
 export const {
   setUpdateInterval,
-  toggleAutoUpdate,
+  changeRefreshSeed,
   selectAggregator,
   removeSelectedAggregator,
   updateSelectedAggregatorCapabilities,

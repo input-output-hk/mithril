@@ -62,7 +62,7 @@ export default function AggregatorStatus() {
   const aggregatorStatusEndpoint = useSelector((state) => `${selectedAggregator(state)}/status`);
   const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
   const [fallbackToEpochSetting, setFallbackToEpochSetting] = useState(false);
   const [showContent, setShowContent] = useState(true);
@@ -86,13 +86,11 @@ export default function AggregatorStatus() {
     // Fetch it once without waiting
     fetchAggregatorStatus();
 
-    if (autoUpdate) {
-      const interval = setInterval(() => {
-        fetchAggregatorStatus();
-      }, updateInterval);
+    if (updateInterval) {
+      const interval = setInterval(fetchAggregatorStatus, updateInterval);
       return () => clearInterval(interval);
     }
-  }, [aggregatorStatusEndpoint, updateInterval, autoUpdate]);
+  }, [aggregatorStatusEndpoint, updateInterval, refreshSeed]);
 
   useEffect(() => {
     if (!checkUrl(currentAggregator)) {
