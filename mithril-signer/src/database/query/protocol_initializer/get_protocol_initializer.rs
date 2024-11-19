@@ -12,7 +12,7 @@ pub struct GetProtocolInitializerQuery {
 }
 
 impl GetProtocolInitializerQuery {
-    /// Get all signed beacons that match the given signed entity types.
+    /// Get protocol initializer that match the epoch.
     pub fn for_epoch(epoch: Epoch) -> Self {
         let epoch_i64: i64 = epoch.try_into().unwrap();
         let condition = WhereCondition::new(

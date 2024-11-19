@@ -130,35 +130,46 @@ mod request {
 
 mod pruning {
     use super::*;
+
+    async fn get_epochs_in_database(store: &ProtocolInitializerRepository) -> Vec<Epoch> {
+        let result = store.get_last_protocol_initializer(10).await.unwrap();
+        result.into_iter().map(|(epoch, _)| epoch).collect()
+    }
+
     #[tokio::test]
     async fn prune_epoch_older_than_threshold() {
         const PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD: u64 = 10;
 
+        let nb_epochs = 5;
         let store = init_store(
-            &setup_protocol_initializers(2),
+            &setup_protocol_initializers(nb_epochs),
             Some(PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD),
         )
         .await;
 
-        store
-            .prune(Epoch(2) + PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD)
-            .await
-            .unwrap();
+        assert_eq!(
+            vec!(Epoch(5), Epoch(4), Epoch(3), Epoch(2), Epoch(1)),
+            get_epochs_in_database(&store).await
+        );
 
-        let res = store.get_last_protocol_initializer(10).await.unwrap();
+        let current_epoch = Epoch(4) + PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD;
+        store.prune(current_epoch).await.unwrap();
 
-        assert_eq!(1, res.len());
-        assert_eq!(Epoch(2), res[0].0);
+        assert_eq!(
+            vec!(Epoch(5), Epoch(4)),
+            get_epochs_in_database(&store).await
+        );
     }
 
     #[tokio::test]
     async fn without_threshold_nothing_is_pruned() {
-        let store = init_store(&setup_protocol_initializers(2), None).await;
+        let nb_epochs = 5;
+        let store = init_store(&setup_protocol_initializers(nb_epochs), None).await;
 
         store.prune(Epoch(100)).await.unwrap();
 
-        let res = store.get_last_protocol_initializer(10).await.unwrap();
-        assert_eq!(2, res.len());
+        let result = store.get_last_protocol_initializer(10).await.unwrap();
+        assert_eq!(nb_epochs as usize, result.len());
     }
 }
 
