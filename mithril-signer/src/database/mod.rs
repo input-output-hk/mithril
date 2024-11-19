@@ -7,3 +7,5 @@ pub mod record;
 pub mod repository;
 #[cfg(test)]
 pub(crate) mod test_helper;
+#[cfg(test)]
+pub(crate) mod tests;
