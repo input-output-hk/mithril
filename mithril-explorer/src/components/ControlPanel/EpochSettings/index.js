@@ -13,7 +13,7 @@ export default function EpochSettings() {
   const epochSettingsEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/epoch-settings`,
   );
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
   const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
@@ -32,11 +32,11 @@ export default function EpochSettings() {
     // Fetch it once without waiting
     fetchEpochSettings();
 
-    if (autoUpdate) {
+    if (updateInterval) {
       const interval = setInterval(fetchEpochSettings, updateInterval);
       return () => clearInterval(interval);
     }
-  }, [epochSettingsEndpoint, updateInterval, autoUpdate]);
+  }, [epochSettingsEndpoint, updateInterval, refreshSeed]);
 
   useEffect(() => {
     if (checkUrl(currentAggregator)) {
@@ -56,49 +56,43 @@ export default function EpochSettings() {
   }, [currentAggregator, epochSettings]);
 
   return (
-    <div>
-      <h2>
-        Epoch Settings
-        <RawJsonButton href={epochSettingsEndpoint} variant="outline-light" size="sm" />
-      </h2>
-
-      <Card>
-        <Card.Body>
-          <Container>
-            <Row>
-              <Col xs={12} md="auto">
-                <h5>Current Epoch</h5>
-                <div className="mb-2 ps-3">{epochSettings.epoch}</div>
-              </Col>
-              <Col xs={12} md="auto">
-                <h5>Registration Protocol Parameters</h5>
-                <ProtocolParameters
-                  protocolParameters={
-                    epochSettings.signer_registration_protocol ?? epochSettings.next_protocol
-                  }
-                />
-              </Col>
-            </Row>
-          </Container>
-        </Card.Body>
-        <Card.Footer>
-          <Stack
-            direction="horizontal"
-            gap={1}
-            className="justify-content-md-end align-items-stretch justify-content-sm-center">
-            <LinkButton
-              href={registrationPageUrl ?? "#"}
-              disabled={registrationPageUrl === undefined}>
-              <i className="bi bi-pen"></i> Registered Signers
-            </LinkButton>
-            <LinkButton
-              href={inOutRegistrationsPageUrl ?? "#"}
-              disabled={inOutRegistrationsPageUrl === undefined}>
-              <i className="bi bi-arrow-left-right translate-middle-y"></i> In/Out Registrations
-            </LinkButton>
-          </Stack>
-        </Card.Footer>
-      </Card>
-    </div>
+    <Card>
+      <Card.Body>
+        <Container>
+          <Row>
+            <Col xs={12} md="auto">
+              <h5>Current Epoch</h5>
+              <div className="mb-2 ps-3">{epochSettings.epoch}</div>
+            </Col>
+            <Col xs={12} md="auto">
+              <h5>Registration Protocol Parameters</h5>
+              <ProtocolParameters
+                protocolParameters={
+                  epochSettings.signer_registration_protocol ?? epochSettings.next_protocol
+                }
+              />
+            </Col>
+          </Row>
+        </Container>
+      </Card.Body>
+      <Card.Footer>
+        <Stack
+          direction="horizontal"
+          gap={1}
+          className="justify-content-md-end align-items-stretch justify-content-sm-center">
+          <LinkButton
+            href={registrationPageUrl ?? "#"}
+            disabled={registrationPageUrl === undefined}>
+            <i className="bi bi-pen"></i> Registered Signers
+          </LinkButton>
+          <LinkButton
+            href={inOutRegistrationsPageUrl ?? "#"}
+            disabled={inOutRegistrationsPageUrl === undefined}>
+            <i className="bi bi-arrow-left-right translate-middle-y"></i> In/Out Registrations
+          </LinkButton>
+          <RawJsonButton href={epochSettingsEndpoint} variant="outline-secondary" />
+        </Stack>
+      </Card.Footer>
+    </Card>
   );
 }

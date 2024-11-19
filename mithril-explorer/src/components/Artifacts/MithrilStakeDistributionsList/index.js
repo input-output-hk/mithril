@@ -13,7 +13,7 @@ export default function MithrilStakeDistributionsList(props) {
   const artifactsEndpoint = useSelector(
     (state) => `${selectedAggregator(state)}/artifact/mithril-stake-distributions`,
   );
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
@@ -30,11 +30,11 @@ export default function MithrilStakeDistributionsList(props) {
     // Fetch them once without waiting
     fetchMithrilStakeDistribution();
 
-    if (autoUpdate) {
+    if (updateInterval) {
       const interval = setInterval(fetchMithrilStakeDistribution, updateInterval);
       return () => clearInterval(interval);
     }
-  }, [artifactsEndpoint, updateInterval, autoUpdate]);
+  }, [artifactsEndpoint, updateInterval, refreshSeed]);
 
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);

@@ -10,7 +10,7 @@ import {
   Tooltip,
 } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import EpochSettings from "#/EpochSettings";
+import EpochSettings from "#/ControlPanel/EpochSettings";
 import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
@@ -55,17 +55,16 @@ function PercentTooltip({ value, total, ...props }) {
   );
 }
 
-export default function AggregatorStatus() {
+export default function AggregatorStatus({ showContent = true }) {
   const [aggregatorStatus, setAggregatorStatus] = useState({});
   const [aggregatorVersion, setAggregatorVersion] = useState({});
   const currentAggregator = useSelector((state) => state.settings.selectedAggregator);
   const aggregatorStatusEndpoint = useSelector((state) => `${selectedAggregator(state)}/status`);
   const [registrationPageUrl, setRegistrationPageUrl] = useState(undefined);
   const [inOutRegistrationsPageUrl, setInOutRegistrationsPageUrl] = useState(undefined);
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
   const [fallbackToEpochSetting, setFallbackToEpochSetting] = useState(false);
-  const [showContent, setShowContent] = useState(true);
 
   useEffect(() => {
     let fetchAggregatorStatus = () => {
@@ -86,13 +85,11 @@ export default function AggregatorStatus() {
     // Fetch it once without waiting
     fetchAggregatorStatus();
 
-    if (autoUpdate) {
-      const interval = setInterval(() => {
-        fetchAggregatorStatus();
-      }, updateInterval);
+    if (updateInterval) {
+      const interval = setInterval(fetchAggregatorStatus, updateInterval);
       return () => clearInterval(interval);
     }
-  }, [aggregatorStatusEndpoint, updateInterval, autoUpdate]);
+  }, [aggregatorStatusEndpoint, updateInterval, refreshSeed]);
 
   useEffect(() => {
     if (!checkUrl(currentAggregator)) {
@@ -128,19 +125,15 @@ export default function AggregatorStatus() {
   }
 
   return fallbackToEpochSetting ? (
-    <EpochSettings />
+    <Stack direction="horizontal">
+      <Collapse in={showContent}>
+        <div id="contentRow">
+          <EpochSettings />
+        </div>
+      </Collapse>
+    </Stack>
   ) : (
     <Container fluid>
-      <h3>
-        <a
-          role="button"
-          onClick={() => setShowContent(!showContent)}
-          aria-expanded={showContent}
-          aria-controls="contentRow">
-          Aggregator Status <i className={`bi bi-chevron-${showContent ? "up" : "down"}`}></i>
-        </a>
-      </h3>
-
       <Collapse in={showContent}>
         <div id="contentRow">
           <Row className="d-flex flex-wrap justify-content-md-center">

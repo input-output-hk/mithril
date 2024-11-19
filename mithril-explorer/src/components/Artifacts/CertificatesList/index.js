@@ -12,7 +12,7 @@ export default function CertificatesList(props) {
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const aggregator = useSelector(selectedAggregator);
   const certificatesEndpoint = useSelector((state) => `${selectedAggregator(state)}/certificates`);
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const refreshSeed = useSelector((state) => state.settings.refreshSeed);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
@@ -29,11 +29,11 @@ export default function CertificatesList(props) {
     // Fetch them once without waiting
     fetchCertificates();
 
-    if (autoUpdate) {
+    if (updateInterval) {
       const interval = setInterval(fetchCertificates, updateInterval);
       return () => clearInterval(interval);
     }
-  }, [certificatesEndpoint, updateInterval, autoUpdate]);
+  }, [certificatesEndpoint, updateInterval, refreshSeed]);
 
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);

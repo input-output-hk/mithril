@@ -3,8 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useSearchParams } from "next/navigation";
-import dynamic from "next/dynamic";
-import { Form, Row, Stack, Tab, Tabs } from "react-bootstrap";
+import { Stack, Tab, Tabs } from "react-bootstrap";
 import {
   ArcElement,
   BarElement,
@@ -16,6 +15,7 @@ import {
   Tooltip,
 } from "chart.js";
 import initMithrilClient from "@mithril-dev/mithril-client-wasm";
+import ControlPanel from "#/ControlPanel";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
 import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributionsList";
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
@@ -29,14 +29,6 @@ import {
   selectedAggregatorSignedEntities as currentAggregatorSignedEntities,
 } from "@/store/settingsSlice";
 import { updatePoolsForAggregator } from "@/store/poolsSlice";
-import AggregatorStatus from "@/components/AggregatorStatus";
-
-// Disable SSR for the following components since they use data from the store that are not
-// available server sides (because those data can be read from the local storage).
-const AggregatorSetter = dynamic(() => import("#/AggregatorSetter"), { ssr: false });
-const IntervalSetter = dynamic(() => import("#/IntervalSetter"), {
-  ssr: false,
-});
 
 Chart.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 setChartJsDefaults(Chart);
@@ -109,15 +101,7 @@ export default function Explorer() {
 
   return (
     <Stack gap={3}>
-      <Form>
-        <Row xs={1} sm={2} className="row-gap-2">
-          <AggregatorSetter />
-          <IntervalSetter />
-        </Row>
-      </Form>
-      <Stack direction="horizontal">
-        <AggregatorStatus />
-      </Stack>
+      <ControlPanel />
       <Tabs activeKey={currentTab} onSelect={(key) => setCurrentTab(key)}>
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
           <CardanoDbSnapshotsList />
