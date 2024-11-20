@@ -183,7 +183,6 @@ mod migration {
         let connection = Arc::new(ConnectionBuilder::open_memory().build().unwrap());
         let protocol_initializer_adapter =
             FakeStoreAdapter::new(connection.clone(), "protocol_initializer");
-        // The adapter will create the table.
         protocol_initializer_adapter.create_table();
 
         assert!(connection

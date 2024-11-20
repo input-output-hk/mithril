@@ -245,9 +245,7 @@ mod migration {
 
         let connection = Arc::new(ConnectionBuilder::open_memory().build().unwrap());
 
-        // The adapter will create the table.
         let stake_adapter = FakeStoreAdapter::new(connection.clone(), "stake");
-        // The adapter will create the table.
         stake_adapter.create_table();
 
         assert!(connection.prepare("select * from stake;").is_ok());
