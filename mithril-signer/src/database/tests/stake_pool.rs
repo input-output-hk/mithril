@@ -188,29 +188,41 @@ mod request {
 mod pruning {
     use super::*;
 
+    async fn get_epochs_in_database_until(
+        store: &StakePoolStore,
+        until_epoch: Epoch,
+    ) -> Vec<Epoch> {
+        let mut epochs_in_database = vec![];
+        let mut current_epoch = Epoch(1);
+        while current_epoch <= until_epoch {
+            if store.get_stakes(current_epoch).await.unwrap().is_some() {
+                epochs_in_database.push(current_epoch);
+            }
+            current_epoch += 1;
+        }
+        epochs_in_database
+    }
+
     #[tokio::test]
     async fn prune_epoch_settings_older_than_threshold() {
-        let connection = main_db_connection().unwrap();
         const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: u64 = 10;
-        insert_stake_pool(&connection, &[1, 2]).unwrap();
+
+        let connection = main_db_connection().unwrap();
+        insert_stake_pool(&connection, &[1, 2, 3, 4, 5]).unwrap();
         let store =
             StakePoolStore::new(Arc::new(connection), Some(STAKE_POOL_PRUNE_EPOCH_THRESHOLD));
 
-        store
-            .prune(Epoch(2) + STAKE_POOL_PRUNE_EPOCH_THRESHOLD)
-            .await
-            .unwrap();
+        assert_eq!(
+            vec!(Epoch(1), Epoch(2), Epoch(3), Epoch(4), Epoch(5)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
 
-        let epoch1_stakes = store.get_stakes(Epoch(1)).await.unwrap();
-        let epoch2_stakes = store.get_stakes(Epoch(2)).await.unwrap();
+        let current_epoch = Epoch(4) + STAKE_POOL_PRUNE_EPOCH_THRESHOLD;
+        store.prune(current_epoch).await.unwrap();
 
         assert_eq!(
-            None, epoch1_stakes,
-            "Stakes at epoch 1 should have been pruned",
-        );
-        assert!(
-            epoch2_stakes.is_some(),
-            "Stakes at epoch 2 should still exist",
+            vec!(Epoch(4), Epoch(5)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
         );
     }
 
