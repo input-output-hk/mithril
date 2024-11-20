@@ -42,6 +42,12 @@ impl StakeStorer for StakePoolStore {
         epoch: Epoch,
         stakes: StakeDistribution,
     ) -> StdResult<Option<StakeDistribution>> {
+        // We should create a transaction  including delete and insert but it's not possible
+        // with the current implementation because the connection is shared.
+        self.connection
+            .apply(DeleteStakePoolQuery::by_epoch(epoch)?)
+            .with_context(|| format!("delete stakes failure, epoch: {epoch}"))?;
+
         let pools: Vec<StakePool> = self
             .connection
             .fetch_collect(InsertOrReplaceStakePoolQuery::many(

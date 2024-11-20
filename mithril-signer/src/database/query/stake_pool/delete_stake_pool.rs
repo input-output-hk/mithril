@@ -1,6 +1,6 @@
 use sqlite::Value;
 
-use mithril_common::entities::Epoch;
+use mithril_common::{entities::Epoch, StdResult};
 use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
 
 use crate::database::record::StakePool;
@@ -36,6 +36,13 @@ impl DeleteStakePoolQuery {
         );
 
         Self { condition }
+    }
+
+    /// Create the SQL query to delete the given Epoch.
+    pub fn by_epoch(epoch: Epoch) -> StdResult<Self> {
+        let condition = WhereCondition::new("epoch = ?*", vec![Value::Integer(epoch.try_into()?)]);
+
+        Ok(Self { condition })
     }
 }
 

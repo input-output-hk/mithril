@@ -25,18 +25,163 @@ mod request {
 
     #[tokio::test]
     async fn retrieve_returns_stake_distribution() {
-        let stake_distribution_to_retrieve =
-            StakeDistribution::from([("pool-123".to_string(), 123)]);
+        let stake_distribution_epoch_100 =
+            StakeDistribution::from([("pool-A".to_string(), 1000), ("pool-B".to_string(), 1200)]);
+        let stake_distribution_epoch_200 = StakeDistribution::from([
+            ("pool-A".to_string(), 2500),
+            ("pool-B".to_string(), 2000),
+            ("pool-C".to_string(), 2600),
+        ]);
         let connection = main_db_connection().unwrap();
         let store = StakePoolStore::new(Arc::new(connection), None);
         store
-            .save_stakes(Epoch(1), stake_distribution_to_retrieve.clone())
+            .save_stakes(Epoch(100), stake_distribution_epoch_100.clone())
+            .await
+            .unwrap();
+        store
+            .save_stakes(Epoch(200), stake_distribution_epoch_200.clone())
             .await
             .unwrap();
 
-        let stake_distribution = store.retrieve(Epoch(1)).await.unwrap();
+        {
+            let stake_distribution_in_database = store.retrieve(Epoch(100)).await.unwrap().unwrap();
 
-        assert_eq!(stake_distribution, Some(stake_distribution_to_retrieve));
+            assert_eq!(2, stake_distribution_in_database.len());
+            assert_eq!(1000, stake_distribution_in_database["pool-A"]);
+            assert_eq!(1200, stake_distribution_in_database["pool-B"]);
+        }
+
+        {
+            let stake_distribution_in_database = store.retrieve(Epoch(200)).await.unwrap().unwrap();
+
+            assert_eq!(3, stake_distribution_in_database.len());
+            assert_eq!(2500, stake_distribution_in_database["pool-A"]);
+            assert_eq!(2000, stake_distribution_in_database["pool-B"]);
+            assert_eq!(2600, stake_distribution_in_database["pool-C"]);
+        }
+    }
+
+    #[tokio::test]
+    async fn save_stake_distribution_return_inserted_records() {
+        let epoch = Epoch(100);
+
+        let connection = main_db_connection().unwrap();
+        let store = StakePoolStore::new(Arc::new(connection), None);
+
+        {
+            let stake_distribution = StakeDistribution::from([
+                ("pool-A".to_string(), 1000),
+                ("pool-B".to_string(), 1200),
+            ]);
+
+            let save_result = store
+                .save_stakes(epoch, stake_distribution.clone())
+                .await
+                .unwrap();
+
+            assert_eq!(stake_distribution, save_result.unwrap());
+        }
+
+        {
+            let stake_distribution = StakeDistribution::from([
+                ("pool-A".to_string(), 2000),
+                ("pool-C".to_string(), 2300),
+            ]);
+
+            let save_result = store
+                .save_stakes(epoch, stake_distribution.clone())
+                .await
+                .unwrap();
+
+            assert_eq!(stake_distribution, save_result.unwrap());
+        }
+    }
+
+    #[tokio::test]
+    async fn save_stake_distribution_replace_all_stake_for_the_epoch() {
+        let epoch = Epoch(100);
+
+        let connection = main_db_connection().unwrap();
+        let store = StakePoolStore::new(Arc::new(connection), None);
+
+        {
+            let stake_distribution = StakeDistribution::from([
+                ("pool-A".to_string(), 1000),
+                ("pool-B".to_string(), 1200),
+            ]);
+            store
+                .save_stakes(epoch, stake_distribution.clone())
+                .await
+                .unwrap();
+
+            let stake_distribution_in_database = store.retrieve(epoch).await.unwrap().unwrap();
+
+            assert_eq!(2, stake_distribution_in_database.len());
+            assert_eq!(1000, stake_distribution_in_database["pool-A"]);
+            assert_eq!(1200, stake_distribution_in_database["pool-B"]);
+        }
+
+        {
+            let stake_distribution = StakeDistribution::from([
+                ("pool-B".to_string(), 2000),
+                ("pool-C".to_string(), 2300),
+            ]);
+            store
+                .save_stakes(epoch, stake_distribution.clone())
+                .await
+                .unwrap();
+
+            let stake_distribution_in_database = store.retrieve(epoch).await.unwrap().unwrap();
+
+            assert_eq!(2, stake_distribution_in_database.len());
+            assert_eq!(2000, stake_distribution_in_database["pool-B"]);
+            assert_eq!(2300, stake_distribution_in_database["pool-C"]);
+        }
+    }
+
+    #[tokio::test]
+    async fn save_stake_distribution_do_not_change_other_epoch() {
+        let connection = main_db_connection().unwrap();
+        let store = StakePoolStore::new(Arc::new(connection), None);
+
+        let stake_distribution_99 = StakeDistribution::from([("pool-A".to_string(), 50)]);
+        store
+            .save_stakes(Epoch(99), stake_distribution_99.clone())
+            .await
+            .unwrap();
+
+        let stake_distribution_100 = StakeDistribution::from([("pool-A".to_string(), 1000)]);
+        store
+            .save_stakes(Epoch(100), stake_distribution_100.clone())
+            .await
+            .unwrap();
+
+        let stake_distribution_101 = StakeDistribution::from([("pool-A".to_string(), 5000)]);
+        store
+            .save_stakes(Epoch(101), stake_distribution_101.clone())
+            .await
+            .unwrap();
+
+        {
+            let stake_distribution_100_updated =
+                StakeDistribution::from([("pool-A".to_string(), 1111)]);
+            store
+                .save_stakes(Epoch(100), stake_distribution_100_updated.clone())
+                .await
+                .unwrap();
+
+            let stake_distribution_in_database = store.retrieve(Epoch(100)).await.unwrap().unwrap();
+            assert_eq!(
+                stake_distribution_100_updated,
+                stake_distribution_in_database
+            );
+
+            let stake_distribution_in_database = store.retrieve(Epoch(99)).await.unwrap().unwrap();
+            assert_eq!(stake_distribution_99, stake_distribution_in_database);
+
+            let stake_distribution_in_database = store.retrieve(Epoch(101)).await.unwrap().unwrap();
+            assert_eq!(stake_distribution_101, stake_distribution_in_database);
+        }
     }
 }
 

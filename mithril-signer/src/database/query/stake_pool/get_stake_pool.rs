@@ -18,6 +18,13 @@ impl GetStakePoolQuery {
 
         Ok(Self { condition })
     }
+
+    #[cfg(test)]
+    pub(crate) fn all() -> Self {
+        Self {
+            condition: WhereCondition::default(),
+        }
+    }
 }
 
 impl Query for GetStakePoolQuery {
@@ -37,41 +44,38 @@ impl Query for GetStakePoolQuery {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::test_helper::{insert_stake_pool, main_db_connection};
+    use super::*;
+    use crate::database::{query::InsertOrReplaceStakePoolQuery, test_helper::main_db_connection};
     use mithril_persistence::sqlite::ConnectionExtensions;
 
-    use super::*;
-
     #[test]
-    fn test_get_stake_pools() {
+    fn test_query_sorts_the_return_stake_pool_by_epoch_stack_and_stake_pool_id() {
         let connection = main_db_connection().unwrap();
-        insert_stake_pool(&connection, &[1, 2, 3]).unwrap();
-
-        let mut cursor = connection
-            .fetch(GetStakePoolQuery::by_epoch(Epoch(1)).unwrap())
+        connection
+            .apply(InsertOrReplaceStakePoolQuery::many(vec![
+                ("pool-A".to_string(), Epoch(1), 1500),
+                ("pool-D".to_string(), Epoch(2), 1250),
+                ("pool-B".to_string(), Epoch(1), 1000),
+                ("pool-E".to_string(), Epoch(1), 1600),
+                ("pool-C".to_string(), Epoch(1), 1600),
+            ]))
             .unwrap();
 
-        let stake_pool = cursor.next().expect("Should have a stake pool 'pool3'.");
+        let stake_pool_in_database: Vec<StakePool> =
+            connection.fetch_collect(GetStakePoolQuery::all()).unwrap();
+
         assert_eq!(
-            ("pool3".to_string(), Epoch(1), 1200),
-            (stake_pool.stake_pool_id, stake_pool.epoch, stake_pool.stake)
+            vec![
+                ("pool-C".to_string(), Epoch(1), 1600),
+                ("pool-E".to_string(), Epoch(1), 1600),
+                ("pool-A".to_string(), Epoch(1), 1500),
+                ("pool-B".to_string(), Epoch(1), 1000),
+                ("pool-D".to_string(), Epoch(2), 1250),
+            ],
+            stake_pool_in_database
+                .into_iter()
+                .map(|s| (s.stake_pool_id, s.epoch, s.stake))
+                .collect::<Vec<_>>()
         );
-        assert_eq!(2, cursor.count());
-
-        let mut cursor = connection
-            .fetch(GetStakePoolQuery::by_epoch(Epoch(3)).unwrap())
-            .unwrap();
-
-        let stake_pool = cursor.next().expect("Should have a stake pool 'pool2'.");
-        assert_eq!(
-            ("pool2".to_string(), Epoch(3), 1190),
-            (stake_pool.stake_pool_id, stake_pool.epoch, stake_pool.stake)
-        );
-        assert_eq!(2, cursor.count());
-
-        let cursor = connection
-            .fetch(GetStakePoolQuery::by_epoch(Epoch(5)).unwrap())
-            .unwrap();
-        assert_eq!(0, cursor.count());
     }
 }
