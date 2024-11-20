@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use mithril_common::entities::{Epoch, StakeDistribution};
 use mithril_common::signable_builder::StakeDistributionRetriever;
-use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionOptions};
+use mithril_persistence::sqlite::ConnectionBuilder;
 use mithril_persistence::store::StakeStorer;
 
 use crate::database::repository::StakePoolStore;
@@ -243,12 +243,7 @@ mod migration {
     async fn should_migrate_data_from_adapter() {
         let migrations = crate::database::migration::get_migrations();
 
-        // TODO: Do it in test_helper (it is done by build_main_db_connection)
-        fn create_connection_builder() -> ConnectionBuilder {
-            ConnectionBuilder::open_memory()
-                .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
-        }
-        let connection = Arc::new(create_connection_builder().build().unwrap());
+        let connection = Arc::new(ConnectionBuilder::open_memory().build().unwrap());
 
         // The adapter will create the table.
         let stake_adapter = FakeStoreAdapter::new(connection.clone(), "stake");
@@ -271,7 +266,7 @@ mod migration {
         assert!(stake_adapter.is_key_hash_exist("HashEpoch5"));
 
         // We finish the migration
-        create_connection_builder()
+        ConnectionBuilder::open_memory()
             .apply_migrations(&connection, migrations)
             .unwrap();
         assert!(connection.prepare("select * from stake;").is_err());

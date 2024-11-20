@@ -90,19 +90,6 @@ impl ConnectionBuilder {
                 )
             })?;
 
-        let migrations = self.sql_migrations.clone();
-        self.apply_migrations(&connection, migrations)?;
-
-        Ok(connection)
-    }
-
-    /// Apply a list of migration to the connection.
-    pub fn apply_migrations(
-        self,
-        connection: &ConnectionThreadSafe,
-        sql_migrations: Vec<SqlMigration>,
-    ) -> StdResult<()> {
-        let logger = self.base_logger.new_with_component_name::<Self>();
         if self
             .options
             .contains(&ConnectionOptions::EnableWriteAheadLog)
@@ -120,21 +107,8 @@ impl ConnectionBuilder {
                 .with_context(|| "SQLite initialization: could not enable FOREIGN KEY support.")?;
         }
 
-        if sql_migrations.is_empty().not() {
-            // Check database migrations
-            debug!(logger, "Applying database migrations");
-            let mut db_checker =
-                DatabaseVersionChecker::new(self.base_logger, self.node_type, connection);
-
-            for migration in sql_migrations {
-                db_checker.add_migration(migration);
-            }
-
-            db_checker
-                .apply()
-                .with_context(|| "Database migration error")?;
-        }
-
+        let migrations = self.sql_migrations.clone();
+        self.apply_migrations(&connection, migrations)?;
         if self
             .options
             .contains(&ConnectionOptions::ForceDisableForeignKeys)
@@ -144,6 +118,35 @@ impl ConnectionBuilder {
                 .execute("pragma foreign_keys=false")
                 .with_context(|| "SQLite initialization: could not disable FOREIGN KEY support.")?;
         }
+        Ok(connection)
+    }
+
+    /// Apply a list of migration to the connection.
+    pub fn apply_migrations(
+        &self,
+        connection: &ConnectionThreadSafe,
+        sql_migrations: Vec<SqlMigration>,
+    ) -> StdResult<()> {
+        let logger = self.base_logger.new_with_component_name::<Self>();
+
+        if sql_migrations.is_empty().not() {
+            // Check database migrations
+            debug!(logger, "Applying database migrations");
+            let mut db_checker = DatabaseVersionChecker::new(
+                self.base_logger.clone(),
+                self.node_type.clone(),
+                connection,
+            );
+
+            for migration in sql_migrations {
+                db_checker.add_migration(migration.clone());
+            }
+
+            db_checker
+                .apply()
+                .with_context(|| "Database migration error")?;
+        }
+
         Ok(())
     }
 }
@@ -289,5 +292,32 @@ mod tests {
 
         let foreign_keys = execute_single_cell_query(&connection, "pragma foreign_keys;");
         assert_eq!(Value::Integer(false.into()), foreign_keys);
+    }
+
+    #[test]
+    fn test_apply_a_partial_migrations() {
+        let migrations = vec![
+            SqlMigration::new(1, "create table first(id integer);"),
+            SqlMigration::new(2, "create table second(id integer);"),
+        ];
+
+        let connection = ConnectionBuilder::open_memory().build().unwrap();
+
+        assert!(connection.prepare("select * from first;").is_err());
+        assert!(connection.prepare("select * from second;").is_err());
+
+        ConnectionBuilder::open_memory()
+            .apply_migrations(&connection, migrations[0..1].to_vec())
+            .unwrap();
+
+        assert!(connection.prepare("select * from first;").is_ok());
+        assert!(connection.prepare("select * from second;").is_err());
+
+        ConnectionBuilder::open_memory()
+            .apply_migrations(&connection, migrations)
+            .unwrap();
+
+        assert!(connection.prepare("select * from first;").is_ok());
+        assert!(connection.prepare("select * from second;").is_ok());
     }
 }

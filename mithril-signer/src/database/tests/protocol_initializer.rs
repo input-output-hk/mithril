@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use mithril_common::test_utils::fake_data;
 use mithril_common::{crypto_helper::ProtocolInitializer, entities::Epoch};
-use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionExtensions, ConnectionOptions};
+use mithril_persistence::sqlite::{ConnectionBuilder, ConnectionExtensions};
 
 use crate::database::repository::ProtocolInitializerRepository;
 use crate::database::test_helper::{main_db_connection, FakeStoreAdapter};
@@ -180,12 +180,7 @@ mod migration {
     async fn should_migrate_data_from_adapter() {
         let migrations = crate::database::migration::get_migrations();
 
-        // TODO: Do it in test_helper (it is done by build_main_db_connection)
-        fn create_connection_builder() -> ConnectionBuilder {
-            ConnectionBuilder::open_memory()
-                .with_options(&[ConnectionOptions::ForceDisableForeignKeys])
-        }
-        let connection = Arc::new(create_connection_builder().build().unwrap());
+        let connection = Arc::new(ConnectionBuilder::open_memory().build().unwrap());
         let protocol_initializer_adapter =
             FakeStoreAdapter::new(connection.clone(), "protocol_initializer");
         // The adapter will create the table.
@@ -207,7 +202,7 @@ mod migration {
         assert!(protocol_initializer_adapter.is_key_hash_exist("HashEpoch5"));
 
         // We finish the migration
-        create_connection_builder()
+        ConnectionBuilder::open_memory()
             .apply_migrations(&connection, migrations)
             .unwrap();
 
