@@ -15,7 +15,7 @@ jobs:
 
   notify-on-failure:
     runs-on: ubuntu-22.04
-    needs: [docker-builds, backward-compatibility]
+    needs: [docker-builds]
     if: failure()
     steps:
       - name: Checkout repository
