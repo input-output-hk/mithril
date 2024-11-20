@@ -8,10 +8,10 @@ on:
 
 jobs:
   docker-builds:
-    uses: ./.github/workflows/nightly-docker-builds.yml
+    uses: ./.github/workflows/docker-builds.yml
 
   backward-compatibility:
-    uses: ./.github/workflows/nightly-backward-compatibility.yml
+    uses: ./.github/workflows/backward-compatibility.yml
 
   notify-on-failure:
     runs-on: ubuntu-22.04

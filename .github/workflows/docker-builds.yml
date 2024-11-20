@@ -1,4 +1,4 @@
-name: Nightly Docker Builds
+name: Docker builds
 
 on:
   workflow_call:

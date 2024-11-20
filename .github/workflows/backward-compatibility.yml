@@ -1,4 +1,4 @@
-name: Nightly backward compatibility
+name: Backward compatibility
 
 on:
   workflow_call:
