@@ -1,0 +1,35 @@
+{
+  "name": "@mithril-dev/mithril-client-wasm",
+  "version": "0.6.1",
+  "description": "Mithril client WASM",
+  "license": "Apache-2.0",
+  "collaborators": [
+    "dev@iohk.io",
+    "mithril-dev@iohk.io"
+  ],
+  "homepage": "https://mithril.network/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/input-output-hk/mithril",
+    "directory": "mithril-client-wasm"
+  },
+  "bugs": {
+    "url": "https://github.com/input-output-hk/mithril/issues"
+  },
+  "files": [
+    "dist/**/*",
+    "package.json"
+  ],
+  "main": "dist/node/mithril_client_wasm.js",
+  "browser": "dist/web/mithril_client_wasm.js",
+  "types": "dist/node/mithril_client_wasm.d.ts",
+  "scripts": {
+    "build": "npm run build:node && npm run build:web && npm run build:bundler",
+    "build:bundler": "wasm-pack build --target bundler --out-dir dist/bundler $WASM_PACK_ARGS",
+    "postbuild:bundler": "rm dist/bundler/.gitignore",
+    "build:node": "wasm-pack build --target nodejs --out-dir dist/node $WASM_PACK_ARGS",
+    "postbuild:node": "rm dist/node/.gitignore",
+    "build:web": "wasm-pack build --target web --out-dir dist/web $WASM_PACK_ARGS",
+    "postbuild:web": "rm dist/web/.gitignore"
+  }
+}

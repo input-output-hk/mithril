@@ -1,6 +1,6 @@
 {
   "name": "www-test",
-  "version": "0.2.7",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "build": "webpack --config webpack.config.js",
@@ -9,13 +9,13 @@
     "pretty:write": "prettier --write '**/*.{js,md}'"
   },
   "dependencies": {
-    "@mithril-dev/mithril-client-wasm": "file:../pkg"
+    "@mithril-dev/mithril-client-wasm": "file:../"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^12.0.2",
     "dotenv-webpack": "^8.1.0",
     "prettier": "^3.3.2",
-    "webpack": "^5.95.0",
+    "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.1.0"
   }

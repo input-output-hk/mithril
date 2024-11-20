@@ -1,7 +1,6 @@
 demo/protocol-demo/artifacts/
 docs/website/.docusaurus/
 docs/website/build/
-mithril-client-wasm/pkg/
 mithril-explorer/font.css.hbs
 mithril-explorer/out/
 mithril-explorer/.next/
@@ -12,3 +11,5 @@ mithril-test-lab/mithril-end-to-end/monitor/config/grafana/provisioning/dashboar
 mithril-test-lab/mithril-aggregator-fake/default_data/
 mithril-test-lab/mithril-devnet/configuration/
 flake.lock
+**/dist/
+**/pkg/

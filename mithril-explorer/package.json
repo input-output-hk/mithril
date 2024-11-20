@@ -13,7 +13,7 @@
     "test:ci": "jest --ci"
   },
   "dependencies": {
-    "@mithril-dev/mithril-client-wasm": "file:../mithril-client-wasm/pkg",
+    "@mithril-dev/mithril-client-wasm": "file:../mithril-client-wasm/",
     "@popperjs/core": "^2.11.8",
     "@reduxjs/toolkit": "^2.3.0",
     "bootstrap": "^5.3.3",

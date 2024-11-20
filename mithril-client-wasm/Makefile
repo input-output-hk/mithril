@@ -10,11 +10,7 @@ CARGO = cargo
 all: test build
 
 build:
-	wasm-pack build --target web --release --out-name index
-
-build-nodejs: 
-	echo "This is an experimental feature which may change in the future."
-	wasm-pack build --target nodejs --release --out-name index
+	npm run build
 
 test:
 	pkill -f "mithril-aggregator-fake" || true
