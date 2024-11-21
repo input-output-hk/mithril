@@ -296,7 +296,7 @@ jobs:
 
       - name: Unpack 'mithril-client-wasm' package
         working-directory: mithril-client-wasm
-        run: tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
+        run: tar -xvzf *.tgz && mv package/dist .
 
       - name: Install dependencies
         working-directory: mithril-client-wasm

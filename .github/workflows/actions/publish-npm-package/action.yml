@@ -74,17 +74,24 @@ runs:
 
     - name: Build package
       shell: bash
+      working-directory: ${{ inputs.package }}
+      env:
+        WASM_PACK_ARGS: --release --scope ${{ inputs.scope }}
       run: |
         echo "Build '@${{ inputs.scope }}/${{ inputs.package }}' package"
-        cp ./LICENSE ./mithril-client-wasm/
-        cp -f ./mithril-client-wasm/npm/README.md ./mithril-client-wasm/
-        wasm-pack build ${{ inputs.package }} --release --target web --out-dir ./pkg --scope ${{ inputs.scope }} --out-name index
+        make build
+
+    - name: Prepare publish
+      shell: bash
+      run: |
+        cp ./LICENSE ${{ inputs.package }}
+        cp -f ${{ inputs.package }}/npm/README.md ${{ inputs.package }}/
 
     - name: List package
       shell: bash
       run: |
         echo "List '@${{ inputs.scope }}/${{ inputs.package }}' package"
-        ls -al ${{ inputs.package }}/pkg
+        ls -al -R ${{ inputs.package }}/dist
 
     - name: Publish package new version
       if: steps.check_version.outputs.deploy_mode == 'publish'
@@ -99,7 +106,7 @@ runs:
         else
           npm whoami
         fi
-        cd ${{ inputs.package }}/pkg
+        cd ${{ inputs.package }}/
         if [ "${{ inputs.dry_run }}" == "false" ]; then
           dry_run_option=""
         else
@@ -116,6 +123,6 @@ runs:
         echo "Publish '@${{ inputs.scope }}/${{ inputs.package }}' package"
         npm set "//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
         npm whoami
-        cd ${{ inputs.package }}/pkg
+        cd ${{ inputs.package }}/
         npm dist-tag add @${{ inputs.scope }}/${{ inputs.package }}@${{ steps.check_version.outputs.package_version }} latest
         npm dist-tag rm @${{ inputs.scope }}/${{ inputs.package }}@${{ steps.check_version.outputs.package_version }} next
