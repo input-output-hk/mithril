@@ -43,6 +43,12 @@ The STM protocol enables participants to sign a message collectively, validating
     - _Aggregation_: these signatures are aggregated into a single multi-signature; a minimum of $k$ signatures are aggregated into a single multi-signature
     - _Verification_: the multi-signature, along with the Merkle proofs, is verified using the $\mathcal{AVK}$.
 
+:::info
+
+Protocol phases are described in more detail [here](./protocol.md#protocol-phases).
+
+:::
+
 ## Adversarial model
 
 The adversarial model specifies the capabilities and goals of potential attackers.
