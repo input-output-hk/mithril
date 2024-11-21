@@ -84,32 +84,61 @@ chore: upgrade doc dependencies
 By running 'make upgrade' command.
 ```
 
-### Upgrade `www/` and `www-test/` dependencies
+### Upgrade client wasm `ci-test/` dependencies
 
 From the root of the repository, run:
 
-[!IMPORTANT]: This command must be run before upgrading `mithril-explorer`.
+Upgrade the `ci-test` dependencies by running:
 
 ```bash
-cd mithril-client-wasm
-make upgrade-www-deps
+make -C mithril-client-wasm upgrade-ci-test-deps
 ```
 
 Create a dedicated commit, e.g.:
 
 ```bash
-chore: upgrade mithril client wasm 'www' and 'www-test' dependencies
+chore: upgrade mithril client wasm 'ci-test' dependencies
 
-By running 'make upgrade-www-deps' command.
+By running 'make upgrade-ci-test-deps' command.
+```
+
+### Upgrade client wasm examples dependencies
+
+From the root of the repository, run:
+
+[!IMPORTANT]: This command must be run before upgrading client wasm examples.
+
+```bash
+make -C mithril-client-wasm build
+```
+
+Upgrade the examples dependencies by running:
+
+```bash
+make -C examples/client-wasm-nodejs upgrade
+make -C examples/client-wasm-web upgrade
+```
+
+Create a dedicated commit, e.g.:
+
+```bash
+chore: upgrade mithril client wasm examples dependencies
+
+By running 'make upgrade' command in 'examples/client-wasm-nodejs' and 'examples/client-wasm-web'.
 ```
 
 ### Upgrade the explorer dependencies
 
+[!IMPORTANT]: This command must be run before upgrading `mithril-explorer`.
+
+```bash
+make -C mithril-client-wasm build
+```
+
 From the root of the repository, run:
 
 ```bash
-cd mithril-explorer
-make upgrade
+make -C mithril-explorer upgrade
 ```
 
 Create a dedicated commit, e.g.:

@@ -1,5 +1,5 @@
 {
-  "name": "www",
+  "name": "client-wasm-web",
   "version": "0.3.0",
   "private": true,
   "scripts": {
@@ -9,11 +9,11 @@
     "pretty:write": "prettier --write '**/*.{js,md}'"
   },
   "dependencies": {
-    "@mithril-dev/mithril-client-wasm": "file:../"
+    "@mithril-dev/mithril-client-wasm": "file:../../mithril-client-wasm"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^12.0.2",
-    "prettier": "^3.3.2",
+    "prettier": "^3.3.3",
     "webpack": "^5.96.1",
     "webpack-cli": "^5.1.4",
     "webpack-dev-server": "^5.1.0"
