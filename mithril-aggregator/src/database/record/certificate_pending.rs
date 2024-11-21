@@ -2,17 +2,20 @@ use chrono::{DateTime, Utc};
 use mithril_common::entities::{CertificatePending, Epoch};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
+/// CertificatePending record is the representation of a stored pending certificate.
 pub struct CertificatePendingRecord {
     /// Current Epoch
     pub epoch: Epoch,
 
-    // Pending certificate serialization as json
+    /// Pending certificate serialization as json
     pub certificate: String,
 
+    /// Date and time when the pending certificate was created
     pub created_at: DateTime<Utc>,
 }
 
 impl CertificatePendingRecord {
+    /// Construct a [Projection] that will allow to hydrate this `CertificatePendingRecord`.
     pub fn get_projection_with_table(table: &str) -> Projection {
         let mut projection = Projection::default();
 

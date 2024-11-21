@@ -1,4 +1,4 @@
-use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use mithril_persistence::sqlite::{Query, SourceAlias, WhereCondition};
 
 use crate::database::record::CertificatePendingRecord;
 
@@ -28,11 +28,11 @@ impl Query for DeletePendingCertificateRecordQuery {
 
         // let projection = Self::Entity::get_projection().expand(SourceAlias::new(&[(
         //     "{:pending_certificate:}",
-        //     "new_pending_certificate",
+        //     "pending_certificate",
         // )]));
-        let projection = Self::Entity::get_projection_with_table("new_pending_certificate")
+        let projection = Self::Entity::get_projection_with_table("pending_certificate")
             .expand(SourceAlias::new(&[]));
 
-        format!("delete from new_pending_certificate where {condition} returning {projection}")
+        format!("delete from pending_certificate where {condition} returning {projection}")
     }
 }

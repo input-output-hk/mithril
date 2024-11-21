@@ -38,11 +38,11 @@ impl Query for SavePendingCertificateRecordQuery {
 
         // let projection = Self::Entity::get_projection().expand(SourceAlias::new(&[(
         //     "{:pending_certificate:}",
-        //     "new_pending_certificate",
+        //     "pending_certificate",
         // )]));
-        let projection = Self::Entity::get_projection_with_table("new_pending_certificate")
+        let projection = Self::Entity::get_projection_with_table("pending_certificate")
             .expand(SourceAlias::new(&[]));
 
-        format!("insert or replace into new_pending_certificate {condition} returning {projection}")
+        format!("insert or replace into pending_certificate {condition} returning {projection}")
     }
 }

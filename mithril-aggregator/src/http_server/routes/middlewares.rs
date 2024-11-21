@@ -13,8 +13,7 @@ use crate::http_server::routes::router::{RouterConfig, RouterState};
 use crate::services::{CertifierService, MessageService, ProverService, SignedEntityService};
 use crate::store::CertificatePendingStorer;
 use crate::{
-    CertificatePendingStore, MetricsService, SignerRegisterer, SingleSignatureAuthenticator,
-    VerificationKeyStorer,
+    MetricsService, SignerRegisterer, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// Extract a value from the configuration

@@ -40,9 +40,8 @@ use crate::{
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
     store::CertificatePendingStorer,
-    CertificatePendingStore, EpochSettingsStorer, MetricsService, SignerRegisterer,
-    SignerRegistrationRoundOpener, SingleSignatureAuthenticator, Snapshotter,
-    VerificationKeyStorer,
+    EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
+    SingleSignatureAuthenticator, Snapshotter, VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps a [EpochService]

@@ -1,6 +1,8 @@
 use chrono::Utc;
+use serde::Serialize;
 use sqlite::{ConnectionThreadSafe, Value};
 use std::path::Path;
+use std::sync::Arc;
 use uuid::Uuid;
 
 use mithril_common::entities::{
@@ -455,4 +457,53 @@ pub fn insert_stake_pool(
     }
 
     Ok(())
+}
+
+/// A simple struct that help to initialize database with the old adapter behavior for testing purposes.
+pub struct FakeStoreAdapter {
+    connection: Arc<SqliteConnection>,
+    table: &'static str,
+}
+
+impl FakeStoreAdapter {
+    pub fn new(connection: Arc<SqliteConnection>, table: &'static str) -> Self {
+        Self { connection, table }
+    }
+
+    pub fn create_table(&self) {
+        let sql = format!(
+            "create table {} (key_hash text primary key, key json not null, value json not null)",
+            self.table
+        );
+        self.connection.execute(sql).unwrap();
+    }
+
+    pub fn is_key_hash_exist(&self, key_hash: &str) -> bool {
+        let sql = format!(
+            "select exists(select 1 from {} where key_hash = ?1) as record_exists",
+            self.table
+        );
+        let parameters = [Value::String(key_hash.to_string())];
+        let result: i64 = self.connection.query_single_cell(sql, &parameters).unwrap();
+        result == 1
+    }
+
+    pub fn store_record<K: Serialize, V: Serialize>(
+        &self,
+        key_hash: &str,
+        key: &K,
+        record: &V,
+    ) -> StdResult<()> {
+        let sql = format!(
+            "insert into {} (key_hash, key, value) values (?1, ?2, ?3) on conflict (key_hash) do update set value = excluded.value",
+            self.table
+        );
+        let mut statement = self.connection.prepare(sql)?;
+        statement.bind((1, key_hash))?;
+        statement.bind((2, serde_json::to_string(&key)?.as_str()))?;
+        statement.bind((3, serde_json::to_string(record)?.as_str()))?;
+        let _ = statement.next()?;
+
+        Ok(())
+    }
 }
