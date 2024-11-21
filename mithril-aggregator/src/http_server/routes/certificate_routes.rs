@@ -49,6 +49,7 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
+    use crate::store::CertificatePendingStorer;
     use crate::MetricsService;
     use crate::{
         http_server::routes::reply, services::MessageService, CertificatePendingStore,
@@ -67,7 +68,7 @@ mod handlers {
     pub async fn certificate_pending(
         logger: Logger,
         network: CardanoNetwork,
-        certificate_pending_store: Arc<CertificatePendingStore>,
+        certificate_pending_store: Arc<dyn CertificatePendingStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(

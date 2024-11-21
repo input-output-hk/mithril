@@ -39,6 +39,7 @@ use crate::{
     },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
+    store::CertificatePendingStorer,
     CertificatePendingStore, EpochSettingsStorer, MetricsService, SignerRegisterer,
     SignerRegistrationRoundOpener, SingleSignatureAuthenticator, Snapshotter,
     VerificationKeyStorer,
@@ -77,7 +78,7 @@ pub struct DependencyContainer {
     pub multi_signer: Arc<dyn MultiSigner>,
 
     /// Certificate pending store.
-    pub certificate_pending_store: Arc<CertificatePendingStore>,
+    pub certificate_pending_store: Arc<dyn CertificatePendingStorer>,
 
     /// Certificate store.
     pub certificate_repository: Arc<CertificateRepository>,

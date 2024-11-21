@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Context};
+use async_trait::async_trait;
 use mithril_common::StdResult;
 use tokio::sync::RwLock;
 
@@ -10,6 +11,18 @@ type Adapter = Box<dyn StoreAdapter<Key = String, Record = CertificatePending>>;
 const KEY: &str = "certificate_pending";
 
 /// Store for [CertificatePending].
+#[async_trait]
+pub trait CertificatePendingStorer: Sync + Send {
+    /// Fetch the current [CertificatePending] if any.
+    async fn get(&self) -> StdResult<Option<CertificatePending>>;
+
+    /// Save the given [CertificatePending].
+    async fn save(&self, certificate: CertificatePending) -> StdResult<()>;
+
+    /// Remove and return the current [CertificatePending] if any.
+    async fn remove(&self) -> StdResult<Option<CertificatePending>>;
+}
+
 pub struct CertificatePendingStore {
     adapter: RwLock<Adapter>,
 }
@@ -21,9 +34,11 @@ impl CertificatePendingStore {
             adapter: RwLock::new(adapter),
         }
     }
+}
 
-    /// Fetch the current [CertificatePending] if any.
-    pub async fn get(&self) -> StdResult<Option<CertificatePending>> {
+#[async_trait]
+impl CertificatePendingStorer for CertificatePendingStore {
+    async fn get(&self) -> StdResult<Option<CertificatePending>> {
         self.adapter
             .read()
             .await
@@ -32,8 +47,7 @@ impl CertificatePendingStore {
             .with_context(|| "Certificate pending store: could not GET store.".to_string())
     }
 
-    /// Save the given [CertificatePending].
-    pub async fn save(&self, certificate: CertificatePending) -> StdResult<()> {
+    async fn save(&self, certificate: CertificatePending) -> StdResult<()> {
         self
             .adapter
             .write()
@@ -43,8 +57,7 @@ impl CertificatePendingStore {
             .with_context(|| format!("Certificate pending store: error while saving pending certificate for epoch '{}'.", certificate.epoch))
     }
 
-    /// Remove and return the current [CertificatePending] if any.
-    pub async fn remove(&self) -> StdResult<Option<CertificatePending>> {
+    async fn remove(&self) -> StdResult<Option<CertificatePending>> {
         self.adapter
             .write()
             .await

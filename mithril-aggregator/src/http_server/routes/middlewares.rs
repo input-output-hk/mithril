@@ -11,6 +11,7 @@ use crate::event_store::{EventMessage, TransmitterService};
 use crate::http_server::routes::http_server_child_logger;
 use crate::http_server::routes::router::{RouterConfig, RouterState};
 use crate::services::{CertifierService, MessageService, ProverService, SignedEntityService};
+use crate::store::CertificatePendingStorer;
 use crate::{
     CertificatePendingStore, MetricsService, SignerRegisterer, SingleSignatureAuthenticator,
     VerificationKeyStorer,
@@ -54,7 +55,7 @@ pub(crate) fn log_route_call(
 /// With certificate pending store
 pub(crate) fn with_certificate_pending_store(
     router_state: &RouterState,
-) -> impl Filter<Extract = (Arc<CertificatePendingStore>,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn CertificatePendingStorer>,), Error = Infallible> + Clone {
     let certificate_pending_store = router_state.dependencies.certificate_pending_store.clone();
     warp::any().map(move || certificate_pending_store.clone())
 }

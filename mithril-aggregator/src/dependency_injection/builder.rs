@@ -71,6 +71,7 @@ use crate::{
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
         SignedEntityService, StakeDistributionService, UpkeepService, UsageReporter,
     },
+    store::CertificatePendingStorer,
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
@@ -534,7 +535,9 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [CertificatePendingStore].
-    pub async fn get_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
+    pub async fn get_certificate_pending_store(
+        &mut self,
+    ) -> Result<Arc<dyn CertificatePendingStorer>> {
         if self.certificate_pending_store.is_none() {
             self.certificate_pending_store = Some(self.build_certificate_pending_store().await?);
         }
