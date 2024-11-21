@@ -32,9 +32,10 @@ use mithril_common::{MithrilTickerService, StdResult, TickerService};
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 use mithril_persistence::database::{ApplicationNodeType, SqlMigration};
 use mithril_persistence::sqlite::{ConnectionBuilder, SqliteConnection, SqliteConnectionPool};
-use mithril_persistence::store::adapter::SQLiteAdapter;
 
-use crate::database::repository::SignedBeaconRepository;
+use crate::database::repository::{
+    ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore,
+};
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::services::{
     AggregatorHTTPClient, CardanoTransactionsImporter,
@@ -43,7 +44,7 @@ use crate::services::{
     SignerUpkeepService, TransactionsImporterByChunk, TransactionsImporterWithPruner,
     TransactionsImporterWithVacuum,
 };
-use crate::store::{MKTreeStoreSqlite, ProtocolInitializerStore, StakeStore};
+use crate::store::MKTreeStoreSqlite;
 use crate::{
     Configuration, MetricsService, HTTP_REQUEST_TIMEOUT_DURATION, SQLITE_FILE,
     SQLITE_FILE_CARDANO_TRANSACTION,
@@ -212,21 +213,20 @@ impl<'a> DependenciesBuilder<'a> {
         );
 
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(SQLiteAdapter::new(
-                "protocol_initializer",
-                sqlite_connection.clone(),
-            )?),
-            self.config.store_retention_limit,
+
+        let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
+            sqlite_connection.clone(),
+            self.config.store_retention_limit.map(|limit| limit as u64),
         ));
+
         let digester = Arc::new(CardanoImmutableDigester::new(
             network.to_string(),
             self.build_digester_cache_provider().await?,
             self.root_logger(),
         ));
-        let stake_store = Arc::new(StakeStore::new(
-            Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone())?),
-            self.config.store_retention_limit,
+        let stake_store = Arc::new(StakePoolStore::new(
+            sqlite_connection.clone(),
+            self.config.store_retention_limit.map(|limit| limit as u64),
         ));
         let chain_observer = {
             let builder = self.chain_observer_builder;

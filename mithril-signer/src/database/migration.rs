@@ -63,12 +63,61 @@ create index signed_beacon_signed_entity_type_id on signed_beacon(signed_entity_
         // Migration 4
         // Remove `network` from cardano immutable files full beacons in `signed_beacon` table
         SqlMigration::new(
-            31,
+            4,
             r#"
 update signed_beacon
     set beacon = json_remove(beacon, '$.network')
     where signed_beacon.signed_entity_type_id = 2;
         "#,
+        ),
+        // Migration 5
+        // Add the `stake_pool` table and migration data from the previous
+        // `stake_store` JSON format.
+        SqlMigration::new(
+            5,
+            r#"
+create table stake_pool (
+    stake_pool_id text      not null,
+    epoch         integer   not null,
+    stake         integer   not null,
+    created_at    text      not null,
+    primary key (epoch, stake_pool_id)
+);
+create table if not exists stake (key_hash text primary key, key json not null, value json not null);
+insert into stake_pool (epoch, stake_pool_id, stake, created_at) 
+    select 
+        stake.key as epoch, 
+        stake_dis.key as stake_pool_id, 
+        stake_dis.value as stake,
+        strftime('%Y-%m-%dT%H:%M:%fZ', current_timestamp)
+    from stake, json_each(stake.value) as stake_dis 
+    order by epoch asc;
+drop table stake;
+"#,
+        ),
+        // Migration 6
+        // Add the `protocol_initializer` table and migration data from the previous
+        // `protocol_initializer` JSON format.
+        SqlMigration::new(
+            6,
+            r#"
+create table new_protocol_initializer (
+    epoch         integer   not null,
+    protocol      json      not null,
+    created_at    text      not null,
+    primary key (epoch)
+);
+create table if not exists protocol_initializer (key_hash text primary key, key json not null, value json not null);
+insert into new_protocol_initializer (epoch, protocol, created_at) 
+    select 
+        protocol_initializer.key as epoch, 
+        protocol_initializer.value, 
+        strftime('%Y-%m-%dT%H:%M:%fZ', current_timestamp)
+    from protocol_initializer
+    order by epoch asc;
+drop table protocol_initializer;
+alter table new_protocol_initializer rename to protocol_initializer;
+"#,
         ),
     ]
 }

@@ -317,19 +317,20 @@ impl SignedEntityConfigProvider for SignerSignedEntityConfigProvider {
 }
 
 #[cfg(test)]
+use crate::database::repository::ProtocolInitializerRepository;
+
+#[cfg(test)]
 impl MithrilEpochService {
     /// `TEST ONLY` - Create a new instance of the service using dumb dependencies.
     pub fn new_with_dumb_dependencies() -> Self {
-        use crate::store::ProtocolInitializerStore;
-        use crate::store::StakeStore;
+        use crate::database::repository::StakePoolStore;
+        use crate::database::test_helper::main_db_connection;
         use crate::test_tools::TestLogger;
-        use mithril_persistence::store::adapter::DumbStoreAdapter;
 
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(DumbStoreAdapter::new()),
-            None,
-        ));
+        let sqlite_connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone(), None));
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(sqlite_connection, None));
 
         Self::new(
             stake_store,
@@ -430,11 +431,11 @@ mod tests {
 
     use mithril_common::entities::{Epoch, StakeDistribution};
     use mithril_common::test_utils::{fake_data, MithrilFixtureBuilder};
-    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
 
+    use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
+    use crate::database::test_helper::main_db_connection;
     use crate::entities::SignerEpochSettings;
     use crate::services::MithrilProtocolInitializerBuilder;
-    use crate::store::{ProtocolInitializerStore, StakeStore};
     use crate::test_tools::TestLogger;
 
     use super::*;
@@ -450,11 +451,10 @@ mod tests {
             None,
         )
         .unwrap();
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(DumbStoreAdapter::new()),
-            None,
-        ));
+        let connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = Arc::new(StakePoolStore::new(connection.clone(), None));
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(connection, None));
         let service = MithrilEpochService::new(
             stake_store,
             protocol_initializer_store,
@@ -475,11 +475,11 @@ mod tests {
             .to_owned();
         let epoch = Epoch(12);
         let signers = fixtures.signers();
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(DumbStoreAdapter::new()),
-            None,
-        ));
+
+        let connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = Arc::new(StakePoolStore::new(connection.clone(), None));
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(connection, None));
 
         let epoch_settings = SignerEpochSettings {
             epoch,
@@ -615,15 +615,14 @@ mod tests {
             .collect();
 
         // Init stores
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = Arc::new(StakePoolStore::new(connection.clone(), None));
         stake_store
             .save_stakes(epoch, stake_distribution.clone())
             .await
             .expect("save_stakes should not fail");
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(DumbStoreAdapter::new()),
-            None,
-        ));
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(connection, None));
 
         // Build service and register epoch settings
         let service = MithrilEpochService::new(
@@ -649,11 +648,10 @@ mod tests {
         let signers = fake_data::signers(10);
 
         // Init stores
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(DumbStoreAdapter::new()),
-            None,
-        ));
+        let connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = Arc::new(StakePoolStore::new(connection.clone(), None));
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(connection, None));
 
         // Epoch settings
         let epoch_settings = SignerEpochSettings {
@@ -740,26 +738,27 @@ mod tests {
         let stake_distribution: StakeDistribution = build_stake_distribution(&signers, 100);
         let next_stake_distribution: StakeDistribution = build_stake_distribution(&signers, 500);
 
-        let stake_store = Arc::new(StakeStore::new(
-            Box::new(
-                MemoryAdapter::<Epoch, StakeDistribution>::new(Some(vec![
-                    (
-                        epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                        stake_distribution.clone(),
-                    ),
-                    (
-                        epoch.offset_to_next_signer_retrieval_epoch(),
-                        next_stake_distribution.clone(),
-                    ),
-                ]))
-                .unwrap(),
-            ),
-            None,
-        ));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(DumbStoreAdapter::new()),
-            None,
-        ));
+        let connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = {
+            let store = Arc::new(StakePoolStore::new(connection.clone(), None));
+            store
+                .save_stakes(
+                    epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                    stake_distribution.clone(),
+                )
+                .await
+                .unwrap();
+            store
+                .save_stakes(
+                    epoch.offset_to_next_signer_retrieval_epoch(),
+                    next_stake_distribution.clone(),
+                )
+                .await
+                .unwrap();
+            store
+        };
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(connection, None));
 
         // Epoch settings
         let epoch_settings = SignerEpochSettings {
@@ -807,17 +806,17 @@ mod tests {
     async fn test_protocol_initializer_is_available_after_register_epoch_settings_call_if_in_store()
     {
         let epoch = Epoch(12);
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(
-                MemoryAdapter::new(Some(vec![(
-                    epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                    fake_data::protocol_initializer("seed", 1245),
-                )]))
-                .unwrap(),
-            ),
-            None,
-        ));
+        let connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = Arc::new(StakePoolStore::new(connection.clone(), None));
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(connection, None));
+        protocol_initializer_store
+            .save_protocol_initializer(
+                epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                fake_data::protocol_initializer("seed", 1245),
+            )
+            .await
+            .unwrap();
 
         let mut service = MithrilEpochService::new(
             stake_store,
@@ -842,14 +841,10 @@ mod tests {
 
     #[tokio::test]
     async fn is_source_of_signed_entity_config() {
-        let stake_store = Arc::new(StakeStore::new(
-            Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
-            None,
-        ));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(DumbStoreAdapter::new()),
-            None,
-        ));
+        let connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = Arc::new(StakePoolStore::new(connection.clone(), None));
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(connection, None));
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             stake_store,
             protocol_initializer_store,

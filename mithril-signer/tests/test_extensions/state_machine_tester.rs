@@ -37,18 +37,18 @@ use mithril_common::{
 };
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
-    store::adapter::SQLiteAdapter, store::StakeStorer,
+    store::StakeStorer,
 };
 
 use mithril_signer::{
-    database::repository::SignedBeaconRepository,
+    database::repository::{ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore},
     dependency_injection::{DependenciesBuilder, SignerDependencyContainer},
     services::{
         AggregatorClient, CardanoTransactionsImporter, MithrilEpochService, MithrilSingleSigner,
         SignerCertifierService, SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
         SignerUpkeepService,
     },
-    store::{MKTreeStoreSqlite, ProtocolInitializerStore, ProtocolInitializerStorer, StakeStore},
+    store::{MKTreeStoreSqlite, ProtocolInitializerStorer},
     Configuration, MetricsService, RuntimeError, SignerRunner, SignerState, StateMachine,
 };
 
@@ -77,8 +77,8 @@ pub struct StateMachineTester {
     immutable_observer: Arc<DumbImmutableFileObserver>,
     chain_observer: Arc<FakeObserver>,
     certificate_handler: Arc<FakeAggregator>,
-    protocol_initializer_store: Arc<ProtocolInitializerStore>,
-    stake_store: Arc<StakeStore>,
+    protocol_initializer_store: Arc<dyn ProtocolInitializerStorer>,
+    stake_store: Arc<dyn StakeStorer>,
     era_checker: Arc<EraChecker>,
     era_reader_adapter: Arc<EraReaderDummyAdapter>,
     block_scanner: Arc<DumbBlockScanner>,
@@ -158,15 +158,13 @@ impl StateMachineTester {
             ticker_service.clone(),
         ));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(
-                SQLiteAdapter::new("protocol_initializer", sqlite_connection.clone()).unwrap(),
-            ),
-            config.store_retention_limit,
+        let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
+            sqlite_connection.clone(),
+            config.store_retention_limit.map(|limit| limit as u64),
         ));
-        let stake_store = Arc::new(StakeStore::new(
-            Box::new(SQLiteAdapter::new("stake", sqlite_connection.clone()).unwrap()),
-            config.store_retention_limit,
+        let stake_store = Arc::new(StakePoolStore::new(
+            sqlite_connection.clone(),
+            config.store_retention_limit.map(|limit| limit as u64),
         ));
         let era_reader_adapter = Arc::new(EraReaderDummyAdapter::from_markers(vec![
             (EraMarker {
@@ -448,7 +446,7 @@ impl StateMachineTester {
             .map_err(TestError::SubsystemError)?;
 
         self.assert(maybe_protocol_initializer.is_some(), format!(
-                "there should be a protocol intializer in store for Epoch {}, here is the last 3 in store: {:?}",
+                "there should be a protocol initializer in store for Epoch {}, here is the last 3 in store: {:?}",
                 epoch,
                 self.protocol_initializer_store
                     .get_last_protocol_initializer(2)

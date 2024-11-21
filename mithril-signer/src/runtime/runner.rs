@@ -10,7 +10,6 @@ use mithril_common::entities::{
 };
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
-use mithril_persistence::store::StakeStorer;
 
 use crate::dependency_injection::SignerDependencyContainer;
 use crate::entities::{BeaconToSign, SignerEpochSettings};
@@ -341,9 +340,7 @@ mod tests {
             CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
         },
         chain_observer::FakeObserver,
-        crypto_helper::{
-            MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer, ProtocolInitializer,
-        },
+        crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{BlockNumber, BlockRange, Epoch, SignedEntityTypeDiscriminants},
         era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
@@ -357,10 +354,10 @@ mod tests {
         test_utils::{fake_data, MithrilFixtureBuilder},
         MithrilTickerService, TickerService,
     };
-    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
-    use mithril_persistence::store::StakeStorer;
 
-    use crate::database::repository::SignedBeaconRepository;
+    use crate::database::repository::{
+        ProtocolInitializerRepository, SignedBeaconRepository, StakePoolStore,
+    };
     use crate::database::test_helper::main_db_connection;
     use crate::metrics::MetricsService;
     use crate::services::{
@@ -368,7 +365,6 @@ mod tests {
         MithrilSingleSigner, MockTransactionStore, MockUpkeepService, SignerCertifierService,
         SignerSignableSeedBuilder, SignerSignedEntityConfigProvider,
     };
-    use crate::store::{ProtocolInitializerStore, StakeStore};
     use crate::test_tools::TestLogger;
 
     use super::*;
@@ -404,7 +400,6 @@ mod tests {
     async fn init_services() -> SignerDependencyContainer {
         let logger = TestLogger::stdout();
         let sqlite_connection = Arc::new(main_db_connection().unwrap());
-        let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let stake_distribution_signers = fake_data::signers_with_stakes(2);
         let party_id = stake_distribution_signers[1].party_id.clone();
         let fake_observer = FakeObserver::default();
@@ -447,12 +442,14 @@ mod tests {
             transactions_importer.clone(),
             block_range_root_retriever,
         ));
-        let stake_store = Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None));
+        let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone(), None));
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
-        let protocol_initializer_store =
-            Arc::new(ProtocolInitializerStore::new(Box::new(adapter), None));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
+            sqlite_connection.clone(),
+            None,
+        ));
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             stake_store.clone(),
             protocol_initializer_store.clone(),

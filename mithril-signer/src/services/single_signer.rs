@@ -172,14 +172,14 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
+    use crate::database::repository::{ProtocolInitializerRepository, StakePoolStore};
+    use crate::database::test_helper::main_db_connection;
+    use crate::services::MithrilEpochService;
+    use crate::test_tools::TestLogger;
     use mithril_common::crypto_helper::ProtocolClerk;
     use mithril_common::entities::{Epoch, ProtocolMessagePartKey};
     use mithril_common::test_utils::MithrilFixtureBuilder;
-    use mithril_persistence::store::adapter::{DumbStoreAdapter, MemoryAdapter};
-
-    use crate::services::MithrilEpochService;
-    use crate::store::{ProtocolInitializerStore, StakeStore};
-    use crate::test_tools::TestLogger;
+    use mithril_persistence::store::StakeStorer;
 
     use super::*;
 
@@ -191,20 +191,20 @@ mod tests {
         let clerk = ProtocolClerk::from_signer(&current_signer.protocol_signer);
         let avk = clerk.compute_avk();
         let logger = TestLogger::stdout();
-        let stake_store = Arc::new(StakeStore::new(
-            Box::new(
-                MemoryAdapter::new(Some(vec![(
+        let connection = Arc::new(main_db_connection().unwrap());
+        let stake_store = {
+            let store = Arc::new(StakePoolStore::new(connection.clone(), None));
+            store
+                .save_stakes(
                     Epoch(10).offset_to_signer_retrieval_epoch().unwrap(),
                     fixture.stake_distribution(),
-                )]))
-                .unwrap(),
-            ),
-            None,
-        ));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
-            Box::new(DumbStoreAdapter::new()),
-            None,
-        ));
+                )
+                .await
+                .unwrap();
+            store
+        };
+        let protocol_initializer_store =
+            Arc::new(ProtocolInitializerRepository::new(connection, None));
         let epoch_service =
             MithrilEpochService::new(stake_store, protocol_initializer_store, logger.clone())
                 .set_data_to_default_or_fake(Epoch(10))

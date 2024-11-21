@@ -156,7 +156,7 @@ insert into db_version (application_type, version, updated_at) values ('{applica
 }
 
 /// Represent a file containing SQL structure or data alterations.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SqlMigration {
     /// The semver version this migration targets.
     pub version: DbVersion,
