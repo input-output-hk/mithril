@@ -865,7 +865,7 @@ insert into signed_entity_type (signed_entity_type_id, name)
             r#"
 create table new_pending_certificate (
     epoch                           integer     not null,
-    content                         text        not null,
+    certificate                     text        not null,
     created_at                      text        not null,
     primary key (epoch)
 );

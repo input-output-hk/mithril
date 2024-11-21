@@ -1,7 +1,5 @@
 use chrono::{DateTime, Utc};
-use mithril_common::entities::{
-    CertificatePending, Epoch, ProtocolParameters, SignedEntityType, Signer,
-};
+use mithril_common::entities::{CertificatePending, Epoch};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 pub struct CertificatePendingRecord {
@@ -9,7 +7,7 @@ pub struct CertificatePendingRecord {
     pub epoch: Epoch,
 
     // Pending certificate serialization as json
-    pub content: String,
+    pub certificate: String,
 
     pub created_at: DateTime<Utc>,
 }
@@ -19,7 +17,7 @@ impl CertificatePendingRecord {
         let mut projection = Projection::default();
 
         projection.add_field("epoch", &format!("{table}.epoch"), "integer");
-        projection.add_field("content", &format!("{table}.content"), "text");
+        projection.add_field("certificate", &format!("{table}.certificate"), "text");
         projection.add_field("created_at", &format!("{table}.created_at"), "text");
 
         projection
@@ -36,7 +34,7 @@ impl SqLiteEntity for CertificatePendingRecord {
         let created_at = &row.read::<&str, _>(2);
 
         let record = Self {
-            content: pending_certificate_json.to_string(),
+            certificate: pending_certificate_json.to_string(),
             created_at: DateTime::parse_from_rfc3339(created_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
@@ -55,13 +53,7 @@ impl SqLiteEntity for CertificatePendingRecord {
     }
 
     fn get_projection() -> Projection {
-        let mut projection = Projection::default();
-
-        projection.add_field("epoch", "{:pending_certificate:}.epoch", "integer");
-        projection.add_field("content", "{:pending_certificate:}.content", "text");
-        projection.add_field("created_at", "{:pending_certificate:}.created_at", "text");
-
-        projection
+        Self::get_projection_with_table("{:pending_certificate:}")
     }
 }
 
@@ -69,7 +61,7 @@ impl From<CertificatePending> for CertificatePendingRecord {
     fn from(value: CertificatePending) -> Self {
         Self {
             epoch: value.epoch,
-            content: serde_json::to_string(&value).unwrap(),
+            certificate: serde_json::to_string(&value).unwrap(),
             created_at: Utc::now(),
         }
     }
@@ -77,7 +69,7 @@ impl From<CertificatePending> for CertificatePendingRecord {
 
 impl From<CertificatePendingRecord> for CertificatePending {
     fn from(record: CertificatePendingRecord) -> Self {
-        let c: CertificatePending = serde_json::from_str(&record.content).unwrap();
+        let c: CertificatePending = serde_json::from_str(&record.certificate).unwrap();
         Self {
             epoch: record.epoch,
             signed_entity_type: c.signed_entity_type,

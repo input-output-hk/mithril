@@ -15,25 +15,6 @@ impl GetPendingCertificateRecordQuery {
     }
 }
 
-#[cfg(test)]
-mod test_extensions {
-    use mithril_persistence::sqlite::WhereCondition;
-
-    use super::*;
-
-    impl GetPendingCertificateRecordQuery {
-        /// Query to get PendingCertificateRecords for a given PendingCertificate id.
-        pub fn by_pending_certificate_id(pending_certificate_id: String) -> Self {
-            Self {
-                condition: WhereCondition::new(
-                    "PendingCertificate_id = ?*",
-                    vec![sqlite::Value::String(pending_certificate_id)],
-                ),
-            }
-        }
-    }
-}
-
 impl Query for GetPendingCertificateRecordQuery {
     type Entity = CertificatePendingRecord;
 
@@ -42,12 +23,12 @@ impl Query for GetPendingCertificateRecordQuery {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        let aliases = SourceAlias::new(&[("{:pending_certificate:}", "new_pending_certificate")]);
-        let projection = Self::Entity::get_projection().expand(aliases);
-        // let projection = Self::Entity::get_projection_with_table("new_pending_certificate")
-        //     .expand(SourceAlias::new(&[]));
+        // let aliases = SourceAlias::new(&[("{:pending_certificate:}", "new_pending_certificate")]);
+        // let projection = Self::Entity::get_projection().expand(aliases);
+        let projection = Self::Entity::get_projection_with_table("new_pending_certificate")
+            .expand(SourceAlias::new(&[]));
         format!(
-            // TODO XXX check the order to keep
+            // TODO check the order to keep
             "select {projection} from new_pending_certificate where {condition} order by ROWID desc"
         )
     }

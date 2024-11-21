@@ -45,9 +45,8 @@ impl CertificatePendingRepository {
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
 
-    use crate::database::test_helper::{main_db_connection, main_db_file_connection};
+    use crate::database::test_helper::main_db_connection;
 
     use super::*;
 
