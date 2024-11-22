@@ -817,19 +817,17 @@ impl EpochService for FakeEpochService {
 mod tests {
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, PartyId, Stake, StakeDistribution,
+        BlockNumber, CardanoTransactionsSigningConfig, Stake, StakeDistribution,
     };
     use mithril_common::era::SupportedEra;
     use mithril_common::test_utils::{
         fake_data, MithrilFixture, MithrilFixtureBuilder, StakeDistributionGenerationMethod,
     };
-    use mithril_persistence::store::adapter::MemoryAdapter;
-    use std::collections::{BTreeSet, HashMap};
+    use mockall::predicate::eq;
 
     use crate::services::MockStakeDistributionService;
-    use crate::store::FakeEpochSettingsStorer;
+    use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
     use crate::test_tools::TestLogger;
-    use crate::VerificationKeyStore;
 
     use super::*;
 
@@ -915,16 +913,6 @@ mod tests {
         }
     }
 
-    fn map_signers_for_vkey_store(
-        signers: &[SignerWithStake],
-    ) -> HashMap<PartyId, SignerWithStake> {
-        signers
-            .iter()
-            .cloned()
-            .map(|s| (s.party_id.to_owned(), s))
-            .collect()
-    }
-
     struct EpochServiceBuilder {
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
         future_protocol_parameters: ProtocolParameters,
@@ -988,19 +976,23 @@ mod tests {
                     self.stored_signer_registration_epoch_settings.clone(),
                 ),
             ]);
-            let vkey_store = VerificationKeyStore::new(Box::new(
-                MemoryAdapter::new(Some(vec![
-                    (
-                        signer_retrieval_epoch,
-                        map_signers_for_vkey_store(&self.signers_with_stake),
-                    ),
-                    (
-                        next_signer_retrieval_epoch,
-                        map_signers_for_vkey_store(&self.next_signers_with_stake),
-                    ),
-                ]))
-                .unwrap(),
-            ));
+
+            let vkey_store = {
+                let mut store = MockVerificationKeyStorer::new();
+                let signers_with_stake = self.signers_with_stake.clone();
+                store
+                    .expect_get_signers()
+                    .with(eq(signer_retrieval_epoch))
+                    .returning(move |_| Ok(Some(signers_with_stake.clone())));
+
+                let next_signers_with_stake = self.next_signers_with_stake.clone();
+                store
+                    .expect_get_signers()
+                    .with(eq(next_signer_retrieval_epoch))
+                    .returning(move |_| Ok(Some(next_signers_with_stake.clone())));
+                store
+            };
+
             let chain_observer = FakeObserver::default();
             chain_observer.set_current_era(self.cardano_era).await;
             let era_checker = EraChecker::new(self.mithril_era, Epoch::default());

@@ -54,7 +54,7 @@ pub use snapshotter::{
     CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotError, Snapshotter,
     SnapshotterCompressionAlgorithm,
 };
-pub use store::{EpochSettingsStorer, VerificationKeyStore, VerificationKeyStorer};
+pub use store::{EpochSettingsStorer, VerificationKeyStorer};
 pub use tools::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
     SingleSignatureAuthenticator,

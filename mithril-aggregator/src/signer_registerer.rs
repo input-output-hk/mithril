@@ -287,23 +287,24 @@ mod tests {
 
     use mithril_common::{
         chain_observer::FakeObserver,
-        entities::{Epoch, PartyId, Signer, SignerWithStake},
+        entities::{Epoch, Signer},
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
-    use mithril_persistence::store::adapter::MemoryAdapter;
 
     use crate::{
+        database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
         MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationRoundOpener,
-        VerificationKeyStore, VerificationKeyStorer,
+        VerificationKeyStorer,
     };
 
     use super::MockSignerRecorder;
 
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_with_operational_certificate() {
-        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
+            main_db_connection().unwrap(),
         )));
+
         let mut signer_recorder = MockSignerRecorder::new();
         signer_recorder
             .expect_record_signer_registration()
@@ -346,9 +347,10 @@ mod tests {
 
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_without_operational_certificate() {
-        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
+            main_db_connection().unwrap(),
         )));
+
         let mut signer_recorder = MockSignerRecorder::new();
         signer_recorder
             .expect_record_signer_registration()
@@ -394,9 +396,10 @@ mod tests {
 
     #[tokio::test]
     async fn cant_register_signer_if_registration_round_is_not_opened() {
-        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
+            main_db_connection().unwrap(),
         )));
+
         let signer_recorder = MockSignerRecorder::new();
         let signer_registerer = MithrilSignerRegisterer::new(
             Arc::new(FakeObserver::default()),
@@ -416,20 +419,17 @@ mod tests {
 
     #[tokio::test]
     async fn should_prune_verification_keys_older_than_two_epochs_at_round_opening() {
-        let initial_keys = (1..=5)
-            .map(|epoch| {
-                let signers: HashMap<PartyId, SignerWithStake> = HashMap::from_iter(
-                    fake_data::signers_with_stakes(1)
-                        .into_iter()
-                        .map(|s| (s.party_id.to_owned(), s)),
-                );
-                (Epoch(epoch), signers)
-            })
-            .collect();
-        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(Some(initial_keys))
-                .unwrap(),
+        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
+            main_db_connection().unwrap(),
         )));
+        for initial_key in 1..=5 {
+            let signer_with_stake = fake_data::signers_with_stakes(1).pop().unwrap();
+            verification_key_store
+                .save_verification_key(Epoch(initial_key), signer_with_stake)
+                .await
+                .unwrap();
+        }
+
         let signer_recorder = MockSignerRecorder::new();
         let signer_registerer = MithrilSignerRegisterer::new(
             Arc::new(FakeObserver::default()),

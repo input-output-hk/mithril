@@ -113,9 +113,47 @@ impl VerificationKeyStorer for SignerRegistrationStore {
 #[cfg(test)]
 mod tests {
     use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
-    use crate::store::test_verification_key_storer;
+
+    use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
+    use mithril_common::test_utils::fake_keys;
+    use std::collections::{BTreeMap, BTreeSet, HashMap};
+    use std::sync::Arc;
+
+    use crate::VerificationKeyStorer;
 
     use super::*;
+
+    fn build_signers(
+        nb_epoch: u64,
+        signers_per_epoch: usize,
+    ) -> Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> {
+        let mut values = vec![];
+
+        for epoch in 1..=nb_epoch {
+            let mut signers: HashMap<PartyId, SignerWithStake> =
+                HashMap::with_capacity(signers_per_epoch);
+
+            for party_idx in 1..=signers_per_epoch {
+                let party_id = format!("party_id:e{epoch}:{party_idx}");
+                signers.insert(
+                    party_id.clone(),
+                    SignerWithStake {
+                        party_id: party_id.clone(),
+                        verification_key: fake_keys::signer_verification_key()[0]
+                            .try_into()
+                            .unwrap(),
+                        verification_key_signature: None,
+                        operational_certificate: None,
+                        kes_period: None,
+                        stake: 10,
+                    },
+                );
+            }
+            values.push((Epoch(epoch), signers));
+        }
+
+        values
+    }
 
     fn insert_golden_signer_registration(connection: &SqliteConnection) {
         connection
@@ -163,8 +201,139 @@ mod tests {
         Arc::new(SignerRegistrationStore::new(Arc::new(connection)))
     }
 
-    test_verification_key_storer!(
-        test_signer_registration_store =>
-        crate::database::repository::signer_registration_store::tests::init_signer_registration_store
-    );
+    #[tokio::test]
+    pub async fn save_key_in_empty_store() {
+        let signers = build_signers(0, 0);
+        let store = init_signer_registration_store(signers);
+        let res = store
+            .save_verification_key(
+                Epoch(0),
+                SignerWithStake {
+                    party_id: "0".to_string(),
+                    verification_key: fake_keys::signer_verification_key()[0].try_into().unwrap(),
+                    verification_key_signature: None,
+                    operational_certificate: None,
+                    kes_period: None,
+                    stake: 10,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    pub async fn update_signer_in_store() {
+        let signers = build_signers(1, 1);
+        let store = init_signer_registration_store(signers);
+        let res = store
+            .save_verification_key(
+                Epoch(1),
+                SignerWithStake {
+                    party_id: "party_id:e1:1".to_string(),
+                    verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
+                    verification_key_signature: None,
+                    operational_certificate: None,
+                    kes_period: None,
+                    stake: 10,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            Some(SignerWithStake {
+                party_id: "party_id:e1:1".to_string(),
+                verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
+                verification_key_signature: None,
+                operational_certificate: None,
+                kes_period: None,
+                stake: 10,
+            }),
+            res,
+        );
+    }
+
+    #[tokio::test]
+    pub async fn get_verification_keys_for_empty_epoch() {
+        let signers = build_signers(2, 1);
+        let store = init_signer_registration_store(signers);
+        let res = store.get_verification_keys(Epoch(0)).await.unwrap();
+
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    pub async fn get_signers_for_empty_epoch() {
+        let signers = build_signers(2, 1);
+        let store = init_signer_registration_store(signers);
+        let res = store.get_signers(Epoch(0)).await.unwrap();
+
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    pub async fn get_verification_keys_for_existing_epoch() {
+        let signers = build_signers(2, 2);
+        let store = init_signer_registration_store(signers.clone());
+
+        let expected_signers: Option<BTreeMap<PartyId, Signer>> = signers
+            .into_iter()
+            .filter(|(e, _)| e == 1)
+            .map(|(_, signers)| {
+                BTreeMap::from_iter(signers.into_iter().map(|(p, s)| (p, s.into())))
+            })
+            .next();
+        let res = store
+            .get_verification_keys(Epoch(1))
+            .await
+            .unwrap()
+            .map(|x| BTreeMap::from_iter(x.into_iter()));
+
+        assert_eq!(expected_signers, res);
+    }
+
+    #[tokio::test]
+    pub async fn get_signers_for_existing_epoch() {
+        let signers = build_signers(2, 2);
+        let store = init_signer_registration_store(signers.clone());
+
+        let expected_signers: Option<BTreeSet<SignerWithStake>> = signers
+            .into_iter()
+            .filter(|(e, _)| e == 1)
+            .map(|(_, signers)| BTreeSet::from_iter(signers.into_values()))
+            .next();
+        let res = store
+            .get_signers(Epoch(1))
+            .await
+            .unwrap()
+            .map(|x| BTreeSet::from_iter(x.into_iter()));
+
+        assert_eq!(expected_signers, res);
+    }
+
+    #[tokio::test]
+    pub async fn can_prune_keys_from_given_epoch_retention_limit() {
+        let signers = build_signers(6, 2);
+        let store = init_signer_registration_store(signers);
+
+        for epoch in 1..6 {
+            assert!(
+                store
+                    .get_verification_keys(Epoch(epoch))
+                    .await
+                    .unwrap()
+                    .is_some(),
+                "Keys should exist before pruning"
+            );
+            store
+                .prune_verification_keys(Epoch(epoch))
+                .await
+                .expect("Pruning should not fail");
+
+            let pruned_epoch_keys = store.get_verification_keys(Epoch(epoch)).await.unwrap();
+            assert_eq!(None, pruned_epoch_keys);
+        }
+    }
 }
