@@ -33,7 +33,7 @@ The STM protocol enables participants to sign a message collectively, validating
     - _Registration_: participants register their public keys $(pk_i)$ and $(\mathcal{PoP_i})$, which are then stored in a Merkle tree structure for efficient verification
     - _Aggregate verification key_: the root of the Merkle tree, which serves as the aggregate verification key $(\mathcal{AVK})$.
 
-- **Operations phase**
+- **Operation phase**
   - _Eligibility determination_:
     - _Lottery mechanism_: the protocol initiates a series of lotteries for each message to determine eligible participants. Each participant's chance of winning is proportional to their stake
     - _Security parameter_ $(m)$: the number of parallel lotteries, which ensures that enough participants are eligible
@@ -200,7 +200,7 @@ Collusion involves two or more parties working together to achieve a shared mali
 
 - _Double-spending_: colluders create a blockchain fork to spend the same assets multiple times
 - _Validator collusion_: validators work together to control block validation, influencing consensus decisions
-- _Majority stake collusion_: controlling a majority of the network’s stake to perform a '$51% attack.'
+- _Majority stake collusion_: controlling a majority of the network’s stake to perform a '$51\%$ attack.'
 
 ### Grinding attacks
 
