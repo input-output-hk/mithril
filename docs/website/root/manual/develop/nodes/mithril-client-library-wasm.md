@@ -2,7 +2,7 @@
 sidebar_position: 5
 ---
 
-import CompiledBinaries from '../../../compiled-binaries.md'
+import CompiledBinaries from '../../../compiled-binaries.mdx'
 
 # Mithril client library WASM
 

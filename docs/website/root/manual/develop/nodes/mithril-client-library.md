@@ -2,7 +2,7 @@
 sidebar_position: 4
 ---
 
-import CompiledBinaries from '../../../compiled-binaries.md'
+import CompiledBinaries from '../../../compiled-binaries.mdx'
 
 # Mithril client library
 

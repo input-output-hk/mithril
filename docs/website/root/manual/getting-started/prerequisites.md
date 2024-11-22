@@ -3,7 +3,7 @@ sidebar_position: 1
 ---
 
 import NetworksMatrix from '../../networks-matrix.md';
-import CompiledBinaries from '../../compiled-binaries.md'
+import CompiledBinaries from '../../compiled-binaries.mdx'
 
 # Prerequisites
 

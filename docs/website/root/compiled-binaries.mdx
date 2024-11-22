@@ -1,0 +1,37 @@
+---
+unlisted: true
+hide_title: true
+hide_table_of_contents: true
+---
+
+You can install a the **latest** released binary of the **{props.node}** by running this one line command (_replace **YOUR_PATH** with your installation path_):
+
+<pre>
+  curl --proto '=https' --tlsv1.2 -sSf
+  https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh
+  | sh -s -- -c {props.node} -d latest -p \*\*YOUR_PATH\*\*
+</pre>
+
+<!--
+MDX Variables are not interpolated correctly when in a markdown code block
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh \
+| sh -s -- -c ${props.node} -d latest -p **YOUR_PATH**
+```
+-->
+
+:::tip
+
+You can also install the **{props.node}** binary for other distributions:
+
+- use `-d unstable` for the **unstable** version
+- use `-d **DISTRIBUTION_VERSION**` for a specific distribution (e.g. `-d 2445.0`)
+
+:::
+
+:::info
+
+The Linux binaries target `glibc`, and have a minimum requirement of `glibc 2.31` (compatible with `Ubuntu 20.04`
+or `Debian Bullseye`).
+
+:::

@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-import CompiledBinaries from '../../compiled-binaries.md'
+import CompiledBinaries from '../../compiled-binaries.mdx'
 
 # Become a Mithril SPO
 

@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-import CompiledBinaries from '../../compiled-binaries.md'
+import CompiledBinaries from '../../compiled-binaries.mdx'
 
 # Run a Mithril signer node
 
@@ -202,7 +202,7 @@ make build
 
 ### Download the pre-built binary
 
-<CompiledBinaries />
+<CompiledBinaries node="mithril-signer"/>
 
 ### Verifying the binary
 
