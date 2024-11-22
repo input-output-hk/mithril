@@ -2,7 +2,7 @@
 sidebar_position: 2
 ---
 
-import CompiledBinaries from '../../../compiled-binaries.md'
+import CompiledBinaries from '../../../compiled-binaries.mdx'
 
 # Mithril signer node
 
@@ -206,7 +206,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril s
 
 ## Download the pre-built binary
 
-<CompiledBinaries />
+<CompiledBinaries  node="mithril-signer"/>
 
 ## Build and run a Docker container
 
