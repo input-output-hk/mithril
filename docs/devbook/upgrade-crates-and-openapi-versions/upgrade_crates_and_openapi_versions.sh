@@ -50,6 +50,61 @@ update_crate_versions() {
     done
 }
 
+update_package_json_versions() {
+    local -r dry_run=$1
+    local -r -n files_modify=$2
+    local -r -n package_json_files=$3
+    local -r -a members=$(echo "$package_json_files" | xargs dirname)
+    local -i nb_files_modify=0
+
+    local package_name version_line patch_number next_patch_number new_version must_update_package_locks
+    must_update_package_locks=false
+
+    for member in $members
+    do
+        nb_files_modify=$(echo "$files_modify" | grep -c "^$member/")
+        if [[ $nb_files_modify -gt 0 ]]
+        then
+            if [[ $member == "mithril-client-wasm" ]]
+            then
+              must_update_package_locks=true
+            fi
+
+            version_line="$(grep -E "\"version\": \"[0-9]+\.[0-9]+\.[0-9]+\"" "$member/package.json" | sed "s/[\",]//g")"
+            patch_number=$(echo "$version_line" | cut -d . -f 3)
+            next_patch_number=$((patch_number + 1))
+            new_version=$(echo "$version_line" | cut -d . -f 1-2).$next_patch_number
+            echo -e "   ${GREEN}Upgrading${RESET} [js] $member from ${version_line##*version: } to ${new_version##*version: }"
+
+            if [ true = "$dry_run" ]
+            then
+              echo -e "${ORANGE}warning${RESET}: aborting $member update due to dry run"
+            else
+              package_name=${member##*/}
+              pushd "$member" > /dev/null || exit
+              npm --no-git-tag-version version patch 1>/dev/null
+              popd > /dev/null || exit
+            fi
+        fi
+    done
+
+    if [ true = "$must_update_package_locks" ]
+    then
+      echo -e "${ORANGE}mithril-client-wasm version changed${RESET}: updating package-lock.json files to reflect the new version"
+
+      for member in $members
+      do
+          if [[ false = "$dry_run" && -e "$member/package-lock.json" ]]
+          then
+              package_name=${member##*/}
+              pushd "$member" > /dev/null || exit
+              npm install 1>/dev/null
+              popd > /dev/null || exit
+          fi
+      done
+    fi
+}
+
 update_openapi_version() {
     local -r dry_run=$1
     local -r version_line=$(grep -E "version: [0-9]+\.[0-9]+\.[0-9]+" $OPEN_API_FILE)
@@ -82,8 +137,11 @@ done
 
 FILES_MODIFY="$(git diff "$COMMIT_REF" --name-only origin/main)"
 readonly -a FILES_MODIFY
+PACKAGE_JSON_FILES="$(find -- * -name package.json | grep -v -e "/node_modules/" -e "/pkg/" -e "/dist/" -e "/.next/" -e "docs/website/")"
+readonly -a PACKAGE_JSON_FILES
 
 update_crate_versions $DRY_RUN FILES_MODIFY
+update_package_json_versions $DRY_RUN FILES_MODIFY PACKAGE_JSON_FILES
 
 if [ "$(echo "${FILES_MODIFY[@]}" | grep -xc "$OPEN_API_FILE")" -gt 0 ]
 then
@@ -99,14 +157,20 @@ else
   then
     UPDATED_CRATES="\n${UPDATED_CRATES}"
   fi
+  UPDATED_PACKAGE_JSONS="$(echo "$PACKAGE_JSON_FILES" | xargs git diff "$COMMIT_REF" | grep -E "^[\+\-] *\"version\": \"[0-9\.]+\"|name\": " | tr '\n' ' ' | sed -r "s/ *\"name\": \"([a-z@\-]*\/)?([a-z\-]+)\", -  \"version\": \"([0-9\.]+)\", \+  \"version\": \"([0-9\.]+)\", ?/* [js] \2 from \`\3\` to \`\4\`\n/g")"
+  if [[ -n $UPDATED_PACKAGE_JSONS ]]
+  then
+    UPDATED_PACKAGE_JSONS="\n${UPDATED_PACKAGE_JSONS}"
+  fi
 
-  COMMIT_MESSAGE=$(echo -e "chore: upgrade crate versions${OPEN_API_UPDATE_MESSAGE}\n${UPDATED_CRATES}${OPEN_API_UPDATE}")
+  COMMIT_MESSAGE=$(echo -e "chore: upgrade crate versions${OPEN_API_UPDATE_MESSAGE}\n${UPDATED_CRATES}${UPDATED_PACKAGE_JSONS}${OPEN_API_UPDATE}")
 
   echo -e "$COMMIT_MESSAGE"
 
   if [ true = $COMMIT ]
   then
     git add --update $OPEN_API_FILE Cargo.lock ./*/Cargo.toml ./internal/*/Cargo.toml ./mithril-test-lab/*/Cargo.toml
+    git add --update ./*/package.json ./*/package-lock.json examples/*/package.json examples/*/package-lock.json
     git commit -m "$COMMIT_MESSAGE"
   fi
 fi
