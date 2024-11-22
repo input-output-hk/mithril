@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Deprecate the `network` field in all messages that contain a `CardanoDbBeacon` field.
 
+- Add Node.js and bundler targets to the Mithril client WASM library.
+
 - **BREAKING** Remove the `network` field from the internal `CardanoDbBeacon` struct, Certificates of types `CardanoImmutableFilesFull`
   must have their hashes recomputed in order to stay valid (procedure detailed in the [`recompute-certificates-hash`](./docs/runbook/recompute-certificates-hash) runbook).
 
