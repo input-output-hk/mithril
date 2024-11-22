@@ -11,6 +11,21 @@
   - Cardano stake distribution: list, get and get by epoch.
   - Certificate: list, get, and chain validation.
 
+## Available targets
+
+The following targets are available in the library:
+
+- `node` - for running the library in Node.js
+- `web` - for running the library in a browser
+- `bundler` - for running the library in a browser with a bundler
+
+Your code should automatically detect the target and use the appropriate implementation, but you can also specify the
+target explicitly if auto-detection fails:
+
+```javascript
+import { MithrilClient } from "@mithril-dev/mithril-client-wasm/dist/node";
+```
+
 ## Example
 
 Below is a basic example of how to use most of the functions exposed by the Mithril client WASM library:
@@ -112,6 +127,7 @@ The Mithril client library is compatible with the following browsers:
 | **Firefox for Android** |      `38`       | 2015-05-12 |         -          |
 | **Opera Android**       |      `41`       | 2016-10-25 |         -          |
 | **Safari on iOS**       |     `15.4`      | 2022-03-14 |         -          |
+| **Node.js**             |    `18.0.0`     | 2022-04-19 | :heavy_check_mark: |
 
 ## Getting Help
 
