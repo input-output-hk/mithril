@@ -3,8 +3,7 @@ set +a -u -o pipefail
 
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
-# Check crates modify against `origin/main` and update their version.
-# The openapi.yam is also verified and updated if necessary.
+# Check crates, js packages, and openapi changes against `origin/main` and update their version.
 # At the end of the script, the commit message to used is displayed.
 
 # Usage:

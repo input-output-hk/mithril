@@ -1,10 +1,10 @@
-# Upgrade the crates and openapi versions before merging a pull request
+# Bump the crates, js packages, and openapi versions before merging a pull request
 
 ## Introduction
 
-This devbook provides a script that allows to automatically upgrade the crates and Open API versions in the project.
+This devbook provides a script that allows to automatically bump the crates, js packages, and Open API versions in the project.
 
-Only the crates and Open API specifications with changes on the branch compared to `origin/main` are upgraded.
+Only the crates, js packages, and Open API specifications with changes on the branch compared to `origin/main` are bumped.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ cargo install cargo-get
 Just run the script without argument, by default no changes are made to the project.
 
 ```shell
-. ./docs/devbook/upgrade-crates-and-openapi-versions/upgrade_crates_and_openapi_versions.sh
+. ./docs/devbook/bump-versions/bump_versions.sh
 ```
 
 ### Run
@@ -34,18 +34,18 @@ Just run the script without argument, by default no changes are made to the proj
 >
 > This means that running the script more than once will bump the versions again.
 
-Run the script with the `--run` argument to bump the crates and openapi versions.
+Run the script with the `--run` argument to bump the crates, js packages, and openapi versions.
 
 The script will output a preformatted commit message that can be used to create a commit when it completes.
 
 ```shell
-. ./docs/devbook/upgrade-crates-and-openapi-versions/upgrade_crates_and_openapi_versions.sh --run
+. ./docs/devbook/bump-versions/bump_versions.sh --run
 ```
 
 If you want the script to do the commit for you, add the `--commit` argument.
 
 ```shell
-. ./docs/devbook/upgrade-crates-and-openapi-versions/upgrade_crates_and_openapi_versions.sh --run --commit
+. ./docs/devbook/bump-versions/bump_versions.sh --run --commit
 ```
 
 > [!NOTE]
