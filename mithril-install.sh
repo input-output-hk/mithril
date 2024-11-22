@@ -49,6 +49,7 @@ case "$OS" in
   Linux)
     ;;
   Darwin)
+    OS_CODE="macos"
     ;;
   *)
     error_exit "Unsupported operating system $OS for $NODE"
@@ -62,7 +63,7 @@ case "$ARCH" in
   x86_64)
     ARCH_NAME="x64"
     ;;
-  aarch64)
+  arm64)
     ARCH_NAME="arm64"
     ;;
   *)
@@ -72,6 +73,9 @@ esac
 
 # Set temp file
 TEMP_FILE="${INSTALL_PATH}/temp.json"
+
+# Create the install path if it doesn't exist
+mkdir -p "$INSTALL_PATH"
 
 # Check if node and path are provided
 if [ -z "$NODE" ] || [ -z "$DISTRIBUTION" ] || [ -z "$INSTALL_PATH" ]; then
@@ -101,9 +105,6 @@ rm -f "$TEMP_FILE"
 if [ -z "$ASSETS_DOWNLOAD_URL" ]; then
   error_exit "Error: Failed to fetch assets from release. This probably means that your OS and architecture are not supported."
 fi
-
-# Create the install path if it doesn't exist
-mkdir -p "$INSTALL_PATH"
 
 # Download the distribution assets
 echo "Downloading $NODE to $DISTRIBUTION from $ASSETS_DOWNLOAD_URL..."
