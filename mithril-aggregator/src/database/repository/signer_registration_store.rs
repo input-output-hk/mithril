@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
-use mithril_persistence::store::adapter::AdapterError;
 
 use crate::database::query::{
     DeleteSignerRegistrationRecordQuery, GetSignerRegistrationRecordQuery,
@@ -46,16 +45,14 @@ impl VerificationKeyStorer for SignerRegistrationStore {
                     "Get signer registration record failure with signer_id: '{}', epoch: '{}'",
                     signer.party_id, epoch
                 )
-            })
-            .map_err(AdapterError::QueryError)?;
+            })?;
 
         let _updated_record = self
             .connection
             .fetch_first(InsertOrReplaceSignerRegistrationRecordQuery::one(
                 SignerRegistrationRecord::from_signer_with_stake(signer, epoch),
             ))
-            .with_context(|| format!("persist verification key failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("persist verification key failure, epoch: {epoch}"))?;
 
         match existing_record {
             None => Ok(None),
@@ -70,8 +67,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let cursor = self
             .connection
             .fetch(GetSignerRegistrationRecordQuery::by_epoch(epoch)?)
-            .with_context(|| format!("get verification key failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("get verification key failure, epoch: {epoch}"))?;
 
         let signer_with_stakes: HashMap<PartyId, Signer> =
             HashMap::from_iter(cursor.map(|record| (record.signer_id.to_owned(), record.into())));
@@ -86,8 +82,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let cursor = self
             .connection
             .fetch(GetSignerRegistrationRecordQuery::by_epoch(epoch)?)
-            .with_context(|| format!("get verification key failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("get verification key failure, epoch: {epoch}"))?;
 
         let signer_with_stakes: Vec<SignerWithStake> = cursor.map(|record| record.into()).collect();
 
@@ -101,8 +96,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         self.connection
             .apply(DeleteSignerRegistrationRecordQuery::below_epoch_threshold(
                 max_epoch_to_prune,
-            ))
-            .map_err(AdapterError::QueryError)?;
+            ))?;
 
         Ok(())
     }

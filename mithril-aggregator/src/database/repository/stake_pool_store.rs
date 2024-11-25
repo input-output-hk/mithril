@@ -8,7 +8,6 @@ use mithril_common::entities::{Epoch, StakeDistribution};
 use mithril_common::signable_builder::StakeDistributionRetriever;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
-use mithril_persistence::store::adapter::AdapterError;
 use mithril_persistence::store::StakeStorer;
 
 use crate::database::query::{
@@ -51,8 +50,7 @@ impl StakeStorer for StakePoolStore {
                     .map(|(pool_id, stake)| (pool_id, epoch, stake))
                     .collect(),
             ))
-            .with_context(|| format!("persist stakes failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("persist stakes failure, epoch: {epoch}"))?;
 
         Ok(Some(StakeDistribution::from_iter(
             pools.into_iter().map(|p| (p.stake_pool_id, p.stake)),
@@ -63,8 +61,7 @@ impl StakeStorer for StakePoolStore {
         let cursor = self
             .connection
             .fetch(GetStakePoolQuery::by_epoch(epoch)?)
-            .with_context(|| format!("get stakes failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("get stakes failure, epoch: {epoch}"))?;
         let mut stake_distribution = StakeDistribution::new();
 
         for stake_pool in cursor {
@@ -96,8 +93,7 @@ impl EpochPruningTask for StakePoolStore {
             self.connection
                 .apply(DeleteStakePoolQuery::below_epoch_threshold(
                     epoch - threshold,
-                ))
-                .map_err(AdapterError::QueryError)?;
+                ))?;
         }
         Ok(())
     }

@@ -272,7 +272,6 @@ mod tests {
         test_utils::MithrilFixtureBuilder,
         test_utils::{apispec::APISpec, fake_data},
     };
-    use mithril_persistence::store::adapter::AdapterError;
 
     use crate::{
         database::{record::SignerRecord, repository::MockSignerGetter},
@@ -617,7 +616,7 @@ mod tests {
         let mut mock_verification_key_store = MockVerificationKeyStorer::new();
         mock_verification_key_store
             .expect_get_signers()
-            .return_once(|_| Err(AdapterError::GeneralError(anyhow!("invalid query")).into()));
+            .return_once(|_| Err(anyhow!("invalid query")));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.verification_key_store = Arc::new(mock_verification_key_store);
 

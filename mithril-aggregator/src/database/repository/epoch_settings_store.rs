@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::entities::{CardanoTransactionsSigningConfig, Epoch, ProtocolParameters};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
-use mithril_persistence::store::adapter::AdapterError;
 use sqlite::Value;
 
 use crate::database::query::{
@@ -66,7 +66,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
         let epoch_settings_record = self
             .connection
             .fetch_first(UpdateEpochSettingsQuery::one(epoch, epoch_settings))
-            .map_err(|e| AdapterError::GeneralError(e.context("persist epoch settings failure")))?
+            .with_context(|| format!("persist epoch settings failure: epoch = {epoch:?}"))?
             .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
 
         Ok(Some(epoch_settings_record.into()))
@@ -83,7 +83,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
         let mut cursor = self
             .connection
             .fetch(GetEpochSettingsQuery::by_epoch(epoch)?)
-            .map_err(|e| AdapterError::GeneralError(e.context("Could not get epoch settings")))?;
+            .with_context(|| format!("Could not get epoch settings: epoch = {epoch:?}"))?;
 
         if let Some(epoch_settings_record) = cursor.next() {
             return Ok(Some(epoch_settings_record.into()));
@@ -104,8 +104,7 @@ impl EpochPruningTask for EpochSettingsStore {
             self.connection
                 .apply(DeleteEpochSettingsQuery::below_epoch_threshold(
                     epoch - threshold,
-                ))
-                .map_err(AdapterError::QueryError)?;
+                ))?;
         }
         Ok(())
     }

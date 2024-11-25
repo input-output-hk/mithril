@@ -509,7 +509,7 @@ impl DependenciesBuilder {
         )))
     }
 
-    /// Get a configured [CertificatePendingStore].
+    /// Get a configured [CertificatePendingStorer].
     pub async fn get_certificate_pending_store(
         &mut self,
     ) -> Result<Arc<dyn CertificatePendingStorer>> {
