@@ -9,7 +9,9 @@ import CodeBlock from "@theme/CodeBlock";
 You can install a the **latest** released binary of the **{props.node}** by running this one line command (_replace **YOUR_PATH** with your installation path_):
 
 <CodeBlock language="bash">
-  {`curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c {props.node} -d latest -p **YOUR_PATH**`}
+  curl --proto '=https' --tlsv1.2 -sSf
+  https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh
+  | sh -s -- -c {props.node} -d latest -p **YOUR_PATH**
 </CodeBlock>
 
 :::tip
