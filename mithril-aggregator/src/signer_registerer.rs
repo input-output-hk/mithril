@@ -11,7 +11,7 @@ use mithril_common::{
     StdError, StdResult,
 };
 
-use crate::VerificationKeyStorer;
+use crate::{services::EpochPruningTask, VerificationKeyStorer};
 
 use mithril_common::chain_observer::ChainObserverError;
 
@@ -164,6 +164,26 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegisterer {
             stake_distribution,
         });
 
+        Ok(())
+    }
+
+    async fn close_registration_round(&self) -> StdResult<()> {
+        let mut current_round = self.current_round.write().await;
+        *current_round = None;
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl EpochPruningTask for MithrilSignerRegisterer {
+    fn pruned_data(&self) -> &'static str {
+        "Signer registration"
+    }
+
+    async fn prune(&self, epoch: Epoch) -> StdResult<()> {
+        let registration_epoch = epoch.offset_to_recording_epoch();
+
         if let Some(retention_limit) = self.verification_key_epoch_retention_limit {
             self.verification_key_store
                 .prune_verification_keys(registration_epoch - retention_limit)
@@ -173,16 +193,8 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegisterer {
                         "VerificationKeyStorer can not prune verification keys below epoch: '{}'",
                         registration_epoch - retention_limit
                     )
-                })
-                .map_err(|e| SignerRegistrationError::StoreError(anyhow!(e)))?;
+                })?;
         }
-
-        Ok(())
-    }
-
-    async fn close_registration_round(&self) -> StdResult<()> {
-        let mut current_round = self.current_round.write().await;
-        *current_round = None;
 
         Ok(())
     }
@@ -288,14 +300,16 @@ mod tests {
     use mithril_common::{
         chain_observer::FakeObserver,
         entities::{Epoch, Signer},
-        test_utils::{fake_data, MithrilFixtureBuilder},
+        test_utils::MithrilFixtureBuilder,
     };
+    use mockall::predicate::eq;
 
     use crate::{
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
         MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationRoundOpener,
         VerificationKeyStorer,
     };
+    use crate::{services::EpochPruningTask, store::MockVerificationKeyStorer};
 
     use super::MockSignerRecorder;
 
@@ -418,47 +432,44 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_prune_verification_keys_older_than_two_epochs_at_round_opening() {
-        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
-            main_db_connection().unwrap(),
-        )));
-        for initial_key in 1..=5 {
-            let signer_with_stake = fake_data::signers_with_stakes(1).pop().unwrap();
-            verification_key_store
-                .save_verification_key(Epoch(initial_key), signer_with_stake)
-                .await
-                .unwrap();
-        }
+    async fn mock_prune_epoch_older_than_threshold() {
+        const PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD: u64 = 10;
+        let retention_limit = Some(PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD);
 
-        let signer_recorder = MockSignerRecorder::new();
+        let mut verification_key_store = MockVerificationKeyStorer::new();
+        verification_key_store
+            .expect_prune_verification_keys()
+            .with(eq(Epoch(4).offset_to_recording_epoch()))
+            .times(1)
+            .returning(|_| Ok(()));
+
         let signer_registerer = MithrilSignerRegisterer::new(
             Arc::new(FakeObserver::default()),
-            verification_key_store.clone(),
-            Arc::new(signer_recorder),
-            Some(2),
+            Arc::new(verification_key_store),
+            Arc::new(MockSignerRecorder::new()),
+            retention_limit,
         );
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
 
-        signer_registerer
-            .open_registration_round(Epoch(5), fixture.stake_distribution())
-            .await
-            .expect("Opening a registration round should not fail");
+        let current_epoch = Epoch(4) + PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD;
+        signer_registerer.prune(current_epoch).await.unwrap();
+    }
 
-        for epoch in 1..=3 {
-            let verification_keys = verification_key_store
-                .get_verification_keys(Epoch(epoch))
-                .await
-                .unwrap();
-            assert_eq!(None, verification_keys);
-        }
+    #[tokio::test]
+    async fn mock_without_threshold_nothing_is_pruned() {
+        let retention_limit = None;
 
-        let verification_keys = verification_key_store
-            .get_verification_keys(Epoch(4))
-            .await
-            .unwrap();
-        assert!(
-            verification_keys.is_some(),
-            "Verification keys of the previous epoch should not have been pruned"
+        let mut verification_key_store = MockVerificationKeyStorer::new();
+        verification_key_store
+            .expect_prune_verification_keys()
+            .never();
+
+        let signer_registerer = MithrilSignerRegisterer::new(
+            Arc::new(FakeObserver::default()),
+            Arc::new(verification_key_store),
+            Arc::new(MockSignerRecorder::new()),
+            retention_limit,
         );
+
+        signer_registerer.prune(Epoch(100)).await.unwrap();
     }
 }

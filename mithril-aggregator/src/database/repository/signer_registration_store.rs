@@ -98,12 +98,10 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     }
 
     async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()> {
-        let _deleted_records = self
-            .connection
-            .fetch_first(
-                // we want to prune including the given epoch (+1)
-                DeleteSignerRegistrationRecordQuery::below_epoch_threshold(max_epoch_to_prune + 1),
-            )
+        self.connection
+            .apply(DeleteSignerRegistrationRecordQuery::below_epoch_threshold(
+                max_epoch_to_prune,
+            ))
             .map_err(AdapterError::QueryError)?;
 
         Ok(())
@@ -190,7 +188,7 @@ mod tests {
 
     pub fn init_signer_registration_store(
         initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
-    ) -> Arc<dyn VerificationKeyStorer> {
+    ) -> Arc<SignerRegistrationStore> {
         let connection = main_db_connection().unwrap();
         let initial_data: Vec<(Epoch, Vec<SignerWithStake>)> = initial_data
             .into_iter()
@@ -328,12 +326,50 @@ mod tests {
                 "Keys should exist before pruning"
             );
             store
-                .prune_verification_keys(Epoch(epoch))
+                .prune_verification_keys(Epoch(epoch) + 1)
                 .await
                 .expect("Pruning should not fail");
 
             let pruned_epoch_keys = store.get_verification_keys(Epoch(epoch)).await.unwrap();
             assert_eq!(None, pruned_epoch_keys);
         }
+    }
+
+    async fn get_epochs_in_database_until(
+        store: &SignerRegistrationStore,
+        until_epoch: Epoch,
+    ) -> Vec<Epoch> {
+        let mut epochs_in_database = vec![];
+        let mut current_epoch = Epoch(1);
+        while current_epoch <= until_epoch {
+            if store
+                .get_verification_keys(current_epoch)
+                .await
+                .unwrap()
+                .is_some()
+            {
+                epochs_in_database.push(current_epoch);
+            }
+            current_epoch += 1;
+        }
+        epochs_in_database
+    }
+
+    #[tokio::test]
+    async fn prune_epoch_older_than_threshold() {
+        let signers = build_signers(5, 2);
+        let store = init_signer_registration_store(signers);
+
+        assert_eq!(
+            vec!(Epoch(1), Epoch(2), Epoch(3), Epoch(4), Epoch(5)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
+
+        store.prune_verification_keys(Epoch(4)).await.unwrap();
+
+        assert_eq!(
+            vec!(Epoch(4), Epoch(5)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
     }
 }
