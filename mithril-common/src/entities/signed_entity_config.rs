@@ -84,6 +84,9 @@ impl SignedEntityConfig {
                         .compute_block_number_to_be_signed(time_point.chain_point.block_number),
                 )
             }
+            SignedEntityTypeDiscriminants::CardanoDatabase => SignedEntityType::CardanoDatabase(
+                CardanoDbBeacon::new(*time_point.epoch, time_point.immutable_file_number),
+            ),
         };
 
         Ok(signed_entity_type)
@@ -239,6 +242,16 @@ mod tests {
                 )
                 .unwrap()
         );
+
+        assert_eq!(
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 5)),
+            config
+                .time_point_to_signed_entity(
+                    SignedEntityTypeDiscriminants::CardanoDatabase,
+                    &time_point
+                )
+                .unwrap()
+        );
     }
 
     #[test]
@@ -372,6 +385,7 @@ mod tests {
             allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
+                SignedEntityTypeDiscriminants::CardanoDatabase,
             ]),
             ..SignedEntityConfig::dummy()
         };
@@ -381,11 +395,13 @@ mod tests {
         assert_eq!(
             BTreeSet::from_iter(
                 [
-                    SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS,
+                    SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS.as_slice(),
                     [
                         SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                         SignedEntityTypeDiscriminants::CardanoTransactions,
+                        SignedEntityTypeDiscriminants::CardanoDatabase
                     ]
+                    .as_slice()
                 ]
                 .concat()
             ),

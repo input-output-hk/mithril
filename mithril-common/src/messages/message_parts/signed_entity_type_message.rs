@@ -163,6 +163,9 @@ impl<N: Into<String>> From<(SignedEntityType, N)> for SignedEntityTypeMessagePar
             SignedEntityType::CardanoTransactions(epoch, block_number) => {
                 Self::CardanoTransactions(epoch, block_number)
             }
+            SignedEntityType::CardanoDatabase(_) => {
+                panic!("This conversion must not be used, this enum is temporary and will be removed. Use the CardanoDbBeacon from SignedEntityType directly instead.")
+            }
         }
     }
 }
