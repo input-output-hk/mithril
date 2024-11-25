@@ -31,10 +31,6 @@ error() {
     exit 1;
 }
 
-# NOTE
-# `cargo get workspace.members` display the list of path to crates in the workspace.
-# for the `cargo set-version` command, we need the name of the module (last element of the path).
-
 readonly ORANGE="\e[1;33m"
 readonly GREEN="\e[1;32m"
 readonly RESET="\e[0m"
@@ -44,6 +40,10 @@ declare OPEN_API_UPDATE=""
 declare OPEN_API_UPDATE_MESSAGE=""
 
 update_crate_versions() {
+    # NOTE
+    # `cargo get workspace.members` display the list of path to crates in the workspace.
+    # for the `cargo set-version` command, we need the name of the module (last element of the path).
+    #
     local -r dry_run=$1
     local -r -n files_modify=$2
     local -r -a members="$(cargo get workspace.members --delimiter " ")"
@@ -173,6 +173,26 @@ if [ true = $DRY_RUN ]
 then
     echo -e "${ORANGE}warning${RESET}: script is run in dry mode. To apply the changes, run ${GREEN}$0 --run${RESET}"
 else
+  # NOTE
+  # The goal is to transform individual `git diff` formatted output to a list item with the crate or package name and the version change.
+  # ie, transform this:
+  # ```
+  # diff --git a/mithril-explorer/package.json b/mithril-explorer/package.json
+  # index 20f2e0030..e0e680d52 100644
+  # --- a/mithril-explorer/package.json
+  # +++ b/mithril-explorer/package.json
+  # @@ -1,6 +1,6 @@
+  #  {
+  #    "name": "mithril-explorer",
+  # -  "version": "0.7.19",
+  # +  "version": "0.7.20",
+  #    "private": true,
+  #    "scripts": {
+  #      "dev": "next dev",
+  # ```
+  # to this:
+  # `* [js] mithril-explorer from `0.7.18` to `0.7.19``
+  #
   UPDATED_CRATES="$(find . -name Cargo.toml -exec git diff "$COMMIT_REF" {} + | grep -E "^[\+\-]version = \"[0-9\.]+\"|name = " | tr '\n' ' ' | sed -r "s/ name = \"([a-z\-]+)\" -version = \"([0-9\.]+)\" \+version = \"([0-9\.]+)\" ?/* \1 from \`\2\` to \`\3\`\n/g")"
   if [[ -n $UPDATED_CRATES ]]
   then
