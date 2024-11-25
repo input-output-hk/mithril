@@ -149,7 +149,7 @@ fi
 
 if [ true = $DRY_RUN ]
 then
-    echo -e "${ORANGE}warning${RESET}: script is run in dry mode. To execute the changes, run ${GREEN}./update_crate_versions.sh --run${RESET}"
+    echo -e "${ORANGE}warning${RESET}: script is run in dry mode. To apply the changes, run ${GREEN}$0 --run${RESET}"
 else
   UPDATED_CRATES="$(find . -name Cargo.toml -exec git diff "$COMMIT_REF" {} + | grep -E "^[\+\-]version = \"[0-9\.]+\"|name = " | tr '\n' ' ' | sed -r "s/ name = \"([a-z\-]+)\" -version = \"([0-9\.]+)\" \+version = \"([0-9\.]+)\" ?/* \1 from \`\2\` to \`\3\`\n/g")"
   if [[ -n $UPDATED_CRATES ]]
