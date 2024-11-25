@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-import CompiledBinaries from '../../../compiled-binaries.md'
+import CompiledBinaries from '../../../compiled-binaries.mdx'
 
 # Mithril aggregator node
 
@@ -370,7 +370,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril a
 
 ## Download the pre-built binary
 
-<CompiledBinaries />
+<CompiledBinaries  node="mithril-aggregator"/>
 
 ## Build and run the Docker container
 

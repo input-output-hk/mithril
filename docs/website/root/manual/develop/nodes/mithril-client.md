@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-import CompiledBinaries from '../../../compiled-binaries.md'
+import CompiledBinaries from '../../../compiled-binaries.mdx'
 
 # Mithril client node
 
@@ -195,7 +195,7 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 
 ## Download the pre-built binary
 
-<CompiledBinaries />
+<CompiledBinaries  node="mithril-client"/>
 
 ## Run a Docker container
 

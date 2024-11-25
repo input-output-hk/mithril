@@ -18,6 +18,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **BREAKING** Remove the `network` field from the internal `CardanoDbBeacon` struct, Certificates of types `CardanoImmutableFilesFull`
   must have their hashes recomputed in order to stay valid (procedure detailed in the [`recompute-certificates-hash`](./docs/runbook/recompute-certificates-hash) runbook).
 
+- Add a one line shell installation script for the Mithril nodes.
+
 - Crates versions:
 
 | Crate | Version |
