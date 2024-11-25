@@ -874,6 +874,7 @@ jobs:
         with:
           output: out/
           spec-file: ./openapi.yaml
+          version: ^5.0.0
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish OpenAPI UI build
