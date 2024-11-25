@@ -56,11 +56,11 @@ pub enum SignedEntityType {
     /// Full Cardano Immutable Files
     CardanoImmutableFilesFull(CardanoDbBeacon),
 
-    /// Cardano Transactions
-    CardanoTransactions(Epoch, BlockNumber),
-
     /// Cardano Database
     CardanoDatabase(CardanoDbBeacon),
+
+    /// Cardano Transactions
+    CardanoTransactions(Epoch, BlockNumber),
 }
 
 impl SignedEntityType {
@@ -141,17 +141,14 @@ impl SignedEntityType {
             | SignedEntityType::CardanoStakeDistribution(epoch) => {
                 hasher.update(&epoch.to_be_bytes())
             }
-            SignedEntityType::CardanoImmutableFilesFull(db_beacon) => {
+            SignedEntityType::CardanoImmutableFilesFull(db_beacon)
+            | SignedEntityType::CardanoDatabase(db_beacon) => {
                 hasher.update(&db_beacon.epoch.to_be_bytes());
                 hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
             }
             SignedEntityType::CardanoTransactions(epoch, block_number) => {
                 hasher.update(&epoch.to_be_bytes());
                 hasher.update(&block_number.to_be_bytes())
-            }
-            SignedEntityType::CardanoDatabase(db_beacon) => {
-                hasher.update(&db_beacon.epoch.to_be_bytes());
-                hasher.update(&db_beacon.immutable_file_number.to_be_bytes());
             }
         }
     }
@@ -410,7 +407,7 @@ mod tests {
     }
 
     // Expected ord:
-    // MithrilStakeDistribution < CardanoStakeDistribution < CardanoImmutableFilesFull < CardanoTransactions < CardanoDatabase
+    // MithrilStakeDistribution < CardanoStakeDistribution < CardanoImmutableFilesFull < CardanoDatabase < CardanoTransactions
     #[test]
     fn ordering_discriminant() {
         let mut list = vec![
@@ -428,8 +425,8 @@ mod tests {
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-                SignedEntityTypeDiscriminants::CardanoTransactions,
                 SignedEntityTypeDiscriminants::CardanoDatabase,
+                SignedEntityTypeDiscriminants::CardanoTransactions,
             ]
         );
     }
@@ -458,9 +455,9 @@ mod tests {
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                SignedEntityTypeDiscriminants::CardanoDatabase,
+                SignedEntityTypeDiscriminants::CardanoDatabase,
                 SignedEntityTypeDiscriminants::CardanoTransactions,
-                SignedEntityTypeDiscriminants::CardanoDatabase,
-                SignedEntityTypeDiscriminants::CardanoDatabase,
             ]
         );
     }
