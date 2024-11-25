@@ -1,0 +1,17 @@
+{
+  "name": "client-wasm-nodejs",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "pretty:check": "prettier --check '**/*.{js,md}'",
+    "pretty:write": "prettier --write '**/*.{js,md}'"
+  },
+  "dependencies": {
+    "@mithril-dev/mithril-client-wasm": "file:../../mithril-client-wasm"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3"
+  }
+}

@@ -11,10 +11,8 @@ clean:
 
 upgrade: clean install
 	npm install \
-		copy-webpack-plugin@latest \
-		webpack@latest \
-		webpack-cli@latest \
-		webpack-dev-server@latest \
+		prettier@latest \
+
 
 lint:
 	npm run pretty:check

@@ -296,23 +296,23 @@ jobs:
 
       - name: Unpack 'mithril-client-wasm' package
         working-directory: mithril-client-wasm
-        run: tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
+        run: tar -xvzf *.tgz && mv package/dist .
 
       - name: Install dependencies
         working-directory: mithril-client-wasm
-        run: make www-test-install
+        run: make ci-test-install
 
       - name: Create .env file
         working-directory: mithril-client-wasm
         run: |
-          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" > ./www-test/.env
-          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> ./www-test/.env
-          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> ./www-test/.env
+          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" > ./ci-test/.env
+          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> ./ci-test/.env
+          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> ./ci-test/.env
 
       - name: Start the server
         working-directory: mithril-client-wasm
         shell: bash
-        run: make www-test-serve &
+        run: make ci-test-serve &
 
       - name: Wait for the server to be ready
         shell: bash

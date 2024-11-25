@@ -125,15 +125,17 @@ jobs:
 
       - name: Build 'mithril-client-wasm' library
         shell: bash
-        run: |
-          cp LICENSE ./mithril-client-wasm/
-          wasm-pack build mithril-client-wasm --release --target web --out-dir ./pkg --scope mithril-dev --out-name index
+        working-directory: mithril-client-wasm
+        env:
+          WASM_PACK_ARGS: --release --scope mithril-dev
+        run: make build
 
       - name: Prepare 'mithril-client-wasm' package
         shell: bash
+        working-directory: mithril-client-wasm
         run: |
-          cp LICENSE ./mithril-client-wasm/
-          wasm-pack pack mithril-client-wasm/pkg
+          cp LICENSE ./mithril-client-wasm/ && cp npm/README.md .
+          npm pack
 
       - name: Build a fake aggregator
         shell: bash
@@ -163,7 +165,7 @@ jobs:
         with:
           name: mithril-distribution-wasm
           path: |
-            mithril-client-wasm/**/*-mithril-client-wasm-*.tgz
+            mithril-client-wasm/*-mithril-client-wasm-*.tgz
           if-no-files-found: error
   test:
     strategy:
@@ -832,7 +834,7 @@ jobs:
 
       - name: Unpack 'mithril-client-wasm' package
         working-directory: mithril-client-wasm
-        run: tar -xvzf pkg/*.tgz -C pkg/ && mv pkg/package/* pkg/
+        run: tar -xvzf *.tgz && mv package/dist .
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

@@ -52,9 +52,6 @@ clean:
 	rm package-lock.json || true
 
 upgrade: clean install
-	# Note: `eslint` versions 9 or up is compatible with versions 15.0+ of `eslint-config-next` but raises warnings when
-	# using `npm install` (ie: "Conflicting peer dependency: eslint@8.57.1").
-	# Todo: switch to `eslint@latest` when `eslint-config-next` is fully compatible with eslint 9.
 	npm install \
 		@popperjs/core@latest \
 		@reduxjs/toolkit@latest \
@@ -69,7 +66,7 @@ upgrade: clean install
 		react-redux@latest \
 		@testing-library/jest-dom@latest \
 		@testing-library/react@latest \
-		eslint@^8.57.0 \
+		eslint@latest \
 		eslint-config-next@latest \
 		fantasticon@latest \
 		jest@latest \

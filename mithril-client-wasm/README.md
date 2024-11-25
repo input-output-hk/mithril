@@ -92,6 +92,7 @@ You will need to run the Mithril client library in a compatible browser:
 | **Firefox for Android** |      `38`       | 2015-05-12 |         -          |
 | **Opera Android**       |      `41`       | 2016-10-25 |         -          |
 | **Safari on iOS**       |     `15.4`      | 2022-03-14 |         -          |
+| **Node.js**             |    `18.0.0`     | 2022-04-19 | :heavy_check_mark: |
 
 Go to the `mithril-client-wasm` directory:
 

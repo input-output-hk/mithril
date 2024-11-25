@@ -23,26 +23,26 @@ cargo set-version --bump patch
 git commit -am "chore: bump crates versions"
 
 # Build mithril-client wasm (to have latest version used in the explorer)
-pushd mithril-client-wasm || exit
-make build
-popd || exit
+make -C mithril-client-wasm build
 
 # Upgrade the documentation website dependencies
-pushd docs/website || exit
-make upgrade
-popd || exit
+make -C docs/website upgrade
 git commit -am "chore: upgrade doc dependencies
 
 By running 'make upgrade' command."
 
-# Upgrade www/ and www-test/ dependencies
-pushd mithril-client-wasm || exit
-make upgrade-www-deps
-popd || exit
+# Upgrade ci-test/ dependencies
+make -C mithril-client-wasm upgrade-ci-test-deps
+git commit -am "chore: upgrade mithril client wasm 'ci-test' dependencies
 
-git commit -am "chore: upgrade mithril client wasm 'www' and 'www-test' dependencies
+By running 'make upgrade-ci-test-deps' command."
 
-By running 'make upgrade-www-deps' command."
+# Upgrade client wasm examples dependencies
+make -C examples/client-wasm-nodejs upgrade
+make -C examples/client-wasm-web upgrade
+git commit -am "chore: upgrade mithril client wasm examples dependencies
+
+By running 'make upgrade' command in 'examples/client-wasm-nodejs' and 'examples/client-wasm-web'."
 
 # Upgrade the explorer dependencies
 pushd mithril-explorer || exit
@@ -55,25 +55,19 @@ By running 'make upgrade' command."
 # Bump Javascript packages versions
 
 # Search all package.json files and bump the version
-# and exclude `package.json` in `node_modules` folder
-for package_json_file in $(find . -name package.json | grep -v "/node_modules/" | grep -v "/pkg/"); do
+# and exclude `package.json` in auto-generated folders
+for package_json_file in $(find . -name package.json | grep -v "/node_modules/" | grep -v "/pkg/" | grep -v "/dist/"); do
     folder="$(dirname $package_json_file)"
     pushd "$folder" || exit
     npm version patch
     popd || exit
 done
 
-pushd mithril-client-wasm || exit
-make www-install www-test-install
-popd || exit
-
-pushd mithril-explorer || exit
-make install
-popd || exit
-
-pushd docs/website || exit
-make install
-popd || exit
+make -C mithril-client-wasm ci-test-install
+make -C examples/client-wasm-nodejs ci-test-install
+make -C examples/client-wasm-web ci-test-install
+make -C mithril-explorer install
+make -C docs/website install
 
 git commit -am "chore: bump javascript packages versions
 
