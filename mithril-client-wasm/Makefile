@@ -19,7 +19,17 @@ build-nodejs:
 test:
 	pkill -f "mithril-aggregator-fake" || true
 	${CARGO} run -p mithril-aggregator-fake -- -p 8000 &
-	if wasm-pack test --headless --firefox --chrome --node --release; then \
+	if wasm-pack test --headless --firefox --chrome --release; then \
+		pkill -f "mithril-aggregator-fake" || true; \
+	else \
+		pkill -f "mithril-aggregator-fake" || true; \
+		exit 1; \
+	fi
+
+test-node:
+	pkill -f "mithril-aggregator-fake" || true
+	${CARGO} run -p mithril-aggregator-fake -- -p 8000 &
+	if wasm-pack test --node --release --features test_nodejs; then \
 		pkill -f "mithril-aggregator-fake" || true; \
 	else \
 		pkill -f "mithril-aggregator-fake" || true; \

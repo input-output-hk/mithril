@@ -419,6 +419,7 @@ mod tests {
         get_mithril_client(false)
     }
 
+    #[cfg(not(feature = "test_nodejs"))]
     wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen_test]
