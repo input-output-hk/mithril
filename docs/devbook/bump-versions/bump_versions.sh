@@ -3,19 +3,38 @@ set +a -u -o pipefail
 
 if [[ "${TRACE-0}" == "1" ]]; then set -o xtrace; fi
 
-# Check crates, js packages, and openapi changes against `origin/main` and update their version.
-# At the end of the script, the commit message to used is displayed.
+display_help() {
+    echo "Check crates, js packages, and openapi changes against 'origin/main' and update their versions"
+    echo
+    echo "By default, no changes are made (dry-run mode), use '--run' to apply the changes."
+    echo "At the end of the script, the commit message to used is displayed, use '--commit' to commit the changes."
+    echo
+    echo "Usage: $0 [OPTIONS]"
+    echo
+    echo "Options:"
+    echo "  --run: to apply the changes (default is dry-run)"
+    echo "  --commit: to commit the changes"
+    echo
+    echo "Prerequisites:"
+    echo " 'cargo-get' needs to be installed ('cargo install cargo-get')."
+    echo
+    exit 0;
+}
 
-# Usage:
-# update_crate_versions.sh --run: to execute the changes (default is dry-run)
-# update_crate_versions.sh: to display the changes without executing them (dry-run mode)
+check_requirements() {
+    cargo get --version 2> /dev/null 1> /dev/null ||
+        error "It seems 'cargo-get' is not installed or not in the path (to install run: 'cargo install cargo-get').";
+}
 
-# Prerequisites:
-# `cargo-get` needs to be installed (`cargo install cargo-get`).
+error() {
+    echo "ERROR: $1";
+    exit 1;
+}
 
 # NOTE
 # `cargo get workspace.members` display the list of path to crates in the workspace.
 # for the `cargo set-version` command, we need the name of the module (last element of the path).
+
 readonly ORANGE="\e[1;33m"
 readonly GREEN="\e[1;32m"
 readonly RESET="\e[0m"
@@ -123,11 +142,14 @@ update_openapi_version() {
 }
 
 ################
+check_requirements
+
 declare DRY_RUN=true
 declare COMMIT=false
 readonly COMMIT_REF="HEAD"
 while [[ "$#" -gt 0 ]]; do
     case $1 in
+        -h|--help) display_help ;;
         --run) DRY_RUN=false ;;
         --commit) COMMIT=true ;;
     esac
