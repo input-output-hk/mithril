@@ -43,6 +43,9 @@ pub enum SignedEntityTypeMessagePart {
     /// Full Cardano Immutable Files
     CardanoImmutableFilesFull(CardanoDbBeaconMessagePart),
 
+    /// Cardano Database
+    CardanoDatabase(CardanoDbBeacon),
+
     /// Cardano Transactions
     CardanoTransactions(Epoch, BlockNumber),
 }
@@ -110,6 +113,7 @@ impl From<SignedEntityTypeMessagePart> for SignedEntityType {
             SignedEntityTypeMessagePart::CardanoTransactions(epoch, block_number) => {
                 Self::CardanoTransactions(epoch, block_number)
             }
+            SignedEntityTypeMessagePart::CardanoDatabase(beacon) => Self::CardanoDatabase(beacon),
         }
     }
 }
@@ -133,6 +137,10 @@ impl PartialEq<SignedEntityTypeMessagePart> for SignedEntityType {
                 &SignedEntityType::CardanoTransactions(left_epoch, left_block_number),
                 &SignedEntityTypeMessagePart::CardanoTransactions(right_epoch, right_block_number),
             ) => left_epoch == right_epoch && left_block_number == right_block_number,
+            (
+                &SignedEntityType::CardanoDatabase(left_beacon),
+                &SignedEntityTypeMessagePart::CardanoDatabase(right_beacon),
+            ) => left_beacon == right_beacon,
             _ => false,
         }
     }
@@ -163,9 +171,7 @@ impl<N: Into<String>> From<(SignedEntityType, N)> for SignedEntityTypeMessagePar
             SignedEntityType::CardanoTransactions(epoch, block_number) => {
                 Self::CardanoTransactions(epoch, block_number)
             }
-            SignedEntityType::CardanoDatabase(_) => {
-                panic!("This conversion must not be used, this enum is temporary and will be removed. Use the CardanoDbBeacon from SignedEntityType directly instead.")
-            }
+            SignedEntityType::CardanoDatabase(beacon) => Self::CardanoDatabase(beacon),
         }
     }
 }
@@ -235,6 +241,12 @@ mod tests {
                 BlockNumber(4678)
             ))
         );
+        assert_eq!(
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(98, 123)),
+            SignedEntityType::from(SignedEntityTypeMessagePart::CardanoDatabase(
+                CardanoDbBeacon::new(98, 123)
+            ))
+        );
     }
 
     #[test]
@@ -266,6 +278,13 @@ mod tests {
             SignedEntityTypeMessagePart::CardanoTransactions(Epoch(123), BlockNumber(4678)),
             SignedEntityTypeMessagePart::from((
                 SignedEntityType::CardanoTransactions(Epoch(123), BlockNumber(4678)),
+                "unused"
+            ))
+        );
+        assert_eq!(
+            SignedEntityTypeMessagePart::CardanoDatabase(CardanoDbBeacon::new(98, 123)),
+            SignedEntityTypeMessagePart::from((
+                SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(98, 123)),
                 "unused"
             ))
         );
@@ -377,6 +396,20 @@ mod tests {
         assert_commutative_ne(
             SignedEntityType::CardanoTransactions(epoch, block_number + 3),
             SignedEntityTypeMessagePart::CardanoTransactions(epoch, block_number),
+        );
+
+        // CardanoDatabase
+        assert_commutative_eq(
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(*epoch, immutable)),
+            SignedEntityTypeMessagePart::CardanoDatabase(CardanoDbBeacon::new(*epoch, immutable)),
+        );
+        assert_commutative_ne(
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(*epoch + 1, immutable)),
+            SignedEntityTypeMessagePart::CardanoDatabase(CardanoDbBeacon::new(*epoch, immutable)),
+        );
+        assert_commutative_ne(
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(*epoch, immutable + 3)),
+            SignedEntityTypeMessagePart::CardanoDatabase(CardanoDbBeacon::new(*epoch, immutable)),
         );
     }
 }
