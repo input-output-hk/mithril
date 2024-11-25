@@ -192,7 +192,7 @@ impl AggregatorRunner {
                 metrics.get_artifact_cardano_transaction_total_produced_since_startup()
             }
             SignedEntityType::CardanoDatabase(_) => {
-                todo!("To be implemented after the artifact builder is available")
+                metrics.get_artifact_cardano_database_total_produced_since_startup()
             }
         };
 
