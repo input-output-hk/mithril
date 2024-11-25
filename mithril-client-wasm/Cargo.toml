@@ -34,6 +34,7 @@ mithril-build-script = { path = "../internal/mithril-build-script" }
 [features]
 # Include nothing by default
 default = []
+test-node = []
 
 [package.metadata.docs.rs]
 all-features = true

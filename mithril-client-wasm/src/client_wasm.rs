@@ -477,6 +477,7 @@ mod tests {
         get_mithril_client(options)
     }
 
+    #[cfg(not(feature = "test-node"))]
     wasm_bindgen_test_configure!(run_in_browser);
 
     #[wasm_bindgen_test]
