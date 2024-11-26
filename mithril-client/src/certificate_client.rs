@@ -82,6 +82,8 @@ pub struct CertificateClient {
     aggregator_client: Arc<dyn AggregatorClient>,
     retriever: Arc<InternalCertificateRetriever>,
     verifier: Arc<dyn CertificateVerifier>,
+    #[cfg(feature = "unstable")]
+    _verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
 }
 
 /// API that defines how to validate certificates.
@@ -93,11 +95,19 @@ pub trait CertificateVerifier: Sync + Send {
     async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()>;
 }
 
+/// API that defines how to cache certificates validation results.
+#[cfg(feature = "unstable")]
+#[cfg_attr(test, mockall::automock)]
+#[cfg_attr(target_family = "wasm", async_trait(?Send))]
+#[cfg_attr(not(target_family = "wasm"), async_trait)]
+pub trait CertificateVerifierCache: Sync + Send {}
+
 impl CertificateClient {
     /// Constructs a new `CertificateClient`.
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         verifier: Arc<dyn CertificateVerifier>,
+        #[cfg(feature = "unstable")] verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
         logger: Logger,
     ) -> Self {
         let logger = logger.new_with_component_name::<Self>();
@@ -110,6 +120,8 @@ impl CertificateClient {
             aggregator_client,
             retriever,
             verifier,
+            #[cfg(feature = "unstable")]
+            _verifier_cache: verifier_cache,
         }
     }
 
@@ -307,6 +319,8 @@ mod tests {
         CertificateClient::new(
             aggregator_client,
             verifier.unwrap_or(Arc::new(MockCertificateVerifier::new())),
+            #[cfg(feature = "unstable")]
+            None,
             test_utils::test_logger(),
         )
     }
