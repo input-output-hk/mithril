@@ -10,6 +10,8 @@ use mithril_common::api_version::APIVersionProvider;
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
 use crate::cardano_transaction_client::CardanoTransactionClient;
+#[cfg(feature = "unstable")]
+use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
@@ -94,6 +96,8 @@ pub struct ClientBuilder {
     genesis_verification_key: String,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
+    #[cfg(feature = "unstable")]
+    certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
     #[cfg(feature = "fs")]
     snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
     logger: Option<Logger>,
@@ -110,6 +114,8 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "unstable")]
+            certificate_verifier_cache: None,
             #[cfg(feature = "fs")]
             snapshot_downloader: None,
             logger: None,
@@ -128,6 +134,8 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "unstable")]
+            certificate_verifier_cache: None,
             #[cfg(feature = "fs")]
             snapshot_downloader: None,
             logger: None,
@@ -197,6 +205,8 @@ impl ClientBuilder {
         let certificate_client = Arc::new(CertificateClient::new(
             aggregator_client.clone(),
             certificate_verifier,
+            #[cfg(feature = "unstable")]
+            self.certificate_verifier_cache,
             logger.clone(),
         ));
 
@@ -241,6 +251,17 @@ impl ClientBuilder {
     ) -> ClientBuilder {
         self.certificate_verifier = Some(certificate_verifier);
         self
+    }
+
+    cfg_unstable! {
+    /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
+    pub fn with_certificate_verifier_cache(
+        mut self,
+        certificate_verifier_cache: Arc<dyn CertificateVerifierCache>,
+    ) -> ClientBuilder {
+        self.certificate_verifier_cache = Some(certificate_verifier_cache);
+        self
+    }
     }
 
     cfg_fs! {
