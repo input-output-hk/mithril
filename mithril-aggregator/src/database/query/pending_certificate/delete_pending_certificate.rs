@@ -1,4 +1,4 @@
-use mithril_persistence::sqlite::{Query, SourceAlias, WhereCondition};
+use mithril_persistence::sqlite::{Query, WhereCondition};
 
 use crate::database::record::CertificatePendingRecord;
 
@@ -25,14 +25,7 @@ impl Query for DeletePendingCertificateRecordQuery {
     fn get_definition(&self, condition: &str) -> String {
         // it is important to alias the fields with the same name as the table
         // since the table cannot be aliased in a RETURNING statement in SQLite.
-
-        // let projection = Self::Entity::get_projection().expand(SourceAlias::new(&[(
-        //     "{:pending_certificate:}",
-        //     "pending_certificate",
-        // )]));
-        let projection = Self::Entity::get_projection_with_table("pending_certificate")
-            .expand(SourceAlias::new(&[]));
-
+        let projection = Self::Entity::expand_projection("pending_certificate");
         format!("delete from pending_certificate where {condition} returning {projection}")
     }
 }

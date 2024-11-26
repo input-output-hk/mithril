@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use mithril_common::entities::{CertificatePending, Epoch};
-use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
+use mithril_persistence::sqlite::{HydrationError, Projection, SourceAlias, SqLiteEntity};
 
 /// CertificatePending record is the representation of a stored pending certificate.
 pub struct CertificatePendingRecord {
@@ -15,15 +15,10 @@ pub struct CertificatePendingRecord {
 }
 
 impl CertificatePendingRecord {
-    /// Construct a [Projection] that will allow to hydrate this `CertificatePendingRecord`.
-    pub fn get_projection_with_table(table: &str) -> Projection {
-        let mut projection = Projection::default();
-
-        projection.add_field("epoch", &format!("{table}.epoch"), "integer");
-        projection.add_field("certificate", &format!("{table}.certificate"), "text");
-        projection.add_field("created_at", &format!("{table}.created_at"), "text");
-
-        projection
+    /// Construct a [Projection] that will allow to hydrate this `CertificatePendingRecord` and expend table alias.
+    pub fn expand_projection(table: &str) -> String {
+        let aliases = SourceAlias::new(&[("{:pending_certificate:}", table)]);
+        Self::get_projection().expand(aliases)
     }
 }
 
@@ -56,7 +51,13 @@ impl SqLiteEntity for CertificatePendingRecord {
     }
 
     fn get_projection() -> Projection {
-        Self::get_projection_with_table("{:pending_certificate:}")
+        let mut projection = Projection::default();
+
+        projection.add_field("epoch", "{:pending_certificate:}.epoch", "integer");
+        projection.add_field("certificate", "{:pending_certificate:}.certificate", "text");
+        projection.add_field("created_at", "{:pending_certificate:}.created_at", "text");
+
+        projection
     }
 }
 

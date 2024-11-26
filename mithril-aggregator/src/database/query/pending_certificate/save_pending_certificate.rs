@@ -1,11 +1,11 @@
 use chrono::Utc;
 use sqlite::Value;
 
-use mithril_persistence::sqlite::{Query, SourceAlias, WhereCondition};
+use mithril_persistence::sqlite::{Query, WhereCondition};
 
 use crate::database::record::CertificatePendingRecord;
 
-/// Query to update [CertificatePendingRecord] in the sqlite database
+/// Query to save [CertificatePendingRecord] in the sqlite database
 pub struct SavePendingCertificateRecordQuery {
     condition: WhereCondition,
 }
@@ -36,13 +36,7 @@ impl Query for SavePendingCertificateRecordQuery {
         // it is important to alias the fields with the same name as the table
         // since the table cannot be aliased in a RETURNING statement in SQLite.
 
-        // let projection = Self::Entity::get_projection().expand(SourceAlias::new(&[(
-        //     "{:pending_certificate:}",
-        //     "pending_certificate",
-        // )]));
-        let projection = Self::Entity::get_projection_with_table("pending_certificate")
-            .expand(SourceAlias::new(&[]));
-
+        let projection = Self::Entity::expand_projection("pending_certificate");
         format!("insert or replace into pending_certificate {condition} returning {projection}")
     }
 }

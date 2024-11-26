@@ -1,4 +1,4 @@
-use mithril_persistence::sqlite::{Query, SourceAlias, WhereCondition};
+use mithril_persistence::sqlite::{Query, WhereCondition};
 
 use crate::database::record::CertificatePendingRecord;
 
@@ -23,12 +23,8 @@ impl Query for GetPendingCertificateRecordQuery {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        // let aliases = SourceAlias::new(&[("{:pending_certificate:}", "new_pending_certificate")]);
-        // let projection = Self::Entity::get_projection().expand(aliases);
-        let projection = Self::Entity::get_projection_with_table("pending_certificate")
-            .expand(SourceAlias::new(&[]));
+        let projection = Self::Entity::expand_projection("pending_certificate");
         format!(
-            // TODO check the order to keep
             "select {projection} from pending_certificate where {condition} order by ROWID desc"
         )
     }
