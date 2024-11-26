@@ -847,5 +847,14 @@ update certificate
     where certificate.signed_entity_type_id = 2;
         "#,
         ),
+        // Migration 32
+        // Add the `signed_entity_type` record for 'CardanoDatabase'
+        SqlMigration::new(
+            32,
+            r#"
+insert into signed_entity_type (signed_entity_type_id, name) 
+    values  (4, 'Cardano Database');
+"#,
+        ),
     ]
 }

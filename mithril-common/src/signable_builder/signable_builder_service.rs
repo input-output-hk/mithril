@@ -94,6 +94,11 @@ impl MithrilSignableBuilderService {
                 .with_context(|| format!(
                     "Signable builder service can not compute protocol message with block_number: '{block_number}'"
                 ))?,
+            SignedEntityType::CardanoDatabase(_) => {
+                return Err(anyhow::anyhow!(
+                    "Signable builder service can not compute protocol message for Cardano database because it is not yet implemented."
+                ));
+            }
         };
 
         Ok(protocol_message)
@@ -305,6 +310,20 @@ mod tests {
                 .compute_protocol_message(signed_entity_type)
                 .await
                 .unwrap();
+        }
+
+        #[tokio::test]
+        async fn build_cardano_database_signable_when_given_cardano_database_entity_type_return_error(
+        ) {
+            let current_era = SupportedEra::Pythagoras;
+            let mock_container = MockDependencyInjector::new(current_era);
+            let signable_builder_service = mock_container.build_signable_builder_service();
+            let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::default());
+
+            signable_builder_service
+                .compute_protocol_message(signed_entity_type)
+                .await
+                .expect_err("Should return error because CardanoDatabase is not implemented yet.");
         }
     }
 

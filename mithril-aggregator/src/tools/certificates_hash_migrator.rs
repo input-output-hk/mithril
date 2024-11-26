@@ -288,6 +288,12 @@ mod test {
                     SignedEntityType::CardanoTransactions(epoch, block_number) => {
                         format!("cardano-transactions-{epoch}-{block_number}",)
                     }
+                    SignedEntityType::CardanoDatabase(beacon) => {
+                        format!(
+                            "cardano-database-{}-{}",
+                            beacon.epoch, beacon.immutable_file_number
+                        )
+                    }
                 };
 
                 let signed_entity_record = SignedEntityRecord {

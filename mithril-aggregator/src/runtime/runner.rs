@@ -191,6 +191,9 @@ impl AggregatorRunner {
             SignedEntityType::CardanoTransactions(_, _) => {
                 metrics.get_artifact_cardano_transaction_total_produced_since_startup()
             }
+            SignedEntityType::CardanoDatabase(_) => {
+                metrics.get_artifact_cardano_database_total_produced_since_startup()
+            }
         };
 
         metric_counter.increment();

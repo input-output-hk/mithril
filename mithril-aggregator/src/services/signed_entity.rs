@@ -210,6 +210,11 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
+            SignedEntityType::CardanoDatabase(_) => {
+                Err(anyhow::anyhow!(
+                    "Signable builder service can not compute artifact for Cardano database because it is not yet implemented."
+                ))
+            }
         }
     }
 
@@ -719,6 +724,20 @@ mod tests {
             &|mock_injector| &mut mock_injector.mock_cardano_transactions_artifact_builder,
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn build_cardano_database_artifact_when_given_cardano_database_entity_type_return_error()
+    {
+        let mock_container = MockDependencyInjector::new();
+        let artifact_builder_service = mock_container.build_artifact_builder_service();
+        let certificate = fake_data::certificate("hash".to_string());
+        let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::default());
+
+        artifact_builder_service
+            .compute_artifact(signed_entity_type.clone(), &certificate)
+            .await
+            .expect_err("Should return error because CardanoDatabase is not implemented yet.");
     }
 
     async fn generic_test_that_the_artifact_is_stored<

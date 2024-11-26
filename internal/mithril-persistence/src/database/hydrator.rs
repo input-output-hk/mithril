@@ -85,6 +85,14 @@ impl Hydrator {
                     })?;
                 SignedEntityType::CardanoTransactions(beacon.epoch, beacon.block_number)
             }
+            SignedEntityTypeDiscriminants::CardanoDatabase => {
+                let beacon: CardanoDbBeacon = serde_json::from_str(beacon_str).map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
+                    ))
+                })?;
+                SignedEntityType::CardanoDatabase(beacon)
+            }
         };
 
         Ok(signed_entity)
@@ -100,6 +108,18 @@ mod tests {
         let expected = SignedEntityType::CardanoTransactions(Epoch(35), BlockNumber(77));
         let signed_entity = Hydrator::hydrate_signed_entity_type(
             SignedEntityTypeDiscriminants::CardanoTransactions.index(),
+            &expected.get_json_beacon().unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(expected, signed_entity);
+    }
+
+    #[test]
+    fn hydrate_cardano_database_signed_entity_type() {
+        let expected = SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(84, 239));
+        let signed_entity = Hydrator::hydrate_signed_entity_type(
+            SignedEntityTypeDiscriminants::CardanoDatabase.index(),
             &expected.get_json_beacon().unwrap(),
         )
         .unwrap();

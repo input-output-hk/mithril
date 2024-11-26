@@ -119,5 +119,14 @@ drop table protocol_initializer;
 alter table new_protocol_initializer rename to protocol_initializer;
 "#,
         ),
+        // Migration 7
+        // Add the `signed_entity_type` record for 'CardanoDatabase'
+        SqlMigration::new(
+            7,
+            r#"
+insert into signed_entity_type (signed_entity_type_id, name) 
+    values  (4, 'Cardano Database');
+"#,
+        ),
     ]
 }
