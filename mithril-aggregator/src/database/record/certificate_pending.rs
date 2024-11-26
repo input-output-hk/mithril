@@ -1,5 +1,8 @@
 use chrono::{DateTime, Utc};
-use mithril_common::entities::{CertificatePending, Epoch};
+use mithril_common::{
+    entities::{CertificatePending, Epoch},
+    StdError,
+};
 use mithril_persistence::sqlite::{HydrationError, Projection, SourceAlias, SqLiteEntity};
 
 /// CertificatePending record is the representation of a stored pending certificate.
@@ -61,26 +64,31 @@ impl SqLiteEntity for CertificatePendingRecord {
     }
 }
 
-impl From<CertificatePending> for CertificatePendingRecord {
-    fn from(value: CertificatePending) -> Self {
-        Self {
+impl TryFrom<CertificatePending> for CertificatePendingRecord {
+    type Error = StdError;
+
+    fn try_from(value: CertificatePending) -> Result<Self, Self::Error> {
+        let record = Self {
             epoch: value.epoch,
-            certificate: serde_json::to_string(&value).unwrap(),
+            certificate: serde_json::to_string(&value)?,
             created_at: Utc::now(),
-        }
+        };
+        Ok(record)
     }
 }
 
-impl From<CertificatePendingRecord> for CertificatePending {
-    fn from(record: CertificatePendingRecord) -> Self {
-        let c: CertificatePending = serde_json::from_str(&record.certificate).unwrap();
-        Self {
+impl TryFrom<CertificatePendingRecord> for CertificatePending {
+    type Error = StdError;
+    fn try_from(record: CertificatePendingRecord) -> Result<Self, Self::Error> {
+        let c: CertificatePending = serde_json::from_str(&record.certificate)?;
+        let pending_certificate = Self {
             epoch: record.epoch,
             signed_entity_type: c.signed_entity_type,
             protocol_parameters: c.protocol_parameters,
             next_protocol_parameters: c.next_protocol_parameters,
             signers: c.signers,
             next_signers: c.next_signers,
-        }
+        };
+        Ok(pending_certificate)
     }
 }

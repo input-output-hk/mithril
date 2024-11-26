@@ -28,26 +28,28 @@ impl CertificatePendingRepository {
 impl CertificatePendingStorer for CertificatePendingRepository {
     /// Fetch the current [CertificatePending] if any.
     async fn get(&self) -> StdResult<Option<CertificatePending>> {
-        Ok(self
-            .connection
+        self.connection
             .fetch_first(GetPendingCertificateRecordQuery::get())?
-            .map(Into::into))
+            .map(TryInto::try_into)
+            .transpose()
     }
 
     /// Save the given [CertificatePending].
     async fn save(&self, certificate: CertificatePending) -> StdResult<()> {
         self.connection
-            .apply(SavePendingCertificateRecordQuery::save(certificate.into()))?;
+            .apply(SavePendingCertificateRecordQuery::save(
+                certificate.try_into()?,
+            ))?;
 
         Ok(())
     }
 
     /// Remove the current [CertificatePending] if any.
     async fn remove(&self) -> StdResult<Option<CertificatePending>> {
-        Ok(self
-            .connection
+        self.connection
             .fetch_first(DeletePendingCertificateRecordQuery::get())?
-            .map(Into::into))
+            .map(TryInto::try_into)
+            .transpose()
     }
 }
 
