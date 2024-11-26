@@ -501,7 +501,7 @@ impl DependenciesBuilder {
         Ok(self.multi_signer.as_ref().cloned().unwrap())
     }
 
-    async fn build_certificate_pending_store(
+    async fn build_certificate_pending_storer(
         &mut self,
     ) -> Result<Arc<dyn CertificatePendingStorer>> {
         Ok(Arc::new(CertificatePendingRepository::new(
@@ -510,11 +510,11 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [CertificatePendingStorer].
-    pub async fn get_certificate_pending_store(
+    pub async fn get_certificate_pending_storer(
         &mut self,
     ) -> Result<Arc<dyn CertificatePendingStorer>> {
         if self.certificate_pending_store.is_none() {
-            self.certificate_pending_store = Some(self.build_certificate_pending_store().await?);
+            self.certificate_pending_store = Some(self.build_certificate_pending_storer().await?);
         }
 
         Ok(self.certificate_pending_store.as_ref().cloned().unwrap())
@@ -1414,7 +1414,7 @@ impl DependenciesBuilder {
             stake_store: self.get_stake_store().await?,
             snapshot_uploader: self.get_snapshot_uploader().await?,
             multi_signer: self.get_multi_signer().await?,
-            certificate_pending_store: self.get_certificate_pending_store().await?,
+            certificate_pending_store: self.get_certificate_pending_storer().await?,
             certificate_repository: self.get_certificate_repository().await?,
             open_message_repository: self.get_open_message_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,

@@ -176,7 +176,7 @@ mod test {
             )
             .unwrap();
 
-        assert!(pending_certificate_adapter.is_key_hash_exist("Certificate"));
+        assert!(pending_certificate_adapter.has_key_hash("Certificate"));
 
         // We finish the migration
         ConnectionBuilder::open_memory()

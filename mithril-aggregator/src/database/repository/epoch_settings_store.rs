@@ -66,7 +66,7 @@ impl EpochSettingsStorer for EpochSettingsStore {
         let epoch_settings_record = self
             .connection
             .fetch_first(UpdateEpochSettingsQuery::one(epoch, epoch_settings))
-            .with_context(|| format!("persist epoch settings failure: epoch = {epoch:?}"))?
+            .with_context(|| format!("persist epoch settings failure for epoch {epoch:?}"))?
             .unwrap_or_else(|| panic!("No entity returned by the persister, epoch = {epoch:?}"));
 
         Ok(Some(epoch_settings_record.into()))

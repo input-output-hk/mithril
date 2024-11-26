@@ -977,7 +977,7 @@ mod tests {
                 ),
             ]);
 
-            let vkey_store = {
+            let verification_key_store = {
                 let mut store = MockVerificationKeyStorer::new();
                 let signers_with_stake = self.signers_with_stake.clone();
                 store
@@ -1022,7 +1022,7 @@ mod tests {
                 },
                 EpochServiceDependencies::new(
                     Arc::new(epoch_settings_storer),
-                    Arc::new(vkey_store),
+                    Arc::new(verification_key_store),
                     Arc::new(chain_observer),
                     Arc::new(era_checker),
                     Arc::new(stake_distribution_service),

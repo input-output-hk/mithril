@@ -459,7 +459,7 @@ pub fn insert_stake_pool(
     Ok(())
 }
 
-/// A simple struct that help to initialize database with the old adapter behavior for testing purposes.
+/// A simple struct that helps initialize a database with the old adapter behavior for testing purposes.
 pub struct FakeStoreAdapter {
     connection: Arc<SqliteConnection>,
     table: &'static str,
@@ -478,7 +478,7 @@ impl FakeStoreAdapter {
         self.connection.execute(sql).unwrap();
     }
 
-    pub fn is_key_hash_exist(&self, key_hash: &str) -> bool {
+    pub fn has_key_hash(&self, key_hash: &str) -> bool {
         let sql = format!(
             "select exists(select 1 from {} where key_hash = ?1) as record_exists",
             self.table
