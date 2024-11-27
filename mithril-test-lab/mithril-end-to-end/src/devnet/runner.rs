@@ -6,7 +6,12 @@ use std::fs::{self, read_to_string, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use thiserror::Error;
 use tokio::process::Command;
+
+#[derive(Error, Debug, PartialEq, Eq)]
+#[error("Unrecoverable devnet error: `{0}`")]
+pub struct UnrecoverableDevnetError(pub String);
 
 #[derive(Debug, Clone, Default)]
 pub struct Devnet {
@@ -211,7 +216,9 @@ impl Devnet {
             .with_context(|| "Error while starting the devnet")?;
         match status.code() {
             Some(0) => Ok(()),
-            Some(code) => Err(anyhow!("Run devnet exited with status code: {code}")),
+            Some(code) => Err(anyhow!(UnrecoverableDevnetError(format!(
+                "Run devnet exited with status code: {code}"
+            )))),
             None => Err(anyhow!("Run devnet terminated by signal")),
         }
     }
@@ -258,7 +265,9 @@ impl Devnet {
             .with_context(|| "Error while delegating stakes to the pools")?;
         match status.code() {
             Some(0) => Ok(()),
-            Some(code) => Err(anyhow!("Delegating stakes exited with status code: {code}")),
+            Some(code) => Err(anyhow!(UnrecoverableDevnetError(format!(
+                "Delegating stakes exited with status code: {code}"
+            )))),
             None => Err(anyhow!("Delegating stakes terminated by signal")),
         }
     }
@@ -282,9 +291,9 @@ impl Devnet {
             .with_context(|| "Error while writing era marker on chain")?;
         match status.code() {
             Some(0) => Ok(()),
-            Some(code) => Err(anyhow!(
+            Some(code) => Err(anyhow!(UnrecoverableDevnetError(format!(
                 "Write era marker on chain exited with status code: {code}"
-            )),
+            )))),
             None => Err(anyhow!("Write era marker on chain terminated by signal")),
         }
     }
@@ -308,9 +317,9 @@ impl Devnet {
             .with_context(|| "Error while to transferring funds on chain")?;
         match status.code() {
             Some(0) => Ok(()),
-            Some(code) => Err(anyhow!(
+            Some(code) => Err(anyhow!(UnrecoverableDevnetError(format!(
                 "Transfer funds on chain exited with status code: {code}"
-            )),
+            )))),
             None => Err(anyhow!("Transfer funds on chain terminated by signal")),
         }
     }
