@@ -29,7 +29,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{CertificatePending, CompressionAlgorithm, Epoch, SignedEntityTypeDiscriminants},
+    entities::{CompressionAlgorithm, Epoch, SignedEntityTypeDiscriminants},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -46,7 +46,6 @@ use mithril_common::{
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
     sqlite::{ConnectionBuilder, ConnectionOptions, SqliteConnection, SqliteConnectionPool},
-    store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
 };
 
 use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
@@ -57,9 +56,9 @@ use crate::{
     },
     configuration::ExecutionEnvironment,
     database::repository::{
-        BufferedSingleSignatureRepository, CertificateRepository, EpochSettingsStore,
-        OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
-        SignerStore, SingleSignatureRepository, StakePoolStore,
+        BufferedSingleSignatureRepository, CertificatePendingRepository, CertificateRepository,
+        EpochSettingsStore, OpenMessageRepository, SignedEntityStore, SignedEntityStorer,
+        SignerRegistrationStore, SignerStore, SingleSignatureRepository, StakePoolStore,
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
@@ -71,13 +70,13 @@ use crate::{
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
         SignedEntityService, StakeDistributionService, UpkeepService, UsageReporter,
     },
+    store::CertificatePendingStorer,
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
-    CompressedArchiveSnapshotter, Configuration, DependencyContainer, DumbSnapshotUploader,
-    DumbSnapshotter, EpochSettingsStorer, LocalSnapshotUploader, MetricsService,
-    MithrilSignerRegisterer, MultiSigner, MultiSignerImpl, RemoteSnapshotUploader,
-    SingleSignatureAuthenticator, SnapshotUploader, SnapshotUploaderType, Snapshotter,
-    SnapshotterCompressionAlgorithm, VerificationKeyStorer,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
+    Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter, EpochSettingsStorer,
+    LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    RemoteSnapshotUploader, SingleSignatureAuthenticator, SnapshotUploader, SnapshotUploaderType,
+    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -122,7 +121,7 @@ pub struct DependenciesBuilder {
     pub multi_signer: Option<Arc<dyn MultiSigner>>,
 
     /// Certificate pending store.
-    pub certificate_pending_store: Option<Arc<CertificatePendingStore>>,
+    pub certificate_pending_store: Option<Arc<dyn CertificatePendingStorer>>,
 
     /// Certificate repository.
     pub certificate_repository: Option<Arc<CertificateRepository>>,
@@ -502,41 +501,20 @@ impl DependenciesBuilder {
         Ok(self.multi_signer.as_ref().cloned().unwrap())
     }
 
-    async fn build_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
-        let adapter: Box<dyn StoreAdapter<Key = String, Record = CertificatePending>> = match self
-            .configuration
-            .environment
-        {
-            ExecutionEnvironment::Production => {
-                let adapter =
-                    SQLiteAdapter::new("pending_certificate", self.get_sqlite_connection().await?)
-                        .map_err(|e| DependenciesBuilderError::Initialization {
-                            message: "Cannot create SQLite adapter for PendingCertificate Store."
-                                .to_string(),
-                            error: Some(e.into()),
-                        })?;
-
-                Box::new(adapter)
-            }
-            _ => {
-                let adapter = MemoryAdapter::new(None).map_err(|e| {
-                    DependenciesBuilderError::Initialization {
-                        message: "Cannot create Memory adapter for PendingCertificate Store."
-                            .to_string(),
-                        error: Some(e.into()),
-                    }
-                })?;
-                Box::new(adapter)
-            }
-        };
-
-        Ok(Arc::new(CertificatePendingStore::new(adapter)))
+    async fn build_certificate_pending_storer(
+        &mut self,
+    ) -> Result<Arc<dyn CertificatePendingStorer>> {
+        Ok(Arc::new(CertificatePendingRepository::new(
+            self.get_sqlite_connection().await?,
+        )))
     }
 
-    /// Get a configured [CertificatePendingStore].
-    pub async fn get_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
+    /// Get a configured [CertificatePendingStorer].
+    pub async fn get_certificate_pending_storer(
+        &mut self,
+    ) -> Result<Arc<dyn CertificatePendingStorer>> {
         if self.certificate_pending_store.is_none() {
-            self.certificate_pending_store = Some(self.build_certificate_pending_store().await?);
+            self.certificate_pending_store = Some(self.build_certificate_pending_storer().await?);
         }
 
         Ok(self.certificate_pending_store.as_ref().cloned().unwrap())
@@ -1337,6 +1315,7 @@ impl DependenciesBuilder {
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
         let stake_pool_pruning_task = self.get_stake_store().await?;
         let epoch_settings_pruning_task = self.get_epoch_settings_store().await?;
+        let mithril_registerer_pruning_task = self.get_mithril_registerer().await?;
 
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(
             self.get_sqlite_connection().await?,
@@ -1344,7 +1323,11 @@ impl DependenciesBuilder {
                 .await?,
             self.get_event_store_sqlite_connection().await?,
             self.get_signed_entity_lock().await?,
-            vec![stake_pool_pruning_task, epoch_settings_pruning_task],
+            vec![
+                stake_pool_pruning_task,
+                epoch_settings_pruning_task,
+                mithril_registerer_pruning_task,
+            ],
             self.root_logger(),
         ));
 
@@ -1431,7 +1414,7 @@ impl DependenciesBuilder {
             stake_store: self.get_stake_store().await?,
             snapshot_uploader: self.get_snapshot_uploader().await?,
             multi_signer: self.get_multi_signer().await?,
-            certificate_pending_store: self.get_certificate_pending_store().await?,
+            certificate_pending_store: self.get_certificate_pending_storer().await?,
             certificate_repository: self.get_certificate_repository().await?,
             open_message_repository: self.get_open_message_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,

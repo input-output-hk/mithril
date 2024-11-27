@@ -7,7 +7,6 @@ use async_trait::async_trait;
 use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{ConnectionExtensions, SqliteConnection};
-use mithril_persistence::store::adapter::AdapterError;
 
 use crate::database::query::{
     DeleteSignerRegistrationRecordQuery, GetSignerRegistrationRecordQuery,
@@ -46,16 +45,14 @@ impl VerificationKeyStorer for SignerRegistrationStore {
                     "Get signer registration record failure with signer_id: '{}', epoch: '{}'",
                     signer.party_id, epoch
                 )
-            })
-            .map_err(AdapterError::QueryError)?;
+            })?;
 
         let _updated_record = self
             .connection
             .fetch_first(InsertOrReplaceSignerRegistrationRecordQuery::one(
                 SignerRegistrationRecord::from_signer_with_stake(signer, epoch),
             ))
-            .with_context(|| format!("persist verification key failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("persist verification key failure, epoch: {epoch}"))?;
 
         match existing_record {
             None => Ok(None),
@@ -70,8 +67,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let cursor = self
             .connection
             .fetch(GetSignerRegistrationRecordQuery::by_epoch(epoch)?)
-            .with_context(|| format!("get verification key failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("get verification key failure, epoch: {epoch}"))?;
 
         let signer_with_stakes: HashMap<PartyId, Signer> =
             HashMap::from_iter(cursor.map(|record| (record.signer_id.to_owned(), record.into())));
@@ -86,8 +82,7 @@ impl VerificationKeyStorer for SignerRegistrationStore {
         let cursor = self
             .connection
             .fetch(GetSignerRegistrationRecordQuery::by_epoch(epoch)?)
-            .with_context(|| format!("get verification key failure, epoch: {epoch}"))
-            .map_err(AdapterError::GeneralError)?;
+            .with_context(|| format!("get verification key failure, epoch: {epoch}"))?;
 
         let signer_with_stakes: Vec<SignerWithStake> = cursor.map(|record| record.into()).collect();
 
@@ -98,13 +93,10 @@ impl VerificationKeyStorer for SignerRegistrationStore {
     }
 
     async fn prune_verification_keys(&self, max_epoch_to_prune: Epoch) -> StdResult<()> {
-        let _deleted_records = self
-            .connection
-            .fetch_first(
-                // we want to prune including the given epoch (+1)
-                DeleteSignerRegistrationRecordQuery::below_epoch_threshold(max_epoch_to_prune + 1),
-            )
-            .map_err(AdapterError::QueryError)?;
+        self.connection
+            .apply(DeleteSignerRegistrationRecordQuery::below_epoch_threshold(
+                max_epoch_to_prune,
+            ))?;
 
         Ok(())
     }
@@ -113,9 +105,49 @@ impl VerificationKeyStorer for SignerRegistrationStore {
 #[cfg(test)]
 mod tests {
     use crate::database::test_helper::{insert_signer_registrations, main_db_connection};
-    use crate::store::test_verification_key_storer;
+
+    use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
+    use mithril_common::test_utils::fake_keys;
+    use std::collections::HashMap;
+    use std::sync::Arc;
+
+    use crate::VerificationKeyStorer;
 
     use super::*;
+
+    /// Build simple fake signers with stakes.
+    /// It could be done by `fake_data::signers_with_stakes` which produce verification keys dynamically
+    /// but take longer.
+    fn build_fake_signers_with_stakes(nb: u64) -> Vec<SignerWithStake> {
+        let verification_keys = fake_keys::signer_verification_key();
+        let nb_keys = verification_keys.len() as u64;
+        (1..=nb)
+            .map(|party_idx| SignerWithStake {
+                party_id: format!("party_id:{party_idx}"),
+                verification_key: verification_keys[(party_idx % nb_keys) as usize]
+                    .try_into()
+                    .unwrap(),
+                verification_key_signature: None,
+                operational_certificate: None,
+                kes_period: None,
+                stake: 10,
+            })
+            .collect()
+    }
+
+    fn build_signers(
+        nb_epoch: u64,
+        signers_per_epoch: usize,
+    ) -> HashMap<Epoch, Vec<SignerWithStake>> {
+        (1..=nb_epoch)
+            .map(|epoch| {
+                (
+                    Epoch(epoch),
+                    build_fake_signers_with_stakes(signers_per_epoch as u64),
+                )
+            })
+            .collect()
+    }
 
     fn insert_golden_signer_registration(connection: &SqliteConnection) {
         connection
@@ -151,20 +183,183 @@ mod tests {
     }
 
     pub fn init_signer_registration_store(
-        initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
-    ) -> Arc<dyn VerificationKeyStorer> {
+        initial_data: HashMap<Epoch, Vec<SignerWithStake>>,
+    ) -> Arc<SignerRegistrationStore> {
         let connection = main_db_connection().unwrap();
-        let initial_data: Vec<(Epoch, Vec<SignerWithStake>)> = initial_data
-            .into_iter()
-            .map(|(e, signers)| (e, signers.into_values().collect::<Vec<_>>()))
-            .collect();
+
+        let initial_data = initial_data.into_iter().collect();
         insert_signer_registrations(&connection, initial_data).unwrap();
 
         Arc::new(SignerRegistrationStore::new(Arc::new(connection)))
     }
 
-    test_verification_key_storer!(
-        test_signer_registration_store =>
-        crate::database::repository::signer_registration_store::tests::init_signer_registration_store
-    );
+    #[tokio::test]
+    pub async fn save_key_in_empty_store() {
+        let signers = build_signers(0, 0);
+        let store = init_signer_registration_store(signers);
+        let res = store
+            .save_verification_key(
+                Epoch(0),
+                SignerWithStake {
+                    party_id: "0".to_string(),
+                    verification_key: fake_keys::signer_verification_key()[0].try_into().unwrap(),
+                    verification_key_signature: None,
+                    operational_certificate: None,
+                    kes_period: None,
+                    stake: 10,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    pub async fn update_signer_in_store() {
+        let signers = build_signers(1, 1);
+        let signers_on_epoch = signers.get(&Epoch(1)).unwrap().clone();
+        let first_signer = signers_on_epoch.first().unwrap();
+
+        let store = init_signer_registration_store(signers);
+        let res = store
+            .save_verification_key(
+                Epoch(1),
+                SignerWithStake {
+                    party_id: first_signer.party_id.clone(),
+                    verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
+                    verification_key_signature: None,
+                    operational_certificate: None,
+                    kes_period: None,
+                    stake: 10,
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            Some(SignerWithStake {
+                party_id: first_signer.party_id.clone(),
+                verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
+                verification_key_signature: None,
+                operational_certificate: None,
+                kes_period: None,
+                stake: 10,
+            }),
+            res,
+        );
+    }
+
+    #[tokio::test]
+    pub async fn get_verification_keys_for_empty_epoch() {
+        let signers = build_signers(2, 1);
+        let store = init_signer_registration_store(signers);
+        let res = store.get_verification_keys(Epoch(0)).await.unwrap();
+
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    pub async fn get_signers_for_empty_epoch() {
+        let signers = build_signers(2, 1);
+        let store = init_signer_registration_store(signers);
+        let res = store.get_signers(Epoch(0)).await.unwrap();
+
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    pub async fn get_verification_keys_for_existing_epoch() {
+        let signers = build_signers(2, 2);
+        let store = init_signer_registration_store(signers.clone());
+
+        let epoch = Epoch(1);
+        let expected_signers = signers
+            .get(&epoch)
+            .unwrap()
+            .iter()
+            .map(|s| (s.party_id.clone(), Signer::from(s.clone())))
+            .collect::<HashMap<PartyId, Signer>>();
+
+        let res = store.get_verification_keys(epoch).await.unwrap().unwrap();
+
+        assert_eq!(expected_signers, res);
+    }
+
+    #[tokio::test]
+    pub async fn get_signers_for_existing_epoch() {
+        let signers = build_signers(2, 2);
+        let store = init_signer_registration_store(signers.clone());
+
+        let epoch = Epoch(1);
+        let mut expected_signers = signers.get(&epoch).unwrap().clone();
+        expected_signers.sort_by(|a, b| a.party_id.cmp(&b.party_id));
+
+        let mut res = store.get_signers(epoch).await.unwrap().unwrap();
+        res.sort_by(|a, b| a.party_id.cmp(&b.party_id));
+
+        assert_eq!(expected_signers, res);
+    }
+
+    #[tokio::test]
+    pub async fn can_prune_keys_from_given_epoch_retention_limit() {
+        let signers = build_signers(6, 2);
+        let store = init_signer_registration_store(signers);
+
+        for epoch in 1..6 {
+            assert!(
+                store
+                    .get_verification_keys(Epoch(epoch))
+                    .await
+                    .unwrap()
+                    .is_some(),
+                "Keys should exist before pruning"
+            );
+            store
+                .prune_verification_keys(Epoch(epoch) + 1)
+                .await
+                .expect("Pruning should not fail");
+
+            let pruned_epoch_keys = store.get_verification_keys(Epoch(epoch)).await.unwrap();
+            assert_eq!(None, pruned_epoch_keys);
+        }
+    }
+
+    async fn get_epochs_in_database_until(
+        store: &SignerRegistrationStore,
+        until_epoch: Epoch,
+    ) -> Vec<Epoch> {
+        let mut epochs_in_database = vec![];
+        for epoch_number in 1..=(*until_epoch) {
+            let current_epoch = Epoch(epoch_number);
+            if store
+                .get_verification_keys(current_epoch)
+                .await
+                .unwrap()
+                .is_some()
+            {
+                epochs_in_database.push(current_epoch);
+            }
+        }
+
+        epochs_in_database
+    }
+
+    #[tokio::test]
+    async fn prune_epoch_older_than_threshold() {
+        let signers = build_signers(5, 2);
+        let store = init_signer_registration_store(signers);
+
+        assert_eq!(
+            vec!(Epoch(1), Epoch(2), Epoch(3), Epoch(4), Epoch(5)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
+
+        store.prune_verification_keys(Epoch(4)).await.unwrap();
+
+        assert_eq!(
+            vec!(Epoch(4), Epoch(5)),
+            get_epochs_in_database_until(&store, Epoch(8)).await
+        );
+    }
 }

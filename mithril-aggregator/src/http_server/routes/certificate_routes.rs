@@ -49,10 +49,10 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
+    use crate::store::CertificatePendingStorer;
     use crate::MetricsService;
     use crate::{
-        http_server::routes::reply, services::MessageService, CertificatePendingStore,
-        ToCertificatePendingMessageAdapter,
+        http_server::routes::reply, services::MessageService, ToCertificatePendingMessageAdapter,
     };
 
     use mithril_common::CardanoNetwork;
@@ -67,7 +67,7 @@ mod handlers {
     pub async fn certificate_pending(
         logger: Logger,
         network: CardanoNetwork,
-        certificate_pending_store: Arc<CertificatePendingStore>,
+        certificate_pending_store: Arc<dyn CertificatePendingStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(
@@ -126,25 +126,22 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::store::MockCertificatePendingStorer;
+    use crate::{
+        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockMessageService,
+    };
     use anyhow::anyhow;
     use mithril_common::{
         entities::CertificatePending,
         test_utils::{apispec::APISpec, fake_data},
     };
-    use mithril_persistence::store::adapter::DumbStoreAdapter;
     use serde_json::Value::Null;
     use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
-
-    use crate::{
-        http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockMessageService,
-        CertificatePendingStore,
-    };
-
-    use super::*;
 
     fn setup_router(
         state: RouterState,
@@ -230,8 +227,11 @@ mod tests {
         let path = "/certificate-pending";
         let mut dependency_manager = initialize_dependencies().await;
 
-        let certificate_pending_store_store =
-            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new_failing_adapter("error")));
+        let mut certificate_pending_store_store = MockCertificatePendingStorer::new();
+        certificate_pending_store_store
+            .expect_get()
+            .returning(|| Err(anyhow!("error")));
+
         dependency_manager.certificate_pending_store = Arc::new(certificate_pending_store_store);
 
         let response = request()

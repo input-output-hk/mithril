@@ -39,9 +39,9 @@ use crate::{
     },
     signer_registerer::SignerRecorder,
     snapshot_uploaders::SnapshotUploader,
-    CertificatePendingStore, EpochSettingsStorer, MetricsService, SignerRegisterer,
-    SignerRegistrationRoundOpener, SingleSignatureAuthenticator, Snapshotter,
-    VerificationKeyStorer,
+    store::CertificatePendingStorer,
+    EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
+    SingleSignatureAuthenticator, Snapshotter, VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps a [EpochService]
@@ -77,7 +77,7 @@ pub struct DependencyContainer {
     pub multi_signer: Arc<dyn MultiSigner>,
 
     /// Certificate pending store.
-    pub certificate_pending_store: Arc<CertificatePendingStore>,
+    pub certificate_pending_store: Arc<dyn CertificatePendingStorer>,
 
     /// Certificate store.
     pub certificate_repository: Arc<CertificateRepository>,
