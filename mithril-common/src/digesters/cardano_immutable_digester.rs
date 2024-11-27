@@ -288,20 +288,15 @@ mod tests {
     #[tokio::test]
     async fn fail_if_no_file_in_folder() {
         let immutable_db = db_builder("fail_if_no_file_in_folder").build();
-        let digester =
-            CardanoImmutableDigester::new("devnet".to_string(), None, TestLogger::stdout());
-        let beacon = CardanoDbBeacon::new(1, 1);
 
-        let result = digester
-            .compute_digest(&immutable_db.dir, &beacon)
-            .await
-            .expect_err("compute_digest should have failed");
+        let result = list_immutable_files_to_process(&immutable_db.dir, 1)
+            .expect_err("list_immutable_files_to_process should have failed");
 
         assert_eq!(
             format!(
                 "{:?}",
                 ImmutableDigesterError::NotEnoughImmutable {
-                    expected_number: beacon.immutable_file_number,
+                    expected_number: 1,
                     found_number: None,
                     db_dir: immutable_db.dir,
                 }
@@ -315,14 +310,8 @@ mod tests {
         let immutable_db = db_builder("fail_if_no_immutable_exist")
             .with_non_immutables(&["not_immutable"])
             .build();
-        let digester =
-            CardanoImmutableDigester::new("devnet".to_string(), None, TestLogger::stdout());
-        let beacon = CardanoDbBeacon::new(1, 1);
 
-        assert!(digester
-            .compute_digest(&immutable_db.dir, &beacon)
-            .await
-            .is_err());
+        assert!(list_immutable_files_to_process(&immutable_db.dir, 1).is_err());
     }
 
     #[tokio::test]
@@ -330,20 +319,15 @@ mod tests {
         let immutable_db = db_builder("fail_if_theres_only_the_uncompleted_immutable_trio")
             .append_immutable_trio()
             .build();
-        let digester =
-            CardanoImmutableDigester::new("devnet".to_string(), None, TestLogger::stdout());
-        let beacon = CardanoDbBeacon::new(1, 1);
 
-        let result = digester
-            .compute_digest(&immutable_db.dir, &beacon)
-            .await
-            .expect_err("compute_digest should've failed");
+        let result = list_immutable_files_to_process(&immutable_db.dir, 1)
+            .expect_err("list_immutable_files_to_process should've failed");
 
         assert_eq!(
             format!(
                 "{:?}",
                 ImmutableDigesterError::NotEnoughImmutable {
-                    expected_number: beacon.immutable_file_number,
+                    expected_number: 1,
                     found_number: None,
                     db_dir: immutable_db.dir,
                 }
@@ -358,20 +342,15 @@ mod tests {
             .with_immutables(&[1, 2, 3, 4, 5])
             .append_immutable_trio()
             .build();
-        let digester =
-            CardanoImmutableDigester::new("devnet".to_string(), None, TestLogger::stdout());
-        let beacon = CardanoDbBeacon::new(1, 10);
 
-        let result = digester
-            .compute_digest(&immutable_db.dir, &beacon)
-            .await
-            .expect_err("compute_digest should've failed");
+        let result = list_immutable_files_to_process(&immutable_db.dir, 10)
+            .expect_err("list_immutable_files_to_process should've failed");
 
         assert_eq!(
             format!(
                 "{:?}",
                 ImmutableDigesterError::NotEnoughImmutable {
-                    expected_number: beacon.immutable_file_number,
+                    expected_number: 10,
                     found_number: Some(5),
                     db_dir: immutable_db.dir,
                 }
