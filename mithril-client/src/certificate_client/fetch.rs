@@ -11,24 +11,27 @@ use crate::aggregator_client::{AggregatorClient, AggregatorClientError, Aggregat
 use crate::certificate_client::CertificateClient;
 use crate::{MithrilCertificate, MithrilCertificateListItem, MithrilResult};
 
-impl CertificateClient {
-    /// Fetch a list of certificates
-    pub async fn list(&self) -> MithrilResult<Vec<MithrilCertificateListItem>> {
-        let response = self
-            .aggregator_client
-            .get_content(AggregatorRequest::ListCertificates)
-            .await
-            .with_context(|| "CertificateClient can not get the certificate list")?;
-        let items = serde_json::from_str::<Vec<MithrilCertificateListItem>>(&response)
-            .with_context(|| "CertificateClient can not deserialize certificate list")?;
+#[inline]
+pub(super) async fn list(
+    client: &CertificateClient,
+) -> MithrilResult<Vec<MithrilCertificateListItem>> {
+    let response = client
+        .aggregator_client
+        .get_content(AggregatorRequest::ListCertificates)
+        .await
+        .with_context(|| "CertificateClient can not get the certificate list")?;
+    let items = serde_json::from_str::<Vec<MithrilCertificateListItem>>(&response)
+        .with_context(|| "CertificateClient can not deserialize certificate list")?;
 
-        Ok(items)
-    }
+    Ok(items)
+}
 
-    /// Get a single certificate full information from the aggregator.
-    pub async fn get(&self, certificate_hash: &str) -> MithrilResult<Option<MithrilCertificate>> {
-        self.retriever.get(certificate_hash).await
-    }
+#[inline]
+pub(super) async fn get(
+    client: &CertificateClient,
+    certificate_hash: &str,
+) -> MithrilResult<Option<MithrilCertificate>> {
+    client.retriever.get(certificate_hash).await
 }
 
 /// Internal type to implement the [InternalCertificateRetriever] trait and avoid a circular

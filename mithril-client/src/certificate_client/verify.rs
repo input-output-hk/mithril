@@ -14,38 +14,32 @@ use mithril_common::{
 
 use crate::aggregator_client::AggregatorClient;
 use crate::certificate_client::fetch::InternalCertificateRetriever;
-use crate::certificate_client::CertificateClient;
+use crate::certificate_client::{CertificateClient, CertificateVerifier};
 use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::{MithrilCertificate, MithrilResult};
 
-/// API that defines how to validate certificates.
-#[cfg_attr(test, mockall::automock)]
-#[cfg_attr(target_family = "wasm", async_trait(?Send))]
-#[cfg_attr(not(target_family = "wasm"), async_trait)]
-pub trait CertificateVerifier: Sync + Send {
-    /// Validate the chain starting with the given certificate.
-    async fn verify_chain(&self, certificate: &MithrilCertificate) -> MithrilResult<()>;
-}
-
-impl CertificateClient {
-    /// Validate the chain starting with the certificate with given `certificate_hash`, return the certificate if
-    /// the chain is valid.
-    ///
-    /// This method will fail if no certificate exists for the given `certificate_hash`.
-    pub async fn verify_chain(&self, certificate_hash: &str) -> MithrilResult<MithrilCertificate> {
-        let certificate = self.retriever.get(certificate_hash).await?.ok_or(anyhow!(
+#[inline]
+pub(super) async fn verify_chain(
+    client: &CertificateClient,
+    certificate_hash: &str,
+) -> MithrilResult<MithrilCertificate> {
+    let certificate = client
+        .retriever
+        .get(certificate_hash)
+        .await?
+        .ok_or(anyhow!(
             "No certificate exist for hash '{certificate_hash}'"
         ))?;
 
-        self.verifier
-            .verify_chain(&certificate)
-            .await
-            .with_context(|| {
-                format!("Certificate chain of certificate '{certificate_hash}' is invalid")
-            })?;
+    client
+        .verifier
+        .verify_chain(&certificate)
+        .await
+        .with_context(|| {
+            format!("Certificate chain of certificate '{certificate_hash}' is invalid")
+        })?;
 
-        Ok(certificate)
-    }
+    Ok(certificate)
 }
 
 /// Implementation of a [CertificateVerifier] that can send feedbacks using
