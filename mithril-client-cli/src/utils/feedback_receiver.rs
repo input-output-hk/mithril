@@ -92,6 +92,16 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     progress_bar.inc(1);
                 }
             }
+            MithrilEvent::CertificateValidatedFromCache {
+                certificate_chain_validation_id: _,
+                certificate_hash,
+            } => {
+                let certificate_validation_pb = self.certificate_validation_pb.read().await;
+                if let Some(progress_bar) = certificate_validation_pb.as_ref() {
+                    progress_bar.set_message(format!("Cached '{certificate_hash}'"));
+                    progress_bar.inc(1);
+                }
+            }
             MithrilEvent::CertificateChainValidated {
                 certificate_chain_validation_id: _,
             } => {
