@@ -108,43 +108,45 @@ mod tests {
 
     use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
     use mithril_common::test_utils::fake_keys;
-    use std::collections::{BTreeMap, BTreeSet, HashMap};
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     use crate::VerificationKeyStorer;
 
     use super::*;
 
+    /// Build simple fake signers with stakes.
+    /// It could be done by `fake_data::signers_with_stakes` which produce verification keys dynamically
+    /// but take longer.
+    fn build_fake_signers_with_stakes(nb: u64) -> Vec<SignerWithStake> {
+        let verification_keys = fake_keys::signer_verification_key();
+        let nb_keys = verification_keys.len() as u64;
+        (1..=nb)
+            .map(|party_idx| SignerWithStake {
+                party_id: format!("party_id:{party_idx}"),
+                verification_key: verification_keys[(party_idx % nb_keys) as usize]
+                    .try_into()
+                    .unwrap(),
+                verification_key_signature: None,
+                operational_certificate: None,
+                kes_period: None,
+                stake: 10,
+            })
+            .collect()
+    }
+
     fn build_signers(
         nb_epoch: u64,
         signers_per_epoch: usize,
-    ) -> Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> {
-        let mut values = vec![];
-
-        for epoch in 1..=nb_epoch {
-            let mut signers: HashMap<PartyId, SignerWithStake> =
-                HashMap::with_capacity(signers_per_epoch);
-
-            for party_idx in 1..=signers_per_epoch {
-                let party_id = format!("party_id:e{epoch}:{party_idx}");
-                signers.insert(
-                    party_id.clone(),
-                    SignerWithStake {
-                        party_id: party_id.clone(),
-                        verification_key: fake_keys::signer_verification_key()[0]
-                            .try_into()
-                            .unwrap(),
-                        verification_key_signature: None,
-                        operational_certificate: None,
-                        kes_period: None,
-                        stake: 10,
-                    },
-                );
-            }
-            values.push((Epoch(epoch), signers));
-        }
-
-        values
+    ) -> HashMap<Epoch, Vec<SignerWithStake>> {
+        (1..=nb_epoch)
+            .map(|epoch| {
+                (
+                    Epoch(epoch),
+                    build_fake_signers_with_stakes(signers_per_epoch as u64),
+                )
+            })
+            .collect()
     }
 
     fn insert_golden_signer_registration(connection: &SqliteConnection) {
@@ -181,13 +183,11 @@ mod tests {
     }
 
     pub fn init_signer_registration_store(
-        initial_data: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)>,
+        initial_data: HashMap<Epoch, Vec<SignerWithStake>>,
     ) -> Arc<SignerRegistrationStore> {
         let connection = main_db_connection().unwrap();
-        let initial_data: Vec<(Epoch, Vec<SignerWithStake>)> = initial_data
-            .into_iter()
-            .map(|(e, signers)| (e, signers.into_values().collect::<Vec<_>>()))
-            .collect();
+
+        let initial_data = initial_data.into_iter().collect();
         insert_signer_registrations(&connection, initial_data).unwrap();
 
         Arc::new(SignerRegistrationStore::new(Arc::new(connection)))
@@ -218,12 +218,15 @@ mod tests {
     #[tokio::test]
     pub async fn update_signer_in_store() {
         let signers = build_signers(1, 1);
+        let signers_on_epoch = signers.get(&Epoch(1)).unwrap().clone();
+        let first_signer = signers_on_epoch.first().unwrap();
+
         let store = init_signer_registration_store(signers);
         let res = store
             .save_verification_key(
                 Epoch(1),
                 SignerWithStake {
-                    party_id: "party_id:e1:1".to_string(),
+                    party_id: first_signer.party_id.clone(),
                     verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
                     verification_key_signature: None,
                     operational_certificate: None,
@@ -236,7 +239,7 @@ mod tests {
 
         assert_eq!(
             Some(SignerWithStake {
-                party_id: "party_id:e1:1".to_string(),
+                party_id: first_signer.party_id.clone(),
                 verification_key: fake_keys::signer_verification_key()[2].try_into().unwrap(),
                 verification_key_signature: None,
                 operational_certificate: None,
@@ -270,18 +273,15 @@ mod tests {
         let signers = build_signers(2, 2);
         let store = init_signer_registration_store(signers.clone());
 
-        let expected_signers: Option<BTreeMap<PartyId, Signer>> = signers
-            .into_iter()
-            .filter(|(e, _)| e == 1)
-            .map(|(_, signers)| {
-                BTreeMap::from_iter(signers.into_iter().map(|(p, s)| (p, s.into())))
-            })
-            .next();
-        let res = store
-            .get_verification_keys(Epoch(1))
-            .await
+        let epoch = Epoch(1);
+        let expected_signers = signers
+            .get(&epoch)
             .unwrap()
-            .map(|x| BTreeMap::from_iter(x.into_iter()));
+            .iter()
+            .map(|s| (s.party_id.clone(), Signer::from(s.clone())))
+            .collect::<HashMap<PartyId, Signer>>();
+
+        let res = store.get_verification_keys(epoch).await.unwrap().unwrap();
 
         assert_eq!(expected_signers, res);
     }
@@ -291,16 +291,12 @@ mod tests {
         let signers = build_signers(2, 2);
         let store = init_signer_registration_store(signers.clone());
 
-        let expected_signers: Option<BTreeSet<SignerWithStake>> = signers
-            .into_iter()
-            .filter(|(e, _)| e == 1)
-            .map(|(_, signers)| BTreeSet::from_iter(signers.into_values()))
-            .next();
-        let res = store
-            .get_signers(Epoch(1))
-            .await
-            .unwrap()
-            .map(|x| BTreeSet::from_iter(x.into_iter()));
+        let epoch = Epoch(1);
+        let mut expected_signers = signers.get(&epoch).unwrap().clone();
+        expected_signers.sort_by(|a, b| a.party_id.cmp(&b.party_id));
+
+        let mut res = store.get_signers(epoch).await.unwrap().unwrap();
+        res.sort_by(|a, b| a.party_id.cmp(&b.party_id));
 
         assert_eq!(expected_signers, res);
     }
@@ -334,8 +330,8 @@ mod tests {
         until_epoch: Epoch,
     ) -> Vec<Epoch> {
         let mut epochs_in_database = vec![];
-        let mut current_epoch = Epoch(1);
-        while current_epoch <= until_epoch {
+        for epoch_number in 1..=(*until_epoch) {
+            let current_epoch = Epoch(epoch_number);
             if store
                 .get_verification_keys(current_epoch)
                 .await
@@ -344,8 +340,8 @@ mod tests {
             {
                 epochs_in_database.push(current_epoch);
             }
-            current_epoch += 1;
         }
+
         epochs_in_database
     }
 
