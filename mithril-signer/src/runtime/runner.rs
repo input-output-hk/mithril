@@ -327,6 +327,7 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::signable_builder::SignableBuilderServiceDependencies;
     use mockall::mock;
     use mockall::predicate::eq;
     use std::collections::BTreeSet;
@@ -464,13 +465,16 @@ mod tests {
             epoch_service.clone(),
             protocol_initializer_store.clone(),
         ));
-        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
-            era_checker.clone(),
-            signable_seed_builder_service,
+        let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+        );
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker.clone(),
+            signable_seed_builder_service,
+            signable_builders_dependencies,
             logger.clone(),
         ));
         let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());

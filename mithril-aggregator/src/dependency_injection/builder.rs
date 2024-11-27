@@ -37,8 +37,8 @@ use mithril_common::{
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
         CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder, SignableBuilderService, SignableSeedBuilder,
-        TransactionsImporter,
+        MithrilStakeDistributionSignableBuilder, SignableBuilderService,
+        SignableBuilderServiceDependencies, SignableSeedBuilder, TransactionsImporter,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, TickerService,
@@ -1129,13 +1129,16 @@ impl DependenciesBuilder {
             CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
         );
         let era_checker = self.get_era_checker().await?;
-        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
-            era_checker,
-            seed_signable_builder,
+        let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+        );
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker,
+            seed_signable_builder,
+            signable_builders_dependencies,
             self.root_logger(),
         ));
 

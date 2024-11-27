@@ -36,24 +36,47 @@ pub struct MithrilSignableBuilderService {
     logger: Logger,
 }
 
+/// SignableBuilders dependencies required by the [MithrilSignableBuilderService].
+pub struct SignableBuilderServiceDependencies {
+    mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+    immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+    cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
+    cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+}
+
+impl SignableBuilderServiceDependencies {
+    /// Create a new instance of [SignableBuilderServiceDependencies].
+    pub fn new(
+        mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+        immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+        cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
+        cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+    ) -> Self {
+        Self {
+            mithril_stake_distribution_builder,
+            immutable_signable_builder,
+            cardano_transactions_signable_builder,
+            cardano_stake_distribution_builder,
+        }
+    }
+}
+
 impl MithrilSignableBuilderService {
     /// MithrilSignableBuilderService factory
     pub fn new(
         era_checker: Arc<EraChecker>,
         seed_signable_builder: Arc<dyn SignableSeedBuilder>,
-        mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
-        immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
-        cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
-        cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+        dependencies: SignableBuilderServiceDependencies,
         logger: Logger,
     ) -> Self {
         Self {
             era_checker,
             seed_signable_builder,
-            mithril_stake_distribution_builder,
-            immutable_signable_builder,
-            cardano_transactions_signable_builder,
-            cardano_stake_distribution_builder,
+            mithril_stake_distribution_builder: dependencies.mithril_stake_distribution_builder,
+            immutable_signable_builder: dependencies.immutable_signable_builder,
+            cardano_transactions_signable_builder: dependencies
+                .cardano_transactions_signable_builder,
+            cardano_stake_distribution_builder: dependencies.cardano_stake_distribution_builder,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -200,13 +223,17 @@ mod tests {
         }
 
         fn build_signable_builder_service(self) -> MithrilSignableBuilderService {
-            MithrilSignableBuilderService::new(
-                Arc::new(self.era_checker),
-                Arc::new(self.mock_signable_seed_builder),
+            let dependencies = SignableBuilderServiceDependencies::new(
                 Arc::new(self.mock_mithril_stake_distribution_signable_builder),
                 Arc::new(self.mock_cardano_immutable_files_full_signable_builder),
                 Arc::new(self.mock_cardano_transactions_signable_builder),
                 Arc::new(self.mock_cardano_stake_distribution_signable_builder),
+            );
+
+            MithrilSignableBuilderService::new(
+                Arc::new(self.era_checker),
+                Arc::new(self.mock_signable_seed_builder),
+                dependencies,
                 TestLogger::stdout(),
             )
         }
