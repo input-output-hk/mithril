@@ -67,4 +67,17 @@ pub trait CertificateVerifier: Sync + Send {
 #[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
-pub trait CertificateVerifierCache: Sync + Send {}
+pub trait CertificateVerifierCache: Sync + Send {
+    /// Store a validated certificate hash and its parent hash in the cache.
+    async fn store_validated_certificate(
+        &self,
+        certificate_hash: &str,
+        previous_certificate_hash: &str,
+    ) -> MithrilResult<()>;
+
+    /// Get the previous hash of the certificate with the given hash if available in the cache.
+    async fn get_previous_hash(&self, certificate_hash: &str) -> MithrilResult<Option<String>>;
+
+    /// Reset the stored values
+    async fn reset(&self) -> MithrilResult<()>;
+}
