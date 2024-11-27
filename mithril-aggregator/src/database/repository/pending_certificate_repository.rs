@@ -119,9 +119,29 @@ mod test {
     #[tokio::test]
     async fn update_certificate_pending() {
         let store = get_certificate_pending_store(true).await;
-        let certificate_pending = store.get().await.unwrap().unwrap();
+        let old_certificate_pending = CertificatePending::new(
+            Epoch(2),
+            SignedEntityType::MithrilStakeDistribution(Epoch(2)),
+            fake_data::protocol_parameters(),
+            fake_data::protocol_parameters(),
+            fake_data::signers(1),
+            fake_data::signers(2),
+        );
+        assert!(store.save(old_certificate_pending).await.is_ok());
 
-        assert!(store.save(certificate_pending).await.is_ok());
+        let new_certificate_pending = CertificatePending::new(
+            Epoch(4),
+            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+            fake_data::protocol_parameters(),
+            fake_data::protocol_parameters(),
+            fake_data::signers(3),
+            fake_data::signers(1),
+        );
+
+        assert!(store.save(new_certificate_pending.clone()).await.is_ok());
+
+        let certificate_pending = store.get().await.unwrap().unwrap();
+        assert_eq!(new_certificate_pending, certificate_pending);
     }
 
     #[tokio::test]
