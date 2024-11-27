@@ -1,4 +1,5 @@
 use crate::{
+    crypto_helper::{MKTree, MKTreeStoreInMemory},
     digesters::{
         cache::ImmutableFileDigestCacheProvider, ImmutableDigester, ImmutableDigesterError,
         ImmutableFile,
@@ -16,7 +17,7 @@ use std::{collections::BTreeMap, io, path::Path, sync::Arc};
 type ComputedImmutablesDigestsResult = Result<ComputedImmutablesDigests, io::Error>;
 
 struct ComputedImmutablesDigests {
-    digests: Vec<HexEncodedDigest>,
+    entries: BTreeMap<ImmutableFile, HexEncodedDigest>,
     new_cached_entries: Vec<(ImmutableFileName, HexEncodedDigest)>,
 }
 
@@ -91,7 +92,7 @@ impl ImmutableDigester for CardanoImmutableDigester {
         let digest = {
             let mut hasher = Sha256::new();
             hasher.update(compute_beacon_hash(&self.cardano_network, beacon).as_bytes());
-            for digest in computed_immutables_digests.digests {
+            for (_, digest) in computed_immutables_digests.entries {
                 hasher.update(digest);
             }
             let hash: [u8; 32] = hasher.finalize().into();
@@ -114,6 +115,40 @@ impl ImmutableDigester for CardanoImmutableDigester {
         }
 
         Ok(digest)
+    }
+
+    async fn compute_merkle_tree(
+        &self,
+        dirpath: &Path,
+        beacon: &CardanoDbBeacon,
+    ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError> {
+        let immutables_to_process =
+            list_immutable_files_to_process(dirpath, beacon.immutable_file_number)?;
+        info!(self.logger, ">> compute_merkle_tree"; "beacon" => #?beacon, "nb_of_immutables" => immutables_to_process.len());
+        let computed_immutables_digests = self.process_immutables(immutables_to_process).await?;
+
+        let digests: Vec<HexEncodedDigest> =
+            computed_immutables_digests.entries.into_values().collect();
+        let mktree =
+            MKTree::new(&digests).map_err(ImmutableDigesterError::MerkleTreeComputationError)?;
+
+        debug!(
+            self.logger,
+            "Successfully computed Merkle tree for Cardano database"; "beacon" => #?beacon);
+
+        if let Some(cache_provider) = self.cache_provider.as_ref() {
+            if let Err(error) = cache_provider
+                .store(computed_immutables_digests.new_cached_entries)
+                .await
+            {
+                warn!(
+                    self.logger, "Error while storing new immutable files digests to cache";
+                    "error" => ?error
+                );
+            }
+        }
+
+        Ok(mktree)
     }
 }
 
@@ -153,17 +188,17 @@ fn compute_immutables_digests(
         total: entries.len(),
     };
 
-    let mut digests = Vec::with_capacity(entries.len());
+    let mut digests = BTreeMap::new();
 
     for (ix, (entry, cache)) in entries.iter().enumerate() {
         match cache {
             None => {
                 let data = hex::encode(entry.compute_raw_hash::<Sha256>()?);
-                digests.push(data.clone());
+                digests.insert(entry.clone(), data.clone());
                 new_cached_entries.push((entry.filename.clone(), data));
             }
             Some(digest) => {
-                digests.push(digest.to_string());
+                digests.insert(entry.clone(), digest.to_string());
             }
         };
 
@@ -173,7 +208,7 @@ fn compute_immutables_digests(
     }
 
     Ok(ComputedImmutablesDigests {
-        digests,
+        entries: digests,
         new_cached_entries,
     })
 }
@@ -360,6 +395,33 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn can_compute_merkle_tree_of_a_hundred_immutable_file_trio() {
+        let immutable_db = db_builder("can_compute_merkle_tree_of_a_hundred_immutable_file_trio")
+            .with_immutables(&(1..=100).collect::<Vec<ImmutableFileNumber>>())
+            .append_immutable_trio()
+            .build();
+        let logger = TestLogger::stdout();
+        let digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
+            Some(Arc::new(MemoryImmutableFileDigestCacheProvider::default())),
+            logger.clone(),
+        );
+        let beacon = CardanoDbBeacon::new(1, 100);
+
+        let result = digester
+            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .await
+            .expect("compute_merkle_tree must not fail");
+
+        let expected_merkle_root = result.compute_root().unwrap().to_hex();
+
+        assert_eq!(
+            "8552f75838176c967a33eb6da1fe5f3c9940b706d75a9c2352c0acd8439f3d84".to_string(),
+            expected_merkle_root
+        )
+    }
+
+    #[tokio::test]
     async fn can_compute_hash_of_a_hundred_immutable_file_trio() {
         let immutable_db = db_builder("can_compute_hash_of_a_hundred_immutable_file_trio")
             .with_immutables(&(1..=100).collect::<Vec<ImmutableFileNumber>>())
@@ -385,8 +447,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn digests_are_stored_into_cache_provider() {
-        let immutable_db = db_builder("digests_are_stored_into_cache_provider")
+    async fn compute_digest_store_digests_into_cache_provider() {
+        let immutable_db = db_builder("compute_digest_store_digests_into_cache_provider")
             .with_immutables(&[1, 2])
             .append_immutable_trio()
             .build();
@@ -402,6 +464,42 @@ mod tests {
 
         digester
             .compute_digest(&immutable_db.dir, &beacon)
+            .await
+            .expect("compute_digest must not fail");
+
+        let cached_entries = cache
+            .get(immutables.clone())
+            .await
+            .expect("Cache read should not fail");
+        let expected: BTreeMap<_, _> = immutables
+            .into_iter()
+            .map(|i| {
+                let digest = hex::encode(i.compute_raw_hash::<Sha256>().unwrap());
+                (i, Some(digest))
+            })
+            .collect();
+
+        assert_eq!(expected, cached_entries);
+    }
+
+    #[tokio::test]
+    async fn compute_merkle_tree_store_digests_into_cache_provider() {
+        let immutable_db = db_builder("compute_merkle_tree_store_digests_into_cache_provider")
+            .with_immutables(&[1, 2])
+            .append_immutable_trio()
+            .build();
+        let immutables = immutable_db.immutables_files;
+        let cache = Arc::new(MemoryImmutableFileDigestCacheProvider::default());
+        let logger = TestLogger::stdout();
+        let digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
+            Some(cache.clone()),
+            logger.clone(),
+        );
+        let beacon = CardanoDbBeacon::new(1, 2);
+
+        digester
+            .compute_merkle_tree(&immutable_db.dir, &beacon)
             .await
             .expect("compute_digest must not fail");
 
@@ -465,6 +563,53 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn computed_merkle_tree_with_cold_or_hot_or_without_any_cache_are_equals() {
+        let immutable_db = DummyImmutablesDbBuilder::new(
+            "computed_merkle_tree_with_cold_or_hot_or_without_any_cache_are_equals",
+        )
+        .with_immutables(&[1, 2, 3])
+        .append_immutable_trio()
+        .build();
+        let logger = TestLogger::stdout();
+        let no_cache_digester =
+            CardanoImmutableDigester::new("devnet".to_string(), None, logger.clone());
+        let cache_digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
+            Some(Arc::new(MemoryImmutableFileDigestCacheProvider::default())),
+            logger.clone(),
+        );
+        let beacon = CardanoDbBeacon::new(1, 3);
+
+        let without_cache_digest = no_cache_digester
+            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .await
+            .expect("compute_merkle_tree must not fail");
+
+        let cold_cache_digest = cache_digester
+            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .await
+            .expect("compute_merkle_tree must not fail");
+
+        let full_cache_digest = cache_digester
+            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .await
+            .expect("compute_merkle_tree must not fail");
+
+        let without_cache_merkle_root = without_cache_digest.compute_root().unwrap();
+        let cold_cache_merkle_root = cold_cache_digest.compute_root().unwrap();
+        let full_cache_merkle_root = full_cache_digest.compute_root().unwrap();
+        assert_eq!(
+            without_cache_merkle_root, full_cache_merkle_root,
+            "Merkle roots with or without cache should be the same"
+        );
+
+        assert_eq!(
+            cold_cache_merkle_root, full_cache_merkle_root,
+            "Merkle roots with cold or with hot cache should be the same"
+        );
+    }
+
+    #[tokio::test]
     async fn hash_computation_is_quicker_with_a_full_cache() {
         let immutable_db = db_builder("hash_computation_is_quicker_with_a_full_cache")
             .with_immutables(&(1..=50).collect::<Vec<ImmutableFileNumber>>())
@@ -506,7 +651,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn cache_read_failure_dont_block_computation() {
+    async fn cache_read_failure_dont_block_computations() {
         let immutable_db = db_builder("cache_read_failure_dont_block_computation")
             .with_immutables(&[1, 2, 3])
             .append_immutable_trio()
@@ -530,6 +675,11 @@ mod tests {
             .compute_digest(&immutable_db.dir, &beacon)
             .await
             .expect("compute_digest must not fail even with cache write failure");
+
+        digester
+            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .await
+            .expect("compute_merkle_tree must not fail even with cache write failure");
     }
 
     #[tokio::test]
@@ -557,5 +707,10 @@ mod tests {
             .compute_digest(&immutable_db.dir, &beacon)
             .await
             .expect("compute_digest must not fail even with cache read failure");
+
+        digester
+            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .await
+            .expect("compute_merkle_tree must not fail even with cache read failure");
     }
 }

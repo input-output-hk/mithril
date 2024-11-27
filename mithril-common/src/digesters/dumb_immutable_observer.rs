@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use crate::{
+    crypto_helper::{MKTree, MKTreeStoreInMemory},
     digesters::{ImmutableDigester, ImmutableDigesterError},
     entities::CardanoDbBeacon,
 };
@@ -50,5 +51,13 @@ impl ImmutableDigester for DumbImmutableDigester {
                 db_dir: dirpath.to_owned(),
             })
         }
+    }
+
+    async fn compute_merkle_tree(
+        &self,
+        _dirpath: &Path,
+        _beacon: &CardanoDbBeacon,
+    ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError> {
+        unimplemented!()
     }
 }

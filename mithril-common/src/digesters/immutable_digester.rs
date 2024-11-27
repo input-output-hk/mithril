@@ -1,4 +1,5 @@
 use crate::{
+    crypto_helper::{MKTree, MKTreeStoreInMemory},
     digesters::ImmutableFileListingError,
     entities::{CardanoDbBeacon, ImmutableFileNumber},
 };
@@ -54,6 +55,13 @@ pub trait ImmutableDigester: Sync + Send {
         dirpath: &Path,
         beacon: &CardanoDbBeacon,
     ) -> Result<String, ImmutableDigesterError>;
+
+    /// Compute the digests merkle tree
+    async fn compute_merkle_tree(
+        &self,
+        dirpath: &Path,
+        beacon: &CardanoDbBeacon,
+    ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError>;
 }
 
 /// [ImmutableDigester] related Errors.
@@ -78,4 +86,8 @@ pub enum ImmutableDigesterError {
     /// Error raised when the digest computation failed.
     #[error("Digest computation failed")]
     DigestComputationError(#[from] io::Error),
+
+    /// Error raised when the Merkle tree computation failed.
+    #[error("Merkle tree computation failed")]
+    MerkleTreeComputationError(anyhow::Error),
 }

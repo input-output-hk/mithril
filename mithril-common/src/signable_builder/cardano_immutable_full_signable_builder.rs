@@ -65,6 +65,7 @@ mod tests {
     use async_trait::async_trait;
     use std::path::Path;
 
+    use crate::crypto_helper::{MKTree, MKTreeStoreInMemory};
     use crate::digesters::{ImmutableDigester, ImmutableDigesterError};
     use crate::entities::CardanoDbBeacon;
     use crate::test_utils::TestLogger;
@@ -82,6 +83,14 @@ mod tests {
             beacon: &CardanoDbBeacon,
         ) -> Result<String, ImmutableDigesterError> {
             Ok(format!("immutable {}", beacon.immutable_file_number))
+        }
+
+        async fn compute_merkle_tree(
+            &self,
+            _dirpath: &Path,
+            _beacon: &CardanoDbBeacon,
+        ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError> {
+            unimplemented!()
         }
     }
 
