@@ -117,8 +117,6 @@ mod tests {
         CertificateClient::new(
             aggregator_client,
             Arc::new(MockCertificateVerifier::new()),
-            #[cfg(feature = "unstable")]
-            None,
             test_utils::test_logger(),
         )
     }

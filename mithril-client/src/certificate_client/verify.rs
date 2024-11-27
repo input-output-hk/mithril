@@ -14,6 +14,8 @@ use mithril_common::{
 
 use crate::aggregator_client::AggregatorClient;
 use crate::certificate_client::fetch::InternalCertificateRetriever;
+#[cfg(feature = "unstable")]
+use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{CertificateClient, CertificateVerifier};
 use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::{MithrilCertificate, MithrilResult};
@@ -48,6 +50,8 @@ pub struct MithrilCertificateVerifier {
     internal_verifier: Arc<dyn CommonCertificateVerifier>,
     genesis_verification_key: ProtocolGenesisVerificationKey,
     feedback_sender: FeedbackSender,
+    #[cfg(feature = "unstable")]
+    _verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
 }
 
 impl MithrilCertificateVerifier {
@@ -56,6 +60,7 @@ impl MithrilCertificateVerifier {
         aggregator_client: Arc<dyn AggregatorClient>,
         genesis_verification_key: &str,
         feedback_sender: FeedbackSender,
+        #[cfg(feature = "unstable")] verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
         logger: Logger,
     ) -> MithrilResult<MithrilCertificateVerifier> {
         let logger = logger.new_with_component_name::<Self>();
@@ -75,6 +80,8 @@ impl MithrilCertificateVerifier {
             internal_verifier,
             genesis_verification_key,
             feedback_sender,
+            #[cfg(feature = "unstable")]
+            _verifier_cache: verifier_cache,
         })
     }
 }
@@ -137,13 +144,7 @@ mod tests {
         aggregator_client: Arc<dyn AggregatorClient>,
         verifier: Arc<dyn CertificateVerifier>,
     ) -> CertificateClient {
-        CertificateClient::new(
-            aggregator_client,
-            verifier,
-            #[cfg(feature = "unstable")]
-            None,
-            test_utils::test_logger(),
-        )
+        CertificateClient::new(aggregator_client, verifier, test_utils::test_logger())
     }
 
     #[tokio::test]
@@ -163,6 +164,8 @@ mod tests {
                     aggregator_client,
                     &verification_key,
                     FeedbackSender::new(&[feedback_receiver.clone()]),
+                    #[cfg(feature = "unstable")]
+                    None,
                     test_utils::test_logger(),
                 )
                 .unwrap(),
@@ -214,6 +217,8 @@ mod tests {
                     aggregator_client,
                     &verification_key,
                     FeedbackSender::new(&[]),
+                    #[cfg(feature = "unstable")]
+                    None,
                     test_utils::test_logger(),
                 )
                 .unwrap(),

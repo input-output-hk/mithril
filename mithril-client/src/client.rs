@@ -196,6 +196,8 @@ impl ClientBuilder {
                     aggregator_client.clone(),
                     &self.genesis_verification_key,
                     feedback_sender.clone(),
+                    #[cfg(feature = "unstable")]
+                    self.certificate_verifier_cache,
                     logger.clone(),
                 )
                 .with_context(|| "Building certificate verifier failed")?,
@@ -205,8 +207,6 @@ impl ClientBuilder {
         let certificate_client = Arc::new(CertificateClient::new(
             aggregator_client.clone(),
             certificate_verifier,
-            #[cfg(feature = "unstable")]
-            self.certificate_verifier_cache,
             logger.clone(),
         ));
 
