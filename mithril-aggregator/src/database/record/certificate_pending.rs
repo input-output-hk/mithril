@@ -11,7 +11,7 @@ pub struct CertificatePendingRecord {
     pub epoch: Epoch,
 
     /// Pending certificate serialization as json
-    pub certificate: String,
+    pub pending_certificate: String,
 
     /// Date and time when the pending certificate was created
     pub created_at: DateTime<Utc>,
@@ -35,7 +35,7 @@ impl SqLiteEntity for CertificatePendingRecord {
         let created_at = &row.read::<&str, _>(2);
 
         let record = Self {
-            certificate: pending_certificate_json.to_string(),
+            pending_certificate: pending_certificate_json.to_string(),
             created_at: DateTime::parse_from_rfc3339(created_at)
                 .map_err(|e| {
                     HydrationError::InvalidData(format!(
@@ -57,7 +57,11 @@ impl SqLiteEntity for CertificatePendingRecord {
         let mut projection = Projection::default();
 
         projection.add_field("epoch", "{:pending_certificate:}.epoch", "integer");
-        projection.add_field("certificate", "{:pending_certificate:}.certificate", "text");
+        projection.add_field(
+            "pending_certificate",
+            "{:pending_certificate:}.pending_certificate",
+            "text",
+        );
         projection.add_field("created_at", "{:pending_certificate:}.created_at", "text");
 
         projection
@@ -70,7 +74,7 @@ impl TryFrom<CertificatePending> for CertificatePendingRecord {
     fn try_from(value: CertificatePending) -> Result<Self, Self::Error> {
         let record = Self {
             epoch: value.epoch,
-            certificate: serde_json::to_string(&value)?,
+            pending_certificate: serde_json::to_string(&value)?,
             created_at: Utc::now(),
         };
         Ok(record)
@@ -80,7 +84,7 @@ impl TryFrom<CertificatePending> for CertificatePendingRecord {
 impl TryFrom<CertificatePendingRecord> for CertificatePending {
     type Error = StdError;
     fn try_from(record: CertificatePendingRecord) -> Result<Self, Self::Error> {
-        let c: CertificatePending = serde_json::from_str(&record.certificate)?;
+        let c: CertificatePending = serde_json::from_str(&record.pending_certificate)?;
         let pending_certificate = Self {
             epoch: record.epoch,
             signed_entity_type: c.signed_entity_type,

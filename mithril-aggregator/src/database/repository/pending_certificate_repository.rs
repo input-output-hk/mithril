@@ -35,10 +35,10 @@ impl CertificatePendingStorer for CertificatePendingRepository {
     }
 
     /// Save the given [CertificatePending].
-    async fn save(&self, certificate: CertificatePending) -> StdResult<()> {
+    async fn save(&self, pending_certificate: CertificatePending) -> StdResult<()> {
         self.connection
             .apply(SavePendingCertificateRecordQuery::save(
-                certificate.try_into()?,
+                pending_certificate.try_into()?,
             ))?;
 
         Ok(())

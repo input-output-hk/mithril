@@ -864,12 +864,12 @@ insert into signed_entity_type (signed_entity_type_id, name)
             r#"
 create table new_pending_certificate (
     epoch                           integer     not null,
-    certificate                     text        not null,
+    pending_certificate             text        not null,
     created_at                      text        not null,
     primary key (epoch)
 );
 create table if not exists pending_certificate (key_hash text primary key, key json not null, value json not null);
-insert into new_pending_certificate (epoch, certificate, created_at) 
+insert into new_pending_certificate (epoch, pending_certificate, created_at) 
     select 
         json_extract(pending_certificate.value, '$.epoch') as epoch,
         pending_certificate.value, 

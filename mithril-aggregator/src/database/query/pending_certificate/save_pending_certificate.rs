@@ -13,10 +13,10 @@ pub struct SavePendingCertificateRecordQuery {
 impl SavePendingCertificateRecordQuery {
     pub fn save(pending_certificate_record: CertificatePendingRecord) -> Self {
         let condition = WhereCondition::new(
-            "(epoch, certificate, created_at) values (?*, ?*, ?*)",
+            "(epoch, pending_certificate, created_at) values (?*, ?*, ?*)",
             vec![
                 Value::Integer(*pending_certificate_record.epoch as i64),
-                Value::String(pending_certificate_record.certificate),
+                Value::String(pending_certificate_record.pending_certificate),
                 Value::String(Utc::now().to_rfc3339()),
             ],
         );
