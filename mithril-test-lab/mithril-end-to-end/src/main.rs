@@ -3,8 +3,9 @@ use clap::{CommandFactory, Parser, Subcommand};
 use slog::{Drain, Level, Logger};
 use slog_scope::{error, info, warn};
 use std::{
-    fs,
+    fmt, fs,
     path::{Path, PathBuf},
+    process::{ExitCode, Termination},
     sync::Arc,
     time::Duration,
 };
@@ -18,6 +19,7 @@ use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
     Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
+    UnrecoverableDevnetError,
 };
 
 /// Tests args
@@ -152,8 +154,16 @@ enum EndToEndCommands {
     GenerateDoc(GenerateDocCommands),
 }
 
-#[tokio::main]
-async fn main() -> StdResult<()> {
+fn main() -> AppResult {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async { main_exec().await })
+        .into()
+}
+
+async fn main_exec() -> StdResult<()> {
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
@@ -198,7 +208,64 @@ async fn main() -> StdResult<()> {
 
     app_stopper.stop().await;
     join_set.shutdown().await;
+
     res
+}
+
+#[derive(Debug)]
+enum AppResult {
+    Success(),
+    UnretryableError(anyhow::Error),
+    RetryableError(anyhow::Error),
+}
+
+impl AppResult {
+    fn exit_code(&self) -> ExitCode {
+        match self {
+            AppResult::Success() => ExitCode::SUCCESS,
+            AppResult::UnretryableError(_) => ExitCode::FAILURE,
+            AppResult::RetryableError(_) => ExitCode::from(2),
+        }
+    }
+}
+
+impl fmt::Display for AppResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AppResult::Success() => write!(f, "Success"),
+            AppResult::UnretryableError(error) => write!(f, "Error(Unretryable): {error:?}"),
+            AppResult::RetryableError(error) => write!(f, "Error(Retryable): {error:?}"),
+        }
+    }
+}
+
+impl Termination for AppResult {
+    fn report(self) -> ExitCode {
+        let exit_code = self.exit_code();
+        println!(" ");
+        println!("----------------------------------------------------------------------------------------------------");
+        println!("Mithril End to End test outcome:");
+        println!("----------------------------------------------------------------------------------------------------");
+        println!("{self}");
+        println!("{exit_code:?}");
+
+        exit_code
+    }
+}
+
+impl From<StdResult<()>> for AppResult {
+    fn from(result: StdResult<()>) -> Self {
+        match result {
+            Ok(()) => AppResult::Success(),
+            Err(error) => {
+                if error.is::<UnrecoverableDevnetError>() {
+                    AppResult::RetryableError(error)
+                } else {
+                    AppResult::UnretryableError(error)
+                }
+            }
+        }
+    }
 }
 
 struct App {
@@ -365,4 +432,50 @@ fn with_gracefull_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
             .ok_or(anyhow!("Failed to receive SIGQUIT"))
             .inspect(|()| warn!("Received SIGQUIT"))
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_result_exit_code() {
+        let expected_exit_code = ExitCode::SUCCESS;
+        let exit_code = AppResult::Success().exit_code();
+        assert_eq!(
+            format!("{:?}", expected_exit_code),
+            format!("{:?}", exit_code)
+        );
+
+        let expected_exit_code = ExitCode::FAILURE;
+        let exit_code = AppResult::UnretryableError(anyhow::anyhow!("an error")).exit_code();
+        assert_eq!(
+            format!("{:?}", expected_exit_code),
+            format!("{:?}", exit_code)
+        );
+
+        let expected_exit_code = ExitCode::from(2);
+        let exit_code = AppResult::RetryableError(anyhow::anyhow!("an error")).exit_code();
+        assert_eq!(
+            format!("{:?}", expected_exit_code),
+            format!("{:?}", exit_code)
+        );
+    }
+
+    #[test]
+    fn app_result_conversion() {
+        assert!(matches!(AppResult::from(Ok(())), AppResult::Success()));
+
+        assert!(matches!(
+            AppResult::from(Err(anyhow!(UnrecoverableDevnetError(
+                "an error".to_string()
+            )))),
+            AppResult::RetryableError(_)
+        ));
+
+        assert!(matches!(
+            AppResult::from(Err(anyhow!("an error"))),
+            AppResult::UnretryableError(_)
+        ));
+    }
 }
