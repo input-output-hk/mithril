@@ -55,52 +55,14 @@
 //! # }
 //! ```
 
+mod api;
 mod fetch;
 mod verify;
 #[cfg(feature = "unstable")]
 mod verify_cache;
 
-use fetch::*;
-pub use verify::*;
-#[cfg(feature = "unstable")]
-pub use verify_cache::*;
-
-use crate::aggregator_client::AggregatorClient;
-use mithril_common::logging::LoggerExtensions;
-use std::sync::Arc;
-
-/// Aggregator client for the Certificate
-pub struct CertificateClient {
-    aggregator_client: Arc<dyn AggregatorClient>,
-    retriever: Arc<InternalCertificateRetriever>,
-    verifier: Arc<dyn CertificateVerifier>,
-    #[cfg(feature = "unstable")]
-    _verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
-}
-
-impl CertificateClient {
-    /// Constructs a new `CertificateClient`.
-    pub fn new(
-        aggregator_client: Arc<dyn AggregatorClient>,
-        verifier: Arc<dyn CertificateVerifier>,
-        #[cfg(feature = "unstable")] verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
-        logger: slog::Logger,
-    ) -> Self {
-        let logger = logger.new_with_component_name::<Self>();
-        let retriever = Arc::new(InternalCertificateRetriever::new(
-            aggregator_client.clone(),
-            logger,
-        ));
-
-        Self {
-            aggregator_client,
-            retriever,
-            verifier,
-            #[cfg(feature = "unstable")]
-            _verifier_cache: verifier_cache,
-        }
-    }
-}
+pub use api::*;
+pub use verify::MithrilCertificateVerifier;
 
 #[cfg(test)]
 pub mod tests_utils {
