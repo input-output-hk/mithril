@@ -63,9 +63,11 @@ mod verify_cache;
 
 pub use api::*;
 pub use verify::MithrilCertificateVerifier;
+#[cfg(feature = "unstable")]
+pub use verify_cache::MemoryCertificateVerifierCache;
 
 #[cfg(test)]
-pub mod tests_utils {
+pub(crate) mod tests_utils {
     use mockall::predicate::eq;
 
     use mithril_common::entities::Certificate;
@@ -74,7 +76,7 @@ pub mod tests_utils {
     use crate::aggregator_client::{AggregatorRequest, MockAggregatorHTTPClient};
 
     impl MockAggregatorHTTPClient {
-        pub fn expect_certificate_chain(&mut self, certificate_chain: Vec<Certificate>) {
+        pub(crate) fn expect_certificate_chain(&mut self, certificate_chain: Vec<Certificate>) {
             for certificate in certificate_chain {
                 let hash = certificate.hash.clone();
                 let message = serde_json::to_string(
