@@ -12,8 +12,6 @@ pub struct CertificateClient {
     pub(super) aggregator_client: Arc<dyn AggregatorClient>,
     pub(super) retriever: Arc<InternalCertificateRetriever>,
     pub(super) verifier: Arc<dyn CertificateVerifier>,
-    #[cfg(feature = "unstable")]
-    pub(super) _verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
 }
 
 impl CertificateClient {
@@ -21,7 +19,6 @@ impl CertificateClient {
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
         verifier: Arc<dyn CertificateVerifier>,
-        #[cfg(feature = "unstable")] verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
         logger: slog::Logger,
     ) -> Self {
         let logger = logger.new_with_component_name::<Self>();
@@ -34,8 +31,6 @@ impl CertificateClient {
             aggregator_client,
             retriever,
             verifier,
-            #[cfg(feature = "unstable")]
-            _verifier_cache: verifier_cache,
         }
     }
 
