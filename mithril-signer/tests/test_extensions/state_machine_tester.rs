@@ -28,9 +28,10 @@ use mithril_common::{
     },
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
-        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
+        CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
+        CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
+        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+        SignableBuilderServiceDependencies,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdError, TickerService,
@@ -211,6 +212,11 @@ impl StateMachineTester {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
+        let cardano_database_signable_builder = Arc::new(CardanoDatabaseSignableBuilder::new(
+            digester.clone(),
+            Path::new(""),
+            logger.clone(),
+        ));
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             stake_store.clone(),
             protocol_initializer_store.clone(),
@@ -230,6 +236,7 @@ impl StateMachineTester {
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+            cardano_database_signable_builder,
         );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             era_checker.clone(),

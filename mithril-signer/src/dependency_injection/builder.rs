@@ -22,9 +22,10 @@ use mithril_common::digesters::{
 };
 use mithril_common::era::{EraChecker, EraReader};
 use mithril_common::signable_builder::{
-    CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
-    CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-    MithrilStakeDistributionSignableBuilder, SignableBuilderServiceDependencies,
+    CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
+    CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
+    MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+    SignableBuilderServiceDependencies,
 };
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::{MithrilTickerService, StdResult, TickerService};
@@ -328,6 +329,11 @@ impl<'a> DependenciesBuilder<'a> {
         let cardano_stake_distribution_signable_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
+        let cardano_database_signable_builder = Arc::new(CardanoDatabaseSignableBuilder::new(
+            digester.clone(),
+            &self.config.db_directory,
+            self.root_logger(),
+        ));
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             stake_store.clone(),
             protocol_initializer_store.clone(),
@@ -347,6 +353,7 @@ impl<'a> DependenciesBuilder<'a> {
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_signable_builder,
+            cardano_database_signable_builder,
         );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             era_checker.clone(),
