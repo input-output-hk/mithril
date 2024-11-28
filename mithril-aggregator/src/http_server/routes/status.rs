@@ -24,12 +24,16 @@ fn status(
         .and(middlewares::extract_config(router_state, |config| {
             config.cardano_node_version.clone()
         }))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.network.to_string()
+        }))
         .and_then(handlers::status)
 }
 
 async fn get_aggregator_status_message(
     epoch_service: EpochServiceWrapper,
     cardano_node_version: String,
+    cardano_network: String,
 ) -> StdResult<AggregatorStatusMessage> {
     let epoch_service = epoch_service.read().await;
 
@@ -49,6 +53,7 @@ async fn get_aggregator_status_message(
     let message = AggregatorStatusMessage {
         epoch,
         cardano_era,
+        cardano_network,
         mithril_era,
         cardano_node_version,
         aggregator_node_version,
@@ -81,9 +86,11 @@ mod handlers {
         logger: Logger,
         epoch_service: EpochServiceWrapper,
         cardano_node_version: String,
+        cardano_network: String,
     ) -> Result<impl warp::Reply, Infallible> {
         let aggregator_status_message =
-            get_aggregator_status_message(epoch_service, cardano_node_version).await;
+            get_aggregator_status_message(epoch_service, cardano_node_version, cardano_network)
+                .await;
 
         match aggregator_status_message {
             Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
@@ -211,11 +218,11 @@ mod tests {
             ..FakeEpochServiceBuilder::dummy(Epoch(3))
         }
         .build();
+        let epoch_service = Arc::new(RwLock::new(epoch_service));
 
-        let message =
-            get_aggregator_status_message(Arc::new(RwLock::new(epoch_service)), String::new())
-                .await
-                .unwrap();
+        let message = get_aggregator_status_message(epoch_service, String::new(), String::new())
+            .await
+            .unwrap();
 
         assert_eq!(
             message.protocol_parameters,
@@ -240,7 +247,7 @@ mod tests {
         .build();
         let epoch_service = Arc::new(RwLock::new(epoch_service));
 
-        let message = get_aggregator_status_message(epoch_service.clone(), String::new())
+        let message = get_aggregator_status_message(epoch_service, String::new(), String::new())
             .await
             .unwrap();
 
@@ -266,11 +273,28 @@ mod tests {
         .build();
         let epoch_service = Arc::new(RwLock::new(epoch_service));
 
-        let message = get_aggregator_status_message(epoch_service.clone(), String::new())
+        let message = get_aggregator_status_message(epoch_service, String::new(), String::new())
             .await
             .unwrap();
 
         assert_eq!(message.total_stakes_signers, total_stakes_signers);
         assert_eq!(message.total_next_stakes_signers, total_next_stakes_signers);
+    }
+
+    #[tokio::test]
+    async fn retrieves_node_version_and_network_from_parameters() {
+        let epoch_service = FakeEpochServiceBuilder::dummy(Epoch(3)).build();
+        let epoch_service = Arc::new(RwLock::new(epoch_service));
+
+        let message = get_aggregator_status_message(
+            epoch_service,
+            "1.0.4".to_string(),
+            "network".to_string(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(message.cardano_node_version, "1.0.4");
+        assert_eq!(message.cardano_network, "network");
     }
 }
