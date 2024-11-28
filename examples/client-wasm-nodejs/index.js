@@ -1,6 +1,6 @@
 import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 
-let aggregator_endpoint = "https://aggregator.testing-sanchonet.api.mithril.network/aggregator";
+let aggregator_endpoint = "https://aggregator.release-preprod.api.mithril.network/aggregator";
 let genesis_verification_key =
   "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d";
 let certificate_chain_validated_occurs = false;
@@ -109,8 +109,8 @@ async function main() {
 
   console.log(7, "Getting transaction proof...");
   const proof = await client.get_cardano_transaction_proofs([
-    "eac09f970f47ef3ab378db9232914e146773853397e79b904f1a45123a23c21f",
-    "81fe7a5dab42867ef309b6d7210158bf99331884ac3c3b6c7188a8c9c18d5974",
+    "0ea207ab71493f012faab0d1f8151eaf931901141c1482ce6e9a501498076484",
+    "326b5b67d926937bf19c6113d0957a39f2eae9df94875ce8a96eff5c8521303b",
     "320c13f4a3e51f6f4f66fcd9007e02bf658aa4ee9a88a509028d867d3b8a8e9a",
   ]);
   console.log("Certificate hash of the returned proof", proof.certificate_hash);

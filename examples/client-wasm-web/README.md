@@ -4,7 +4,7 @@
 
 This example shows how to implement a Mithril client and use its features in a Web browser environment.
 
-In this example, the client interacts by default with a real aggregator on the network `testing-sanchonet` to:
+In this example, the client interacts by default with a real aggregator on the network `release-preprod` to:
 
 - Mithril Stake Distribution:
   - list the available Mithril Stake Distributions
