@@ -25,8 +25,8 @@ cargo build
 # Run from the crate directory
 AGGREGATOR_ENDPOINT=YOUR_AGGREGATOR_ENDPOINT GENESIS_VERIFICATION_KEY=YOUR_GENESIS_VERIFICATION_KEY cargo run CARDANO_TX_HASH1,CARDANO_TX_HASH2,CARDANO_TX_HASH3
 
-# Example with from 'testing-sanchonet' network
-AGGREGATOR_ENDPOINT=https://aggregator.testing-sanchonet.api.mithril.network/aggregator GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey) cargo run db0dfab664045b117375a743a925385a7a3fa6a104f8bd95fa0f748088bcaff0,b457a094439cc5e371474f5758b4ecded3e1b035fe0717e39d78080e6fe169b2
+# Example with from 'release-preprod' network
+AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey) cargo run 0ea207ab71493f012faab0d1f8151eaf931901141c1482ce6e9a501498076484,326b5b67d926937bf19c6113d0957a39f2eae9df94875ce8a96eff5c8521303b
 ```
 
 ## Links

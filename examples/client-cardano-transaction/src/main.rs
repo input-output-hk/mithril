@@ -25,7 +25,7 @@ pub struct Args {
     #[clap(
         long,
         env = "AGGREGATOR_ENDPOINT",
-        default_value = "https://aggregator.testing-sanchonet.api.mithril.network/aggregator"
+        default_value = "https://aggregator.release-preprod.api.mithril.network/aggregator"
     )]
     aggregator_endpoint: String,
 
