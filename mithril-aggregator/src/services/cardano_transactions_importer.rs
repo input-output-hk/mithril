@@ -251,7 +251,7 @@ mod tests {
     }
 
     impl CardanoTransactionsImporter {
-        pub fn new_for_test(
+        pub(crate) fn new_for_test(
             scanner: Arc<dyn BlockScanner>,
             transaction_store: Arc<dyn TransactionStore>,
         ) -> Self {

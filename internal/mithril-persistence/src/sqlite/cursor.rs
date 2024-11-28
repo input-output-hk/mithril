@@ -20,7 +20,7 @@ impl<'a, T> EntityCursor<'a, T> {
     }
 }
 
-impl<'a, T> Iterator for EntityCursor<'a, T>
+impl<T> Iterator for EntityCursor<'_, T>
 where
     T: SqLiteEntity,
 {

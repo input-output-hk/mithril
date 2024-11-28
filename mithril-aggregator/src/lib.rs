@@ -61,7 +61,7 @@ pub use tools::{
 };
 
 #[cfg(test)]
-pub use dependency_injection::tests::initialize_dependencies;
+pub(crate) use dependency_injection::tests::initialize_dependencies;
 
 // Memory allocator (to handle properly memory fragmentation)
 #[cfg(all(not(target_env = "msvc"), feature = "jemallocator"))]

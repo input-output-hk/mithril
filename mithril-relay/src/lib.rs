@@ -23,8 +23,7 @@ pub mod mithril_p2p_topic {
 }
 
 #[cfg(test)]
-pub mod test_tools {
-    use std::fs::File;
+pub(crate) mod test_tools {
     use std::io;
     use std::sync::Arc;
 
@@ -44,10 +43,6 @@ pub mod test_tools {
 
         pub fn stdout() -> Logger {
             Self::from_writer(slog_term::TestStdoutWriter)
-        }
-
-        pub fn file(filepath: &std::path::Path) -> Logger {
-            Self::from_writer(File::create(filepath).unwrap())
         }
     }
 }

@@ -426,12 +426,12 @@ impl<S: MKTreeStorer> MKTree<S> {
                 .map(|(leaf_position, _leaf)| *leaf_position)
                 .collect(),
         )?;
-        return Ok(MKProof {
+        Ok(MKProof {
             inner_root: Arc::new(self.compute_root()?),
             inner_leaves,
             inner_proof_size: proof.mmr_size(),
             inner_proof_items: proof.proof_items().to_vec(),
-        });
+        })
     }
 }
 

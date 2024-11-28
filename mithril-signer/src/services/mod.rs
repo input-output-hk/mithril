@@ -18,7 +18,7 @@ mod single_signer;
 mod upkeep_service;
 
 #[cfg(test)]
-pub use aggregator_client::dumb::DumbAggregatorClient;
+pub(crate) use aggregator_client::dumb::DumbAggregatorClient;
 pub use aggregator_client::*;
 pub use cardano_transactions::*;
 pub use certifier::*;

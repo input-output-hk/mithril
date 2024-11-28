@@ -518,7 +518,7 @@ mod tests {
         use super::*;
 
         impl SignerCertifierService {
-            pub fn dumb_dependencies() -> Self {
+            pub(crate) fn dumb_dependencies() -> Self {
                 Self {
                     signed_beacon_store: Arc::new(DumbSignedBeaconStore::default()),
                     signed_entity_config_provider: Arc::new(DumbSignedEntityConfigProvider::new(

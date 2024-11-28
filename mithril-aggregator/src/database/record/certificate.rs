@@ -69,7 +69,7 @@ pub struct CertificateRecord {
 
 #[cfg(test)]
 impl CertificateRecord {
-    pub fn dummy_genesis(id: &str, epoch: Epoch) -> Self {
+    pub(crate) fn dummy_genesis(id: &str, epoch: Epoch) -> Self {
         Self {
             parent_certificate_id: None,
             signature: fake_keys::genesis_signature()[0].to_owned(),
@@ -77,7 +77,7 @@ impl CertificateRecord {
         }
     }
 
-    pub fn dummy_db_snapshot(
+    pub(crate) fn dummy_db_snapshot(
         id: &str,
         parent_id: &str,
         epoch: Epoch,
@@ -94,16 +94,7 @@ impl CertificateRecord {
         )
     }
 
-    pub fn dummy_msd(id: &str, parent_id: &str, epoch: Epoch) -> Self {
-        Self::dummy(
-            id,
-            parent_id,
-            epoch,
-            SignedEntityType::MithrilStakeDistribution(epoch),
-        )
-    }
-
-    pub fn dummy(
+    pub(crate) fn dummy(
         id: &str,
         parent_id: &str,
         epoch: Epoch,

@@ -72,7 +72,7 @@ mod tests {
     }
 
     impl TransactionsImporterWithVacuum {
-        pub fn new_with_mock<I>(
+        pub(crate) fn new_with_mock<I>(
             connection_pool: Arc<SqliteConnectionPool>,
             importer_mock_config: I,
         ) -> Self

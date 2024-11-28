@@ -68,7 +68,7 @@ pub fn encode_bech32(human_readable_part: &str, data: &[u8]) -> StdResult<String
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use hex::FromHex;
     use serde::{Deserialize, Serialize};
 

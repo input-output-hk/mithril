@@ -88,12 +88,13 @@ macro_rules! build_metrics_service {
 }
 
 #[cfg(test)]
-pub mod test_tools {
+pub(crate) mod test_tools {
     use std::{io, sync::Arc};
 
     use slog::{Drain, Logger};
     use slog_async::Async;
     use slog_term::{CompactFormat, PlainDecorator};
+
     pub struct TestLogger;
 
     impl TestLogger {

@@ -67,25 +67,28 @@ impl<'a> APISpec<'a> {
     }
 
     /// Sets the path to specify/check.
-    pub fn path(&'a mut self, path: &'a str) -> &mut APISpec {
+    pub fn path(&'a mut self, path: &'a str) -> &'a mut APISpec<'a> {
         self.path = Some(path);
         self
     }
 
     /// Sets the method to specify/check.
-    pub fn method(&'a mut self, method: &'a str) -> &mut APISpec {
+    pub fn method(&'a mut self, method: &'a str) -> &'a mut APISpec<'a> {
         self.method = Some(method);
         self
     }
 
     /// Sets the content type to specify/check, note that it defaults to "application/json".
-    pub fn content_type(&'a mut self, content_type: &'a str) -> &mut APISpec {
+    pub fn content_type(&'a mut self, content_type: &'a str) -> &'a mut APISpec<'a> {
         self.content_type = Some(content_type);
         self
     }
 
     /// Validates if a request is valid
-    fn validate_request(&'a self, request_body: &impl Serialize) -> Result<&APISpec, String> {
+    fn validate_request(
+        &'a self,
+        request_body: &impl Serialize,
+    ) -> Result<&'a APISpec<'a>, String> {
         let path = self.path.unwrap();
         let method = self.method.unwrap().to_lowercase();
         let content_type = self.content_type.unwrap();
@@ -104,7 +107,7 @@ impl<'a> APISpec<'a> {
         &'a self,
         path: &str,
         operation_object: &Value,
-    ) -> Result<&APISpec, String> {
+    ) -> Result<&'a APISpec<'a>, String> {
         let fake_base_url = "http://0.0.0.1";
         let url = Url::parse(&format!("{}{}", fake_base_url, path)).unwrap();
 
@@ -130,7 +133,7 @@ impl<'a> APISpec<'a> {
         &'a self,
         response: &Response<Bytes>,
         expected_status_code: &StatusCode,
-    ) -> Result<&APISpec, String> {
+    ) -> Result<&'a APISpec<'a>, String> {
         if expected_status_code.as_u16() != response.status().as_u16() {
             return Err(format!(
                 "expected status code {} but was {}",
@@ -143,7 +146,7 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates if a response is valid
-    fn validate_response(&'a self, response: &Response<Bytes>) -> Result<&APISpec, String> {
+    fn validate_response(&'a self, response: &Response<Bytes>) -> Result<&'a APISpec<'a>, String> {
         let body = response.body();
         let status = response.status();
 
@@ -207,7 +210,11 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates conformity of a value against a schema
-    fn validate_conformity(&'a self, value: &Value, schema: &Value) -> Result<&APISpec, String> {
+    fn validate_conformity(
+        &'a self,
+        value: &Value,
+        schema: &Value,
+    ) -> Result<&'a APISpec<'a>, String> {
         match schema {
             Null => match value {
                 Null => Ok(self),
