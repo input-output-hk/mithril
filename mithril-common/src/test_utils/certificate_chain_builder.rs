@@ -481,7 +481,7 @@ impl<'a> CertificateChainBuilder<'a> {
     }
 }
 
-impl<'a> Default for CertificateChainBuilder<'a> {
+impl Default for CertificateChainBuilder<'_> {
     fn default() -> Self {
         Self::new()
     }
