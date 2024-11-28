@@ -19,6 +19,8 @@ use thiserror::Error;
 ///     use async_trait::async_trait;
 ///     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 ///     use mithril_common::entities::CardanoDbBeacon;
+///     use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
+///     use anyhow::anyhow;
 ///     use mockall::mock;
 ///     use std::path::Path;
 ///
@@ -32,6 +34,12 @@ use thiserror::Error;
 ///               dirpath: &Path,
 ///               beacon: &CardanoDbBeacon,
 ///             ) -> Result<String, ImmutableDigesterError>;
+///
+///            async fn compute_merkle_tree(
+///               &self,
+///              dirpath: &Path,
+///              beacon: &CardanoDbBeacon,
+///           ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError>;
 ///         }
 ///     }
 ///
@@ -44,6 +52,9 @@ use thiserror::Error;
 ///                 found_number: None,
 ///                 db_dir: PathBuff::new(),
 ///             })
+///         });
+///         mock.expect_compute_merkle_tree().return_once(|_, _| {
+///            Err(ImmutableDigesterError::MerkleTreeComputationError(anyhow!("Error")))
 ///         });
 ///     }
 /// }
