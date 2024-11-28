@@ -667,6 +667,7 @@ components:
       required:
         - epoch
         - cardano_era
+        - cardano_network
         - mithril_era
         - cardano_node_version
         - aggregator_node_version
@@ -683,6 +684,9 @@ components:
           $ref: "#/components/schemas/Epoch"
         cardano_era:
           description: Cardano era
+          type: string
+        cardano_network:
+          description: Cardano network of the aggregator
           type: string
         mithril_era:
           description: Mithril era
@@ -725,6 +729,7 @@ components:
         {
           "epoch": 329,
           "cardano_era": "Conway",
+          "cardano_network": "mainnet",
           "mithril_era": "pythagoras",
           "cardano_node_version": "1.2.3",
           "aggregator_node_version": "4.5.6",
