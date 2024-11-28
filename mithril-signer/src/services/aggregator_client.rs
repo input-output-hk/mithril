@@ -395,21 +395,6 @@ pub(crate) mod dumb {
     }
 
     impl DumbAggregatorClient {
-        /// Instantiate a new DumbCertificateHandler.
-        pub fn new() -> Self {
-            Self {
-                epoch_settings: RwLock::new(None),
-                last_registered_signer: RwLock::new(None),
-                aggregator_features: RwLock::new(AggregatorFeaturesMessage::dummy()),
-            }
-        }
-
-        /// this method pilots the epoch settings handler
-        pub async fn set_epoch_settings(&self, epoch_settings: Option<SignerEpochSettings>) {
-            let mut epoch_settings_writer = self.epoch_settings.write().await;
-            *epoch_settings_writer = epoch_settings;
-        }
-
         /// Return the last signer that called with the `register` method.
         pub async fn get_last_registered_signer(&self) -> Option<Signer> {
             self.last_registered_signer.read().await.clone()

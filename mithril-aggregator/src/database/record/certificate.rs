@@ -94,15 +94,6 @@ impl CertificateRecord {
         )
     }
 
-    pub(crate) fn dummy_msd(id: &str, parent_id: &str, epoch: Epoch) -> Self {
-        Self::dummy(
-            id,
-            parent_id,
-            epoch,
-            SignedEntityType::MithrilStakeDistribution(epoch),
-        )
-    }
-
     pub(crate) fn dummy(
         id: &str,
         parent_id: &str,
