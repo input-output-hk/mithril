@@ -22,6 +22,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Add a one line shell installation script for the Mithril nodes.
 
+- Update to Rust `1.83`.
+
 - **UNSTABLE** Cardano database incremental certification:
 
   - Implement the new signed entity type `CardanoDatabase`.
