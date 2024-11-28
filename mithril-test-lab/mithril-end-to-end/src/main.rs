@@ -18,8 +18,8 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
-    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
-    UnrecoverableDevnetError,
+    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig,
+    RetryableDevnetError, RunOnly, Spec,
 };
 
 /// Tests args
@@ -257,7 +257,7 @@ impl From<StdResult<()>> for AppResult {
         match result {
             Ok(()) => AppResult::Success(),
             Err(error) => {
-                if error.is::<UnrecoverableDevnetError>() {
+                if error.is::<RetryableDevnetError>() {
                     AppResult::RetryableError(error)
                 } else {
                     AppResult::UnretryableError(error)
@@ -466,9 +466,7 @@ mod tests {
         assert!(matches!(AppResult::from(Ok(())), AppResult::Success()));
 
         assert!(matches!(
-            AppResult::from(Err(anyhow!(UnrecoverableDevnetError(
-                "an error".to_string()
-            )))),
+            AppResult::from(Err(anyhow!(RetryableDevnetError("an error".to_string())))),
             AppResult::RetryableError(_)
         ));
 
