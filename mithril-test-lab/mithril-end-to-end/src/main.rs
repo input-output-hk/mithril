@@ -243,11 +243,10 @@ impl Termination for AppResult {
     fn report(self) -> ExitCode {
         let exit_code = self.exit_code();
         println!(" ");
-        println!("----------------------------------------------------------------------------------------------------");
+        println!("{:-^100}", "");
         println!("Mithril End to End test outcome:");
-        println!("----------------------------------------------------------------------------------------------------");
+        println!("{:-^100}", "");
         println!("{self}");
-        println!("{exit_code:?}");
 
         exit_code
     }
