@@ -303,7 +303,7 @@ impl DependencyContainer {
 }
 
 #[cfg(test)]
-pub mod tests {
+pub(crate) mod tests {
     use crate::{dependency_injection::DependenciesBuilder, Configuration, DependencyContainer};
 
     pub async fn initialize_dependencies() -> DependencyContainer {

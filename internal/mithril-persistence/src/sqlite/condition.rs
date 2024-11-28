@@ -362,9 +362,10 @@ mod tests {
 
     #[test]
     fn expression_get_all_default() {
-        impl GetAllCondition for String {}
+        struct Expression;
+        impl GetAllCondition for Expression {}
 
-        let expression = String::get_all_condition();
+        let expression = Expression::get_all_condition();
         let (sql, params) = expression.expand();
 
         assert_eq!("true".to_string(), sql);

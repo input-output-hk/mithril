@@ -17,7 +17,7 @@ pub use version_checker::{DatabaseVersionChecker, SqlMigration};
 pub type DbVersion = i64;
 
 #[cfg(test)]
-pub mod test_helper {
+pub(crate) mod test_helper {
     use sqlite::ConnectionThreadSafe;
 
     use mithril_common::StdResult;

@@ -63,7 +63,7 @@ pub struct SignerRegistrationRound {
 
 #[cfg(test)]
 impl SignerRegistrationRound {
-    pub fn dummy(epoch: Epoch, stake_distribution: StakeDistribution) -> Self {
+    pub(crate) fn dummy(epoch: Epoch, stake_distribution: StakeDistribution) -> Self {
         Self {
             epoch,
             stake_distribution,
@@ -146,7 +146,7 @@ impl MithrilSignerRegisterer {
     }
 
     #[cfg(test)]
-    pub async fn get_current_round(&self) -> Option<SignerRegistrationRound> {
+    pub(crate) async fn get_current_round(&self) -> Option<SignerRegistrationRound> {
         self.current_round.read().await.as_ref().cloned()
     }
 }

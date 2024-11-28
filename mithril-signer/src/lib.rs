@@ -38,7 +38,7 @@ use tikv_jemallocator::Jemalloc;
 static GLOBAL: Jemalloc = Jemalloc;
 
 #[cfg(test)]
-pub mod test_tools {
+pub(crate) mod test_tools {
     use std::fs::File;
     use std::io;
     use std::sync::Arc;

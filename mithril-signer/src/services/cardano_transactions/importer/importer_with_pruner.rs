@@ -83,7 +83,7 @@ mod tests {
     }
 
     impl TransactionsImporterWithPruner {
-        pub fn new_with_mock<P, I>(
+        pub(crate) fn new_with_mock<P, I>(
             number_of_blocks_to_keep: Option<BlockNumber>,
             transaction_pruner_mock_config: P,
             importer_mock_config: I,

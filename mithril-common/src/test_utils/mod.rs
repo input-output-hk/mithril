@@ -30,7 +30,7 @@ pub use fixture_builder::{MithrilFixtureBuilder, StakeDistributionGenerationMeth
 pub use mithril_fixture::{MithrilFixture, SignerFixture};
 pub use temp_dir::*;
 #[cfg(test)]
-pub use utils::*;
+pub(crate) use utils::*;
 
 /// Compare two json strings ignoring keys order
 #[macro_export]

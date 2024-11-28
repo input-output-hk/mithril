@@ -516,7 +516,7 @@ impl EpochService for MithrilEpochService {
 }
 
 #[cfg(test)]
-pub struct FakeEpochService {
+pub(crate) struct FakeEpochService {
     epoch_data: Option<EpochData>,
     computed_epoch_data: Option<ComputedEpochData>,
     inform_epoch_error: bool,
@@ -525,7 +525,7 @@ pub struct FakeEpochService {
 }
 
 #[cfg(test)]
-pub struct FakeEpochServiceBuilder {
+pub(crate) struct FakeEpochServiceBuilder {
     pub cardano_era: CardanoEra,
     pub mithril_era: SupportedEra,
     pub epoch: Epoch,
@@ -662,6 +662,7 @@ impl FakeEpochService {
         }
     }
 
+    #[allow(dead_code)]
     pub fn toggle_errors(
         &mut self,
         inform_epoch: bool,

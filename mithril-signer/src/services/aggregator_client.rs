@@ -74,7 +74,7 @@ pub enum AggregatorClientError {
 #[cfg(test)]
 /// convenient methods to error enum
 impl AggregatorClientError {
-    pub fn is_api_version_mismatch(&self) -> bool {
+    pub(crate) fn is_api_version_mismatch(&self) -> bool {
         matches!(self, Self::ApiVersionMismatch(_))
     }
 }
