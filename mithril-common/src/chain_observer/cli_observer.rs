@@ -165,7 +165,7 @@ impl CardanoCliRunner {
         command
     }
 
-    fn post_config_command<'a>(&'a self, command: &'a mut Command) -> &mut Command {
+    fn post_config_command<'a>(&'a self, command: &'a mut Command) -> &'a mut Command {
         match self.network {
             CardanoNetwork::MainNet => command.arg("--mainnet"),
             CardanoNetwork::DevNet(magic) => command.args(vec![
@@ -331,7 +331,7 @@ impl CardanoCliChainObserver {
 
     // This is the only way I found to tell the compiler the correct types
     // and lifetimes for the function `double`.
-    fn parse_string<'a>(&'a self, string: &'a str) -> IResult<&str, f64> {
+    fn parse_string<'a>(&'a self, string: &'a str) -> IResult<&'a str, f64> {
         nom::number::complete::double(string)
     }
 
