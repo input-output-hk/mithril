@@ -18,7 +18,7 @@ type ComputedImmutablesDigestsResult = Result<ComputedImmutablesDigests, io::Err
 
 struct ComputedImmutablesDigests {
     entries: BTreeMap<ImmutableFile, HexEncodedDigest>,
-    new_cached_entries: Vec<(ImmutableFileName, HexEncodedDigest)>,
+    new_cached_entries: Vec<ImmutableFileName>,
 }
 
 /// A digester working directly on a Cardano DB immutables files
@@ -75,6 +75,28 @@ impl CardanoImmutableDigester {
 
         Ok(computed_digests)
     }
+
+    async fn update_cache(&self, computed_immutables_digests: &ComputedImmutablesDigests) {
+        if let Some(cache_provider) = self.cache_provider.as_ref() {
+            let new_cached_entries = computed_immutables_digests
+                .entries
+                .iter()
+                .filter(|(file, _hash)| {
+                    computed_immutables_digests
+                        .new_cached_entries
+                        .contains(&file.filename)
+                })
+                .map(|(file, hash)| (file.filename.clone(), hash.clone()))
+                .collect();
+
+            if let Err(error) = cache_provider.store(new_cached_entries).await {
+                warn!(
+                    self.logger, "Error while storing new immutable files digests to cache";
+                    "error" => ?error
+                );
+            }
+        }
+    }
 }
 
 #[async_trait]
@@ -89,6 +111,8 @@ impl ImmutableDigester for CardanoImmutableDigester {
         info!(self.logger, ">> compute_digest"; "beacon" => #?beacon, "nb_of_immutables" => immutables_to_process.len());
         let computed_immutables_digests = self.process_immutables(immutables_to_process).await?;
 
+        self.update_cache(&computed_immutables_digests).await;
+
         let digest = {
             let mut hasher = Sha256::new();
             hasher.update(compute_beacon_hash(&self.cardano_network, beacon).as_bytes());
@@ -101,18 +125,6 @@ impl ImmutableDigester for CardanoImmutableDigester {
         };
 
         debug!(self.logger, "Computed digest: {digest:?}");
-
-        if let Some(cache_provider) = self.cache_provider.as_ref() {
-            if let Err(error) = cache_provider
-                .store(computed_immutables_digests.new_cached_entries)
-                .await
-            {
-                warn!(
-                    self.logger, "Error while storing new immutable files digests to cache";
-                    "error" => ?error
-                );
-            }
-        }
 
         Ok(digest)
     }
@@ -127,6 +139,8 @@ impl ImmutableDigester for CardanoImmutableDigester {
         info!(self.logger, ">> compute_merkle_tree"; "beacon" => #?beacon, "nb_of_immutables" => immutables_to_process.len());
         let computed_immutables_digests = self.process_immutables(immutables_to_process).await?;
 
+        self.update_cache(&computed_immutables_digests).await;
+
         let digests: Vec<HexEncodedDigest> =
             computed_immutables_digests.entries.into_values().collect();
         let mktree =
@@ -135,18 +149,6 @@ impl ImmutableDigester for CardanoImmutableDigester {
         debug!(
             self.logger,
             "Successfully computed Merkle tree for Cardano database"; "beacon" => #?beacon);
-
-        if let Some(cache_provider) = self.cache_provider.as_ref() {
-            if let Err(error) = cache_provider
-                .store(computed_immutables_digests.new_cached_entries)
-                .await
-            {
-                warn!(
-                    self.logger, "Error while storing new immutable files digests to cache";
-                    "error" => ?error
-                );
-            }
-        }
 
         Ok(mktree)
     }
@@ -190,17 +192,15 @@ fn compute_immutables_digests(
 
     let mut digests = BTreeMap::new();
 
-    for (ix, (entry, cache)) in entries.iter().enumerate() {
-        match cache {
+    for (ix, (entry, cache)) in entries.into_iter().enumerate() {
+        let hash = match cache {
             None => {
-                let data = hex::encode(entry.compute_raw_hash::<Sha256>()?);
-                digests.insert(entry.clone(), data.clone());
-                new_cached_entries.push((entry.filename.clone(), data));
+                new_cached_entries.push(entry.filename.clone());
+                hex::encode(entry.compute_raw_hash::<Sha256>()?)
             }
-            Some(digest) => {
-                digests.insert(entry.clone(), digest.to_string());
-            }
+            Some(digest) => digest,
         };
+        digests.insert(entry, hash);
 
         if progress.report(ix) {
             info!(logger, "Hashing: {progress}");
