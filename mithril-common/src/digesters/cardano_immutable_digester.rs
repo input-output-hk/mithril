@@ -46,19 +46,7 @@ impl CardanoImmutableDigester {
         &self,
         immutables: Vec<ImmutableFile>,
     ) -> Result<ComputedImmutablesDigests, ImmutableDigesterError> {
-        let cached_values = match self.cache_provider.as_ref() {
-            None => BTreeMap::from_iter(immutables.into_iter().map(|i| (i, None))),
-            Some(cache_provider) => match cache_provider.get(immutables.clone()).await {
-                Ok(values) => values,
-                Err(error) => {
-                    warn!(
-                        self.logger, "Error while getting cached immutable files digests";
-                        "error" => ?error
-                    );
-                    BTreeMap::from_iter(immutables.into_iter().map(|i| (i, None)))
-                }
-            },
-        };
+        let cached_values = self.fetch_immutables_cached(immutables).await;
 
         // The computation of immutable files digests is done in a separate thread because it is blocking the whole task
         let logger = self.logger.clone();
@@ -70,6 +58,25 @@ impl CardanoImmutableDigester {
             .map_err(|e| ImmutableDigesterError::DigestComputationError(e.into()))??;
 
         Ok(computed_digests)
+    }
+
+    async fn fetch_immutables_cached(
+        &self,
+        immutables: Vec<ImmutableFile>,
+    ) -> BTreeMap<ImmutableFile, Option<String>> {
+        match self.cache_provider.as_ref() {
+            None => BTreeMap::from_iter(immutables.into_iter().map(|i| (i, None))),
+            Some(cache_provider) => match cache_provider.get(immutables.clone()).await {
+                Ok(values) => values,
+                Err(error) => {
+                    warn!(
+                        self.logger, "Error while getting cached immutable files digests";
+                        "error" => ?error
+                    );
+                    BTreeMap::from_iter(immutables.into_iter().map(|i| (i, None)))
+                }
+            },
+        }
     }
 
     async fn update_cache(&self, computed_immutables_digests: &ComputedImmutablesDigests) {
