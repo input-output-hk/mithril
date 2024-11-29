@@ -1,6 +1,6 @@
 {
   "name": "mithril-explorer",
-  "version": "0.7.19",
+  "version": "0.7.20",
   "private": true,
   "scripts": {
     "dev": "next dev",
