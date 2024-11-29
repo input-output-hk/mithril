@@ -107,19 +107,9 @@ impl CertificateRetriever for InternalCertificateRetriever {
 mod tests {
     use mithril_common::test_utils::fake_data;
 
-    use crate::aggregator_client::MockAggregatorHTTPClient;
-    use crate::certificate_client::MockCertificateVerifier;
-    use crate::test_utils;
+    use crate::certificate_client::tests_utils::CertificateClientTestBuilder;
 
     use super::*;
-
-    fn build_client(aggregator_client: Arc<dyn AggregatorClient>) -> CertificateClient {
-        CertificateClient::new(
-            aggregator_client,
-            Arc::new(MockCertificateVerifier::new()),
-            test_utils::test_logger(),
-        )
-    }
 
     #[tokio::test]
     async fn get_certificate_list() {
@@ -134,11 +124,12 @@ mod tests {
             },
         ];
         let message = expected.clone();
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
-        aggregator_client
-            .expect_get_content()
-            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-        let certificate_client = build_client(Arc::new(aggregator_client));
+        let certificate_client = CertificateClientTestBuilder::default()
+            .config_aggregator_client_mock(|mock| {
+                mock.expect_get_content()
+                    .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+            })
+            .build();
         let items = certificate_client.list().await.unwrap();
 
         assert_eq!(expected, items);
@@ -146,13 +137,13 @@ mod tests {
 
     #[tokio::test]
     async fn get_certificate_empty_list() {
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
-        aggregator_client
-            .expect_get_content()
-            .return_once(move |_| {
-                Ok(serde_json::to_string::<Vec<MithrilCertificateListItem>>(&vec![]).unwrap())
-            });
-        let certificate_client = build_client(Arc::new(aggregator_client));
+        let certificate_client = CertificateClientTestBuilder::default()
+            .config_aggregator_client_mock(|mock| {
+                mock.expect_get_content().return_once(move |_| {
+                    Ok(serde_json::to_string::<Vec<MithrilCertificateListItem>>(&vec![]).unwrap())
+                });
+            })
+            .build();
         let items = certificate_client.list().await.unwrap();
 
         assert!(items.is_empty());
@@ -160,19 +151,21 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_ok_some() {
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
         let certificate_hash = "cert-hash-123".to_string();
         let certificate = fake_data::certificate(certificate_hash.clone());
         let expected_certificate = certificate.clone();
-        aggregator_client
-            .expect_get_content()
-            .return_once(move |_| {
-                let message: CertificateMessage = certificate.try_into().unwrap();
-                Ok(serde_json::to_string(&message).unwrap())
-            })
-            .times(1);
 
-        let certificate_client = build_client(Arc::new(aggregator_client));
+        let certificate_client = CertificateClientTestBuilder::default()
+            .config_aggregator_client_mock(|mock| {
+                mock.expect_get_content()
+                    .return_once(move |_| {
+                        let message: CertificateMessage = certificate.try_into().unwrap();
+                        Ok(serde_json::to_string(&message).unwrap())
+                    })
+                    .times(1);
+            })
+            .build();
+
         let cert = certificate_client
             .get("cert-hash-123")
             .await
@@ -186,17 +179,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_ok_none() {
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
-        aggregator_client
-            .expect_get_content()
-            .return_once(move |_| {
-                Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                    "an error"
-                )))
+        let certificate_client = CertificateClientTestBuilder::default()
+            .config_aggregator_client_mock(|mock| {
+                mock.expect_get_content()
+                    .return_once(move |_| {
+                        Err(AggregatorClientError::RemoteServerLogical(anyhow!(
+                            "an error"
+                        )))
+                    })
+                    .times(1);
             })
-            .times(1);
+            .build();
 
-        let certificate_client = build_client(Arc::new(aggregator_client));
         assert!(certificate_client
             .get("cert-hash-123")
             .await
@@ -206,17 +200,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_ko() {
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
-        aggregator_client
-            .expect_get_content()
-            .return_once(move |_| {
-                Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
-                    "an error"
-                )))
+        let certificate_client = CertificateClientTestBuilder::default()
+            .config_aggregator_client_mock(|mock| {
+                mock.expect_get_content()
+                    .return_once(move |_| {
+                        Err(AggregatorClientError::RemoteServerTechnical(anyhow!(
+                            "an error"
+                        )))
+                    })
+                    .times(1);
             })
-            .times(1);
+            .build();
 
-        let certificate_client = build_client(Arc::new(aggregator_client));
         certificate_client
             .get("cert-hash-123")
             .await

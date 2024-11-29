@@ -132,45 +132,27 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_common::test_utils::CertificateChainBuilder;
 
-    use crate::aggregator_client::MockAggregatorHTTPClient;
+    use crate::certificate_client::tests_utils::CertificateClientTestBuilder;
     use crate::feedback::StackFeedbackReceiver;
-    use crate::test_utils;
 
     use super::*;
 
-    fn build_client(
-        aggregator_client: Arc<dyn AggregatorClient>,
-        verifier: Arc<dyn CertificateVerifier>,
-    ) -> CertificateClient {
-        CertificateClient::new(aggregator_client, verifier, test_utils::test_logger())
-    }
-
     #[tokio::test]
     async fn validating_chain_send_feedbacks() {
-        let (chain, verifier) = setup_certificate_chain(3, 1);
-        let verification_key: String = verifier.to_verification_key().try_into().unwrap();
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
-        aggregator_client.expect_certificate_chain(chain.clone());
+        let (chain, verifier) = CertificateChainBuilder::new()
+            .with_total_certificates(3)
+            .with_certificates_per_epoch(1)
+            .build();
         let last_certificate_hash = chain.first().unwrap().hash.clone();
 
-        let aggregator_client = Arc::new(aggregator_client);
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
-        let certificate_client = build_client(
-            aggregator_client.clone(),
-            Arc::new(
-                MithrilCertificateVerifier::new(
-                    aggregator_client,
-                    &verification_key,
-                    FeedbackSender::new(&[feedback_receiver.clone()]),
-                    #[cfg(feature = "unstable")]
-                    None,
-                    test_utils::test_logger(),
-                )
-                .unwrap(),
-            ),
-        );
+        let certificate_client = CertificateClientTestBuilder::default()
+            .config_aggregator_client_mock(|mock| mock.expect_certificate_chain(chain.clone()))
+            .with_genesis_verification_key(verifier.to_verification_key())
+            .add_feedback_receiver(feedback_receiver.clone())
+            .build();
 
         certificate_client
             .verify_chain(&last_certificate_hash)
@@ -203,27 +185,16 @@ mod tests {
 
     #[tokio::test]
     async fn verify_chain_return_certificate_with_given_hash() {
-        let (chain, verifier) = setup_certificate_chain(3, 1);
-        let verification_key: String = verifier.to_verification_key().try_into().unwrap();
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
-        aggregator_client.expect_certificate_chain(chain.clone());
+        let (chain, verifier) = CertificateChainBuilder::new()
+            .with_total_certificates(3)
+            .with_certificates_per_epoch(1)
+            .build();
         let last_certificate_hash = chain.first().unwrap().hash.clone();
 
-        let aggregator_client = Arc::new(aggregator_client);
-        let certificate_client = build_client(
-            aggregator_client.clone(),
-            Arc::new(
-                MithrilCertificateVerifier::new(
-                    aggregator_client,
-                    &verification_key,
-                    FeedbackSender::new(&[]),
-                    #[cfg(feature = "unstable")]
-                    None,
-                    test_utils::test_logger(),
-                )
-                .unwrap(),
-            ),
-        );
+        let certificate_client = CertificateClientTestBuilder::default()
+            .config_aggregator_client_mock(|mock| mock.expect_certificate_chain(chain.clone()))
+            .with_genesis_verification_key(verifier.to_verification_key())
+            .build();
 
         let certificate = certificate_client
             .verify_chain(&last_certificate_hash)
