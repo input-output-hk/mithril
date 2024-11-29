@@ -172,32 +172,6 @@ impl AggregatorRunner {
 
         Ok(unlocked_signed_entities)
     }
-
-    fn increment_artifact_total_produced_metric_since_startup(
-        &self,
-        signed_entity_type: &SignedEntityType,
-    ) {
-        let metrics = self.dependencies.metrics_service.clone();
-        let metric_counter = match signed_entity_type {
-            SignedEntityType::MithrilStakeDistribution(_) => {
-                metrics.get_artifact_mithril_stake_distribution_total_produced_since_startup()
-            }
-            SignedEntityType::CardanoImmutableFilesFull(_) => {
-                metrics.get_artifact_cardano_db_total_produced_since_startup()
-            }
-            SignedEntityType::CardanoStakeDistribution(_) => {
-                metrics.get_artifact_cardano_stake_distribution_total_produced_since_startup()
-            }
-            SignedEntityType::CardanoTransactions(_, _) => {
-                metrics.get_artifact_cardano_transaction_total_produced_since_startup()
-            }
-            SignedEntityType::CardanoDatabase(_) => {
-                metrics.get_artifact_cardano_database_total_produced_since_startup()
-            }
-        };
-
-        metric_counter.increment();
-    }
 }
 
 #[cfg_attr(test, mockall::automock)]
@@ -456,8 +430,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     certificate.hash
                 )
             })?;
-
-        self.increment_artifact_total_produced_metric_since_startup(signed_entity_type);
 
         Ok(())
     }

@@ -69,7 +69,8 @@ use crate::{
         CardanoTransactionsImporter, CertifierService, EpochServiceDependencies, MessageService,
         MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, StakeDistributionService, UpkeepService, UsageReporter,
+        SignedEntityService, SignedEntityServiceArtifactsDependencies, StakeDistributionService,
+        UpkeepService, UsageReporter,
     },
     store::CertificatePendingStorer,
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
@@ -1207,13 +1208,17 @@ impl DependenciesBuilder {
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
-        let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
-            signed_entity_storer,
+        let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
-            self.get_signed_entity_lock().await?,
             cardano_stake_distribution_artifact_builder,
+        );
+        let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
+            signed_entity_storer,
+            dependencies,
+            self.get_signed_entity_lock().await?,
+            self.get_metrics_service().await?,
             logger,
         ));
 
