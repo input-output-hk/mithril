@@ -423,7 +423,7 @@ mod tests {
         ));
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
-        let digester = Arc::new(DumbImmutableDigester::new(DIGESTER_RESULT, true));
+        let digester = Arc::new(DumbImmutableDigester::default().with_digest(DIGESTER_RESULT));
         let cardano_immutable_signable_builder =
             Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
                 digester.clone(),

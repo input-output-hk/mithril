@@ -62,41 +62,17 @@ impl SignableBuilder<CardanoDbBeacon> for CardanoImmutableFilesFullSignableBuild
 
 #[cfg(test)]
 mod tests {
-    use async_trait::async_trait;
     use std::path::Path;
 
-    use crate::crypto_helper::{MKTree, MKTreeStoreInMemory};
-    use crate::digesters::{ImmutableDigester, ImmutableDigesterError};
+    use crate::digesters::DumbImmutableDigester;
     use crate::entities::CardanoDbBeacon;
     use crate::test_utils::TestLogger;
 
     use super::*;
 
-    #[derive(Default)]
-    pub struct ImmutableDigesterImpl;
-
-    #[async_trait]
-    impl ImmutableDigester for ImmutableDigesterImpl {
-        async fn compute_digest(
-            &self,
-            _dirpath: &Path,
-            beacon: &CardanoDbBeacon,
-        ) -> Result<String, ImmutableDigesterError> {
-            Ok(format!("immutable {}", beacon.immutable_file_number))
-        }
-
-        async fn compute_merkle_tree(
-            &self,
-            _dirpath: &Path,
-            _beacon: &CardanoDbBeacon,
-        ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError> {
-            unimplemented!()
-        }
-    }
-
     #[tokio::test]
     async fn compute_signable() {
-        let digester = ImmutableDigesterImpl;
+        let digester = DumbImmutableDigester::default().with_digest("immutable 0");
         let signable_builder = CardanoImmutableFilesFullSignableBuilder::new(
             Arc::new(digester),
             Path::new(""),

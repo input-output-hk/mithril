@@ -158,7 +158,7 @@ impl StateMachineTester {
             },
             ticker_service.clone(),
         ));
-        let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
+        let digester = Arc::new(DumbImmutableDigester::default().with_digest("DIGEST"));
         let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
             sqlite_connection.clone(),
             config.store_retention_limit.map(|limit| limit as u64),

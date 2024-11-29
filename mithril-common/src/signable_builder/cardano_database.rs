@@ -72,47 +72,17 @@ mod tests {
 
     use crate::{
         crypto_helper::{MKTree, MKTreeStoreInMemory},
-        digesters::ImmutableDigesterError,
+        digesters::DumbImmutableDigester,
         entities::{CardanoDbBeacon, ProtocolMessagePartKey},
         test_utils::TestLogger,
     };
 
     use super::*;
 
-    #[derive(Default)]
-    pub struct ImmutableDigesterImpl {
-        digests: Vec<String>,
-    }
-
-    impl ImmutableDigesterImpl {
-        pub fn new(digests: Vec<String>) -> Self {
-            Self { digests }
-        }
-    }
-
-    #[async_trait]
-    impl ImmutableDigester for ImmutableDigesterImpl {
-        async fn compute_digest(
-            &self,
-            _dirpath: &Path,
-            _beacon: &CardanoDbBeacon,
-        ) -> Result<String, ImmutableDigesterError> {
-            Ok("whatever".to_string())
-        }
-
-        async fn compute_merkle_tree(
-            &self,
-            _dirpath: &Path,
-            _beacon: &CardanoDbBeacon,
-        ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError> {
-            Ok(MKTree::new(&self.digests).unwrap())
-        }
-    }
-
     #[tokio::test]
     async fn compute_signable() {
         let digests = vec!["digest-1".to_string(), "digest-2".to_string()];
-        let digester = ImmutableDigesterImpl::new(digests.clone());
+        let digester = DumbImmutableDigester::default().with_merkle_tree(digests.clone());
         let signable_builder = CardanoDatabaseSignableBuilder::new(
             Arc::new(digester),
             Path::new(""),
