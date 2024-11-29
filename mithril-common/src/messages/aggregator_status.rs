@@ -74,51 +74,6 @@ mod tests {
         "total_cardano_stake": 888888888
         }"#;
 
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-    pub struct AggregatorStatusMessageUntilV0_1_37 {
-        pub epoch: Epoch,
-        pub cardano_era: CardanoEra,
-        pub mithril_era: SupportedEra,
-        pub cardano_node_version: String,
-        pub aggregator_node_version: String,
-        #[serde(rename = "protocol")]
-        pub protocol_parameters: ProtocolParameters,
-        #[serde(rename = "next_protocol")]
-        pub next_protocol_parameters: ProtocolParameters,
-        pub total_signers: usize,
-        pub total_next_signers: usize,
-        pub total_stakes_signers: Stake,
-        pub total_next_stakes_signers: Stake,
-        pub total_cardano_spo: TotalSPOs,
-        pub total_cardano_stake: Stake,
-    }
-
-    fn golden_message_until_open_api_0_1_37() -> AggregatorStatusMessageUntilV0_1_37 {
-        AggregatorStatusMessageUntilV0_1_37 {
-            epoch: Epoch(48),
-            cardano_era: "conway".to_string(),
-            mithril_era: SupportedEra::Pythagoras,
-            cardano_node_version: "1.2.3".to_string(),
-            aggregator_node_version: "4.5.6".to_string(),
-            protocol_parameters: ProtocolParameters {
-                k: 5,
-                m: 100,
-                phi_f: 0.65,
-            },
-            next_protocol_parameters: ProtocolParameters {
-                k: 50,
-                m: 1000,
-                phi_f: 0.65,
-            },
-            total_signers: 1234,
-            total_next_signers: 56789,
-            total_stakes_signers: 123456789,
-            total_next_stakes_signers: 987654321,
-            total_cardano_spo: 7777,
-            total_cardano_stake: 888888888,
-        }
-    }
-
     fn golden_actual_message() -> AggregatorStatusMessage {
         AggregatorStatusMessage {
             epoch: Epoch(48),
@@ -144,14 +99,6 @@ mod tests {
             total_cardano_spo: 7777,
             total_cardano_stake: 888888888,
         }
-    }
-
-    #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_37() {
-        let json = ACTUAL_JSON;
-        let message: AggregatorStatusMessageUntilV0_1_37 = serde_json::from_str(json).unwrap();
-
-        assert_eq!(golden_message_until_open_api_0_1_37(), message);
     }
 
     // Test the compatibility with current structure.
