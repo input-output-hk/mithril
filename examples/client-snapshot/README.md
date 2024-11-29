@@ -4,7 +4,7 @@
 
 This example shows how to implement a Mithril client and use its features related to the `Snapshot` type.
 
-In this example, the client interacts by default with a real aggregator on the network `testing-preview` to:
+In this example, the client interacts by default with a real aggregator on the network `release-preprod` to:
 
 - list the available snapshots
 - get a single snapshot
@@ -19,6 +19,9 @@ The crate [indicatif](https://docs.rs/indicatif/latest/indicatif/) is used to ni
 ## Build and run the example
 
 ```bash
+# Switch to the latest release tag
+git checkout tags/$(curl -sSL https://api.github.com/repos/input-output-hk/mithril/releases/latest | jq -r '.tag_name')
+
 # Build from the crate directory
 cargo build
 

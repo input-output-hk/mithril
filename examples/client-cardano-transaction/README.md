@@ -19,6 +19,9 @@ In this example, the client interacts with an aggregator and performs the follow
 ## Build and run the example
 
 ```bash
+# Switch to the latest release tag
+git checkout tags/$(curl -sSL https://api.github.com/repos/input-output-hk/mithril/releases/latest | jq -r '.tag_name')
+
 # Build from the crate directory
 cargo build
 
