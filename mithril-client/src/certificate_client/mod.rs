@@ -68,12 +68,88 @@ pub use verify_cache::MemoryCertificateVerifierCache;
 
 #[cfg(test)]
 pub(crate) mod tests_utils {
-    use mockall::predicate::eq;
-
+    use mithril_common::crypto_helper::ProtocolGenesisVerificationKey;
     use mithril_common::entities::Certificate;
     use mithril_common::messages::CertificateMessage;
+    use mockall::predicate::eq;
+    use std::sync::Arc;
 
     use crate::aggregator_client::{AggregatorRequest, MockAggregatorHTTPClient};
+    use crate::feedback::{FeedbackReceiver, FeedbackSender};
+    use crate::test_utils;
+
+    use super::*;
+
+    #[derive(Default)]
+    pub(crate) struct CertificateClientTestBuilder {
+        aggregator_client: MockAggregatorHTTPClient,
+        genesis_verification_key: Option<String>,
+        feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
+        #[cfg(feature = "unstable")]
+        verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
+    }
+
+    impl CertificateClientTestBuilder {
+        pub fn config_aggregator_client_mock(
+            mut self,
+            config: impl FnOnce(&mut MockAggregatorHTTPClient),
+        ) -> Self {
+            config(&mut self.aggregator_client);
+            self
+        }
+
+        pub fn with_genesis_verification_key(
+            mut self,
+            genesis_verification_key: ProtocolGenesisVerificationKey,
+        ) -> Self {
+            self.genesis_verification_key = Some(genesis_verification_key.try_into().unwrap());
+            self
+        }
+
+        pub fn add_feedback_receiver(
+            mut self,
+            feedback_receiver: Arc<dyn FeedbackReceiver>,
+        ) -> Self {
+            self.feedback_receivers.push(feedback_receiver);
+            self
+        }
+
+        #[cfg(feature = "unstable")]
+        pub fn with_verifier_cache(
+            mut self,
+            verifier_cache: Arc<dyn CertificateVerifierCache>,
+        ) -> Self {
+            self.verifier_cache = Some(verifier_cache);
+            self
+        }
+
+        /// Builds a new [CertificateClient] with the given configuration.
+        ///
+        /// If no genesis verification key is provided, a [MockCertificateVerifier] will be used,
+        /// else a [MithrilCertificateVerifier] will be used.
+        pub fn build(self) -> CertificateClient {
+            let logger = test_utils::test_logger();
+            let aggregator_client = Arc::new(self.aggregator_client);
+
+            let certificate_verifier: Arc<dyn CertificateVerifier> =
+                match self.genesis_verification_key {
+                    None => Arc::new(MockCertificateVerifier::new()),
+                    Some(genesis_verification_key) => Arc::new(
+                        MithrilCertificateVerifier::new(
+                            aggregator_client.clone(),
+                            &genesis_verification_key,
+                            FeedbackSender::new(&self.feedback_receivers),
+                            #[cfg(feature = "unstable")]
+                            self.verifier_cache,
+                            logger.clone(),
+                        )
+                        .unwrap(),
+                    ),
+                };
+
+            CertificateClient::new(aggregator_client.clone(), certificate_verifier, logger)
+        }
+    }
 
     impl MockAggregatorHTTPClient {
         pub(crate) fn expect_certificate_chain(&mut self, certificate_chain: Vec<Certificate>) {
@@ -85,6 +161,7 @@ pub(crate) mod tests_utils {
                 .unwrap();
                 self.expect_get_content()
                     .with(eq(AggregatorRequest::GetCertificate { hash }))
+                    .once()
                     .returning(move |_| Ok(message.to_owned()));
             }
         }
