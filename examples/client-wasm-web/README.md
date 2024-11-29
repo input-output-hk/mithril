@@ -4,7 +4,7 @@
 
 This example shows how to implement a Mithril client and use its features in a Web browser environment.
 
-In this example, the client interacts by default with a real aggregator on the network `testing-sanchonet` to:
+In this example, the client interacts by default with a real aggregator on the network `release-preprod` to:
 
 - Mithril Stake Distribution:
   - list the available Mithril Stake Distributions
@@ -20,7 +20,13 @@ In this example, the client interacts by default with a real aggregator on the n
 
 ## Build and run the example
 
-First you need to compile the Mithril client Wasm library:
+First you need to switch to the latest release tag:
+
+```bash
+git checkout tags/$(curl -sSL https://api.github.com/repos/input-output-hk/mithril/releases/latest | jq -r '.tag_name')
+```
+
+Compile the Mithril client Wasm library:
 
 ```bash
 make -C ../../mithril-client-wasm build

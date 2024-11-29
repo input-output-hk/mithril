@@ -1,6 +1,6 @@
 //! This example shows how to implement a Mithril client and use its features.
 //!
-//! In this example, the client interacts by default with a real aggregator (`testing-preview`) to get the data.
+//! In this example, the client interacts by default with a real aggregator (`release-preprod`) to get the data.
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -24,7 +24,7 @@ pub struct Args {
     #[clap(
         long,
         env = "AGGREGATOR_ENDPOINT",
-        default_value = "https://aggregator.testing-preview.api.mithril.network/aggregator"
+        default_value = "https://aggregator.release-preprod.api.mithril.network/aggregator"
     )]
     aggregator_endpoint: String,
 }
