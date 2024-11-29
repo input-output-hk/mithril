@@ -12,10 +12,6 @@ use sha2::{Digest, Sha256};
 use slog::{debug, info, warn, Logger};
 use std::{collections::BTreeMap, io, path::Path, sync::Arc};
 
-/// Result of a cache computation, contains the list of immutable digests and the list of new entries to add
-/// to the [ImmutableFileDigestCacheProvider].
-type ComputedImmutablesDigestsResult = Result<ComputedImmutablesDigests, io::Error>;
-
 struct ComputedImmutablesDigests {
     entries: BTreeMap<ImmutableFile, HexEncodedDigest>,
     new_cached_entries: Vec<ImmutableFileName>,
@@ -67,7 +63,7 @@ impl CardanoImmutableDigester {
         // The computation of immutable files digests is done in a separate thread because it is blocking the whole task
         let logger = self.logger.clone();
         let computed_digests =
-            tokio::task::spawn_blocking(move || -> ComputedImmutablesDigestsResult {
+            tokio::task::spawn_blocking(move || -> Result<ComputedImmutablesDigests, io::Error> {
                 compute_immutables_digests(logger, cached_values)
             })
             .await
@@ -183,7 +179,7 @@ fn list_immutable_files_to_process(
 fn compute_immutables_digests(
     logger: Logger,
     entries: BTreeMap<ImmutableFile, Option<HexEncodedDigest>>,
-) -> ComputedImmutablesDigestsResult {
+) -> Result<ComputedImmutablesDigests, io::Error> {
     let mut new_cached_entries = Vec::new();
     let mut progress = Progress {
         index: 0,

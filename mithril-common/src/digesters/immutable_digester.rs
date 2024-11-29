@@ -2,6 +2,7 @@ use crate::{
     crypto_helper::{MKTree, MKTreeStoreInMemory},
     digesters::ImmutableFileListingError,
     entities::{CardanoDbBeacon, ImmutableFileNumber},
+    StdError,
 };
 use async_trait::async_trait;
 use std::{
@@ -89,5 +90,5 @@ pub enum ImmutableDigesterError {
 
     /// Error raised when the Merkle tree computation failed.
     #[error("Merkle tree computation failed")]
-    MerkleTreeComputationError(anyhow::Error),
+    MerkleTreeComputationError(StdError),
 }
