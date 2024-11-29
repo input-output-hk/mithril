@@ -81,7 +81,7 @@ impl ConnectionBuilder {
     pub fn build(self) -> StdResult<ConnectionThreadSafe> {
         let logger = self.base_logger.new_with_component_name::<Self>();
 
-        debug!(logger, "Opening SQLite connection"; "path" => self.connection_path.display());
+        debug!(logger, "Opening SQLite connection"; "path" => self.connection_path.display(), "options" => ?self.options);
         let connection =
             Connection::open_thread_safe(&self.connection_path).with_context(|| {
                 format!(
@@ -94,14 +94,12 @@ impl ConnectionBuilder {
             .options
             .contains(&ConnectionOptions::EnableWriteAheadLog)
         {
-            debug!(logger, "Enabling SQLite Write Ahead Log journal mode");
             connection
                 .execute("pragma journal_mode = wal; pragma synchronous = normal;")
                 .with_context(|| "SQLite initialization: could not enable WAL.")?;
         }
 
         if self.options.contains(&ConnectionOptions::EnableForeignKeys) {
-            debug!(logger, "Enabling SQLite foreign key support");
             connection
                 .execute("pragma foreign_keys=true")
                 .with_context(|| "SQLite initialization: could not enable FOREIGN KEY support.")?;
@@ -113,7 +111,6 @@ impl ConnectionBuilder {
             .options
             .contains(&ConnectionOptions::ForceDisableForeignKeys)
         {
-            debug!(logger, "Force disabling SQLite foreign key support");
             connection
                 .execute("pragma foreign_keys=false")
                 .with_context(|| "SQLite initialization: could not disable FOREIGN KEY support.")?;

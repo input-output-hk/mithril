@@ -31,10 +31,10 @@ function InfoGroupCard({ children, title, ...props }) {
   );
 }
 
-function InfoRow({ label, children, ...props }) {
+function InfoRow({ label, children, className, ...props }) {
   return (
     <>
-      <div className="d-flex justify-content-between" {...props}>
+      <div className={`d-flex justify-content-between ${className}`} {...props}>
         <div className="me-2 flex-fill">
           <em>{label}:</em>
         </div>
@@ -120,10 +120,6 @@ export default function AggregatorStatus({ showContent = true }) {
     return ((value / total) * 100).toFixed(0);
   }
 
-  function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-  }
-
   return fallbackToEpochSetting ? (
     <Stack direction="horizontal">
       <Collapse in={showContent}>
@@ -138,11 +134,12 @@ export default function AggregatorStatus({ showContent = true }) {
         <div id="contentRow">
           <Row className="d-flex flex-wrap justify-content-md-center">
             <InfoGroupCard title={`Epoch ${aggregatorStatus.epoch}`}>
+              <InfoRow label="Cardano Network" className="text-capitalize">
+                {aggregatorStatus.cardano_network}
+              </InfoRow>
               <InfoRow label="Cardano Era">{aggregatorStatus.cardano_era}</InfoRow>
-              <InfoRow label="Mithril Era">
-                {aggregatorStatus.mithril_era
-                  ? capitalizeFirstLetter(aggregatorStatus.mithril_era)
-                  : ""}
+              <InfoRow label="Mithril Era" className="text-capitalize">
+                {aggregatorStatus.mithril_era}
               </InfoRow>
             </InfoGroupCard>
 
