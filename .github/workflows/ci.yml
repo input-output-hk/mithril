@@ -347,25 +347,34 @@ jobs:
           mkdir artifacts
 
       - name: Test
-        run: |
-          cat > ./mithril-end-to-end.sh << EOF
-          #!/bin/bash
-          set -x
-          ./mithril-end-to-end -vvv \\
-                  --bin-directory ./bin \\
-                  --work-directory=./artifacts \\
-                  --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
-                  --mithril-era=${{ matrix.era }} \\
-                  --cardano-node-version ${{ matrix.cardano_node_version }} \\
-                  --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }} \\
-          EOF
-          # If there is a next era, we need to specify it with '--mithril-next-era'
-          if [[ "${{ matrix.next_era }}" != "" ]]; then
-            echo "  --mithril-next-era=${{ matrix.next_era }}" >> ./mithril-end-to-end.sh
-          fi
-          chmod u+x ./mithril-end-to-end.sh
-          ./mithril-end-to-end.sh
-          rm ./mithril-end-to-end.sh
+        uses: nick-fields/retry@v3
+        with:
+          shell: bash
+          max_attempts: 3
+          retry_on_exit_code: 2
+          timeout_minutes: 10
+          warning_on_retry: true
+          command: |
+            cat > ./mithril-end-to-end.sh << EOF
+            #!/bin/bash
+            set -x
+            ./mithril-end-to-end -vvv \\
+                    --bin-directory ./bin \\
+                    --work-directory=./artifacts \\
+                    --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \\
+                    --mithril-era=${{ matrix.era }} \\
+                    --cardano-node-version ${{ matrix.cardano_node_version }} \\
+                    --cardano-hard-fork-latest-era-at-epoch ${{ matrix.hard_fork_latest_era_at_epoch }} ${{ matrix.extra_args }} \\
+            EOF
+            # If there is a next era, we need to specify it with '--mithril-next-era'
+            if [[ "${{ matrix.next_era }}" != "" ]]; then
+              echo "  --mithril-next-era=${{ matrix.next_era }}" >> ./mithril-end-to-end.sh
+            fi
+            chmod u+x ./mithril-end-to-end.sh
+            ./mithril-end-to-end.sh
+            EXIT_CODE=$?
+            rm ./mithril-end-to-end.sh
+            exit $EXIT_CODE
 
       - name: Upload E2E Tests Artifacts
         if: ${{ failure() }}

@@ -1,13 +1,15 @@
 use anyhow::{anyhow, Context};
 use clap::{CommandFactory, Parser, Subcommand};
 use slog::{Drain, Level, Logger};
-use slog_scope::{error, info, warn};
+use slog_scope::{error, info};
 use std::{
-    fs,
+    fmt, fs,
     path::{Path, PathBuf},
+    process::{ExitCode, Termination},
     sync::Arc,
     time::Duration,
 };
+use thiserror::Error;
 use tokio::{
     signal::unix::{signal, SignalKind},
     sync::Mutex,
@@ -17,7 +19,8 @@ use tokio::{
 use mithril_common::StdResult;
 use mithril_doc::GenerateDocCommands;
 use mithril_end_to_end::{
-    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig, RunOnly, Spec,
+    Devnet, DevnetBootstrapArgs, MithrilInfrastructure, MithrilInfrastructureConfig,
+    RetryableDevnetError, RunOnly, Spec,
 };
 
 /// Tests args
@@ -152,8 +155,16 @@ enum EndToEndCommands {
     GenerateDoc(GenerateDocCommands),
 }
 
-#[tokio::main]
-async fn main() -> StdResult<()> {
+fn main() -> AppResult {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async { main_exec().await })
+        .into()
+}
+
+async fn main_exec() -> StdResult<()> {
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
@@ -198,7 +209,67 @@ async fn main() -> StdResult<()> {
 
     app_stopper.stop().await;
     join_set.shutdown().await;
+
     res
+}
+
+#[derive(Debug)]
+enum AppResult {
+    Success(),
+    UnretryableError(anyhow::Error),
+    RetryableError(anyhow::Error),
+    Cancelled(anyhow::Error),
+}
+
+impl AppResult {
+    fn exit_code(&self) -> ExitCode {
+        match self {
+            AppResult::Success() => ExitCode::SUCCESS,
+            AppResult::UnretryableError(_) | AppResult::Cancelled(_) => ExitCode::FAILURE,
+            AppResult::RetryableError(_) => ExitCode::from(2),
+        }
+    }
+}
+
+impl fmt::Display for AppResult {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            AppResult::Success() => write!(f, "Success"),
+            AppResult::UnretryableError(error) => write!(f, "Error(Unretryable): {error:?}"),
+            AppResult::RetryableError(error) => write!(f, "Error(Retryable): {error:?}"),
+            AppResult::Cancelled(error) => write!(f, "Cancelled: {error:?}"),
+        }
+    }
+}
+
+impl Termination for AppResult {
+    fn report(self) -> ExitCode {
+        let exit_code = self.exit_code();
+        println!(" ");
+        println!("{:-^100}", "");
+        println!("Mithril End to End test outcome:");
+        println!("{:-^100}", "");
+        println!("{self}");
+
+        exit_code
+    }
+}
+
+impl From<StdResult<()>> for AppResult {
+    fn from(result: StdResult<()>) -> Self {
+        match result {
+            Ok(()) => AppResult::Success(),
+            Err(error) => {
+                if error.is::<RetryableDevnetError>() {
+                    AppResult::RetryableError(error)
+                } else if error.is::<SignalError>() {
+                    AppResult::Cancelled(error)
+                } else {
+                    AppResult::UnretryableError(error)
+                }
+            }
+        }
+    }
 }
 
 struct App {
@@ -338,31 +409,73 @@ fn create_workdir_if_not_exist_clean_otherwise(work_dir: &Path) {
     fs::create_dir(work_dir).expect("Work dir creation failure");
 }
 
+#[derive(Error, Debug, PartialEq, Eq)]
+#[error("Signal received: `{0}`")]
+pub struct SignalError(pub String);
+
 fn with_gracefull_shutdown(join_set: &mut JoinSet<StdResult<()>>) {
     join_set.spawn(async move {
         let mut sigterm = signal(SignalKind::terminate()).expect("Failed to create SIGTERM signal");
-        sigterm
-            .recv()
-            .await
-            .ok_or(anyhow!("Failed to receive SIGTERM"))
-            .inspect(|()| warn!("Received SIGTERM"))
+        sigterm.recv().await;
+
+        Err(anyhow!(SignalError("SIGTERM".to_string())))
     });
 
     join_set.spawn(async move {
         let mut sigterm = signal(SignalKind::interrupt()).expect("Failed to create SIGINT signal");
-        sigterm
-            .recv()
-            .await
-            .ok_or(anyhow!("Failed to receive SIGINT"))
-            .inspect(|()| warn!("Received SIGINT"))
+        sigterm.recv().await;
+
+        Err(anyhow!(SignalError("SIGINT".to_string())))
     });
 
     join_set.spawn(async move {
         let mut sigterm = signal(SignalKind::quit()).expect("Failed to create SIGQUIT signal");
-        sigterm
-            .recv()
-            .await
-            .ok_or(anyhow!("Failed to receive SIGQUIT"))
-            .inspect(|()| warn!("Received SIGQUIT"))
+        sigterm.recv().await;
+
+        Err(anyhow!(SignalError("SIGQUIT".to_string())))
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn app_result_exit_code() {
+        let expected_exit_code = ExitCode::SUCCESS;
+        let exit_code = AppResult::Success().exit_code();
+        assert_eq!(expected_exit_code, exit_code);
+
+        let expected_exit_code = ExitCode::FAILURE;
+        let exit_code = AppResult::UnretryableError(anyhow::anyhow!("an error")).exit_code();
+        assert_eq!(expected_exit_code, exit_code);
+
+        let expected_exit_code = ExitCode::from(2);
+        let exit_code = AppResult::RetryableError(anyhow::anyhow!("an error")).exit_code();
+        assert_eq!(expected_exit_code, exit_code);
+
+        let expected_exit_code = ExitCode::FAILURE;
+        let exit_code = AppResult::Cancelled(anyhow::anyhow!("an error")).exit_code();
+        assert_eq!(expected_exit_code, exit_code);
+    }
+
+    #[test]
+    fn app_result_conversion() {
+        assert!(matches!(AppResult::from(Ok(())), AppResult::Success()));
+
+        assert!(matches!(
+            AppResult::from(Err(anyhow!(RetryableDevnetError("an error".to_string())))),
+            AppResult::RetryableError(_)
+        ));
+
+        assert!(matches!(
+            AppResult::from(Err(anyhow!("an error"))),
+            AppResult::UnretryableError(_)
+        ));
+
+        assert!(matches!(
+            AppResult::from(Err(anyhow!(SignalError("an error".to_string())))),
+            AppResult::Cancelled(_)
+        ));
+    }
 }

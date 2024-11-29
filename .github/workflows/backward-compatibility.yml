@@ -119,18 +119,29 @@ jobs:
           mkdir artifacts
 
       - name: Run E2E tests
-        shell: bash
-        run: |
-          ./mithril-binaries/e2e/mithril-end-to-end -vvv \
-            --bin-directory ./mithril-binaries/e2e \
-            --work-directory=./artifacts \
-            --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
-            --cardano-node-version ${{ matrix.cardano_node_version }} \
-            --cardano-slot-length 0.25 \
-            --cardano-epoch-length 45.0 \
-            --signed-entity-types ${{ needs.prepare-env-variables.outputs.signed-entity-types }} \
-          && echo "SUCCESS=true" >> $GITHUB_ENV \
-          || (echo "SUCCESS=false" >> $GITHUB_ENV && exit 1)
+        uses: nick-fields/retry@v3
+        with:
+          shell: bash
+          max_attempts: 3
+          retry_on_exit_code: 2
+          timeout_minutes: 10
+          warning_on_retry: true
+          command: |
+            ./mithril-binaries/e2e/mithril-end-to-end -vvv \
+              --bin-directory ./mithril-binaries/e2e \
+              --work-directory=./artifacts \
+              --devnet-scripts-directory=./mithril-test-lab/mithril-devnet \
+              --cardano-node-version ${{ matrix.cardano_node_version }} \
+              --cardano-slot-length 0.25 \
+              --cardano-epoch-length 45.0 \
+              --signed-entity-types ${{ needs.prepare-env-variables.outputs.signed-entity-types }}
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 0 ]; then
+              echo "SUCCESS=true" >> $GITHUB_ENV
+            else
+              echo "SUCCESS=false" >> $GITHUB_ENV
+            fi
+            exit $EXIT_CODE
 
       - name: Define the JSON file name for the test result
         shell: bash
