@@ -33,7 +33,36 @@ pub struct MithrilSignableBuilderService {
     immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
     cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+    cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
     logger: Logger,
+}
+
+/// SignableBuilders dependencies required by the [MithrilSignableBuilderService].
+pub struct SignableBuilderServiceDependencies {
+    mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+    immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+    cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
+    cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+    cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+}
+
+impl SignableBuilderServiceDependencies {
+    /// Create a new instance of [SignableBuilderServiceDependencies].
+    pub fn new(
+        mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+        immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+        cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
+        cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+        cardano_database_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
+    ) -> Self {
+        Self {
+            mithril_stake_distribution_builder,
+            immutable_signable_builder,
+            cardano_transactions_signable_builder,
+            cardano_stake_distribution_builder,
+            cardano_database_signable_builder,
+        }
+    }
 }
 
 impl MithrilSignableBuilderService {
@@ -41,19 +70,18 @@ impl MithrilSignableBuilderService {
     pub fn new(
         era_checker: Arc<EraChecker>,
         seed_signable_builder: Arc<dyn SignableSeedBuilder>,
-        mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
-        immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
-        cardano_transactions_signable_builder: Arc<dyn SignableBuilder<BlockNumber>>,
-        cardano_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+        dependencies: SignableBuilderServiceDependencies,
         logger: Logger,
     ) -> Self {
         Self {
             era_checker,
             seed_signable_builder,
-            mithril_stake_distribution_builder,
-            immutable_signable_builder,
-            cardano_transactions_signable_builder,
-            cardano_stake_distribution_builder,
+            mithril_stake_distribution_builder: dependencies.mithril_stake_distribution_builder,
+            immutable_signable_builder: dependencies.immutable_signable_builder,
+            cardano_transactions_signable_builder: dependencies
+                .cardano_transactions_signable_builder,
+            cardano_stake_distribution_builder: dependencies.cardano_stake_distribution_builder,
+            cardano_database_signable_builder: dependencies.cardano_database_signable_builder,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -94,11 +122,14 @@ impl MithrilSignableBuilderService {
                 .with_context(|| format!(
                     "Signable builder service can not compute protocol message with block_number: '{block_number}'"
                 ))?,
-            SignedEntityType::CardanoDatabase(_) => {
-                return Err(anyhow::anyhow!(
-                    "Signable builder service can not compute protocol message for Cardano database because it is not yet implemented."
-                ));
-            }
+            SignedEntityType::CardanoDatabase(beacon) =>
+                self
+                .cardano_database_signable_builder
+                .compute_protocol_message(beacon.clone())
+                .await
+                .with_context(|| format!(
+                    "Signable builder service can not compute protocol message for Cardano database with beacon: '{beacon}'"
+                ))?,
         };
 
         Ok(protocol_message)
@@ -185,6 +216,7 @@ mod tests {
             MockSignableBuilderImpl<CardanoDbBeacon>,
         mock_cardano_transactions_signable_builder: MockSignableBuilderImpl<BlockNumber>,
         mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl<Epoch>,
+        mock_cardano_database_signable_builder: MockSignableBuilderImpl<CardanoDbBeacon>,
     }
 
     impl MockDependencyInjector {
@@ -196,17 +228,23 @@ mod tests {
                 mock_cardano_immutable_files_full_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_stake_distribution_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_transactions_signable_builder: MockSignableBuilderImpl::new(),
+                mock_cardano_database_signable_builder: MockSignableBuilderImpl::new(),
             }
         }
 
         fn build_signable_builder_service(self) -> MithrilSignableBuilderService {
-            MithrilSignableBuilderService::new(
-                Arc::new(self.era_checker),
-                Arc::new(self.mock_signable_seed_builder),
+            let dependencies = SignableBuilderServiceDependencies::new(
                 Arc::new(self.mock_mithril_stake_distribution_signable_builder),
                 Arc::new(self.mock_cardano_immutable_files_full_signable_builder),
                 Arc::new(self.mock_cardano_transactions_signable_builder),
                 Arc::new(self.mock_cardano_stake_distribution_signable_builder),
+                Arc::new(self.mock_cardano_database_signable_builder),
+            );
+
+            MithrilSignableBuilderService::new(
+                Arc::new(self.era_checker),
+                Arc::new(self.mock_signable_seed_builder),
+                dependencies,
                 TestLogger::stdout(),
             )
         }
@@ -313,17 +351,21 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn build_cardano_database_signable_when_given_cardano_database_entity_type_return_error(
-        ) {
+        async fn build_cardano_database_signable_when_given_cardano_database_entity_type() {
             let current_era = SupportedEra::Pythagoras;
-            let mock_container = MockDependencyInjector::new(current_era);
+            let mut mock_container = build_mock_container(current_era);
+            mock_container
+                .mock_cardano_database_signable_builder
+                .expect_compute_protocol_message()
+                .once()
+                .return_once(|_| Ok(ProtocolMessage::new()));
             let signable_builder_service = mock_container.build_signable_builder_service();
             let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::default());
 
             signable_builder_service
                 .compute_protocol_message(signed_entity_type)
                 .await
-                .expect_err("Should return error because CardanoDatabase is not implemented yet.");
+                .unwrap();
         }
     }
 
@@ -410,6 +452,24 @@ mod tests {
                 .return_once(|_| Ok(ProtocolMessage::new()));
             let signable_builder_service = mock_container.build_signable_builder_service();
             let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(5));
+
+            signable_builder_service
+                .compute_protocol_message(signed_entity_type)
+                .await
+                .unwrap();
+        }
+
+        #[tokio::test]
+        async fn build_cardano_database_signable_when_given_cardano_database_entity_type() {
+            let current_era = SupportedEra::Thales;
+            let mut mock_container = build_mock_container(current_era);
+            mock_container
+                .mock_cardano_database_signable_builder
+                .expect_compute_protocol_message()
+                .once()
+                .return_once(|_| Ok(ProtocolMessage::new()));
+            let signable_builder_service = mock_container.build_signable_builder_service();
+            let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::default());
 
             signable_builder_service
                 .compute_protocol_message(signed_entity_type)

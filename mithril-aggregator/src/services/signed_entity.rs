@@ -5,7 +5,7 @@
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use chrono::Utc;
-use slog::{info, Logger};
+use slog::{info, warn, Logger};
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 
@@ -24,6 +24,7 @@ use mithril_common::{
 use crate::{
     artifact_builder::ArtifactBuilder,
     database::{record::SignedEntityRecord, repository::SignedEntityStorer},
+    MetricsService,
 };
 
 /// ArtifactBuilder Service trait
@@ -88,13 +89,25 @@ pub struct MithrilSignedEntityService {
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
+    metrics_service: Arc<MetricsService>,
     logger: Logger,
 }
 
-impl MithrilSignedEntityService {
-    /// MithrilSignedEntityService factory
+/// ArtifactsBuilder dependencies required by the [MithrilSignedEntityService].
+pub struct SignedEntityServiceArtifactsDependencies {
+    mithril_stake_distribution_artifact_builder:
+        Arc<dyn ArtifactBuilder<Epoch, MithrilStakeDistribution>>,
+    cardano_immutable_files_full_artifact_builder:
+        Arc<dyn ArtifactBuilder<CardanoDbBeacon, Snapshot>>,
+    cardano_transactions_artifact_builder:
+        Arc<dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>>,
+    cardano_stake_distribution_artifact_builder:
+        Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
+}
+
+impl SignedEntityServiceArtifactsDependencies {
+    /// Create a new instance of [SignedEntityServiceArtifactsDependencies].
     pub fn new(
-        signed_entity_storer: Arc<dyn SignedEntityStorer>,
         mithril_stake_distribution_artifact_builder: Arc<
             dyn ArtifactBuilder<Epoch, MithrilStakeDistribution>,
         >,
@@ -104,19 +117,40 @@ impl MithrilSignedEntityService {
         cardano_transactions_artifact_builder: Arc<
             dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>,
         >,
-        signed_entity_type_lock: Arc<SignedEntityTypeLock>,
         cardano_stake_distribution_artifact_builder: Arc<
             dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>,
         >,
+    ) -> Self {
+        Self {
+            mithril_stake_distribution_artifact_builder,
+            cardano_immutable_files_full_artifact_builder,
+            cardano_transactions_artifact_builder,
+            cardano_stake_distribution_artifact_builder,
+        }
+    }
+}
+
+impl MithrilSignedEntityService {
+    /// MithrilSignedEntityService factory
+    pub fn new(
+        signed_entity_storer: Arc<dyn SignedEntityStorer>,
+        dependencies: SignedEntityServiceArtifactsDependencies,
+        signed_entity_type_lock: Arc<SignedEntityTypeLock>,
+        metrics_service: Arc<MetricsService>,
         logger: Logger,
     ) -> Self {
         Self {
             signed_entity_storer,
-            mithril_stake_distribution_artifact_builder,
-            cardano_immutable_files_full_artifact_builder,
-            cardano_transactions_artifact_builder,
+            mithril_stake_distribution_artifact_builder: dependencies
+                .mithril_stake_distribution_artifact_builder,
+            cardano_immutable_files_full_artifact_builder: dependencies
+                .cardano_immutable_files_full_artifact_builder,
+            cardano_transactions_artifact_builder: dependencies
+                .cardano_transactions_artifact_builder,
+            cardano_stake_distribution_artifact_builder: dependencies
+                .cardano_stake_distribution_artifact_builder,
             signed_entity_type_lock,
-            cardano_stake_distribution_artifact_builder,
+            metrics_service,
             logger: logger.new_with_component_name::<Self>(),
         }
     }
@@ -161,6 +195,9 @@ impl MithrilSignedEntityService {
                     "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'"
                 )
             })?;
+
+        self.increment_artifact_total_produced_metric_since_startup(signed_entity_type);
+
         Ok(())
     }
 
@@ -233,6 +270,32 @@ impl MithrilSignedEntityService {
                 )
             })
     }
+
+    fn increment_artifact_total_produced_metric_since_startup(
+        &self,
+        signed_entity_type: SignedEntityType,
+    ) {
+        let metrics = self.metrics_service.clone();
+        let metric_counter = match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(_) => {
+                metrics.get_artifact_mithril_stake_distribution_total_produced_since_startup()
+            }
+            SignedEntityType::CardanoImmutableFilesFull(_) => {
+                metrics.get_artifact_cardano_db_total_produced_since_startup()
+            }
+            SignedEntityType::CardanoStakeDistribution(_) => {
+                metrics.get_artifact_cardano_stake_distribution_total_produced_since_startup()
+            }
+            SignedEntityType::CardanoTransactions(_, _) => {
+                metrics.get_artifact_cardano_transaction_total_produced_since_startup()
+            }
+            SignedEntityType::CardanoDatabase(_) => {
+                metrics.get_artifact_cardano_database_total_produced_since_startup()
+            }
+        };
+
+        metric_counter.increment();
+    }
 }
 
 #[async_trait]
@@ -276,7 +339,7 @@ impl SignedEntityService for MithrilSignedEntityService {
 
             result.with_context(|| format!(
                 "Signed Entity Service can not store signed entity with type: '{signed_entity_type}'"
-            ))?
+            ))?.inspect_err(|e| warn!(service.logger, "Error while creating artifact"; "error" => ?e))
         }))
     }
 
@@ -400,6 +463,7 @@ mod tests {
         signable_builder,
         test_utils::fake_data,
     };
+    use mithril_metric::CounterValue;
     use serde::{de::DeserializeOwned, Serialize};
     use std::sync::atomic::AtomicBool;
 
@@ -472,13 +536,17 @@ mod tests {
         }
 
         fn build_artifact_builder_service(self) -> MithrilSignedEntityService {
-            MithrilSignedEntityService::new(
-                Arc::new(self.mock_signed_entity_storer),
+            let dependencies = SignedEntityServiceArtifactsDependencies::new(
                 Arc::new(self.mock_mithril_stake_distribution_artifact_builder),
                 Arc::new(self.mock_cardano_immutable_files_full_artifact_builder),
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
-                Arc::new(SignedEntityTypeLock::default()),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
+            );
+            MithrilSignedEntityService::new(
+                Arc::new(self.mock_signed_entity_storer),
+                dependencies,
+                Arc::new(SignedEntityTypeLock::default()),
+                Arc::new(MetricsService::new(TestLogger::stdout()).unwrap()),
                 TestLogger::stdout(),
             )
         }
@@ -524,13 +592,17 @@ mod tests {
                 .withf(move |signed_entity| signed_entity.artifact == signed_entity_artifact)
                 .return_once(|_| Ok(()));
 
-            MithrilSignedEntityService::new(
-                Arc::new(self.mock_signed_entity_storer),
+            let dependencies = SignedEntityServiceArtifactsDependencies::new(
                 Arc::new(self.mock_mithril_stake_distribution_artifact_builder),
                 Arc::new(cardano_immutable_files_full_long_artifact_builder),
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
-                Arc::new(SignedEntityTypeLock::default()),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
+            );
+            MithrilSignedEntityService::new(
+                Arc::new(self.mock_signed_entity_storer),
+                dependencies,
+                Arc::new(SignedEntityTypeLock::default()),
+                Arc::new(MetricsService::new(TestLogger::stdout()).unwrap()),
                 TestLogger::stdout(),
             )
         }
@@ -566,6 +638,29 @@ mod tests {
             self.mock_artifact_processing(artifact, &|mock_injector| {
                 &mut mock_injector.mock_mithril_stake_distribution_artifact_builder
             });
+        }
+    }
+
+    fn get_artifact_total_produced_metric_since_startup_counter_value(
+        metrics_service: Arc<MetricsService>,
+        signed_entity_type: &SignedEntityType,
+    ) -> CounterValue {
+        match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(_) => metrics_service
+                .get_artifact_mithril_stake_distribution_total_produced_since_startup()
+                .get(),
+            SignedEntityType::CardanoImmutableFilesFull(_) => metrics_service
+                .get_artifact_cardano_db_total_produced_since_startup()
+                .get(),
+            SignedEntityType::CardanoStakeDistribution(_) => metrics_service
+                .get_artifact_cardano_stake_distribution_total_produced_since_startup()
+                .get(),
+            SignedEntityType::CardanoTransactions(_, _) => metrics_service
+                .get_artifact_cardano_transaction_total_produced_since_startup()
+                .get(),
+            SignedEntityType::CardanoDatabase(_) => metrics_service
+                .get_artifact_cardano_database_total_produced_since_startup()
+                .get(),
         }
     }
 
@@ -776,10 +871,23 @@ mod tests {
         );
         let error_message_str = error_message.as_str();
 
+        let initial_counter_value = get_artifact_total_produced_metric_since_startup_counter_value(
+            artifact_builder_service.metrics_service.clone(),
+            &signed_entity_type,
+        );
+
         artifact_builder_service
-            .create_artifact_task(signed_entity_type, &certificate)
+            .create_artifact_task(signed_entity_type.clone(), &certificate)
             .await
             .expect(error_message_str);
+
+        assert_eq!(
+            initial_counter_value + 1,
+            get_artifact_total_produced_metric_since_startup_counter_value(
+                artifact_builder_service.metrics_service.clone(),
+                &signed_entity_type,
+            )
+        )
     }
 
     #[tokio::test]
@@ -942,5 +1050,77 @@ mod tests {
             .expect_err("Should return error when signed entity type is already locked");
 
         atomic_stop.swap(true, Ordering::Relaxed);
+    }
+
+    #[tokio::test]
+    async fn metrics_counter_value_is_not_incremented_when_compute_artifact_error() {
+        let signed_entity_service = {
+            let mut mock_container = MockDependencyInjector::new();
+            mock_container
+                .mock_cardano_immutable_files_full_artifact_builder
+                .expect_compute_artifact()
+                .returning(|_, _| Err(anyhow!("Error while computing artifact")));
+
+            mock_container.build_artifact_builder_service()
+        };
+
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(7));
+
+        let initial_counter_value = get_artifact_total_produced_metric_since_startup_counter_value(
+            signed_entity_service.metrics_service.clone(),
+            &signed_entity_type,
+        );
+
+        signed_entity_service
+            .create_artifact(
+                signed_entity_type.clone(),
+                &fake_data::certificate("hash".to_string()),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            initial_counter_value,
+            get_artifact_total_produced_metric_since_startup_counter_value(
+                signed_entity_service.metrics_service.clone(),
+                &signed_entity_type,
+            )
+        );
+    }
+
+    #[tokio::test]
+    async fn metrics_counter_value_is_not_incremented_when_store_signed_entity_error() {
+        let signed_entity_service = {
+            let mut mock_container = MockDependencyInjector::new();
+            mock_container
+                .mock_signed_entity_storer
+                .expect_store_signed_entity()
+                .returning(|_| Err(anyhow!("Error while storing signed entity")));
+
+            mock_container.build_artifact_builder_service()
+        };
+
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(7));
+
+        let initial_counter_value = get_artifact_total_produced_metric_since_startup_counter_value(
+            signed_entity_service.metrics_service.clone(),
+            &signed_entity_type,
+        );
+
+        signed_entity_service
+            .create_artifact(
+                signed_entity_type.clone(),
+                &fake_data::certificate("hash".to_string()),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(
+            initial_counter_value,
+            get_artifact_total_produced_metric_since_startup_counter_value(
+                signed_entity_service.metrics_service.clone(),
+                &signed_entity_type,
+            )
+        );
     }
 }

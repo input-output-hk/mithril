@@ -1,6 +1,8 @@
 use crate::{
+    crypto_helper::{MKTree, MKTreeStoreInMemory},
     digesters::ImmutableFileListingError,
     entities::{CardanoDbBeacon, ImmutableFileNumber},
+    StdError,
 };
 use async_trait::async_trait;
 use std::{
@@ -17,6 +19,8 @@ use thiserror::Error;
 ///     use async_trait::async_trait;
 ///     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 ///     use mithril_common::entities::CardanoDbBeacon;
+///     use mithril_common::crypto_helper::{MKTree, MKTreeStoreInMemory};
+///     use anyhow::anyhow;
 ///     use mockall::mock;
 ///     use std::path::Path;
 ///
@@ -30,6 +34,12 @@ use thiserror::Error;
 ///               dirpath: &Path,
 ///               beacon: &CardanoDbBeacon,
 ///             ) -> Result<String, ImmutableDigesterError>;
+///
+///            async fn compute_merkle_tree(
+///               &self,
+///              dirpath: &Path,
+///              beacon: &CardanoDbBeacon,
+///           ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError>;
 ///         }
 ///     }
 ///
@@ -43,6 +53,9 @@ use thiserror::Error;
 ///                 db_dir: PathBuff::new(),
 ///             })
 ///         });
+///         mock.expect_compute_merkle_tree().return_once(|_, _| {
+///            Err(ImmutableDigesterError::MerkleTreeComputationError(anyhow!("Error")))
+///         });
 ///     }
 /// }
 /// ```
@@ -54,6 +67,13 @@ pub trait ImmutableDigester: Sync + Send {
         dirpath: &Path,
         beacon: &CardanoDbBeacon,
     ) -> Result<String, ImmutableDigesterError>;
+
+    /// Compute the digests merkle tree
+    async fn compute_merkle_tree(
+        &self,
+        dirpath: &Path,
+        beacon: &CardanoDbBeacon,
+    ) -> Result<MKTree<MKTreeStoreInMemory>, ImmutableDigesterError>;
 }
 
 /// [ImmutableDigester] related Errors.
@@ -78,4 +98,8 @@ pub enum ImmutableDigesterError {
     /// Error raised when the digest computation failed.
     #[error("Digest computation failed")]
     DigestComputationError(#[from] io::Error),
+
+    /// Error raised when the Merkle tree computation failed.
+    #[error("Merkle tree computation failed")]
+    MerkleTreeComputationError(StdError),
 }

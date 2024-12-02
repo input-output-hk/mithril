@@ -46,6 +46,10 @@ pub enum ProtocolMessagePartKey {
     /// The ProtocolMessage part key associated to the Cardano stake distribution Merkle root
     #[serde(rename = "cardano_stake_distribution_merkle_root")]
     CardanoStakeDistributionMerkleRoot,
+
+    /// The ProtocolMessage part key associated to the Cardano database Merkle root
+    #[serde(rename = "cardano_database_merkle_root")]
+    CardanoDatabaseMerkleRoot,
 }
 
 impl Display for ProtocolMessagePartKey {
@@ -61,6 +65,7 @@ impl Display for ProtocolMessagePartKey {
             Self::CardanoStakeDistributionMerkleRoot => {
                 write!(f, "cardano_stake_distribution_merkle_root")
             }
+            Self::CardanoDatabaseMerkleRoot => write!(f, "cardano_database_merkle_root"),
         }
     }
 }
@@ -208,6 +213,20 @@ mod tests {
     }
 
     #[test]
+    fn test_protocol_message_compute_hash_include_cardano_database_merkle_root() {
+        let protocol_message = build_protocol_message_reference();
+        let hash_expected = protocol_message.compute_hash();
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+            "cardano-database-merkle-root-456".to_string(),
+        );
+
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
     fn test_protocol_message_compute_hash_include_next_protocol_parameters() {
         let protocol_message = build_protocol_message_reference();
         let hash_expected = protocol_message.compute_hash();
@@ -258,6 +277,10 @@ mod tests {
         protocol_message.set_message_part(
             ProtocolMessagePartKey::CardanoStakeDistributionMerkleRoot,
             "cardano-stake-distribution-merkle-root-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+            "cardano-database-merkle-root-123".to_string(),
         );
 
         protocol_message

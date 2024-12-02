@@ -28,9 +28,10 @@ use mithril_common::{
     },
     era::{adapters::EraReaderDummyAdapter, EraChecker, EraMarker, EraReader, SupportedEra},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
-        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder,
+        CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
+        CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
+        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+        SignableBuilderServiceDependencies,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdError, TickerService,
@@ -157,7 +158,7 @@ impl StateMachineTester {
             },
             ticker_service.clone(),
         ));
-        let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
+        let digester = Arc::new(DumbImmutableDigester::default().with_digest("DIGEST"));
         let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
             sqlite_connection.clone(),
             config.store_retention_limit.map(|limit| limit as u64),
@@ -211,6 +212,11 @@ impl StateMachineTester {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
+        let cardano_database_signable_builder = Arc::new(CardanoDatabaseSignableBuilder::new(
+            digester.clone(),
+            Path::new(""),
+            logger.clone(),
+        ));
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             stake_store.clone(),
             protocol_initializer_store.clone(),
@@ -225,13 +231,17 @@ impl StateMachineTester {
             epoch_service.clone(),
             protocol_initializer_store.clone(),
         ));
-        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
-            era_checker.clone(),
-            signable_seed_builder_service,
+        let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_snapshot_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+            cardano_database_signable_builder,
+        );
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker.clone(),
+            signable_seed_builder_service,
+            signable_builders_dependencies,
             logger.clone(),
         ));
         let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());

@@ -2,7 +2,7 @@
 
 pub mod cache;
 mod cardano_immutable_digester;
-mod dumb_immutable_observer;
+mod dumb_immutable_digester;
 mod immutable_digester;
 mod immutable_file;
 mod immutable_file_observer;
@@ -15,7 +15,7 @@ pub use immutable_file_observer::{
     ImmutableFileSystemObserver,
 };
 
-pub use dumb_immutable_observer::DumbImmutableDigester;
+pub use dumb_immutable_digester::DumbImmutableDigester;
 
 cfg_test_tools! {
     mod dummy_immutable_db_builder;

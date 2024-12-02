@@ -27,6 +27,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE** Cardano database incremental certification:
 
   - Implement the new signed entity type `CardanoDatabase`.
+  - Implement the signable builder for the signed entity type `CardanoDatabase`.
 
 - Crates versions:
 

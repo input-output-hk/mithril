@@ -11,9 +11,11 @@ pub use mithril_stake_distribution::*;
 pub use signable_builder_service::*;
 
 cfg_fs! {
+    mod cardano_database;
     mod cardano_immutable_full_signable_builder;
     mod cardano_transactions;
 
+    pub use cardano_database::*;
     pub use cardano_immutable_full_signable_builder::*;
     pub use cardano_transactions::*;
 }

@@ -327,6 +327,9 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::signable_builder::{
+        CardanoDatabaseSignableBuilder, SignableBuilderServiceDependencies,
+    };
     use mockall::mock;
     use mockall::predicate::eq;
     use std::collections::BTreeSet;
@@ -420,7 +423,7 @@ mod tests {
         ));
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
-        let digester = Arc::new(DumbImmutableDigester::new(DIGESTER_RESULT, true));
+        let digester = Arc::new(DumbImmutableDigester::default().with_digest(DIGESTER_RESULT));
         let cardano_immutable_signable_builder =
             Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
                 digester.clone(),
@@ -446,6 +449,11 @@ mod tests {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(stake_store.clone()),
         );
+        let cardano_database_signable_builder = Arc::new(CardanoDatabaseSignableBuilder::new(
+            digester.clone(),
+            Path::new(""),
+            logger.clone(),
+        ));
         let protocol_initializer_store = Arc::new(ProtocolInitializerRepository::new(
             sqlite_connection.clone(),
             None,
@@ -464,13 +472,17 @@ mod tests {
             epoch_service.clone(),
             protocol_initializer_store.clone(),
         ));
-        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
-            era_checker.clone(),
-            signable_seed_builder_service,
+        let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_signable_builder,
             cardano_immutable_signable_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+            cardano_database_signable_builder,
+        );
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker.clone(),
+            signable_seed_builder_service,
+            signable_builders_dependencies,
             logger.clone(),
         ));
         let metrics_service = Arc::new(MetricsService::new(logger.clone()).unwrap());

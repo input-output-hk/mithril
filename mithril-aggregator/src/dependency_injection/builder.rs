@@ -35,9 +35,10 @@ use mithril_common::{
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
     },
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, CardanoStakeDistributionSignableBuilder,
-        CardanoTransactionsSignableBuilder, MithrilSignableBuilderService,
-        MithrilStakeDistributionSignableBuilder, SignableBuilderService, SignableSeedBuilder,
+        CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
+        CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
+        MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
+        SignableBuilderService, SignableBuilderServiceDependencies, SignableSeedBuilder,
         TransactionsImporter,
     },
     signed_entity_type_lock::SignedEntityTypeLock,
@@ -68,7 +69,8 @@ use crate::{
         CardanoTransactionsImporter, CertifierService, EpochServiceDependencies, MessageService,
         MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, StakeDistributionService, UpkeepService, UsageReporter,
+        SignedEntityService, SignedEntityServiceArtifactsDependencies, StakeDistributionService,
+        UpkeepService, UsageReporter,
     },
     store::CertificatePendingStorer,
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
@@ -1128,14 +1130,23 @@ impl DependenciesBuilder {
         let cardano_stake_distribution_builder = Arc::new(
             CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
         );
+        let cardano_database_signable_builder = Arc::new(CardanoDatabaseSignableBuilder::new(
+            self.get_immutable_digester().await?,
+            &self.configuration.db_directory,
+            self.root_logger(),
+        ));
         let era_checker = self.get_era_checker().await?;
-        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
-            era_checker,
-            seed_signable_builder,
+        let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
             cardano_transactions_builder,
             cardano_stake_distribution_builder,
+            cardano_database_signable_builder,
+        );
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            era_checker,
+            seed_signable_builder,
+            signable_builders_dependencies,
             self.root_logger(),
         ));
 
@@ -1197,13 +1208,17 @@ impl DependenciesBuilder {
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
-        let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
-            signed_entity_storer,
+        let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
-            self.get_signed_entity_lock().await?,
             cardano_stake_distribution_artifact_builder,
+        );
+        let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
+            signed_entity_storer,
+            dependencies,
+            self.get_signed_entity_lock().await?,
+            self.get_metrics_service().await?,
             logger,
         ));
 
