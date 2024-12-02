@@ -12,7 +12,11 @@ pub struct DummyImmutablesDbBuilder {
     immutables_to_write: Vec<ImmutableFileNumber>,
     non_immutables_to_write: Vec<String>,
     append_uncompleted_trio: bool,
-    file_size: Option<u64>,
+    immutable_file_size: Option<u64>,
+    ledger_files_to_write: Vec<String>,
+    ledger_file_size: Option<u64>,
+    volatile_files_to_write: Vec<String>,
+    volatile_file_size: Option<u64>,
 }
 
 /// A dummy cardano immutable db.
@@ -51,7 +55,11 @@ impl DummyImmutablesDbBuilder {
             immutables_to_write: vec![],
             non_immutables_to_write: vec![],
             append_uncompleted_trio: false,
-            file_size: None,
+            immutable_file_size: None,
+            ledger_files_to_write: vec![],
+            ledger_file_size: None,
+            volatile_files_to_write: vec![],
+            volatile_file_size: None,
         }
     }
 
@@ -68,6 +76,30 @@ impl DummyImmutablesDbBuilder {
         self
     }
 
+    /// Set ledger files to write to the db in the 'ledger' subdirectory.
+    pub fn with_ledger_files(&mut self, files: Vec<String>) -> &mut Self {
+        self.ledger_files_to_write = files;
+        self
+    }
+
+    /// Set the size of all ledger files written by [build][Self::build] to the given `file_size` in bytes.
+    pub fn set_ledger_file_size(&mut self, file_size: u64) -> &mut Self {
+        self.ledger_file_size = Some(file_size);
+        self
+    }
+
+    /// Set volatile files to write to the db in the 'volatile' subdirectory.
+    pub fn with_volatile_files(&mut self, files: Vec<String>) -> &mut Self {
+        self.volatile_files_to_write = files;
+        self
+    }
+
+    /// Set the size of all volatile files written by [build][Self::build] to the given `file_size` in bytes.
+    pub fn set_volatile_file_size(&mut self, file_size: u64) -> &mut Self {
+        self.volatile_file_size = Some(file_size);
+        self
+    }
+
     /// Makes [build][Self::build] add another trio of immutables file, that won't be included
     /// in its returned vec, to simulate the last 3 'uncompleted / wip' files that can be found in
     /// a cardano immutable db.
@@ -76,11 +108,11 @@ impl DummyImmutablesDbBuilder {
         self
     }
 
-    /// Set the size of all files written by [build][Self::build] to the given `file_size` in bytes.
+    /// Set the size of all immutable files written by [build][Self::build] to the given `file_size` in bytes.
     ///
     /// Note: by default the size of the produced files is less than a 1kb.
-    pub fn set_file_size(&mut self, file_size: u64) -> &mut Self {
-        self.file_size = Some(file_size);
+    pub fn set_immutable_file_size(&mut self, file_size: u64) -> &mut Self {
+        self.immutable_file_size = Some(file_size);
         self
     }
 
@@ -92,7 +124,7 @@ impl DummyImmutablesDbBuilder {
 
         if self.append_uncompleted_trio {
             write_immutable_trio(
-                self.file_size,
+                self.immutable_file_size,
                 &self.dir,
                 match immutable_numbers.last() {
                     None => 0,
@@ -102,14 +134,34 @@ impl DummyImmutablesDbBuilder {
         }
 
         for non_immutable in &self.non_immutables_to_write {
-            non_immutables_files.push(write_dummy_file(self.file_size, &self.dir, non_immutable));
+            non_immutables_files.push(write_dummy_file(
+                self.immutable_file_size,
+                &self.dir,
+                non_immutable,
+            ));
+        }
+
+        if !self.ledger_files_to_write.is_empty() {
+            let ledger_dir = self.dir.parent().unwrap().join("ledger");
+            std::fs::create_dir_all(&ledger_dir).unwrap();
+            for filename in &self.ledger_files_to_write {
+                write_dummy_file(self.ledger_file_size, &ledger_dir, filename);
+            }
+        };
+
+        if !self.volatile_files_to_write.is_empty() {
+            let volatile_dir = self.dir.parent().unwrap().join("volatile");
+            std::fs::create_dir_all(&volatile_dir).unwrap();
+            for filename in &self.volatile_files_to_write {
+                write_dummy_file(self.volatile_file_size, &volatile_dir, filename);
+            }
         }
 
         DummyImmutableDb {
             dir: self.dir.clone(),
             immutables_files: immutable_numbers
                 .into_iter()
-                .flat_map(|ifn| write_immutable_trio(self.file_size, &self.dir, ifn))
+                .flat_map(|ifn| write_immutable_trio(self.immutable_file_size, &self.dir, ifn))
                 .collect::<Vec<_>>(),
             non_immutables_files,
         }

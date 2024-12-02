@@ -617,7 +617,7 @@ mod tests {
         let immutable_db = db_builder("hash_computation_is_quicker_with_a_full_cache")
             .with_immutables(&(1..=50).collect::<Vec<ImmutableFileNumber>>())
             .append_immutable_trio()
-            .set_file_size(65536)
+            .set_immutable_file_size(65536)
             .build();
         let cache = MemoryImmutableFileDigestCacheProvider::default();
         let logger = TestLogger::stdout();
