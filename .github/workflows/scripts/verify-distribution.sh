@@ -64,7 +64,7 @@ gpg:               imported: 1
 \`\`\`
 * **Step 7**: Then verify the GPG signature of the checksum file:
 \`\`\`
-gpg --verify ./public-key.gpg ./CHECKSUM.asc
+gpg --verify ./CHECKSUM.asc
 \`\`\`
 You must see something like:
 \`\`\`
