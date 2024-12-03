@@ -21,6 +21,8 @@ clean:
 upgrade: clean install
 	npm install \
 	@docusaurus/core@latest \
+	@docusaurus/plugin-client-redirects@latest \
+	@docusaurus/plugin-sitemap@latest \
 	@docusaurus/preset-classic@latest \
 	@docusaurus/theme-mermaid@latest \
 	clsx@latest \
