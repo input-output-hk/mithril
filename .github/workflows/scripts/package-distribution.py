@@ -30,8 +30,9 @@ def build_archive(input_dir, destination_dir, archive_basename):
             destination_dir, f"{archive_basename}.tar.gz")
         with tarfile.open(archive_name, "x:gz") as archive:
             for filename in input_files:
-                archive.add(os.path.join(input_dir, filename),
-                            arcname=filename)
+                filepath = os.path.join(input_dir, filename)
+                os.chmod(filepath, 0o755)
+                archive.add(filepath, arcname=filename)
 
     print(f"successfully packed mithril distribution into: {archive_name}")
     return archive_name
