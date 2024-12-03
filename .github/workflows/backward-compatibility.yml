@@ -90,7 +90,7 @@ jobs:
       fail-fast: false
       matrix:
         tag: ${{ fromJSON(needs.prepare-binaries.outputs.tags) }}
-        node: [mithril-aggregator, mithril-client, mithril-signer]
+        node: [mithril-client, mithril-signer]
         cardano_node_version: ${{ fromJSON(needs.prepare-env-variables.outputs.cardano_node_version) }}
         run_id: ["#1"]
 
@@ -175,7 +175,7 @@ jobs:
                 --arg SIGNER "$SIGNER_TAG" \
                 --arg CLIENT "$CLIENT_TAG" \
                 --argjson SUCCESS "${{ env.SUCCESS }}" \
-                '{tag: $TAG, node: $NODE, mithril_signer: $SIGNER, mithril_aggregator: $AGGREGATOR, mithril_client: $CLIENT, cardano_node_version: $CARDANO_NODE, success: $SUCCESS}' \
+                '{tag: $TAG, node: $NODE, mithril_signer: $SIGNER, mithril_client: $CLIENT, cardano_node_version: $CARDANO_NODE, success: $SUCCESS}' \
                 > ./${{ env.RESULT_FILE_NAME }}.json
 
       - name: Upload test result JSON
@@ -232,8 +232,8 @@ jobs:
           echo "**Cardano nodes**: ${{ needs.prepare-env-variables.outputs.cardano_node_version }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "| Compatibility | mithril-signer | mithril-aggregator | mithril-client |" >> $GITHUB_STEP_SUMMARY
-          echo "| --- | :---: | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
+          echo "| Compatibility | mithril-signer | mithril-client |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | :---: | :---: |" >> $GITHUB_STEP_SUMMARY
 
           # Transform summary.json into Markdown table rows
           jq -r --arg CHECK_MARK "$CHECK_MARK" --arg CROSS_MARK "$CROSS_MARK" \
@@ -243,9 +243,8 @@ jobs:
             {
               tag: .[0].tag, 
               signer: (map(select(.node == "mithril-signer") | if .success then $CHECK_MARK else $CROSS_MARK end) | join("")),
-              aggregator: (map(select(.node == "mithril-aggregator") | if .success then $CHECK_MARK else $CROSS_MARK end) | join("")),
               client: (map(select(.node == "mithril-client") | if .success then $CHECK_MARK else $CROSS_MARK end) | join(""))
             } |
-            "| `\(.tag)` | \(.signer) | \(.aggregator) | \(.client) |"' "./test-results/summary.json" >> $GITHUB_STEP_SUMMARY
+            "| `\(.tag)` | \(.signer) | \(.client) |"' "./test-results/summary.json" >> $GITHUB_STEP_SUMMARY
 
           cat "$GITHUB_STEP_SUMMARY"
