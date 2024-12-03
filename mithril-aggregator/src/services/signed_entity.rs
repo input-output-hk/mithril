@@ -11,9 +11,9 @@ use tokio::task::JoinHandle;
 
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoDbBeacon, CardanoStakeDistribution, CardanoTransactionsSnapshot,
-        Certificate, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType,
-        SignedEntityTypeDiscriminants, Snapshot,
+        BlockNumber, CardanoDatabase, CardanoDbBeacon, CardanoStakeDistribution,
+        CardanoTransactionsSnapshot, Certificate, Epoch, MithrilStakeDistribution, SignedEntity,
+        SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
     },
     logging::LoggerExtensions,
     signable_builder::Artifact,
@@ -89,6 +89,7 @@ pub struct MithrilSignedEntityService {
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
+    cardano_database_artifact_builder: Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabase>>,
     metrics_service: Arc<MetricsService>,
     logger: Logger,
 }
@@ -103,6 +104,7 @@ pub struct SignedEntityServiceArtifactsDependencies {
         Arc<dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>>,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
+    cardano_database_artifact_builder: Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabase>>,
 }
 
 impl SignedEntityServiceArtifactsDependencies {
@@ -120,12 +122,16 @@ impl SignedEntityServiceArtifactsDependencies {
         cardano_stake_distribution_artifact_builder: Arc<
             dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>,
         >,
+        cardano_database_artifact_builder: Arc<
+            dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabase>,
+        >,
     ) -> Self {
         Self {
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
             cardano_stake_distribution_artifact_builder,
+            cardano_database_artifact_builder,
         }
     }
 }
@@ -149,6 +155,7 @@ impl MithrilSignedEntityService {
                 .cardano_transactions_artifact_builder,
             cardano_stake_distribution_artifact_builder: dependencies
                 .cardano_stake_distribution_artifact_builder,
+            cardano_database_artifact_builder: dependencies.cardano_database_artifact_builder,
             signed_entity_type_lock,
             metrics_service,
             logger: logger.new_with_component_name::<Self>(),
@@ -247,11 +254,16 @@ impl MithrilSignedEntityService {
                         )
                     })?,
             )),
-            SignedEntityType::CardanoDatabase(_) => {
-                Err(anyhow::anyhow!(
-                    "Signable builder service can not compute artifact for Cardano database because it is not yet implemented."
-                ))
-            }
+            SignedEntityType::CardanoDatabase(beacon) => Ok(Arc::new(
+                self.cardano_database_artifact_builder
+                    .compute_artifact(beacon, certificate)
+                    .await
+                    .with_context(|| {
+                        format!(
+                            "Signed Entity Service can not compute artifact for entity type: '{signed_entity_type}'"
+                        )
+                    })?
+            )),
         }
     }
 
@@ -510,6 +522,8 @@ mod tests {
             MockArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>,
         mock_cardano_stake_distribution_artifact_builder:
             MockArtifactBuilder<Epoch, CardanoStakeDistribution>,
+        mock_cardano_database_artifact_builder:
+            MockArtifactBuilder<CardanoDbBeacon, CardanoDatabase>,
     }
 
     impl MockDependencyInjector {
@@ -532,6 +546,10 @@ mod tests {
                     Epoch,
                     CardanoStakeDistribution,
                 >::new(),
+                mock_cardano_database_artifact_builder: MockArtifactBuilder::<
+                    CardanoDbBeacon,
+                    CardanoDatabase,
+                >::new(),
             }
         }
 
@@ -541,6 +559,7 @@ mod tests {
                 Arc::new(self.mock_cardano_immutable_files_full_artifact_builder),
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
+                Arc::new(self.mock_cardano_database_artifact_builder),
             );
             MithrilSignedEntityService::new(
                 Arc::new(self.mock_signed_entity_storer),
@@ -597,6 +616,7 @@ mod tests {
                 Arc::new(cardano_immutable_files_full_long_artifact_builder),
                 Arc::new(self.mock_cardano_transactions_artifact_builder),
                 Arc::new(self.mock_cardano_stake_distribution_artifact_builder),
+                Arc::new(self.mock_cardano_database_artifact_builder),
             );
             MithrilSignedEntityService::new(
                 Arc::new(self.mock_signed_entity_storer),
@@ -822,17 +842,48 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn build_cardano_database_artifact_when_given_cardano_database_entity_type_return_error()
-    {
-        let mock_container = MockDependencyInjector::new();
+    async fn build_cardano_database_artifact_when_given_cardano_database_entity_type() {
+        let mut mock_container = MockDependencyInjector::new();
+
+        let cardano_database_expected = fake_data::cardano_database_entities(1)
+            .first()
+            .unwrap()
+            .to_owned();
+
+        mock_container
+            .mock_cardano_database_artifact_builder
+            .expect_compute_artifact()
+            .times(1)
+            .returning(|_, _| {
+                Ok(fake_data::cardano_database_entities(1)
+                    .first()
+                    .unwrap()
+                    .to_owned())
+            });
+
         let artifact_builder_service = mock_container.build_artifact_builder_service();
+
         let certificate = fake_data::certificate("hash".to_string());
         let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::default());
-
-        artifact_builder_service
+        let artifact = artifact_builder_service
             .compute_artifact(signed_entity_type.clone(), &certificate)
             .await
-            .expect_err("Should return error because CardanoDatabase is not implemented yet.");
+            .unwrap();
+
+        assert_expected(&cardano_database_expected, &artifact);
+    }
+
+    #[tokio::test]
+    async fn should_store_the_artifact_when_creating_artifact_for_a_cardano_database() {
+        generic_test_that_the_artifact_is_stored(
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::default()),
+            fake_data::cardano_database_entities(1)
+                .first()
+                .unwrap()
+                .to_owned(),
+            &|mock_injector| &mut mock_injector.mock_cardano_database_artifact_builder,
+        )
+        .await;
     }
 
     async fn generic_test_that_the_artifact_is_stored<
