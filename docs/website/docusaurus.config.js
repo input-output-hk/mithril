@@ -236,7 +236,7 @@ const config = {
               },
               {
                 label: "Stack Exchange",
-                href: "https://cardano.stackexchange.com/questions/tagged/mithril",
+                href: "https://cardano.stackexchange.com/search?q=mithril",
               },
             ],
           },
