@@ -6,6 +6,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+const IMMUTABLE_DIR: &str = "immutable";
+const LEDGER_DIR: &str = "ledger";
+const VOLATILE_DIR: &str = "volatile";
+
 /// A [DummyImmutableDb] builder.
 pub struct DummyImmutablesDbBuilder {
     dir: PathBuf,
@@ -51,7 +55,7 @@ impl DummyImmutablesDbBuilder {
     /// system temp directory, if it exists already it will be cleaned.
     pub fn new(dir_name: &str) -> Self {
         Self {
-            dir: Self::get_test_dir(dir_name),
+            dir: get_test_dir(dir_name),
             immutables_to_write: vec![],
             non_immutables_to_write: vec![],
             append_uncompleted_trio: false,
@@ -130,7 +134,7 @@ impl DummyImmutablesDbBuilder {
         if self.append_uncompleted_trio {
             write_immutable_trio(
                 self.immutable_file_size,
-                &self.dir,
+                &self.dir.join(IMMUTABLE_DIR),
                 match immutable_numbers.last() {
                     None => 0,
                     Some(last) => last + 1,
@@ -141,39 +145,37 @@ impl DummyImmutablesDbBuilder {
         for non_immutable in &self.non_immutables_to_write {
             non_immutables_files.push(write_dummy_file(
                 self.immutable_file_size,
-                &self.dir,
+                &self.dir.join(IMMUTABLE_DIR),
                 non_immutable,
             ));
         }
 
-        if !self.ledger_files_to_write.is_empty() {
-            let ledger_dir = self.dir.parent().unwrap().join("ledger");
-            std::fs::create_dir_all(&ledger_dir).unwrap();
-            for filename in &self.ledger_files_to_write {
-                write_dummy_file(self.ledger_file_size, &ledger_dir, filename);
-            }
-        };
+        for filename in &self.ledger_files_to_write {
+            write_dummy_file(self.ledger_file_size, &self.dir.join(LEDGER_DIR), filename);
+        }
 
-        if !self.volatile_files_to_write.is_empty() {
-            let volatile_dir = self.dir.parent().unwrap().join("volatile");
-            std::fs::create_dir_all(&volatile_dir).unwrap();
-            for filename in &self.volatile_files_to_write {
-                write_dummy_file(self.volatile_file_size, &volatile_dir, filename);
-            }
+        for filename in &self.volatile_files_to_write {
+            write_dummy_file(
+                self.volatile_file_size,
+                &self.dir.join(VOLATILE_DIR),
+                filename,
+            );
         }
 
         DummyImmutableDb {
-            dir: self.dir.clone(),
+            dir: self.dir.join(IMMUTABLE_DIR),
             immutables_files: immutable_numbers
                 .into_iter()
-                .flat_map(|ifn| write_immutable_trio(self.immutable_file_size, &self.dir, ifn))
+                .flat_map(|ifn| {
+                    write_immutable_trio(
+                        self.immutable_file_size,
+                        &self.dir.join(IMMUTABLE_DIR),
+                        ifn,
+                    )
+                })
                 .collect::<Vec<_>>(),
             non_immutables_files,
         }
-    }
-
-    fn get_test_dir(subdir_name: &str) -> PathBuf {
-        TempDir::create(subdir_name, "immutable")
     }
 }
 
@@ -212,4 +214,13 @@ fn write_dummy_file(optional_size: Option<u64>, dir: &Path, filename: &str) -> P
     }
 
     file
+}
+
+fn get_test_dir(subdir_name: &str) -> PathBuf {
+    let db_dir = TempDir::create("test_cardano_db", subdir_name);
+    for subdir_name in [LEDGER_DIR, IMMUTABLE_DIR, VOLATILE_DIR] {
+        std::fs::create_dir(db_dir.join(subdir_name)).unwrap();
+    }
+
+    db_dir
 }
