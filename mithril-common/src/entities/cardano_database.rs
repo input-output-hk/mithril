@@ -52,9 +52,10 @@ impl CardanoDatabaseSnapshot {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "type")]
 pub enum ArtifactLocation {
-    Aggregator(String),
+    Aggregator { uri: String },
+    CloudStorage { uri: String },
 }
 
 /// Locations of the Cardano database related files.
