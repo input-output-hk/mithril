@@ -68,41 +68,43 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabase> for CardanoDatabaseArtifa
     }
 }
 
-// Return the sum of the files size contained in the subdirectories 'immutable', 'ledger' and 'volatile'.
+/// Return the sum of the files size contained in the subdirectories 'immutable', 'ledger' and 'volatile'.
 fn compute_uncompressed_database_size(db_directory: &Path) -> StdResult<u64> {
     let subdirs = ["immutable", "ledger", "volatile"];
 
-    let mut total_db_size_uncompressed = 0;
-    for subdir in subdirs {
-        let dir_path = db_directory.join(subdir);
-
-        total_db_size_uncompressed += get_directory_size(&dir_path)
-            .with_context(|| format!("Failed to read metadata for directory: {:?}", dir_path))?;
-    }
-
-    Ok(total_db_size_uncompressed)
+    subdirs
+        .iter()
+        .map(|subdir| {
+            let dir_path = db_directory.join(subdir);
+            compute_fs_entry_size(&dir_path)
+                .with_context(|| format!("Failed to read metadata for directory: {:?}", dir_path))
+        })
+        .sum()
 }
 
-fn get_directory_size(path: &Path) -> StdResult<u64> {
-    let entries =
-        std::fs::read_dir(path).with_context(|| format!("Failed to read directory: {:?}", path))?;
+fn compute_fs_entry_size(path: &Path) -> StdResult<u64> {
+    if path.is_file() {
+        let metadata = std::fs::metadata(path)
+            .with_context(|| format!("Failed to read metadata for file: {:?}", path))?;
 
-    let mut directory_size = 0;
-    for entry in entries {
-        let path = entry
-            .with_context(|| format!("Failed to read directory entry in {:?}", path))?
-            .path();
-
-        if path.is_file() {
-            let metadata = std::fs::metadata(&path)
-                .with_context(|| format!("Failed to read metadata for file: {:?}", path))?;
-            directory_size += metadata.len();
-        } else if path.is_dir() {
-            directory_size += get_directory_size(&path)?;
-        }
+        return Ok(metadata.len());
     }
 
-    Ok(directory_size)
+    if path.is_dir() {
+        let entries = std::fs::read_dir(path)
+            .with_context(|| format!("Failed to read directory: {:?}", path))?;
+        let mut directory_size = 0;
+        for entry in entries {
+            let path = entry
+                .with_context(|| format!("Failed to read directory entry in {:?}", path))?
+                .path();
+            directory_size += compute_fs_entry_size(&path)?;
+        }
+
+        return Ok(directory_size);
+    }
+
+    Ok(0)
 }
 
 #[cfg(test)]
@@ -125,16 +127,20 @@ mod tests {
     fn should_compute_the_size_of_the_uncompressed_database_only_immutable_ledger_and_volatile() {
         let test_dir = get_test_directory("should_compute_the_size_of_the_uncompressed_database_only_immutable_ledger_and_volatile");
 
+        let immutable_file_size = 777;
+        let ledger_file_size = 6666;
+        let volatile_file_size = 99;
         DummyImmutablesDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
             .with_immutables(&[1, 2])
-            .set_immutable_file_size(1000)
+            .set_immutable_file_size(immutable_file_size)
             .with_ledger_files(vec!["blocks-0.dat".to_string()])
-            .set_ledger_file_size(5000)
+            .set_ledger_file_size(ledger_file_size)
             .with_volatile_files(vec!["437".to_string(), "537".to_string()])
-            .set_volatile_file_size(2000)
+            .set_volatile_file_size(volatile_file_size)
             .build();
         // Number of immutable files = 2 × 3 ('chunk', 'primary' and 'secondary').
-        let expected_total_size = 2 * 3 * 1000 + 5000 + 2000 * 2;
+        let expected_total_size =
+            (2 * 3 * immutable_file_size) + ledger_file_size + (2 * volatile_file_size);
 
         std::fs::write(test_dir.join("non_computed_file.txt"), "file inside root").unwrap();
         let non_computed_dir = test_dir.join("non_computed_dir");
@@ -155,15 +161,15 @@ mod tests {
         let test_dir = get_test_directory("should_compute_valid_artifact");
 
         DummyImmutablesDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
-            .with_immutables(&[1, 2])
-            .set_immutable_file_size(1000)
+            .with_immutables(&[1])
+            .set_immutable_file_size(100)
             .with_ledger_files(vec!["blocks-0.dat".to_string()])
-            .set_ledger_file_size(5000)
-            .with_volatile_files(vec!["437".to_string(), "537".to_string()])
-            .set_volatile_file_size(2000)
+            .set_ledger_file_size(100)
+            .with_volatile_files(vec!["437".to_string()])
+            .set_volatile_file_size(100)
             .build();
-        // Number of immutable files = 2 × 3 ('chunk', 'primary' and 'secondary').
-        let expected_total_size = 2 * 3 * 1000 + 5000 + 2000 * 2;
+        // Number of immutable files = 1 × 3 ('chunk', 'primary' and 'secondary').
+        let expected_total_size = (3 * 100) + 100 + 100;
 
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             test_dir,
