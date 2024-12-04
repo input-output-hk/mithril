@@ -303,6 +303,7 @@ mod tests {
 
     #[cfg(feature = "unstable")]
     mod cache {
+        use chrono::TimeDelta;
         use mockall::predicate::eq;
 
         use crate::aggregator_client::MockAggregatorHTTPClient;
@@ -340,7 +341,7 @@ mod tests {
             let genesis_certificate = chain.last().unwrap();
             assert!(genesis_certificate.is_genesis());
 
-            let cache = Arc::new(MemoryCertificateVerifierCache::default());
+            let cache = Arc::new(MemoryCertificateVerifierCache::new(TimeDelta::hours(1)));
             let verifier = build_verifier_with_cache(
                 |_mock| {},
                 verifier.to_verification_key(),
@@ -376,7 +377,7 @@ mod tests {
             let genesis_certificate = chain.last().unwrap();
             assert!(!certificate.is_genesis());
 
-            let cache = Arc::new(MemoryCertificateVerifierCache::default());
+            let cache = Arc::new(MemoryCertificateVerifierCache::new(TimeDelta::hours(1)));
             let verifier = build_verifier_with_cache(
                 |mock| mock.expect_certificate_chain(vec![genesis_certificate.clone()]),
                 verifier.to_verification_key(),
@@ -408,9 +409,10 @@ mod tests {
                 .build();
             let first_certificate = chain.first().unwrap();
 
-            let cache = Arc::new(MemoryCertificateVerifierCache::from_iter(&vec![
-                first_certificate.clone(),
-            ]));
+            let cache = Arc::new(
+                MemoryCertificateVerifierCache::new(TimeDelta::hours(3))
+                    .with_items_from_chain(&vec![first_certificate.clone()]),
+            );
             let certificate_client = CertificateClientTestBuilder::default()
                 .config_aggregator_client_mock(|mock| {
                     // Expect to first certificate to be fetched from the network
@@ -469,7 +471,8 @@ mod tests {
             let last_certificate_hash = chain.first().unwrap().hash.clone();
 
             // All certificates are cached except the last and the genesis (we always fetch the both)
-            let cache = MemoryCertificateVerifierCache::from_iter(&chain[1..4]);
+            let cache = MemoryCertificateVerifierCache::new(TimeDelta::hours(3))
+                .with_items_from_chain(&chain[1..4]);
 
             let certificate_client = CertificateClientTestBuilder::default()
                 .config_aggregator_client_mock(|mock| {
