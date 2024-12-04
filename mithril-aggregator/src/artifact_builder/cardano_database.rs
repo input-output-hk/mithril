@@ -68,21 +68,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
     }
 }
 
-/// Return the sum of the files size contained in the subdirectories 'immutable', 'ledger' and 'volatile'.
-fn compute_uncompressed_database_size(db_directory: &Path) -> StdResult<u64> {
-    let subdirs = ["immutable", "ledger", "volatile"];
-
-    subdirs
-        .iter()
-        .map(|subdir| {
-            let dir_path = db_directory.join(subdir);
-            compute_fs_entry_size(&dir_path)
-                .with_context(|| format!("Failed to read metadata for directory: {:?}", dir_path))
-        })
-        .sum()
-}
-
-fn compute_fs_entry_size(path: &Path) -> StdResult<u64> {
+fn compute_uncompressed_database_size(path: &Path) -> StdResult<u64> {
     if path.is_file() {
         let metadata = std::fs::metadata(path)
             .with_context(|| format!("Failed to read metadata for file: {:?}", path))?;
@@ -98,7 +84,7 @@ fn compute_fs_entry_size(path: &Path) -> StdResult<u64> {
             let path = entry
                 .with_context(|| format!("Failed to read directory entry in {:?}", path))?
                 .path();
-            directory_size += compute_fs_entry_size(&path)?;
+            directory_size += compute_uncompressed_database_size(&path)?;
         }
 
         return Ok(directory_size);
@@ -141,15 +127,6 @@ mod tests {
         // Number of immutable files = 2 × 3 ('chunk', 'primary' and 'secondary').
         let expected_total_size =
             (2 * 3 * immutable_file_size) + ledger_file_size + (2 * volatile_file_size);
-
-        std::fs::write(test_dir.join("non_computed_file.txt"), "file inside root").unwrap();
-        let non_computed_dir = test_dir.join("non_computed_dir");
-        std::fs::create_dir(&non_computed_dir).unwrap();
-        std::fs::write(
-            non_computed_dir.join("another_non_computed_file.txt"),
-            "file inside a non computed directory",
-        )
-        .unwrap();
 
         let total_size = compute_uncompressed_database_size(&test_dir).unwrap();
 
