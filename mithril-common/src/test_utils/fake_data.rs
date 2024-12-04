@@ -278,8 +278,8 @@ pub fn cardano_stake_distribution(epoch: Epoch) -> entities::CardanoStakeDistrib
     }
 }
 
-/// Fake Cardano Database entities
-pub fn cardano_database_entities(total: u64) -> Vec<entities::CardanoDatabase> {
+/// Fake Cardano Database snapshots
+pub fn cardano_database_snapshots(total: u64) -> Vec<entities::CardanoDatabaseSnapshot> {
     (1..total + 1)
         .map(|cardano_database_id| {
             let merkle_root = format!("1{cardano_database_id}").repeat(20);
@@ -289,7 +289,7 @@ pub fn cardano_database_entities(total: u64) -> Vec<entities::CardanoDatabase> {
             let cardano_node_version = Version::parse("1.0.0").unwrap();
             let locations = ArtifactsLocations::default();
 
-            entities::CardanoDatabase::new(
+            entities::CardanoDatabaseSnapshot::new(
                 merkle_root,
                 beacon,
                 total_db_size_uncompressed,
@@ -298,5 +298,5 @@ pub fn cardano_database_entities(total: u64) -> Vec<entities::CardanoDatabase> {
                 &cardano_node_version,
             )
         })
-        .collect::<Vec<entities::CardanoDatabase>>()
+        .collect::<Vec<entities::CardanoDatabaseSnapshot>>()
 }

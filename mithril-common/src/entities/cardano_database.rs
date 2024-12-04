@@ -6,30 +6,30 @@ use crate::{
     signable_builder::Artifact,
 };
 
-/// Cardano database incremental.
+/// Cardano database snapshot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct CardanoDatabase {
-    /// Merkle root of the Cardano database.
+pub struct CardanoDatabaseSnapshot {
+    /// Merkle root of the Cardano database snapshot.
     pub merkle_root: String,
 
     /// Mithril beacon on the Cardano chain.
     pub beacon: CardanoDbBeacon,
 
-    /// Size of the uncompressed Cardano database (including the ledger and volatile) in Bytes.
+    /// Size of the uncompressed Cardano database files.
     pub total_db_size_uncompressed: u64,
 
     /// Locations of the Cardano database artifacts.
     pub locations: ArtifactsLocations,
 
-    /// Compression algorithm of the Cardano database archives
+    /// Compression algorithm of the Cardano database artifacts.
     pub compression_algorithm: CompressionAlgorithm,
 
-    /// Version of the Cardano node used to create the archives.
+    /// Version of the Cardano node used to create the snapshot.
     pub cardano_node_version: String,
 }
 
-impl CardanoDatabase {
-    /// [CardanoDatabase] factory
+impl CardanoDatabaseSnapshot {
+    /// [CardanoDatabaseSnapshot] factory
     pub fn new(
         merkle_root: String,
         beacon: CardanoDbBeacon,
@@ -60,8 +60,8 @@ pub enum ArtifactLocation {
 /// Locations of the Cardano database related files.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactsLocations {
-    /// Locations of the file containing the digests of the immutable files.
-    pub digests: Vec<ArtifactLocation>,
+    /// Locations of the the immutable file digests.
+    pub digest: Vec<ArtifactLocation>,
     /// Locations of the immutable files.
     pub immutables: Vec<ArtifactLocation>,
     /// Locations of the ancillary files (ledger and volatile).
@@ -69,7 +69,7 @@ pub struct ArtifactsLocations {
 }
 
 #[typetag::serde]
-impl Artifact for CardanoDatabase {
+impl Artifact for CardanoDatabaseSnapshot {
     fn get_id(&self) -> String {
         self.merkle_root.clone()
     }

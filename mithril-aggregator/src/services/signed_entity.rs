@@ -11,7 +11,7 @@ use tokio::task::JoinHandle;
 
 use mithril_common::{
     entities::{
-        BlockNumber, CardanoDatabase, CardanoDbBeacon, CardanoStakeDistribution,
+        BlockNumber, CardanoDatabaseSnapshot, CardanoDbBeacon, CardanoStakeDistribution,
         CardanoTransactionsSnapshot, Certificate, Epoch, MithrilStakeDistribution, SignedEntity,
         SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
     },
@@ -89,7 +89,8 @@ pub struct MithrilSignedEntityService {
     signed_entity_type_lock: Arc<SignedEntityTypeLock>,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
-    cardano_database_artifact_builder: Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabase>>,
+    cardano_database_artifact_builder:
+        Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot>>,
     metrics_service: Arc<MetricsService>,
     logger: Logger,
 }
@@ -104,7 +105,8 @@ pub struct SignedEntityServiceArtifactsDependencies {
         Arc<dyn ArtifactBuilder<BlockNumber, CardanoTransactionsSnapshot>>,
     cardano_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>>,
-    cardano_database_artifact_builder: Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabase>>,
+    cardano_database_artifact_builder:
+        Arc<dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot>>,
 }
 
 impl SignedEntityServiceArtifactsDependencies {
@@ -123,7 +125,7 @@ impl SignedEntityServiceArtifactsDependencies {
             dyn ArtifactBuilder<Epoch, CardanoStakeDistribution>,
         >,
         cardano_database_artifact_builder: Arc<
-            dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabase>,
+            dyn ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot>,
         >,
     ) -> Self {
         Self {
@@ -523,7 +525,7 @@ mod tests {
         mock_cardano_stake_distribution_artifact_builder:
             MockArtifactBuilder<Epoch, CardanoStakeDistribution>,
         mock_cardano_database_artifact_builder:
-            MockArtifactBuilder<CardanoDbBeacon, CardanoDatabase>,
+            MockArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot>,
     }
 
     impl MockDependencyInjector {
@@ -548,7 +550,7 @@ mod tests {
                 >::new(),
                 mock_cardano_database_artifact_builder: MockArtifactBuilder::<
                     CardanoDbBeacon,
-                    CardanoDatabase,
+                    CardanoDatabaseSnapshot,
                 >::new(),
             }
         }
@@ -845,7 +847,7 @@ mod tests {
     async fn build_cardano_database_artifact_when_given_cardano_database_entity_type() {
         let mut mock_container = MockDependencyInjector::new();
 
-        let cardano_database_expected = fake_data::cardano_database_entities(1)
+        let cardano_database_expected = fake_data::cardano_database_snapshots(1)
             .first()
             .unwrap()
             .to_owned();
@@ -855,7 +857,7 @@ mod tests {
             .expect_compute_artifact()
             .times(1)
             .returning(|_, _| {
-                Ok(fake_data::cardano_database_entities(1)
+                Ok(fake_data::cardano_database_snapshots(1)
                     .first()
                     .unwrap()
                     .to_owned())
@@ -877,7 +879,7 @@ mod tests {
     async fn should_store_the_artifact_when_creating_artifact_for_a_cardano_database() {
         generic_test_that_the_artifact_is_stored(
             SignedEntityType::CardanoDatabase(CardanoDbBeacon::default()),
-            fake_data::cardano_database_entities(1)
+            fake_data::cardano_database_snapshots(1)
                 .first()
                 .unwrap()
                 .to_owned(),

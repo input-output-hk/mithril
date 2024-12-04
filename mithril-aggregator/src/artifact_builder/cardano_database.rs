@@ -6,8 +6,8 @@ use semver::Version;
 
 use mithril_common::{
     entities::{
-        ArtifactsLocations, CardanoDatabase, CardanoDbBeacon, Certificate, CompressionAlgorithm,
-        ProtocolMessagePartKey, SignedEntityType,
+        ArtifactsLocations, CardanoDatabaseSnapshot, CardanoDbBeacon, Certificate,
+        CompressionAlgorithm, ProtocolMessagePartKey, SignedEntityType,
     },
     StdResult,
 };
@@ -35,12 +35,12 @@ impl CardanoDatabaseArtifactBuilder {
 }
 
 #[async_trait]
-impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabase> for CardanoDatabaseArtifactBuilder {
+impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDatabaseArtifactBuilder {
     async fn compute_artifact(
         &self,
         beacon: CardanoDbBeacon,
         certificate: &Certificate,
-    ) -> StdResult<CardanoDatabase> {
+    ) -> StdResult<CardanoDatabaseSnapshot> {
         let merkle_root = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::CardanoDatabaseMerkleRoot)
@@ -55,7 +55,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabase> for CardanoDatabaseArtifa
             })?;
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
-        let cardano_database = CardanoDatabase::new(
+        let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
             beacon,
             total_db_size_uncompressed,
@@ -195,12 +195,12 @@ mod tests {
             .await
             .unwrap();
 
-        let artifact_expected = CardanoDatabase::new(
+        let artifact_expected = CardanoDatabaseSnapshot::new(
             "merkleroot".to_string(),
             beacon,
             expected_total_size,
             ArtifactsLocations {
-                digests: vec![],
+                digest: vec![],
                 immutables: vec![],
                 ancillary: vec![],
             },
