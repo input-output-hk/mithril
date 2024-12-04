@@ -113,20 +113,19 @@ mod tests {
     fn should_compute_the_size_of_the_uncompressed_database_only_immutable_ledger_and_volatile() {
         let test_dir = get_test_directory("should_compute_the_size_of_the_uncompressed_database_only_immutable_ledger_and_volatile");
 
-        let immutable_file_size = 777;
+        let immutable_trio_file_size = 777;
         let ledger_file_size = 6666;
         let volatile_file_size = 99;
         DummyImmutablesDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
             .with_immutables(&[1, 2])
-            .set_immutable_file_size(immutable_file_size)
-            .with_ledger_files(vec!["blocks-0.dat".to_string()])
+            .set_immutable_trio_file_size(immutable_trio_file_size)
+            .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
             .set_ledger_file_size(ledger_file_size)
-            .with_volatile_files(vec!["437".to_string(), "537".to_string()])
+            .with_volatile_files(&["437", "537", "637", "737"])
             .set_volatile_file_size(volatile_file_size)
             .build();
-        // Number of immutable files = 2 × 3 ('chunk', 'primary' and 'secondary').
         let expected_total_size =
-            (2 * 3 * immutable_file_size) + ledger_file_size + (2 * volatile_file_size);
+            (2 * immutable_trio_file_size) + (3 * ledger_file_size) + (4 * volatile_file_size);
 
         let total_size = compute_uncompressed_database_size(&test_dir).unwrap();
 
@@ -137,16 +136,18 @@ mod tests {
     async fn should_compute_valid_artifact() {
         let test_dir = get_test_directory("should_compute_valid_artifact");
 
+        let immutable_trio_file_size = 777;
+        let ledger_file_size = 6666;
+        let volatile_file_size = 99;
         DummyImmutablesDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
             .with_immutables(&[1])
-            .set_immutable_file_size(100)
-            .with_ledger_files(vec!["blocks-0.dat".to_string()])
-            .set_ledger_file_size(100)
-            .with_volatile_files(vec!["437".to_string()])
-            .set_volatile_file_size(100)
+            .set_immutable_trio_file_size(immutable_trio_file_size)
+            .with_ledger_files(&["blocks-0.dat"])
+            .set_ledger_file_size(ledger_file_size)
+            .with_volatile_files(&["437"])
+            .set_volatile_file_size(volatile_file_size)
             .build();
-        // Number of immutable files = 1 × 3 ('chunk', 'primary' and 'secondary').
-        let expected_total_size = (3 * 100) + 100 + 100;
+        let expected_total_size = immutable_trio_file_size + ledger_file_size + volatile_file_size;
 
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             test_dir,

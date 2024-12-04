@@ -77,8 +77,8 @@ impl DummyImmutablesDbBuilder {
     }
 
     /// Set ledger files to write to the db in the 'ledger' subdirectory.
-    pub fn with_ledger_files(&mut self, files: Vec<String>) -> &mut Self {
-        self.ledger_files_to_write = files;
+    pub fn with_ledger_files(&mut self, files: &[&str]) -> &mut Self {
+        self.ledger_files_to_write = files.iter().map(|name| name.to_string()).collect();
         self
     }
 
@@ -89,8 +89,8 @@ impl DummyImmutablesDbBuilder {
     }
 
     /// Set volatile files to write to the db in the 'volatile' subdirectory.
-    pub fn with_volatile_files(&mut self, files: Vec<String>) -> &mut Self {
-        self.volatile_files_to_write = files;
+    pub fn with_volatile_files(&mut self, files: &[&str]) -> &mut Self {
+        self.volatile_files_to_write = files.iter().map(|f| f.to_string()).collect();
         self
     }
 
@@ -111,8 +111,13 @@ impl DummyImmutablesDbBuilder {
     /// Set the size of all immutable files written by [build][Self::build] to the given `file_size` in bytes.
     ///
     /// Note: by default the size of the produced files is less than a 1kb.
-    pub fn set_immutable_file_size(&mut self, file_size: u64) -> &mut Self {
-        self.immutable_file_size = Some(file_size);
+    pub fn set_immutable_trio_file_size(&mut self, trio_file_size: u64) -> &mut Self {
+        assert!(
+            trio_file_size % 3 == 0,
+            "'trio_file_size' must be a multiple of 3"
+        );
+
+        self.immutable_file_size = Some(trio_file_size / 3);
         self
     }
 
