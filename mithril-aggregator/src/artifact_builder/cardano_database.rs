@@ -199,11 +199,7 @@ mod tests {
             "merkleroot".to_string(),
             beacon,
             expected_total_size,
-            ArtifactsLocations {
-                digest: vec![],
-                immutables: vec![],
-                ancillary: vec![],
-            },
+            ArtifactsLocations::default(),
             CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),
         );

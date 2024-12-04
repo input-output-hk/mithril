@@ -53,8 +53,20 @@ impl CardanoDatabaseSnapshot {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
-pub enum ArtifactLocation {
+enum DigestLocation {
     Aggregator { uri: String },
+    CloudStorage { uri: String },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+enum ImmutablesLocation {
+    CloudStorage { uri: String },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+enum AncillaryLocation {
     CloudStorage { uri: String },
 }
 
@@ -62,11 +74,11 @@ pub enum ArtifactLocation {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactsLocations {
     /// Locations of the the immutable file digests.
-    pub digest: Vec<ArtifactLocation>,
+    digest: Vec<DigestLocation>,
     /// Locations of the immutable files.
-    pub immutables: Vec<ArtifactLocation>,
-    /// Locations of the ancillary files (ledger and volatile).
-    pub ancillary: Vec<ArtifactLocation>,
+    immutables: Vec<ImmutablesLocation>,
+    /// Locations of the ancillary files.
+    ancillary: Vec<AncillaryLocation>,
 }
 
 #[typetag::serde]
