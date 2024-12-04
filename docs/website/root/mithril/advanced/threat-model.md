@@ -1,9 +1,9 @@
 ---
 sidebar_position: 3
-sidebar_label: Mithril threat model
+sidebar_label: Threat model analysis
 ---
 
-# Mithril threat model
+# Threat model analysis
 
 :::danger
 

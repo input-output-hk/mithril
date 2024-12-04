@@ -14,9 +14,9 @@ Mithril aggregator is responsible for collecting individual signatures from the 
 
 :::tip
 
-- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview
+- For more information about the **Mithril network**, please see the [architecture](../../../mithril/advanced/mithril-network/architecture.md) overview
 
-- For more information about the **Mithril aggregator**, please see the [aggregator node](../../../mithril/mithril-network/aggregator.md) overview.
+- For more information about the **Mithril aggregator**, please see the [aggregator node](../../../mithril/advanced/mithril-network/aggregator.md) overview.
 
 :::
 

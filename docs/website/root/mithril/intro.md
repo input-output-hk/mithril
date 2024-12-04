@@ -27,23 +27,23 @@ In this guide, you will find:
 
 - The **Mithril protocol** documentation:
 
-  - [Mithril protocol in depth](./mithril-protocol/protocol.md)
+  - [Mithril protocol in depth](./advanced/mithril-protocol/protocol.md)
 
-  - [Mithril certificate chain in depth](./mithril-protocol/certificates.md)
+  - [Mithril certificate chain in depth](./advanced/mithril-protocol/certificates.md)
 
   - An interactive protocol discovery through the [Mithril simulation](../manual/develop/protocol-simulation.md)
 
 - The **Mithril network** documentation:
 
-  - [Mithril network architecture](./mithril-network/architecture.md)
+  - [Mithril network architecture](./advanced/mithril-network/architecture.md)
 
-  - [Mithril aggregator node](./mithril-network/aggregator.md)
+  - [Mithril aggregator node](./advanced/mithril-network/aggregator.md)
 
-  - [Mithril signer node](./mithril-network/signer.md)
+  - [Mithril signer node](./advanced/mithril-network/signer.md)
 
-  - [Mithril client node](./mithril-network/client.md)
+  - [Mithril client node](./advanced/mithril-network/client.md)
 
-- The [**Mithril threat model**](./threat-model)
+- The [**Mithril threat model**](./advanced/threat-model)
 
 :::tip
 

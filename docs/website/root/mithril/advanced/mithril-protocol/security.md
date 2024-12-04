@@ -1,6 +1,6 @@
 ---
 sidebar_position: 3
-sidebar_label: Security
+sidebar_label: Protocol security
 ---
 
 # Protocol security

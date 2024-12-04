@@ -1,9 +1,9 @@
 ---
 sidebar_position: 1
-sidebar_label: Protocol in depth
+sidebar_label: Protocol phases
 ---
 
-# Mithril protocol in depth
+# Protocol phases
 
 :::info
 
@@ -13,7 +13,7 @@ Mithril is based on the research paper [Mithril: Stake-based Threshold Multisign
 
 :::info
 
-You can interact with the **Mithril protocol** through the [protocol simulation](../../manual/develop/protocol-simulation.md). This will help you understand participants' interactions, multi-signature creation, and the influence of protocol parameters.
+You can interact with the **Mithril protocol** through the [protocol simulation](../../../manual/develop/protocol-simulation.md). This will help you understand participants' interactions, multi-signature creation, and the influence of protocol parameters.
 
 :::
 
