@@ -3,47 +3,24 @@ sidebar_position: 1
 sidebar_label: Introduction
 ---
 
-# About Mithril
+# Introduction
 
-:::info
+Mithril is a protocol and network specifically designed for proof-of-stake blockchains. Its primary goal is to provide lightweight and secure access to blockchain data while ensuring a high level of security and decentralization. Originally developed for Cardano during its Basho development phase, which focuses on optimization, scalability, and interoperability, Mithril has numerous potential applications. These include synchronizing data for both light and full-node wallets, as well as facilitating data exchanges with layer 2 solutions such as bridges, sidechains, rollups, and state channels.
 
-Explore the Mithril protocol through our [protocol simulation](../manual/develop/protocol-simulation.md). This interactive experience will provide you with insights into how participants collaborate to generate a **multi-signature**, and you'll also gain a clearer understanding of the protocol parameters.
+This section provides a detailed overview of the Mithril protocol and the network, their purpose, and how Mithril addresses key challenges in blockchain scalability and security. The section includes both beginner-friendly explanations and advanced technical insights, guiding readers from foundational concepts to in-depth protocol details.
 
-:::
+If you're new to Mithril, see the ‘Beginner' explainers:
 
-## Mithril in a nutshell
+- [Mithril in a nutshell](./beginner/mithril-in-a-nutshell.md)
+- [Why should you use Mithril?](./beginner/why-use-mithril.md)
+- [How it works](./beginner/how-it-works.md).
 
-Mithril is a research project whose goal is to provide [Stake-based Threshold Multisignatures](https://iohk.io/en/research/library/papers/mithrilstake-based-threshold-multisignatures/) on top of the Cardano network.
+To dive deeper into advanced topics, see:
 
-In a nutshell, Mithril can be summarized as:
-
-> A protocol that allows stakeholders in a proof-of-stake blockchain network to individually sign messages that are aggregated into a multi-signature, which guarantees that they represent a minimum share of the total stake.
-
-In other words, an adversarial participant with less than this share of the total stake will not be able to produce valid multi-signatures :closed_lock_with_key:.
-
-## What you'll find in this guide
-
-In this guide, you will find:
-
-- The **Mithril protocol** documentation:
-
-  - [Mithril protocol in depth](./mithril-protocol/protocol.md)
-
-  - [Mithril certificate chain in depth](./mithril-protocol/certificates.md)
-
-  - An interactive protocol discovery through the [Mithril simulation](../manual/develop/protocol-simulation.md)
-
-- The **Mithril network** documentation:
-
-  - [Mithril network architecture](./mithril-network/architecture.md)
-
-  - [Mithril aggregator node](./mithril-network/aggregator.md)
-
-  - [Mithril signer node](./mithril-network/signer.md)
-
-  - [Mithril client node](./mithril-network/client.md)
-
-- The [**Mithril threat model**](./threat-model)
+- [Mithril protocol](./advanced/mithril-protocol/README.mdx)
+- [Mithril network](./advanced/mithril-network/README.mdx)
+- [Mithril security](./advanced/mithril-protocol/security.md)
+- [Threat model analysis](./advanced/threat-model.md).
 
 :::tip
 
@@ -51,6 +28,6 @@ If you need help, feel free to reach out to the Mithril team:
 
 - [GitHub discussions](https://github.com/input-output-hk/mithril/discussions)
 
-- [Stack Exchange](https://cardano.stackexchange.com/questions/tagged/mithril)
+- [Stack Exchange](https://cardano.stackexchange.com/search?q=mithril).
 
 :::

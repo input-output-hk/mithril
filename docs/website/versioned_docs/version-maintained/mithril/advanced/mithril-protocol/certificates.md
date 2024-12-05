@@ -1,15 +1,11 @@
 ---
 sidebar_position: 2
-sidebar_label: Certificate chain in depth
+sidebar_label: Certificate chain design
 ---
 
-# Mithril certificate chain in depth
+# Certificate chain design
 
 ## Introduction
-
-The **Mithril protocol** can be summarized as:
-
-> A protocol that enables stakeholders in a proof-of-stake blockchain network to individually sign messages. These signatures are then aggregated into a multi-signature, ensuring that stakeholders collectively represent a minimum share of the total stake.
 
 The **certificate chain** is a Mithril component that certifies the **stake distribution** used to create the multi-signature. Its primary purpose is to prevent adversaries from executing an **eclipse attack** on the blockchain.
 
@@ -61,7 +57,7 @@ The message `MSG(p,n)` is a map of multiple values associated with their respect
 
 :::note
 
-The **trigger** represents the instant at which a certificate should be created. It is combined with at least the associated **epoch** to create a [**beacon**](../../glossary.md#beacon) of the certificate. In the current implementation of the Cardano node database snapshot, this trigger is a new [**immutable file number**](../../glossary.md#immutable-file-number).
+The **trigger** represents the instant at which a certificate should be created. It is combined with at least the associated **epoch** to create a [**beacon**](../../../glossary.md#beacon) of the certificate. In the current implementation of the Cardano node database snapshot, this trigger is a new [**immutable file number**](../../../glossary.md#immutable-file-number).
 
 :::
 

@@ -20,7 +20,7 @@ It is responsible for handling the different types of data certified by Mithril 
 
 :::tip
 
-- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview.
+- For more information about the **Mithril network**, please see the [architecture](../../../mithril/advanced/mithril-network/architecture.md) overview.
 
 :::
 

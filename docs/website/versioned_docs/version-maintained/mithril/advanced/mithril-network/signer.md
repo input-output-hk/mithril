@@ -3,7 +3,7 @@ sidebar_position: 3
 sidebar_label: Mithril signer
 ---
 
-# Mithril signer node
+# Mithril signer
 
 :::info
 
@@ -15,7 +15,7 @@ The Mithril signer is a node that works transparently on top of the stake pool o
 
 - For more information about the **Mithril protocol**, see the [protocol in depth](../mithril-protocol/protocol.md) overview.
 
-- For more information about the **Mithril signer**, see the [developer manual](../../manual/develop/nodes/mithril-signer.md).
+- For more information about the **Mithril signer**, see the [developer manual](../../../manual/develop/nodes/mithril-signer.md).
 
 :::
 

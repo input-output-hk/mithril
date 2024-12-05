@@ -15,10 +15,10 @@ Mithril client is responsible for restoring the **Cardano** blockchain on an emp
 :::tip
 
 - For more information about the **Mithril network**, please see
-  the [architecture](../../../mithril/mithril-network/architecture.md) overview
+  the [architecture](../../../mithril/advanced/mithril-network/architecture.md) overview
 
 - For more information about the **Mithril client** node, please
-  see [this overview](../../../mithril/mithril-network/client.md)
+  see [this overview](../../../mithril/advanced/mithril-network/client.md)
 
 - Check out the [`Bootstrap a Cardano node`](../../getting-started/bootstrap-cardano-node.md) guide.
 

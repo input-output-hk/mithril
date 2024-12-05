@@ -14,9 +14,9 @@ Mithril signer is responsible for producing individual signatures that are colle
 
 :::tip
 
-- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview
+- For more information about the **Mithril network**, please see the [architecture](../../../mithril/advanced/mithril-network/architecture.md) overview
 
-- For more information about the **Mithril signer** node, please see [this overview](../../../mithril/mithril-network/signer.md)
+- For more information about the **Mithril signer** node, please see [this overview](../../../mithril/advanced/mithril-network/signer.md)
 
 - Check out the [`Run a Mithril signer node`](../../operate/run-signer-node.md) guide.
 
