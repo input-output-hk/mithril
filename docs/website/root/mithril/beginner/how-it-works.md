@@ -41,9 +41,9 @@ To explore advanced topics, see:
   - [Protocol phases](../advanced/mithril-protocol/protocol.md)
   - [Certificate chain design](../advanced/mithril-protocol/certificates.md)
   - [Protocol security](../advanced/mithril-protocol/security.md)
-  - [Threat model analysis](../advanced/threat-model.md)
+  - [Threat model analysis](../advanced/threat-model.md).
 - Mithril network
   - [Architecture](../advanced/mithril-network/architecture.md)
   - [Mithril aggregator](../advanced/mithril-network/aggregator.md)
   - [Mithril signer](../advanced/mithril-network/signer.md)
-  - [Mithril client](../advanced/mithril-network/client.md)
+  - [Mithril client](../advanced/mithril-network/client.md).

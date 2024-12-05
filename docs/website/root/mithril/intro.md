@@ -13,14 +13,14 @@ If you're new to Mithril, see the ‘Beginner' explainers:
 
 - [Mithril in a nutshell](./beginner/mithril-in-a-nutshell.md)
 - [Why should you use Mithril?](./beginner/why-use-mithril.md)
-- [How it works](./beginner/how-it-works.md)
+- [How it works](./beginner/how-it-works.md).
 
 To dive deeper into advanced topics, see:
 
 - [Mithril protocol](./advanced/mithril-protocol/README.mdx)
 - [Mithril network](./advanced/mithril-network/README.mdx)
 - [Mithril security](./advanced/mithril-protocol/security.md)
-- [Threat model analysis](./advanced/threat-model.md)
+- [Threat model analysis](./advanced/threat-model.md).
 
 :::tip
 
@@ -28,6 +28,6 @@ If you need help, feel free to reach out to the Mithril team:
 
 - [GitHub discussions](https://github.com/input-output-hk/mithril/discussions)
 
-- [Stack Exchange](https://cardano.stackexchange.com/search?q=mithril)
+- [Stack Exchange](https://cardano.stackexchange.com/search?q=mithril).
 
 :::

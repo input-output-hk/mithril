@@ -5,43 +5,7 @@ sidebar_label: Protocol security
 
 # Protocol security
 
-:::info
-
-Mithril is based on the [Mithril: Stake-based Threshold Multi-signatures](https://iohk.io/en/research/library/papers/mithril-stake-based-threshold-multisignatures/) research paper.
-
-:::
-
-Mithril is a stake-based threshold multi-signature (STM) protocol that aggregates individual signatures into a compact certificate. This process occurs when the total stake supporting a message exceeds a predefined threshold. The protocol enhances scalability in signing, communication, and verification by pseudorandomly selecting a subset of eligible participants to sign each message.
-
 This document presents a comprehensive security analysis of Mithril, examining potential threats and the protocol’s defenses against various attack vectors. It starts with an overview of the STM protocol and the adversarial model, followed by an in-depth discussion of security measures against common cryptographic attacks. The document concludes with an analysis of parameter selection, highlighting trade-offs between security and efficiency through practical examples.
-
-## Mithril protocol explained
-
-The STM protocol enables participants to sign a message collectively, validating the signature based on their combined stake. It leverages threshold multi-signatures to aggregate multiple individual signatures into a single, compact signature. This approach is especially beneficial in proof-of-stake (PoS) systems, where blockchain security relies on the distribution and control of stake among participants.
-
-- _Threshold multi-signature_: a cryptographic scheme that aggregates individual signatures into one compact signature if the total stake of the signers exceeds a predefined threshold
-- _Stake-based eligibility_: the protocol ensures that only participants with sufficient stake are pseudorandomly selected as eligible to sign messages
-- _Aggregation and verification_: aggregates individual signatures into a multi-signature, enabling efficient verification.
-
-### Protocol phases
-
-- **Initialization phase**
-
-  - _Setup_: the protocol sets up the necessary cryptographic parameters and prepares the system for operation
-    - _Key generation_: participants generate a public-private key pair $(sk_i, pk_i)$
-    - _Proof of possession_: each participant creates a proof $(\mathcal{PoP_i})$ that they possess the private key corresponding to their public key
-    - _Registration_: participants register their public keys $(pk_i)$ and $(\mathcal{PoP_i})$, which are then stored in a Merkle tree structure for efficient verification
-    - _Aggregate verification key_: the root of the Merkle tree, which serves as the aggregate verification key $(\mathcal{AVK})$.
-
-- **Operation phase**
-  - _Eligibility determination_:
-    - _Lottery mechanism_: the protocol initiates a series of lotteries for each message to determine eligible participants. Each participant's chance of winning is proportional to their stake
-    - _Security parameter_ $(m)$: the number of parallel lotteries, which ensures that enough participants are eligible
-    - _Quorum parameter_ $(k)$: the minimum number of eligible signatures required to form a valid multi-signature
-  - _Signing process_:
-    - _Individual signature generation_: eligible participants generate individual signatures for the message
-    - _Aggregation_: these signatures are aggregated into a single multi-signature; a minimum of $k$ signatures are aggregated into a single multi-signature
-    - _Verification_: the multi-signature, along with the Merkle proofs, is verified using the $\mathcal{AVK}$.
 
 :::info
 
