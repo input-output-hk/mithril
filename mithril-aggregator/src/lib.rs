@@ -12,6 +12,7 @@
 //! You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/aggregator).
 
 mod artifact_builder;
+mod artifact_uploaders;
 mod commands;
 mod configuration;
 pub mod database;
@@ -36,6 +37,7 @@ pub use crate::configuration::{
     ZstandardCompressionParameters,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl};
+pub use artifact_uploaders::{ArtifactLocation, ArtifactUploader, FakeArtifactUploader};
 pub use commands::{CommandType, MainOpts};
 pub use dependency_injection::DependencyContainer;
 pub use message_adapters::{FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter};

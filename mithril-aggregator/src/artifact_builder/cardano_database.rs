@@ -15,9 +15,10 @@ use mithril_common::{
 use crate::artifact_builder::ArtifactBuilder;
 
 pub struct CardanoDatabaseArtifactBuilder {
-    db_directory: PathBuf, // TODO: temporary, will be accessed through another dependency instead of direct path.
+    db_directory: PathBuf,
     cardano_node_version: Version,
     compression_algorithm: CompressionAlgorithm,
+    // ancillary_builder: Arc<AncillaryArtifactBuilder>,
 }
 
 impl CardanoDatabaseArtifactBuilder {
@@ -25,11 +26,13 @@ impl CardanoDatabaseArtifactBuilder {
         db_directory: PathBuf,
         cardano_node_version: &Version,
         compression_algorithm: CompressionAlgorithm,
+        // ancillary_builder: Arc<AncillaryArtifactBuilder>,
     ) -> Self {
         Self {
             db_directory,
             cardano_node_version: cardano_node_version.clone(),
             compression_algorithm,
+            // ancillary_builder,
         }
     }
 }
@@ -55,11 +58,32 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             })?;
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
+        // First Goal:
+        // -> Create a valid `ArtifactsLocations` with the correct locations to the ancillary files archive (volatile + ledger).
+        //
+        // Steps:
+        // 1. Implement an `AncillaryArtifactBuilder` able to create an ancillary files archive.
+        // 2. Upload the archive using a fake implementation of the uploader. This should return a `Vec<AncillaryLocation>`.
+        // 3. Create the `ArtifactsLocations` with the correct `Vec<AncillaryLocation>` and reference it in the returned `CardanoDatabaseSnapshot`.
+        //
+        // -> Prerequisite: The sub-builders (here `AncillaryArtifactBuilder`) should be injected into the `CardanoDatabaseArtifactBuilder` constructor
+        // and built with the correct uploaders (for now, only with a `FakeArtifactUploader`).
+
+        // let ancillary_locations = self
+        //     .ancillary_builder
+        //     .create_and_upload_archive(&self.db_directory)
+        //     .await?;
+        // let locations = ArtifactsLocations {
+        //     ancillary: ancillary_locations,
+        //     ..ArtifactsLocations::default()
+        // };
+        let locations = ArtifactsLocations::default();
+
         let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
             beacon,
             total_db_size_uncompressed,
-            ArtifactsLocations::default(), // TODO: temporary default locations, will be injected in next PR.
+            locations,
             self.compression_algorithm,
             &self.cardano_node_version,
         );
