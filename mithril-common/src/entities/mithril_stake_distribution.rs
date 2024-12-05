@@ -70,11 +70,11 @@ mod tests {
 
     use super::*;
 
-    const EXPECTED_HASH: &str = "47675a6fad57040b194655b103bc0439ff9d6920a7ba86bd53756db7ce2952f5";
+    const EXPECTED_HASH: &str = "c5c1ff02e37c751329e3db7625c77fa2a24e86b2a75422c54f1b9f9232374d6f";
 
     #[test]
     fn test_compute_hash() {
-        let fixtures = MithrilFixtureBuilder::default().with_signers(100).build();
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
         let stake_distribution = MithrilStakeDistribution::new(
             Epoch(1),
             fixtures.signers_with_stake(),
@@ -86,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_hash_fail_for_different_stake() {
-        let fixtures = MithrilFixtureBuilder::default().with_signers(100).build();
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
         let mut signers = fixtures.signers_with_stake();
         signers[0].stake += 1;
         let stake_distribution =
@@ -97,7 +97,7 @@ mod tests {
 
     #[test]
     fn test_hash_fail_for_different_epoch() {
-        let fixtures = MithrilFixtureBuilder::default().with_signers(100).build();
+        let fixtures = MithrilFixtureBuilder::default().with_signers(10).build();
         let stake_distribution = MithrilStakeDistribution::new(
             Epoch(2),
             fixtures.signers_with_stake(),
@@ -110,7 +110,7 @@ mod tests {
     #[test]
     fn test_independence_protocol_parameters() {
         let signers = MithrilFixtureBuilder::default()
-            .with_signers(100)
+            .with_signers(10)
             .build()
             .signers_with_stake();
         let protocol_parameters = ProtocolParameters {

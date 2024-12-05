@@ -1057,7 +1057,7 @@ mod tests {
             allowed_discriminants: SignedEntityConfig::dummy().allowed_discriminants,
             cardano_era: "CardanoEra".to_string(),
             mithril_era: SupportedEra::eras()[1],
-            total_spo: 40,
+            total_spo: 10,
             total_stake: 20_000_000,
             ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
         };
@@ -1095,7 +1095,7 @@ mod tests {
                 current_signers: current_epoch_fixture.signers().into_iter().collect(),
                 next_signers: next_epoch_fixture.signers().into_iter().collect(),
                 signed_entity_config: SignedEntityConfig::dummy(),
-                total_spo: 40,
+                total_spo: 10,
                 total_stake: 20_000_000,
             }
         );
