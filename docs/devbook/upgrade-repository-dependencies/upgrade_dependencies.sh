@@ -92,3 +92,6 @@ nix --extra-experimental-features 'nix-command flakes' flake update" > "$TMP_SCR
  git commit -am "chore: update nix flake dependencies
 
  By running 'nix flake update' command."
+
+# Audit Rust dependencies
+cargo audit
