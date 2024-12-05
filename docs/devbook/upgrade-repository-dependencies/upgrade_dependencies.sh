@@ -72,8 +72,8 @@ make -C docs/website install
 git commit -am "chore: bump javascript packages versions
 
 By running:
-- 'make www-install' command in 'mithril-client-wasm'.
-- 'make www-test-install' command in 'mithril-client-wasm'.
+- 'make install' command in 'examples/client-wasm-web'.
+- 'make install' command in 'examples/client-wasm-nodejs'.
 - 'make install' command in 'mithril-explorer'.
 - 'make install' command in 'docs/website'."
 
