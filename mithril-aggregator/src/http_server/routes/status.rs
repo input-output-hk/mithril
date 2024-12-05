@@ -237,8 +237,8 @@ mod tests {
 
     #[tokio::test]
     async fn retrieves_correct_total_signers_from_epoch_service() {
-        let total_signers = 12;
-        let total_next_signers = 345;
+        let total_signers = 5;
+        let total_next_signers = 4;
         let epoch_service = FakeEpochServiceBuilder {
             current_signers_with_stake: fake_data::signers_with_stakes(total_signers),
             next_signers_with_stake: fake_data::signers_with_stakes(total_next_signers),
