@@ -64,7 +64,7 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    file_uploaders::GcpUploader,
+    file_uploaders::{FileUploader, GcpUploader},
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
@@ -78,8 +78,8 @@ use crate::{
     tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
-    FileUploader, LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
-    MultiSignerImpl, SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
+    LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
     SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 

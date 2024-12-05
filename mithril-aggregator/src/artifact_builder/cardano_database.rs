@@ -15,7 +15,7 @@ use mithril_common::{
 use crate::artifact_builder::ArtifactBuilder;
 
 pub struct CardanoDatabaseArtifactBuilder {
-    db_directory: PathBuf, // TODO: temporary, will be accessed through another dependency instead of direct path.
+    db_directory: PathBuf,
     cardano_node_version: Version,
     compression_algorithm: CompressionAlgorithm,
 }
@@ -55,11 +55,14 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             })?;
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
+        // TODO: implement the sub-builder logic to get the locations.
+        let locations = ArtifactsLocations::default();
+
         let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
             beacon,
             total_db_size_uncompressed,
-            ArtifactsLocations::default(), // TODO: temporary default locations, will be injected in next PR.
+            locations,
             self.compression_algorithm,
             &self.cardano_node_version,
         );
