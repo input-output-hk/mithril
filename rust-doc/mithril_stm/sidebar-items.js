@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AggregationError","CoreVerifierError","RegisterError","StmAggregateSignatureError","StmSignatureError"],"mod":["key_reg","multi_sig","stm"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["get_package_path"],"mod":["fake_aggregator","open_api"]};
