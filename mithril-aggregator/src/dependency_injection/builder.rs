@@ -52,8 +52,9 @@ use mithril_persistence::{
 use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 use crate::{
     artifact_builder::{
-        CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
-        CardanoTransactionsArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
+        CardanoDatabaseArtifactBuilder, CardanoImmutableFilesFullArtifactBuilder,
+        CardanoStakeDistributionArtifactBuilder, CardanoTransactionsArtifactBuilder,
+        MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
     database::repository::{
@@ -1208,11 +1209,17 @@ impl DependenciesBuilder {
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
+        let cardano_database_artifact_builder = Arc::new(CardanoDatabaseArtifactBuilder::new(
+            self.configuration.db_directory.clone(),
+            &cardano_node_version,
+            self.configuration.snapshot_compression_algorithm,
+        ));
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
             cardano_transactions_artifact_builder,
             cardano_stake_distribution_artifact_builder,
+            cardano_database_artifact_builder,
         );
         let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,

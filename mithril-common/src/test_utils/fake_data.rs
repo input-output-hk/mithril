@@ -5,9 +5,9 @@ use semver::Version;
 
 use crate::crypto_helper::{self, ProtocolMultiSignature};
 use crate::entities::{
-    self, BlockNumber, CertificateMetadata, CertificateSignature, CompressionAlgorithm, Epoch,
-    LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures,
-    SlotNumber, StakeDistribution, StakeDistributionParty,
+    self, ArtifactsLocations, BlockNumber, CertificateMetadata, CertificateSignature,
+    CompressionAlgorithm, Epoch, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey,
+    SignedEntityType, SingleSignatures, SlotNumber, StakeDistribution, StakeDistributionParty,
 };
 use crate::test_utils::MithrilFixtureBuilder;
 
@@ -276,4 +276,27 @@ pub fn cardano_stake_distribution(epoch: Epoch) -> entities::CardanoStakeDistrib
         epoch,
         stake_distribution,
     }
+}
+
+/// Fake Cardano Database snapshots
+pub fn cardano_database_snapshots(total: u64) -> Vec<entities::CardanoDatabaseSnapshot> {
+    (1..total + 1)
+        .map(|cardano_database_id| {
+            let merkle_root = format!("1{cardano_database_id}").repeat(20);
+            let mut beacon = beacon();
+            beacon.immutable_file_number += cardano_database_id;
+            let total_db_size_uncompressed = cardano_database_id * 100000;
+            let cardano_node_version = Version::parse("1.0.0").unwrap();
+            let locations = ArtifactsLocations::default();
+
+            entities::CardanoDatabaseSnapshot::new(
+                merkle_root,
+                beacon,
+                total_db_size_uncompressed,
+                locations,
+                CompressionAlgorithm::Gzip,
+                &cardano_node_version,
+            )
+        })
+        .collect::<Vec<entities::CardanoDatabaseSnapshot>>()
 }
