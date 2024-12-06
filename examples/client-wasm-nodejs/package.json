@@ -1,6 +1,6 @@
 {
   "name": "client-wasm-nodejs",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,6 +12,6 @@
     "@mithril-dev/mithril-client-wasm": "file:../../mithril-client-wasm"
   },
   "devDependencies": {
-    "prettier": "^3.3.3"
+    "prettier": "^3.4.2"
   }
 }

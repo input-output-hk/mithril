@@ -19,13 +19,16 @@ clean:
 	rm package-lock.json || true
 
 upgrade: clean install
+	# Update to the latest version of react and react-dom when it is supported and does not create dependency conflicts
 	npm install \
 	@docusaurus/core@latest \
+	@docusaurus/plugin-client-redirects@latest \
+	@docusaurus/plugin-sitemap@latest \
 	@docusaurus/preset-classic@latest \
 	@docusaurus/theme-mermaid@latest \
 	clsx@latest \
-	react@latest \
-	react-dom@latest \
+	react@^18.3.1 \
+	react-dom@^18.3.1 \
 	redocusaurus@latest
 
 update-current:
