@@ -108,7 +108,7 @@ Should you have any questions, ideas or issues, we would like to hear from you:
 - #ask-mithril on the IOG [Discord server](https://discord.gg/5kaErDKDRq)
 - Create a GitHub [Discussion](https://github.com/input-output-hk/mithril/discussions)
 - Create a GitHub [Issue](https://github.com/input-output-hk/mithril/issues/new)
-- Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mithril` tag
+- Ask on Cardano [StackExchange](https://cardano.stackexchange.com/search?q=mithril) using the `mithril` tag
 
 When contributing to this project and interacting with others, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md) and our [Contributing Guidelines](./CONTRIBUTING.md).
 

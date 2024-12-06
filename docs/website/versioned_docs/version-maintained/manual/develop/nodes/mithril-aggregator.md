@@ -14,9 +14,9 @@ Mithril aggregator is responsible for collecting individual signatures from the 
 
 :::tip
 
-- For more information about the **Mithril network**, please see the [architecture](../../../mithril/mithril-network/architecture.md) overview
+- For more information about the **Mithril network**, please see the [architecture](../../../mithril/advanced/mithril-network/architecture.md) overview
 
-- For more information about the **Mithril aggregator**, please see the [aggregator node](../../../mithril/mithril-network/aggregator.md) overview.
+- For more information about the **Mithril aggregator**, please see the [aggregator node](../../../mithril/advanced/mithril-network/aggregator.md) overview.
 
 :::
 
@@ -398,6 +398,7 @@ Here are the available subcommands:
 | **genesis sign**                      | Signs the genesis payload with the genesis secret key                                                                                     |
 | **genesis import**                    | Imports the genesis signature (the payload signed with the genesis secret key) and creates and imports a genesis certificate in the store |
 | **genesis bootstrap**                 | Bootstraps a genesis certificate (test only usage)                                                                                        |
+| **genesis generate-keypair**          | Generates a genesis keypair                                                                                                               |
 | **era list**                          | Lists the supported eras                                                                                                                  |
 | **era generate-tx-datum**             | Generates the era markers transaction datum to be stored on-chain                                                                         |
 | **tools recompute-certificates-hash** | Loads all certificates in the database, recomputing their hash, and updating all related entities                                         |
@@ -482,6 +483,12 @@ Here is a list of the available parameters:
 | `to_sign_payload_path`       | `--to-sign-payload-path`       |          -           | -                    | Path of the payload to sign.          | -             | -       |     -     |
 | `target_signed_payload_path` | `--target-signed-payload-path` |          -           | -                    | Path of the signed payload to export. | -             | -       |     -     |
 | `genesis_secret_key_path`    | `--genesis-secret-key-path`    |          -           | -                    | Path of the genesis secret key.       | -             | -       |     -     |
+
+`genesis generate-keypair` command:
+
+| Parameter     | Command line (long) | Command line (short) | Environment variable | Description                           | Default value | Example |     Mandatory      |
+| ------------- | ------------------- | :------------------: | -------------------- | ------------------------------------- | ------------- | ------- | :----------------: |
+| `target_path` | `--target-path`     |          -           | -                    | Target path for the generated keypair | -             | -       | :heavy_check_mark: |
 
 `era list` command:
 

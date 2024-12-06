@@ -147,6 +147,46 @@ const config = {
             to: "/manual/develop/references",
             from: ["/manual/developer-docs/references"],
           },
+          {
+            to: "/mithril/advanced/mithril-protocol",
+            from: ["/category/mithril-protocol"],
+          },
+          {
+            to: "/mithril/advanced/mithril-protocol/protocol",
+            from: ["/mithril/mithril-protocol/protocol"],
+          },
+          {
+            to: "/mithril/advanced/mithril-protocol/certificates",
+            from: ["/mithril/mithril-protocol/certificates"],
+          },
+          {
+            to: "/mithril/advanced/mithril-protocol/security",
+            from: ["/mithril/mithril-protocol/security"],
+          },
+          {
+            to: "/mithril/advanced/mithril-network/",
+            from: ["/category/mithril-network"],
+          },
+          {
+            to: "/mithril/advanced/mithril-network/architecture",
+            from: ["/mithril/mithril-network/architecture"],
+          },
+          {
+            to: "/mithril/advanced/mithril-network/aggregator",
+            from: ["/mithril/mithril-network/aggregator"],
+          },
+          {
+            to: "/mithril/advanced/mithril-network/signer",
+            from: ["/mithril/mithril-network/signer"],
+          },
+          {
+            to: "/mithril/advanced/mithril-network/client",
+            from: ["/mithril/mithril-network/client"],
+          },
+          {
+            to: "/mithril/advanced/threat-model",
+            from: ["/mithril/threat-model"],
+          },
         ],
       },
     ],
@@ -236,7 +276,7 @@ const config = {
               },
               {
                 label: "Stack Exchange",
-                href: "https://cardano.stackexchange.com/questions/tagged/mithril",
+                href: "https://cardano.stackexchange.com/search?q=mithril",
               },
             ],
           },

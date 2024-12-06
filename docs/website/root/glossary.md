@@ -34,7 +34,7 @@ A Cardano transactions set snapshot represents, in a succinct way, the Cardano t
 
 The Mithril aggregator combines the produced [multi-signature](#multi-signature) and some metadata into a Mithril certificate that will be later used by the [Mithril client](#mithril-client) to verify the authenticity of a [snapshot](#snapshot). The certificates are chained so that the [stake distribution](#stake-distribution) used to create the signatures is verifiably genuine.
 
-> More information is available on the [certificates page](./mithril/mithril-protocol/certificates.md).
+> More information is available on the [certificates page](./mithril/advanced/mithril-protocol/certificates.md).
 
 ## Epoch
 
@@ -48,7 +48,7 @@ Inside the database of a [Cardano node](#cardano-node), the blockchain state is 
 
 For each [beacon](#beacon), the [Mithril signers](#mithril-signer) will compute on their end a message representing the blockchain state, and sign it with their verification keys to create an [individual signature](#individual-signature). Upon winning one or more lotteries, the Mithril signer will be able to use this individual signature to participate in the creation of a [multi-signature](#multi-signature).
 
-> More information is available on the [protocol page](./mithril/mithril-protocol/protocol.md).
+> More information is available on the [protocol page](./mithril/advanced/mithril-protocol/protocol.md).
 
 ## Mithril aggregator
 
@@ -56,37 +56,37 @@ The Mithril aggregator is a trustless node of the [Mithril network](#mithril-net
 
 It is also in charge of creating and storing the [snapshot](#snapshot) archive.
 
-> More information is available on the [aggregator page](./mithril/mithril-network/aggregator.md).
+> More information is available on the [aggregator page](./mithril/advanced/mithril-network/aggregator.md).
 
 ## Mithril client
 
 The Mithril client node within the [Mithril network](#mithril-network) is used to restore a [Cardano full node](#cardano-node) by retrieving, from a [Mithril aggregator](#mithril-aggregator), a remote [snapshot](#snapshot) and its [certificate](#certificate) chain. Finally, it is used to verify snapshot and certificate validity using the Mithril cryptographic primitives.
 
-> More information is available on the [client page](./mithril/mithril-network/client.md).
+> More information is available on the [client page](./mithril/advanced/mithril-network/client.md).
 
 ## Mithril network
 
 In its current version, the Mithril network is a network of nodes responsible for creating [snapshots](#snapshot) and [certificates](#certificate) that enable fast bootstrap of a [Cardano node](#cardano-node). It runs on top of the [Cardano network](#cardano-network).
 
-> More information is available on the [architecture page](./mithril/mithril-network/architecture.md).
+> More information is available on the [architecture page](./mithril/advanced/mithril-network/architecture.md).
 
 ## Mithril protocol
 
 The Mithril protocol allows stakeholders in a proof-of-stake blockchain network to individually sign messages that are aggregated into a multi-signature which guarantees that they represent a minimum share of the total stake.
 
-> More information is on the [protocol page](./mithril/mithril-protocol/protocol.md).
+> More information is on the [protocol page](./mithril/advanced/mithril-protocol/protocol.md).
 
 ## Mithril signer
 
 The Mithril signer is a node of the [Mithril network](#mithril-network) that works transparently on top of the [stake pool operator](#stake-pool-operator-spo) Cardano nodes and which individually signs the ledger state.
 
-> More information is available on the [signer page](./mithril/mithril-network/signer.md).
+> More information is available on the [signer page](./mithril/advanced/mithril-network/signer.md).
 
 ## Multi-signature
 
 The Mithril multi-signature is an aggregate of [individual signatures](#individual-signature), which guarantees that a minimum share of the total stake has participated in its creation.
 
-> More information is available on the [protocol page](./mithril/mithril-protocol/protocol.md).
+> More information is available on the [protocol page](./mithril/advanced/mithril-protocol/protocol.md).
 
 ## Snapshot
 
@@ -106,4 +106,4 @@ A stake pool operator, also known as an SPO, represents a party that holds (via 
 
 To create [individual signatures](#individual-signature), [Mithril signers](#mithril-signer) must register their signing public key: the verification key. To guarantee their genuineness, they are signed by the associated [Cardano key pair](#cardano-key-pair). It is worth mentioning that a [Mithril signer](#mithril-signer) must be aware of the verification keys of all the other Mithril signers to produce valid individual signatures.
 
-> More information is available on the [protocol page](./mithril/mithril-protocol/protocol.md).
+> More information is available on the [protocol page](./mithril/advanced/mithril-protocol/protocol.md).
