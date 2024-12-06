@@ -148,11 +148,22 @@ impl MithrilFixtureBuilder {
         key_buffer: &'a mut [u8],
         kes_key_seed: &'a mut [u8],
     ) -> (Sum6KesBytes, PublicKey) {
-        if let Some(cached_value) = precomputed_keskey::cached_kes_key(kes_key_seed) {
-            return cached_value;
+        if let Some((kes_bytes, kes_verification_key)) =
+            MithrilFixtureBuilder::cached_kes_key(kes_key_seed)
+        {
+            (kes_bytes, kes_verification_key)
+        } else {
+            // TODO We can log a warning to indicate that the cache is not used
+            MithrilFixtureBuilder::generate_kes_key(key_buffer, kes_key_seed)
         }
-        // TODO We can log a warning to indicate that the cache is not used
-        MithrilFixtureBuilder::generate_kes_key(key_buffer, kes_key_seed)
+    }
+
+    fn cached_kes_key(kes_key_seed: &[u8]) -> Option<(Sum6KesBytes, PublicKey)> {
+        precomputed_keskey::cached_kes_key(kes_key_seed).map(|(kes_bytes, kes_verification_key)| {
+            let kes_verification_key = PublicKey::from_bytes(&kes_verification_key).unwrap();
+            let kes_bytes = Sum6KesBytes(kes_bytes);
+            (kes_bytes, kes_verification_key)
+        })
     }
 
     fn generate_kes_key<'a>(
@@ -302,7 +313,9 @@ mod tests {
     }
 
     /// Verify that there is cached kes key for a number of party id.
-    /// If the cache is not up to date, it will generate the code to use as cache.
+    /// If the cache is not up to date, the test will generate the code that could be copy/paste into the [precomputed_keskey] module.
+    /// The number of party id that should be in cache is defined in the test.
+    /// If we want lore or less, just change `precomputed_number` value and launch the test to generate the code.
     #[test]
     fn verify_kes_key_cache_content() {
         // Generate code that should be in the match instruction of cached_kes_key.
@@ -337,7 +350,7 @@ mod tests {
         let cached_kes_key: Vec<_> = cold_keys
             .iter()
             .filter_map(|cold_key| {
-                precomputed_keskey::cached_kes_key(cold_key).map(
+                MithrilFixtureBuilder::cached_kes_key(cold_key).map(
                     |(kes_bytes, kes_verification_key)| {
                         (cold_key.as_slice(), kes_bytes.0, kes_verification_key)
                     },
@@ -356,7 +369,7 @@ mod tests {
 
         let kes_key_seed = fixture.generate_cold_key_seed(precomputed_number);
         assert!(
-            precomputed_keskey::cached_kes_key(kes_key_seed.as_slice()).is_none(),
+            MithrilFixtureBuilder::cached_kes_key(kes_key_seed.as_slice()).is_none(),
             "We checked precomputed keskey up to {} but it seems to be more.",
             precomputed_number
         );
