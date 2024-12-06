@@ -1,9 +1,5 @@
-use kes_summed_ed25519::PublicKey;
-
-use crate::crypto_helper::Sum6KesBytes;
-
-pub fn cached_kes_key(kes_key_seed: &[u8]) -> Option<(Sum6KesBytes, PublicKey)> {
-    let (kes_bytes_cached, kes_verification_key_cached) = match kes_key_seed {
+pub fn cached_kes_key(kes_key_seed: &[u8]) -> Option<([u8; 612], [u8; 32])> {
+    let (kes_bytes, kes_verification_key) = match kes_key_seed {
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] => {
             (
                 [
@@ -466,7 +462,5 @@ pub fn cached_kes_key(kes_key_seed: &[u8]) -> Option<(Sum6KesBytes, PublicKey)> 
         }
         _ => return None,
     };
-    let kes_verification_key = PublicKey::from_bytes(&kes_verification_key_cached).unwrap();
-    let kes_bytes = Sum6KesBytes(kes_bytes_cached);
     Some((kes_bytes, kes_verification_key))
 }
