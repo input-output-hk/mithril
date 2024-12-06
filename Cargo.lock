@@ -864,7 +864,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57663b653d948a338bfb3eeba9bb2fd5fcfaecb9e199e87e1eda4d9e8b240fd9"
 dependencies = [
  "ciborium-io",
- "half 2.4.1",
+ "half",
 ]
 
 [[package]]
@@ -1690,7 +1690,7 @@ checksum = "85c6e0b89bf864acd20590dbdbad56f69aeb898abfc9443008fd7bd48b2cc85a"
 dependencies = [
  "az",
  "bytemuck",
- "half 2.4.1",
+ "half",
  "typenum",
 ]
 
@@ -2040,12 +2040,6 @@ dependencies = [
  "tokio-util",
  "tracing",
 ]
-
-[[package]]
-name = "half"
-version = "1.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 
 [[package]]
 name = "half"
@@ -3535,23 +3529,23 @@ dependencies = [
 
 [[package]]
 name = "minicbor"
-version = "0.20.0"
+version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d15f4203d71fdf90903c2696e55426ac97a363c67b218488a73b534ce7aca10"
+checksum = "c0452a60c1863c1f50b5f77cd295e8d2786849f35883f0b9e18e7e6e1b5691b0"
 dependencies = [
- "half 1.8.3",
+ "half",
  "minicbor-derive",
 ]
 
 [[package]]
 name = "minicbor-derive"
-version = "0.13.0"
+version = "0.15.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1154809406efdb7982841adb6311b3d095b46f78342dd646736122fe6b19e267"
+checksum = "bd2209fff77f705b00c737016a48e73733d7fbccb8b007194db148f03561fb70"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.90",
 ]
 
 [[package]]
@@ -3628,7 +3622,7 @@ dependencies = [
  "sqlite",
  "tar",
  "tempfile",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "tikv-jemallocator",
  "tokio",
  "tokio-util",
@@ -3695,7 +3689,7 @@ dependencies = [
  "slog-term",
  "strum",
  "tar",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "tokio",
  "uuid",
  "warp",
@@ -3727,7 +3721,7 @@ dependencies = [
  "slog-async",
  "slog-bunyan",
  "slog-term",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "tokio",
 ]
 
@@ -3792,7 +3786,7 @@ dependencies = [
  "slog-async",
  "slog-term",
  "strum",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "tokio",
  "typetag",
  "walkdir",
@@ -3839,7 +3833,7 @@ dependencies = [
  "slog-async",
  "slog-scope",
  "slog-term",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "tokio",
  "tokio-util",
 ]
@@ -3877,7 +3871,7 @@ dependencies = [
  "sha2",
  "slog",
  "sqlite",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "tokio",
 ]
 
@@ -3900,7 +3894,7 @@ dependencies = [
  "slog-bunyan",
  "slog-scope",
  "slog-term",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "tokio",
  "warp",
 ]
@@ -3940,7 +3934,7 @@ dependencies = [
  "slog-scope",
  "slog-term",
  "sqlite",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
  "tikv-jemallocator",
  "tokio",
 ]
@@ -3965,7 +3959,7 @@ dependencies = [
  "rayon",
  "rug",
  "serde",
- "thiserror 1.0.69",
+ "thiserror 2.0.4",
 ]
 
 [[package]]
@@ -4454,9 +4448,9 @@ checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
 name = "pallas-addresses"
-version = "0.30.2"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84460293bb3323066e9ce608702750c14f02bc36d41c469e44b3eef5ec0fdbf6"
+checksum = "5d47110e25338f995c1f29858292c016b974d23fa3a1ce97fff542047b6c2142"
 dependencies = [
  "base58",
  "bech32 0.9.1",
@@ -4470,9 +4464,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-codec"
-version = "0.30.2"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "747279d1bc612986035619a3eaded8f9f4ceae29668aa7a5feae83681a0e93f4"
+checksum = "1389b47a97864a7cb167e2392b44332930af90f6aaaac45eb2f369ccab95f4c7"
 dependencies = [
  "hex",
  "minicbor",
@@ -4482,9 +4476,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-crypto"
-version = "0.30.2"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b6f8b08e32c7dbb50302222701ae15ef9ac1a7cc39225ce29c253f6ddab2aa7"
+checksum = "f5d84346a1f0da5240b2aa16fde96998b84cdcc466cb7c04ba24bb1e1630e0d3"
 dependencies = [
  "cryptoxide",
  "hex",
@@ -4492,13 +4486,14 @@ dependencies = [
  "rand_core 0.6.4",
  "serde",
  "thiserror 1.0.69",
+ "zeroize",
 ]
 
 [[package]]
 name = "pallas-hardano"
-version = "0.30.2"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32491504e377c48edcded200f06678aab7814da0e3338097eec4a4ecf615ef0e"
+checksum = "56d65c0d4b01269e7c01a762d3f4d3a3106e2ef00ae51831a64f088af1f58af6"
 dependencies = [
  "binary-layout",
  "pallas-network",
@@ -4510,9 +4505,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-network"
-version = "0.30.2"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c081efb304917ec0025182e11295c6e1727b779888b83cc93d89533c71db50c"
+checksum = "e6536d3afc8eef5651705c6f046e0900277ff6392491670d995e613335436bd0"
 dependencies = [
  "byteorder",
  "hex",
@@ -4528,9 +4523,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-primitives"
-version = "0.30.2"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24929d461308626183d5bf15290e6315f4cc67fa38a1a66469425919683cceb2"
+checksum = "5627a5cd6512eaa3900b93d8b6e604d495a31d4439c9f34d9f88ec38383c0ddc"
 dependencies = [
  "base58",
  "bech32 0.9.1",
@@ -4544,9 +4539,9 @@ dependencies = [
 
 [[package]]
 name = "pallas-traverse"
-version = "0.30.2"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73ca94c2278a160c226d6f5bb1756ea5f355421158aaa697445f59f09477a6a4"
+checksum = "5d04fc75a2144eb257c68b4604cdde647e07404ea185b791c0005826960dfb35"
 dependencies = [
  "hex",
  "itertools 0.13.0",

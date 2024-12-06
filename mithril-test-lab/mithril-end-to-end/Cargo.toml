@@ -15,18 +15,18 @@ test = false
 bench = false
 
 [dependencies]
-anyhow = "1.0.92"
+anyhow = "1.0.94"
 async-recursion = "1.1.1"
 async-trait = "0.1.83"
-clap = { version = "4.5.20", features = ["derive"] }
+clap = { version = "4.5.23", features = ["derive"] }
 glob = "0.3.1"
 hex = "0.4.3"
-indicatif = { version = "0.17.8", features = ["tokio"] }
+indicatif = { version = "0.17.9", features = ["tokio"] }
 mithril-common = { path = "../../mithril-common", features = ["full"] }
 mithril-doc = { path = "../../internal/mithril-doc" }
 reqwest = { version = "0.12.9", features = ["json"] }
-serde = { version = "1.0.214", features = ["derive"] }
-serde_json = "1.0.132"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
 serde_yaml = "0.9.34"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
@@ -35,9 +35,9 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
-thiserror = "1.0.67"
-tokio = { version = "1.41.0", features = ["full"] }
-tokio-util = { version = "0.7.12", features = ["codec"] }
+thiserror = "2.0.4"
+tokio = { version = "1.42.0", features = ["full"] }
+tokio-util = { version = "0.7.13", features = ["codec"] }
 
 [features]
 default = []

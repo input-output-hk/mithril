@@ -11,5 +11,5 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 
 [dependencies]
 semver = "1.0.23"
-serde_json = "1.0.132"
+serde_json = "1.0.133"
 serde_yaml = "0.9.34"

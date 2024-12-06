@@ -10,10 +10,10 @@ license = "Apache-2.0"
 repository = "https://github.com/input-output-hk/mithril/"
 
 [dependencies]
-anyhow = "1.0.92"
+anyhow = "1.0.94"
 async-trait = "0.1.83"
-clap = { version = "4.5.20", features = ["derive", "env"] }
+clap = { version = "4.5.23", features = ["derive", "env"] }
 futures = "0.3.31"
-indicatif = "0.17.8"
+indicatif = "0.17.9"
 mithril-client = { path = "../../mithril-client", features = ["fs"] }
-tokio = { version = "1.41.0", features = ["full"] }
+tokio = { version = "1.42.0", features = ["full"] }
