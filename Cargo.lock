@@ -3729,12 +3729,15 @@ dependencies = [
 name = "mithril-client-wasm"
 version = "0.7.2"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "chrono",
  "futures",
  "mithril-build-script",
  "mithril-client",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
