@@ -1,0 +1,1 @@
+searchState.loadedDescShard("mithril_build_script", 0, "In memory representation of a folder containing data …\nReturns the argument unchanged.\npub(crate) fn $array_name() -&gt; [&amp;’a str; $ids.len]\npub(crate) fn $fun_name() -&gt; &amp;’static str\nCalls <code>U::from(self)</code>.\nGenerate the <code>get_open_api_versions_mapping</code> function based …")
