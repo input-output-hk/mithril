@@ -8,10 +8,10 @@ This devbook provides step-by-step instructions to upgrade the dependencies in t
 
 The `update_dependencies.sh` script allows you to update dependencies performing all the steps described in the next chapter.
 
-It requires having `cargo-edit` installed, which can be done with the following command:
+It requires having `cargo-edit` and `cargo-audit` installed, which can be done with the following command:
 
 ```
-cargo install cargo-edit
+cargo install cargo-edit cargo-audit
 ```
 
 To start the update, execute the command below from the root of the repository:
@@ -176,8 +176,8 @@ Create a dedicated commit, e.g.:
 chore: bump javascript packages versions
 
 By running:
-- 'make www-install' command in 'mithril-client-wasm'.
-- 'make www-test-install' command in 'mithril-client-wasm'.
+- 'make install' command in 'examples/client-wasm-web'.
+- 'make install' command in 'examples/client-wasm-nodejs'.
 - 'make install' command in 'mithril-explorer'.
 - 'make install' command in 'docs/website'.
 ```
@@ -194,4 +194,10 @@ Create a dedicated commit, e.g.:
 chore: update nix flake dependencies
 
 By running 'nix flake update' command.
+```
+
+### Run a security audit on the Rust dependencies:
+
+```bash
+cargo audit
 ```

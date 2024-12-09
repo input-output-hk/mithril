@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.28"
+version = "0.1.29"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -11,8 +11,8 @@ repository = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.92"
-clap = { version = "4.5.20", features = ["derive", "env"] }
+anyhow = "1.0.94"
+clap = { version = "4.5.23", features = ["derive", "env"] }
 config = "0.14.1"
 libp2p = { version = "0.54.1", features = [
     "tokio",
@@ -34,8 +34,8 @@ libp2p = { version = "0.54.1", features = [
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 reqwest = { version = "0.12.9", features = ["json"] }
-serde = { version = "1.0.214", features = ["derive"] }
-serde_json = "1.0.132"
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = "1.0.133"
 serde_yaml = "0.9.34"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
@@ -43,8 +43,8 @@ slog = { version = "2.7.0", features = [
 ] }
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
-thiserror = "1.0.67"
-tokio = { version = "1.41.0", features = ["full"] }
+thiserror = "2.0.4"
+tokio = { version = "1.42.0", features = ["full"] }
 warp = "0.3.7"
 
 [dev-dependencies]

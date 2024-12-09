@@ -52,6 +52,7 @@ clean:
 	rm package-lock.json || true
 
 upgrade: clean install
+	# Update to the latest version of react and react-dom when it is supported and does not create dependency conflicts
 	npm install \
 		@popperjs/core@latest \
 		@reduxjs/toolkit@latest \
@@ -59,10 +60,10 @@ upgrade: clean install
 		bootstrap-icons@latest \
 		chart.js@latest \
 		next@latest \
-		react@latest \
+		react@^18.3.1 \
 		react-bootstrap@latest \
 		react-chartjs-2@latest \
-		react-dom@latest \
+		react-dom@^18.3.1 \
 		react-redux@latest \
 		@testing-library/jest-dom@latest \
 		@testing-library/react@latest \
