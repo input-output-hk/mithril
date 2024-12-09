@@ -1,4 +1,4 @@
-use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk, PublicKey};
+use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk, PublicKey as KesPublicKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -11,7 +11,7 @@ use crate::{
     test_utils::{fake_data, mithril_fixture::MithrilFixture},
 };
 
-use super::precomputed_keskey;
+use super::precomputed_kes_key;
 
 /// A builder of mithril types.
 pub struct MithrilFixtureBuilder {
@@ -144,58 +144,61 @@ impl MithrilFixtureBuilder {
         }
     }
 
-    fn provide_kes_key<'a>(
-        key_buffer: &'a mut [u8],
-        kes_key_seed: &'a mut [u8],
-    ) -> (Sum6KesBytes, PublicKey) {
+    fn provide_kes_key(kes_key_seed: &mut [u8]) -> (Sum6KesBytes, KesPublicKey) {
         if let Some((kes_bytes, kes_verification_key)) =
             MithrilFixtureBuilder::cached_kes_key(kes_key_seed)
         {
             (kes_bytes, kes_verification_key)
         } else {
-            // TODO We can log a warning to indicate that the cache is not used
-            MithrilFixtureBuilder::generate_kes_key(key_buffer, kes_key_seed)
+            println!(
+                "KES key not found in test cache, generating a new one for the seed {:?}.",
+                kes_key_seed
+            );
+            MithrilFixtureBuilder::generate_kes_key(kes_key_seed)
         }
     }
 
-    fn cached_kes_key(kes_key_seed: &[u8]) -> Option<(Sum6KesBytes, PublicKey)> {
-        precomputed_keskey::cached_kes_key(kes_key_seed).map(|(kes_bytes, kes_verification_key)| {
-            let kes_verification_key = PublicKey::from_bytes(&kes_verification_key).unwrap();
-            let kes_bytes = Sum6KesBytes(kes_bytes);
-            (kes_bytes, kes_verification_key)
-        })
+    fn cached_kes_key(kes_key_seed: &[u8]) -> Option<(Sum6KesBytes, KesPublicKey)> {
+        precomputed_kes_key::cached_kes_key(kes_key_seed).map(
+            |(kes_bytes, kes_verification_key)| {
+                let kes_verification_key = KesPublicKey::from_bytes(&kes_verification_key).unwrap();
+                let kes_bytes = Sum6KesBytes(kes_bytes);
+
+                (kes_bytes, kes_verification_key)
+            },
+        )
     }
 
-    fn generate_kes_key<'a>(
-        key_buffer: &'a mut [u8],
-        kes_key_seed: &'a mut [u8],
-    ) -> (Sum6KesBytes, PublicKey) {
-        let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(key_buffer, kes_key_seed);
+    fn generate_kes_key(kes_key_seed: &mut [u8]) -> (Sum6KesBytes, KesPublicKey) {
+        let mut key_buffer = [0u8; Sum6Kes::SIZE + 4];
+
+        let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut key_buffer, kes_key_seed);
         let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
         kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
+
         (kes_bytes, kes_verification_key)
     }
 
     fn generate_cold_key_seed(&self, party_index: usize) -> Vec<u8> {
-        let mut cold_key_seed: Vec<u8> = (party_index)
+        let mut cold_key_seed: Vec<_> = (party_index)
             .to_le_bytes()
             .iter()
             .zip(self.party_id_seed)
             .map(|(v1, v2)| v1 + v2)
             .collect();
         cold_key_seed.resize(32, 0);
+
         cold_key_seed
     }
 
     fn build_party_with_operational_certificate(&self, party_index: usize) -> PartyId {
-        let cold_key_seed: Vec<u8> = self.generate_cold_key_seed(party_index).to_vec();
+        let cold_key_seed = self.generate_cold_key_seed(party_index).to_vec();
         let mut kes_key_seed = cold_key_seed.clone();
 
         let keypair =
             ColdKeyGenerator::create_deterministic_keypair(cold_key_seed.try_into().unwrap());
-        let mut kes_key_buffer = [0u8; Sum6Kes::SIZE + 4];
         let (kes_bytes, kes_verification_key) =
-            MithrilFixtureBuilder::provide_kes_key(&mut kes_key_buffer, &mut kes_key_seed);
+            MithrilFixtureBuilder::provide_kes_key(&mut kes_key_seed);
         let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
         let party_id = operational_certificate
             .compute_protocol_party_id()
@@ -219,7 +222,6 @@ impl MithrilFixtureBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk, PublicKey};
     use std::collections::BTreeSet;
 
     #[test]
@@ -312,15 +314,14 @@ mod tests {
         }
     }
 
-    /// Verify that there is cached kes key for a number of party id.
-    /// If the cache is not up to date, the test will generate the code that could be copy/paste into the [precomputed_keskey] module.
-    /// The number of party id that should be in cache is defined in the test.
-    /// If we want lore or less, just change `precomputed_number` value and launch the test to generate the code.
+    /// Verify that there is a cached kes key for a number of party id.
+    /// If the cache is not up to date, the test will generate the code that can be copied/pasted into the [precomputed_kes_key] module.
+    /// The number of party id that should be in cache is defined with `precomputed_number`
     #[test]
     fn verify_kes_key_cache_content() {
-        // Generate code that should be in the match instruction of cached_kes_key.
-        // It could be copy paste to update the cache.
-        fn generate_code(party_ids: &Vec<(&[u8], [u8; 612], PublicKey)>) -> String {
+        // Generate code that should be in the `cached_kes_key` function of the `precomputed_kes_key.rs` file.
+        // It can be copied and pasted to update the cache.
+        fn generate_code(party_ids: &Vec<(&[u8], [u8; 612], KesPublicKey)>) -> String {
             party_ids
                 .iter()
                 .map(|(key, i, p)| format!("{:?} => ({:?}, {:?}),", key, i, p.as_bytes()))
@@ -338,10 +339,9 @@ mod tests {
         let computed_keys_key: Vec<_> = cold_keys
             .iter()
             .map(|cold_key| {
-                let mut kes_key_buffer = [0u8; Sum6Kes::SIZE + 4];
                 let mut kes_key_seed: Vec<u8> = cold_key.clone();
                 let (kes_bytes, kes_verification_key) =
-                    MithrilFixtureBuilder::generate_kes_key(&mut kes_key_buffer, &mut kes_key_seed);
+                    MithrilFixtureBuilder::generate_kes_key(&mut kes_key_seed);
 
                 (cold_key.as_slice(), kes_bytes.0, kes_verification_key)
             })
@@ -363,14 +363,14 @@ mod tests {
 
         assert_eq!(
             computed_keys_key, cached_kes_key,
-            "Precomputed keskeys should be:\n{}\nbut seems to be:\n{}",
+            "Precomputed KES keys should be:\n{}\nbut seems to be:\n{}",
             expected_code, actual_code
         );
 
         let kes_key_seed = fixture.generate_cold_key_seed(precomputed_number);
         assert!(
             MithrilFixtureBuilder::cached_kes_key(kes_key_seed.as_slice()).is_none(),
-            "We checked precomputed keskey up to {} but it seems to be more.",
+            "We checked precomputed KES keys up to {} but it seems to be more.",
             precomputed_number
         );
     }

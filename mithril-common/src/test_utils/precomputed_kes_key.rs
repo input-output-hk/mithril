@@ -1,3 +1,5 @@
+/// If there is a need to update this data, we can run the `verify_kes_key_cache_content` test in `fixture_builder.rs`
+/// which generates the code of this function.
 pub fn cached_kes_key(kes_key_seed: &[u8]) -> Option<([u8; 612], [u8; 32])> {
     let (kes_bytes, kes_verification_key) = match kes_key_seed {
         [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] => {

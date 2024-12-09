@@ -17,7 +17,7 @@ mod cardano_transactions_builder;
 mod certificate_chain_builder;
 mod fixture_builder;
 mod mithril_fixture;
-mod precomputed_keskey;
+mod precomputed_kes_key;
 mod temp_dir;
 
 #[cfg(feature = "test_http_server")]
