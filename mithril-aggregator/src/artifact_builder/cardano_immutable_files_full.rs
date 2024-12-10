@@ -6,8 +6,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::{
-    file_uploaders::SnapshotLocation, snapshotter::OngoingSnapshot, SnapshotUploader,
-    Snapshotter,
+    file_uploaders::FileLocation, snapshotter::OngoingSnapshot, FileUploader, Snapshotter,
 };
 
 use super::ArtifactBuilder;
@@ -33,7 +32,7 @@ pub struct CardanoImmutableFilesFullArtifactBuilder {
     cardano_network: CardanoNetwork,
     cardano_node_version: Version,
     snapshotter: Arc<dyn Snapshotter>,
-    snapshot_uploader: Arc<dyn SnapshotUploader>,
+    snapshot_uploader: Arc<dyn FileUploader>,
     compression_algorithm: CompressionAlgorithm,
     logger: Logger,
 }
@@ -44,7 +43,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         cardano_network: CardanoNetwork,
         cardano_node_version: &Version,
         snapshotter: Arc<dyn Snapshotter>,
-        snapshot_uploader: Arc<dyn SnapshotUploader>,
+        snapshot_uploader: Arc<dyn FileUploader>,
         compression_algorithm: CompressionAlgorithm,
         logger: Logger,
     ) -> Self {
@@ -89,11 +88,11 @@ impl CardanoImmutableFilesFullArtifactBuilder {
     async fn upload_snapshot_archive(
         &self,
         ongoing_snapshot: &OngoingSnapshot,
-    ) -> StdResult<Vec<SnapshotLocation>> {
+    ) -> StdResult<Vec<FileLocation>> {
         debug!(self.logger, ">> upload_snapshot_archive");
         let location = self
             .snapshot_uploader
-            .upload_snapshot(ongoing_snapshot.get_file_path())
+            .upload(ongoing_snapshot.get_file_path())
             .await;
 
         if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
@@ -174,7 +173,7 @@ mod tests {
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use crate::{
-        file_uploaders::MockSnapshotUploader, test_tools::TestLogger, DumbSnapshotUploader,
+        file_uploaders::MockFileUploader, test_tools::TestLogger, DumbSnapshotUploader,
         DumbSnapshotter,
     };
 
@@ -325,9 +324,9 @@ mod tests {
         let file = NamedTempFile::new().unwrap();
         let file_path = file.path();
         let snapshot = OngoingSnapshot::new(file_path.to_path_buf(), 7331);
-        let mut snapshot_uploader = MockSnapshotUploader::new();
+        let mut snapshot_uploader = MockFileUploader::new();
         snapshot_uploader
-            .expect_upload_snapshot()
+            .expect_upload()
             .return_once(|_| Err(anyhow!("an error")))
             .once();
 

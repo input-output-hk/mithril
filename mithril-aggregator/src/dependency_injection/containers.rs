@@ -32,7 +32,7 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, TransmitterService},
-    file_uploaders::SnapshotUploader,
+    file_uploaders::FileUploader,
     multi_signer::MultiSigner,
     services::{
         CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
@@ -71,7 +71,7 @@ pub struct DependencyContainer {
     pub stake_store: Arc<StakePoolStore>,
 
     /// Snapshot uploader service.
-    pub snapshot_uploader: Arc<dyn SnapshotUploader>,
+    pub snapshot_uploader: Arc<dyn FileUploader>,
 
     /// Multisigner service.
     pub multi_signer: Arc<dyn MultiSigner>,

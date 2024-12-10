@@ -5,7 +5,7 @@ use std::path::Path;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::{SnapshotLocation, SnapshotUploader};
+use crate::file_uploaders::{FileLocation, FileUploader};
 use crate::tools::RemoteFileUploader;
 
 /// GCPSnapshotUploader is a snapshot uploader working using Google Cloud Platform services
@@ -36,8 +36,8 @@ impl RemoteSnapshotUploader {
 }
 
 #[async_trait]
-impl SnapshotUploader for RemoteSnapshotUploader {
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> StdResult<SnapshotLocation> {
+impl FileUploader for RemoteSnapshotUploader {
+    async fn upload(&self, snapshot_filepath: &Path) -> StdResult<FileLocation> {
         let archive_name = snapshot_filepath.file_name().unwrap().to_str().unwrap();
         let location = if self.use_cdn_domain {
             format!("https://{}/{}", self.bucket, archive_name)
@@ -61,7 +61,7 @@ mod tests {
     use anyhow::anyhow;
     use std::path::Path;
 
-    use crate::file_uploaders::SnapshotUploader;
+    use crate::file_uploaders::FileUploader;
     use crate::test_tools::TestLogger;
     use crate::tools::MockRemoteFileUploader;
 
@@ -83,7 +83,7 @@ mod tests {
             "https://storage.googleapis.com/cardano-testnet/snapshot.xxx.tar.gz".to_string();
 
         let location = snapshot_uploader
-            .upload_snapshot(snapshot_filepath)
+            .upload(snapshot_filepath)
             .await
             .expect("remote upload should not fail");
 
@@ -105,7 +105,7 @@ mod tests {
         let expected_location = "https://cdn.mithril.network/snapshot.xxx.tar.gz".to_string();
 
         let location = snapshot_uploader
-            .upload_snapshot(snapshot_filepath)
+            .upload(snapshot_filepath)
             .await
             .expect("remote upload should not fail");
 
@@ -127,7 +127,7 @@ mod tests {
         let snapshot_filepath = Path::new("test/snapshot.xxx.tar.gz");
 
         let result = snapshot_uploader
-            .upload_snapshot(snapshot_filepath)
+            .upload(snapshot_filepath)
             .await
             .expect_err("remote upload should fail");
         assert_eq!("unexpected error".to_string(), result.to_string());

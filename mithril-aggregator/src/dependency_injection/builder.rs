@@ -78,7 +78,7 @@ use crate::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter, EpochSettingsStorer,
     LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    RemoteSnapshotUploader, SingleSignatureAuthenticator, SnapshotUploader, SnapshotUploaderType,
+    RemoteSnapshotUploader, SingleSignatureAuthenticator, FileUploader, SnapshotUploaderType,
     Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
@@ -118,7 +118,7 @@ pub struct DependenciesBuilder {
     pub stake_store: Option<Arc<StakePoolStore>>,
 
     /// Snapshot uploader service.
-    pub snapshot_uploader: Option<Arc<dyn SnapshotUploader>>,
+    pub snapshot_uploader: Option<Arc<dyn FileUploader>>,
 
     /// Multisigner service.
     pub multi_signer: Option<Arc<dyn MultiSigner>>,
@@ -446,7 +446,7 @@ impl DependenciesBuilder {
         Ok(self.stake_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
+    async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
         let logger = self.root_logger();
         if self.configuration.environment == ExecutionEnvironment::Production {
             match self.configuration.snapshot_uploader_type {
@@ -479,8 +479,8 @@ impl DependenciesBuilder {
         }
     }
 
-    /// Get a [SnapshotUploader]
-    pub async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
+    /// Get a [FileUploader]
+    pub async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
         if self.snapshot_uploader.is_none() {
             self.snapshot_uploader = Some(self.build_snapshot_uploader().await?);
         }

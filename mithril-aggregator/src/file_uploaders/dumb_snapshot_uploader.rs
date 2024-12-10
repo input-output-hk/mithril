@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use mithril_common::StdResult;
 use std::{path::Path, sync::RwLock};
 
-use super::{SnapshotLocation, SnapshotUploader};
+use super::{FileLocation, FileUploader};
 
 /// Dummy uploader for test purposes.
 ///
@@ -39,9 +39,9 @@ impl Default for DumbSnapshotUploader {
 }
 
 #[async_trait]
-impl SnapshotUploader for DumbSnapshotUploader {
+impl FileUploader for DumbSnapshotUploader {
     /// Upload a snapshot
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> StdResult<SnapshotLocation> {
+    async fn upload(&self, snapshot_filepath: &Path) -> StdResult<FileLocation> {
         let mut value = self
             .last_uploaded
             .write()
@@ -66,7 +66,7 @@ mod tests {
             .expect("uploader should not fail")
             .is_none());
         let res = uploader
-            .upload_snapshot(Path::new("/tmp/whatever"))
+            .upload(Path::new("/tmp/whatever"))
             .await
             .expect("uploading with a dumb uploader should not fail");
         assert_eq!(res, "/tmp/whatever".to_string());
