@@ -1,18 +1,18 @@
 mod certificates_hash_migrator;
 mod digest_helpers;
 mod era;
+mod gcp_file_uploader;
 mod genesis;
 #[cfg(test)]
 pub mod mocks;
-mod remote_file_uploader;
 mod signer_importer;
 mod single_signature_authenticator;
 
 pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use digest_helpers::extract_digest_from_path;
 pub use era::EraTools;
+pub use gcp_file_uploader::GcpFileUploader;
 pub use genesis::{GenesisTools, GenesisToolsDependency};
-pub use remote_file_uploader::GcpFileUploader;
 pub use signer_importer::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
 };
