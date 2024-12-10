@@ -35,7 +35,7 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
-thiserror = "2.0.4"
+thiserror = "2.0.6"
 tokio = { version = "1.42.0", features = ["full"] }
 tokio-util = { version = "0.7.13", features = ["codec"] }
 

@@ -21,7 +21,7 @@ digest = { version = "0.10.7", features = ["alloc"] }
 rand_core = "0.6.4"
 rayon = "1.10.0"
 serde = { version = "1.0.215", features = ["rc", "derive"] }
-thiserror = "2.0.4"
+thiserror = "2.0.6"
 
 [target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]
 # only unix supports the rug backend
