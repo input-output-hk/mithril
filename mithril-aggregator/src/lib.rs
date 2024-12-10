@@ -41,7 +41,7 @@ pub use artifact_uploaders::{ArtifactLocation, ArtifactUploader, FakeArtifactUpl
 pub use commands::{CommandType, MainOpts};
 pub use dependency_injection::DependencyContainer;
 pub use file_uploaders::{
-    DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,
+    DumbSnapshotUploader, FileUploader, LocalSnapshotUploader, RemoteSnapshotUploader,
 };
 pub use message_adapters::{FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter};
 pub use metrics::*;

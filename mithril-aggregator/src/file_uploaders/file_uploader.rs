@@ -2,12 +2,12 @@ use async_trait::async_trait;
 use mithril_common::StdResult;
 use std::path::Path;
 
-pub type SnapshotLocation = String;
+pub type FileLocation = String;
 
-/// SnapshotUploader represents a snapshot uploader interactor
+/// FileUploader represents a file uploader interactor
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait SnapshotUploader: Sync + Send {
-    /// Upload a snapshot
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> StdResult<SnapshotLocation>;
+pub trait FileUploader: Sync + Send {
+    /// Upload a file
+    async fn upload(&self, filepath: &Path) -> StdResult<FileLocation>;
 }

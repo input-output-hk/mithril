@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::{SnapshotLocation, SnapshotUploader};
+use crate::file_uploaders::{FileLocation, FileUploader};
 use crate::http_server;
 use crate::tools;
 
@@ -35,8 +35,8 @@ impl LocalSnapshotUploader {
 }
 
 #[async_trait]
-impl SnapshotUploader for LocalSnapshotUploader {
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> StdResult<SnapshotLocation> {
+impl FileUploader for LocalSnapshotUploader {
+    async fn upload(&self, snapshot_filepath: &Path) -> StdResult<FileLocation> {
         let archive_name = snapshot_filepath.file_name().unwrap().to_str().unwrap();
         let target_path = &self.target_location.join(archive_name);
         tokio::fs::copy(snapshot_filepath, target_path)
@@ -63,7 +63,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
-    use crate::file_uploaders::SnapshotUploader;
+    use crate::file_uploaders::FileUploader;
     use crate::http_server;
     use crate::test_tools::TestLogger;
 
@@ -97,7 +97,7 @@ mod tests {
         let uploader = LocalSnapshotUploader::new(url, target_dir.path(), TestLogger::stdout());
 
         let location = uploader
-            .upload_snapshot(&archive)
+            .upload(&archive)
             .await
             .expect("local upload should not fail");
 
@@ -115,7 +115,7 @@ mod tests {
             target_dir.path(),
             TestLogger::stdout(),
         );
-        uploader.upload_snapshot(&archive).await.unwrap();
+        uploader.upload(&archive).await.unwrap();
 
         assert!(target_dir
             .path()
