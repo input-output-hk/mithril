@@ -77,7 +77,7 @@ use crate::{
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbFileUploader, DumbSnapshotter, EpochSettingsStorer,
-    FileUploader, LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
+    FileUploader, LocalFileUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
     MultiSignerImpl, RemoteSnapshotUploader, SingleSignatureAuthenticator, SnapshotUploaderType,
     Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
@@ -468,7 +468,7 @@ impl DependenciesBuilder {
                         logger,
                     )))
                 }
-                SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
+                SnapshotUploaderType::Local => Ok(Arc::new(LocalFileUploader::new(
                     self.configuration.get_server_url(),
                     &self.configuration.snapshot_directory,
                     logger,
