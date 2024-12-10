@@ -36,7 +36,7 @@ impl ImmutableFilesArtifactBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::FakeArtifactUploader;
+    use crate::{artifact_uploaders::MockArtifactUploader, FakeArtifactUploader};
 
     use super::*;
 
@@ -59,6 +59,29 @@ mod tests {
             expected_uri.parse().unwrap(),
         )));
         let builder = ImmutableFilesArtifactBuilder::new(vec![uploader]);
+
+        let locations = builder
+            .create_and_upload_archive(Path::new("whatever"))
+            .await
+            .unwrap();
+
+        match &locations[0] {
+            ImmutablesLocation::CloudStorage { uri } => {
+                assert_eq!(expected_uri, uri);
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn create_and_upload_archive_should_return_uploader_cloud_storage_location_with_mock() {
+        let expected_uri = "uploaded_archive";
+
+        let mut uploader = MockArtifactUploader::new();
+        uploader
+            .expect_upload()
+            .returning(move |_| Ok(ArtifactLocation::URI(expected_uri.parse().unwrap())));
+
+        let builder = ImmutableFilesArtifactBuilder::new(vec![Arc::new(uploader)]);
 
         let locations = builder
             .create_and_upload_archive(Path::new("whatever"))

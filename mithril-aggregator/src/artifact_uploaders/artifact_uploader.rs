@@ -10,6 +10,7 @@ pub enum ArtifactLocation {
     URI(Uri),
 }
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ArtifactUploader: Sync + Send {
     async fn upload(&self, artifact_path: &Path) -> StdResult<ArtifactLocation>;
