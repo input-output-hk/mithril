@@ -69,7 +69,7 @@ impl From<MithrilEvent> for MithrilEventWasm {
 #[wasm_bindgen(getter_with_clone)]
 pub struct MithrilClient {
     client: Client,
-
+    certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
     unstable: bool,
 }
 
@@ -99,20 +99,27 @@ impl MithrilClient {
                 .add_feedback_receiver(feedback_receiver)
                 .with_options(client_options);
 
-        if unstable && enable_certificate_chain_verification_cache {
-            if let Some(cache) =
-                Self::build_certifier_cache(aggregator_endpoint, TimeDelta::weeks(1))
-            {
-                client_builder = client_builder.with_certificate_verifier_cache(cache);
+        let certificate_verifier_cache = if unstable && enable_certificate_chain_verification_cache
+        {
+            let cache = Self::build_certifier_cache(aggregator_endpoint, TimeDelta::weeks(1));
+            if let Some(cache) = &cache {
+                client_builder = client_builder.with_certificate_verifier_cache(cache.clone());
             }
-        }
+            cache
+        } else {
+            None
+        };
 
         let client = client_builder
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
 
-        MithrilClient { client, unstable }
+        MithrilClient {
+            client,
+            certificate_verifier_cache,
+            unstable,
+        }
     }
 
     fn build_certifier_cache(
@@ -409,6 +416,18 @@ impl MithrilClient {
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
+
+    /// `unstable` Reset the certificate verifier cache if enabled
+    #[wasm_bindgen]
+    pub async fn reset_certificate_verifier_cache(&self) -> Result<(), JsValue> {
+        self.guard_unstable()?;
+
+        if let Some(cache) = self.certificate_verifier_cache.as_ref() {
+            cache.reset().await.map_err(|err| format!("{err:?}"))?;
+        }
+
+        Ok(())
+    }
 }
 
 allow_unstable_dead_code! {
@@ -444,8 +463,7 @@ mod tests {
     const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";
     const FAKE_AGGREGATOR_PORT: &str = "8000";
 
-    fn get_mithril_client(unstable: bool) -> MithrilClient {
-        let options = ClientOptions::new(None).with_unstable_features(unstable);
+    fn get_mithril_client(options: ClientOptions) -> MithrilClient {
         let options_js_value = serde_wasm_bindgen::to_value(&options).unwrap();
         MithrilClient::new(
             &format!(
@@ -458,7 +476,8 @@ mod tests {
     }
 
     fn get_mithril_client_stable() -> MithrilClient {
-        get_mithril_client(false)
+        let options = ClientOptions::new(None).with_unstable_features(false);
+        get_mithril_client(options)
     }
 
     wasm_bindgen_test_configure!(run_in_browser);

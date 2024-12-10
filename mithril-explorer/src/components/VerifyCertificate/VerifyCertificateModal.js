@@ -11,6 +11,7 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
   const [client, setClient] = useState(undefined);
   const [certificate, setCertificate] = useState(undefined);
+  const enableCertificateChainVerificationCache = true;
 
   useEffect(() => {
     if (show) {
@@ -32,7 +33,7 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
     const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
     const client = new MithrilClient(aggregator, genesisVerificationKey, {
       unstable: true,
-      enable_certificate_chain_verification_cache: true,
+      enable_certificate_chain_verification_cache: enableCertificateChainVerificationCache,
     });
     const certificate = await client.get_mithril_certificate(certificateHash);
 
@@ -72,6 +73,7 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
               <CertificateVerifier
                 client={client}
                 certificate={certificate}
+                certificateChainVerificationCacheEnabled={enableCertificateChainVerificationCache}
                 onStepChange={(step) =>
                   setLoading(step === certificateValidationSteps.validationInProgress)
                 }
