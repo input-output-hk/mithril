@@ -76,9 +76,9 @@ use crate::{
     store::CertificatePendingStorer,
     tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
-    Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter, EpochSettingsStorer,
-    LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    RemoteSnapshotUploader, SingleSignatureAuthenticator, FileUploader, SnapshotUploaderType,
+    Configuration, DependencyContainer, DumbFileUploader, DumbSnapshotter, EpochSettingsStorer,
+    FileUploader, LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
+    MultiSignerImpl, RemoteSnapshotUploader, SingleSignatureAuthenticator, SnapshotUploaderType,
     Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
@@ -475,7 +475,7 @@ impl DependenciesBuilder {
                 ))),
             }
         } else {
-            Ok(Arc::new(DumbSnapshotUploader::new()))
+            Ok(Arc::new(DumbFileUploader::new()))
         }
     }
 
