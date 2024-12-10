@@ -52,6 +52,7 @@ export default function CertificateVerifier({
   certificate,
   hideSpinner = false,
   showCertificateLinks = false,
+  certificateChainVerificationCacheEnabled = true,
   onStepChange = (step) => {},
   onChainValidationError = (error) => {},
   onCertificateClick = (hash) => {},
@@ -138,6 +139,10 @@ export default function CertificateVerifier({
     ]);
   }
 
+  async function onCacheResetClick() {
+    await client.reset_certificate_verifier_cache();
+  }
+
   return (
     <>
       {Object.entries(certificate).length > 0 && (
@@ -212,6 +217,15 @@ export default function CertificateVerifier({
                 .map((evt) => (
                   <div key={evt.id}>{evt.message}</div>
                 ))}
+              {certificateChainVerificationCacheEnabled &&
+                currentStep === certificateValidationSteps.done && (
+                  <>
+                    Cache enabled:{" "}
+                    <a href="#" onClick={onCacheResetClick}>
+                      reset cache
+                    </a>
+                  </>
+                )}
               {validationError !== undefined && (
                 <Alert variant="danger" className="mt-2">
                   <Alert.Heading>
