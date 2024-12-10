@@ -19,6 +19,7 @@ export const certificateValidationSteps = {
 const certificateChainValidationEvents = {
   started: "CertificateChainValidationStarted",
   certificateValidated: "CertificateValidated",
+  certificateValidatedFromCache: "CertificateValidatedFromCache",
   done: "CertificateChainValidated",
 };
 
@@ -113,7 +114,11 @@ export default function CertificateVerifier({
         break;
       case certificateChainValidationEvents.certificateValidated:
         position = eventPosition.inTable;
-        message = { certificateHash: event.payload.certificate_hash };
+        message = { certificateHash: event.payload.certificate_hash, cached: false };
+        break;
+      case certificateChainValidationEvents.certificateValidatedFromCache:
+        position = eventPosition.inTable;
+        message = { certificateHash: event.payload.certificate_hash, cached: true };
         break;
       case certificateChainValidationEvents.done:
         message = (
@@ -192,7 +197,11 @@ export default function CertificateVerifier({
                           />
                         </td>
                         <td>
-                          <IconBadge tooltip="yes" variant="success" icon="check-circle-fill" />
+                          {evt.message.cached ? (
+                            <IconBadge tooltip="cached" variant="warning" icon="clock-fill" />
+                          ) : (
+                            <IconBadge tooltip="yes" variant="success" icon="check-circle-fill" />
+                          )}
                         </td>
                       </tr>
                     ))}
