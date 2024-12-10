@@ -173,8 +173,7 @@ mod tests {
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use crate::{
-        file_uploaders::MockFileUploader, test_tools::TestLogger, DumbSnapshotUploader,
-        DumbSnapshotter,
+        file_uploaders::MockFileUploader, test_tools::TestLogger, DumbFileUploader, DumbSnapshotter,
     };
 
     use super::*;
@@ -189,7 +188,7 @@ mod tests {
             .unwrap();
 
         let dumb_snapshotter = Arc::new(DumbSnapshotter::new());
-        let dumb_snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
+        let dumb_snapshot_uploader = Arc::new(DumbFileUploader::new());
 
         let cardano_immutable_files_full_artifact_builder =
             CardanoImmutableFilesFullArtifactBuilder::new(
@@ -236,7 +235,7 @@ mod tests {
                 fake_data::network(),
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
-                Arc::new(DumbSnapshotUploader::new()),
+                Arc::new(DumbFileUploader::new()),
                 CompressionAlgorithm::default(),
                 TestLogger::stdout(),
             );
@@ -263,7 +262,7 @@ mod tests {
                 network,
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
-                Arc::new(DumbSnapshotUploader::new()),
+                Arc::new(DumbFileUploader::new()),
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             );
@@ -292,7 +291,7 @@ mod tests {
                     fake_data::network(),
                     &Version::parse("1.0.0").unwrap(),
                     Arc::new(DumbSnapshotter::new()),
-                    Arc::new(DumbSnapshotUploader::new()),
+                    Arc::new(DumbFileUploader::new()),
                     algorithm,
                     TestLogger::stdout(),
                 );

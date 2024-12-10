@@ -7,13 +7,13 @@ use super::{FileLocation, FileUploader};
 
 /// Dummy uploader for test purposes.
 ///
-/// It actually does NOT upload any snapshot but remembers the last snapshot it
+/// It actually does NOT upload any file but remembers the last file it
 /// was asked to upload. This is intended to by used by integration tests.
-pub struct DumbSnapshotUploader {
+pub struct DumbFileUploader {
     last_uploaded: RwLock<Option<String>>,
 }
 
-impl DumbSnapshotUploader {
+impl DumbFileUploader {
     /// Create a new instance.
     pub fn new() -> Self {
         Self {
@@ -32,22 +32,22 @@ impl DumbSnapshotUploader {
     }
 }
 
-impl Default for DumbSnapshotUploader {
+impl Default for DumbFileUploader {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl FileUploader for DumbSnapshotUploader {
-    /// Upload a snapshot
-    async fn upload(&self, snapshot_filepath: &Path) -> StdResult<FileLocation> {
+impl FileUploader for DumbFileUploader {
+    /// Upload a file
+    async fn upload(&self, filepath: &Path) -> StdResult<FileLocation> {
         let mut value = self
             .last_uploaded
             .write()
             .map_err(|e| anyhow!("Error while saving filepath location: {e}"))?;
 
-        let location = snapshot_filepath.to_string_lossy().to_string();
+        let location = filepath.to_string_lossy().to_string();
         *value = Some(location.clone());
 
         Ok(location)
@@ -60,7 +60,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dumb_uploader() {
-        let uploader = DumbSnapshotUploader::new();
+        let uploader = DumbFileUploader::new();
         assert!(uploader
             .get_last_upload()
             .expect("uploader should not fail")
