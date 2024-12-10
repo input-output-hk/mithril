@@ -64,6 +64,7 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
+    file_uploaders::GcpFileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
@@ -74,7 +75,7 @@ use crate::{
         UpkeepService, UsageReporter,
     },
     store::CertificatePendingStorer,
-    tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
+    tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbFileUploader, DumbSnapshotter, EpochSettingsStorer,
     FileUploader, LocalFileUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
