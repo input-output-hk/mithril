@@ -9,18 +9,30 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-- Implement a new `genesis generate-keypair` command in aggregator CLI to generate a new genesis keypair.
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2450.0] - UNRELEASED
+
+- **BREAKING** changes in Mithril client library, CLI, and WASM:
+
+  - Remove deprecated `network` field from the internal `CardanoDbBeacon`.
+  - The Mithril certificates of type `CardanoImmutableFilesFull` can't be verified anymore with the previous clients.
+  - Clients from distribution [`2445`](#mithril-distribution-24450---2024-11-07) and earlier must be updated.
+  - Aggregators from distribution [`2445`](#mithril-distribution-24450---2024-11-07) and earlier must be updated and [`recompute their certificate hashes`](./docs/runbook/recompute-certificates-hash).
+
+- Add Node.js and bundler targets to the Mithril client WASM library npm package.
+
+- Add a one line shell installation script for the Mithril nodes.
+
+- Add execution rights to pre-built binaries of the Mithril nodes packaged with GitHub releases.
 
 - Implement the `/status` route on the aggregator's REST API to provide information about its current status.
 
-- Deprecate the `network` field in all messages that contain a `CardanoDbBeacon` field.
-
-- Add Node.js and bundler targets to the Mithril client WASM library.
-
-- **BREAKING** Remove the `network` field from the internal `CardanoDbBeacon` struct, Certificates of types `CardanoImmutableFilesFull`
-  must have their hashes recomputed in order to stay valid (procedure detailed in the [`recompute-certificates-hash`](./docs/runbook/recompute-certificates-hash) runbook).
-
-- Add a one line shell installation script for the Mithril nodes.
+- Implement a new `genesis generate-keypair` command in aggregator CLI to generate a new genesis keypair.
 
 - Update to Rust `1.83`.
 
