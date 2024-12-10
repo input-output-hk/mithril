@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
+use crate::file_uploaders::{SnapshotLocation, SnapshotUploader};
 use crate::http_server;
-use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
 use crate::tools;
 
 /// LocalSnapshotUploader is a snapshot uploader working using local files
@@ -63,8 +63,8 @@ mod tests {
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
+    use crate::file_uploaders::SnapshotUploader;
     use crate::http_server;
-    use crate::snapshot_uploaders::SnapshotUploader;
     use crate::test_tools::TestLogger;
 
     use super::LocalSnapshotUploader;

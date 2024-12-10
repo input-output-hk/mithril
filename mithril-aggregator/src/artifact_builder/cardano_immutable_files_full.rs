@@ -6,7 +6,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use crate::{
-    snapshot_uploaders::SnapshotLocation, snapshotter::OngoingSnapshot, SnapshotUploader,
+    file_uploaders::SnapshotLocation, snapshotter::OngoingSnapshot, SnapshotUploader,
     Snapshotter,
 };
 
@@ -174,7 +174,7 @@ mod tests {
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use crate::{
-        snapshot_uploaders::MockSnapshotUploader, test_tools::TestLogger, DumbSnapshotUploader,
+        file_uploaders::MockSnapshotUploader, test_tools::TestLogger, DumbSnapshotUploader,
         DumbSnapshotter,
     };
 

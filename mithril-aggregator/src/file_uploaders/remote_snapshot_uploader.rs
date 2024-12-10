@@ -5,7 +5,7 @@ use std::path::Path;
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
+use crate::file_uploaders::{SnapshotLocation, SnapshotUploader};
 use crate::tools::RemoteFileUploader;
 
 /// GCPSnapshotUploader is a snapshot uploader working using Google Cloud Platform services
@@ -61,7 +61,7 @@ mod tests {
     use anyhow::anyhow;
     use std::path::Path;
 
-    use crate::snapshot_uploaders::SnapshotUploader;
+    use crate::file_uploaders::SnapshotUploader;
     use crate::test_tools::TestLogger;
     use crate::tools::MockRemoteFileUploader;
 
