@@ -11,33 +11,41 @@ use tokio_util::{codec::BytesCodec, codec::FramedRead};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-/// RemoteFileUploader represents a remote file uploader interactor
-#[cfg_attr(test, mockall::automock)]
-#[async_trait]
-pub trait RemoteFileUploader: Sync + Send {
-    /// Upload a snapshot
-    async fn upload_file(&self, filepath: &Path) -> StdResult<()>;
-}
+use crate::file_uploaders::FileLocation;
+use crate::FileUploader;
 
 /// GcpFileUploader represents a Google Cloud Platform file uploader interactor
 pub struct GcpFileUploader {
     bucket: String,
+    use_cdn_domain: bool,
     logger: Logger,
 }
 
 impl GcpFileUploader {
     /// GcpFileUploader factory
-    pub fn new(bucket: String, logger: Logger) -> Self {
+    pub fn new(bucket: String, use_cdn_domain: bool, logger: Logger) -> Self {
         Self {
             bucket,
+            use_cdn_domain,
             logger: logger.new_with_component_name::<Self>(),
+        }
+    }
+
+    fn get_location(&self, filename: &str) -> String {
+        if self.use_cdn_domain {
+            format!("https://{}/{}", self.bucket, filename)
+        } else {
+            format!(
+                "https://storage.googleapis.com/{}/{}",
+                self.bucket, filename
+            )
         }
     }
 }
 
 #[async_trait]
-impl RemoteFileUploader for GcpFileUploader {
-    async fn upload_file(&self, filepath: &Path) -> StdResult<()> {
+impl FileUploader for GcpFileUploader {
+    async fn upload(&self, filepath: &Path) -> StdResult<FileLocation> {
         if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
             return Err(anyhow!(
                 "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string()
@@ -85,6 +93,48 @@ impl RemoteFileUploader for GcpFileUploader {
 
         info!(self.logger, "Updated acl for {filename}");
 
-        Ok(())
+        Ok(self.get_location(filename))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::test_tools::TestLogger;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn get_location_not_using_cdn_domain_return_google_api_uri() {
+        let use_cdn_domain = false;
+
+        let file_uploader = GcpFileUploader::new(
+            "cardano-testnet".to_string(),
+            use_cdn_domain,
+            TestLogger::stdout(),
+        );
+        let filename = "snapshot.xxx.tar.gz";
+        let expected_location =
+            "https://storage.googleapis.com/cardano-testnet/snapshot.xxx.tar.gz".to_string();
+
+        let location = file_uploader.get_location(filename);
+
+        assert_eq!(expected_location, location);
+    }
+
+    #[tokio::test]
+    async fn get_location_using_cdn_domain_return_cdn_in_uri() {
+        let use_cdn_domain = true;
+
+        let file_uploader = GcpFileUploader::new(
+            "cdn.mithril.network".to_string(),
+            use_cdn_domain,
+            TestLogger::stdout(),
+        );
+        let filename = "snapshot.xxx.tar.gz";
+        let expected_location = "https://cdn.mithril.network/snapshot.xxx.tar.gz".to_string();
+
+        let location = file_uploader.get_location(filename);
+
+        assert_eq!(expected_location, location);
     }
 }

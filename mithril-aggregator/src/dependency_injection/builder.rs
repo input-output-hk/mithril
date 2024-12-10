@@ -462,9 +462,11 @@ impl DependenciesBuilder {
                         })?;
 
                     Ok(Arc::new(RemoteSnapshotUploader::new(
-                        Box::new(GcpFileUploader::new(bucket.clone(), logger.clone())),
-                        bucket,
-                        self.configuration.snapshot_use_cdn_domain,
+                        Box::new(GcpFileUploader::new(
+                            bucket,
+                            self.configuration.snapshot_use_cdn_domain,
+                            logger.clone(),
+                        )),
                         logger,
                     )))
                 }

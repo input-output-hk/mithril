@@ -12,14 +12,11 @@ pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use digest_helpers::extract_digest_from_path;
 pub use era::EraTools;
 pub use genesis::{GenesisTools, GenesisToolsDependency};
-pub use remote_file_uploader::{GcpFileUploader, RemoteFileUploader};
+pub use remote_file_uploader::GcpFileUploader;
 pub use signer_importer::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
 };
 pub use single_signature_authenticator::*;
-
-#[cfg(test)]
-pub use remote_file_uploader::MockRemoteFileUploader;
 
 /// Downcast the error to the specified error type and check if the error satisfies the condition.
 pub(crate) fn downcast_check<E>(
