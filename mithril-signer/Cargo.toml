@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.220"
+version = "0.2.221"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -17,7 +17,7 @@ harness = false
 anyhow = "1.0.94"
 async-trait = "0.1.83"
 axum = "0.7.9"
-chrono = { version = "0.4.38", features = ["serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
 clap = { version = "4.5.23", features = ["derive", "env"] }
 config = "0.14.1"
 hex = "0.4.3"
@@ -41,7 +41,7 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
-thiserror = "2.0.4"
+thiserror = "2.0.6"
 tokio = { version = "1.42.0", features = ["full"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.10.4"
+version = "0.10.5"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -24,7 +24,7 @@ assets = [["../target/release/mithril-client", "usr/bin/", "755"]]
 [dependencies]
 anyhow = "1.0.94"
 async-trait = "0.1.83"
-chrono = { version = "0.4.38", features = ["serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
 clap = { version = "4.5.23", features = ["derive", "env"] }
 cli-table = "0.4.9"
 config = "0.14.1"
@@ -45,7 +45,7 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 slog-term = "2.9.1"
-thiserror = "2.0.4"
+thiserror = "2.0.6"
 tokio = { version = "1.42.0", features = ["full"] }
 
 [dev-dependencies]

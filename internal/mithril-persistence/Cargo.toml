@@ -1,6 +1,6 @@
 [package]
 name = "mithril-persistence"
-version = "0.2.40"
+version = "0.2.41"
 description = "Common types, interfaces, and utilities to persist data for Mithril nodes."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -14,7 +14,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 anyhow = "1.0.94"
 async-trait = "0.1.83"
-chrono = { version = "0.4.38", features = ["serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
 hex = "0.4.3"
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
 semver = "1.0.23"
@@ -23,7 +23,7 @@ serde_json = "1.0.133"
 sha2 = "0.10.8"
 slog = "2.7.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
-thiserror = "2.0.4"
+thiserror = "2.0.6"
 tokio = { version = "1.42.0", features = ["sync"] }
 
 [dev-dependencies]
