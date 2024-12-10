@@ -1,15 +1,18 @@
 use async_trait::async_trait;
+use chrono::TimeDelta;
 use serde::Serialize;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 use mithril_client::{
+    certificate_client::CertificateVerifierCache,
     common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
     CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions, MessageBuilder,
     MithrilCertificate,
 };
 
+use crate::certificate_verification_cache::LocalStorageCertificateVerifierCache;
 use crate::WasmResult;
 
 macro_rules! allow_unstable_dead_code {
@@ -89,14 +92,53 @@ impl MithrilClient {
                 .unwrap()
         };
         let unstable = client_options.unstable;
-        let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
-            .add_feedback_receiver(feedback_receiver)
-            .with_options(client_options)
+        let enable_certificate_chain_verification_cache =
+            client_options.enable_certificate_chain_verification_cache;
+        let mut client_builder =
+            ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
+                .add_feedback_receiver(feedback_receiver)
+                .with_options(client_options);
+
+        if unstable && enable_certificate_chain_verification_cache {
+            if let Some(cache) =
+                Self::build_certifier_cache(aggregator_endpoint, TimeDelta::weeks(1))
+            {
+                client_builder = client_builder.with_certificate_verifier_cache(cache);
+            }
+        }
+
+        let client = client_builder
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
 
         MithrilClient { client, unstable }
+    }
+
+    fn build_certifier_cache(
+        aggregator_endpoint: &str,
+        expiration_delay: TimeDelta,
+    ) -> Option<Arc<dyn CertificateVerifierCache>> {
+        if web_sys::window().is_none() {
+            web_sys::console::warn_1(
+                &"Can't enable certificate chain verification cache: window object is not available\
+                    (are you running in a browser environment ?)"
+                    .into(),
+            );
+            return None;
+        }
+
+        web_sys::console::warn_1(
+            &"Certificate chain verification cache is enabled.\n\
+            This feature is experimental and will be heavily modified or removed in the \
+            future as its security implications are not fully understood."
+                .into(),
+        );
+
+        Some(Arc::new(LocalStorageCertificateVerifierCache::new(
+            aggregator_endpoint,
+            expiration_delay,
+        )))
     }
 
     /// Call the client to get a snapshot from a digest

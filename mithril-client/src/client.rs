@@ -32,6 +32,16 @@ pub struct ClientOptions {
     #[cfg(target_family = "wasm")]
     #[cfg_attr(target_family = "wasm", serde(default))]
     pub unstable: bool,
+
+    /// Whether to enable certificate chain verification caching in the WASM client.
+    ///
+    /// `unstable` must be set to `true` for this option to have any effect.
+    ///
+    /// IMPORTANT: This feature is experimental and will be heavily modified or removed in the
+    /// future as its security implications are not fully understood.
+    #[cfg(target_family = "wasm")]
+    #[cfg_attr(target_family = "wasm", serde(default))]
+    pub enable_certificate_chain_verification_cache: bool,
 }
 
 impl ClientOptions {
@@ -41,6 +51,8 @@ impl ClientOptions {
             http_headers,
             #[cfg(target_family = "wasm")]
             unstable: false,
+            #[cfg(target_family = "wasm")]
+            enable_certificate_chain_verification_cache: false,
         }
     }
 
