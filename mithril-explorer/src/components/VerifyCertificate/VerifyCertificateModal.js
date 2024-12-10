@@ -30,7 +30,10 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
 
   async function init(aggregator, certificateHash) {
     const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
-    const client = new MithrilClient(aggregator, genesisVerificationKey);
+    const client = new MithrilClient(aggregator, genesisVerificationKey, {
+      unstable: true,
+      enable_certificate_chain_verification_cache: true,
+    });
     const certificate = await client.get_mithril_certificate(certificateHash);
 
     setClient(client);
