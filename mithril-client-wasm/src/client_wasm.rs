@@ -91,17 +91,20 @@ impl MithrilClient {
                 .map_err(|err| format!("Failed to parse options: {err:?}"))
                 .unwrap()
         };
-        let unstable = client_options.unstable;
-        let enable_certificate_chain_verification_cache =
-            client_options.enable_certificate_chain_verification_cache;
         let mut client_builder =
             ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
                 .add_feedback_receiver(feedback_receiver)
-                .with_options(client_options);
+                .with_options(client_options.clone());
 
-        let certificate_verifier_cache = if unstable && enable_certificate_chain_verification_cache
+        let certificate_verifier_cache = if client_options.unstable
+            && client_options.enable_certificate_chain_verification_cache
         {
-            let cache = Self::build_certifier_cache(aggregator_endpoint, TimeDelta::weeks(1));
+            let cache = Self::build_certifier_cache(
+                aggregator_endpoint,
+                TimeDelta::seconds(
+                    client_options.certificate_chain_verification_cache_duration_in_seconds as i64,
+                ),
+            );
             if let Some(cache) = &cache {
                 client_builder = client_builder.with_certificate_verifier_cache(cache.clone());
             }
@@ -118,7 +121,7 @@ impl MithrilClient {
         MithrilClient {
             client,
             certificate_verifier_cache,
-            unstable,
+            unstable: client_options.unstable,
         }
     }
 
