@@ -7,7 +7,7 @@ Export the environment variables:
 ```bash
 export MITHRIL_VM=**MITHRIL_VM**
 export CARDANO_NETWORK=**CARDANO_NETWORK**
-export MITHRIL_DISTRIBUTION_LINUX_PKG=**MITHRIL_DISTRIBUTION_LINUX_PKG**
+export MITHRIL_DISTRIBUTION=**MITHRIL_DISTRIBUTION**
 ```
 
 Here is an example for the `release-mainnet` network:
@@ -15,10 +15,10 @@ Here is an example for the `release-mainnet` network:
 ```bash
 export MITHRIL_VM=aggregator.release-mainnet.api.mithril.network
 export CARDANO_NETWORK=mainnet
-export MITHRIL_DISTRIBUTION_LINUX_PKG=https://github.com/input-output-hk/mithril/releases/download/2342.0/mithril-2342.0-linux-x64.tar.gz
+export MITHRIL_DISTRIBUTION=latest
 ```
 
-## Make a backup of the aggregator database
+## Connect to the VM
 
 Connect to the aggregator VM:
 
@@ -26,11 +26,27 @@ Connect to the aggregator VM:
 ssh curry@$MITHRIL_VM
 ```
 
-Once connected to the aggregator VM, export the environment variables:
+## Stop the aggregator
+
+Stop the aggregator container:
+
+```bash
+docker stop mithril-aggregator
+```
+
+## Make a backup of the aggregator database
+
+Export the environment variables:
 
 ```bash
 export CARDANO_NETWORK=**CARDANO_NETWORK**
-export MITHRIL_DISTRIBUTION_LINUX_PKG=**MITHRIL_DISTRIBUTION_LINUX_PKG**
+export MITHRIL_DISTRIBUTION=**MITHRIL_DISTRIBUTION**
+```
+
+Truncate WAL and SHM files:
+
+```bash
+sqlite3 /home/curry/data/$CARDANO_NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3 "PRAGMA wal_checkpoint(TRUNCATE);"
 ```
 
 And copy the SQLite database file `aggregator.sqlite3`:
@@ -60,33 +76,13 @@ wget https://raw.githubusercontent.com/input-output-hk/mithril/main/docs/runbook
 Download the mithril pre-compiled binaries package:
 
 ```bash
-wget $MITHRIL_DISTRIBUTION_LINUX_PKG -O mithril-bin.tar.gz
-```
-
-Unpack the mithril aggregator binary:
-
-```bash
-tar xzf mithril-bin.tar.gz mithril-aggregator
-```
-
-Make mithril aggregator binary executable:
-
-```bash
-chmod u+x mithril-aggregator
+curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-aggregator -d $MITHRIL_DISTRIBUTION -p $(pwd)
 ```
 
 Make sure you are running the expected version of the aggregator:
 
 ```bash
 ./mithril-aggregator --version
-```
-
-## Stop the aggregator
-
-Stop the aggregator container:
-
-```bash
-docker stop mithril-aggregator
 ```
 
 ## Run the migration
