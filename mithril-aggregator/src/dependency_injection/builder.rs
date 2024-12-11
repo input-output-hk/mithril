@@ -79,8 +79,8 @@ use crate::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
     FileUploader, LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
-    MultiSignerImpl, RemoteUploader, SingleSignatureAuthenticator, SnapshotUploaderType,
-    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
+    MultiSignerImpl, SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
+    SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -462,13 +462,10 @@ impl DependenciesBuilder {
                             )
                         })?;
 
-                    Ok(Arc::new(RemoteUploader::new(
-                        Box::new(GcpUploader::new(
-                            bucket,
-                            self.configuration.snapshot_use_cdn_domain,
-                            logger.clone(),
-                        )),
-                        logger,
+                    Ok(Arc::new(GcpUploader::new(
+                        bucket,
+                        self.configuration.snapshot_use_cdn_domain,
+                        logger.clone(),
                     )))
                 }
                 SnapshotUploaderType::Local => Ok(Arc::new(LocalUploader::new(
