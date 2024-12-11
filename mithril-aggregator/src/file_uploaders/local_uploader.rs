@@ -10,8 +10,8 @@ use crate::file_uploaders::{FileLocation, FileUploader};
 use crate::http_server;
 use crate::tools;
 
-/// LocalFileUploader is a file uploader working using local files
-pub struct LocalFileUploader {
+/// LocalUploader is a file uploader working using local files
+pub struct LocalUploader {
     /// File server listening IP
     file_server_url: String,
 
@@ -21,11 +21,11 @@ pub struct LocalFileUploader {
     logger: Logger,
 }
 
-impl LocalFileUploader {
-    /// LocalFileUploader factory
+impl LocalUploader {
+    /// LocalUploader factory
     pub(crate) fn new(file_server_url: String, target_location: &Path, logger: Logger) -> Self {
         let logger = logger.new_with_component_name::<Self>();
-        debug!(logger, "New LocalFileUploader created"; "file_server_url" => &file_server_url);
+        debug!(logger, "New LocalUploader created"; "file_server_url" => &file_server_url);
         Self {
             file_server_url,
             target_location: target_location.to_path_buf(),
@@ -35,7 +35,7 @@ impl LocalFileUploader {
 }
 
 #[async_trait]
-impl FileUploader for LocalFileUploader {
+impl FileUploader for LocalUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<FileLocation> {
         let archive_name = filepath.file_name().unwrap().to_str().unwrap();
         let target_path = &self.target_location.join(archive_name);
@@ -69,7 +69,7 @@ mod tests {
     use crate::http_server;
     use crate::test_tools::TestLogger;
 
-    use super::LocalFileUploader;
+    use super::LocalUploader;
 
     fn create_fake_archive(dir: &Path, digest: &str) -> PathBuf {
         let file_path = dir.join(format!("test.{digest}.tar.gz"));
@@ -96,7 +96,7 @@ mod tests {
             http_server::SERVER_BASE_PATH,
             &digest
         );
-        let uploader = LocalFileUploader::new(url, target_dir.path(), TestLogger::stdout());
+        let uploader = LocalUploader::new(url, target_dir.path(), TestLogger::stdout());
 
         let location = uploader
             .upload(&archive)
@@ -112,7 +112,7 @@ mod tests {
         let target_dir = tempdir().unwrap();
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let archive = create_fake_archive(source_dir.path(), digest);
-        let uploader = LocalFileUploader::new(
+        let uploader = LocalUploader::new(
             "http://test.com:8080/".to_string(),
             target_dir.path(),
             TestLogger::stdout(),

@@ -9,11 +9,11 @@ use super::{FileLocation, FileUploader};
 ///
 /// It actually does NOT upload any file but remembers the last file it
 /// was asked to upload. This is intended to by used by integration tests.
-pub struct DumbFileUploader {
+pub struct DumbUploader {
     last_uploaded: RwLock<Option<String>>,
 }
 
-impl DumbFileUploader {
+impl DumbUploader {
     /// Create a new instance.
     pub fn new() -> Self {
         Self {
@@ -32,14 +32,14 @@ impl DumbFileUploader {
     }
 }
 
-impl Default for DumbFileUploader {
+impl Default for DumbUploader {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl FileUploader for DumbFileUploader {
+impl FileUploader for DumbUploader {
     /// Upload a file
     async fn upload(&self, filepath: &Path) -> StdResult<FileLocation> {
         let mut value = self
@@ -60,7 +60,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dumb_uploader() {
-        let uploader = DumbFileUploader::new();
+        let uploader = DumbUploader::new();
         assert!(uploader
             .get_last_upload()
             .expect("uploader should not fail")

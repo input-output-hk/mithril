@@ -64,7 +64,7 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    file_uploaders::GcpFileUploader,
+    file_uploaders::GcpUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
@@ -77,9 +77,9 @@ use crate::{
     store::CertificatePendingStorer,
     tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
-    Configuration, DependencyContainer, DumbFileUploader, DumbSnapshotter, EpochSettingsStorer,
-    FileUploader, LocalFileUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
-    MultiSignerImpl, RemoteSnapshotUploader, SingleSignatureAuthenticator, SnapshotUploaderType,
+    Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
+    FileUploader, LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
+    MultiSignerImpl, RemoteUploader, SingleSignatureAuthenticator, SnapshotUploaderType,
     Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
@@ -462,8 +462,8 @@ impl DependenciesBuilder {
                             )
                         })?;
 
-                    Ok(Arc::new(RemoteSnapshotUploader::new(
-                        Box::new(GcpFileUploader::new(
+                    Ok(Arc::new(RemoteUploader::new(
+                        Box::new(GcpUploader::new(
                             bucket,
                             self.configuration.snapshot_use_cdn_domain,
                             logger.clone(),
@@ -471,14 +471,14 @@ impl DependenciesBuilder {
                         logger,
                     )))
                 }
-                SnapshotUploaderType::Local => Ok(Arc::new(LocalFileUploader::new(
+                SnapshotUploaderType::Local => Ok(Arc::new(LocalUploader::new(
                     self.configuration.get_server_url(),
                     &self.configuration.snapshot_directory,
                     logger,
                 ))),
             }
         } else {
-            Ok(Arc::new(DumbFileUploader::new()))
+            Ok(Arc::new(DumbUploader::new()))
         }
     }
 

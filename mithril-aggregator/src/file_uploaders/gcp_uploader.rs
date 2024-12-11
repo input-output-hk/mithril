@@ -14,15 +14,15 @@ use mithril_common::StdResult;
 use crate::file_uploaders::FileLocation;
 use crate::FileUploader;
 
-/// GcpFileUploader represents a Google Cloud Platform file uploader interactor
-pub struct GcpFileUploader {
+/// GcpUploader represents a Google Cloud Platform file uploader interactor
+pub struct GcpUploader {
     bucket: String,
     use_cdn_domain: bool,
     logger: Logger,
 }
 
-impl GcpFileUploader {
-    /// GcpFileUploader factory
+impl GcpUploader {
+    /// GcpUploader factory
     pub fn new(bucket: String, use_cdn_domain: bool, logger: Logger) -> Self {
         Self {
             bucket,
@@ -44,7 +44,7 @@ impl GcpFileUploader {
 }
 
 #[async_trait]
-impl FileUploader for GcpFileUploader {
+impl FileUploader for GcpUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<FileLocation> {
         if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
             return Err(anyhow!(
@@ -107,7 +107,7 @@ mod tests {
     async fn get_location_not_using_cdn_domain_return_google_api_uri() {
         let use_cdn_domain = false;
 
-        let file_uploader = GcpFileUploader::new(
+        let file_uploader = GcpUploader::new(
             "cardano-testnet".to_string(),
             use_cdn_domain,
             TestLogger::stdout(),
@@ -125,7 +125,7 @@ mod tests {
     async fn get_location_using_cdn_domain_return_cdn_in_uri() {
         let use_cdn_domain = true;
 
-        let file_uploader = GcpFileUploader::new(
+        let file_uploader = GcpUploader::new(
             "cdn.mithril.network".to_string(),
             use_cdn_domain,
             TestLogger::stdout(),

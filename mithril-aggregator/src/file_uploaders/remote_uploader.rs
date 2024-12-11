@@ -7,17 +7,17 @@ use mithril_common::StdResult;
 
 use crate::file_uploaders::{FileLocation, FileUploader};
 
-/// RemoteSnapshotUploader is a snapshot uploader working using Google Cloud Platform services
-pub struct RemoteSnapshotUploader {
+/// RemoteUploader is a snapshot uploader working using Google Cloud Platform services
+pub struct RemoteUploader {
     file_uploader: Box<dyn FileUploader>,
     logger: Logger,
 }
 
-impl RemoteSnapshotUploader {
-    /// RemoteSnapshotUploader factory
+impl RemoteUploader {
+    /// RemoteUploader factory
     pub fn new(file_uploader: Box<dyn FileUploader>, logger: Logger) -> Self {
         let logger = logger.new_with_component_name::<Self>();
-        debug!(logger, "New RemoteSnapshotUploader created");
+        debug!(logger, "New RemoteUploader created");
         Self {
             file_uploader,
             logger,
@@ -26,7 +26,7 @@ impl RemoteSnapshotUploader {
 }
 
 #[async_trait]
-impl FileUploader for RemoteSnapshotUploader {
+impl FileUploader for RemoteUploader {
     async fn upload(&self, snapshot_filepath: &Path) -> StdResult<FileLocation> {
         let location = self.file_uploader.upload(snapshot_filepath).await?;
         debug!(self.logger, "Snapshot upload to remote storage completed"; "location" => &location);
@@ -44,7 +44,7 @@ mod tests {
     use crate::file_uploaders::{FileUploader, MockFileUploader};
     use crate::test_tools::TestLogger;
 
-    use super::RemoteSnapshotUploader;
+    use super::RemoteUploader;
 
     #[tokio::test]
     async fn upload_call_uploader_and_return_location() {
@@ -54,8 +54,7 @@ mod tests {
             .with(eq(Path::new("test/snapshot.xxx.tar.gz")))
             .times(1)
             .returning(|_| Ok("https://cdn.mithril.network/snapshot.xxx.tar.gz".to_string()));
-        let snapshot_uploader =
-            RemoteSnapshotUploader::new(Box::new(file_uploader), TestLogger::stdout());
+        let snapshot_uploader = RemoteUploader::new(Box::new(file_uploader), TestLogger::stdout());
         let filepath = Path::new("test/snapshot.xxx.tar.gz");
         let expected_location = "https://cdn.mithril.network/snapshot.xxx.tar.gz".to_string();
 
@@ -73,8 +72,7 @@ mod tests {
         file_uploader
             .expect_upload()
             .returning(|_| Err(anyhow!("unexpected error")));
-        let snapshot_uploader =
-            RemoteSnapshotUploader::new(Box::new(file_uploader), TestLogger::stdout());
+        let snapshot_uploader = RemoteUploader::new(Box::new(file_uploader), TestLogger::stdout());
         let snapshot_filepath = Path::new("test/snapshot.xxx.tar.gz");
 
         let result = snapshot_uploader

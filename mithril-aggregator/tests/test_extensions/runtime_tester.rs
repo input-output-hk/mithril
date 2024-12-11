@@ -7,7 +7,7 @@ use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     event_store::EventMessage,
-    AggregatorRuntime, Configuration, DependencyContainer, DumbFileUploader, DumbSnapshotter,
+    AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotter, DumbUploader,
     SignerRegistrationError,
 };
 use mithril_common::{
@@ -100,7 +100,7 @@ macro_rules! assert_metrics_eq {
 
 pub struct RuntimeTester {
     pub network: String,
-    pub snapshot_uploader: Arc<DumbFileUploader>,
+    pub snapshot_uploader: Arc<DumbUploader>,
     pub chain_observer: Arc<FakeObserver>,
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
     pub digester: Arc<DumbImmutableDigester>,
@@ -130,7 +130,7 @@ impl RuntimeTester {
         let logger = build_logger();
         let global_logger = slog_scope::set_global_logger(logger.clone());
         let network = configuration.network.clone();
-        let snapshot_uploader = Arc::new(DumbFileUploader::new());
+        let snapshot_uploader = Arc::new(DumbUploader::new());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_file_observer
             .shall_return(Some(start_time_point.immutable_file_number))

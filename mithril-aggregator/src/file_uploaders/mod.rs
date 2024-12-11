@@ -1,15 +1,15 @@
-mod dumb_file_uploader;
-mod file_uploader;
-mod gcp_file_uploader;
-mod local_file_uploader;
-mod remote_file_uploader;
+mod dumb_uploader;
+mod gcp_uploader;
+mod interface;
+mod local_uploader;
+mod remote_uploader;
 
-pub use dumb_file_uploader::*;
-pub use file_uploader::FileLocation;
-pub use file_uploader::FileUploader;
-pub use gcp_file_uploader::GcpFileUploader;
-pub use local_file_uploader::LocalFileUploader;
-pub use remote_file_uploader::RemoteSnapshotUploader;
+pub use dumb_uploader::*;
+pub use gcp_uploader::GcpUploader;
+pub use interface::FileLocation;
+pub use interface::FileUploader;
+pub use local_uploader::LocalUploader;
+pub use remote_uploader::RemoteUploader;
 
 #[cfg(test)]
-pub use file_uploader::MockFileUploader;
+pub use interface::MockFileUploader;
