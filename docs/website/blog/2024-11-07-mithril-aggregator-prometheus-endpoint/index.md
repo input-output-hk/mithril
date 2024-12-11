@@ -7,12 +7,12 @@ tags: [mithril aggregator, metrics, Prometheus, Grafana]
 
 ### Mithril aggregator Prometheus endpoint is available
 
-With the release of the new distribution [2445](https://github.com/input-output-hk/mithril/releases/tag/2445.0), the Mithril aggregator can start an optional Prometheus endpoint to monitor basic metrics.
+With the release of [distribution 2445](https://github.com/input-output-hk/mithril/releases/tag/2445.0), the Mithril aggregator now includes an optional Prometheus endpoint for monitoring basic metrics.
 
-Please note that the Mithril aggregator needs to be restarted after the configuration for the Prometheus endpoint.
+After configuring the Prometheus endpoint, remember to restart the Mithril aggregator for the changes to take effect.
 
-Additionally, a **Grafana template** has been created to easily setup a dashboard for this Prometheus endpoint (ID 22165): https://grafana.com/grafana/dashboards/22165-mithril-aggregator/
+To make setup easier, a **Grafana template** is available for creating a dashboard to visualize metrics from the Prometheus endpoint (ID 22165): [Grafana Dashboard](https://grafana.com/grafana/dashboards/22165-mithril-aggregator/).
 
 [![Grafana Dashboard](img/grafana-dashboard.png)](img/grafana-dashboard.png)
 
-For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For questions or support, feel free to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).

@@ -9,9 +9,9 @@ tags: [certification, cardano stake distribution]
 
 :::info Update 2024/10/21
 
-We have shipped stable support for the **Cardano stake distribution certification** with distributions [2437](https://github.com/input-output-hk/mithril/releases/tag/2437.1) and [2442](https://github.com/input-output-hk/mithril/releases/tag/2442.0).
+We have released stable support for the **Cardano stake distribution certification** with distributions [2437](https://github.com/input-output-hk/mithril/releases/tag/2437.1) and [2442](https://github.com/input-output-hk/mithril/releases/tag/2442.0).
 
-A threshold of at least **70%** of the stake running version `0.2.182` (within **10** days after the distribution `2442` is released) is mandatory in order to activate the certification of the Cardano stake distribution on the `release-mainnet` network.
+A threshold of at least **70%** of the stake running version `0.2.182` (within **10** days after the distribution `2442` is released) is mandatory to activate the certification of the Cardano stake distribution on the `release-mainnet` network.
 
 The [Mithril Protocol Insights](https://lookerstudio.google.com/s/mbL23-8gibI) dashboard displays the adoption rate of the different signer versions on the `release-mainnet` network.
 

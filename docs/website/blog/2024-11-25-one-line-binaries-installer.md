@@ -17,12 +17,11 @@ tags:
 
 ### One line installer for Mithril binaries
 
-In order to facilitate the installation and update of Mithril binaries, we have created a one line installer that downloads and installs the Mithril binaries for you.
-This installer is available for Linux and MacOS, and for the Mithril signer, Mithril aggregator, and Mithril CLI.
+To simplify the installation and update of Mithril binaries, we have created a one line installer that downloads and installs the Mithril binaries for you. This installer is available for Linux and macOS and supports the Mithril signer, Mithril aggregator, and Mithril CLI.
 
-The one line command is also displayed in the several `Download the pre-built binary` sections across the documentation.
+The one line command is also displayed in the various `Download the Pre-built Binary` sections across the documentation.
 
-Here are few examples of the one line installer:
+#### Examples of the One line Installer
 
 - Download the **latest Mithril signer** in the current directory:
 
@@ -48,7 +47,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-out
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d 2445.0 -p $(pwd)
 ```
 
-- Installer usage:
+#### Installer Usage
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-output-hk/mithril/refs/heads/main/mithril-install.sh | sh -s -- -h
@@ -61,4 +60,4 @@ Usage: sh [-n node] [-v version] [-d distribution] [-p path]
 
 ```
 
-For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For any inquiries or assistance, feel free to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
