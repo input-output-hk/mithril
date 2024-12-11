@@ -146,59 +146,67 @@ impl CertificatesHashMigrator {
             .keys()
             .map(|k| k.as_str())
             .collect();
-        let mut records_to_migrate = self
-            .signed_entity_storer
-            .get_signed_entities_by_certificates_ids(&old_hashes)
-            .await
-            .with_context(||
-                format!(
-                    "Certificates Hash Migrator can not get signed entities by certificates ids with hashes: '{:?}'", old_hashes
-                )
-            )?;
 
         debug!(
             self.logger,
-            "Updating signed entities certificate_ids to new computed hash"
+            "Updating signed entities certificate_ids to new computed hash and migrated signed entities in the database"
         );
-        for signed_entity_record in records_to_migrate.iter_mut() {
-            let new_certificate_hash =
-                old_and_new_certificate_hashes
-                    .get(&signed_entity_record.certificate_id)
-                    .ok_or( anyhow!(
-                        "Migration Error: no migrated hash found for signed entity with certificate id: {}",
-                        signed_entity_record.certificate_id
-                    ))?
-                    .to_owned();
+        let old_hashes_chunk_size = 250;
+        for old_hashes_chunk in old_hashes.chunks(old_hashes_chunk_size) {
+            let mut records_to_migrate = self
+                .signed_entity_storer
+                .get_signed_entities_by_certificates_ids(old_hashes_chunk)
+                .await
+                .with_context(||
+                    format!(
+                        "Certificates Hash Migrator can not get signed entities by certificates ids with hashes: '{:?}'", old_hashes
+                    )
+                )?;
 
-            trace!(
-                self.logger, "Migrating signed entity {} certificate hash computed for certificate",
-                signed_entity_record.signed_entity_id;
-                "old_certificate_hash" => &signed_entity_record.certificate_id,
-                "new_certificate_hash" => &new_certificate_hash
-            );
-            signed_entity_record.certificate_id = new_certificate_hash;
+            for signed_entity_record in records_to_migrate.iter_mut() {
+                let new_certificate_hash =
+                    old_and_new_certificate_hashes
+                        .get(&signed_entity_record.certificate_id)
+                        .ok_or( anyhow!(
+                            "Migration Error: no migrated hash found for signed entity with certificate id: {}",
+                            signed_entity_record.certificate_id
+                        ))?
+                        .to_owned();
+
+                trace!(
+                    self.logger, "Migrating signed entity {} certificate hash computed for certificate",
+                    signed_entity_record.signed_entity_id;
+                    "old_certificate_hash" => &signed_entity_record.certificate_id,
+                    "new_certificate_hash" => &new_certificate_hash
+                );
+                signed_entity_record.certificate_id = new_certificate_hash;
+            }
+
+            self.signed_entity_storer
+                .update_signed_entities(records_to_migrate)
+                .await
+                .with_context(|| "Certificates Hash Migrator can not update signed entities")?;
         }
-
-        debug!(
-            self.logger,
-            "Updating migrated signed entities in the database"
-        );
-        self.signed_entity_storer
-            .update_signed_entities(records_to_migrate)
-            .await
-            .with_context(|| "Certificates Hash Migrator can not update signed entities")?;
 
         Ok(())
     }
 
     async fn cleanup(&self, old_certificates: Vec<Certificate>) -> StdResult<()> {
         info!(self.logger, "Deleting old certificates in the database");
-        self.certificate_repository
-            .delete_certificates(&old_certificates.iter().collect::<Vec<_>>())
-            .await
-            .with_context(|| {
-                "Certificates Hash Migrator can not delete old certificates in the database"
-            })?;
+        let old_certificates_chunk_size = 250;
+        for old_certificates_chunk in old_certificates
+            .into_iter()
+            .rev()
+            .collect::<Vec<_>>()
+            .chunks(old_certificates_chunk_size)
+        {
+            self.certificate_repository
+                .delete_certificates(&old_certificates_chunk.iter().collect::<Vec<_>>())
+                .await
+                .with_context(|| {
+                    "Certificates Hash Migrator can not delete old certificates in the database"
+                })?;
+        }
 
         Ok(())
     }
