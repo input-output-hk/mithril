@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::{FileLocation, FileUploader};
+use crate::file_uploaders::{FileUploader, FileUri};
 use crate::http_server;
 use crate::tools;
 
@@ -36,7 +36,7 @@ impl LocalUploader {
 
 #[async_trait]
 impl FileUploader for LocalUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<FileLocation> {
+    async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
         let archive_name = filepath.file_name().unwrap().to_str().unwrap();
         let target_path = &self.target_location.join(archive_name);
         tokio::fs::copy(filepath, target_path)
@@ -54,7 +54,7 @@ impl FileUploader for LocalUploader {
         );
 
         debug!(self.logger, "File 'uploaded' to local storage"; "location" => &location);
-        Ok(location)
+        Ok(FileUri(location))
     }
 }
 
@@ -65,7 +65,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
-    use crate::file_uploaders::FileUploader;
+    use crate::file_uploaders::{FileUploader, FileUri};
     use crate::http_server;
     use crate::test_tools::TestLogger;
 
@@ -103,7 +103,7 @@ mod tests {
             .await
             .expect("local upload should not fail");
 
-        assert_eq!(expected_location, location);
+        assert_eq!(FileUri(expected_location), location);
     }
 
     #[tokio::test]

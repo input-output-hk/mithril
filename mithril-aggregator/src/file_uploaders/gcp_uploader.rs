@@ -6,13 +6,11 @@ use cloud_storage::{
 };
 use slog::{info, Logger};
 use std::{env, path::Path};
-use tokio_util::{codec::BytesCodec, codec::FramedRead};
+use tokio_util::codec::{BytesCodec, FramedRead};
 
-use mithril_common::logging::LoggerExtensions;
-use mithril_common::StdResult;
+use mithril_common::{logging::LoggerExtensions, StdResult};
 
-use crate::file_uploaders::FileLocation;
-use crate::FileUploader;
+use crate::{file_uploaders::FileUri, FileUploader};
 
 /// GcpUploader represents a Google Cloud Platform file uploader interactor
 pub struct GcpUploader {
@@ -31,21 +29,21 @@ impl GcpUploader {
         }
     }
 
-    fn get_location(&self, filename: &str) -> String {
-        if self.use_cdn_domain {
-            format!("https://{}/{}", self.bucket, filename)
-        } else {
-            format!(
-                "https://storage.googleapis.com/{}/{}",
-                self.bucket, filename
-            )
+    fn get_location(&self, filename: &str) -> FileUri {
+        let mut uri = vec![];
+        if !self.use_cdn_domain {
+            uri.push("storage.googleapis.com");
         }
+        uri.push(&self.bucket);
+        uri.push(filename);
+
+        FileUri(format!("https://{}", uri.join("/")))
     }
 }
 
 #[async_trait]
 impl FileUploader for GcpUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<FileLocation> {
+    async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
         if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
             return Err(anyhow!(
                 "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string()
@@ -118,7 +116,7 @@ mod tests {
 
         let location = file_uploader.get_location(filename);
 
-        assert_eq!(expected_location, location);
+        assert_eq!(FileUri(expected_location), location);
     }
 
     #[tokio::test]
@@ -135,6 +133,6 @@ mod tests {
 
         let location = file_uploader.get_location(filename);
 
-        assert_eq!(expected_location, location);
+        assert_eq!(FileUri(expected_location), location);
     }
 }

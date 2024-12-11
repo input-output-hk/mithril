@@ -5,8 +5,8 @@ mod local_uploader;
 
 pub use dumb_uploader::*;
 pub use gcp_uploader::GcpUploader;
-pub use interface::FileLocation;
 pub use interface::FileUploader;
+pub use interface::FileUri;
 pub use local_uploader::LocalUploader;
 
 #[cfg(test)]

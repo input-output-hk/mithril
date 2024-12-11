@@ -5,9 +5,7 @@ use slog::{debug, warn, Logger};
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{
-    file_uploaders::FileLocation, snapshotter::OngoingSnapshot, FileUploader, Snapshotter,
-};
+use crate::{file_uploaders::FileUri, snapshotter::OngoingSnapshot, FileUploader, Snapshotter};
 
 use super::ArtifactBuilder;
 use mithril_common::logging::LoggerExtensions;
@@ -88,7 +86,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
     async fn upload_snapshot_archive(
         &self,
         ongoing_snapshot: &OngoingSnapshot,
-    ) -> StdResult<Vec<FileLocation>> {
+    ) -> StdResult<Vec<FileUri>> {
         debug!(self.logger, ">> upload_snapshot_archive");
         let location = self
             .snapshot_uploader
@@ -157,7 +155,12 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
             })?;
 
         let snapshot = self
-            .create_snapshot(beacon, &ongoing_snapshot, snapshot_digest, locations)
+            .create_snapshot(
+                beacon,
+                &ongoing_snapshot,
+                snapshot_digest,
+                locations.into_iter().map(Into::into).collect(),
+            )
             .await?;
 
         Ok(snapshot)
@@ -173,7 +176,7 @@ mod tests {
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use crate::{
-        file_uploaders::MockFileUploader, test_tools::TestLogger, DumbUploader, DumbSnapshotter,
+        file_uploaders::MockFileUploader, test_tools::TestLogger, DumbSnapshotter, DumbUploader,
     };
 
     use super::*;
@@ -211,6 +214,7 @@ mod tests {
         let remote_locations = vec![dumb_snapshot_uploader
             .get_last_upload()
             .unwrap()
+            .map(Into::into)
             .expect("A snapshot should have been 'uploaded'")];
         let artifact_expected = Snapshot::new(
             snapshot_digest.to_owned(),
