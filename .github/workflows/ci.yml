@@ -546,6 +546,7 @@ jobs:
     needs:
       - build
       - build-test-wasm
+      - build-test-explorer
       - test
       - e2e
       - check
@@ -589,6 +590,12 @@ jobs:
         with:
           name: mithril-distribution-Windows-X64
           path: ./package-Windows-X64
+
+      - name: Download built artifacts (Explorer)
+        uses: actions/download-artifact@v4
+        with:
+          name: explorer-build
+          path: ./package
 
       - name: Prepare distribution package
         uses: ./.github/workflows/actions/prepare-distribution
