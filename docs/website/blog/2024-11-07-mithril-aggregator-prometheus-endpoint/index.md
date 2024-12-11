@@ -11,8 +11,8 @@ With the release of [distribution 2445](https://github.com/input-output-hk/mithr
 
 After configuring the Prometheus endpoint, remember to restart the Mithril aggregator for the changes to take effect.
 
-To make setup easier, a **Grafana template** is available for creating a dashboard to visualize metrics from the Prometheus endpoint (ID 22165): [Grafana Dashboard](https://grafana.com/grafana/dashboards/22165-mithril-aggregator/).
+To make setup easier, a **Grafana template** is available for creating a dashboard to visualize metrics from the Prometheus endpoint (ID 22165): [Grafana dashboard](https://grafana.com/grafana/dashboards/22165-mithril-aggregator/).
 
-[![Grafana Dashboard](img/grafana-dashboard.png)](img/grafana-dashboard.png)
+[![Grafana dashboard](img/grafana-dashboard.png)](img/grafana-dashboard.png)
 
 For questions or support, feel free to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
