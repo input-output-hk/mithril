@@ -595,7 +595,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: explorer-build
-          path: ./package
+          path: ./package-explorer
 
       - name: Prepare distribution package
         uses: ./.github/workflows/actions/prepare-distribution

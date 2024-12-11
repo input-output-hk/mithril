@@ -56,6 +56,15 @@ runs:
         --version "${{ inputs.version-name }}" \
         --target "windows-x64"
 
+    - name: Package Explorer
+      shell: bash
+      run: |
+        python3 ./.github/workflows/scripts/package-distribution.py \
+        --input package-explorer/ \
+        --dest package/ \
+        --name "mithril-explorer" \
+        --version "${{ inputs.version-name }}"
+
     - name: Prepare crates versions table
       shell: bash
       run: |

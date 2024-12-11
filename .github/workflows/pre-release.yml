@@ -63,6 +63,15 @@ jobs:
           workflow: ci.yml
           workflow_conclusion: success
 
+      - name: Download built artifacts (Explorer)
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: explorer-build
+          path: ./package-explorer
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
       - name: Append VERSION file
         run: |
           echo ${{ github.ref_name }} >> ./package/VERSION
