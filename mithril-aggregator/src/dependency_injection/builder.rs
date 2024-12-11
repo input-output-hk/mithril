@@ -64,6 +64,7 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
+    file_uploaders::GcpUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
@@ -74,12 +75,12 @@ use crate::{
         UpkeepService, UsageReporter,
     },
     store::CertificatePendingStorer,
-    tools::{CExplorerSignerRetriever, GcpFileUploader, GenesisToolsDependency, SignersImporter},
+    tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
-    Configuration, DependencyContainer, DumbSnapshotUploader, DumbSnapshotter, EpochSettingsStorer,
-    LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    RemoteSnapshotUploader, SingleSignatureAuthenticator, SnapshotUploader, SnapshotUploaderType,
-    Snapshotter, SnapshotterCompressionAlgorithm, VerificationKeyStorer,
+    Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
+    FileUploader, LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
+    MultiSignerImpl, SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
+    SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -118,7 +119,7 @@ pub struct DependenciesBuilder {
     pub stake_store: Option<Arc<StakePoolStore>>,
 
     /// Snapshot uploader service.
-    pub snapshot_uploader: Option<Arc<dyn SnapshotUploader>>,
+    pub snapshot_uploader: Option<Arc<dyn FileUploader>>,
 
     /// Multisigner service.
     pub multi_signer: Option<Arc<dyn MultiSigner>>,
@@ -446,7 +447,7 @@ impl DependenciesBuilder {
         Ok(self.stake_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
+    async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
         let logger = self.root_logger();
         if self.configuration.environment == ExecutionEnvironment::Production {
             match self.configuration.snapshot_uploader_type {
@@ -461,26 +462,25 @@ impl DependenciesBuilder {
                             )
                         })?;
 
-                    Ok(Arc::new(RemoteSnapshotUploader::new(
-                        Box::new(GcpFileUploader::new(bucket.clone(), logger.clone())),
+                    Ok(Arc::new(GcpUploader::new(
                         bucket,
                         self.configuration.snapshot_use_cdn_domain,
-                        logger,
+                        logger.clone(),
                     )))
                 }
-                SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
+                SnapshotUploaderType::Local => Ok(Arc::new(LocalUploader::new(
                     self.configuration.get_server_url(),
                     &self.configuration.snapshot_directory,
                     logger,
                 ))),
             }
         } else {
-            Ok(Arc::new(DumbSnapshotUploader::new()))
+            Ok(Arc::new(DumbUploader::new()))
         }
     }
 
-    /// Get a [SnapshotUploader]
-    pub async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
+    /// Get a [FileUploader]
+    pub async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
         if self.snapshot_uploader.is_none() {
             self.snapshot_uploader = Some(self.build_snapshot_uploader().await?);
         }

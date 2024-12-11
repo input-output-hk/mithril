@@ -3,17 +3,17 @@ use async_trait::async_trait;
 use mithril_common::StdResult;
 use std::{path::Path, sync::RwLock};
 
-use super::{SnapshotLocation, SnapshotUploader};
+use crate::file_uploaders::{FileUploader, FileUri};
 
 /// Dummy uploader for test purposes.
 ///
-/// It actually does NOT upload any snapshot but remembers the last snapshot it
+/// It actually does NOT upload any file but remembers the last file it
 /// was asked to upload. This is intended to by used by integration tests.
-pub struct DumbSnapshotUploader {
-    last_uploaded: RwLock<Option<String>>,
+pub struct DumbUploader {
+    last_uploaded: RwLock<Option<FileUri>>,
 }
 
-impl DumbSnapshotUploader {
+impl DumbUploader {
     /// Create a new instance.
     pub fn new() -> Self {
         Self {
@@ -22,32 +22,32 @@ impl DumbSnapshotUploader {
     }
 
     /// Return the last upload that was triggered.
-    pub fn get_last_upload(&self) -> StdResult<Option<String>> {
+    pub fn get_last_upload(&self) -> StdResult<Option<FileUri>> {
         let value = self
             .last_uploaded
             .read()
             .map_err(|e| anyhow!("Error while saving filepath location: {e}"))?;
 
-        Ok(value.as_ref().map(|v| v.to_string()))
+        Ok(value.as_ref().map(Clone::clone))
     }
 }
 
-impl Default for DumbSnapshotUploader {
+impl Default for DumbUploader {
     fn default() -> Self {
         Self::new()
     }
 }
 
 #[async_trait]
-impl SnapshotUploader for DumbSnapshotUploader {
-    /// Upload a snapshot
-    async fn upload_snapshot(&self, snapshot_filepath: &Path) -> StdResult<SnapshotLocation> {
+impl FileUploader for DumbUploader {
+    /// Upload a file
+    async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
         let mut value = self
             .last_uploaded
             .write()
             .map_err(|e| anyhow!("Error while saving filepath location: {e}"))?;
 
-        let location = snapshot_filepath.to_string_lossy().to_string();
+        let location = FileUri(filepath.to_string_lossy().to_string());
         *value = Some(location.clone());
 
         Ok(location)
@@ -60,18 +60,18 @@ mod tests {
 
     #[tokio::test]
     async fn test_dumb_uploader() {
-        let uploader = DumbSnapshotUploader::new();
+        let uploader = DumbUploader::new();
         assert!(uploader
             .get_last_upload()
             .expect("uploader should not fail")
             .is_none());
         let res = uploader
-            .upload_snapshot(Path::new("/tmp/whatever"))
+            .upload(Path::new("/tmp/whatever"))
             .await
             .expect("uploading with a dumb uploader should not fail");
-        assert_eq!(res, "/tmp/whatever".to_string());
+        assert_eq!(res, FileUri("/tmp/whatever".to_string()));
         assert_eq!(
-            Some("/tmp/whatever".to_string()),
+            Some(FileUri("/tmp/whatever".to_string())),
             uploader
                 .get_last_upload()
                 .expect("getting dumb uploader last value after a fake download should not fail")

@@ -5,10 +5,7 @@ use slog::{debug, warn, Logger};
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{
-    snapshot_uploaders::SnapshotLocation, snapshotter::OngoingSnapshot, SnapshotUploader,
-    Snapshotter,
-};
+use crate::{file_uploaders::FileUri, snapshotter::OngoingSnapshot, FileUploader, Snapshotter};
 
 use super::ArtifactBuilder;
 use mithril_common::logging::LoggerExtensions;
@@ -33,7 +30,7 @@ pub struct CardanoImmutableFilesFullArtifactBuilder {
     cardano_network: CardanoNetwork,
     cardano_node_version: Version,
     snapshotter: Arc<dyn Snapshotter>,
-    snapshot_uploader: Arc<dyn SnapshotUploader>,
+    snapshot_uploader: Arc<dyn FileUploader>,
     compression_algorithm: CompressionAlgorithm,
     logger: Logger,
 }
@@ -44,7 +41,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         cardano_network: CardanoNetwork,
         cardano_node_version: &Version,
         snapshotter: Arc<dyn Snapshotter>,
-        snapshot_uploader: Arc<dyn SnapshotUploader>,
+        snapshot_uploader: Arc<dyn FileUploader>,
         compression_algorithm: CompressionAlgorithm,
         logger: Logger,
     ) -> Self {
@@ -89,11 +86,11 @@ impl CardanoImmutableFilesFullArtifactBuilder {
     async fn upload_snapshot_archive(
         &self,
         ongoing_snapshot: &OngoingSnapshot,
-    ) -> StdResult<Vec<SnapshotLocation>> {
+    ) -> StdResult<Vec<FileUri>> {
         debug!(self.logger, ">> upload_snapshot_archive");
         let location = self
             .snapshot_uploader
-            .upload_snapshot(ongoing_snapshot.get_file_path())
+            .upload(ongoing_snapshot.get_file_path())
             .await;
 
         if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
@@ -158,7 +155,12 @@ impl ArtifactBuilder<CardanoDbBeacon, Snapshot> for CardanoImmutableFilesFullArt
             })?;
 
         let snapshot = self
-            .create_snapshot(beacon, &ongoing_snapshot, snapshot_digest, locations)
+            .create_snapshot(
+                beacon,
+                &ongoing_snapshot,
+                snapshot_digest,
+                locations.into_iter().map(Into::into).collect(),
+            )
             .await?;
 
         Ok(snapshot)
@@ -174,8 +176,7 @@ mod tests {
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use crate::{
-        snapshot_uploaders::MockSnapshotUploader, test_tools::TestLogger, DumbSnapshotUploader,
-        DumbSnapshotter,
+        file_uploaders::MockFileUploader, test_tools::TestLogger, DumbSnapshotter, DumbUploader,
     };
 
     use super::*;
@@ -190,7 +191,7 @@ mod tests {
             .unwrap();
 
         let dumb_snapshotter = Arc::new(DumbSnapshotter::new());
-        let dumb_snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
+        let dumb_snapshot_uploader = Arc::new(DumbUploader::new());
 
         let cardano_immutable_files_full_artifact_builder =
             CardanoImmutableFilesFullArtifactBuilder::new(
@@ -213,6 +214,7 @@ mod tests {
         let remote_locations = vec![dumb_snapshot_uploader
             .get_last_upload()
             .unwrap()
+            .map(Into::into)
             .expect("A snapshot should have been 'uploaded'")];
         let artifact_expected = Snapshot::new(
             snapshot_digest.to_owned(),
@@ -237,7 +239,7 @@ mod tests {
                 fake_data::network(),
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
-                Arc::new(DumbSnapshotUploader::new()),
+                Arc::new(DumbUploader::new()),
                 CompressionAlgorithm::default(),
                 TestLogger::stdout(),
             );
@@ -264,7 +266,7 @@ mod tests {
                 network,
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
-                Arc::new(DumbSnapshotUploader::new()),
+                Arc::new(DumbUploader::new()),
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             );
@@ -293,7 +295,7 @@ mod tests {
                     fake_data::network(),
                     &Version::parse("1.0.0").unwrap(),
                     Arc::new(DumbSnapshotter::new()),
-                    Arc::new(DumbSnapshotUploader::new()),
+                    Arc::new(DumbUploader::new()),
                     algorithm,
                     TestLogger::stdout(),
                 );
@@ -325,9 +327,9 @@ mod tests {
         let file = NamedTempFile::new().unwrap();
         let file_path = file.path();
         let snapshot = OngoingSnapshot::new(file_path.to_path_buf(), 7331);
-        let mut snapshot_uploader = MockSnapshotUploader::new();
+        let mut snapshot_uploader = MockFileUploader::new();
         snapshot_uploader
-            .expect_upload_snapshot()
+            .expect_upload()
             .return_once(|_| Err(anyhow!("an error")))
             .once();
 
