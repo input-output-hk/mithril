@@ -149,7 +149,7 @@ impl CertificatesHashMigrator {
 
         debug!(
             self.logger,
-            "Updating signed entities certificate_ids to new computed hash and migrated signed entities in the database"
+            "Updating signed entities certificate hash in the database"
         );
         let old_hashes_chunk_size = 250;
         for old_hashes_chunk in old_hashes.chunks(old_hashes_chunk_size) {
