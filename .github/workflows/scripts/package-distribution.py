@@ -48,8 +48,9 @@ def check_archive(archive_path, original_input_dir):
 
 
 def main(args):
-    archive_path = build_archive(
-        args.input, args.dest, archive_basename=f"mithril-{args.version}-{args.target}")
+    archive_basename = f"{args.name}-{args.version}" if args.target is None else f"{args.name}-{args.version}-{args.target}"
+
+    archive_path = build_archive(args.input, args.dest, archive_basename)
     check_archive(archive_path, args.input)
 
 
@@ -58,6 +59,8 @@ if __name__ == '__main__':
         prog="Mithril distribution packager",
         description="Package the files in the given '--input' dir in a .tar.gz (linux, macOs) or .zip (windows)."
     )
+    parser.add_argument("--name", help="name of the distribution to package, prefix of the archive name",
+                        default="mithril")
     parser.add_argument("--input", type=dir_path,
                         help="input folder which content will be archived", required=True)
     parser.add_argument("--dest", type=dir_path, help="destination folder for the archive, default to current folder",
@@ -65,6 +68,6 @@ if __name__ == '__main__':
     parser.add_argument(
         "--version", help="version of the distribution to package", required=True)
     parser.add_argument(
-        "--target", help="target os & architecture of the package", required=True)
+        "--target", help="target os & architecture of the package", required=False)
 
     main(parser.parse_args())
