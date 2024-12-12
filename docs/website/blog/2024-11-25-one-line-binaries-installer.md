@@ -17,7 +17,7 @@ tags:
 
 ### One line installer for Mithril binaries
 
-To simplify the installation and updating of Mithril binaries, we have created a one line installer that downloads and installs the Mithril binaries for you. This installer is available for Linux and macOS and supports the Mithril signer, Mithril aggregator, and Mithril CLI.
+To simplify the installation and updating of Mithril binaries, we have created a one line installer that downloads and installs the Mithril binaries for you. This installer is available for Linux and macOS and supports the Mithril signer, Mithril aggregator, and Mithril client CLI.
 
 The one line command is also displayed in the various `Download the pre-built binary` sections across the documentation.
 
