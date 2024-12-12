@@ -1,6 +1,9 @@
 use std::{path::Path, sync::Arc};
 
-use mithril_common::{entities::AncillaryLocation, StdResult};
+use mithril_common::{
+    entities::{AncillaryLocation, AncillaryLocationDiscriminants},
+    StdResult,
+};
 
 use crate::FileUploader;
 
@@ -30,7 +33,9 @@ impl AncillaryArtifactBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::DumbUploader;
+    use mithril_common::entities::AncillaryLocationDiscriminants;
+
+    use crate::{file_uploaders::TypedFileUploader, DumbUploader};
 
     use super::*;
 
@@ -48,7 +53,10 @@ mod tests {
 
     #[tokio::test]
     async fn create_and_upload_archive_should_return_uploader_cloud_storage_location() {
-        let uploader = Arc::new(DumbUploader::new());
+        let uploader = Arc::new(TypedFileUploader::new(
+            AncillaryLocationDiscriminants::CloudStorage,
+            DumbUploader::new(),
+        ));
         let builder = AncillaryArtifactBuilder::new(vec![uploader]);
 
         let locations = builder

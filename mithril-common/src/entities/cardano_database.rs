@@ -1,5 +1,6 @@
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use strum::EnumDiscriminants;
 
 use crate::{
     entities::{CardanoDbBeacon, CompressionAlgorithm},
@@ -67,7 +68,7 @@ pub enum ImmutablesLocation {
 }
 
 /// Locations of the ancillary files.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum AncillaryLocation {
     /// Cloud storage location type (e.g. GCP, AWS, etc.).
