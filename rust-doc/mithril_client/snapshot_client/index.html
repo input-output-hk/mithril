@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="A client to retrieve snapshots data from an Aggregator."><title>mithril_client::snapshot_client - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-b0742ba02757f159.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="mithril_client" data-themes="" data-resource-suffix="" data-rustdoc-version="1.83.0 (90b35a623 2024-11-26)" data-channel="1.83.0" data-search-js="search-f0d225181b97f9a4.js" data-settings-js="settings-805db61a62df4bd2.js" ><script src="../../static.files/storage-1d39b6787ed640ff.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-f070b9041d14864c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-0111fcff984fae8f.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../mithril_client/index.html">mithril_<wbr>client</a><span class="version">0.10.4</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module snapshot_<wbr>client</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#get-a-single-snapshot" title="Get a single snapshot">Get a single snapshot</a></li><li><a href="#list-available-snapshots" title="List available snapshots">List available snapshots</a></li><li><a href="#download-a-snapshot" title="Download a snapshot">Download a snapshot</a></li><li><a href="#add-statistics" title="Add statistics">Add statistics</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate mithril_<wbr>client</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../index.html">mithril_client</a></span><h1>Module <span>snapshot_client</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/mithril_client/snapshot_client.rs.html#1-307">source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>A client to retrieve snapshots data from an Aggregator.</p>
+<p>In order to do so it defines a <a href="struct.SnapshotClient.html" title="struct mithril_client::snapshot_client::SnapshotClient">SnapshotClient</a> which exposes the following features:</p>
+<ul>
+<li><a href="struct.SnapshotClient.html#method.get" title="method mithril_client::snapshot_client::SnapshotClient::get">get</a>: get a single snapshot data from its digest</li>
+<li><a href="struct.SnapshotClient.html#method.list" title="method mithril_client::snapshot_client::SnapshotClient::list">list</a>: get the list of available snapshots</li>
+<li><a href="struct.SnapshotClient.html#method.download_unpack" title="method mithril_client::snapshot_client::SnapshotClient::download_unpack">download_unpack</a>: download and unpack the tarball of a snapshot to a directory</li>
+</ul>
+<h2 id="get-a-single-snapshot"><a class="doc-anchor" href="#get-a-single-snapshot">§</a>Get a single snapshot</h2>
+<p>To get a single snapshot using the <a href="../struct.ClientBuilder.html" title="struct mithril_client::ClientBuilder">ClientBuilder</a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>mithril_client::ClientBuilder;
+
+<span class="kw">let </span>client = ClientBuilder::aggregator(<span class="string">"YOUR_AGGREGATOR_ENDPOINT"</span>, <span class="string">"YOUR_GENESIS_VERIFICATION_KEY"</span>).build()<span class="question-mark">?</span>;
+<span class="kw">let </span>snapshot = client.snapshot().get(<span class="string">"SNAPSHOT_DIGEST"</span>).<span class="kw">await</span><span class="question-mark">?</span>.unwrap();
+
+<span class="macro">println!</span>(<span class="string">"Snapshot digest={}, size={}"</span>, snapshot.digest, snapshot.size);</code></pre></div>
+<h2 id="list-available-snapshots"><a class="doc-anchor" href="#list-available-snapshots">§</a>List available snapshots</h2>
+<p>To list available snapshots using the <a href="../struct.ClientBuilder.html" title="struct mithril_client::ClientBuilder">ClientBuilder</a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>mithril_client::ClientBuilder;
+
+<span class="kw">let </span>client = ClientBuilder::aggregator(<span class="string">"YOUR_AGGREGATOR_ENDPOINT"</span>, <span class="string">"YOUR_GENESIS_VERIFICATION_KEY"</span>).build()<span class="question-mark">?</span>;
+<span class="kw">let </span>snapshots = client.snapshot().list().<span class="kw">await</span><span class="question-mark">?</span>;
+
+<span class="kw">for </span>snapshot <span class="kw">in </span>snapshots {
+    <span class="macro">println!</span>(<span class="string">"Snapshot digest={}, size={}"</span>, snapshot.digest, snapshot.size);
+}</code></pre></div>
+<h2 id="download-a-snapshot"><a class="doc-anchor" href="#download-a-snapshot">§</a>Download a snapshot</h2>
+<p><strong>Note:</strong> <em>Available on crate feature</em> <strong>fs</strong> <em>only.</em></p>
+<p>To download and simultaneously unpack the tarball of a snapshots using the <a href="../struct.ClientBuilder.html" title="struct mithril_client::ClientBuilder">ClientBuilder</a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>mithril_client::ClientBuilder;
+<span class="kw">use </span>std::path::Path;
+
+<span class="kw">let </span>client = ClientBuilder::aggregator(<span class="string">"YOUR_AGGREGATOR_ENDPOINT"</span>, <span class="string">"YOUR_GENESIS_VERIFICATION_KEY"</span>).build()<span class="question-mark">?</span>;
+<span class="kw">let </span>snapshot = client.snapshot().get(<span class="string">"SNAPSHOT_DIGEST"</span>).<span class="kw">await</span><span class="question-mark">?</span>.unwrap();
+
+<span class="comment">// Note: the directory must already exist, and the user running the binary must have read/write access to it.
+</span><span class="kw">let </span>target_directory = Path::new(<span class="string">"/home/user/download/"</span>);
+client
+   .snapshot()
+   .download_unpack(<span class="kw-2">&amp;</span>snapshot, target_directory)
+   .<span class="kw">await</span><span class="question-mark">?</span>;</code></pre></div>
+<h2 id="add-statistics"><a class="doc-anchor" href="#add-statistics">§</a>Add statistics</h2>
+<p><strong>Note:</strong> <em>Available on crate feature</em> <strong>fs</strong> <em>only.</em></p>
+<p>Increments the aggregator snapshot download statistics using the <a href="../struct.ClientBuilder.html" title="struct mithril_client::ClientBuilder">ClientBuilder</a>.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>mithril_client::ClientBuilder;
+<span class="kw">use </span>std::path::Path;
+
+<span class="kw">let </span>client = ClientBuilder::aggregator(<span class="string">"YOUR_AGGREGATOR_ENDPOINT"</span>, <span class="string">"YOUR_GENESIS_VERIFICATION_KEY"</span>).build()<span class="question-mark">?</span>;
+<span class="kw">let </span>snapshot = client.snapshot().get(<span class="string">"SNAPSHOT_DIGEST"</span>).<span class="kw">await</span><span class="question-mark">?</span>.unwrap();
+
+<span class="comment">// Note: the directory must already exist, and the user running the binary must have read/write access to it.
+</span><span class="kw">let </span>target_directory = Path::new(<span class="string">"/home/user/download/"</span>);
+client
+   .snapshot()
+   .download_unpack(<span class="kw-2">&amp;</span>snapshot, target_directory)
+   .<span class="kw">await</span><span class="question-mark">?</span>;
+
+client.snapshot().add_statistics(<span class="kw-2">&amp;</span>snapshot).<span class="kw">await</span>.unwrap();</code></pre></div>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.SnapshotClient.html" title="struct mithril_client::snapshot_client::SnapshotClient">Snapshot<wbr>Client</a></div><div class="desc docblock-short">Aggregator client for the snapshot artifact</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.SnapshotClientError.html" title="enum mithril_client::snapshot_client::SnapshotClientError">Snapshot<wbr>Client<wbr>Error</a></div><div class="desc docblock-short">Error for the Snapshot client</div></li></ul></section></div></main></body></html>

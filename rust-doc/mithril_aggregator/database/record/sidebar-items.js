@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["BufferedSingleSignatureRecord","CertificatePendingRecord","CertificateRecord","EpochSettingsRecord","OpenMessageRecord","OpenMessageWithSingleSignaturesRecord","SignedEntityRecord","SignerRecord","SignerRegistrationRecord","SingleSignatureRecord","StakePool"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["MithrilEvent"],"struct":["FeedbackSender","SlogFeedbackReceiver","StackFeedbackReceiver"],"trait":["FeedbackReceiver"]};
