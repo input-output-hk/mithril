@@ -15,7 +15,7 @@ The **Protocol Insights Dashboard** is a valuable tool for monitoring the networ
 - Usage metrics
 - Health metrics
 - Artifacts metrics
-- Software metrics
+- Software metrics.
 
 [![Protocol Insights Dashboard](img/protocol-insights-dashboard.gif)](img/protocol-insights-dashboard.gif)
 
