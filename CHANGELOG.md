@@ -9,6 +9,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
+- Build and publish both a `stable` version (for release networks) and an `unstable` version (for testing networks) of the explorer.
+
 - Crates versions:
 
 | Crate | Version |
