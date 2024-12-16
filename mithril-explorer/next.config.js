@@ -3,7 +3,7 @@ const webpack = require("webpack");
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   output: "export",
-  basePath: "/explorer",
+  basePath: process.env.BASE_PATH ?? "/explorer",
   reactStrictMode: true,
   images: {
     unoptimized: true,
