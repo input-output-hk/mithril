@@ -52,9 +52,9 @@ use mithril_persistence::{
 use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 use crate::{
     artifact_builder::{
-        CardanoDatabaseArtifactBuilder, CardanoImmutableFilesFullArtifactBuilder,
-        CardanoStakeDistributionArtifactBuilder, CardanoTransactionsArtifactBuilder,
-        MithrilStakeDistributionArtifactBuilder,
+        AncillaryArtifactBuilder, CardanoDatabaseArtifactBuilder,
+        CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
+        CardanoTransactionsArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
     database::repository::{
@@ -1209,10 +1209,19 @@ impl DependenciesBuilder {
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
+        let local_uploader = LocalUploader::new(
+            self.configuration.get_server_url(),
+            &self.configuration.snapshot_directory, // TODO: Make this configurable now or use 'self.configuration.snapshot_directory'
+            logger.clone(),
+        );
+        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(
+            local_uploader,
+        )]));
         let cardano_database_artifact_builder = Arc::new(CardanoDatabaseArtifactBuilder::new(
             self.configuration.db_directory.clone(),
             &cardano_node_version,
-            self.configuration.snapshot_compression_algorithm,
+            self.configuration.snapshot_compression_algorithm, // TODO: Make this configurable now or use 'self.configuration.snapshot_compression_algorithm'
+            ancillary_builder,
         ));
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,

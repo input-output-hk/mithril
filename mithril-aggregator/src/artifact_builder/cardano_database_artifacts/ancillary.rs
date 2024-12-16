@@ -5,13 +5,9 @@ use mithril_common::{entities::AncillaryLocation, StdResult};
 
 use crate::{FileUploader, LocalUploader};
 
-pub struct AncillaryArtifactBuilder {
-    uploaders: Vec<Arc<dyn AncillaryFileUploaderAggregator>>,
-}
-
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait AncillaryFileUploaderAggregator {
+pub trait AncillaryFileUploaderAggregator: Send + Sync {
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation>;
 }
 
@@ -22,6 +18,10 @@ impl AncillaryFileUploaderAggregator for LocalUploader {
 
         Ok(AncillaryLocation::CloudStorage { uri })
     }
+}
+
+pub struct AncillaryArtifactBuilder {
+    uploaders: Vec<Arc<dyn AncillaryFileUploaderAggregator>>,
 }
 
 impl AncillaryArtifactBuilder {

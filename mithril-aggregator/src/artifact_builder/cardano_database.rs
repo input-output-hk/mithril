@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
@@ -12,12 +15,13 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::artifact_builder::ArtifactBuilder;
+use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
 
 pub struct CardanoDatabaseArtifactBuilder {
     db_directory: PathBuf,
     cardano_node_version: Version,
     compression_algorithm: CompressionAlgorithm,
+    ancillary_builder: Arc<AncillaryArtifactBuilder>,
 }
 
 impl CardanoDatabaseArtifactBuilder {
@@ -25,11 +29,13 @@ impl CardanoDatabaseArtifactBuilder {
         db_directory: PathBuf,
         cardano_node_version: &Version,
         compression_algorithm: CompressionAlgorithm,
+        ancillary_builder: Arc<AncillaryArtifactBuilder>,
     ) -> Self {
         Self {
             db_directory,
             cardano_node_version: cardano_node_version.clone(),
             compression_algorithm,
+            ancillary_builder,
         }
     }
 }
@@ -55,8 +61,16 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             })?;
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
-        // TODO: implement the sub-builder logic to get the locations.
-        let locations = ArtifactsLocations::default();
+        let ancillary_locations = self
+            .ancillary_builder
+            .upload_archive(&self.db_directory)
+            .await
+            .with_context(|| "Can not compute CardanoDatabase artifact")?;
+        let locations = ArtifactsLocations {
+            ancillary: ancillary_locations,
+            digest: vec![],
+            immutables: vec![],
+        };
 
         let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
@@ -102,9 +116,11 @@ mod tests {
 
     use mithril_common::{
         digesters::DummyImmutablesDbBuilder,
-        entities::{ProtocolMessage, ProtocolMessagePartKey},
+        entities::{AncillaryLocation, ProtocolMessage, ProtocolMessagePartKey},
         test_utils::{fake_data, TempDir},
     };
+
+    use crate::artifact_builder::cardano_database_artifacts::MockAncillaryFileUploaderAggregator;
 
     use super::*;
 
@@ -152,10 +168,19 @@ mod tests {
             .build();
         let expected_total_size = immutable_trio_file_size + ledger_file_size + volatile_file_size;
 
+        let mut uploader = MockAncillaryFileUploaderAggregator::new();
+        uploader.expect_upload().return_once(|_| {
+            Ok(AncillaryLocation::CloudStorage {
+                uri: "ancillary_location_uri".to_string(),
+            })
+        });
+        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(uploader)]));
+
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             test_dir,
             &Version::parse("1.0.0").unwrap(),
             CompressionAlgorithm::Zstandard,
+            ancillary_builder,
         );
 
         let beacon = fake_data::beacon();
@@ -180,7 +205,12 @@ mod tests {
             "merkleroot".to_string(),
             beacon,
             expected_total_size,
-            ArtifactsLocations::default(),
+            ArtifactsLocations {
+                ancillary: vec![AncillaryLocation::CloudStorage {
+                    uri: "ancillary_location_uri".to_string(),
+                }],
+                ..ArtifactsLocations::default()
+            },
             CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),
         );
