@@ -119,17 +119,22 @@ impl Devnet {
 
         info!("Bootstrapping the Devnet"; "script" => &bootstrap_script_path.display());
 
-        bootstrap_command
+        let exit_status = bootstrap_command
             .spawn()
             .with_context(|| format!("{bootstrap_script} failed to start"))?
             .wait()
             .await
             .with_context(|| format!("{bootstrap_script} failed to run"))?;
-
-        Ok(Devnet {
-            artifacts_dir: bootstrap_args.artifacts_target_dir.to_owned(),
-            number_of_pool_nodes: bootstrap_args.number_of_pool_nodes,
-        })
+        match exit_status.code() {
+            Some(0) => Ok(Devnet {
+                artifacts_dir: bootstrap_args.artifacts_target_dir.to_owned(),
+                number_of_pool_nodes: bootstrap_args.number_of_pool_nodes,
+            }),
+            Some(code) => Err(anyhow!(RetryableDevnetError(format!(
+                "Bootstrap devnet exited with status code: {code}"
+            )))),
+            None => Err(anyhow!("Bootstrap devnet terminated by signal")),
+        }
     }
 
     /// Factory for test purposes
