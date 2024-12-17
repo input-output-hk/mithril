@@ -7,12 +7,12 @@ use crate::{FileUploader, LocalUploader};
 
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait AncillaryFileUploaderAggregator: Send + Sync {
+pub trait AncillaryFileUploader: Send + Sync {
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation>;
 }
 
 #[async_trait]
-impl AncillaryFileUploaderAggregator for LocalUploader {
+impl AncillaryFileUploader for LocalUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
         let uri = FileUploader::upload(self, filepath).await?.into();
 
@@ -21,11 +21,11 @@ impl AncillaryFileUploaderAggregator for LocalUploader {
 }
 
 pub struct AncillaryArtifactBuilder {
-    uploaders: Vec<Arc<dyn AncillaryFileUploaderAggregator>>,
+    uploaders: Vec<Arc<dyn AncillaryFileUploader>>,
 }
 
 impl AncillaryArtifactBuilder {
-    pub fn new(uploaders: Vec<Arc<dyn AncillaryFileUploaderAggregator>>) -> Self {
+    pub fn new(uploaders: Vec<Arc<dyn AncillaryFileUploader>>) -> Self {
         Self { uploaders }
     }
 
@@ -57,8 +57,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_archive_should_return_all_uploaders_cloud_storage_locations() {
-        let mut first_uploader = MockAncillaryFileUploaderAggregator::new();
+    async fn upload_archive_should_return_all_uploaders_returned_locations() {
+        let mut first_uploader = MockAncillaryFileUploader::new();
         first_uploader
             .expect_upload()
             .with(eq(Path::new("archive_path")))
@@ -69,7 +69,7 @@ mod tests {
                 })
             });
 
-        let mut second_uploader = MockAncillaryFileUploaderAggregator::new();
+        let mut second_uploader = MockAncillaryFileUploader::new();
         second_uploader
             .expect_upload()
             .with(eq(Path::new("archive_path")))
@@ -80,7 +80,7 @@ mod tests {
                 })
             });
 
-        let uploaders: Vec<Arc<dyn AncillaryFileUploaderAggregator>> =
+        let uploaders: Vec<Arc<dyn AncillaryFileUploader>> =
             vec![Arc::new(first_uploader), Arc::new(second_uploader)];
 
         let builder = AncillaryArtifactBuilder::new(uploaders);

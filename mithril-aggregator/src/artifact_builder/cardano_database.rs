@@ -120,7 +120,7 @@ mod tests {
         test_utils::{fake_data, TempDir},
     };
 
-    use crate::artifact_builder::cardano_database_artifacts::MockAncillaryFileUploaderAggregator;
+    use crate::artifact_builder::cardano_database_artifacts::MockAncillaryFileUploader;
 
     use super::*;
 
@@ -168,7 +168,7 @@ mod tests {
             .build();
         let expected_total_size = immutable_trio_file_size + ledger_file_size + volatile_file_size;
 
-        let mut uploader = MockAncillaryFileUploaderAggregator::new();
+        let mut uploader = MockAncillaryFileUploader::new();
         uploader.expect_upload().return_once(|_| {
             Ok(AncillaryLocation::CloudStorage {
                 uri: "ancillary_location_uri".to_string(),
