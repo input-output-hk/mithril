@@ -7,7 +7,7 @@ tags: [protocol, metrics, dashboard, insights]
 
 ### A new Protocol Insights Dashboard has been released
 
-We have released a new version of the [**Protocol Insights Dashboard**](https://lookerstudio.google.com/s/mbL23-8gibI) which provides a comprehensive view of the Mithril network and its performance metrics.
+We have released a new version of the [**Protocol Insights Dashboard**](https://lookerstudio.google.com/s/mbL23-8gibI), which provides a comprehensive view of the Mithril network and its performance metrics.
 
 The **Protocol Insights Dashboard** is a valuable tool for monitoring the network and understanding its behavior:
 
@@ -15,8 +15,8 @@ The **Protocol Insights Dashboard** is a valuable tool for monitoring the networ
 - Usage metrics
 - Health metrics
 - Artifacts metrics
-- Software metrics
+- Software metrics.
 
 [![Protocol Insights Dashboard](img/protocol-insights-dashboard.gif)](img/protocol-insights-dashboard.gif)
 
-For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For any inquiries or assistance, don't hesitate to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
