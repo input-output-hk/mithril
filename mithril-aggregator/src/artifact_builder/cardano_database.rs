@@ -21,6 +21,7 @@ pub struct CardanoDatabaseArtifactBuilder {
     db_directory: PathBuf,
     cardano_node_version: Version,
     compression_algorithm: CompressionAlgorithm,
+    #[allow(dead_code)]
     ancillary_builder: Arc<AncillaryArtifactBuilder>,
 }
 
@@ -61,13 +62,8 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             })?;
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
-        let ancillary_locations = self
-            .ancillary_builder
-            .upload_archive(&self.db_directory)
-            .await
-            .with_context(|| "Can not compute CardanoDatabase ancillary artifact")?;
         let locations = ArtifactsLocations {
-            ancillary: ancillary_locations,
+            ancillary: vec![],
             digest: vec![],
             immutables: vec![],
         };
@@ -116,11 +112,9 @@ mod tests {
 
     use mithril_common::{
         digesters::DummyImmutablesDbBuilder,
-        entities::{AncillaryLocation, ProtocolMessage, ProtocolMessagePartKey},
+        entities::{ProtocolMessage, ProtocolMessagePartKey},
         test_utils::{fake_data, TempDir},
     };
-
-    use crate::artifact_builder::cardano_database_artifacts::MockAncillaryFileUploader;
 
     use super::*;
 
@@ -168,19 +162,11 @@ mod tests {
             .build();
         let expected_total_size = immutable_trio_file_size + ledger_file_size + volatile_file_size;
 
-        let mut uploader = MockAncillaryFileUploader::new();
-        uploader.expect_upload().return_once(|_| {
-            Ok(AncillaryLocation::CloudStorage {
-                uri: "ancillary_location_uri".to_string(),
-            })
-        });
-        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(uploader)]));
-
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             test_dir,
             &Version::parse("1.0.0").unwrap(),
             CompressionAlgorithm::Zstandard,
-            ancillary_builder,
+            Arc::new(AncillaryArtifactBuilder::new(vec![])),
         );
 
         let beacon = fake_data::beacon();
@@ -206,10 +192,9 @@ mod tests {
             beacon,
             expected_total_size,
             ArtifactsLocations {
-                ancillary: vec![AncillaryLocation::CloudStorage {
-                    uri: "ancillary_location_uri".to_string(),
-                }],
-                ..ArtifactsLocations::default()
+                ancillary: vec![],
+                digest: vec![],
+                immutables: vec![],
             },
             CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),
