@@ -124,4 +124,21 @@ mod tests {
             .join(archive.file_name().unwrap())
             .exists());
     }
+
+    #[tokio::test]
+    async fn should_error_if_path_is_a_directory() {
+        let source_dir = tempdir().unwrap();
+        let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
+        create_fake_archive(source_dir.path(), digest);
+        let target_dir = tempdir().unwrap();
+        let uploader = LocalUploader::new(
+            "http://test.com:8080/".to_string(),
+            target_dir.path(),
+            TestLogger::stdout(),
+        );
+        uploader
+            .upload(source_dir.path())
+            .await
+            .expect_err("Uploading a directory should fail");
+    }
 }

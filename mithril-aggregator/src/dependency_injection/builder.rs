@@ -1,7 +1,7 @@
 use anyhow::Context;
 use semver::Version;
 use slog::{debug, Logger};
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, path::Path, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -52,9 +52,9 @@ use mithril_persistence::{
 use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 use crate::{
     artifact_builder::{
-        CardanoDatabaseArtifactBuilder, CardanoImmutableFilesFullArtifactBuilder,
-        CardanoStakeDistributionArtifactBuilder, CardanoTransactionsArtifactBuilder,
-        MithrilStakeDistributionArtifactBuilder,
+        AncillaryArtifactBuilder, CardanoDatabaseArtifactBuilder,
+        CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
+        CardanoTransactionsArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
     database::repository::{
@@ -64,7 +64,7 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    file_uploaders::GcpUploader,
+    file_uploaders::{FileUploader, GcpUploader},
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
@@ -78,8 +78,8 @@ use crate::{
     tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
-    FileUploader, LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner,
-    MultiSignerImpl, SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
+    LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
     SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
@@ -470,7 +470,7 @@ impl DependenciesBuilder {
                 }
                 SnapshotUploaderType::Local => Ok(Arc::new(LocalUploader::new(
                     self.configuration.get_server_url(),
-                    &self.configuration.snapshot_directory,
+                    &self.configuration.get_snapshot_dir()?,
                     logger,
                 ))),
             }
@@ -823,7 +823,7 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => {
                 let ongoing_snapshot_directory = self
                     .configuration
-                    .snapshot_directory
+                    .get_snapshot_dir()?
                     .join("pending_snapshot");
 
                 let algorithm = match self.configuration.snapshot_compression_algorithm {
@@ -1182,6 +1182,39 @@ impl DependenciesBuilder {
         Ok(self.signable_seed_builder.as_ref().cloned().unwrap())
     }
 
+    fn create_cardano_database_artifact_builder(
+        &self,
+        logger: &Logger,
+        cardano_node_version: Version,
+    ) -> Result<CardanoDatabaseArtifactBuilder> {
+        let artifacts_dir = Path::new("cardano-database").join("ancillary");
+        let snapshot_dir = self
+            .configuration
+            .get_snapshot_dir()?
+            .join(artifacts_dir.clone());
+        std::fs::create_dir_all(snapshot_dir.clone()).map_err(|e| {
+            DependenciesBuilderError::Initialization {
+                message: format!("Cannot create '{artifacts_dir:?}' directory."),
+                error: Some(e.into()),
+            }
+        })?;
+        let local_uploader = LocalUploader::new(
+            self.configuration.get_server_url(),
+            &snapshot_dir,
+            logger.clone(),
+        );
+        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(
+            local_uploader,
+        )]));
+
+        Ok(CardanoDatabaseArtifactBuilder::new(
+            self.configuration.db_directory.clone(),
+            &cardano_node_version,
+            self.configuration.snapshot_compression_algorithm,
+            ancillary_builder,
+        ))
+    }
+
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let logger = self.root_logger();
         let signed_entity_storer = self.build_signed_entity_storer().await?;
@@ -1209,11 +1242,8 @@ impl DependenciesBuilder {
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
-        let cardano_database_artifact_builder = Arc::new(CardanoDatabaseArtifactBuilder::new(
-            self.configuration.db_directory.clone(),
-            &cardano_node_version,
-            self.configuration.snapshot_compression_algorithm,
-        ));
+        let cardano_database_artifact_builder =
+            Arc::new(self.create_cardano_database_artifact_builder(&logger, cardano_node_version)?);
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
@@ -1524,7 +1554,7 @@ impl DependenciesBuilder {
                     .configuration
                     .cardano_transactions_signing_config
                     .clone(),
-                snapshot_directory: self.configuration.snapshot_directory.clone(),
+                snapshot_directory: self.configuration.get_snapshot_dir()?,
                 cardano_node_version: self.configuration.cardano_node_version.clone(),
             },
         );
@@ -1720,7 +1750,9 @@ impl DependenciesBuilder {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::SignedEntityTypeDiscriminants;
+    use mithril_common::{entities::SignedEntityTypeDiscriminants, test_utils::TempDir};
+
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -1760,5 +1792,36 @@ mod tests {
             "'is_activated' expected {}, but was {}",
             expected_activation, is_activated
         );
+    }
+
+    #[test]
+    fn create_cardano_database_artifact_builder_creates_cardano_database_and_ancillary_directories_in_snapshot_directory(
+    ) {
+        let snapshot_directory = TempDir::create(
+            "builder",
+            "create_cardano_database_and_ancillary_directories",
+        );
+        let ancillary_dir = snapshot_directory
+            .join("cardano-database")
+            .join("ancillary");
+        let dep_builder = {
+            let config = Configuration {
+                snapshot_directory,
+                ..Configuration::new_sample()
+            };
+
+            DependenciesBuilder::new_with_stdout_logger(config)
+        };
+
+        assert!(!ancillary_dir.exists());
+
+        dep_builder
+            .create_cardano_database_artifact_builder(
+                &TestLogger::stdout(),
+                Version::parse("1.0.0").unwrap(),
+            )
+            .unwrap();
+
+        assert!(ancillary_dir.exists());
     }
 }

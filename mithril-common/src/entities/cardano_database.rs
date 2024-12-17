@@ -1,5 +1,6 @@
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use strum::EnumDiscriminants;
 
 use crate::{
     entities::{CardanoDbBeacon, CompressionAlgorithm},
@@ -51,34 +52,55 @@ impl CardanoDatabaseSnapshot {
     }
 }
 
+/// Locations of the the immutable file digests.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
-enum DigestLocation {
-    Aggregator { uri: String },
-    CloudStorage { uri: String },
+pub enum DigestLocation {
+    /// Aggregator digest route location.
+    Aggregator {
+        /// URI of the aggregator digests route location.
+        uri: String,
+    },
+    /// Cloud storage location.
+    CloudStorage {
+        /// URI of the cloud storage location.
+        uri: String,
+    },
 }
 
+/// Locations of the ancillary files.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
-enum ImmutablesLocation {
-    CloudStorage { uri: String },
+pub enum ImmutablesLocation {
+    /// Cloud storage location.
+    CloudStorage {
+        /// URI of the cloud storage location.
+        uri: String,
+    },
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Locations of the ancillary files.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[serde(rename_all = "snake_case", tag = "type")]
-enum AncillaryLocation {
-    CloudStorage { uri: String },
+pub enum AncillaryLocation {
+    /// Cloud storage location.
+    CloudStorage {
+        /// URI of the cloud storage location.
+        uri: String,
+    },
 }
 
 /// Locations of the Cardano database related files.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactsLocations {
-    /// Locations of the the immutable file digests.
-    digest: Vec<DigestLocation>,
+    /// Locations of the immutable file digests.
+    pub digest: Vec<DigestLocation>,
+
     /// Locations of the immutable files.
-    immutables: Vec<ImmutablesLocation>,
+    pub immutables: Vec<ImmutablesLocation>,
+
     /// Locations of the ancillary files.
-    ancillary: Vec<AncillaryLocation>,
+    pub ancillary: Vec<AncillaryLocation>,
 }
 
 #[typetag::serde]
