@@ -1186,6 +1186,7 @@ impl DependenciesBuilder {
         &self,
         logger: &Logger,
         cardano_node_version: Version,
+        snapshotter: Arc<dyn Snapshotter>,
     ) -> Result<CardanoDatabaseArtifactBuilder> {
         let artifacts_dir = Path::new("cardano-database").join("ancillary");
         let snapshot_dir = self
@@ -1203,9 +1204,12 @@ impl DependenciesBuilder {
             &snapshot_dir,
             logger.clone(),
         );
-        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(
-            local_uploader,
-        )]));
+        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
+            vec![Arc::new(local_uploader)],
+            snapshotter,
+            self.configuration.snapshot_compression_algorithm,
+            logger.clone(),
+        ));
 
         Ok(CardanoDatabaseArtifactBuilder::new(
             self.configuration.db_directory.clone(),
@@ -1230,7 +1234,7 @@ impl DependenciesBuilder {
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
                 self.configuration.get_network()?,
                 &cardano_node_version,
-                snapshotter,
+                snapshotter.clone(),
                 snapshot_uploader,
                 self.configuration.snapshot_compression_algorithm,
                 logger.clone(),
@@ -1243,7 +1247,11 @@ impl DependenciesBuilder {
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
         let cardano_database_artifact_builder =
-            Arc::new(self.create_cardano_database_artifact_builder(&logger, cardano_node_version)?);
+            Arc::new(self.create_cardano_database_artifact_builder(
+                &logger,
+                cardano_node_version,
+                snapshotter,
+            )?);
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
@@ -1820,6 +1828,7 @@ mod tests {
             .create_cardano_database_artifact_builder(
                 &TestLogger::stdout(),
                 Version::parse("1.0.0").unwrap(),
+                Arc::new(DumbSnapshotter::new()),
             )
             .unwrap();
 
