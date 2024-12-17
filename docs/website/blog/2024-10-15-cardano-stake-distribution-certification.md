@@ -17,22 +17,22 @@ The [Mithril Protocol Insights](https://lookerstudio.google.com/s/mbL23-8gibI) d
 
 :::
 
-With the release of the new distribution [2437](https://github.com/input-output-hk/mithril/releases/tag/2437.1), we have started to roll-out the certification of the **Cardano stake distribution** in the Mithril networks.
+With the release of the new distribution [2437](https://github.com/input-output-hk/mithril/releases/tag/2437.1), we have started to roll out the certification of the **Cardano stake distribution** in the Mithril networks.
 
 The Mithril network now provides certified Cardano stake distribution data without requiring a full Cardano node, a useful feature for applications such as bridges and layer 2 solutions. The key features include:
 
-- Certification of the Cardano stake distribution of the ending epoch at each epoch transition.
-- New HTTP routes in the Aggregator REST API to access this certified data.
-- Updates to the Mithril client library and CLI for retrieving and verifying Cardano stake distribution.
-- WASM client support for these functionalities.
+- Certification of the Cardano stake distribution of the ending epoch at each epoch transition
+- New HTTP routes in the aggregator REST API to access this certified data
+- Updates to the Mithril client library and CLI for retrieving and verifying Cardano stake distribution
+- WASM client support for these functionalities
 - Mithril Explorer now displays certified Cardano stake distribution.
 
 The roll-out plan of the feature is the following:
 
 - [x] Distribution [2437](https://github.com/input-output-hk/mithril/releases/tag/2437.1):
-  - [x] Activation of the certification of **Cardano stake distribution** in the `pre-release-preview` network.
-  - [x] Activation of the certification of **Cardano stake distribution** in the `release-preprod` network.
+  - [x] Activation of the certification of **Cardano stake distribution** in the `pre-release-preview` network
+  - [x] Activation of the certification of **Cardano stake distribution** in the `release-preprod` network
 - [x] Distribution [2442](https://github.com/input-output-hk/mithril/releases/tag/2442.0):
   - [ ] Activation of the certification of **Cardano stake distribution** in the `release-mainnet` network.
 
-For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For any inquiries or assistance, don't hesitate to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
