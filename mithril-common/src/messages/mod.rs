@@ -2,6 +2,7 @@
 //! This module aims at providing shared structures for API communications.
 mod aggregator_features;
 mod aggregator_status;
+mod cardano_database;
 mod cardano_stake_distribution;
 mod cardano_stake_distribution_list;
 mod cardano_transaction_snapshot;
@@ -25,6 +26,7 @@ pub use aggregator_features::{
     AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
 };
 pub use aggregator_status::AggregatorStatusMessage;
+pub use cardano_database::CardanoDatabaseSnapshotMessage;
 pub use cardano_stake_distribution::CardanoStakeDistributionMessage;
 pub use cardano_stake_distribution_list::{
     CardanoStakeDistributionListItemMessage, CardanoStakeDistributionListMessage,
