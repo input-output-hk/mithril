@@ -284,7 +284,7 @@ impl Configuration {
             .map_err(|e| anyhow!(ConfigError::Message(e.to_string())))
     }
 
-    /// Return the file of the SQLite stores. If the directory does not exist, it is created.
+    /// Return the directory of the SQLite stores. If the directory does not exist, it is created.
     pub fn get_sqlite_dir(&self) -> PathBuf {
         let store_dir = &self.data_stores_directory;
 
@@ -293,6 +293,15 @@ impl Configuration {
         }
 
         self.data_stores_directory.clone()
+    }
+
+    /// Return the snapshots directory.
+    pub fn get_snapshot_dir(&self) -> StdResult<PathBuf> {
+        if !&self.snapshot_directory.exists() {
+            std::fs::create_dir_all(&self.snapshot_directory)?;
+        }
+
+        Ok(self.snapshot_directory.clone())
     }
 
     /// Same as the [store retention limit][Configuration::store_retention_limit] but will never
