@@ -3,6 +3,7 @@
 mod aggregator_features;
 mod aggregator_status;
 mod cardano_database;
+mod cardano_database_list;
 mod cardano_stake_distribution;
 mod cardano_stake_distribution_list;
 mod cardano_transaction_snapshot;
@@ -27,6 +28,9 @@ pub use aggregator_features::{
 };
 pub use aggregator_status::AggregatorStatusMessage;
 pub use cardano_database::CardanoDatabaseSnapshotMessage;
+pub use cardano_database_list::{
+    CardanoDatabaseSnapshotListItemMessage, CardanoDatabaseSnapshotListMessage,
+};
 pub use cardano_stake_distribution::CardanoStakeDistributionMessage;
 pub use cardano_stake_distribution_list::{
     CardanoStakeDistributionListItemMessage, CardanoStakeDistributionListMessage,
