@@ -1189,7 +1189,11 @@ impl DependenciesBuilder {
     ) -> CardanoDatabaseArtifactBuilder {
         let local_uploader = LocalUploader::new(
             self.configuration.get_server_url(),
-            &self.configuration.snapshot_directory.join("ancillary"),
+            &self
+                .configuration
+                .snapshot_directory
+                .join("cardano-database")
+                .join("ancillary"),
             logger.clone(),
         );
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(

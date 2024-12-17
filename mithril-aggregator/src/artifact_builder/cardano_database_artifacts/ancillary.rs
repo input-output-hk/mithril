@@ -5,9 +5,11 @@ use mithril_common::{entities::AncillaryLocation, StdResult};
 
 use crate::{FileUploader, LocalUploader};
 
+/// The [AncillaryFileUploader] trait allows identifying uploaders that return locations for ancillary archive files.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait AncillaryFileUploader: Send + Sync {
+    /// Uploads the archive at the given filepath and returns the location of the uploaded file.
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation>;
 }
 
@@ -20,6 +22,8 @@ impl AncillaryFileUploader for LocalUploader {
     }
 }
 
+/// The [AncillaryArtifactBuilder] creates an ancillary archive from the cardano database directory (including ledger and volatile directories).
+/// The archive is uploaded with the provided uploaders.
 pub struct AncillaryArtifactBuilder {
     uploaders: Vec<Arc<dyn AncillaryFileUploader>>,
 }
@@ -90,20 +94,16 @@ mod tests {
             .await
             .unwrap();
 
-        assert!(locations.len() == 2);
-
         assert_eq!(
-            locations[0],
-            AncillaryLocation::CloudStorage {
-                uri: "an_uri".to_string()
-            }
-        );
-
-        assert_eq!(
-            locations[1],
-            AncillaryLocation::CloudStorage {
-                uri: "another_uri".to_string()
-            }
+            locations,
+            vec![
+                AncillaryLocation::CloudStorage {
+                    uri: "an_uri".to_string()
+                },
+                AncillaryLocation::CloudStorage {
+                    uri: "another_uri".to_string()
+                }
+            ]
         );
     }
 }

@@ -65,7 +65,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             .ancillary_builder
             .upload_archive(&self.db_directory)
             .await
-            .with_context(|| "Can not compute CardanoDatabase artifact")?;
+            .with_context(|| "Can not compute CardanoDatabase ancillary artifact")?;
         let locations = ArtifactsLocations {
             ancillary: ancillary_locations,
             digest: vec![],

@@ -56,12 +56,12 @@ impl CardanoDatabaseSnapshot {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum DigestLocation {
-    /// Aggregator endpoint location.
+    /// Aggregator digest route location.
     Aggregator {
-        /// URI of the aggregator endpoint location.
+        /// URI of the aggregator digests route location.
         uri: String,
     },
-    /// Cloud storage location (e.g. GCP, AWS, etc.).
+    /// Cloud storage location.
     CloudStorage {
         /// URI of the cloud storage location.
         uri: String,
@@ -72,7 +72,7 @@ pub enum DigestLocation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ImmutablesLocation {
-    /// Cloud storage location (e.g. GCP, AWS, etc.).
+    /// Cloud storage location.
     CloudStorage {
         /// URI of the cloud storage location.
         uri: String,
@@ -83,7 +83,7 @@ pub enum ImmutablesLocation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum AncillaryLocation {
-    /// Cloud storage location (e.g. GCP, AWS, etc.).
+    /// Cloud storage location.
     CloudStorage {
         /// URI of the cloud storage location.
         uri: String,
