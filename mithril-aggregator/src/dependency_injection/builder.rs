@@ -1182,6 +1182,28 @@ impl DependenciesBuilder {
         Ok(self.signable_seed_builder.as_ref().cloned().unwrap())
     }
 
+    fn create_cardano_database_artifact_builder(
+        &self,
+        logger: &Logger,
+        cardano_node_version: Version,
+    ) -> CardanoDatabaseArtifactBuilder {
+        let local_uploader = LocalUploader::new(
+            self.configuration.get_server_url(),
+            &self.configuration.snapshot_directory.join("ancillary"),
+            logger.clone(),
+        );
+        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(
+            local_uploader,
+        )]));
+
+        CardanoDatabaseArtifactBuilder::new(
+            self.configuration.db_directory.clone(),
+            &cardano_node_version,
+            self.configuration.snapshot_compression_algorithm,
+            ancillary_builder,
+        )
+    }
+
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let logger = self.root_logger();
         let signed_entity_storer = self.build_signed_entity_storer().await?;
@@ -1209,20 +1231,8 @@ impl DependenciesBuilder {
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
-        let local_uploader = LocalUploader::new(
-            self.configuration.get_server_url(),
-            &self.configuration.snapshot_directory, // TODO: Make this configurable now or use 'self.configuration.snapshot_directory'
-            logger.clone(),
-        );
-        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(
-            local_uploader,
-        )]));
-        let cardano_database_artifact_builder = Arc::new(CardanoDatabaseArtifactBuilder::new(
-            self.configuration.db_directory.clone(),
-            &cardano_node_version,
-            self.configuration.snapshot_compression_algorithm, // TODO: Make this configurable now or use 'self.configuration.snapshot_compression_algorithm'
-            ancillary_builder,
-        ));
+        let cardano_database_artifact_builder =
+            Arc::new(self.create_cardano_database_artifact_builder(&logger, cardano_node_version));
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
