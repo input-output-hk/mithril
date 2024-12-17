@@ -60,4 +60,4 @@ Usage: sh [-n node] [-v version] [-d distribution] [-p path]
 
 ```
 
-For any inquiries or assistance, feel free to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For any inquiries or assistance, feel free to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
