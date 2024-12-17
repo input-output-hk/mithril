@@ -64,7 +64,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
         let locations = ArtifactsLocations {
             ancillary: vec![],
-            digest: vec![],
+            digests: vec![],
             immutables: vec![],
         };
 
@@ -193,7 +193,7 @@ mod tests {
             expected_total_size,
             ArtifactsLocations {
                 ancillary: vec![],
-                digest: vec![],
+                digests: vec![],
                 immutables: vec![],
             },
             CompressionAlgorithm::Zstandard,
