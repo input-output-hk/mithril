@@ -17,8 +17,11 @@ pub use immutable_file_observer::{
 
 pub use dumb_immutable_digester::DumbImmutableDigester;
 
+// TODO: Declare the constants in a more appropriate place
+pub use dummy_cardano_db::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR};
+
 cfg_test_tools! {
     mod dummy_cardano_db;
 
-    pub use dummy_cardano_db::{DummyCardanoDb, DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR};
+    pub use dummy_cardano_db::{DummyCardanoDb, DummyCardanoDbBuilder};
 }
