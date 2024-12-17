@@ -1,17 +1,13 @@
 use crate::test_utils::TempDir;
-use crate::{digesters::ImmutableFile, entities::ImmutableFileNumber};
+use crate::{
+    digesters::{ImmutableFile, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
+    entities::ImmutableFileNumber,
+};
 use std::{
     fs::File,
     io::prelude::Write,
     path::{Path, PathBuf},
 };
-
-/// Directory name for the immutable files.
-pub const IMMUTABLE_DIR: &str = "immutable";
-/// Directory name for the ledger files.
-pub const LEDGER_DIR: &str = "ledger";
-/// Directory name for the volatile files.
-pub const VOLATILE_DIR: &str = "volatile";
 
 /// A dummy cardano immutable db.
 struct DummyImmutableDb {

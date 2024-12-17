@@ -116,6 +116,8 @@ mod tests {
         test_utils::{fake_data, TempDir},
     };
 
+    use crate::{test_tools::TestLogger, DumbSnapshotter};
+
     use super::*;
 
     fn get_test_directory(dir_name: &str) -> PathBuf {
@@ -166,7 +168,12 @@ mod tests {
             test_dir,
             &Version::parse("1.0.0").unwrap(),
             CompressionAlgorithm::Zstandard,
-            Arc::new(AncillaryArtifactBuilder::new(vec![])),
+            Arc::new(AncillaryArtifactBuilder::new(
+                vec![],
+                Arc::new(DumbSnapshotter::new()),
+                CompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
+            )),
         );
 
         let beacon = fake_data::beacon();
