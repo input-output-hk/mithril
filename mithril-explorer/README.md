@@ -26,6 +26,20 @@ make dev
 
 Open [http://localhost:3000](http://localhost:3000/explorer) with your browser to see the result.
 
+### Enabling unstable features
+
+Some features are still in development and are not enabled by default. To enable them, set the `UNSTABLE` environment variable to `1` when running the development server:
+
+```bash
+UNSTABLE=1 make dev
+```
+
+Or when building the production version:
+
+```bash
+UNSTABLE=1 make build
+```
+
 ## Adding or updating an icon of the 'Mithril' font
 
 In the `./icons` folder add or modify a svg.

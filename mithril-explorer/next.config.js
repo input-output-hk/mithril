@@ -1,13 +1,20 @@
-/** @type {import('next').NextConfig} */
+const webpack = require("webpack");
+
+/** @type {import("next").NextConfig} */
 const nextConfig = {
   output: "export",
-  basePath: "/explorer",
+  basePath: process.env.BASE_PATH ?? "/explorer",
   reactStrictMode: true,
   images: {
     unoptimized: true,
   },
   webpack: (config) => {
     config.experiments = { layers: true, asyncWebAssembly: true };
+    config.plugins.push(
+      new webpack.DefinePlugin({
+        "process.env.UNSTABLE": process.env.UNSTABLE === "1",
+      }),
+    );
     return config;
   },
 };

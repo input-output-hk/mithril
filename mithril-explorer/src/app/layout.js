@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import React, { Suspense } from "react";
+import { Badge } from "react-bootstrap";
 import { Providers } from "@/store/provider";
 
 // These styles apply to every route in the application
@@ -31,6 +32,14 @@ export default function RootLayout({ children }) {
                     <Image src="/explorer/logo.png" alt="Mithril Logo" width={55} height={55} />{" "}
                     Mithril Explorer
                   </Link>
+                  {process.env.UNSTABLE && (
+                    <>
+                      {" "}
+                      <Badge bg="danger" className="fs-6 align-text-top">
+                        Unstable
+                      </Badge>
+                    </>
+                  )}
                 </h1>
                 {children}
               </main>

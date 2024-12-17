@@ -867,14 +867,29 @@ jobs:
         working-directory: mithril-explorer
         run: make test
 
-      - name: Build Explorer
+      - name: Build Explorer (stable)
         working-directory: mithril-explorer
         run: make build
 
-      - name: Publish Explorer build
+      - name: Publish Explorer build (stable)
         uses: actions/upload-artifact@v4
         with:
           name: explorer-build
+          if-no-files-found: error
+          path: |
+            mithril-explorer/out/*
+
+      - name: Build Explorer (unstable)
+        working-directory: mithril-explorer
+        env:
+          BASE_PATH: "/explorer/unstable"
+          UNSTABLE: "1"
+        run: make build
+
+      - name: Publish Explorer build (unstable)
+        uses: actions/upload-artifact@v4
+        with:
+          name: explorer-build-unstable
           if-no-files-found: error
           path: |
             mithril-explorer/out/*
@@ -923,11 +938,17 @@ jobs:
           name: docusaurus-build
           path: ./github-pages/doc
 
-      - name: Download Explorer build
+      - name: Download Explorer build (stable)
         uses: actions/download-artifact@v4
         with:
           name: explorer-build
           path: ./github-pages/explorer
+
+      - name: Download Explorer build (unstable)
+        uses: actions/download-artifact@v4
+        with:
+          name: explorer-build-unstable
+          path: ./github-pages/explorer/unstable
 
       - name: Download OpenAPI UI build
         uses: actions/download-artifact@v4
