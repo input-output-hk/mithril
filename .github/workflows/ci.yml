@@ -940,6 +940,8 @@ jobs:
 
       - name: Download and unpack Explorer build (stable)
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Note: If the tag is omitted, 'gh release' commands uses the latest released version
           LAST_DISTRIBUTION=$(gh release view -R ${{ github.repository }} --json "tagName" --jq ".tagName")
