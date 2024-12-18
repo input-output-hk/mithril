@@ -4,7 +4,7 @@ use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
 use mithril_client::aggregator_client::AggregatorRequest;
 use mithril_client::feedback::SlogFeedbackReceiver;
 use mithril_client::{ClientBuilder, MessageBuilder};
-use mithril_common::digesters::DummyImmutablesDbBuilder;
+use mithril_common::digesters::DummyCardanoDbBuilder;
 use std::sync::Arc;
 
 #[tokio::test]
@@ -14,13 +14,13 @@ async fn snapshot_list_get_show_download_verify() {
         mithril_common::test_utils::fake_keys::genesis_verification_key()[0];
     let digest = "snapshot_digest";
     let certificate_hash = "certificate_hash";
-    let immutable_db = DummyImmutablesDbBuilder::new("snapshot_list_get_show_download_verify_db")
+    let cardano_db = DummyCardanoDbBuilder::new("snapshot_list_get_show_download_verify_db")
         .with_immutables(&[1, 2, 3])
         .append_immutable_trio()
         .build();
     let fake_aggregator = FakeAggregator::new();
     let test_http_server = fake_aggregator
-        .spawn_with_snapshot(digest, certificate_hash, &immutable_db, &work_dir)
+        .spawn_with_snapshot(digest, certificate_hash, &cardano_db, &work_dir)
         .await;
     let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
         .with_certificate_verifier(FakeCertificateVerifier::build_that_validate_any_certificate())

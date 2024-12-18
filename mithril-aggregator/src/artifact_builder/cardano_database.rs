@@ -111,7 +111,7 @@ mod tests {
     use std::path::PathBuf;
 
     use mithril_common::{
-        digesters::DummyImmutablesDbBuilder,
+        digesters::DummyCardanoDbBuilder,
         entities::{ProtocolMessage, ProtocolMessagePartKey},
         test_utils::{fake_data, TempDir},
     };
@@ -129,7 +129,7 @@ mod tests {
         let immutable_trio_file_size = 777;
         let ledger_file_size = 6666;
         let volatile_file_size = 99;
-        DummyImmutablesDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
+        DummyCardanoDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
             .with_immutables(&[1, 2])
             .set_immutable_trio_file_size(immutable_trio_file_size)
             .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
@@ -152,7 +152,7 @@ mod tests {
         let immutable_trio_file_size = 777;
         let ledger_file_size = 6666;
         let volatile_file_size = 99;
-        DummyImmutablesDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
+        DummyCardanoDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
             .with_immutables(&[1])
             .set_immutable_trio_file_size(immutable_trio_file_size)
             .with_ledger_files(&["blocks-0.dat"])
