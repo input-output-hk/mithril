@@ -103,6 +103,7 @@ pub fn routes(
         .and(
             certificate_routes::routes(&state)
                 .or(artifact_routes::snapshot::routes(&state))
+                .or(artifact_routes::cardano_database::routes(&state))
                 .or(artifact_routes::mithril_stake_distribution::routes(&state))
                 .or(artifact_routes::cardano_stake_distribution::routes(&state))
                 .or(artifact_routes::cardano_transaction::routes(&state))
