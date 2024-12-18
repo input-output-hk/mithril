@@ -11,13 +11,13 @@ const LEDGER_DIR: &str = "ledger";
 const VOLATILE_DIR: &str = "volatile";
 
 /// A dummy cardano immutable db.
-pub struct DummyImmutableDb {
+struct DummyImmutableDb {
     /// The dummy cardano db directory path.
     dir: PathBuf,
     /// The [immutables files][ImmutableFile] in the dummy cardano db.
-    pub immutables_files: Vec<ImmutableFile>,
+    immutables_files: Vec<ImmutableFile>,
     /// Files that doesn't follow the immutable file name scheme in the dummy cardano db.
-    pub non_immutables_files: Vec<PathBuf>,
+    non_immutables_files: Vec<PathBuf>,
 }
 
 impl DummyImmutableDb {
