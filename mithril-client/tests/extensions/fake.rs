@@ -195,7 +195,7 @@ mod proof {
 mod file {
     use super::*;
     use mithril_client::{MessageBuilder, Snapshot, SnapshotListItem};
-    use mithril_common::digesters::DummyImmutableDb;
+    use mithril_common::digesters::DummyCardanoDb;
     use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm};
     use mithril_common::messages::{CardanoDbBeaconMessagePart, SignedEntityTypeMessagePart};
     use mithril_common::test_utils::fake_data;
@@ -210,11 +210,11 @@ mod file {
             &self,
             snapshot_digest: &str,
             certificate_hash: &str,
-            immutable_db: &DummyImmutableDb,
+            cardano_db: &DummyCardanoDb,
             work_dir: &Path,
         ) -> TestHttpServer {
             let beacon = CardanoDbBeacon {
-                immutable_file_number: immutable_db.last_immutable_number().unwrap(),
+                immutable_file_number: cardano_db.last_immutable_number().unwrap(),
                 ..fake_data::beacon()
             };
             // Note: network doesn't matter here and will be removed in the future
@@ -254,7 +254,7 @@ mod file {
                 ..MithrilCertificate::dummy()
             };
             certificate.signed_message = MessageBuilder::new()
-                .compute_snapshot_message(&certificate, &immutable_db.dir)
+                .compute_snapshot_message(&certificate, cardano_db.get_immutable_dir())
                 .await
                 .expect("Computing snapshot message should not fail")
                 .compute_hash();
@@ -269,7 +269,7 @@ mod file {
                     ))
                     .or(routes::statistics::routes(self.calls.clone()));
 
-            let snapshot_archive_path = build_fake_zstd_snapshot(immutable_db, work_dir);
+            let snapshot_archive_path = build_fake_zstd_snapshot(cardano_db, work_dir);
 
             let routes = routes.or(routes::snapshot::download(
                 self.calls.clone(),
@@ -286,12 +286,12 @@ mod file {
     /// Compress the given db into an zstd archive in the given target directory.
     ///
     /// return the path to the compressed archive.
-    pub fn build_fake_zstd_snapshot(immutable_db: &DummyImmutableDb, target_dir: &Path) -> PathBuf {
+    pub fn build_fake_zstd_snapshot(cardano_db: &DummyCardanoDb, target_dir: &Path) -> PathBuf {
         use std::fs::File;
 
         let snapshot_name = format!(
             "db-i{}.{}",
-            immutable_db.immutables_files.len(),
+            cardano_db.get_immutable_files().len(),
             CompressionAlgorithm::Zstandard.tar_file_extension()
         );
         let target_file = target_dir.join(snapshot_name);
@@ -299,7 +299,7 @@ mod file {
         let enc = zstd::Encoder::new(tar_file, 3).unwrap();
         let mut tar = tar::Builder::new(enc);
 
-        tar.append_dir_all(".", immutable_db.dir.parent().unwrap())
+        tar.append_dir_all(".", cardano_db.get_immutable_dir().parent().unwrap())
             .unwrap();
 
         let zstd = tar.into_inner().unwrap();
