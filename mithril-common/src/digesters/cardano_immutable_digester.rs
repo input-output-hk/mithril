@@ -259,7 +259,7 @@ mod tests {
                 ImmutableDigesterCacheStoreError, MemoryImmutableFileDigestCacheProvider,
                 MockImmutableFileDigestCacheProvider,
             },
-            DummyImmutablesDbBuilder,
+            DummyCardanoDbBuilder,
         },
         entities::ImmutableFileNumber,
         test_utils::TestLogger,
@@ -267,8 +267,8 @@ mod tests {
 
     use super::*;
 
-    fn db_builder(dir_name: &str) -> DummyImmutablesDbBuilder {
-        DummyImmutablesDbBuilder::new(&format!("cardano_immutable_digester/{dir_name}"))
+    fn db_builder(dir_name: &str) -> DummyCardanoDbBuilder {
+        DummyCardanoDbBuilder::new(&format!("cardano_immutable_digester/{dir_name}"))
     }
 
     #[test]
@@ -325,9 +325,9 @@ mod tests {
 
     #[tokio::test]
     async fn fail_if_no_file_in_folder() {
-        let immutable_db = db_builder("fail_if_no_file_in_folder").build();
+        let cardano_db = db_builder("fail_if_no_file_in_folder").build();
 
-        let result = list_immutable_files_to_process(&immutable_db.dir, 1)
+        let result = list_immutable_files_to_process(cardano_db.get_immutable_dir(), 1)
             .expect_err("list_immutable_files_to_process should have failed");
 
         assert_eq!(
@@ -336,7 +336,7 @@ mod tests {
                 ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: 1,
                     found_number: None,
-                    db_dir: immutable_db.dir,
+                    db_dir: cardano_db.get_immutable_dir().to_path_buf(),
                 }
             ),
             format!("{result:?}")
@@ -345,20 +345,20 @@ mod tests {
 
     #[tokio::test]
     async fn fail_if_a_invalid_file_is_in_immutable_folder() {
-        let immutable_db = db_builder("fail_if_no_immutable_exist")
+        let cardano_db = db_builder("fail_if_no_immutable_exist")
             .with_non_immutables(&["not_immutable"])
             .build();
 
-        assert!(list_immutable_files_to_process(&immutable_db.dir, 1).is_err());
+        assert!(list_immutable_files_to_process(cardano_db.get_immutable_dir(), 1).is_err());
     }
 
     #[tokio::test]
     async fn fail_if_theres_only_the_uncompleted_immutable_trio() {
-        let immutable_db = db_builder("fail_if_theres_only_the_uncompleted_immutable_trio")
+        let cardano_db = db_builder("fail_if_theres_only_the_uncompleted_immutable_trio")
             .append_immutable_trio()
             .build();
 
-        let result = list_immutable_files_to_process(&immutable_db.dir, 1)
+        let result = list_immutable_files_to_process(cardano_db.get_immutable_dir(), 1)
             .expect_err("list_immutable_files_to_process should've failed");
 
         assert_eq!(
@@ -367,7 +367,7 @@ mod tests {
                 ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: 1,
                     found_number: None,
-                    db_dir: immutable_db.dir,
+                    db_dir: cardano_db.get_immutable_dir().to_path_buf(),
                 }
             ),
             format!("{result:?}")
@@ -376,12 +376,12 @@ mod tests {
 
     #[tokio::test]
     async fn fail_if_less_immutable_than_what_required_in_beacon() {
-        let immutable_db = db_builder("fail_if_less_immutable_than_what_required_in_beacon")
+        let cardano_db = db_builder("fail_if_less_immutable_than_what_required_in_beacon")
             .with_immutables(&[1, 2, 3, 4, 5])
             .append_immutable_trio()
             .build();
 
-        let result = list_immutable_files_to_process(&immutable_db.dir, 10)
+        let result = list_immutable_files_to_process(cardano_db.get_immutable_dir(), 10)
             .expect_err("list_immutable_files_to_process should've failed");
 
         assert_eq!(
@@ -390,7 +390,7 @@ mod tests {
                 ImmutableDigesterError::NotEnoughImmutable {
                     expected_number: 10,
                     found_number: Some(5),
-                    db_dir: immutable_db.dir,
+                    db_dir: cardano_db.get_immutable_dir().to_path_buf(),
                 }
             ),
             format!("{result:?}")
@@ -399,7 +399,7 @@ mod tests {
 
     #[tokio::test]
     async fn can_compute_merkle_tree_of_a_hundred_immutable_file_trio() {
-        let immutable_db = db_builder("can_compute_merkle_tree_of_a_hundred_immutable_file_trio")
+        let cardano_db = db_builder("can_compute_merkle_tree_of_a_hundred_immutable_file_trio")
             .with_immutables(&(1..=100).collect::<Vec<ImmutableFileNumber>>())
             .append_immutable_trio()
             .build();
@@ -412,7 +412,7 @@ mod tests {
         let beacon = CardanoDbBeacon::new(1, 100);
 
         let result = digester
-            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_merkle_tree must not fail");
 
@@ -426,7 +426,7 @@ mod tests {
 
     #[tokio::test]
     async fn can_compute_hash_of_a_hundred_immutable_file_trio() {
-        let immutable_db = db_builder("can_compute_hash_of_a_hundred_immutable_file_trio")
+        let cardano_db = db_builder("can_compute_hash_of_a_hundred_immutable_file_trio")
             .with_immutables(&(1..=100).collect::<Vec<ImmutableFileNumber>>())
             .append_immutable_trio()
             .build();
@@ -439,7 +439,7 @@ mod tests {
         let beacon = CardanoDbBeacon::new(1, 100);
 
         let result = digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail");
 
@@ -451,11 +451,11 @@ mod tests {
 
     #[tokio::test]
     async fn compute_digest_store_digests_into_cache_provider() {
-        let immutable_db = db_builder("compute_digest_store_digests_into_cache_provider")
+        let cardano_db = db_builder("compute_digest_store_digests_into_cache_provider")
             .with_immutables(&[1, 2])
             .append_immutable_trio()
             .build();
-        let immutables = immutable_db.immutables_files;
+        let immutables = cardano_db.get_immutable_files().clone();
         let cache = Arc::new(MemoryImmutableFileDigestCacheProvider::default());
         let logger = TestLogger::stdout();
         let digester = CardanoImmutableDigester::new(
@@ -466,7 +466,7 @@ mod tests {
         let beacon = CardanoDbBeacon::new(1, 2);
 
         digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail");
 
@@ -487,11 +487,11 @@ mod tests {
 
     #[tokio::test]
     async fn compute_merkle_tree_store_digests_into_cache_provider() {
-        let immutable_db = db_builder("compute_merkle_tree_store_digests_into_cache_provider")
+        let cardano_db = db_builder("compute_merkle_tree_store_digests_into_cache_provider")
             .with_immutables(&[1, 2])
             .append_immutable_trio()
             .build();
-        let immutables = immutable_db.immutables_files;
+        let immutables = cardano_db.get_immutable_files().clone();
         let cache = Arc::new(MemoryImmutableFileDigestCacheProvider::default());
         let logger = TestLogger::stdout();
         let digester = CardanoImmutableDigester::new(
@@ -502,7 +502,7 @@ mod tests {
         let beacon = CardanoDbBeacon::new(1, 2);
 
         digester
-            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail");
 
@@ -523,7 +523,7 @@ mod tests {
 
     #[tokio::test]
     async fn computed_digest_with_cold_or_hot_or_without_any_cache_are_equals() {
-        let immutable_db = DummyImmutablesDbBuilder::new(
+        let cardano_db = DummyCardanoDbBuilder::new(
             "computed_digest_with_cold_or_hot_or_without_any_cache_are_equals",
         )
         .with_immutables(&[1, 2, 3])
@@ -540,17 +540,17 @@ mod tests {
         let beacon = CardanoDbBeacon::new(1, 3);
 
         let without_cache_digest = no_cache_digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail");
 
         let cold_cache_digest = cache_digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail");
 
         let full_cache_digest = cache_digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail");
 
@@ -567,7 +567,7 @@ mod tests {
 
     #[tokio::test]
     async fn computed_merkle_tree_with_cold_or_hot_or_without_any_cache_are_equals() {
-        let immutable_db = DummyImmutablesDbBuilder::new(
+        let cardano_db = DummyCardanoDbBuilder::new(
             "computed_merkle_tree_with_cold_or_hot_or_without_any_cache_are_equals",
         )
         .with_immutables(&[1, 2, 3])
@@ -584,17 +584,17 @@ mod tests {
         let beacon = CardanoDbBeacon::new(1, 3);
 
         let without_cache_digest = no_cache_digester
-            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_merkle_tree must not fail");
 
         let cold_cache_digest = cache_digester
-            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_merkle_tree must not fail");
 
         let full_cache_digest = cache_digester
-            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_merkle_tree must not fail");
 
@@ -614,7 +614,7 @@ mod tests {
 
     #[tokio::test]
     async fn hash_computation_is_quicker_with_a_full_cache() {
-        let immutable_db = db_builder("hash_computation_is_quicker_with_a_full_cache")
+        let cardano_db = db_builder("hash_computation_is_quicker_with_a_full_cache")
             .with_immutables(&(1..=50).collect::<Vec<ImmutableFileNumber>>())
             .append_immutable_trio()
             .set_immutable_trio_file_size(65538)
@@ -630,14 +630,14 @@ mod tests {
 
         let now = Instant::now();
         digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail");
         let elapsed_without_cache = now.elapsed();
 
         let now = Instant::now();
         digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail");
         let elapsed_with_cache = now.elapsed();
@@ -655,7 +655,7 @@ mod tests {
 
     #[tokio::test]
     async fn cache_read_failure_dont_block_computations() {
-        let immutable_db = db_builder("cache_read_failure_dont_block_computation")
+        let cardano_db = db_builder("cache_read_failure_dont_block_computation")
             .with_immutables(&[1, 2, 3])
             .append_immutable_trio()
             .build();
@@ -675,19 +675,19 @@ mod tests {
         let beacon = CardanoDbBeacon::new(1, 3);
 
         digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail even with cache write failure");
 
         digester
-            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_merkle_tree must not fail even with cache write failure");
     }
 
     #[tokio::test]
     async fn cache_write_failure_dont_block_computation() {
-        let immutable_db = db_builder("cache_write_failure_dont_block_computation")
+        let cardano_db = db_builder("cache_write_failure_dont_block_computation")
             .with_immutables(&[1, 2, 3])
             .append_immutable_trio()
             .build();
@@ -707,12 +707,12 @@ mod tests {
         let beacon = CardanoDbBeacon::new(1, 3);
 
         digester
-            .compute_digest(&immutable_db.dir, &beacon)
+            .compute_digest(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_digest must not fail even with cache read failure");
 
         digester
-            .compute_merkle_tree(&immutable_db.dir, &beacon)
+            .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
             .await
             .expect("compute_merkle_tree must not fail even with cache read failure");
     }
