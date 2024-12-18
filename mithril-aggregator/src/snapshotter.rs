@@ -395,8 +395,7 @@ impl Snapshotter for DumbSnapshotter {
 mod tests {
     use std::sync::Arc;
 
-    use mithril_common::digesters::DummyImmutablesDbBuilder;
-    use mithril_common::test_utils::TempDir;
+    use mithril_common::{digesters::DummyCardanoDbBuilder, test_utils::TempDir};
 
     use crate::test_tools::TestLogger;
 
@@ -507,7 +506,7 @@ mod tests {
         let pending_snapshot_archive_file = "archive.tar.gz";
         let db_directory = test_dir.join("db");
 
-        DummyImmutablesDbBuilder::new(db_directory.as_os_str().to_str().unwrap())
+        DummyCardanoDbBuilder::new(db_directory.as_os_str().to_str().unwrap())
             .with_immutables(&[1, 2, 3])
             .append_immutable_trio()
             .build();
@@ -546,7 +545,7 @@ mod tests {
         let pending_snapshot_archive_file = "archive.tar.zst";
         let db_directory = test_dir.join("db");
 
-        DummyImmutablesDbBuilder::new(db_directory.as_os_str().to_str().unwrap())
+        DummyCardanoDbBuilder::new(db_directory.as_os_str().to_str().unwrap())
             .with_immutables(&[1, 2, 3])
             .append_immutable_trio()
             .build();
