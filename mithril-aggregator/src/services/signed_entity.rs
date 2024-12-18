@@ -44,23 +44,30 @@ pub trait SignedEntityService: Send + Sync {
         total: usize,
     ) -> StdResult<Vec<SignedEntity<Snapshot>>>;
 
-    /// Return a list of signed Mithril stake distribution order by creation
-    /// date descending.
-    async fn get_last_signed_mithril_stake_distributions(
-        &self,
-        total: usize,
-    ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>>;
-
-    /// Return the last signed Cardano Transaction Snapshot.
-    async fn get_last_cardano_transaction_snapshot(
-        &self,
-    ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>>;
-
     /// Return a signed snapshot
     async fn get_signed_snapshot_by_id(
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntity<Snapshot>>>;
+
+    /// Return a list of Cardano Database snapshots order by creation date descending.
+    async fn get_last_signed_cardano_database_snapshots(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<CardanoDatabaseSnapshot>>>;
+
+    /// Return a Cardano Database snapshot
+    async fn get_signed_cardano_database_snapshot_by_id(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<SignedEntity<CardanoDatabaseSnapshot>>>;
+
+    /// Return a list of signed Mithril stake distribution ordered by creation
+    /// date descending.
+    async fn get_last_signed_mithril_stake_distributions(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>>;
 
     /// Return a signed Mithril stake distribution
     async fn get_signed_mithril_stake_distribution_by_id(
@@ -68,7 +75,12 @@ pub trait SignedEntityService: Send + Sync {
         signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntity<MithrilStakeDistribution>>>;
 
-    /// Return a list of signed Cardano stake distribution order by creation
+    /// Return the last signed Cardano Transaction Snapshot.
+    async fn get_last_cardano_transaction_snapshot(
+        &self,
+    ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>>;
+
+    /// Return a list of signed Cardano stake distribution ordered by creation
     /// date descending.
     async fn get_last_signed_cardano_stake_distributions(
         &self,
@@ -376,38 +388,6 @@ impl SignedEntityService for MithrilSignedEntityService {
         Ok(signed_entities)
     }
 
-    async fn get_last_signed_mithril_stake_distributions(
-        &self,
-        total: usize,
-    ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>> {
-        let signed_entities_records = self
-            .get_last_signed_entities(
-                total,
-                &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            )
-            .await?;
-        let mut signed_entities: Vec<SignedEntity<MithrilStakeDistribution>> = Vec::new();
-
-        for record in signed_entities_records {
-            signed_entities.push(record.try_into()?);
-        }
-
-        Ok(signed_entities)
-    }
-
-    async fn get_last_cardano_transaction_snapshot(
-        &self,
-    ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>> {
-        let mut signed_entities_records = self
-            .get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoTransactions)
-            .await?;
-
-        match signed_entities_records.pop() {
-            Some(record) => Ok(Some(record.try_into()?)),
-            None => Ok(None),
-        }
-    }
-
     async fn get_signed_snapshot_by_id(
         &self,
         signed_entity_id: &str,
@@ -428,6 +408,61 @@ impl SignedEntityService for MithrilSignedEntityService {
         Ok(entity)
     }
 
+    async fn get_last_signed_cardano_database_snapshots(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<CardanoDatabaseSnapshot>>> {
+        let signed_entities_records = self
+            .get_last_signed_entities(total, &SignedEntityTypeDiscriminants::CardanoDatabase)
+            .await?;
+        let mut signed_entities: Vec<SignedEntity<CardanoDatabaseSnapshot>> = Vec::new();
+
+        for record in signed_entities_records {
+            signed_entities.push(record.try_into()?);
+        }
+
+        Ok(signed_entities)
+    }
+
+    async fn get_signed_cardano_database_snapshot_by_id(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<SignedEntity<CardanoDatabaseSnapshot>>> {
+        let entity: Option<SignedEntity<CardanoDatabaseSnapshot>> = match self
+            .signed_entity_storer
+            .get_signed_entity(signed_entity_id)
+            .await
+            .with_context(|| {
+                format!(
+                    "Signed Entity Service can not get signed entity with id: '{signed_entity_id}'"
+                )
+            })? {
+            Some(entity) => Some(entity.try_into()?),
+            None => None,
+        };
+
+        Ok(entity)
+    }
+
+    async fn get_last_signed_mithril_stake_distributions(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>> {
+        let signed_entities_records = self
+            .get_last_signed_entities(
+                total,
+                &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            )
+            .await?;
+        let mut signed_entities: Vec<SignedEntity<MithrilStakeDistribution>> = Vec::new();
+
+        for record in signed_entities_records {
+            signed_entities.push(record.try_into()?);
+        }
+
+        Ok(signed_entities)
+    }
+
     async fn get_signed_mithril_stake_distribution_by_id(
         &self,
         signed_entity_id: &str,
@@ -446,6 +481,19 @@ impl SignedEntityService for MithrilSignedEntityService {
         };
 
         Ok(entity)
+    }
+
+    async fn get_last_cardano_transaction_snapshot(
+        &self,
+    ) -> StdResult<Option<SignedEntity<CardanoTransactionsSnapshot>>> {
+        let mut signed_entities_records = self
+            .get_last_signed_entities(1, &SignedEntityTypeDiscriminants::CardanoTransactions)
+            .await?;
+
+        match signed_entities_records.pop() {
+            Some(record) => Ok(Some(record.try_into()?)),
+            None => Ok(None),
+        }
     }
 
     async fn get_last_signed_cardano_stake_distributions(
