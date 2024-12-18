@@ -180,6 +180,30 @@ impl<'a> Spec<'a> {
             assertions::assert_client_can_verify_snapshot(&mut client, &digest).await?;
         }
 
+        // Verify that Cardano database snapshot artifacts are produced and signed correctly
+        {
+            let merkle_root =
+                assertions::assert_node_producing_cardano_database_snapshot(&aggregator_endpoint)
+                    .await?;
+            let certificate_hash = assertions::assert_signer_is_signing_cardano_database_snapshot(
+                &aggregator_endpoint,
+                &merkle_root,
+                expected_epoch_min,
+            )
+            .await?;
+
+            assertions::assert_is_creating_certificate_with_enough_signers(
+                &aggregator_endpoint,
+                &certificate_hash,
+                self.infrastructure.signers().len(),
+            )
+            .await?;
+
+            // TODO: uncomment when the client can verify Cardano database snapshots
+            //let mut client = self.infrastructure.build_client()?;
+            //assertions::assert_client_can_verify_cardano_database_snapshot(&mut client, &digest).await?;
+        }
+
         // Verify that Cardano transactions artifacts are produced and signed correctly
         if self.is_signing_cardano_transactions {
             let hash = assertions::assert_node_producing_cardano_transactions(&aggregator_endpoint)

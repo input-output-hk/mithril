@@ -41,7 +41,10 @@ fn serve_cardano_database_dir(
             router_state.configuration.snapshot_directory.clone(),
         ))
         .and(middlewares::with_logger(router_state))
-        .and_then(handlers::ensure_downloaded_file_is_a_cardano_database)
+        .and(middlewares::extract_config(router_state, |config| {
+            config.allow_http_serve_directory
+        }))
+        .and_then(handlers::ensure_downloaded_file_is_a_cardano_database_artifact)
 }
 
 mod handlers {
@@ -99,8 +102,8 @@ mod handlers {
         }
     }
 
-    /// Download a file if it's a Cardano_database archive file
-    pub async fn ensure_downloaded_file_is_a_cardano_database(
+    /// Download a file if it's a Cardano_database artifact file
+    pub async fn ensure_downloaded_file_is_a_cardano_database_artifact(
         reply: warp::fs::File,
         logger: Logger,
     ) -> Result<impl warp::Reply, Infallible> {
