@@ -938,11 +938,15 @@ jobs:
           name: docusaurus-build
           path: ./github-pages/doc
 
-      - name: Download Explorer build (stable)
-        uses: actions/download-artifact@v4
-        with:
-          name: explorer-build
-          path: ./github-pages/explorer
+      - name: Download and unpack Explorer build (stable)
+        shell: bash
+        run: |
+          # Note: If the tag is omitted, 'gh release' commands uses the latest released version
+          LAST_DISTRIBUTION=$(gh release view -R ${{ github.repository }} --json "tagName" --jq ".tagName")
+          gh release download -R ${{ github.repository }} --pattern "mithril-explorer-${LAST_DISTRIBUTION}*"
+
+          mkdir -p ./github-pages/explorer/
+          tar xvf mithril-explorer-${LAST_DISTRIBUTION}.tar.gz --directory=./github-pages/explorer/
 
       - name: Download Explorer build (unstable)
         uses: actions/download-artifact@v4
