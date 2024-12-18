@@ -91,29 +91,24 @@ impl MithrilClient {
                 .map_err(|err| format!("Failed to parse options: {err:?}"))
                 .unwrap()
         };
-        let mut client_builder =
-            ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
-                .add_feedback_receiver(feedback_receiver)
-                .with_options(client_options.clone());
 
         let certificate_verifier_cache = if client_options.unstable
             && client_options.enable_certificate_chain_verification_cache
         {
-            let cache = Self::build_certifier_cache(
+            Self::build_certifier_cache(
                 aggregator_endpoint,
                 TimeDelta::seconds(
                     client_options.certificate_chain_verification_cache_duration_in_seconds as i64,
                 ),
-            );
-            if let Some(cache) = &cache {
-                client_builder = client_builder.with_certificate_verifier_cache(cache.clone());
-            }
-            cache
+            )
         } else {
             None
         };
 
-        let client = client_builder
+        let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
+            .add_feedback_receiver(feedback_receiver)
+            .with_options(client_options.clone())
+            .with_certificate_verifier_cache(certificate_verifier_cache.clone())
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
@@ -132,16 +127,15 @@ impl MithrilClient {
         if web_sys::window().is_none() {
             web_sys::console::warn_1(
                 &"Can't enable certificate chain verification cache: window object is not available\
-                    (are you running in a browser environment ?)"
+                    (are you running in a browser environment?)"
                     .into(),
             );
             return None;
         }
 
         web_sys::console::warn_1(
-            &"Certificate chain verification cache is enabled.\n\
-            This feature is experimental and will be heavily modified or removed in the \
-            future as its security implications are not fully understood."
+            &"Danger: the certificate chain verification cache is enabled.\n\
+            This feature is highly experimental and insecure, and it must not be used in production."
                 .into(),
         );
 

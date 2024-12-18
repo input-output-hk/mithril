@@ -54,19 +54,18 @@ impl LocalStorageCertificateVerifierCache {
         previous_certificate_hash: &PreviousCertificateHash,
         expire_at: DateTime<Utc>,
     ) -> MithrilResult<()> {
-        if let Some(storage) = open_local_storage()? {
-            let key = self.cache_key(certificate_hash);
-            storage
-                .set_item(
-                    &key,
-                    &serde_json::to_string(&CachedCertificate::new(
-                        previous_certificate_hash,
-                        expire_at,
-                    ))
-                    .map_err(|err| anyhow!("Error serializing cache: {err:?}"))?,
-                )
-                .map_err(|err| anyhow!("Error storing key `{key}` in local storage: {err:?}"))?;
-        }
+        let key = self.cache_key(certificate_hash);
+        open_local_storage()?
+            .set_item(
+                &key,
+                &serde_json::to_string(&CachedCertificate::new(
+                    previous_certificate_hash,
+                    expire_at,
+                ))
+                .map_err(|err| anyhow!("Error serializing cache: {err:?}"))?,
+            )
+            .map_err(|err| anyhow!("Error storing key `{key}` in local storage: {err:?}"))?;
+
         Ok(())
     }
 
@@ -80,11 +79,12 @@ impl LocalStorageCertificateVerifierCache {
     }
 }
 
-fn open_local_storage() -> MithrilResult<Option<Storage>> {
+fn open_local_storage() -> MithrilResult<Storage> {
     let window = window()
         .with_context(|| "No window object")?
         .local_storage()
-        .map_err(|err| anyhow!("Error accessing local storage: {err:?}"))?;
+        .map_err(|err| anyhow!("Error accessing local storage: {err:?}"))?
+        .with_context(|| "No local storage object")?;
     Ok(window)
 }
 
@@ -108,48 +108,43 @@ impl CertificateVerifierCache for LocalStorageCertificateVerifierCache {
         &self,
         certificate_hash: &CertificateHash,
     ) -> MithrilResult<Option<String>> {
-        match open_local_storage()? {
-            None => return Ok(None),
-            Some(storage) => {
-                let key = self.cache_key(certificate_hash);
-                match storage.get_item(&key).map_err(|err| {
-                    anyhow!("Error accessing key `{key}` from local storage: {err:?}")
-                })? {
-                    Some(value) => {
-                        let cached = Self::parse_cached_certificate(value)?;
-                        if Utc::now() >= cached.expire_at {
-                            Ok(None)
-                        } else {
-                            Ok(Some(cached.previous_hash))
-                        }
-                    }
-                    None => Ok(None),
+        let key = self.cache_key(certificate_hash);
+        match open_local_storage()?
+            .get_item(&key)
+            .map_err(|err| anyhow!("Error accessing key `{key}` from local storage: {err:?}"))?
+        {
+            Some(value) => {
+                let cached = Self::parse_cached_certificate(value)?;
+                if Utc::now() >= cached.expire_at {
+                    Ok(None)
+                } else {
+                    Ok(Some(cached.previous_hash))
                 }
             }
+            None => Ok(None),
         }
     }
 
     async fn reset(&self) -> MithrilResult<()> {
-        if let Some(storage) = open_local_storage()? {
-            let len = storage
-                .length()
-                .map_err(|err| anyhow!("Error accessing local storage length: {err:?}"))?;
-            let mut key_to_remove = vec![];
+        let storage = open_local_storage()?;
+        let len = storage
+            .length()
+            .map_err(|err| anyhow!("Error accessing local storage length: {err:?}"))?;
+        let mut key_to_remove = vec![];
 
-            for i in 0..len {
-                match storage.key(i).map_err(|err| {
-                    anyhow!("Error accessing key index `{i}` from local storage: {err:?}")
-                })? {
-                    Some(key) if key.starts_with(&self.cache_key_prefix) => key_to_remove.push(key),
-                    _ => continue,
-                }
+        for i in 0..len {
+            match storage.key(i).map_err(|err| {
+                anyhow!("Error accessing key index `{i}` from local storage: {err:?}")
+            })? {
+                Some(key) if key.starts_with(&self.cache_key_prefix) => key_to_remove.push(key),
+                _ => continue,
             }
+        }
 
-            for key in key_to_remove {
-                storage.remove_item(&key).map_err(|err| {
-                    anyhow!("Error removing key `{key}` from local storage: {err:?}")
-                })?;
-            }
+        for key in key_to_remove {
+            storage
+                .remove_item(&key)
+                .map_err(|err| anyhow!("Error removing key `{key}` from local storage: {err:?}"))?;
         }
 
         Ok(())
@@ -164,7 +159,7 @@ pub(crate) mod test_tools {
 
     /// `Test only` Return the raw content of the local storage
     pub(crate) fn local_storage_content() -> HashMap<String, String> {
-        let storage = open_local_storage().unwrap().unwrap();
+        let storage = open_local_storage().unwrap();
         let len = storage.length().unwrap();
         let mut content = HashMap::new();
 
@@ -220,7 +215,7 @@ pub(crate) mod test_tools {
             certificate_hash: &CertificateHash,
             expire_at: DateTime<Utc>,
         ) {
-            let storage = open_local_storage().unwrap().unwrap();
+            let storage = open_local_storage().unwrap();
             let key = self.cache_key(certificate_hash);
             let existing_value = Self::parse_cached_certificate(
                 storage.get_item(&key).unwrap().expect("Key not found"),
@@ -243,7 +238,7 @@ pub(crate) mod test_tools {
             &self,
             certificate_hash: &CertificateHash,
         ) -> Option<CachedCertificate> {
-            let storage = open_local_storage().unwrap().unwrap();
+            let storage = open_local_storage().unwrap();
             storage
                 .get_item(&self.cache_key(certificate_hash))
                 .unwrap()
@@ -286,7 +281,7 @@ mod tests {
         #[wasm_bindgen_test]
         async fn store_in_empty_cache_add_new_item_that_expire_after_parametrized_delay() {
             let expiration_delay = TimeDelta::hours(1);
-            let now = Utc::now();
+            let start_time = Utc::now();
             let cache = LocalStorageCertificateVerifierCache::new(
                 "store_in_empty_cache_add_new_item_that_expire_after_parametrized_delay",
                 expiration_delay,
@@ -302,7 +297,7 @@ mod tests {
 
             assert_eq!(1, cache.len());
             assert_eq!("parent", cached.previous_hash);
-            assert!(cached.expire_at - now >= expiration_delay);
+            assert!(cached.expire_at - start_time >= expiration_delay);
         }
 
         #[wasm_bindgen_test]
@@ -333,31 +328,32 @@ mod tests {
         #[wasm_bindgen_test]
         async fn storing_same_hash_update_parent_hash_and_expiration_time() {
             let expiration_delay = TimeDelta::days(2);
-            let now = Utc::now();
+            let start_time = Utc::now();
             let cache = LocalStorageCertificateVerifierCache::new(
                 "storing_same_hash_update_parent_hash_and_expiration_time",
                 expiration_delay,
             )
             .with_items([("hash", "first_parent"), ("another_hash", "another_parent")]);
 
+            let initial_value = cache.get_cached_value("hash").unwrap();
+
             cache
                 .store_validated_certificate("hash", "updated_parent")
                 .await
                 .unwrap();
 
-            let updated_value = cache
-                .get_cached_value("hash")
-                .expect("Cache should have been populated");
+            let updated_value = cache.get_cached_value("hash").unwrap();
 
             assert_eq!(2, cache.len());
             assert_eq!(
                 Some("another_parent".to_string()),
                 cache.get_previous_hash("another_hash").await.unwrap(),
-                "Existing but not updated value should not have been altered, content: {:#?}, now: {:?}",
-                local_storage_content(), now,
+                "Existing but not updated value should not have been altered, content: {:#?}, start_time: {:?}",
+                local_storage_content(), start_time,
             );
             assert_eq!("updated_parent", updated_value.previous_hash);
-            assert!(updated_value.expire_at - now >= expiration_delay);
+            assert_ne!(initial_value, updated_value);
+            assert!(updated_value.expire_at - start_time >= expiration_delay);
         }
     }
 
@@ -424,7 +420,7 @@ mod tests {
                 TimeDelta::hours(1),
             )
             .with_items([("hash", "parent"), ("another_hash", "another_parent")]);
-            let storage = open_local_storage().unwrap().unwrap();
+            let storage = open_local_storage().unwrap();
             storage
                 .set_item("key_from_another_component", "another_value")
                 .unwrap();

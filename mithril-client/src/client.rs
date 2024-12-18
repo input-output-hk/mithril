@@ -23,7 +23,7 @@ use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
 
 #[cfg(target_family = "wasm")]
-const fn certificate_chain_verification_cache_duration_in_seconds_default() -> u32 {
+const fn one_week_in_seconds() -> u32 {
     604800
 }
 
@@ -42,8 +42,7 @@ pub struct ClientOptions {
     ///
     /// `unstable` must be set to `true` for this option to have any effect.
     ///
-    /// IMPORTANT: This feature is experimental and will be heavily modified or removed in the
-    /// future as its security implications are not fully understood.
+    /// DANGER: This feature is highly experimental and insecure, and it must not be used in production
     #[cfg(target_family = "wasm")]
     #[cfg_attr(target_family = "wasm", serde(default))]
     pub enable_certificate_chain_verification_cache: bool,
@@ -55,10 +54,7 @@ pub struct ClientOptions {
     /// `enable_certificate_chain_verification_cache` and `unstable` must both be set to `true`
     /// for this option to have any effect.
     #[cfg(target_family = "wasm")]
-    #[cfg_attr(
-        target_family = "wasm",
-        serde(default = "certificate_chain_verification_cache_duration_in_seconds_default")
-    )]
+    #[cfg_attr(target_family = "wasm", serde(default = "one_week_in_seconds"))]
     pub certificate_chain_verification_cache_duration_in_seconds: u32,
 }
 
@@ -72,8 +68,7 @@ impl ClientOptions {
             #[cfg(target_family = "wasm")]
             enable_certificate_chain_verification_cache: false,
             #[cfg(target_family = "wasm")]
-            certificate_chain_verification_cache_duration_in_seconds:
-                certificate_chain_verification_cache_duration_in_seconds_default(),
+            certificate_chain_verification_cache_duration_in_seconds: one_week_in_seconds(),
         }
     }
 
@@ -288,11 +283,13 @@ impl ClientBuilder {
 
     cfg_unstable! {
     /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
+    ///
+    /// Passing a `None` value will disable the cache if any was previously set.
     pub fn with_certificate_verifier_cache(
         mut self,
-        certificate_verifier_cache: Arc<dyn CertificateVerifierCache>,
+        certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
     ) -> ClientBuilder {
-        self.certificate_verifier_cache = Some(certificate_verifier_cache);
+        self.certificate_verifier_cache = certificate_verifier_cache;
         self
     }
     }

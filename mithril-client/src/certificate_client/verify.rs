@@ -111,9 +111,9 @@ impl MithrilCertificateVerifier {
     ) -> MithrilResult<Option<CertificateToVerify>> {
         trace!(self.logger, "Validating certificate"; "hash" => certificate.hash(), "previous_hash" => certificate.hash());
         if let Some(previous_hash) = self.fetch_cached_previous_hash(certificate.hash()).await? {
-            trace!(self.logger, "Certificate validated from cache"; "hash" => certificate.hash(), "previous_hash" => &previous_hash);
+            trace!(self.logger, "Certificate fetched from cache"; "hash" => certificate.hash(), "previous_hash" => &previous_hash);
             self.feedback_sender
-                .send_event(MithrilEvent::CertificateValidatedFromCache {
+                .send_event(MithrilEvent::CertificateFetchedFromCache {
                     certificate_hash: certificate.hash().to_owned(),
                     certificate_chain_validation_id: certificate_chain_validation_id.to_string(),
                 })

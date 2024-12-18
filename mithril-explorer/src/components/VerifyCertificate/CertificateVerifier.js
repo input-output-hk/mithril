@@ -19,7 +19,7 @@ export const certificateValidationSteps = {
 const certificateChainValidationEvents = {
   started: "CertificateChainValidationStarted",
   certificateValidated: "CertificateValidated",
-  certificateValidatedFromCache: "CertificateValidatedFromCache",
+  certificateFetchedFromCache: "CertificateFetchedFromCache",
   done: "CertificateChainValidated",
 };
 
@@ -117,7 +117,7 @@ export default function CertificateVerifier({
         position = eventPosition.inTable;
         message = { certificateHash: event.payload.certificate_hash, cached: false };
         break;
-      case certificateChainValidationEvents.certificateValidatedFromCache:
+      case certificateChainValidationEvents.certificateFetchedFromCache:
         position = eventPosition.inTable;
         message = { certificateHash: event.payload.certificate_hash, cached: true };
         break;

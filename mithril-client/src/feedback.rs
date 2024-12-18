@@ -91,18 +91,18 @@ pub enum MithrilEvent {
         /// Unique identifier used to track this specific certificate chain validation
         certificate_chain_validation_id: String,
     },
-    /// A individual certificate of a chain have been validated.
+    /// An individual certificate of a chain have been validated.
     CertificateValidated {
         /// Unique identifier used to track this specific certificate chain validation
         certificate_chain_validation_id: String,
         /// The validated certificate hash
         certificate_hash: String,
     },
-    /// A individual certificate of a chain have been validated.
-    CertificateValidatedFromCache {
+    /// An individual certificate of a chain have been fetched from the cache.
+    CertificateFetchedFromCache {
         /// Unique identifier used to track this specific certificate chain validation
         certificate_chain_validation_id: String,
-        /// The validated certificate hash
+        /// The fetched certificate hash
         certificate_hash: String,
     },
     /// The whole certificate chain is valid.
@@ -136,7 +136,7 @@ impl MithrilEvent {
                 certificate_chain_validation_id,
                 ..
             } => certificate_chain_validation_id,
-            MithrilEvent::CertificateValidatedFromCache {
+            MithrilEvent::CertificateFetchedFromCache {
                 certificate_chain_validation_id,
                 ..
             } => certificate_chain_validation_id,
@@ -237,7 +237,7 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
                     "certificate_chain_validation_id" => certificate_chain_validation_id,
                 );
             }
-            MithrilEvent::CertificateValidatedFromCache {
+            MithrilEvent::CertificateFetchedFromCache {
                 certificate_hash,
                 certificate_chain_validation_id,
             } => {

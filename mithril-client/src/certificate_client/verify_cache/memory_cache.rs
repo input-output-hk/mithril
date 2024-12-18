@@ -212,7 +212,7 @@ mod tests {
         #[tokio::test]
         async fn store_in_empty_cache_add_new_item_that_expire_after_parametrized_delay() {
             let expiration_delay = TimeDelta::hours(1);
-            let now = Utc::now();
+            let start_time = Utc::now();
             let cache = MemoryCertificateVerifierCache::new(expiration_delay);
             cache
                 .store_validated_certificate("hash", "parent")
@@ -226,7 +226,7 @@ mod tests {
 
             assert_eq!(1, cache.len().await);
             assert_eq!("parent", cached.previous_hash);
-            assert!(cached.expire_at - now >= expiration_delay);
+            assert!(cached.expire_at - start_time >= expiration_delay);
         }
 
         #[tokio::test]
@@ -253,19 +253,18 @@ mod tests {
         #[tokio::test]
         async fn storing_same_hash_update_parent_hash_and_expiration_time() {
             let expiration_delay = TimeDelta::days(2);
-            let now = Utc::now();
+            let start_time = Utc::now();
             let cache = MemoryCertificateVerifierCache::new(expiration_delay)
                 .with_items([("hash", "first_parent"), ("another_hash", "another_parent")]);
+
+            let initial_value = cache.get_cached_value("hash").await.unwrap();
 
             cache
                 .store_validated_certificate("hash", "updated_parent")
                 .await
                 .unwrap();
 
-            let updated_value = cache
-                .get_cached_value("hash")
-                .await
-                .expect("Cache should have been populated");
+            let updated_value = cache.get_cached_value("hash").await.unwrap();
 
             assert_eq!(2, cache.len().await);
             assert_eq!(
@@ -273,8 +272,9 @@ mod tests {
                 cache.get_previous_hash("another_hash").await.unwrap(),
                 "Existing but not updated value should not have been altered"
             );
+            assert_ne!(initial_value, updated_value);
             assert_eq!("updated_parent", updated_value.previous_hash);
-            assert!(updated_value.expire_at - now >= expiration_delay);
+            assert!(updated_value.expire_at - start_time >= expiration_delay);
         }
     }
 

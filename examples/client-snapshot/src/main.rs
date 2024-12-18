@@ -171,7 +171,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     progress_bar.inc(1);
                 }
             }
-            MithrilEvent::CertificateValidatedFromCache {
+            MithrilEvent::CertificateFetchedFromCache {
                 certificate_chain_validation_id: _,
                 certificate_hash,
             } => {
