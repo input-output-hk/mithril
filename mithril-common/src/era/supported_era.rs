@@ -8,9 +8,6 @@ use strum::{Display, EnumIter, EnumString, IntoEnumIterator};
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum SupportedEra {
-    /// Thales era
-    Thales,
-
     /// Pythagoras era
     Pythagoras,
 }

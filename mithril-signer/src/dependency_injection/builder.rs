@@ -356,7 +356,6 @@ impl<'a> DependenciesBuilder<'a> {
             cardano_database_signable_builder,
         );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
-            era_checker.clone(),
             signable_seed_builder_service,
             signable_builders_dependencies,
             self.root_logger(),

@@ -1176,7 +1176,6 @@ impl DependenciesBuilder {
             &self.configuration.db_directory,
             self.root_logger(),
         ));
-        let era_checker = self.get_era_checker().await?;
         let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
@@ -1185,7 +1184,6 @@ impl DependenciesBuilder {
             cardano_database_signable_builder,
         );
         let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
-            era_checker,
             seed_signable_builder,
             signable_builders_dependencies,
             self.root_logger(),
