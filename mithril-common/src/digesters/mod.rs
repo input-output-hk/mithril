@@ -20,5 +20,5 @@ pub use dumb_immutable_digester::DumbImmutableDigester;
 cfg_test_tools! {
     mod dummy_cardano_db;
 
-    pub use dummy_cardano_db::{DummyCardanoDb, DummyCardanoDbBuilder};
+    pub use dummy_cardano_db::{DummyCardanoDb, DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR};
 }

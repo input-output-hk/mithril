@@ -6,9 +6,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const IMMUTABLE_DIR: &str = "immutable";
-const LEDGER_DIR: &str = "ledger";
-const VOLATILE_DIR: &str = "volatile";
+/// Directory name for the immutable files.
+pub const IMMUTABLE_DIR: &str = "immutable";
+/// Directory name for the ledger files.
+pub const LEDGER_DIR: &str = "ledger";
+/// Directory name for the volatile files.
+pub const VOLATILE_DIR: &str = "volatile";
 
 /// A dummy cardano immutable db.
 struct DummyImmutableDb {
