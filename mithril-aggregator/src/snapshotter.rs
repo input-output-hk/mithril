@@ -3,7 +3,7 @@ use flate2::Compression;
 use flate2::{read::GzDecoder, write::GzEncoder};
 use slog::{info, warn, Logger};
 use std::fs::{self, File};
-use std::io::{self, Read, Seek, SeekFrom};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 use tar::{Archive, Entry, EntryType};
@@ -20,6 +20,13 @@ use crate::ZstandardCompressionParameters;
 pub trait Snapshotter: Sync + Send {
     /// Create a new snapshot with the given archive name.
     fn snapshot(&self, archive_name: &str) -> StdResult<OngoingSnapshot>;
+
+    /// Create a new snapshot with the given archive name from a subset of directories and files.
+    fn snapshot_subset(
+        &self,
+        archive_name: &str,
+        files: Vec<PathBuf>,
+    ) -> StdResult<OngoingSnapshot>;
 }
 
 /// Compression algorithm and parameters of the [CompressedArchiveSnapshotter].
@@ -37,6 +44,58 @@ impl From<ZstandardCompressionParameters> for SnapshotterCompressionAlgorithm {
     }
 }
 
+trait TarAppender {
+    fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()>;
+}
+
+struct AppenderDirAll {
+    db_directory: PathBuf,
+}
+
+impl TarAppender for AppenderDirAll {
+    fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()> {
+        tar.append_dir_all(".", &self.db_directory)
+            .map_err(SnapshotError::CreateArchiveError)
+            .with_context(|| {
+                format!(
+                    "Can not add directory: '{}' to the archive",
+                    self.db_directory.display()
+                )
+            })?;
+        Ok(())
+    }
+}
+
+struct AppenderEntries {
+    entries: Vec<PathBuf>,
+    db_directory: PathBuf,
+}
+
+impl TarAppender for AppenderEntries {
+    fn append<T: Write>(&self, tar: &mut tar::Builder<T>) -> StdResult<()> {
+        for entry in &self.entries {
+            let entry_path = self.db_directory.join(entry);
+            if entry_path.is_dir() {
+                tar.append_dir_all(entry, entry_path.clone())
+                    .with_context(|| {
+                        format!(
+                            "Can not add directory: '{}' to the archive",
+                            entry_path.display()
+                        )
+                    })?;
+            } else if entry_path.is_file() {
+                let mut file = File::open(entry_path.clone())?;
+                tar.append_file(entry, &mut file).with_context(|| {
+                    format!(
+                        "Can not add file: '{}' to the archive",
+                        entry_path.display()
+                    )
+                })?;
+            }
+        }
+        Ok(())
+    }
+}
 /// Compressed Archive Snapshotter create a compressed file.
 pub struct CompressedArchiveSnapshotter {
     /// DB directory to snapshot
@@ -98,11 +157,42 @@ pub enum SnapshotError {
 impl Snapshotter for CompressedArchiveSnapshotter {
     fn snapshot(&self, archive_name: &str) -> StdResult<OngoingSnapshot> {
         let archive_path = self.ongoing_snapshot_directory.join(archive_name);
-        let filesize = self.create_and_verify_archive(&archive_path).inspect_err(|_err| {
+        let appender = AppenderDirAll {
+            db_directory: self.db_directory.clone(),
+        };
+        let filesize = self.create_and_verify_archive(&archive_path, appender).inspect_err(|_err| {
             if archive_path.exists() {
                 if let Err(remove_error) = fs::remove_file(&archive_path) {
                     warn!(
                         self.logger, " > Post snapshotter.snapshot failure, could not remove temporary archive";
+                        "archive_path" => archive_path.display(),
+                        "error" => remove_error
+                    );
+                }
+            }
+        }).with_context(|| format!("CompressedArchiveSnapshotter can not create and verify archive: '{}'", archive_path.display()))?;
+
+        Ok(OngoingSnapshot {
+            filepath: archive_path,
+            filesize,
+        })
+    }
+
+    fn snapshot_subset(
+        &self,
+        archive_name: &str,
+        entries: Vec<PathBuf>,
+    ) -> StdResult<OngoingSnapshot> {
+        let archive_path = self.ongoing_snapshot_directory.join(archive_name);
+        let appender = AppenderEntries {
+            db_directory: self.db_directory.clone(),
+            entries,
+        };
+        let filesize = self.create_and_verify_archive(&archive_path, appender).inspect_err(|_err| {
+            if archive_path.exists() {
+                if let Err(remove_error) = fs::remove_file(&archive_path) {
+                    warn!(
+                        self.logger, " > Post snapshotter.snapshot_subset failure, could not remove temporary archive";
                         "archive_path" => archive_path.display(),
                         "error" => remove_error
                     );
@@ -159,7 +249,7 @@ impl CompressedArchiveSnapshotter {
         Ok(res)
     }
 
-    fn create_archive(&self, archive_path: &Path) -> StdResult<u64> {
+    fn create_archive<T: TarAppender>(&self, archive_path: &Path, appender: T) -> StdResult<u64> {
         info!(
             self.logger,
             "Compressing {} into {}",
@@ -174,14 +264,9 @@ impl CompressedArchiveSnapshotter {
                 let enc = GzEncoder::new(tar_file, Compression::default());
                 let mut tar = tar::Builder::new(enc);
 
-                tar.append_dir_all(".", &self.db_directory)
-                    .map_err(SnapshotError::CreateArchiveError)
-                    .with_context(|| {
-                        format!(
-                            "GzEncoder Builder can not add directory: '{}' to the archive",
-                            self.db_directory.display()
-                        )
-                    })?;
+                appender
+                    .append(&mut tar)
+                    .with_context(|| "GzEncoder Builder failed to append content")?;
 
                 let mut gz = tar
                     .into_inner()
@@ -197,14 +282,9 @@ impl CompressedArchiveSnapshotter {
                     .map_err(SnapshotError::CreateArchiveError)?;
                 let mut tar = tar::Builder::new(enc);
 
-                tar.append_dir_all(".", &self.db_directory)
-                    .map_err(SnapshotError::CreateArchiveError)
-                    .with_context(|| {
-                        format!(
-                            "ZstandardEncoder Builder can not add directory: '{}' to the archive",
-                            self.db_directory.display()
-                        )
-                    })?;
+                appender
+                    .append(&mut tar)
+                    .with_context(|| "ZstandardEncoder Builder failed to append content")?;
 
                 let zstd = tar
                     .into_inner()
@@ -228,13 +308,19 @@ impl CompressedArchiveSnapshotter {
         Ok(filesize)
     }
 
-    fn create_and_verify_archive(&self, archive_path: &Path) -> StdResult<u64> {
-        let filesize = self.create_archive(archive_path).with_context(|| {
-            format!(
-                "CompressedArchiveSnapshotter can not create archive with path: '{}''",
-                archive_path.display()
-            )
-        })?;
+    fn create_and_verify_archive<T: TarAppender>(
+        &self,
+        archive_path: &Path,
+        appender: T,
+    ) -> StdResult<u64> {
+        let filesize = self
+            .create_archive(archive_path, appender)
+            .with_context(|| {
+                format!(
+                    "CompressedArchiveSnapshotter can not create archive with path: '{}''",
+                    archive_path.display()
+                )
+            })?;
         self.verify_archive(archive_path).with_context(|| {
             format!(
                 "CompressedArchiveSnapshotter can not verify archive with path: '{}''",
@@ -389,6 +475,14 @@ impl Snapshotter for DumbSnapshotter {
 
         Ok(snapshot)
     }
+
+    fn snapshot_subset(
+        &self,
+        archive_name: &str,
+        _files: Vec<PathBuf>,
+    ) -> StdResult<OngoingSnapshot> {
+        self.snapshot(archive_name)
+    }
 }
 
 #[cfg(test)]
@@ -406,6 +500,21 @@ mod tests {
     }
 
     #[test]
+    fn test_dumb_snapshotter_snasphot_return_archive_name_with_size_0() {
+        let snapshotter = DumbSnapshotter::new();
+        let snapshot = snapshotter.snapshot("archive.tar.gz").unwrap();
+
+        assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
+        assert_eq!(0, *snapshot.get_file_size());
+
+        let snapshot = snapshotter
+            .snapshot_subset("archive.tar.gz", vec![PathBuf::from("whatever")])
+            .unwrap();
+        assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
+        assert_eq!(0, *snapshot.get_file_size());
+    }
+
+    #[test]
     fn test_dumb_snapshotter() {
         let snapshotter = DumbSnapshotter::new();
         assert!(snapshotter
@@ -415,6 +524,16 @@ mod tests {
 
         let snapshot = snapshotter
             .snapshot("whatever")
+            .expect("Dumb snapshotter::snapshot should not fail.");
+        assert_eq!(
+            Some(snapshot),
+            snapshotter.get_last_snapshot().expect(
+                "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
+            )
+        );
+
+        let snapshot = snapshotter
+            .snapshot_subset("another_whatever", vec![PathBuf::from("subdir")])
             .expect("Dumb snapshotter::snapshot should not fail.");
         assert_eq!(
             Some(snapshot),
@@ -513,7 +632,7 @@ mod tests {
 
         let snapshotter = Arc::new(
             CompressedArchiveSnapshotter::new(
-                db_directory,
+                db_directory.clone(),
                 pending_snapshot_directory.clone(),
                 SnapshotterCompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
@@ -521,9 +640,11 @@ mod tests {
             .unwrap(),
         );
 
+        let appender = AppenderDirAll { db_directory };
         snapshotter
             .create_archive(
                 &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+                appender,
             )
             .expect("create_archive should not fail");
         snapshotter
@@ -552,7 +673,7 @@ mod tests {
 
         let snapshotter = Arc::new(
             CompressedArchiveSnapshotter::new(
-                db_directory,
+                db_directory.clone(),
                 pending_snapshot_directory.clone(),
                 ZstandardCompressionParameters::default().into(),
                 TestLogger::stdout(),
@@ -560,9 +681,11 @@ mod tests {
             .unwrap(),
         );
 
+        let appender = AppenderDirAll { db_directory };
         snapshotter
             .create_archive(
                 &pending_snapshot_directory.join(Path::new(pending_snapshot_archive_file)),
+                appender,
             )
             .expect("create_archive should not fail");
         snapshotter
@@ -574,5 +697,61 @@ mod tests {
         snapshotter
             .snapshot(pending_snapshot_archive_file)
             .expect("Snapshotter::snapshot should not fail.");
+    }
+
+    #[test]
+    fn should_create_archive_only_for_specified_directories_and_files() {
+        fn create_file(root: &Path, filename: &str) -> PathBuf {
+            let file_path = PathBuf::from(filename);
+            File::create(root.join(file_path.clone())).unwrap();
+            file_path
+        }
+        fn create_dir(root: &Path, dirname: &str) -> PathBuf {
+            let dir_path = PathBuf::from(dirname);
+            std::fs::create_dir(root.join(dir_path.clone())).unwrap();
+            dir_path
+        }
+
+        let test_dir =
+            get_test_directory("create_archive_only_for_specified_directories_and_files");
+        let destination = test_dir.join(create_dir(&test_dir, "destination"));
+        let source = test_dir.join(create_dir(&test_dir, "source"));
+
+        let directory_to_archive_path = create_dir(&source, "directory_to_archive");
+        let file_to_archive_path = create_file(&source, "file_to_archive.txt");
+        let directory_not_to_archive_path = create_dir(&source, "directory_not_to_archive");
+        let file_not_to_archive_path = create_file(&source, "file_not_to_archive.txt");
+
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            source,
+            destination,
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let snapshot = snapshotter
+            .snapshot_subset(
+                "archive.tar.gz",
+                vec![
+                    directory_to_archive_path.clone(),
+                    file_to_archive_path.clone(),
+                ],
+            )
+            .unwrap();
+
+        let unpack_path = {
+            let file_tar_gz = File::open(snapshot.get_file_path()).unwrap();
+            let file_tar_gz_decoder = GzDecoder::new(file_tar_gz);
+            let mut archive = Archive::new(file_tar_gz_decoder);
+            let unpack_path = test_dir.join(create_dir(&test_dir, "unpack"));
+            archive.unpack(&unpack_path).unwrap();
+            unpack_path
+        };
+
+        assert!(unpack_path.join(directory_to_archive_path).is_dir());
+        assert!(unpack_path.join(file_to_archive_path).is_file());
+        assert!(!unpack_path.join(directory_not_to_archive_path).exists());
+        assert!(!unpack_path.join(file_not_to_archive_path).exists());
     }
 }
