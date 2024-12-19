@@ -39,6 +39,7 @@ pub struct RouterConfig {
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     pub snapshot_directory: PathBuf,
     pub cardano_node_version: String,
+    pub allow_http_serve_directory: bool,
 }
 
 #[cfg(test)]
@@ -55,6 +56,7 @@ impl RouterConfig {
             cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
             snapshot_directory: PathBuf::from("/dummy/snapshot/directory"),
             cardano_node_version: "1.2.3".to_string(),
+            allow_http_serve_directory: false,
         }
     }
 }
@@ -103,6 +105,7 @@ pub fn routes(
         .and(
             certificate_routes::routes(&state)
                 .or(artifact_routes::snapshot::routes(&state))
+                .or(artifact_routes::cardano_database::routes(&state))
                 .or(artifact_routes::mithril_stake_distribution::routes(&state))
                 .or(artifact_routes::cardano_stake_distribution::routes(&state))
                 .or(artifact_routes::cardano_transaction::routes(&state))

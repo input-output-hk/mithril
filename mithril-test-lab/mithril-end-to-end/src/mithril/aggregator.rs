@@ -61,7 +61,6 @@ impl Aggregator {
             ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
-            ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             (
@@ -100,6 +99,7 @@ impl Aggregator {
             ),
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
             ("PERSIST_USAGE_REPORT_INTERVAL_IN_SECONDS", "3"),
+            ("ALLOW_HTTP_SERVE_DIRECTORY", "true"),
         ]);
         let args = vec![
             "--db-directory",
