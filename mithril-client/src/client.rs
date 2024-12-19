@@ -10,6 +10,8 @@ use mithril_common::api_version::APIVersionProvider;
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
 use crate::cardano_transaction_client::CardanoTransactionClient;
+#[cfg(feature = "unstable")]
+use crate::certificate_client::CertificateVerifierCache;
 use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
@@ -20,8 +22,13 @@ use crate::snapshot_client::SnapshotClient;
 use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
 
+#[cfg(target_family = "wasm")]
+const fn one_week_in_seconds() -> u32 {
+    604800
+}
+
 /// Options that can be used to configure the client.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ClientOptions {
     /// HTTP headers to include in the client requests.
     pub http_headers: Option<HashMap<String, String>>,
@@ -30,6 +37,25 @@ pub struct ClientOptions {
     #[cfg(target_family = "wasm")]
     #[cfg_attr(target_family = "wasm", serde(default))]
     pub unstable: bool,
+
+    /// Whether to enable certificate chain verification caching in the WASM client.
+    ///
+    /// `unstable` must be set to `true` for this option to have any effect.
+    ///
+    /// DANGER: This feature is highly experimental and insecure, and it must not be used in production
+    #[cfg(target_family = "wasm")]
+    #[cfg_attr(target_family = "wasm", serde(default))]
+    pub enable_certificate_chain_verification_cache: bool,
+
+    /// Duration in seconds of certificate chain verification cache in the WASM client.
+    ///
+    /// Default to one week (604800 seconds).
+    ///
+    /// `enable_certificate_chain_verification_cache` and `unstable` must both be set to `true`
+    /// for this option to have any effect.
+    #[cfg(target_family = "wasm")]
+    #[cfg_attr(target_family = "wasm", serde(default = "one_week_in_seconds"))]
+    pub certificate_chain_verification_cache_duration_in_seconds: u32,
 }
 
 impl ClientOptions {
@@ -39,6 +65,10 @@ impl ClientOptions {
             http_headers,
             #[cfg(target_family = "wasm")]
             unstable: false,
+            #[cfg(target_family = "wasm")]
+            enable_certificate_chain_verification_cache: false,
+            #[cfg(target_family = "wasm")]
+            certificate_chain_verification_cache_duration_in_seconds: one_week_in_seconds(),
         }
     }
 
@@ -94,6 +124,8 @@ pub struct ClientBuilder {
     genesis_verification_key: String,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
+    #[cfg(feature = "unstable")]
+    certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
     #[cfg(feature = "fs")]
     snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
     logger: Option<Logger>,
@@ -110,6 +142,8 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "unstable")]
+            certificate_verifier_cache: None,
             #[cfg(feature = "fs")]
             snapshot_downloader: None,
             logger: None,
@@ -128,6 +162,8 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "unstable")]
+            certificate_verifier_cache: None,
             #[cfg(feature = "fs")]
             snapshot_downloader: None,
             logger: None,
@@ -188,6 +224,8 @@ impl ClientBuilder {
                     aggregator_client.clone(),
                     &self.genesis_verification_key,
                     feedback_sender.clone(),
+                    #[cfg(feature = "unstable")]
+                    self.certificate_verifier_cache,
                     logger.clone(),
                 )
                 .with_context(|| "Building certificate verifier failed")?,
@@ -241,6 +279,19 @@ impl ClientBuilder {
     ) -> ClientBuilder {
         self.certificate_verifier = Some(certificate_verifier);
         self
+    }
+
+    cfg_unstable! {
+    /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
+    ///
+    /// Passing a `None` value will disable the cache if any was previously set.
+    pub fn with_certificate_verifier_cache(
+        mut self,
+        certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
+    ) -> ClientBuilder {
+        self.certificate_verifier_cache = certificate_verifier_cache;
+        self
+    }
     }
 
     cfg_fs! {
