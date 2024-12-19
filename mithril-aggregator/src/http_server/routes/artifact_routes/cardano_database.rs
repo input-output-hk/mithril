@@ -41,6 +41,9 @@ fn serve_cardano_database_dir(
             router_state.configuration.snapshot_directory.clone(),
         ))
         .and(middlewares::with_logger(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.allow_http_serve_directory
+        }))
         .and_then(handlers::ensure_downloaded_file_is_a_cardano_database)
 }
 
@@ -103,6 +106,7 @@ mod handlers {
     pub async fn ensure_downloaded_file_is_a_cardano_database(
         reply: warp::fs::File,
         logger: Logger,
+        allow_http_serve_directory: bool,
     ) -> Result<impl warp::Reply, Infallible> {
         let filepath = reply.path().to_path_buf();
         debug!(
@@ -110,6 +114,11 @@ mod handlers {
             ">> ensure_downloaded_file_is_a_cardano_database / file: `{}`",
             filepath.display()
         );
+
+        if !allow_http_serve_directory {
+            warn!(logger, "ensure_downloaded_file_is_a_cardano_database::error"; "error" => "http serve directory is disabled");
+            return Ok(reply::empty(StatusCode::FORBIDDEN));
+        }
 
         // TODO: enhance this check with a regular expression once the file naming convention is defined
         let file_is_a_cardano_database_archive = filepath.to_string_lossy().contains("ancillary")

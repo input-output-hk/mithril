@@ -99,6 +99,7 @@ impl Aggregator {
             ),
             ("CARDANO_TRANSACTIONS_SIGNING_CONFIG__STEP", "15"),
             ("PERSIST_USAGE_REPORT_INTERVAL_IN_SECONDS", "3"),
+            ("ALLOW_HTTP_SERVE_DIRECTORY", "true"),
         ]);
         let args = vec![
             "--db-directory",
