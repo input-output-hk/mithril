@@ -1,6 +1,7 @@
 name: Aggregator stress test
 
 on:
+  workflow_call:
   workflow_dispatch:
     inputs:
       commit_sha:
@@ -24,8 +25,33 @@ on:
         default: false
 
 jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      branch: ${{ steps.set-env.outputs.branch }}
+      commit_sha: ${{ steps.set-env.outputs.commit_sha }}
+      num_signers: ${{ steps.set-env.outputs.num_signers }}
+      num_clients: ${{ steps.set-env.outputs.num_clients }}
+      enable_debug: ${{ steps.set-env.outputs.enable_debug }}
+    steps:
+      - name: Prepare env variables
+        id: set-env
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "branch=main" >> $GITHUB_OUTPUT
+            echo "num_signers=100" >> $GITHUB_OUTPUT
+            echo "num_clients=100" >> $GITHUB_OUTPUT
+            echo "enable_debug=false" >> $GITHUB_OUTPUT
+          else
+            echo "commit_sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
+            echo "num_signers=${{ inputs.num_signers }}" >> $GITHUB_OUTPUT
+            echo "num_clients=${{ inputs.num_clients }}" >> $GITHUB_OUTPUT
+            echo "enable_debug=${{ inputs.enable_debug }}"s >> $GITHUB_OUTPUT
+          fi
   stress-test:
     runs-on: ubuntu-22.04
+    needs: [prepare]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -34,7 +60,7 @@ jobs:
         id: prepare
         shell: bash
         run: |
-          if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
+          if [[ "${{ needs.prepare.outputs.enable_debug }}" == "true" ]]; then
             echo "debug_level=-vvv" >> $GITHUB_OUTPUT
           fi
 
@@ -48,7 +74,8 @@ jobs:
         with:
           name: mithril-distribution-Linux-X64
           path: ./bin
-          commit: ${{ inputs.commit_sha }}
+          commit: ${{ needs.prepare.outputs.commit_sha }}
+          branch: ${{ needs.prepare.outputs.branch }}
           workflow: ci.yml
           workflow_conclusion: success
 
@@ -57,7 +84,8 @@ jobs:
         with:
           name: mithril-tooling-Linux-X64
           path: ./bin
-          commit: ${{ inputs.commit_sha }}
+          commit: ${{ needs.prepare.outputs.commit_sha }}
+          branch: ${{ needs.prepare.outputs.branch }}
           workflow: ci.yml
           workflow_conclusion: success
 
@@ -73,5 +101,5 @@ jobs:
           ./bin/load-aggregator ${{ steps.prepare.outputs.debug_level }} \
           --cardano-cli-path ./mithril-test-lab/mithril-end-to-end/script/mock-cardano-cli \
           --aggregator-dir ./bin \
-          --num-signers=${{ inputs.num_signers }} \
-          --num-clients=${{ inputs.num_clients }}
+          --num-signers=${{ needs.prepare.outputs.num_signers }} \
+          --num-clients=${{ needs.prepare.outputs.num_clients }}
