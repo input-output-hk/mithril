@@ -20,6 +20,12 @@ use crate::ZstandardCompressionParameters;
 pub trait Snapshotter: Sync + Send {
     /// Create a new snapshot with the given archive name.
     fn snapshot(&self, archive_name: &str) -> StdResult<OngoingSnapshot>;
+
+    fn snapshot_specific(
+        &self,
+        archive_name: &str,
+        files: Vec<PathBuf>,
+    ) -> StdResult<OngoingSnapshot>;
 }
 
 /// Compression algorithm and parameters of the [CompressedArchiveSnapshotter].
@@ -114,6 +120,14 @@ impl Snapshotter for CompressedArchiveSnapshotter {
             filepath: archive_path,
             filesize,
         })
+    }
+
+    fn snapshot_specific(
+        &self,
+        archive_name: &str,
+        files: Vec<PathBuf>,
+    ) -> StdResult<OngoingSnapshot> {
+        self.snapshot(archive_name)
     }
 }
 
@@ -389,6 +403,14 @@ impl Snapshotter for DumbSnapshotter {
 
         Ok(snapshot)
     }
+
+    fn snapshot_specific(
+        &self,
+        archive_name: &str,
+        _files: Vec<PathBuf>,
+    ) -> StdResult<OngoingSnapshot> {
+        self.snapshot(archive_name)
+    }
 }
 
 #[cfg(test)]
@@ -406,6 +428,21 @@ mod tests {
     }
 
     #[test]
+    fn test_dumb_snapshotter_snasphot_return_archive_name_with_size_0() {
+        let snapshotter = DumbSnapshotter::new();
+        let snapshot = snapshotter.snapshot("archive.tar.gz").unwrap();
+
+        assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
+        assert_eq!(0, *snapshot.get_file_size());
+
+        let snapshot = snapshotter
+            .snapshot_specific("archive.tar.gz", vec![PathBuf::from("whatever")])
+            .unwrap();
+        assert_eq!(PathBuf::from("archive.tar.gz"), *snapshot.get_file_path());
+        assert_eq!(0, *snapshot.get_file_size());
+    }
+
+    #[test]
     fn test_dumb_snapshotter() {
         let snapshotter = DumbSnapshotter::new();
         assert!(snapshotter
@@ -415,6 +452,16 @@ mod tests {
 
         let snapshot = snapshotter
             .snapshot("whatever")
+            .expect("Dumb snapshotter::snapshot should not fail.");
+        assert_eq!(
+            Some(snapshot),
+            snapshotter.get_last_snapshot().expect(
+                "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
+            )
+        );
+
+        let snapshot = snapshotter
+            .snapshot_specific("another_whatever", vec![PathBuf::from("subdir")])
             .expect("Dumb snapshotter::snapshot should not fail.");
         assert_eq!(
             Some(snapshot),
@@ -574,5 +621,57 @@ mod tests {
         snapshotter
             .snapshot(pending_snapshot_archive_file)
             .expect("Snapshotter::snapshot should not fail.");
+    }
+
+    #[test]
+    fn should_create_archive_only_for_specified_directories_and_files() {
+        fn create_file(root: &Path, filename: &str) -> PathBuf {
+            let file_path = PathBuf::from(filename);
+            File::create(root.join(file_path.clone())).unwrap();
+            file_path
+        }
+        fn create_dir(root: &Path, dirname: &str) -> PathBuf {
+            let dir_path = PathBuf::from(dirname);
+            std::fs::create_dir(root.join(dir_path.clone())).unwrap();
+            dir_path
+        }
+
+        let test_dir =
+            get_test_directory("create_archive_only_for_specified_directories_and_files");
+        let destination = test_dir.join(create_dir(&test_dir, "destination"));
+        let source = test_dir.join(create_dir(&test_dir, "source"));
+
+        let directory_to_archive_path = create_dir(&source, "directory_to_archive");
+        let file_to_archive_path = create_file(&source, "file_to_archive.txt");
+        let directory_not_to_archive_path = create_dir(&source, "directory_not_to_archive");
+        let file_not_to_archive_path = create_file(&source, "file_not_to_archive.txt");
+
+        println!("test_dir: {:?}", test_dir);
+
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            source,
+            destination,
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let snapshot = snapshotter
+            .snapshot_specific(
+                "archive.tar.gz",
+                vec![directory_to_archive_path, file_to_archive_path],
+            )
+            .unwrap();
+
+        //TODO: do something...
+        // uncompress the archive from snapshot.get_file_path()
+        // then, do assertions...
+
+        // assert!(snapshot.get_file_path().contains(directory_to_archive_path));
+        // assert!(snapshot.get_file_path().contains(file_to_archive_path));
+        // assert!(!snapshot
+        //     .get_file_path()
+        //     .contains(directory_not_to_archive_path));
+        // assert!(!snapshot.get_file_path().contains(file_not_to_archive_path));
     }
 }
