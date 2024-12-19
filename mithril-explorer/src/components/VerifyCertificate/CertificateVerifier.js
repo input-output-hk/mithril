@@ -19,6 +19,7 @@ export const certificateValidationSteps = {
 const certificateChainValidationEvents = {
   started: "CertificateChainValidationStarted",
   certificateValidated: "CertificateValidated",
+  certificateFetchedFromCache: "CertificateFetchedFromCache",
   done: "CertificateChainValidated",
 };
 
@@ -51,6 +52,7 @@ export default function CertificateVerifier({
   certificate,
   hideSpinner = false,
   showCertificateLinks = false,
+  isCacheEnabled = false,
   onStepChange = (step) => {},
   onChainValidationError = (error) => {},
   onCertificateClick = (hash) => {},
@@ -113,7 +115,11 @@ export default function CertificateVerifier({
         break;
       case certificateChainValidationEvents.certificateValidated:
         position = eventPosition.inTable;
-        message = { certificateHash: event.payload.certificate_hash };
+        message = { certificateHash: event.payload.certificate_hash, cached: false };
+        break;
+      case certificateChainValidationEvents.certificateFetchedFromCache:
+        position = eventPosition.inTable;
+        message = { certificateHash: event.payload.certificate_hash, cached: true };
         break;
       case certificateChainValidationEvents.done:
         message = (
@@ -131,6 +137,10 @@ export default function CertificateVerifier({
       ...existingEvents,
       { id: nextVerifyEventId++, position: position, message: message },
     ]);
+  }
+
+  async function onCacheResetClick() {
+    await client.reset_certificate_verifier_cache();
   }
 
   return (
@@ -192,7 +202,11 @@ export default function CertificateVerifier({
                           />
                         </td>
                         <td>
-                          <IconBadge tooltip="yes" variant="success" icon="check-circle-fill" />
+                          {evt.message.cached ? (
+                            <IconBadge tooltip="cached" variant="warning" icon="clock-fill" />
+                          ) : (
+                            <IconBadge tooltip="yes" variant="success" icon="check-circle-fill" />
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -203,6 +217,14 @@ export default function CertificateVerifier({
                 .map((evt) => (
                   <div key={evt.id}>{evt.message}</div>
                 ))}
+              {isCacheEnabled && currentStep === certificateValidationSteps.done && (
+                <>
+                  Cache enabled:{" "}
+                  <a href="#" onClick={onCacheResetClick}>
+                    reset cache
+                  </a>
+                </>
+              )}
               {validationError !== undefined && (
                 <Alert variant="danger" className="mt-2">
                   <Alert.Heading>

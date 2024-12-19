@@ -1,15 +1,18 @@
 use async_trait::async_trait;
+use chrono::TimeDelta;
 use serde::Serialize;
 use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 
 use mithril_client::{
+    certificate_client::CertificateVerifierCache,
     common::Epoch,
     feedback::{FeedbackReceiver, MithrilEvent},
     CardanoTransactionsProofs, Client, ClientBuilder, ClientOptions, MessageBuilder,
     MithrilCertificate,
 };
 
+use crate::certificate_verification_cache::LocalStorageCertificateVerifierCache;
 use crate::WasmResult;
 
 macro_rules! allow_unstable_dead_code {
@@ -66,7 +69,7 @@ impl From<MithrilEvent> for MithrilEventWasm {
 #[wasm_bindgen(getter_with_clone)]
 pub struct MithrilClient {
     client: Client,
-
+    certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
     unstable: bool,
 }
 
@@ -88,15 +91,58 @@ impl MithrilClient {
                 .map_err(|err| format!("Failed to parse options: {err:?}"))
                 .unwrap()
         };
-        let unstable = client_options.unstable;
+
+        let certificate_verifier_cache = if client_options.unstable
+            && client_options.enable_certificate_chain_verification_cache
+        {
+            Self::build_certifier_cache(
+                aggregator_endpoint,
+                TimeDelta::seconds(
+                    client_options.certificate_chain_verification_cache_duration_in_seconds as i64,
+                ),
+            )
+        } else {
+            None
+        };
+
         let client = ClientBuilder::aggregator(aggregator_endpoint, genesis_verification_key)
             .add_feedback_receiver(feedback_receiver)
-            .with_options(client_options)
+            .with_options(client_options.clone())
+            .with_certificate_verifier_cache(certificate_verifier_cache.clone())
             .build()
             .map_err(|err| format!("{err:?}"))
             .unwrap();
 
-        MithrilClient { client, unstable }
+        MithrilClient {
+            client,
+            certificate_verifier_cache,
+            unstable: client_options.unstable,
+        }
+    }
+
+    fn build_certifier_cache(
+        aggregator_endpoint: &str,
+        expiration_delay: TimeDelta,
+    ) -> Option<Arc<dyn CertificateVerifierCache>> {
+        if web_sys::window().is_none() {
+            web_sys::console::warn_1(
+                &"Can't enable certificate chain verification cache: window object is not available\
+                    (are you running in a browser environment?)"
+                    .into(),
+            );
+            return None;
+        }
+
+        web_sys::console::warn_1(
+            &"Danger: the certificate chain verification cache is enabled.\n\
+            This feature is highly experimental and insecure, and it must not be used in production."
+                .into(),
+        );
+
+        Some(Arc::new(LocalStorageCertificateVerifierCache::new(
+            aggregator_endpoint,
+            expiration_delay,
+        )))
     }
 
     /// Call the client to get a snapshot from a digest
@@ -367,6 +413,18 @@ impl MithrilClient {
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
+
+    /// `unstable` Reset the certificate verifier cache if enabled
+    #[wasm_bindgen]
+    pub async fn reset_certificate_verifier_cache(&self) -> Result<(), JsValue> {
+        self.guard_unstable()?;
+
+        if let Some(cache) = self.certificate_verifier_cache.as_ref() {
+            cache.reset().await.map_err(|err| format!("{err:?}"))?;
+        }
+
+        Ok(())
+    }
 }
 
 allow_unstable_dead_code! {
@@ -402,8 +460,7 @@ mod tests {
     const FAKE_AGGREGATOR_IP: &str = "127.0.0.1";
     const FAKE_AGGREGATOR_PORT: &str = "8000";
 
-    fn get_mithril_client(unstable: bool) -> MithrilClient {
-        let options = ClientOptions::new(None).with_unstable_features(unstable);
+    fn get_mithril_client(options: ClientOptions) -> MithrilClient {
         let options_js_value = serde_wasm_bindgen::to_value(&options).unwrap();
         MithrilClient::new(
             &format!(
@@ -416,7 +473,8 @@ mod tests {
     }
 
     fn get_mithril_client_stable() -> MithrilClient {
-        get_mithril_client(false)
+        let options = ClientOptions::new(None).with_unstable_features(false);
+        get_mithril_client(options)
     }
 
     wasm_bindgen_test_configure!(run_in_browser);

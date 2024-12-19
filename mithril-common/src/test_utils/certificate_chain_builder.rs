@@ -82,6 +82,20 @@ impl<'a> CertificateChainBuilderContext<'a> {
     }
 }
 
+/// Chaining method to use when building a certificate chain with the [CertificateChainBuilder]. For tests only.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum CertificateChainingMethod {
+    /// `default` Chain certificates to the 'master' certificate of the epoch or if it's the 'master'
+    /// certificate, chain it to the 'master' certificate of the previous epoch.
+    ///
+    /// The 'master' certificate of an epoch is the first certificate of the epoch.
+    #[default]
+    ToMasterCertificate,
+
+    /// Chain certificates sequentially.
+    Sequential,
+}
+
 /// A builder for creating a certificate chain. For tests only.
 ///
 /// # Simple example usage for building a fully valid certificate chain
@@ -149,6 +163,7 @@ pub struct CertificateChainBuilder<'a> {
     total_signers_per_epoch_processor: &'a TotalSignersPerEpochProcessorFunc,
     genesis_certificate_processor: &'a GenesisCertificateProcessorFunc,
     standard_certificate_processor: &'a StandardCertificateProcessorFunc,
+    certificate_chaining_method: CertificateChainingMethod,
 }
 
 impl<'a> CertificateChainBuilder<'a> {
@@ -166,6 +181,7 @@ impl<'a> CertificateChainBuilder<'a> {
             total_signers_per_epoch_processor: &|epoch| min(2 + *epoch as usize, 5),
             genesis_certificate_processor: &|certificate, _, _| certificate,
             standard_certificate_processor: &|certificate, _| certificate,
+            certificate_chaining_method: Default::default(),
         }
     }
 
@@ -216,6 +232,16 @@ impl<'a> CertificateChainBuilder<'a> {
         standard_certificate_processor: &'a StandardCertificateProcessorFunc,
     ) -> Self {
         self.standard_certificate_processor = standard_certificate_processor;
+
+        self
+    }
+
+    /// Set the chaining method to use when building the certificate chain.
+    pub fn with_certificate_chaining_method(
+        mut self,
+        certificate_chaining_method: CertificateChainingMethod,
+    ) -> Self {
+        self.certificate_chaining_method = certificate_chaining_method;
 
         self
     }
@@ -438,26 +464,31 @@ impl<'a> CertificateChainBuilder<'a> {
         certificate: &Certificate,
         certificates_chained: &'b [Certificate],
     ) -> Option<&'b Certificate> {
-        let is_certificate_first_of_epoch = certificates_chained
-            .last()
-            .map(|c| c.epoch != certificate.epoch)
-            .unwrap_or(true);
+        match self.certificate_chaining_method {
+            CertificateChainingMethod::ToMasterCertificate => {
+                let is_certificate_first_of_epoch = certificates_chained
+                    .last()
+                    .map(|c| c.epoch != certificate.epoch)
+                    .unwrap_or(true);
 
-        certificates_chained
-            .iter()
-            .rev()
-            .filter(|c| {
-                if is_certificate_first_of_epoch {
-                    // The previous certificate of the first certificate of an epoch
-                    // is the first certificate of the previous epoch
-                    c.epoch == certificate.epoch.previous().unwrap()
-                } else {
-                    // The previous certificate of not the first certificate of an epoch
-                    // is the first certificate of the epoch
-                    c.epoch == certificate.epoch
-                }
-            })
-            .last()
+                certificates_chained
+                    .iter()
+                    .rev()
+                    .filter(|c| {
+                        if is_certificate_first_of_epoch {
+                            // The previous certificate of the first certificate of an epoch
+                            // is the first certificate of the previous epoch
+                            c.epoch == certificate.epoch.previous().unwrap()
+                        } else {
+                            // The previous certificate of not the first certificate of an epoch
+                            // is the first certificate of the epoch
+                            c.epoch == certificate.epoch
+                        }
+                    })
+                    .last()
+            }
+            CertificateChainingMethod::Sequential => certificates_chained.last(),
+        }
     }
 
     // Returns the chained certificates in reverse order
@@ -788,7 +819,7 @@ mod test {
     }
 
     #[test]
-    fn builds_certificate_chain_correctly_chained() {
+    fn builds_certificate_chain_chained_by_default_to_master_certificates() {
         fn create_fake_certificate(epoch: Epoch, index_in_epoch: u64) -> Certificate {
             Certificate {
                 epoch,
@@ -842,6 +873,65 @@ mod test {
         assert_eq!(
             certificate_chained_4_3.previous_hash,
             certificate_chained_4_1.hash
+        );
+    }
+
+    #[test]
+    fn builds_certificate_chain_chained_sequentially() {
+        fn create_fake_certificate(epoch: Epoch, index_in_epoch: u64) -> Certificate {
+            Certificate {
+                epoch,
+                signed_message: format!("certificate-{}-{index_in_epoch}", *epoch),
+                ..fake_data::certificate("cert-fake".to_string())
+            }
+        }
+
+        let certificates = vec![
+            create_fake_certificate(Epoch(1), 1),
+            create_fake_certificate(Epoch(2), 1),
+            create_fake_certificate(Epoch(2), 2),
+            create_fake_certificate(Epoch(3), 1),
+            create_fake_certificate(Epoch(4), 1),
+            create_fake_certificate(Epoch(4), 2),
+            create_fake_certificate(Epoch(4), 3),
+        ];
+
+        let mut certificates_chained = CertificateChainBuilder::default()
+            .with_certificate_chaining_method(CertificateChainingMethod::Sequential)
+            .compute_chained_certificates(certificates);
+        certificates_chained.reverse();
+
+        let certificate_chained_1_1 = &certificates_chained[0];
+        let certificate_chained_2_1 = &certificates_chained[1];
+        let certificate_chained_2_2 = &certificates_chained[2];
+        let certificate_chained_3_1 = &certificates_chained[3];
+        let certificate_chained_4_1 = &certificates_chained[4];
+        let certificate_chained_4_2 = &certificates_chained[5];
+        let certificate_chained_4_3 = &certificates_chained[6];
+        assert_eq!("", certificate_chained_1_1.previous_hash);
+        assert_eq!(
+            certificate_chained_2_1.previous_hash,
+            certificate_chained_1_1.hash
+        );
+        assert_eq!(
+            certificate_chained_2_2.previous_hash,
+            certificate_chained_2_1.hash
+        );
+        assert_eq!(
+            certificate_chained_3_1.previous_hash,
+            certificate_chained_2_2.hash
+        );
+        assert_eq!(
+            certificate_chained_4_1.previous_hash,
+            certificate_chained_3_1.hash
+        );
+        assert_eq!(
+            certificate_chained_4_2.previous_hash,
+            certificate_chained_4_1.hash
+        );
+        assert_eq!(
+            certificate_chained_4_3.previous_hash,
+            certificate_chained_4_2.hash
         );
     }
 

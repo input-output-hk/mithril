@@ -991,7 +991,7 @@ dependencies = [
 
 [[package]]
 name = "client-snapshot"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3666,7 +3666,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.10.4"
+version = "0.10.5"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3698,7 +3698,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.10.5"
+version = "0.10.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3727,14 +3727,17 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.7.2"
+version = "0.7.3"
 dependencies = [
+ "anyhow",
  "async-trait",
+ "chrono",
  "futures",
  "mithril-build-script",
  "mithril-client",
  "serde",
  "serde-wasm-bindgen",
+ "serde_json",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -3743,7 +3746,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.4.97"
+version = "0.4.98"
 dependencies = [
  "anyhow",
  "async-trait",
