@@ -11,6 +11,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Build and publish both a `stable` version (for release networks) and an `unstable` version (for testing networks) of the explorer.
 
+- **UNSTABLE** Cardano database incremental certification:
+
+  - Implement the artifact routes of the aggregator for the signed entity type `CardanoDatabase`.
+
 - Crates versions:
 
 | Crate | Version |

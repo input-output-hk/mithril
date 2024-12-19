@@ -6,6 +6,7 @@ use anyhow::{anyhow, Context};
 use mithril_common::{
     entities::{Epoch, TransactionHash},
     messages::{
+        CardanoDatabaseSnapshotListMessage, CardanoDatabaseSnapshotMessage,
         CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
         CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
         CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
@@ -151,6 +152,84 @@ pub async fn assert_signer_is_signing_snapshot(
     }) {
         AttemptResult::Ok(snapshot) => {
             // todo: assert that the snapshot is really signed
+            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
+            Ok(snapshot.certificate_hash)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{url}`"
+        )),
+    }
+}
+
+pub async fn assert_node_producing_cardano_database_snapshot(
+    aggregator_endpoint: &str,
+) -> StdResult<String> {
+    let url = format!("{aggregator_endpoint}/artifact/cardano-database");
+    info!("Waiting for the aggregator to produce a Cardano database snapshot");
+
+    // todo: reduce the number of attempts if we can reduce the delay between two immutables
+    match attempt!(45, Duration::from_millis(2000), {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response
+                    .json::<CardanoDatabaseSnapshotListMessage>()
+                    .await
+                    .as_deref()
+                {
+                    Ok([cardano_database_snapshot, ..]) => {
+                        Ok(Some(cardano_database_snapshot.merkle_root.clone()))
+                    }
+                    Ok(&[]) => Ok(None),
+                    Err(err) => Err(anyhow!("Invalid Cardano database snapshot body : {err}",)),
+                },
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+            },
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        }
+    }) {
+        AttemptResult::Ok(merkle_root) => {
+            info!("Aggregator produced a Cardano database snapshot"; "merkle_root" => &merkle_root);
+            Ok(merkle_root)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_node_producing_snapshot, no response from `{url}`"
+        )),
+    }
+}
+
+pub async fn assert_signer_is_signing_cardano_database_snapshot(
+    aggregator_endpoint: &str,
+    merkle_root: &str,
+    expected_epoch_min: Epoch,
+) -> StdResult<String> {
+    let url = format!("{aggregator_endpoint}/artifact/cardano-database/{merkle_root}");
+    info!(
+        "Asserting the aggregator is signing the Cardano database snapshot message `{}` with an expected min epoch of `{}`",
+        merkle_root,
+        expected_epoch_min
+    );
+
+    match attempt!(10, Duration::from_millis(1000), {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<CardanoDatabaseSnapshotMessage>().await {
+                    Ok(cardano_database_snapshot) => match cardano_database_snapshot.beacon.epoch {
+                        epoch if epoch >= expected_epoch_min => Ok(Some(cardano_database_snapshot)),
+                        epoch => Err(anyhow!(
+                            "Minimum expected Cardano database snapshot epoch not reached : {epoch} < {expected_epoch_min}"
+                        )),
+                    },
+                    Err(err) => Err(anyhow!(err).context("Invalid Cardano database snapshot body")),
+                },
+                StatusCode::NOT_FOUND => Ok(None),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+            },
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        }
+    }) {
+        AttemptResult::Ok(snapshot) => {
             info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
             Ok(snapshot.certificate_hash)
         }

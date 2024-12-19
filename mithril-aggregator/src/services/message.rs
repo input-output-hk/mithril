@@ -8,6 +8,7 @@ use thiserror::Error;
 use mithril_common::{
     entities::{Epoch, SignedEntityTypeDiscriminants},
     messages::{
+        CardanoDatabaseSnapshotListMessage, CardanoDatabaseSnapshotMessage,
         CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
         CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
         CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
@@ -35,11 +36,11 @@ pub trait MessageService: Sync + Send {
         certificate_hash: &str,
     ) -> StdResult<Option<CertificateMessage>>;
 
-    /// Return the message representation of the last N certificates
+    /// Return the message representation of the last N certificates.
     async fn get_certificate_list_message(&self, limit: usize)
         -> StdResult<CertificateListMessage>;
 
-    /// Return the information regarding the given snapshot
+    /// Return the information regarding the given snapshot.
     async fn get_snapshot_message(
         &self,
         signed_entity_id: &str,
@@ -49,13 +50,25 @@ pub trait MessageService: Sync + Send {
     /// passed as argument.
     async fn get_snapshot_list_message(&self, limit: usize) -> StdResult<SnapshotListMessage>;
 
-    /// Return the information regarding the MSD for the given identifier.
+    /// Return the information regarding the Cardano database for the given identifier.
+    async fn get_cardano_database_message(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<CardanoDatabaseSnapshotMessage>>;
+
+    /// Return the list of the last Cardano database message.
+    async fn get_cardano_database_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CardanoDatabaseSnapshotListMessage>;
+
+    /// Return the information regarding the Mithril stake distribution for the given identifier.
     async fn get_mithril_stake_distribution_message(
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<MithrilStakeDistributionMessage>>;
 
-    /// Return the list of the last Mithril stake distributions message
+    /// Return the list of the last Mithril stake distributions message.
     async fn get_mithril_stake_distribution_list_message(
         &self,
         limit: usize,
@@ -67,7 +80,7 @@ pub trait MessageService: Sync + Send {
         signed_entity_id: &str,
     ) -> StdResult<Option<CardanoTransactionSnapshotMessage>>;
 
-    /// Return the list of the last Cardano transactions set message
+    /// Return the list of the last Cardano transactions set message.
     async fn get_cardano_transaction_list_message(
         &self,
         limit: usize,
@@ -85,7 +98,7 @@ pub trait MessageService: Sync + Send {
         epoch: Epoch,
     ) -> StdResult<Option<CardanoStakeDistributionMessage>>;
 
-    /// Return the list of the last Cardano stake distributions message
+    /// Return the list of the last Cardano stake distributions message.
     async fn get_cardano_stake_distribution_list_message(
         &self,
         limit: usize,
@@ -145,6 +158,31 @@ impl MessageService for MithrilMessageService {
 
     async fn get_snapshot_list_message(&self, limit: usize) -> StdResult<SnapshotListMessage> {
         let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoImmutableFilesFull;
+        let entities = self
+            .signed_entity_storer
+            .get_last_signed_entities_by_type(&signed_entity_type_id, limit)
+            .await?;
+
+        entities.into_iter().map(|i| i.try_into()).collect()
+    }
+
+    async fn get_cardano_database_message(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<CardanoDatabaseSnapshotMessage>> {
+        let signed_entity = self
+            .signed_entity_storer
+            .get_signed_entity(signed_entity_id)
+            .await?;
+
+        signed_entity.map(|v| v.try_into()).transpose()
+    }
+
+    async fn get_cardano_database_list_message(
+        &self,
+        limit: usize,
+    ) -> StdResult<CardanoDatabaseSnapshotListMessage> {
+        let signed_entity_type_id = SignedEntityTypeDiscriminants::CardanoDatabase;
         let entities = self
             .signed_entity_storer
             .get_last_signed_entities_by_type(&signed_entity_type_id, limit)
@@ -405,6 +443,67 @@ mod tests {
                 .await;
 
             let response = service.get_snapshot_list_message(3).await.unwrap();
+
+            assert_eq!(message, response);
+        }
+    }
+
+    mod cardano_database {
+        use super::*;
+
+        #[tokio::test]
+        async fn get_cardano_database_not_exist() {
+            let service = MessageServiceBuilder::new().build().await;
+            let snapshot = service.get_snapshot_message("whatever").await.unwrap();
+
+            assert!(snapshot.is_none());
+        }
+
+        #[tokio::test]
+        async fn get_cardano_database() {
+            let record = SignedEntityRecord {
+                signed_entity_id: "signed_entity_id".to_string(),
+                signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
+                certificate_id: "cert_id".to_string(),
+                artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                    .unwrap(),
+                created_at: Default::default(),
+            };
+            let message: CardanoDatabaseSnapshotMessage = record.clone().try_into().unwrap();
+
+            let service = MessageServiceBuilder::new()
+                .with_signed_entity_records(&[record.clone()])
+                .build()
+                .await;
+
+            let response = service
+                .get_cardano_database_message(&record.signed_entity_id)
+                .await
+                .unwrap()
+                .expect("A CardanoDatabaseSnapshotMessage was expected.");
+
+            assert_eq!(message, response);
+        }
+
+        #[tokio::test]
+        async fn get_cardano_database_list_message() {
+            let record = SignedEntityRecord {
+                signed_entity_id: "signed_entity_id".to_string(),
+                signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
+                certificate_id: "cert_id".to_string(),
+                artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                    .unwrap(),
+                created_at: Default::default(),
+            };
+            let message: CardanoDatabaseSnapshotListMessage =
+                vec![record.clone().try_into().unwrap()];
+
+            let service = MessageServiceBuilder::new()
+                .with_signed_entity_records(&[record])
+                .build()
+                .await;
+
+            let response = service.get_cardano_database_list_message(3).await.unwrap();
 
             assert_eq!(message, response);
         }
