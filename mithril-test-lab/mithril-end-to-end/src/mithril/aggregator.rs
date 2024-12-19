@@ -61,7 +61,6 @@ impl Aggregator {
             ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
-            ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             (
