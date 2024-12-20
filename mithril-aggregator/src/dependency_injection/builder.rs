@@ -1556,7 +1556,7 @@ impl DependenciesBuilder {
                     .clone(),
                 snapshot_directory: self.configuration.get_snapshot_dir()?,
                 cardano_node_version: self.configuration.cardano_node_version.clone(),
-                allow_http_serve_directory: self.configuration.allow_http_serve_directory,
+                allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
             },
         );
 

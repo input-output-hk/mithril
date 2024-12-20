@@ -186,9 +186,6 @@ pub struct Configuration {
 
     /// Time interval at which usage metrics are persisted in event database (in seconds).
     pub persist_usage_report_interval_in_seconds: u64,
-
-    /// If set to true, the HTTP server can serve static directories.
-    pub allow_http_serve_directory: bool,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -273,7 +270,6 @@ impl Configuration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             persist_usage_report_interval_in_seconds: 10,
-            allow_http_serve_directory: false,
         }
     }
 
@@ -335,6 +331,15 @@ impl Configuration {
             );
 
         Ok(allowed_discriminants)
+    }
+
+    /// Check if the HTTP server can serve static directories.
+    // TODO: This function should be completed when the configuration of the uploaders for the Cardano database is done.
+    pub fn allow_http_serve_directory(&self) -> bool {
+        match self.snapshot_uploader_type {
+            SnapshotUploaderType::Local => true,
+            SnapshotUploaderType::Gcp => false,
+        }
     }
 }
 
@@ -415,9 +420,6 @@ pub struct DefaultConfiguration {
 
     /// Time interval at which metrics are persisted in event database (in seconds).
     pub persist_usage_report_interval_in_seconds: u64,
-
-    /// If set to true, the HTTP server can serve static directories.
-    pub allow_http_serve_directory: bool,
 }
 
 impl Default for DefaultConfiguration {
@@ -450,7 +452,6 @@ impl Default for DefaultConfiguration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             persist_usage_report_interval_in_seconds: 10,
-            allow_http_serve_directory: false,
         }
     }
 }
@@ -538,7 +539,6 @@ impl Source for DefaultConfiguration {
                 ),
             ])),
         );
-        insert_default_configuration!(result, myself.allow_http_serve_directory);
         Ok(result)
     }
 }
@@ -607,5 +607,22 @@ mod test {
                 .unwrap(),
             BTreeSet::from(SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS)
         );
+    }
+
+    #[test]
+    fn allow_http_serve_directory() {
+        let config = Configuration {
+            snapshot_uploader_type: SnapshotUploaderType::Local,
+            ..Configuration::new_sample()
+        };
+
+        assert!(config.allow_http_serve_directory());
+
+        let config = Configuration {
+            snapshot_uploader_type: SnapshotUploaderType::Gcp,
+            ..Configuration::new_sample()
+        };
+
+        assert!(!config.allow_http_serve_directory());
     }
 }

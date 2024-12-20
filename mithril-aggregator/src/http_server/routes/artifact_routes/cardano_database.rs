@@ -103,6 +103,7 @@ mod handlers {
     }
 
     /// Download a file if it's a Cardano_database artifact file
+    // TODO: this function should probable be unit tested once the file naming convention is defined
     pub async fn ensure_downloaded_file_is_a_cardano_database_artifact(
         reply: warp::fs::File,
         logger: Logger,
