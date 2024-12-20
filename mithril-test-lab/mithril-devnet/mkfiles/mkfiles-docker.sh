@@ -125,7 +125,6 @@ cat >> docker-compose.yaml <<EOF
       - PROTOCOL_PARAMETERS__M=100
       - PROTOCOL_PARAMETERS__PHI_F=0.65
       - RUN_INTERVAL=1000
-      - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=local
       - SNAPSHOT_COMPRESSION_ALGORITHM=zstandard
@@ -163,7 +162,6 @@ cat >> docker-compose.yaml <<EOF
       - PROTOCOL_PARAMETERS__M=100
       - PROTOCOL_PARAMETERS__PHI_F=0.65
       - RUN_INTERVAL=1000
-      - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=local
       - DATA_STORES_DIRECTORY=/data/mithril/aggregator/stores

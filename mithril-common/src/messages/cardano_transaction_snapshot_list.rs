@@ -63,7 +63,7 @@ mod tests {
         }]
     }
 
-    // Test the retro compatibility with possible future upgrades.
+    // Test the backward compatibility with possible future upgrades.
     #[test]
     fn test_v1() {
         let json = r#"[{

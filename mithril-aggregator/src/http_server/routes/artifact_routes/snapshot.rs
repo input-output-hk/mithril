@@ -61,6 +61,9 @@ fn serve_snapshots_dir(
         ))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::with_signed_entity_service(router_state))
+        .and(middlewares::extract_config(router_state, |config| {
+            config.allow_http_serve_directory
+        }))
         .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
 }
 
@@ -155,6 +158,7 @@ mod handlers {
         reply: warp::fs::File,
         logger: Logger,
         signed_entity_service: Arc<dyn SignedEntityService>,
+        allow_http_serve_directory: bool,
     ) -> Result<impl warp::Reply, Infallible> {
         let filepath = reply.path().to_path_buf();
         debug!(
@@ -163,19 +167,17 @@ mod handlers {
             filepath.display()
         );
 
+        if !allow_http_serve_directory {
+            warn!(logger, "ensure_downloaded_file_is_a_snapshot::error"; "error" => "http serve directory is disabled");
+            return Ok(reply::empty(StatusCode::FORBIDDEN));
+        }
+
         match crate::tools::extract_digest_from_path(&filepath) {
             Ok(digest) => match signed_entity_service
                 .get_signed_snapshot_by_id(&digest)
                 .await
             {
-                Ok(Some(_)) => Ok(Box::new(warp::reply::with_header(
-                    reply,
-                    "Content-Disposition",
-                    format!(
-                        "attachment; filename=\"{}\"",
-                        filepath.file_name().unwrap().to_str().unwrap()
-                    ),
-                )) as Box<dyn warp::Reply>),
+                Ok(Some(_)) => Ok(reply::add_content_disposition_header(reply, &filepath)),
                 _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
             },
             Err(err) => {

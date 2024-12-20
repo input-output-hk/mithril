@@ -3,11 +3,13 @@ use serde::{Deserialize, Serialize};
 
 use mithril_common::crypto_helper::ProtocolParameters;
 use mithril_common::entities::{
-    BlockNumber, Epoch, SignedEntity, SignedEntityType, Snapshot, StakeDistribution,
+    BlockNumber, CardanoDatabaseSnapshot, Epoch, SignedEntity, SignedEntityType, Snapshot,
+    StakeDistribution,
 };
 #[cfg(test)]
 use mithril_common::entities::{CardanoStakeDistribution, MithrilStakeDistribution};
 use mithril_common::messages::{
+    CardanoDatabaseSnapshotListItemMessage, CardanoDatabaseSnapshotMessage,
     CardanoStakeDistributionListItemMessage, CardanoStakeDistributionMessage,
     CardanoTransactionSnapshotListItemMessage, CardanoTransactionSnapshotMessage,
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
@@ -166,6 +168,45 @@ impl TryFrom<SignedEntityRecord> for SnapshotMessage {
         };
 
         Ok(snapshot_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for CardanoDatabaseSnapshotMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        let artifact = serde_json::from_str::<CardanoDatabaseSnapshot>(&value.artifact)?;
+        let cardano_database_snapshot_message = CardanoDatabaseSnapshotMessage {
+            merkle_root: artifact.merkle_root,
+            beacon: artifact.beacon,
+            certificate_hash: value.certificate_id,
+            total_db_size_uncompressed: artifact.total_db_size_uncompressed,
+            created_at: value.created_at,
+            locations: artifact.locations.into(),
+            compression_algorithm: artifact.compression_algorithm,
+            cardano_node_version: artifact.cardano_node_version,
+        };
+
+        Ok(cardano_database_snapshot_message)
+    }
+}
+
+impl TryFrom<SignedEntityRecord> for CardanoDatabaseSnapshotListItemMessage {
+    type Error = StdError;
+
+    fn try_from(value: SignedEntityRecord) -> Result<Self, Self::Error> {
+        let artifact = serde_json::from_str::<CardanoDatabaseSnapshot>(&value.artifact)?;
+        let cardano_database_snapshot_list_item_message = CardanoDatabaseSnapshotListItemMessage {
+            merkle_root: artifact.merkle_root,
+            beacon: artifact.beacon,
+            certificate_hash: value.certificate_id,
+            total_db_size_uncompressed: artifact.total_db_size_uncompressed,
+            created_at: value.created_at,
+            compression_algorithm: artifact.compression_algorithm,
+            cardano_node_version: artifact.cardano_node_version,
+        };
+
+        Ok(cardano_database_snapshot_list_item_message)
     }
 }
 

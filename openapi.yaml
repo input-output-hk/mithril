@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.38
+  version: 0.1.39
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -271,6 +271,59 @@ paths:
           description: API version mismatch
         default:
           description: snapshot retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artifact/cardano-database:
+    get:
+      summary: Get most recent Cardano database snapshots
+      description: |
+        Returns the list of the most recent Cardano database snapshots
+      responses:
+        "200":
+          description: Cardano database snapshots found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoDatabaseSnapshotListMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano database snapshots retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artifact/cardano-database/{merkle_root}:
+    get:
+      summary: Get Cardano database snapshot information
+      description: |
+        Returns the information of a Cardano database snapshot and where to retrieve its binary contents
+      parameters:
+        - name: merkle_root
+          in: path
+          description: Merkle root of the Cardano database snapshot
+          required: true
+          schema:
+            type: string
+            format: bytes
+            examples: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
+      responses:
+        "200":
+          description: Cardano database snapshot found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoDatabaseSnapshotMessage"
+        "404":
+          description: Cardano database snapshot not found
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano database snapshot retrieval error
           content:
             application/json:
               schema:
@@ -1784,6 +1837,215 @@ components:
             ],
           "compression_algorithm": "zstandard",
           "cardano_node_version": "1.0.0"
+        }
+
+    CardanoDatabaseArtifactsLocationsMessagePart:
+      description: CardanoDatabaseArtifactsLocationsMessagePart represents the locations of the Cardano database artifacts
+      type: object
+      properties:
+        digests:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
+        immutables:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
+        ancillary:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
+      examples:
+        [
+          {
+            "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+            "beacon":
+              {
+                "network": "preview",
+                "epoch": 123,
+                "immutable_file_number": 2345
+              },
+            "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
+            "total_db_size_uncompressed": 800796318,
+            "compression_algorithm": "gzip",
+            "cardano_node_version": "0.0.1",
+            "created_at": "2023-01-19T13:43:05.618857482Z"
+          }
+        ]
+
+    CardanoDatabaseArtifactLocationMessagePart:
+      description: CardanoDatabaseArtifactLocationMessagePart represents the location of a single Cardano database artifact
+      type: object
+      required:
+        - type
+        - uri
+      properties:
+        type:
+          description: Type of the artifact location
+          type: string
+        uri:
+          description: URI of the artifact location
+          type: string
+      examples:
+        {
+          "type": "cloud_storage",
+          "uri": "https://mithril-cdn-us.iohk.io/snapshot/digests-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.txt"
+        }
+
+    CardanoDatabaseSnapshotListMessage:
+      description: CardanoDatabaseSnapshotListMessage represents a list of Cardano database snapshots
+      type: array
+      items:
+        $ref: "#/components/schemas/CardanoDatabaseSnapshotListItemMessage"
+      examples:
+        [
+          {
+            "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+            "beacon":
+              {
+                "network": "preview",
+                "epoch": 123,
+                "immutable_file_number": 2345
+              },
+            "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
+            "total_db_size_uncompressed": 800796318,
+            "compression_algorithm": "gzip",
+            "cardano_node_version": "0.0.1",
+            "created_at": "2023-01-19T13:43:05.618857482Z"
+          }
+        ]
+
+    CardanoDatabaseSnapshotListItemMessage:
+      description: CardanoDatabaseSnapshotListItemMessage represents a list item of Cardano database snapshots
+      type: object
+      additionalProperties: false
+      required:
+        - merkle_root
+        - beacon
+        - certificate_hash
+        - total_db_size_uncompressed
+        - created_at
+      properties:
+        merkle_root:
+          description: Merkle root of the Cardano database snapshot
+          type: string
+          format: bytes
+        beacon:
+          $ref: "#/components/schemas/CardanoDbBeacon"
+        certificate_hash:
+          description: Hash of the associated certificate
+          type: string
+          format: bytes
+        total_db_size_uncompressed:
+          description: Size of the uncompressed Cardano database files in Bytes
+          type: integer
+          format: int64
+        created_at:
+          description: Date and time at which the snapshot was created
+          type: string
+          format: date-time
+        compression_algorithm:
+          description: Compression algorithm of the Cardano database artifacts
+          type: string
+        cardano_node_version:
+          description: Version of the Cardano node which is used to create snapshot archives.
+          type: string
+      examples:
+        {
+          "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+          "beacon":
+            {
+              "network": "preview",
+              "epoch": 123,
+              "immutable_file_number": 2345
+            },
+          "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
+          "total_db_size_uncompressed": 800796318,
+          "compression_algorithm": "zstandard",
+          "cardano_node_version": "0.0.1",
+          "created_at": "2023-01-19T13:43:05.618857482Z"
+        }
+
+    CardanoDatabaseSnapshotMessage:
+      description: CardanoDatabaseSnapshot represents a Cardano database snapshot and its metadata
+      type: object
+      additionalProperties: false
+      required:
+        - merkle_root
+        - beacon
+        - certificate_hash
+        - total_db_size_uncompressed
+        - created_at
+        - locations
+      properties:
+        merkle_root:
+          description: Merkle root of the Cardano database snapshot
+          type: string
+          format: bytes
+        beacon:
+          $ref: "#/components/schemas/CardanoDbBeacon"
+        certificate_hash:
+          description: Hash of the associated certificate
+          type: string
+          format: bytes
+        total_db_size_uncompressed:
+          description: Size of the uncompressed Cardano database files in Bytes
+          type: integer
+          format: int64
+        created_at:
+          description: Date and time at which the snapshot was created
+          type: string
+          format: date-time
+        locations:
+          $ref: "#/components/schemas/CardanoDatabaseArtifactsLocationsMessagePart"
+        compression_algorithm:
+          description: Compression algorithm of the Cardano database artifacts
+          type: string
+        cardano_node_version:
+          description: Version of the Cardano node which is used to create snapshot archives.
+          type: string
+      examples:
+        {
+          "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+          "beacon":
+            {
+              "network": "preview",
+              "epoch": 123,
+              "immutable_file_number": 2345
+            },
+          "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
+          "total_db_size_uncompressed": 800796318,
+          "locations":
+            {
+              "digests":
+                [
+                  {
+                    "type": "cloud_storage",
+                    "uri": "https://mithril-cdn-us.iohk.io/snapshot/digests-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.txt"
+                  }
+                ],
+              "immutables":
+                [
+                  {
+                    "type": "cloud_storage",
+                    "uri": "https://mithril-cdn-us.iohk.io/snapshot/immutables-{immutable-file_number}.tar.zst"
+                  },
+                  {
+                    "type": "cloud_storage",
+                    "uri": "https://mithril-cdn-eu.iohk.io/snapshot/immutables-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732-{immutable-file_number}.tar.zst"
+                  }
+                ],
+              "ancillary":
+                [
+                  {
+                    "type": "cloud_storage",
+                    "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                  }
+                ]
+            },
+          "compression_algorithm": "zstandard",
+          "cardano_node_version": "0.0.1",
+          "created_at": "2023-01-19T13:43:05.618857482Z"
         }
 
     MithrilStakeDistributionListMessage:

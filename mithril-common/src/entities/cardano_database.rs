@@ -93,8 +93,8 @@ pub enum AncillaryLocation {
 /// Locations of the Cardano database related files.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ArtifactsLocations {
-    /// Locations of the immutable file digests.
-    pub digest: Vec<DigestLocation>,
+    /// Locations of the immutable files digests.
+    pub digests: Vec<DigestLocation>,
 
     /// Locations of the immutable files.
     pub immutables: Vec<ImmutablesLocation>,

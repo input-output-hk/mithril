@@ -125,7 +125,7 @@ mod tests {
         }
     }"#;
 
-    // Test the retro compatibility with possible future upgrades.
+    // Test the backward compatibility with possible future upgrades.
     #[test]
     fn test_actual_json_deserialized_into_previous_message() {
         let json = ACTUAL_JSON;

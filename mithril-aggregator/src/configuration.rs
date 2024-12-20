@@ -332,6 +332,15 @@ impl Configuration {
 
         Ok(allowed_discriminants)
     }
+
+    /// Check if the HTTP server can serve static directories.
+    // TODO: This function should be completed when the configuration of the uploaders for the Cardano database is done.
+    pub fn allow_http_serve_directory(&self) -> bool {
+        match self.snapshot_uploader_type {
+            SnapshotUploaderType::Local => true,
+            SnapshotUploaderType::Gcp => false,
+        }
+    }
 }
 
 /// Default configuration with all the default values for configurations.
@@ -598,5 +607,22 @@ mod test {
                 .unwrap(),
             BTreeSet::from(SignedEntityConfig::DEFAULT_ALLOWED_DISCRIMINANTS)
         );
+    }
+
+    #[test]
+    fn allow_http_serve_directory() {
+        let config = Configuration {
+            snapshot_uploader_type: SnapshotUploaderType::Local,
+            ..Configuration::new_sample()
+        };
+
+        assert!(config.allow_http_serve_directory());
+
+        let config = Configuration {
+            snapshot_uploader_type: SnapshotUploaderType::Gcp,
+            ..Configuration::new_sample()
+        };
+
+        assert!(!config.allow_http_serve_directory());
     }
 }
