@@ -57,7 +57,23 @@ impl CardanoDatabaseSnapshotListItemMessage {
 mod tests {
     use super::*;
 
-    fn golden_message() -> CardanoDatabaseSnapshotListMessage {
+    const ACTUAL_JSON: &str = r#"
+    [
+        {
+            "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+            "beacon": {
+                "epoch": 123,
+                "immutable_file_number": 2345
+            },
+            "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
+            "total_db_size_uncompressed": 800796318,
+            "compression_algorithm": "gzip",
+            "cardano_node_version": "0.0.1",
+            "created_at": "2023-01-19T13:43:05.618857482Z"
+        }
+    ]"#;
+
+    fn golden_actual_message() -> CardanoDatabaseSnapshotListMessage {
         vec![CardanoDatabaseSnapshotListItemMessage {
             merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
                 .to_string(),
@@ -78,25 +94,12 @@ mod tests {
 
     // Test the backward compatibility with possible future upgrades.
     #[test]
-    fn test_v1() {
-        let json = r#"[
-            {
-                "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
-                "beacon": {
-                    "epoch": 123,
-                    "immutable_file_number": 2345
-                },
-                "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
-                "total_db_size_uncompressed": 800796318,
-                "compression_algorithm": "gzip",
-                "cardano_node_version": "0.0.1",
-                "created_at": "2023-01-19T13:43:05.618857482Z"
-            }
-        ]"#;
+    fn test_actual_json_deserialized_into_actual_message() {
+        let json = ACTUAL_JSON;
         let message: CardanoDatabaseSnapshotListMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a CardanoDatabaseSnapshotListMessage instance.",
         );
 
-        assert_eq!(golden_message(), message);
+        assert_eq!(golden_actual_message(), message);
     }
 }
