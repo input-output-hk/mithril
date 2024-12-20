@@ -373,17 +373,15 @@ impl SignedEntityService for MithrilSignedEntityService {
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<Snapshot>>> {
-        let signed_entities_records = self
+        let signed_entities = self
             .get_last_signed_entities(
                 total,
                 &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
             )
-            .await?;
-        let mut signed_entities: Vec<SignedEntity<Snapshot>> = Vec::new();
-
-        for record in signed_entities_records {
-            signed_entities.push(record.try_into()?);
-        }
+            .await?
+            .into_iter()
+            .map(|record| record.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(signed_entities)
     }
@@ -412,14 +410,12 @@ impl SignedEntityService for MithrilSignedEntityService {
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<CardanoDatabaseSnapshot>>> {
-        let signed_entities_records = self
+        let signed_entities = self
             .get_last_signed_entities(total, &SignedEntityTypeDiscriminants::CardanoDatabase)
-            .await?;
-        let mut signed_entities: Vec<SignedEntity<CardanoDatabaseSnapshot>> = Vec::new();
-
-        for record in signed_entities_records {
-            signed_entities.push(record.try_into()?);
-        }
+            .await?
+            .into_iter()
+            .map(|record| record.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(signed_entities)
     }
@@ -448,17 +444,15 @@ impl SignedEntityService for MithrilSignedEntityService {
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>> {
-        let signed_entities_records = self
+        let signed_entities = self
             .get_last_signed_entities(
                 total,
                 &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
             )
-            .await?;
-        let mut signed_entities: Vec<SignedEntity<MithrilStakeDistribution>> = Vec::new();
-
-        for record in signed_entities_records {
-            signed_entities.push(record.try_into()?);
-        }
+            .await?
+            .into_iter()
+            .map(|record| record.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(signed_entities)
     }
@@ -500,17 +494,15 @@ impl SignedEntityService for MithrilSignedEntityService {
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<CardanoStakeDistribution>>> {
-        let signed_entities_records = self
+        let signed_entities = self
             .get_last_signed_entities(
                 total,
                 &SignedEntityTypeDiscriminants::CardanoStakeDistribution,
             )
-            .await?;
-        let mut signed_entities: Vec<SignedEntity<CardanoStakeDistribution>> = Vec::new();
-
-        for record in signed_entities_records {
-            signed_entities.push(record.try_into()?);
-        }
+            .await?
+            .into_iter()
+            .map(|record| record.try_into())
+            .collect::<Result<Vec<_>, _>>()?;
 
         Ok(signed_entities)
     }
