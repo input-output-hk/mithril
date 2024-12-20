@@ -428,22 +428,36 @@ mod tests {
 
         #[tokio::test]
         async fn get_snapshot_list_message() {
-            let record = SignedEntityRecord {
-                signed_entity_id: "signed_entity_id".to_string(),
-                signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
-                certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::snapshots(1)[0]).unwrap(),
-                created_at: Default::default(),
-            };
-            let message: SnapshotListMessage = vec![record.clone().try_into().unwrap()];
+            let records = vec![
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-1".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                        fake_data::beacon(),
+                    ),
+                    certificate_id: "cert_id-1".to_string(),
+                    artifact: serde_json::to_string(&fake_data::snapshots(1)[0]).unwrap(),
+                    created_at: Default::default(),
+                },
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-2".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
+                    certificate_id: "cert_id-2".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+            ];
+            let message: SnapshotListMessage = vec![records[0].clone().try_into().unwrap()];
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record])
+                .with_signed_entity_records(&records)
                 .build()
                 .await;
 
-            let response = service.get_snapshot_list_message(3).await.unwrap();
+            let response = service.get_snapshot_list_message(0).await.unwrap();
+            assert!(response.is_empty());
 
+            let response = service.get_snapshot_list_message(3).await.unwrap();
             assert_eq!(message, response);
         }
     }
@@ -490,24 +504,37 @@ mod tests {
 
         #[tokio::test]
         async fn get_cardano_database_list_message() {
-            let record = SignedEntityRecord {
-                signed_entity_id: "signed_entity_id".to_string(),
-                signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
-                certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
-                    .unwrap(),
-                created_at: Default::default(),
-            };
+            let records = vec![
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-1".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
+                    certificate_id: "cert_id-1".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-2".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                        fake_data::beacon(),
+                    ),
+                    certificate_id: "cert_id-2".to_string(),
+                    artifact: serde_json::to_string(&fake_data::snapshots(1)[0]).unwrap(),
+                    created_at: Default::default(),
+                },
+            ];
             let message: CardanoDatabaseSnapshotListMessage =
-                vec![record.clone().try_into().unwrap()];
+                vec![records[0].clone().try_into().unwrap()];
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record])
+                .with_signed_entity_records(&records)
                 .build()
                 .await;
 
-            let response = service.get_cardano_database_list_message(3).await.unwrap();
+            let response = service.get_cardano_database_list_message(0).await.unwrap();
+            assert!(response.is_empty());
 
+            let response = service.get_cardano_database_list_message(3).await.unwrap();
             assert_eq!(message, response);
         }
     }
@@ -555,27 +582,42 @@ mod tests {
 
         #[tokio::test]
         async fn get_mithril_stake_distribution_list_message() {
-            let record = SignedEntityRecord {
-                signed_entity_id: "signed_entity_id".to_string(),
-                signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(18)),
-                certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::mithril_stake_distributions(1)[0])
-                    .unwrap(),
-                created_at: Default::default(),
-            };
+            let records = vec![
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-1".to_string(),
+                    signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(18)),
+                    certificate_id: "cert_id-1".to_string(),
+                    artifact: serde_json::to_string(&fake_data::mithril_stake_distributions(1)[0])
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-2".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
+                    certificate_id: "cert_id-2".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+            ];
             let message: MithrilStakeDistributionListMessage =
-                vec![record.clone().try_into().unwrap()];
+                vec![records[0].clone().try_into().unwrap()];
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record])
+                .with_signed_entity_records(&records)
                 .build()
                 .await;
 
             let response = service
-                .get_mithril_stake_distribution_list_message(10)
+                .get_mithril_stake_distribution_list_message(0)
                 .await
                 .unwrap();
+            assert!(response.is_empty());
 
+            let response = service
+                .get_mithril_stake_distribution_list_message(3)
+                .await
+                .unwrap();
             assert_eq!(message, response);
         }
     }
@@ -626,30 +668,47 @@ mod tests {
 
         #[tokio::test]
         async fn get_cardano_transaction_list_message() {
-            let record = SignedEntityRecord {
-                signed_entity_id: "signed_entity_id".to_string(),
-                signed_entity_type: SignedEntityType::CardanoTransactions(
-                    Epoch(18),
-                    BlockNumber(120),
-                ),
-                certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_transactions_snapshot(1)[0])
+            let records = vec![
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-1".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoTransactions(
+                        Epoch(18),
+                        BlockNumber(120),
+                    ),
+                    certificate_id: "cert_id-1".to_string(),
+                    artifact: serde_json::to_string(
+                        &fake_data::cardano_transactions_snapshot(1)[0],
+                    )
                     .unwrap(),
-                created_at: Default::default(),
-            };
+                    created_at: Default::default(),
+                },
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-2".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
+                    certificate_id: "cert_id-2".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+            ];
             let message: CardanoTransactionSnapshotListMessage =
-                vec![record.clone().try_into().unwrap()];
+                vec![records[0].clone().try_into().unwrap()];
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record])
+                .with_signed_entity_records(&records)
                 .build()
                 .await;
 
             let response = service
-                .get_cardano_transaction_list_message(10)
+                .get_cardano_transaction_list_message(0)
                 .await
                 .unwrap();
+            assert!(response.is_empty());
 
+            let response = service
+                .get_cardano_transaction_list_message(3)
+                .await
+                .unwrap();
             assert_eq!(message, response);
         }
     }
@@ -737,27 +796,42 @@ mod tests {
 
         #[tokio::test]
         async fn get_cardano_stake_distribution_list_message() {
-            let record = SignedEntityRecord {
-                signed_entity_id: "signed_entity_id".to_string(),
-                signed_entity_type: SignedEntityType::CardanoStakeDistribution(Epoch(18)),
-                certificate_id: "cert_id".to_string(),
-                artifact: serde_json::to_string(&fake_data::cardano_stake_distributions(1)[0])
-                    .unwrap(),
-                created_at: Default::default(),
-            };
+            let records = vec![
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-1".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoStakeDistribution(Epoch(18)),
+                    certificate_id: "cert_id-1".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_stake_distributions(1)[0])
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+                SignedEntityRecord {
+                    signed_entity_id: "signed_entity_id-2".to_string(),
+                    signed_entity_type: SignedEntityType::CardanoDatabase(fake_data::beacon()),
+                    certificate_id: "cert_id-2".to_string(),
+                    artifact: serde_json::to_string(&fake_data::cardano_database_snapshots(1)[0])
+                        .unwrap(),
+                    created_at: Default::default(),
+                },
+            ];
             let message: CardanoStakeDistributionListMessage =
-                vec![record.clone().try_into().unwrap()];
+                vec![records[0].clone().try_into().unwrap()];
 
             let service = MessageServiceBuilder::new()
-                .with_signed_entity_records(&[record])
+                .with_signed_entity_records(&records)
                 .build()
                 .await;
 
             let response = service
-                .get_cardano_stake_distribution_list_message(10)
+                .get_cardano_stake_distribution_list_message(0)
                 .await
                 .unwrap();
+            assert!(response.is_empty());
 
+            let response = service
+                .get_cardano_stake_distribution_list_message(3)
+                .await
+                .unwrap();
             assert_eq!(message, response);
         }
     }
