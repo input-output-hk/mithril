@@ -452,9 +452,12 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn get_cardano_database_not_exist() {
+        async fn get_cardano_database_when_record_does_not_exist() {
             let service = MessageServiceBuilder::new().build().await;
-            let snapshot = service.get_snapshot_message("whatever").await.unwrap();
+            let snapshot = service
+                .get_cardano_database_message("whatever")
+                .await
+                .unwrap();
 
             assert!(snapshot.is_none());
         }

@@ -4,10 +4,10 @@ use serde::{Deserialize, Serialize};
 use crate::entities::{CompressionAlgorithm, Epoch};
 use crate::messages::CardanoDbBeaconMessagePart;
 
-/// Message structure of a snapshot list
+/// Message structure of a Cardano database snapshot list
 pub type CardanoDatabaseSnapshotListMessage = Vec<CardanoDatabaseSnapshotListItemMessage>;
 
-/// Message structure of a snapshot list item
+/// Message structure of a Cardano database snapshot list item
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoDatabaseSnapshotListItemMessage {
     /// Merkle root of the Cardano database snapshot

@@ -39,7 +39,7 @@ fn serve_cardano_database_dir(
     warp::path("cardano_database_download")
         .and(warp::fs::dir(
             router_state.configuration.snapshot_directory.clone(),
-        ))
+        )) //TODO: the directory opened here should be narrowed to the final directory where the artifacts are stored
         .and(middlewares::with_logger(router_state))
         .and(middlewares::extract_config(router_state, |config| {
             config.allow_http_serve_directory
@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cardano_database_digest_get_ko() {
+    async fn test_cardano_database_detail_get_ko() {
         let mut mock_http_message_service = MockMessageService::new();
         mock_http_message_service
             .expect_get_cardano_database_message()

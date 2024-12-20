@@ -2028,7 +2028,7 @@ components:
                 [
                   {
                     "type": "cloud_storage",
-                    "uri": "https://mithril-cdn-us.iohk.io/snapshot/immutables-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732-{immutable-file_number}.tar.zst"
+                    "uri": "https://mithril-cdn-us.iohk.io/snapshot/immutables-{immutable-file_number}.tar.zst"
                   },
                   {
                     "type": "cloud_storage",

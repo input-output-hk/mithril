@@ -168,7 +168,7 @@ mod handlers {
         );
 
         if !allow_http_serve_directory {
-            warn!(logger, "ensure_downloaded_file_is_a_cardano_database::error"; "error" => "http serve directory is disabled");
+            warn!(logger, "ensure_downloaded_file_is_a_snapshot::error"; "error" => "http serve directory is disabled");
             return Ok(reply::empty(StatusCode::FORBIDDEN));
         }
 
