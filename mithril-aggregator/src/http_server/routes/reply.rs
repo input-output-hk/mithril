@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use serde::Serialize;
 use warp::http::StatusCode;
 
@@ -55,6 +57,20 @@ pub fn internal_server_error<T: Into<ServerError>>(message: T) -> Box<dyn warp::
 
 pub fn service_unavailable<T: Into<ServerError>>(message: T) -> Box<dyn warp::Reply> {
     json(&message.into(), StatusCode::SERVICE_UNAVAILABLE)
+}
+
+pub fn add_content_disposition_header(
+    reply: warp::fs::File,
+    filepath: &Path,
+) -> Box<dyn warp::Reply> {
+    Box::new(warp::reply::with_header(
+        reply,
+        "Content-Disposition",
+        format!(
+            "attachment; filename=\"{}\"",
+            filepath.file_name().unwrap().to_str().unwrap()
+        ),
+    ))
 }
 
 #[cfg(test)]

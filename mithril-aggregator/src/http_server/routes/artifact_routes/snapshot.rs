@@ -177,14 +177,7 @@ mod handlers {
                 .get_signed_snapshot_by_id(&digest)
                 .await
             {
-                Ok(Some(_)) => Ok(Box::new(warp::reply::with_header(
-                    reply,
-                    "Content-Disposition",
-                    format!(
-                        "attachment; filename=\"{}\"",
-                        filepath.file_name().unwrap().to_str().unwrap()
-                    ),
-                )) as Box<dyn warp::Reply>),
+                Ok(Some(_)) => Ok(reply::add_content_disposition_header(reply, &filepath)),
                 _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
             },
             Err(err) => {

@@ -124,14 +124,7 @@ mod handlers {
         let file_is_a_cardano_database_archive = filepath.to_string_lossy().contains("ancillary")
             || filepath.to_string_lossy().contains("immutable");
         match file_is_a_cardano_database_archive {
-            true => Ok(Box::new(warp::reply::with_header(
-                reply,
-                "Content-Disposition",
-                format!(
-                    "attachment; filename=\"{}\"",
-                    filepath.file_name().unwrap().to_str().unwrap()
-                ),
-            )) as Box<dyn warp::Reply>),
+            true => Ok(reply::add_content_disposition_header(reply, &filepath)),
             false => {
                 warn!(logger,"ensure_downloaded_file_is_a_cardano_database::error"; "error" => "file is not a Cardano database archive");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
