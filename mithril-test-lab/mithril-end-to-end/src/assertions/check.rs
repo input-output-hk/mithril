@@ -24,11 +24,14 @@ pub async fn assert_node_producing_mithril_stake_distribution(
     let url = format!("{aggregator_endpoint}/artifact/mithril-stake-distributions");
     info!("Waiting for the aggregator to produce a mithril stake distribution");
 
-    // todo: reduce the number of attempts if we can reduce the delay between two immutables
-    match attempt!(45, Duration::from_millis(2000), {
+    async fn fetch_last_mithril_stake_distribution_hash(url: String) -> StdResult<Option<String>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<MithrilStakeDistributionListMessage>().await.as_deref() {
+                StatusCode::OK => match response
+                    .json::<MithrilStakeDistributionListMessage>()
+                    .await
+                    .as_deref()
+                {
                     Ok([stake_distribution, ..]) => Ok(Some(stake_distribution.hash.clone())),
                     Ok(&[]) => Ok(None),
                     Err(err) => Err(anyhow!("Invalid mithril stake distribution body : {err}",)),
@@ -37,6 +40,11 @@ pub async fn assert_node_producing_mithril_stake_distribution(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    // todo: reduce the number of attempts if we can reduce the delay between two immutables
+    match attempt!(45, Duration::from_millis(2000), {
+        fetch_last_mithril_stake_distribution_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
             info!("Aggregator produced a mithril stake distribution"; "hash" => &hash);
@@ -61,7 +69,10 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
         expected_epoch_min
     );
 
-    match attempt!(10, Duration::from_millis(1000), {
+    async fn fetch_mithril_stake_distribution_message(
+        url: String,
+        expected_epoch_min: Epoch,
+    ) -> StdResult<Option<MithrilStakeDistributionMessage>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<MithrilStakeDistributionMessage>().await {
@@ -78,6 +89,10 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    match attempt!(10, Duration::from_millis(1000), {
+        fetch_mithril_stake_distribution_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(stake_distribution) => {
             // todo: assert that the mithril stake distribution is really signed
@@ -95,8 +110,7 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdRes
     let url = format!("{aggregator_endpoint}/artifact/snapshots");
     info!("Waiting for the aggregator to produce a snapshot");
 
-    // todo: reduce the number of attempts if we can reduce the delay between two immutables
-    match attempt!(45, Duration::from_millis(2000), {
+    async fn fetch_last_snapshot_digest(url: String) -> StdResult<Option<String>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<SnapshotMessage>>().await.as_deref() {
@@ -108,6 +122,11 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdRes
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    // todo: reduce the number of attempts if we can reduce the delay between two immutables
+    match attempt!(45, Duration::from_millis(2000), {
+        fetch_last_snapshot_digest(url.clone()).await
     }) {
         AttemptResult::Ok(digest) => {
             info!("Aggregator produced a snapshot"; "digest" => &digest);
@@ -132,7 +151,10 @@ pub async fn assert_signer_is_signing_snapshot(
         expected_epoch_min
     );
 
-    match attempt!(10, Duration::from_millis(1000), {
+    async fn fetch_snapshot_message(
+        url: String,
+        expected_epoch_min: Epoch,
+    ) -> StdResult<Option<SnapshotMessage>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<SnapshotMessage>().await {
@@ -149,6 +171,10 @@ pub async fn assert_signer_is_signing_snapshot(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    match attempt!(10, Duration::from_millis(1000), {
+        fetch_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(snapshot) => {
             // todo: assert that the snapshot is really signed
@@ -168,8 +194,9 @@ pub async fn assert_node_producing_cardano_database_snapshot(
     let url = format!("{aggregator_endpoint}/artifact/cardano-database");
     info!("Waiting for the aggregator to produce a Cardano database snapshot");
 
-    // todo: reduce the number of attempts if we can reduce the delay between two immutables
-    match attempt!(45, Duration::from_millis(2000), {
+    async fn fetch_last_cardano_database_snapshot_merkle_root(
+        url: String,
+    ) -> StdResult<Option<String>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response
@@ -187,6 +214,11 @@ pub async fn assert_node_producing_cardano_database_snapshot(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    // todo: reduce the number of attempts if we can reduce the delay between two immutables
+    match attempt!(45, Duration::from_millis(2000), {
+        fetch_last_cardano_database_snapshot_merkle_root(url.clone()).await
     }) {
         AttemptResult::Ok(merkle_root) => {
             info!("Aggregator produced a Cardano database snapshot"; "merkle_root" => &merkle_root);
@@ -211,7 +243,10 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
         expected_epoch_min
     );
 
-    match attempt!(10, Duration::from_millis(1000), {
+    async fn fetch_cardano_database_snapshot_message(
+        url: String,
+        expected_epoch_min: Epoch,
+    ) -> StdResult<Option<CardanoDatabaseSnapshotMessage>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CardanoDatabaseSnapshotMessage>().await {
@@ -228,6 +263,10 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    match attempt!(10, Duration::from_millis(1000), {
+        fetch_cardano_database_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(snapshot) => {
             info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
@@ -246,7 +285,9 @@ pub async fn assert_node_producing_cardano_transactions(
     let url = format!("{aggregator_endpoint}/artifact/cardano-transactions");
     info!("Waiting for the aggregator to produce a Cardano transactions artifact");
 
-    match attempt!(45, Duration::from_millis(2000), {
+    async fn fetch_last_cardano_transaction_snapshot_hash(
+        url: String,
+    ) -> StdResult<Option<String>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response
@@ -264,6 +305,10 @@ pub async fn assert_node_producing_cardano_transactions(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    match attempt!(45, Duration::from_millis(2000), {
+        fetch_last_cardano_transaction_snapshot_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
             info!("Aggregator produced a Cardano transactions artifact"; "hash" => &hash);
@@ -288,7 +333,10 @@ pub async fn assert_signer_is_signing_cardano_transactions(
         expected_epoch_min
     );
 
-    match attempt!(10, Duration::from_millis(1000), {
+    async fn fetch_cardano_transaction_snapshot_message(
+        url: String,
+        expected_epoch_min: Epoch,
+    ) -> StdResult<Option<CardanoTransactionSnapshotMessage>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CardanoTransactionSnapshotMessage>().await {
@@ -305,6 +353,10 @@ pub async fn assert_signer_is_signing_cardano_transactions(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    match attempt!(10, Duration::from_millis(1000), {
+        fetch_cardano_transaction_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(artifact) => {
             info!("Signer signed a Cardano transactions artifact"; "certificate_hash" => &artifact.certificate_hash);
@@ -323,11 +375,20 @@ pub async fn assert_node_producing_cardano_stake_distribution(
     let url = format!("{aggregator_endpoint}/artifact/cardano-stake-distributions");
     info!("Waiting for the aggregator to produce a Cardano stake distribution");
 
-    match attempt!(45, Duration::from_millis(2000), {
+    async fn fetch_last_cardano_stake_distribution_message(
+        url: String,
+    ) -> StdResult<Option<(String, Epoch)>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<CardanoStakeDistributionListMessage>().await.as_deref() {
-                    Ok([stake_distribution, ..]) => Ok(Some((stake_distribution.hash.clone(), stake_distribution.epoch))),
+                StatusCode::OK => match response
+                    .json::<CardanoStakeDistributionListMessage>()
+                    .await
+                    .as_deref()
+                {
+                    Ok([stake_distribution, ..]) => Ok(Some((
+                        stake_distribution.hash.clone(),
+                        stake_distribution.epoch,
+                    ))),
                     Ok(&[]) => Ok(None),
                     Err(err) => Err(anyhow!("Invalid Cardano stake distribution body : {err}",)),
                 },
@@ -335,6 +396,10 @@ pub async fn assert_node_producing_cardano_stake_distribution(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    match attempt!(45, Duration::from_millis(2000), {
+        fetch_last_cardano_stake_distribution_message(url.clone()).await
     }) {
         AttemptResult::Ok((hash, epoch)) => {
             info!("Aggregator produced a Cardano stake distribution"; "hash" => &hash, "epoch" => #?epoch);
@@ -359,7 +424,10 @@ pub async fn assert_signer_is_signing_cardano_stake_distribution(
         expected_epoch_min
     );
 
-    match attempt!(10, Duration::from_millis(1000), {
+    async fn fetch_cardano_stake_distribution_message(
+        url: String,
+        expected_epoch_min: Epoch,
+    ) -> StdResult<Option<CardanoStakeDistributionMessage>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CardanoStakeDistributionMessage>().await {
@@ -376,6 +444,10 @@ pub async fn assert_signer_is_signing_cardano_stake_distribution(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    match attempt!(10, Duration::from_millis(1000), {
+        fetch_cardano_stake_distribution_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(cardano_stake_distribution) => {
             info!("Signer signed a Cardano stake distribution"; "certificate_hash" => &cardano_stake_distribution.certificate_hash);
@@ -395,7 +467,7 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
 ) -> StdResult<()> {
     let url = format!("{aggregator_endpoint}/certificate/{certificate_hash}");
 
-    match attempt!(10, Duration::from_millis(1000), {
+    async fn fetch_certificate_message(url: String) -> StdResult<Option<CertificateMessage>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CertificateMessage>().await {
@@ -407,6 +479,10 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
             },
             Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
         }
+    }
+
+    match attempt!(10, Duration::from_millis(1000), {
+        fetch_certificate_message(url.clone()).await
     }) {
         AttemptResult::Ok(certificate) => {
             info!("Aggregator produced a certificate"; "certificate" => ?certificate);
