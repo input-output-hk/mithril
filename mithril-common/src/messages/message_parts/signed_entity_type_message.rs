@@ -80,12 +80,6 @@ impl From<CardanoDbBeaconMessagePart> for CardanoDbBeacon {
     }
 }
 
-impl From<CardanoDbBeacon> for CardanoDbBeaconMessagePart {
-    fn from(beacon: CardanoDbBeacon) -> Self {
-        CardanoDbBeaconMessagePart::new_without_network(beacon.epoch, beacon.immutable_file_number)
-    }
-}
-
 impl<N: Into<String>> From<(CardanoDbBeacon, N)> for CardanoDbBeaconMessagePart {
     fn from((beacon, network): (CardanoDbBeacon, N)) -> Self {
         CardanoDbBeaconMessagePart::new(network.into(), beacon.epoch, beacon.immutable_file_number)

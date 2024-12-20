@@ -178,7 +178,7 @@ impl TryFrom<SignedEntityRecord> for CardanoDatabaseSnapshotMessage {
         let artifact = serde_json::from_str::<CardanoDatabaseSnapshot>(&value.artifact)?;
         let cardano_database_snapshot_message = CardanoDatabaseSnapshotMessage {
             merkle_root: artifact.merkle_root,
-            beacon: artifact.beacon.into(),
+            beacon: artifact.beacon,
             certificate_hash: value.certificate_id,
             total_db_size_uncompressed: artifact.total_db_size_uncompressed,
             created_at: value.created_at,
@@ -198,7 +198,7 @@ impl TryFrom<SignedEntityRecord> for CardanoDatabaseSnapshotListItemMessage {
         let artifact = serde_json::from_str::<CardanoDatabaseSnapshot>(&value.artifact)?;
         let cardano_database_snapshot_list_item_message = CardanoDatabaseSnapshotListItemMessage {
             merkle_root: artifact.merkle_root,
-            beacon: artifact.beacon.into(),
+            beacon: artifact.beacon,
             certificate_hash: value.certificate_id,
             total_db_size_uncompressed: artifact.total_db_size_uncompressed,
             created_at: value.created_at,

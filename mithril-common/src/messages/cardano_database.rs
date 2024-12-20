@@ -1,12 +1,9 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    entities::{
-        AncillaryLocation, ArtifactsLocations, CompressionAlgorithm, DigestLocation, Epoch,
-        ImmutablesLocation,
-    },
-    messages::CardanoDbBeaconMessagePart,
+use crate::entities::{
+    AncillaryLocation, ArtifactsLocations, CardanoDbBeacon, CompressionAlgorithm, DigestLocation,
+    Epoch, ImmutablesLocation,
 };
 
 /// Locations of the Cardano database related files.
@@ -37,7 +34,7 @@ pub struct CardanoDatabaseSnapshotMessage {
     pub merkle_root: String,
 
     /// Mithril beacon on the Cardano chain.
-    pub beacon: CardanoDbBeaconMessagePart,
+    pub beacon: CardanoDbBeacon,
 
     /// Hash of the associated certificate
     pub certificate_hash: String,
@@ -64,8 +61,7 @@ impl CardanoDatabaseSnapshotMessage {
         Self {
             merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
                 .to_string(),
-            beacon: CardanoDbBeaconMessagePart {
-                network: Some("preview".to_string()),
+            beacon: CardanoDbBeacon {
                 epoch: Epoch(123),
                 immutable_file_number: 2345,
             },
@@ -105,8 +101,7 @@ mod tests {
         CardanoDatabaseSnapshotMessage {
             merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
                 .to_string(),
-            beacon: CardanoDbBeaconMessagePart {
-                network: Some("preview".to_string()),
+            beacon: CardanoDbBeacon {
                 epoch: Epoch(123),
                 immutable_file_number: 2345,
             },
@@ -143,7 +138,6 @@ mod tests {
         let json = r#"{
             "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
             "beacon": {
-                "network": "preview",
                 "epoch": 123,
                 "immutable_file_number": 2345
             },
