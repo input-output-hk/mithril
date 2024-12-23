@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -15,7 +14,7 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::{FileUploader, LocalUploader, Snapshotter};
+use crate::{snapshotter::OngoingSnapshot, FileUploader, LocalUploader, Snapshotter};
 
 /// The [AncillaryFileUploader] trait allows identifying uploaders that return locations for ancillary archive files.
 #[cfg_attr(test, mockall::automock)]
@@ -59,6 +58,16 @@ impl AncillaryArtifactBuilder {
         }
     }
 
+    pub async fn upload(&self, immutable_file_number: u64) -> StdResult<Vec<AncillaryLocation>> {
+        let snapshot = self.create_ancillary_archive(immutable_file_number)?;
+
+        let locations = self
+            .upload_ancillary_archive(snapshot.get_file_path())
+            .await?;
+
+        Ok(locations)
+    }
+
     /// Returns the list of files and directories to include in the snapshot.
     /// The immutable file number is incremented by 1 to include the not yet finalized immutable file.
     fn get_files_and_directories_to_snapshot(immutable_file_number: u64) -> Vec<PathBuf> {
@@ -80,7 +89,7 @@ impl AncillaryArtifactBuilder {
     fn create_ancillary_archive(
         &self,
         immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<PathBuf> {
+    ) -> StdResult<OngoingSnapshot> {
         debug!(
             self.logger,
             "Creating ancillary archive for immutable file number: {}", immutable_file_number
@@ -109,15 +118,17 @@ impl AncillaryArtifactBuilder {
             snapshot.get_file_path()
         );
 
-        Ok(snapshot.get_file_path().to_path_buf())
+        Ok(snapshot)
     }
 
     /// Uploads the ancillary archive and returns the locations of the uploaded files.
-    pub async fn upload_archive(&self, db_directory: &Path) -> StdResult<Vec<AncillaryLocation>> {
+    async fn upload_ancillary_archive(
+        &self,
+        archive_filepath: &Path,
+    ) -> StdResult<Vec<AncillaryLocation>> {
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
-            // TODO: Temporary preparation work, `db_directory` is used as the ancillary archive path for now.
-            let location = uploader.upload(db_directory).await?;
+            let location = uploader.upload(archive_filepath).await?;
             locations.push(location);
         }
 
@@ -145,7 +156,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn upload_archive_should_return_empty_locations_with_no_uploader() {
+    async fn upload_ancillary_archive_should_return_empty_locations_with_no_uploader() {
         let builder = AncillaryArtifactBuilder::new(
             vec![],
             Arc::new(DumbSnapshotter::new()),
@@ -153,13 +164,16 @@ mod tests {
             TestLogger::stdout(),
         );
 
-        let locations = builder.upload_archive(Path::new("whatever")).await.unwrap();
+        let locations = builder
+            .upload_ancillary_archive(Path::new("whatever"))
+            .await
+            .unwrap();
 
         assert!(locations.is_empty());
     }
 
     #[tokio::test]
-    async fn upload_archive_should_return_all_uploaders_returned_locations() {
+    async fn upload_ancillary_archive_should_return_all_uploaders_returned_locations() {
         let mut first_uploader = MockAncillaryFileUploader::new();
         first_uploader
             .expect_upload()
@@ -193,7 +207,7 @@ mod tests {
         );
 
         let locations = builder
-            .upload_archive(Path::new("archive_path"))
+            .upload_ancillary_archive(Path::new("archive_path"))
             .await
             .unwrap();
 
@@ -238,10 +252,10 @@ mod tests {
             TestLogger::stdout(),
         );
 
-        let archive_file_path = builder.create_ancillary_archive(1).unwrap();
+        let snapshot = builder.create_ancillary_archive(1).unwrap();
 
         let mut archive = {
-            let file_tar_gz = File::open(archive_file_path).unwrap();
+            let file_tar_gz = File::open(snapshot.get_file_path()).unwrap();
             let file_tar_gz_decoder = GzDecoder::new(file_tar_gz);
             Archive::new(file_tar_gz_decoder)
         };
@@ -272,5 +286,33 @@ mod tests {
         assert_eq!(4, volatile_nb);
 
         assert!(!dst.join("whatever").exists());
+    }
+
+    #[tokio::test]
+    async fn upload_should_return_error_and_not_upload_when_archive_creation_fails() {
+        let snapshotter = {
+            CompressedArchiveSnapshotter::new(
+                PathBuf::from("directory_not_existing"),
+                PathBuf::from("whatever"),
+                SnapshotterCompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
+            )
+            .unwrap()
+        };
+
+        let mut uploader = MockAncillaryFileUploader::new();
+        uploader.expect_upload().never();
+
+        let builder = AncillaryArtifactBuilder::new(
+            vec![Arc::new(uploader)],
+            Arc::new(snapshotter),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        );
+
+        builder
+            .upload(1)
+            .await
+            .expect_err("Should return an error when archive creation fails");
     }
 }
