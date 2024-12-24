@@ -61,10 +61,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             })?;
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
-        let ancillary_locations = self
-            .ancillary_builder
-            .upload(beacon.immutable_file_number)
-            .await?;
+        let ancillary_locations = self.ancillary_builder.upload(&beacon).await?;
 
         let locations = ArtifactsLocations {
             ancillary: ancillary_locations,
@@ -118,6 +115,7 @@ mod tests {
         digesters::DummyCardanoDbBuilder,
         entities::{AncillaryLocation, ProtocolMessage, ProtocolMessagePartKey},
         test_utils::{fake_data, TempDir},
+        CardanoNetwork,
     };
 
     use crate::{
@@ -183,6 +181,7 @@ mod tests {
             Arc::new(AncillaryArtifactBuilder::new(
                 vec![Arc::new(ancillary_uploader)],
                 Arc::new(DumbSnapshotter::new()),
+                CardanoNetwork::DevNet(123),
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )),

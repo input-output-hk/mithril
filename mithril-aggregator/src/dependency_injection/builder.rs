@@ -1207,6 +1207,7 @@ impl DependenciesBuilder {
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
             vec![Arc::new(local_uploader)],
             snapshotter,
+            self.configuration.get_network()?,
             self.configuration.snapshot_compression_algorithm,
             logger.clone(),
         ));

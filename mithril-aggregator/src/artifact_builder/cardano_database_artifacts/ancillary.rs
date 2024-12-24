@@ -9,9 +9,9 @@ use slog::{debug, Logger};
 
 use mithril_common::{
     digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
-    entities::{AncillaryLocation, CompressionAlgorithm, ImmutableFileNumber},
+    entities::{AncillaryLocation, CardanoDbBeacon, CompressionAlgorithm},
     logging::LoggerExtensions,
-    StdResult,
+    CardanoNetwork, StdResult,
 };
 
 use crate::{snapshotter::OngoingSnapshot, FileUploader, LocalUploader, Snapshotter};
@@ -38,6 +38,7 @@ impl AncillaryFileUploader for LocalUploader {
 pub struct AncillaryArtifactBuilder {
     uploaders: Vec<Arc<dyn AncillaryFileUploader>>,
     snapshotter: Arc<dyn Snapshotter>,
+    cardano_network: CardanoNetwork,
     compression_algorithm: CompressionAlgorithm,
     logger: Logger,
 }
@@ -47,19 +48,21 @@ impl AncillaryArtifactBuilder {
     pub fn new(
         uploaders: Vec<Arc<dyn AncillaryFileUploader>>,
         snapshotter: Arc<dyn Snapshotter>,
+        cardano_network: CardanoNetwork,
         compression_algorithm: CompressionAlgorithm,
         logger: Logger,
     ) -> Self {
         Self {
             uploaders,
             logger: logger.new_with_component_name::<Self>(),
+            cardano_network,
             compression_algorithm,
             snapshotter,
         }
     }
 
-    pub async fn upload(&self, immutable_file_number: u64) -> StdResult<Vec<AncillaryLocation>> {
-        let snapshot = self.create_ancillary_archive(immutable_file_number)?;
+    pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<AncillaryLocation>> {
+        let snapshot = self.create_ancillary_archive(beacon)?;
 
         let locations = self
             .upload_ancillary_archive(snapshot.get_file_path())
@@ -86,19 +89,21 @@ impl AncillaryArtifactBuilder {
     }
 
     /// Creates an archive for the Cardano database ancillary files for the given immutable file number.
-    fn create_ancillary_archive(
-        &self,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<OngoingSnapshot> {
+    fn create_ancillary_archive(&self, beacon: &CardanoDbBeacon) -> StdResult<OngoingSnapshot> {
         debug!(
             self.logger,
-            "Creating ancillary archive for immutable file number: {}", immutable_file_number
+            "Creating ancillary archive for immutable file number: {}",
+            beacon.immutable_file_number
         );
 
-        let paths_to_include = Self::get_files_and_directories_to_snapshot(immutable_file_number);
+        let paths_to_include =
+            Self::get_files_and_directories_to_snapshot(beacon.immutable_file_number);
 
         let archive_name = format!(
-            "ancillary.{}",
+            "{}-e{}-i{}.ancillary.{}",
+            self.cardano_network,
+            *beacon.epoch,
+            beacon.immutable_file_number,
             self.compression_algorithm.tar_file_extension()
         );
 
@@ -108,7 +113,7 @@ impl AncillaryArtifactBuilder {
             .with_context(|| {
                 format!(
                     "Failed to create snapshot for immutable file number: {}",
-                    immutable_file_number
+                    beacon.immutable_file_number
                 )
             })?;
 
@@ -160,6 +165,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![],
             Arc::new(DumbSnapshotter::new()),
+            CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         );
@@ -202,6 +208,7 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             uploaders,
             Arc::new(DumbSnapshotter::new()),
+            CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         );
@@ -248,11 +255,14 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![],
             Arc::new(snapshotter),
+            CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         );
 
-        let snapshot = builder.create_ancillary_archive(1).unwrap();
+        let snapshot = builder
+            .create_ancillary_archive(&CardanoDbBeacon::new(99, 1))
+            .unwrap();
 
         let mut archive = {
             let file_tar_gz = File::open(snapshot.get_file_path()).unwrap();
@@ -306,12 +316,13 @@ mod tests {
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
             Arc::new(snapshotter),
+            CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         );
 
         builder
-            .upload(1)
+            .upload(&CardanoDbBeacon::new(99, 1))
             .await
             .expect_err("Should return an error when archive creation fails");
     }
