@@ -7,46 +7,36 @@ sidebar_label: Threat model analysis
 
 :::danger
 
-This document is a draft version of the **Mithril threat model** prepared by the **Mithril core team**:
+This is a draft version of the **Mithril threat model**, prepared by the **Mithril core team**. It is open for external feedback and contributions before being finalized.
 
-- We expect to receive **external feedback and contributions** before we can consider it **final**.
-- Feel free to **contribute** to this document by using the **Edit this page** link a the bottom of the page.
-- If you think there is a security vulnerability in Mithril, please disclose it responsibly by following the [Security Vulnerability Disclosure Policy](https://github.com/input-output-hk/mithril/blob/main/SECURITY.md).
+- To contribute, use the **Edit this page** link at the bottom of the page.
+- If you discover a security vulnerability, report it responsibly by following the [security vulnerability disclosure policy](https://github.com/input-output-hk/mithril/blob/main/SECURITY.md).
 
 :::
 
-This document provides an analysis of the various security threats and possible mitigations that could affect the Mithril network and its participants.
-
-This is an adversarial mindset document and aims to analyse the system from an attacker's perspective.
-
-The threat model is a living document and is kept up-to-date with the [latest Mithril version](https://github.com/input-output-hk/mithril/releases/latest)
+This document provides an analysis of various security threats and possible mitigations affecting the Mithril network and its participants. It adopts an adversarial mindset, analyzing the system from an attacker's perspective.
+ 
+The threat model is a living document, updated to reflect the [latest Mithril version](https://github.com/input-output-hk/mithril/releases/latest).
 
 ## System analysis
 
 ### System description
 
 :::info To do
-
-- Maybe reduce and move details into [architecture page](https://mithril.network/doc/mithril/mithril-network/architecture)?
-- Also we should update the [protocol page](https://mithril.network/doc/mithril/mithril-protocol/protocol)
-
+- Consider reducing these details and moving them into the [architecture page](https://mithril.network/doc/mithril/mithril-network/architecture).
+- Also consider updating the [protocol page](https://mithril.network/doc/mithril/mithril-protocol/protocol).
 :::
 
-System consists of three main components: signers, aggregator and clients.
+The system consists of three main components: signers, an aggregators, and clients.
 
-Mithril signers do certify Cardano chain data using a Mithril signing key. That means, Mithril signers need access to a trusted `cardano-node` and the Mithril signing key to operate.
-
-Mithril signing keys are rotated every epoch and need to be certified by the Cardano KES key. For this, the Mithril signers need access to the KES key in order to register the signing key for this epoch.
-
-Cardano KES keys are also used by block producing `cardano-node` and are typically located on the block producing machine.
-
-Cardano KES keys need to be [evolved every 36 hours](https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/stake-pool-operations/7_KES_period.md), while they can be rotated from a root key when needed.
+- **Mithril signers** certify Cardano chain data by using a Mithril signing key. They must have access to both a trusted `cardano-node` and the Mithril signing key to operate.
+- **Mithril signing keys** are rotated every epoch and require certification by the Cardano KES key. Therefore, the Mithril signers must have access to the KES key to register a signing key for each epoch.
+- **Cardano KES keys** are also used by the block-producing `cardano-node` and are typically located on the same machine that produces blocks. These keys must be evolved every 36 hours, although they can be rotated from a root key when needed. For more details, see [KES period documentation](https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/stake-pool-operations/7_KES_period.md).
 
 :::info To do
-
-Is there a Cardano threat model about this?
-
+Is there a Cardano threat model available for this?
 :::
+
 
 All Mithril signers and Mithril clients connect to a single aggregator using HTTP over TLS.
 
@@ -70,18 +60,19 @@ Missing: the currently recommended relay (reverse proxy)
 
 #### Deployment architecture
 
-This document is specifically targeting the standard deployment architecture where a Mithril signer runs next to the block producing node, while access to the Mithril aggregator is only done through a relay.
+This document focuses on the standard deployment architecture, where a Mithril signer runs alongside the block-producing node, and the aggregator is accessed only through a relay.
 
 [![Mithril - Architecture](mithril-network/images/architecture.svg)](mithril-network/images/architecture.svg)
 
-More information are available at:
+Additional information is available in:
 
-- [Mithril Network Architecture](https://mithril.network/doc/mithril/mithril-network/architecture)
-- [Run a Mithril signer as an SPO](https://mithril.network/doc/manual/getting-started/run-signer-node)
+- [Mithril Network Architecture](https://mithril.network/doc/mithril/mithril-network/architecture)  
+- [Run a Mithril signer as a stake pool operator (SPO)](https://mithril.network/doc/manual/getting-started/run-signer-node)
+
 
 ### External Dependencies
 
-Listing dependencies for mithril-signer
+Below is an example of listing dependencies for the `mithril-signer` component:
 
 ```
 % cargo-deps-list -e normal -p mithril-signer
@@ -105,193 +96,200 @@ Total dependencies: 267
 
 ## Assumptions
 
-The core Mithril protocol is considered safe and its analysis is out of scope for this document, it is computationally infeasible to:
+The core Mithril protocol is considered safe, and its analysis is out of scope for this document. It is computationally infeasible to:
 
-- Forge a valid aggregate signature from forged signing keys
-- Forge individual signatures impersonating one of the signers
+- Forge a valid aggregate signature from forged signing keys  
+- Forge individual signatures to impersonate a legitimate signer  
 
-More information about the core Mithril protocol and its security are available in the [research paper](https://iohk.io/en/research/library/papers/mithril-stake-based-threshold-multisignatures/).
+More information about the core Mithril protocol and its security is available in the [research paper](https://iohk.io/en/research/library/papers/mithril-stake-based-threshold-multisignatures/).
 
 ## Assets
 
-For each asset we first identify what protection is required: Availability, Confidentiality, Integrity ie. the [CIA Triad](https://www.splunk.com/en_us/blog/learn/cia-triad-confidentiality-integrity-availability.html). An asset may be a resource, piece of data (e.g. keys) or a process that may be affected.
-
-We then identify threats and countermeasures
+For each asset, we first identify which part of the **CIA Triad** (Confidentiality, Integrity, Availability) it requires. An asset may be a resource, a piece of data (for example, keys), or a process that may be affected. We then identify threats and possible countermeasures.
 
 #### KES private keys
 
-- KES key is present only on BP Node but needs to be shared with both the cardano-node process and the mithril-signer process
-- KES keys are needed by mithril-signer in order to sign verification key along with an operational certificate which authenticates the key from this stake pool id
-- This signing happens at every epoch
-  - **confidentiality**: Yes (Capturing KES private keys allows an attacker to impersonate a registered SPO on-chain and produce blocks on his behalf until they are rotated)
-  - **integrity**: Yes (Rotating a compromised KES key is a time-consuming process which can take place even if the associated KES period has not passed completely. See https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/stake-pool-operations/7_KES_period.md)
-  - **availability**: Yes (If KES key is unavailable then signing cannot proceeed)
+- The KES key is present only on the block-producing (BP) node but needs to be shared with both the `cardano-node` process and the `mithril-signer` process.  
+- KES keys are needed by `mithril-signer` to sign a verification key along with an operational certificate that authenticates the key for this stake pool ID.  
+- This signing happens at every epoch.
+
+  - **Confidentiality**: Yes  
+    Capturing KES private keys allows an attacker to impersonate a registered SPO on-chain and produce blocks on its behalf until the keys are rotated.
+
+  - **Integrity**: Yes  
+    Rotating a compromised KES key is a time-consuming process that can be carried out even if the associated KES period has not fully passed. See [KES period docs](https://github.com/input-output-hk/cardano-node-wiki/blob/main/docs/stake-pool-operations/7_KES_period.md).
+
+  - **Availability**: Yes  
+    If the KES key is unavailable, signing cannot proceed.
+
 
 #### Block diffusion
 
-Block diffusion process ensures the timely diffusion of blocks, both those produced "locally" and those received from upstream peers
+Block diffusion ensures the timely propagation of blocks that are produced locally or received from upstream peers.
 
-- **confidentiality**: No (block diffusion happens in the open)
-- **integrity**: Yes (partially? not sure what integrity means here)
-- **availability**: Yes (Not being to diffuse blocks harms a BP's SPO economic viability, and can also harm their ability to create new blocks)
+- **Confidentiality**: No (block diffusion happens openly on the network)  
+- **Integrity**: Yes (partially—if data is corrupted in transit, it can affect network consistency)  
+- **Availability**: Yes (failure to diffuse blocks harms a block producer’s economic viability and can disrupt the network)
+
 
 #### Block production
 
-Block production is the process of "minting" new blocks by block producers, driven by Stake-based random lottery.
+Block production is the process of minting new blocks by block producers, using a stake-based random lottery. The `mithril-signer` must run on the same host as a block producer, as it requires access to the KES signing key.
 
-The mithril-signer necessarily runs on the same host as a BP because it needs access to the KES signing key
+- **Confidentiality**: Yes?  
+  A block producer’s schedule is private information; if leaked, adversaries might carry out **grinding attacks** to manipulate the nonce to the producer’s disadvantage.
 
-- **confidentiality**: Yes? (BP schedule is private information for the BP, leaking it could provide adversaries advance knowledge of schedules and lead to **grinding attacks** to attempt to manipulate nonce in the disfavour of a BP ??)
-- **integrity**: Yes (incorrect or invalid data can hamper BP capabilities)
-- **availability**: Yes (BP is critical for SPOs revenue, and preventing a BP from producing blocks can harm SPOs capabilities to operate)
+- **Integrity**: Yes  
+  Incorrect or invalid data can hamper block production.
+
+- **Availability**: Yes  
+  Block production is critical for SPO revenue; preventing a producer from creating blocks can harm the SPO’s operational capabilities.
 
 #### Cardano Chain database
 
-A cardano-node maintains an on-disk database consisting of the chain's history. This database is updated by the node when new blocks are diffused through the network, or minted, and also contains a cache of the ledger state.
+A `cardano-node` maintains an on-disk database containing the chain’s history. This database is updated by the node when new blocks are diffused across the network or minted, and it contains a cache of the ledger state.
 
-Mithril signer needs access to _trusted_ and _up-to-date_ Chain database in order to be able to sign snapshots.
+The `mithril-signer` needs access to a *trusted* and *current* chain database in order to sign snapshots.
 
-- **confidentiality**: No (Data is public and replicated)
-- **integrity**: Yes
-- **availability**: Yes
+- **Confidentiality**: No (block data is publicly replicated)  
+- **Integrity**: Yes  
+- **Availability**: Yes
 
 #### Cardano Ledger state
 
-Access to an accurate ledger state is needed by Mithril signer to retrieve reliable _Stake distribution_. This access is currently done through a local connection (direct w/ Pallas or indirect with cardano-cli) to a trusted cardano-node. The ledger state / stake distribution is also used by the cardano-node to determine leader schedules and hence corruption here has an impact on the block production process.
+Access to an accurate ledger state is needed by the `mithril-signer` to retrieve a reliable *stake distribution*. This currently involves a local connection (direct with Pallas or indirect with `cardano-cli`) to a trusted `cardano-node`. The ledger state and stake distribution are also used by the node to determine leader schedules, meaning any corruption here affects block production.
 
-- **confidentiality**: No
-- **integrity**: Yes (same, inaccurate SD will make key registration and signing process invalid)
-- **availability**: Yes (without SD, signer cannot register keys nor validly use other signers' keys)
+- **Confidentiality**: No
+- **Integrity**: Yes (same, inaccurate SD will make key registration and signing process invalid)
+- **Availability**: Yes (without SD, signer cannot register keys nor validly use other signers' keys)
 
 #### Mithril signing keys
 
-SPOs generate their Mithril signing keys every epoch to be able to sign snapshots. An attacker could impersonate the SPO and sign invalid snapshots if they got hold of those signing keys. Signing keys are currently stored temporarily on-disk as they are used `2` epochs after their creation and deleted `2` epochs after they have been used.
-Their storage is not currently encrypted (Should probably be?)
+SPOs generate their Mithril signing keys for each epoch to sign snapshots. If attackers obtain these keys, they can impersonate the SPO and produce invalid snapshots. Currently, the signing keys are stored temporarily on disk; they are used for two epochs after creation and are deleted two epochs later. Additionally, these keys are not encrypted.
 
-- **confidentiality**: Yes (access to a signer's key will allow an attacker to impersonate a signer for the duration of the epoch)
-- **integrity**: Yes (invalid key is useless obviously)
-- **availability**: Yes (Signer needs Key at every signing round, unavailability will lead to inability to sign)
+- **Confidentiality**: Yes (compromise allows an attacker to impersonate the signer)  
+- **Integrity**: Yes (an invalid key is useless)  
+- **Availability**: Yes (the signer needs the key at every signing round; unavailability prevents signing)
 
 #### Mithril signers registration
 
-Mithril signer needs to register new verification key every epoch with aggregator (and ultimately other signers).
+A `mithril-signer` must register a new verification key each epoch with the aggregator (and ultimately other signers).
 
-- **confidentiality**: No (only verification keys and proofs of possession, which are both public, are used in the signer registration)
-- **integrity**: Yes (partial? key registration process is transient and limited in time, but must be complete for a specific epoch)
-- **availability**: Yes (need access to aggregator to register key)
+- **Confidentiality**: No (only public verification keys and proofs of possession are exchanged)  
+- **Integrity**: Yes (the key registration must be correct and timely for a given epoch)  
+- **Availability**: Yes (the signer needs aggregator access to register its key)
 
 #### Mithril signatures diffusion
 
-Mithril signers produces signatures every time a new message needs to be signed (e.g. when a new immutable file is created in the Chain DB). Those signatures are generated from a random lottery based on the signer's stake and the protocol parameters.
-Preventing Mithril signers from signing decreases the number of signatures and could allow attacker to take control of the produced snapshot
+Mithril signers produce signatures for new immutable files or other relevant data in the chain database. These signatures are derived from a random lottery based on the signer’s stake and protocol parameters.  
+Preventing signers from submitting signatures reduces the overall number of signatures, which could allow an attacker a greater influence over snapshot production.
 
-- **confidentiality**: No
-- **integrity**: No (signatures are considered tamper-proof)
-- **availability**: Yes
+- **Confidentiality**: No  
+- **Integrity**: No (signatures are effectively tamper-proof)  
+- **Availability**: Yes
 
 #### Mithril protocol parameters
 
-Protocol parameters are needed to coordinate the production of valid multi-signatures. They are served by the aggregator
+Protocol parameters coordinate valid multi-signature production and are served by the aggregator.
 
-- **confidentiality**: No (they actually need to be public)
-- **integrity**: Yes (tampering protocol parameters can lead a signer to produce invalid signatures)
-- **availability**: Yes
+- **Confidentiality**: No (these parameters must be public)  
+- **Integrity**: Yes (tampering with them could lead to invalid signatures)  
+- **Availability**: Yes
 
 #### Mithril genesis signing key
 
-The corresponding signing key is stored in IOG's VaultWarden, and used only once, when the genesis certificate is generated.
+The genesis signing key is stored in IOG’s VaultWarden and used only once to generate the genesis certificate.
 
-- **confidentiality**: Yes
-- **integrity**: Yes (?)
-- **availability**: No (? The key is not needed unless a re-genesis process is required, but then a new key could be used instead?)
+- **Confidentiality**: Yes  
+- **Integrity**: Yes (?)  
+- **Availability**: No (not needed unless a re-genesis process is required; a new key could be used in that case)
 
 #### Era configuration files
 
-The [Mithril Network Upgrade Strategy](https://mithril.network/doc/adr/4) ADR explains how Mithril eras are used to activate a feature on all the nodes of the network at a specific epoch boundary.
+The [Mithril Network Upgrade Strategy](https://mithril.network/doc/adr/4) describes how Mithril eras activate features on all nodes at specific epoch boundaries.
 
-The era reader Era address is used by signers to extract information about the current Mithril Era which defines the structure of snapshots and therefore signatures.
-It is stored in [GitHub](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr) and only modifiable through an approved merged PR
+An era address is used by signers to identify the current Mithril Era, which defines the structure of snapshots and signatures. It is stored in [GitHub](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.addr) and only modifiable via a merged PR.
 
-- **confidentiality**: No (they actually need to be public)
-- **integrity**: Yes (tampering the files could lead to Mithril network not being able to create multi-signatures)
-- **availability**: Yes
+- **Confidentiality**: No (these are public files)  
+- **Integrity**: Yes (tampering could disrupt multi-signature generation)  
+- **Availability**: Yes
 
 #### Era activation
 
-The current and next (if any) eras are announced on-chain with an era activation marker (see ADR https://mithril.network/doc/adr/4#era-activation-marker).
+The current and next (if any) eras are announced on-chain with an era activation marker. (See [ADR](https://mithril.network/doc/adr/4#era-activation-marker).)
 
-- **confidentiality**: No (they actually need to be public)
-- **integrity**: Yes (tampering the era markers could lead to Mithril network not being able to create multi-signatures)
-- **availability**: Yes (era markers are currently stored on-chain)
+- **Confidentiality**: No (public)  
+- **Integrity**: Yes (tampering the marker could break multi-signature generation)  
+- **Availability**: Yes (the marker is on-chain)
 
 #### Era verification key
 
-Era verification key is stored in [GitHub](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey) and only modifiable through an approved merged PR.
+The era verification key is in [GitHub](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-mainnet/era.vkey) and only modifiable through a merged PR.
 
-- **confidentiality**: No
-- **integrity**: No (integrity is inherent to the protocol)
-- **availability**: Yes (it's needed to verify a whole chain of certificate)
+- **Confidentiality**: No  
+- **Integrity**: No (the protocol enforces integrity checks)  
+- **Availability**: Yes (needed to verify the certificate chain)
 
 #### Era signing key
 
-The corresponding signing key is stored in IOG's VaultWarden, and used only when a new era is announced or activated.
+This key is stored in IOG’s VaultWarden and used only when a new era is announced or activated.
 
-- **confidentiality**: Yes
-- **integrity**: Yes (?)
-- **availability**: No
+- **Confidentiality**: Yes  
+- **Integrity**: Yes (?)  
+- **Availability**: No 
 
 ### Client-side only assets
 
-These are the assets that are relevant only when downloading and verifying certificates and artifacts (aka snapshots).
+These assets matter only when downloading and verifying certificates and artifacts (for example, snapshots).
 
 #### Mithril certificate verification process
 
-Mithril clients download snapshots and verify associated certificates using the mithril-client library, either from a CLI tool or [embedded in a browser](https://mithril.network/explorer/)
+Mithril clients, such as a CLI tool or the [web-based explorer](https://mithril.network/explorer/), download snapshots and verify their certificates using the `mithril-client` library.
 
-- **confidentiality**: No
-- **integrity**: No (the snapshots and certificates are assumed to be secure, integrity is inherent to the protocol)
-- **availability**: Yes (?)
+- **Confidentiality**: No  
+- **Integrity**: No (snapshots and certificates are assumed to be secure by protocol design)  
+- **Availability**: Yes (?)
 
 #### Mithril certificates
 
-Mithril certificates are produced by the aggregator from the individual signatures. Mithril certificates' security rests upon a chain of trust ultimately pointing at the Genesis certificate.
-At least one Mithril certificate must be produced during an epoch for the certificate chain to remain secure.
+These are produced by the aggregator from individual signatures. Their security depends on a chain of trust that ultimately references a Genesis certificate.
 
-- **confidentiality**: No
-- **integrity**: No (The certificates are assumed to be secure, integrity is inherent to the protocol)
-- **availability**: No (Certificates are just a fallback, a Cardano node client can always retrieve the information from the Cardano network itself, albeit much more slowly)
+- **Confidentiality**: No  
+- **Integrity**: No (the protocol design ensures integrity)  
+- **Availability**: No (certificates are a fallback; a Cardano node client can retrieve data from the network, albeit more slowly)
 
 #### Mithril artifacts
 
-Mithril artifacts are produced by the aggregator specifically for the type of data being signed (e.g. a compressed snapshot archive of the Cardano node database). Mithril aggregator maintains artifacts to be served to clients.
+Mithril artifacts are generated by the aggregator for specific data types (for example, a compressed snapshot of a Cardano node database). The aggregator hosts these artifacts for client retrieval.
 
-- **confidentiality**: No
-- **integrity**: No (the snapshots are verified against their associated certificate to establish their authenticity)
-- **availability**: No (Artifacts are just a fallback, a Cardano node client can always retrieve the information from the Cardano network itself, albeit much more slowly)
+- **Confidentiality**: No  
+- **Integrity**: No (they are verified against their certificate)  
+- **Availability**: No (a fallback exists via the original Cardano network)
 
 #### Mithril genesis verification key
 
-Mithril genesis verification key is stored in [GitHub](https://github.com/input-output-hk/mithril/blob/main/mithril-infra/configuration/release-mainnet/genesis.vkey) and only modifiable through an approved merged PR
+The genesis verification key is stored in [GitHub](https://github.com/input-output-hk/mithril/blob/main/mithril-infra/configuration/release-mainnet/genesis.vkey) and is only modifiable through an approved PR.
 
-- **confidentiality**: No
-- **integrity**: No (integrity is inherent to the protocol)
-- **availability**: Yes (it's needed to verify a whole chain of certificate)
+- **Confidentiality**: No  
+- **Integrity**: No (the protocol enforces integrity)  
+- **Availability**: Yes (needed to verify the entire certificate chain)
 
 ## Threat & Mitigations
 
 :::info
 
 - This list of threat and mitigations is not exhaustive.
-- [Developers portal](https://developers.cardano.org/docs/operate-a-stake-pool/hardening-server) already provides thorough documentation on how to harden a linux-based host to run cardano-node .
+- [Developers portal](https://developers.cardano.org/docs/operate-a-stake-pool/hardening-server) already provides thorough documentation on how to harden a linux-based host to run `cardano-node`.
 
 :::
 
 ### Resource exhaustion on Cardano relay
 
-- DoS of a `mithril-signer` running next to a `cardano-node` being a relay
-- Assets at risk:
+A denial-of-service (DoS) attack targeting a `mithril-signer` running alongside a `cardano-node` acting as a relay.
+- **Assets at risk**:
   - [Block diffusion](#block-diffusion)
   - [Mithril signatures diffusion](#mithril-signatures-diffusion)
+
 
 #### Block diffusion exhaustion
 
@@ -309,25 +307,27 @@ Mithril genesis verification key is stored in [GitHub](https://github.com/input-
 
 #### Block production exhaustion
 
-- An incorrect mithril-signer could _starve_ the cardano-node of computing resources thus preventing it from producing and diffusing blocks in a timely manner
-- Compromising BP host would harms a BP's SPO economic viability
+- A malfunctioning or malicious `mithril-signer` could starve a `cardano-node` of resources, preventing it from producing and diffusing blocks in time.  
+- Compromising a block-producing node severely harms an SPO’s economic viability.
 
 ### Resource exhaustion on Mithril aggregator
 
-- DoS of a `mithril-aggregator`
-- Assets at risk:
+A DoS on the `mithril-aggregator`.
+- **Assets at risk**:
   - [Mithril signers registration](#mithril-signers-registration)
   - [Mithril signatures diffusion](#mithril-signatures-diffusion)
   - [Mithril certificates](#mithril-certificates)
   - [Mithril artifacts](#mithril-artifacts)
 
+
 ### Integrity of the Cardano block producer database
 
-- Data integrity of the Cardano block producer database compromised by action of the Mithril signer
-- Assets at risk:
+Data integrity of the Cardano block producer’s on-disk database could be compromised either by action of the Mithril signer or by an attacker with access to the signer.
+- **Assets at risk**:
   - [Block production](#block-production)
   - [Cardano Chain database](#cardano-chain-database)
-- Mitigation: give Mithril signer user read-only permissions to the database folder of the Cardano block producer
+
+- **Mitigation**: Assign the Mithril signer only read-only permissions to the Cardano block producer’s database folder.
 
 ## References
 
