@@ -1,12 +1,13 @@
 use anyhow::Context;
 use async_trait::async_trait;
+use reqwest::Url;
 use slog::{debug, Logger};
 use std::path::{Path, PathBuf};
 
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::{FileUploader, FileUri};
+use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader, FileUri};
 use crate::tools;
 
 // TODO: This specific local uploader will be removed.
@@ -14,7 +15,7 @@ use crate::tools;
 /// LocalSnapshotUploader is a file uploader working using local files
 pub struct LocalSnapshotUploader {
     /// File server URL prefix
-    server_url_prefix: String,
+    server_url_prefix: Url,
 
     /// Target folder where to store files archive
     target_location: PathBuf,
@@ -24,14 +25,20 @@ pub struct LocalSnapshotUploader {
 
 impl LocalSnapshotUploader {
     /// LocalSnapshotUploader factory
-    pub(crate) fn new(server_url_prefix: String, target_location: &Path, logger: Logger) -> Self {
+    pub(crate) fn new(
+        server_url_prefix: Url,
+        target_location: &Path,
+        logger: Logger,
+    ) -> StdResult<Self> {
         let logger = logger.new_with_component_name::<Self>();
-        debug!(logger, "New LocalSnapshotUploader created"; "server_url_prefix" => &server_url_prefix);
-        Self {
+        debug!(logger, "New LocalSnapshotUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
+        let server_url_prefix = sanitize_url_path(&server_url_prefix)?;
+
+        Ok(Self {
             server_url_prefix,
             target_location: target_location.to_path_buf(),
             logger,
-        }
+        })
     }
 }
 
@@ -44,14 +51,13 @@ impl FileUploader for LocalSnapshotUploader {
             .await
             .with_context(|| "File copy failure")?;
 
-        let digest = tools::extract_digest_from_path(Path::new(archive_name));
-        let specific_route = "artifact/snapshot";
-        let location = format!(
-            "{}/{}/{}/download",
-            self.server_url_prefix,
-            specific_route,
-            digest.unwrap()
-        );
+        let digest = tools::extract_digest_from_path(Path::new(archive_name))?;
+        let location = &self
+            .server_url_prefix
+            .join("artifact/snapshot/")?
+            .join(&format!("{digest}/"))?
+            .join("download")?;
+        let location = location.as_str().to_string();
 
         debug!(self.logger, "File 'uploaded' to local storage"; "location" => &location);
         Ok(FileUri(location))
@@ -68,7 +74,7 @@ mod tests {
     use crate::file_uploaders::{FileUploader, FileUri};
     use crate::test_tools::TestLogger;
 
-    use super::LocalSnapshotUploader;
+    use super::*;
 
     fn create_fake_archive(dir: &Path, digest: &str) -> PathBuf {
         let file_path = dir.join(format!("test.{digest}.tar.gz"));
@@ -93,9 +99,10 @@ mod tests {
             &digest
         );
 
-        let url_prefix = "http://test.com:8080/base-root".to_string();
+        let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
         let uploader =
-            LocalSnapshotUploader::new(url_prefix, target_dir.path(), TestLogger::stdout());
+            LocalSnapshotUploader::new(url_prefix, target_dir.path(), TestLogger::stdout())
+                .unwrap();
         let location = uploader
             .upload(&archive)
             .await
@@ -111,10 +118,11 @@ mod tests {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let archive = create_fake_archive(source_dir.path(), digest);
         let uploader = LocalSnapshotUploader::new(
-            "http://test.com:8080/base-root/".to_string(),
+            Url::parse("http://test.com:8080/base-root/").unwrap(),
             target_dir.path(),
             TestLogger::stdout(),
-        );
+        )
+        .unwrap();
         uploader.upload(&archive).await.unwrap();
 
         assert!(target_dir
@@ -130,10 +138,11 @@ mod tests {
         create_fake_archive(source_dir.path(), digest);
         let target_dir = tempdir().unwrap();
         let uploader = LocalSnapshotUploader::new(
-            "http://test.com:8080/base-root/".to_string(),
+            Url::parse("http://test.com:8080/base-root/").unwrap(),
             target_dir.path(),
             TestLogger::stdout(),
-        );
+        )
+        .unwrap();
         uploader
             .upload(source_dir.path())
             .await
