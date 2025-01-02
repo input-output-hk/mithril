@@ -7,15 +7,21 @@ on:
     - cron: "0 2 * * *"
 
 jobs:
-  docker-builds:
-    uses: ./.github/workflows/docker-builds.yml
-
   backward-compatibility:
     uses: ./.github/workflows/backward-compatibility.yml
 
+  docker-builds:
+    uses: ./.github/workflows/docker-builds.yml
+
+  aggregator-stress-test:
+    uses: ./.github/workflows/aggregator-stress-test.yml
+
+  test-client:
+    uses: ./.github/workflows/test-client.yml
+
   notify-on-failure:
     runs-on: ubuntu-22.04
-    needs: [docker-builds]
+    needs: [docker-builds, aggregator-stress-test, test-client]
     if: failure()
     steps:
       - name: Checkout repository
