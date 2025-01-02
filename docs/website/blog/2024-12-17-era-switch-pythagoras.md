@@ -7,7 +7,7 @@ tags: [era, switch, thales, pythagoras]
 
 ### Era switch to Pythagoras
 
-We have introduced the **Pythagoras era** in the Mithril networks. The era switch to `Pythagoras` is a significant milestone that brings new features and improvements to the Mithril protocol.
+We have introduced the **Pythagoras era** in the Mithril networks. The era switch to `Pythagoras` is a significant milestone that brings new features and security improvements to the Mithril protocol.
 
 :::danger
 
