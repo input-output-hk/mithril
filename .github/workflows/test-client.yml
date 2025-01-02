@@ -1,6 +1,7 @@
 name: Mithril Client multi-platform test
 
 on:
+  workflow_call:
   workflow_dispatch:
     inputs:
       commit_sha:
@@ -66,10 +67,17 @@ jobs:
             echo "debug_level=-vvv" >> $GITHUB_OUTPUT
           fi
 
-          echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
-          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
-          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
-          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "NETWORK=preview" >> $GITHUB_ENV
+            echo "AGGREGATOR_ENDPOINT=https://aggregator.testing-preview.api.mithril.network/aggregator" >> $GITHUB_ENV
+            echo "GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey)" >> $GITHUB_ENV
+            echo "TRANSACTIONS_HASHES_TO_CERTIFY=1f7dbc899a898ceb4274bbc33b31ca5f0de497753c6c6795fa34838fc252de9b,c43e809de628f7c1ba41a44f188ed3872bb1f97aa101271e35424a8e1d95bea9,c61e22ac4a79a02b28ed36217369ff6959465790a4fe9e66738b7a820e174fcd" >> $GITHUB_ENV
+          else
+            echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
+            echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
+            echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
+            echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
+          fi
 
       - name: Assessing aggregator capabilities (Unix)
         id: aggregator_capability_unix
