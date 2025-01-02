@@ -10,7 +10,7 @@ license = "Apache-2.0"
 repository = "https://github.com/input-output-hk/mithril/"
 
 [dependencies]
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 clap = { version = "4.5.23", features = ["derive", "env"] }
 mithril-client = { path = "../../mithril-client" }
 slog = "2.7.0"

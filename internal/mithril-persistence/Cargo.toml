@@ -12,18 +12,18 @@ repository = { workspace = true }
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 async-trait = "0.1.83"
 chrono = { version = "0.4.39", features = ["serde"] }
 hex = "0.4.3"
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
-semver = "1.0.23"
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = "1.0.133"
+semver = "1.0.24"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.134"
 sha2 = "0.10.8"
 slog = "2.7.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
-thiserror = "2.0.6"
+thiserror = "2.0.9"
 tokio = { version = "1.42.0", features = ["sync"] }
 
 [dev-dependencies]

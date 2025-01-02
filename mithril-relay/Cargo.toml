@@ -11,9 +11,9 @@ repository = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 clap = { version = "4.5.23", features = ["derive", "env"] }
-config = "0.14.1"
+config = "0.15.4"
 libp2p = { version = "0.54.1", features = [
     "tokio",
     "gossipsub",
@@ -33,9 +33,9 @@ libp2p = { version = "0.54.1", features = [
 ] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
-reqwest = { version = "0.12.9", features = ["json"] }
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = "1.0.133"
+reqwest = { version = "0.12.12", features = ["json"] }
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.134"
 serde_yaml = "0.9.34"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
@@ -43,7 +43,7 @@ slog = { version = "2.7.0", features = [
 ] }
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
-thiserror = "2.0.6"
+thiserror = "2.0.9"
 tokio = { version = "1.42.0", features = ["full"] }
 warp = "0.3.7"
 
