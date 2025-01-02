@@ -81,7 +81,7 @@ use crate::{
     tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
-    LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
     SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
@@ -471,7 +471,7 @@ impl DependenciesBuilder {
                         logger.clone(),
                     )))
                 }
-                SnapshotUploaderType::Local => Ok(Arc::new(LocalUploader::new(
+                SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
                     format!(
                         "{}{}",
                         self.configuration.get_server_url(),
@@ -1206,7 +1206,7 @@ impl DependenciesBuilder {
                 error: Some(e.into()),
             }
         })?;
-        let local_uploader = LocalUploader::new(
+        let local_uploader = LocalSnapshotUploader::new(
             format!(
                 "{}{}",
                 self.configuration.get_server_url(),

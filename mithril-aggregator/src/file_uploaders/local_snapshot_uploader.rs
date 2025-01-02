@@ -9,8 +9,10 @@ use mithril_common::StdResult;
 use crate::file_uploaders::{FileUploader, FileUri};
 use crate::tools;
 
-/// LocalUploader is a file uploader working using local files
-pub struct LocalUploader {
+// TODO: This specific local uploader will be removed.
+// It's only used by the legacy snapshot that uploads the entire Cardano database.
+/// LocalSnapshotUploader is a file uploader working using local files
+pub struct LocalSnapshotUploader {
     /// File server URL prefix
     server_url_prefix: String,
 
@@ -20,11 +22,11 @@ pub struct LocalUploader {
     logger: Logger,
 }
 
-impl LocalUploader {
-    /// LocalUploader factory
+impl LocalSnapshotUploader {
+    /// LocalSnapshotUploader factory
     pub(crate) fn new(server_url_prefix: String, target_location: &Path, logger: Logger) -> Self {
         let logger = logger.new_with_component_name::<Self>();
-        debug!(logger, "New LocalUploader created"; "server_url_prefix" => &server_url_prefix);
+        debug!(logger, "New LocalSnapshotUploader created"; "server_url_prefix" => &server_url_prefix);
         Self {
             server_url_prefix,
             target_location: target_location.to_path_buf(),
@@ -34,7 +36,7 @@ impl LocalUploader {
 }
 
 #[async_trait]
-impl FileUploader for LocalUploader {
+impl FileUploader for LocalSnapshotUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
         let archive_name = filepath.file_name().unwrap().to_str().unwrap();
         let target_path = &self.target_location.join(archive_name);
@@ -66,7 +68,7 @@ mod tests {
     use crate::file_uploaders::{FileUploader, FileUri};
     use crate::test_tools::TestLogger;
 
-    use super::LocalUploader;
+    use super::LocalSnapshotUploader;
 
     fn create_fake_archive(dir: &Path, digest: &str) -> PathBuf {
         let file_path = dir.join(format!("test.{digest}.tar.gz"));
@@ -92,7 +94,8 @@ mod tests {
         );
 
         let url_prefix = "http://test.com:8080/base-root".to_string();
-        let uploader = LocalUploader::new(url_prefix, target_dir.path(), TestLogger::stdout());
+        let uploader =
+            LocalSnapshotUploader::new(url_prefix, target_dir.path(), TestLogger::stdout());
         let location = uploader
             .upload(&archive)
             .await
@@ -107,7 +110,7 @@ mod tests {
         let target_dir = tempdir().unwrap();
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let archive = create_fake_archive(source_dir.path(), digest);
-        let uploader = LocalUploader::new(
+        let uploader = LocalSnapshotUploader::new(
             "http://test.com:8080/base-root/".to_string(),
             target_dir.path(),
             TestLogger::stdout(),
@@ -126,7 +129,7 @@ mod tests {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         create_fake_archive(source_dir.path(), digest);
         let target_dir = tempdir().unwrap();
-        let uploader = LocalUploader::new(
+        let uploader = LocalSnapshotUploader::new(
             "http://test.com:8080/base-root/".to_string(),
             target_dir.path(),
             TestLogger::stdout(),
