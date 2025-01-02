@@ -9,6 +9,7 @@ pub struct Spec<'a> {
     pub infrastructure: &'a mut MithrilInfrastructure,
     is_signing_cardano_transactions: bool,
     is_signing_cardano_stake_distribution: bool,
+    is_signing_cardano_database: bool,
     next_era: Option<String>,
     regenesis_on_era_switch: bool,
 }
@@ -29,6 +30,11 @@ impl<'a> Spec<'a> {
             ),
             is_signing_cardano_stake_distribution: signed_entity_types.contains(
                 &SignedEntityTypeDiscriminants::CardanoStakeDistribution
+                    .as_ref()
+                    .to_string(),
+            ),
+            is_signing_cardano_database: signed_entity_types.contains(
+                &SignedEntityTypeDiscriminants::CardanoDatabase
                     .as_ref()
                     .to_string(),
             ),
@@ -181,7 +187,7 @@ impl<'a> Spec<'a> {
         }
 
         // Verify that Cardano database snapshot artifacts are produced and signed correctly
-        {
+        if self.is_signing_cardano_database {
             let merkle_root =
                 assertions::assert_node_producing_cardano_database_snapshot(&aggregator_endpoint)
                     .await?;
