@@ -7,13 +7,12 @@ use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::file_uploaders::{FileUploader, FileUri};
-use crate::http_server;
 use crate::tools;
 
 /// LocalUploader is a file uploader working using local files
 pub struct LocalUploader {
-    /// File server listening IP
-    file_server_url: String,
+    /// File server URL prefix
+    server_url_prefix: String,
 
     /// Target folder where to store files archive
     target_location: PathBuf,
@@ -23,11 +22,11 @@ pub struct LocalUploader {
 
 impl LocalUploader {
     /// LocalUploader factory
-    pub(crate) fn new(file_server_url: String, target_location: &Path, logger: Logger) -> Self {
+    pub(crate) fn new(server_url_prefix: String, target_location: &Path, logger: Logger) -> Self {
         let logger = logger.new_with_component_name::<Self>();
-        debug!(logger, "New LocalUploader created"; "file_server_url" => &file_server_url);
+        debug!(logger, "New LocalUploader created"; "server_url_prefix" => &server_url_prefix);
         Self {
-            file_server_url,
+            server_url_prefix,
             target_location: target_location.to_path_buf(),
             logger,
         }
@@ -46,9 +45,8 @@ impl FileUploader for LocalUploader {
         let digest = tools::extract_digest_from_path(Path::new(archive_name));
         let specific_route = "artifact/snapshot";
         let location = format!(
-            "{}{}/{}/{}/download",
-            self.file_server_url,
-            http_server::SERVER_BASE_PATH,
+            "{}/{}/{}/download",
+            self.server_url_prefix,
             specific_route,
             digest.unwrap()
         );
@@ -66,7 +64,6 @@ mod tests {
     use tempfile::tempdir;
 
     use crate::file_uploaders::{FileUploader, FileUri};
-    use crate::http_server;
     use crate::test_tools::TestLogger;
 
     use super::LocalUploader;
@@ -87,17 +84,15 @@ mod tests {
     async fn should_extract_digest_to_deduce_location() {
         let source_dir = tempdir().unwrap();
         let target_dir = tempdir().unwrap();
-        let url = "http://test.com:8080/".to_string();
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let archive = create_fake_archive(source_dir.path(), digest);
         let expected_location = format!(
-            "{}{}/artifact/snapshot/{}/download",
-            url,
-            http_server::SERVER_BASE_PATH,
+            "http://test.com:8080/base-root/artifact/snapshot/{}/download",
             &digest
         );
-        let uploader = LocalUploader::new(url, target_dir.path(), TestLogger::stdout());
 
+        let url_prefix = "http://test.com:8080/base-root".to_string();
+        let uploader = LocalUploader::new(url_prefix, target_dir.path(), TestLogger::stdout());
         let location = uploader
             .upload(&archive)
             .await
@@ -113,7 +108,7 @@ mod tests {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let archive = create_fake_archive(source_dir.path(), digest);
         let uploader = LocalUploader::new(
-            "http://test.com:8080/".to_string(),
+            "http://test.com:8080/base-root/".to_string(),
             target_dir.path(),
             TestLogger::stdout(),
         );
@@ -132,7 +127,7 @@ mod tests {
         create_fake_archive(source_dir.path(), digest);
         let target_dir = tempdir().unwrap();
         let uploader = LocalUploader::new(
-            "http://test.com:8080/".to_string(),
+            "http://test.com:8080/base-root/".to_string(),
             target_dir.path(),
             TestLogger::stdout(),
         );
