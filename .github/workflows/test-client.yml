@@ -43,41 +43,68 @@ on:
         default: false
 
 jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      network: ${{ steps.set-env.outputs.network }}
+      aggregator_endpoint: ${{ steps.set-env.outputs.aggregator_endpoint }}
+      genesis_verification_key: ${{ steps.set-env.outputs.genesis_verification_key }}
+      transactions_hashes_to_certify: ${{ steps.set-env.outputs.transactions_hashes_to_certify }}
+      docker_image_id: ${{ steps.set-env.outputs.docker_image_id }}
+      sha: ${{ steps.set-env.outputs.sha }}
+      branch: ${{ steps.set-env.outputs.branch }}
+      enable_debug: ${{ steps.set-env.outputs.enable_debug }}
+    steps:
+      - name: Prepare variables
+        id: set-env
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "network=preview" >> $GITHUB_OUTPUT
+            echo "aggregator_endpoint=https://aggregator.testing-preview.api.mithril.network/aggregator" >> $GITHUB_OUTPUT
+            echo "genesis_verification_key=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey)" >> $GITHUB_OUTPUT
+            echo "transactions_hashes_to_certify=1f7dbc899a898ceb4274bbc33b31ca5f0de497753c6c6795fa34838fc252de9b,c43e809de628f7c1ba41a44f188ed3872bb1f97aa101271e35424a8e1d95bea9,c61e22ac4a79a02b28ed36217369ff6959465790a4fe9e66738b7a820e174fcd" >> $GITHUB_OUTPUT
+            echo "docker_image_id=latest" >> $GITHUB_OUTPUT
+            echo "debug_level=-vvv" >> $GITHUB_OUTPUT
+            echo "branch=main" >> $GITHUB_OUTPUT
+          else
+            echo "network=${{ inputs.network }}" >> $GITHUB_OUTPUT
+            echo "aggregator_endpoint=${{ inputs.aggregator_endpoint }}" >> $GITHUB_OUTPUT
+            echo "genesis_verification_key=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_OUTPUT
+            echo "transactions_hashes_to_certify=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_OUTPUT
+            echo "docker_image_id=${{ inputs.docker_image_id }}" >> $GITHUB_OUTPUT
+            if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
+              echo "debug_level=-vvv" >> $GITHUB_OUTPUT
+            fi
+            if [[ -n "${{ inputs.commit_sha }}" ]]; then
+              echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
+            else
+              echo "branch=main" >> $GITHUB_OUTPUT
+            fi
+          fi
+
   test-binaries:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, macos-14, macos-14-large, windows-latest]
     runs-on: ${{ matrix.os }}
+    needs: [prepare]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
 
-      - name: Prepare environment variables
+      - name: Prepare variables
         id: prepare
         shell: bash
         run: |
-          if [[ -n "${{ inputs.commit_sha }}" ]]; then
-            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
-          else
-            echo "branch=main" >> $GITHUB_OUTPUT
-          fi
-
-          if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
-            echo "debug_level=-vvv" >> $GITHUB_OUTPUT
-          fi
-
-          if [[ "${{ github.event_name }}" == "schedule" ]]; then
-            echo "NETWORK=preview" >> $GITHUB_ENV
-            echo "AGGREGATOR_ENDPOINT=https://aggregator.testing-preview.api.mithril.network/aggregator" >> $GITHUB_ENV
-            echo "GENESIS_VERIFICATION_KEY=$(curl -s https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey)" >> $GITHUB_ENV
-            echo "TRANSACTIONS_HASHES_TO_CERTIFY=1f7dbc899a898ceb4274bbc33b31ca5f0de497753c6c6795fa34838fc252de9b,c43e809de628f7c1ba41a44f188ed3872bb1f97aa101271e35424a8e1d95bea9,c61e22ac4a79a02b28ed36217369ff6959465790a4fe9e66738b7a820e174fcd" >> $GITHUB_ENV
-          else
-            echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
-            echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
-            echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
-            echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
-          fi
+          echo "sha=${{ needs.prepare.outputs.commit_sha }}" >> $GITHUB_OUTPUT
+          echo "branch=${{ needs.prepare.outputs.branch }}" >> $GITHUB_OUTPUT
+          echo "debug_level=${{ needs.prepare.outputs.enable_debug }}" >> $GITHUB_OUTPUT
+          echo "NETWORK=${{ needs.prepare.outputs.network }}" >> $GITHUB_ENV
+          echo "AGGREGATOR_ENDPOINT=${{ needs.prepare.outputs.aggregator_endpoint }}" >> $GITHUB_ENV
+          echo "GENESIS_VERIFICATION_KEY=${{ needs.prepare.outputs.genesis_verification_key }}" >> $GITHUB_ENV
+          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ needs.prepare.outputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
 
       - name: Assessing aggregator capabilities (Unix)
         id: aggregator_capability_unix
@@ -192,20 +219,18 @@ jobs:
       matrix:
         os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
+    needs: [prepare]
     steps:
-      - name: Prepare environment variables
+      - name: Prepare variables
         id: prepare
         shell: bash
         run: |
-          if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
-            echo "debug_level=-vvv" >> $GITHUB_OUTPUT
-          fi
-
-          echo "MITHRIL_IMAGE_ID=${{ inputs.docker_image_id }}" >> $GITHUB_ENV
-          echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
-          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
-          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
-          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
+          echo "debug_level=${{ needs.prepare.outputs.enable_debug }}" >> $GITHUB_OUTPUT
+          echo "MITHRIL_IMAGE_ID=${{ needs.prepare.outputs.docker_image_id }}" >> $GITHUB_ENV
+          echo "NETWORK=${{ needs.prepare.outputs.network }}" >> $GITHUB_ENV
+          echo "AGGREGATOR_ENDPOINT=${{ needs.prepare.outputs.aggregator_endpoint }}" >> $GITHUB_ENV
+          echo "GENESIS_VERIFICATION_KEY=${{ needs.prepare.outputs.genesis_verification_key }}" >> $GITHUB_ENV
+          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ needs.prepare.outputs.transactions_hashes_to_certify }}" >> $GITHUB_ENV
 
       - name: Assessing aggregator capabilities
         id: aggregator_capability
@@ -288,6 +313,7 @@ jobs:
       matrix:
         os: [ubuntu-22.04]
     runs-on: ${{ matrix.os }}
+    needs: [prepare]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -313,9 +339,9 @@ jobs:
       - name: Create .env file
         working-directory: mithril-client-wasm
         run: |
-          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" > ./ci-test/.env
-          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> ./ci-test/.env
-          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ inputs.transactions_hashes_to_certify }}" >> ./ci-test/.env
+          echo "AGGREGATOR_ENDPOINT=${{ needs.prepare.outputs.aggregator_endpoint }}" > ./ci-test/.env
+          echo "GENESIS_VERIFICATION_KEY=${{ needs.prepare.outputs.genesis_verification_key }}" >> ./ci-test/.env
+          echo "TRANSACTIONS_HASHES_TO_CERTIFY=${{ needs.prepare.outputs.transactions_hashes_to_certify }}" >> ./ci-test/.env
 
       - name: Start the server
         working-directory: mithril-client-wasm
