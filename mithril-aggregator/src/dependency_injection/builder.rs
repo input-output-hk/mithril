@@ -65,7 +65,10 @@ use crate::{
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
     file_uploaders::{FileUploader, GcpUploader},
-    http_server::routes::router::{self, RouterConfig, RouterState},
+    http_server::{
+        routes::router::{self, RouterConfig, RouterState},
+        SERVER_BASE_PATH,
+    },
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
         CardanoTransactionsImporter, CertifierService, EpochServiceDependencies, MessageService,
@@ -469,7 +472,11 @@ impl DependenciesBuilder {
                     )))
                 }
                 SnapshotUploaderType::Local => Ok(Arc::new(LocalUploader::new(
-                    self.configuration.get_server_url(),
+                    format!(
+                        "{}{}",
+                        self.configuration.get_server_url(),
+                        SERVER_BASE_PATH
+                    ),
                     &self.configuration.get_snapshot_dir()?,
                     logger,
                 ))),
@@ -1200,7 +1207,11 @@ impl DependenciesBuilder {
             }
         })?;
         let local_uploader = LocalUploader::new(
-            self.configuration.get_server_url(),
+            format!(
+                "{}{}",
+                self.configuration.get_server_url(),
+                SERVER_BASE_PATH
+            ),
             &snapshot_dir,
             logger.clone(),
         );
