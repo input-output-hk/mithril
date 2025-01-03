@@ -14,7 +14,9 @@ use mithril_common::{
     CardanoNetwork, StdResult,
 };
 
-use crate::{snapshotter::OngoingSnapshot, FileUploader, LocalSnapshotUploader, Snapshotter};
+use crate::{
+    file_uploaders::LocalUploader, snapshotter::OngoingSnapshot, FileUploader, Snapshotter,
+};
 
 /// The [AncillaryFileUploader] trait allows identifying uploaders that return locations for ancillary archive files.
 #[cfg_attr(test, mockall::automock)]
@@ -25,7 +27,7 @@ pub trait AncillaryFileUploader: Send + Sync {
 }
 
 #[async_trait]
-impl AncillaryFileUploader for LocalSnapshotUploader {
+impl AncillaryFileUploader for LocalUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
         let uri = FileUploader::upload(self, filepath).await?.into();
 
