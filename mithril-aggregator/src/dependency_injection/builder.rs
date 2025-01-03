@@ -307,6 +307,19 @@ impl DependenciesBuilder {
         }
     }
 
+    fn get_server_url_prefix(&self) -> Result<Url> {
+        let url = format!(
+            "{}{}",
+            self.configuration.get_server_url(),
+            SERVER_BASE_PATH
+        );
+
+        Url::parse(&url).map_err(|e| DependenciesBuilderError::Initialization {
+            message: format!("Could not parse server url:'{url}'."),
+            error: Some(e.into()),
+        })
+    }
+
     /// Get the allowed signed entity types discriminants
     fn get_allowed_signed_entity_types_discriminants(
         &self,
@@ -472,24 +485,11 @@ impl DependenciesBuilder {
                         logger.clone(),
                     )))
                 }
-                SnapshotUploaderType::Local => {
-                    let url = format!(
-                        "{}{}",
-                        self.configuration.get_server_url(),
-                        SERVER_BASE_PATH
-                    );
-                    let server_url_prefix =
-                        Url::parse(&url).map_err(|e| DependenciesBuilderError::Initialization {
-                            message: format!("Could not parse server url:'{url}'."),
-                            error: Some(e.into()),
-                        })?;
-
-                    Ok(Arc::new(LocalSnapshotUploader::new(
-                        server_url_prefix,
-                        &self.configuration.get_snapshot_dir()?,
-                        logger,
-                    )?))
-                }
+                SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
+                    self.get_server_url_prefix()?,
+                    &self.configuration.get_snapshot_dir()?,
+                    logger,
+                )?)),
             }
         } else {
             Ok(Arc::new(DumbUploader::new()))
@@ -1216,17 +1216,9 @@ impl DependenciesBuilder {
                 error: Some(e.into()),
             }
         })?;
-        let url = format!(
-            "{}{}",
-            self.configuration.get_server_url(),
-            SERVER_BASE_PATH
-        );
-        let server_url_prefix =
-            Url::parse(&url).map_err(|e| DependenciesBuilderError::Initialization {
-                message: format!("Could not parse server url:'{url}'."),
-                error: Some(e.into()),
-            })?;
-        let local_uploader = LocalUploader::new(server_url_prefix, &snapshot_dir, logger.clone())?;
+
+        let local_uploader =
+            LocalUploader::new(self.get_server_url_prefix()?, &snapshot_dir, logger.clone())?;
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
             vec![Arc::new(local_uploader)],
             snapshotter,
