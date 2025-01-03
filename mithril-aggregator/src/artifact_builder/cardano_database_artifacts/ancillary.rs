@@ -74,7 +74,8 @@ impl AncillaryArtifactBuilder {
     }
 
     /// Returns the list of files and directories to include in the snapshot.
-    /// The immutable file number is incremented by 1 to include the not yet finalized immutable file.
+    /// The immutable file included in the ancillary archive corresponds to the last one (and not finalized yet)
+    /// when the immutable file number given to the function corresponds to the penultimate.
     fn get_files_and_directories_to_snapshot(immutable_file_number: u64) -> Vec<PathBuf> {
         let next_immutable_file_number = immutable_file_number + 1;
         let chunk_filename = format!("{:05}.chunk", next_immutable_file_number);
@@ -114,7 +115,7 @@ impl AncillaryArtifactBuilder {
             .snapshot_subset(&archive_name, paths_to_include)
             .with_context(|| {
                 format!(
-                    "Failed to create snapshot for immutable file number: {}",
+                    "Failed to create ancillary archive for immutable file number: {}",
                     beacon.immutable_file_number
                 )
             })?;
@@ -263,7 +264,7 @@ mod tests {
         );
 
         let snapshot = builder
-            .create_ancillary_archive(&CardanoDbBeacon::new(99, 1))
+            .create_ancillary_archive(&CardanoDbBeacon::new(99, 2))
             .unwrap();
 
         let mut archive = {
@@ -276,9 +277,9 @@ mod tests {
         archive.unpack(dst.clone()).unwrap();
 
         let expected_immutable_path = dst.join(IMMUTABLE_DIR);
-        assert!(expected_immutable_path.join("00002.chunk").exists());
-        assert!(expected_immutable_path.join("00002.primary").exists());
-        assert!(expected_immutable_path.join("00002.secondary").exists());
+        assert!(expected_immutable_path.join("00003.chunk").exists());
+        assert!(expected_immutable_path.join("00003.primary").exists());
+        assert!(expected_immutable_path.join("00003.secondary").exists());
         let immutables_nb = std::fs::read_dir(expected_immutable_path).unwrap().count();
         assert_eq!(3, immutables_nb);
 
