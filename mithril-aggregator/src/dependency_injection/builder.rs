@@ -65,7 +65,7 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    file_uploaders::{FileUploader, GcpUploader},
+    file_uploaders::{FileUploader, GcpUploader, LocalUploader},
     http_server::{
         routes::router::{self, RouterConfig, RouterState},
         SERVER_BASE_PATH,
@@ -1226,8 +1226,7 @@ impl DependenciesBuilder {
                 message: format!("Could not parse server url:'{url}'."),
                 error: Some(e.into()),
             })?;
-        let local_uploader =
-            LocalSnapshotUploader::new(server_url_prefix, &snapshot_dir, logger.clone())?;
+        let local_uploader = LocalUploader::new(server_url_prefix, &snapshot_dir, logger.clone())?;
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
             vec![Arc::new(local_uploader)],
             snapshotter,
