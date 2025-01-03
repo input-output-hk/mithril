@@ -194,9 +194,7 @@ pub async fn assert_node_producing_cardano_database_snapshot(
     let url = format!("{aggregator_endpoint}/artifact/cardano-database");
     info!("Waiting for the aggregator to produce a Cardano database snapshot");
 
-    async fn fetch_last_cardano_database_snapshot_merkle_root(
-        url: String,
-    ) -> StdResult<Option<String>> {
+    async fn fetch_last_cardano_database_snapshot_hash(url: String) -> StdResult<Option<String>> {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response
@@ -205,7 +203,7 @@ pub async fn assert_node_producing_cardano_database_snapshot(
                     .as_deref()
                 {
                     Ok([cardano_database_snapshot, ..]) => {
-                        Ok(Some(cardano_database_snapshot.merkle_root.clone()))
+                        Ok(Some(cardano_database_snapshot.hash.clone()))
                     }
                     Ok(&[]) => Ok(None),
                     Err(err) => Err(anyhow!("Invalid Cardano database snapshot body : {err}",)),
@@ -218,11 +216,11 @@ pub async fn assert_node_producing_cardano_database_snapshot(
 
     // todo: reduce the number of attempts if we can reduce the delay between two immutables
     match attempt!(45, Duration::from_millis(2000), {
-        fetch_last_cardano_database_snapshot_merkle_root(url.clone()).await
+        fetch_last_cardano_database_snapshot_hash(url.clone()).await
     }) {
-        AttemptResult::Ok(merkle_root) => {
-            info!("Aggregator produced a Cardano database snapshot"; "merkle_root" => &merkle_root);
-            Ok(merkle_root)
+        AttemptResult::Ok(hash) => {
+            info!("Aggregator produced a Cardano database snapshot"; "hash" => &hash);
+            Ok(hash)
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
@@ -233,13 +231,13 @@ pub async fn assert_node_producing_cardano_database_snapshot(
 
 pub async fn assert_signer_is_signing_cardano_database_snapshot(
     aggregator_endpoint: &str,
-    merkle_root: &str,
+    hash: &str,
     expected_epoch_min: Epoch,
 ) -> StdResult<String> {
-    let url = format!("{aggregator_endpoint}/artifact/cardano-database/{merkle_root}");
+    let url = format!("{aggregator_endpoint}/artifact/cardano-database/{hash}");
     info!(
         "Asserting the aggregator is signing the Cardano database snapshot message `{}` with an expected min epoch of `{}`",
-        merkle_root,
+        hash,
         expected_epoch_min
     );
 
