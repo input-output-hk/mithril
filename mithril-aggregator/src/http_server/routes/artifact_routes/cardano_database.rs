@@ -235,7 +235,7 @@ mod tests {
     async fn test_cardano_database_detail_increments_artifact_detail_total_served_since_startup_metric(
     ) {
         let method = Method::GET.as_str();
-        let path = "/artifact/cardano-database/{merkle_root}";
+        let path = "/artifact/cardano-database/{hash}";
         let dependency_manager = Arc::new(initialize_dependencies().await);
         let initial_counter_value = dependency_manager
             .metrics_service
@@ -270,7 +270,7 @@ mod tests {
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/cardano-database/{merkle_root}";
+        let path = "/artifact/cardano-database/{hash}";
 
         let response = request()
             .method(method)
@@ -304,7 +304,7 @@ mod tests {
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/cardano-database/{merkle_root}";
+        let path = "/artifact/cardano-database/{hash}";
 
         let response = request()
             .method(method)
@@ -337,7 +337,7 @@ mod tests {
         dependency_manager.message_service = Arc::new(mock_http_message_service);
 
         let method = Method::GET.as_str();
-        let path = "/artifact/cardano-database/{merkle_root}";
+        let path = "/artifact/cardano-database/{hash}";
 
         let response = request()
             .method(method)
