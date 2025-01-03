@@ -8,9 +8,12 @@ use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader, FileUri};
+use crate::tools;
 
-/// LocalUploader is a file uploader working using local files
-pub struct LocalUploader {
+// TODO: This specific local uploader will be removed.
+// It's only used by the legacy snapshot that uploads the entire Cardano database.
+/// LocalSnapshotUploader is a file uploader working using local files
+pub struct LocalSnapshotUploader {
     /// File server URL prefix
     server_url_prefix: Url,
 
@@ -20,15 +23,15 @@ pub struct LocalUploader {
     logger: Logger,
 }
 
-impl LocalUploader {
-    /// LocalUploader factory
+impl LocalSnapshotUploader {
+    /// LocalSnapshotUploader factory
     pub(crate) fn new(
         server_url_prefix: Url,
         target_location: &Path,
         logger: Logger,
     ) -> StdResult<Self> {
         let logger = logger.new_with_component_name::<Self>();
-        debug!(logger, "New LocalUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
+        debug!(logger, "New LocalSnapshotUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
         let server_url_prefix = sanitize_url_path(&server_url_prefix)?;
 
         Ok(Self {
@@ -40,7 +43,7 @@ impl LocalUploader {
 }
 
 #[async_trait]
-impl FileUploader for LocalUploader {
+impl FileUploader for LocalSnapshotUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
         let archive_name = filepath.file_name().unwrap().to_str().unwrap();
         let target_path = &self.target_location.join(archive_name);
@@ -48,10 +51,12 @@ impl FileUploader for LocalUploader {
             .await
             .with_context(|| "File copy failure")?;
 
+        let digest = tools::extract_digest_from_path(Path::new(archive_name))?;
         let location = &self
             .server_url_prefix
             .join("artifact/snapshot/")?
-            .join(archive_name)?;
+            .join(&format!("{digest}/"))?
+            .join("download")?;
         let location = location.as_str().to_string();
 
         debug!(self.logger, "File 'uploaded' to local storage"; "location" => &location);
@@ -64,15 +69,15 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use std::path::{Path, PathBuf};
+    use tempfile::tempdir;
 
-    use mithril_common::test_utils::TempDir;
-
+    use crate::file_uploaders::{FileUploader, FileUri};
     use crate::test_tools::TestLogger;
 
     use super::*;
 
-    fn create_fake_archive(dir: &Path, name: &str) -> PathBuf {
-        let file_path = dir.join(format!("{name}.tar.gz"));
+    fn create_fake_archive(dir: &Path, digest: &str) -> PathBuf {
+        let file_path = dir.join(format!("test.{digest}.tar.gz"));
         let mut file = File::create(&file_path).unwrap();
         writeln!(
             file,
@@ -84,24 +89,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn should_extract_archive_name_to_deduce_location() {
-        let source_dir = TempDir::create(
-            "local_uploader",
-            "should_extract_archive_name_to_deduce_location_source",
-        );
-        let target_dir = TempDir::create(
-            "local_uploader",
-            "should_extract_archive_name_to_deduce_location_target",
-        );
-        let archive_name = "an_archive";
-        let archive = create_fake_archive(&source_dir, archive_name);
+    async fn should_extract_digest_to_deduce_location() {
+        let source_dir = tempdir().unwrap();
+        let target_dir = tempdir().unwrap();
+        let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
+        let archive = create_fake_archive(source_dir.path(), digest);
         let expected_location = format!(
-            "http://test.com:8080/base-root/artifact/snapshot/{}",
-            &archive.file_name().unwrap().to_str().unwrap()
+            "http://test.com:8080/base-root/artifact/snapshot/{}/download",
+            &digest
         );
 
         let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
-        let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
+        let uploader =
+            LocalSnapshotUploader::new(url_prefix, target_dir.path(), TestLogger::stdout())
+                .unwrap();
         let location = uploader
             .upload(&archive)
             .await
@@ -112,45 +113,38 @@ mod tests {
 
     #[tokio::test]
     async fn should_copy_file_to_target_location() {
-        let source_dir = TempDir::create(
-            "local_uploader",
-            "should_copy_file_to_target_location_source",
-        );
-        let target_dir = TempDir::create(
-            "local_uploader",
-            "should_copy_file_to_target_location_target",
-        );
-        println!("target_dir: {:?}", target_dir);
-        let archive = create_fake_archive(&source_dir, "an_archive");
-        let uploader = LocalUploader::new(
+        let source_dir = tempdir().unwrap();
+        let target_dir = tempdir().unwrap();
+        let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
+        let archive = create_fake_archive(source_dir.path(), digest);
+        let uploader = LocalSnapshotUploader::new(
             Url::parse("http://test.com:8080/base-root/").unwrap(),
-            &target_dir,
+            target_dir.path(),
             TestLogger::stdout(),
         )
         .unwrap();
         uploader.upload(&archive).await.unwrap();
 
-        assert!(target_dir.join(archive.file_name().unwrap()).exists());
+        assert!(target_dir
+            .path()
+            .join(archive.file_name().unwrap())
+            .exists());
     }
 
     #[tokio::test]
     async fn should_error_if_path_is_a_directory() {
-        let source_dir = TempDir::create(
-            "local_uploader",
-            "should_error_if_path_is_a_directory_source",
-        );
-        let target_dir = TempDir::create(
-            "local_uploader",
-            "should_error_if_path_is_a_directory_target",
-        );
-        let uploader = LocalUploader::new(
+        let source_dir = tempdir().unwrap();
+        let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
+        create_fake_archive(source_dir.path(), digest);
+        let target_dir = tempdir().unwrap();
+        let uploader = LocalSnapshotUploader::new(
             Url::parse("http://test.com:8080/base-root/").unwrap(),
-            &target_dir,
+            target_dir.path(),
             TestLogger::stdout(),
         )
         .unwrap();
         uploader
-            .upload(&source_dir)
+            .upload(source_dir.path())
             .await
             .expect_err("Uploading a directory should fail");
     }
