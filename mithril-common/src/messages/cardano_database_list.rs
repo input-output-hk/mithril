@@ -9,6 +9,9 @@ pub type CardanoDatabaseSnapshotListMessage = Vec<CardanoDatabaseSnapshotListIte
 /// Message structure of a Cardano database snapshot list item
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoDatabaseSnapshotListItemMessage {
+    /// Hash of the Cardano database snapshot.
+    pub hash: String,
+
     /// Merkle root of the Cardano database snapshot
     pub merkle_root: String,
 
@@ -35,6 +38,7 @@ impl CardanoDatabaseSnapshotListItemMessage {
     /// Return a dummy test entity (test-only).
     pub fn dummy() -> Self {
         Self {
+            hash: "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb".to_string(),
             merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
                 .to_string(),
             beacon: CardanoDbBeacon {
@@ -60,6 +64,7 @@ mod tests {
     const ACTUAL_JSON: &str = r#"
     [
         {
+            "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
             "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
             "beacon": {
                 "epoch": 123,
@@ -75,6 +80,7 @@ mod tests {
 
     fn golden_actual_message() -> CardanoDatabaseSnapshotListMessage {
         vec![CardanoDatabaseSnapshotListItemMessage {
+            hash: "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb".to_string(),
             merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
                 .to_string(),
             beacon: CardanoDbBeacon {

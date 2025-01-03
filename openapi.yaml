@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.39
+  version: 0.1.40
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -297,15 +297,15 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
-  /artifact/cardano-database/{merkle_root}:
+  /artifact/cardano-database/{hash}:
     get:
       summary: Get Cardano database snapshot information
       description: |
         Returns the information of a Cardano database snapshot and where to retrieve its binary contents
       parameters:
-        - name: merkle_root
+        - name: hash
           in: path
-          description: Merkle root of the Cardano database snapshot
+          description: Hash of the Cardano database snapshot
           required: true
           schema:
             type: string
@@ -1900,6 +1900,7 @@ components:
       examples:
         [
           {
+            "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
             "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
             "beacon":
               {
@@ -1920,12 +1921,17 @@ components:
       type: object
       additionalProperties: false
       required:
+        - hash
         - merkle_root
         - beacon
         - certificate_hash
         - total_db_size_uncompressed
         - created_at
       properties:
+        hash:
+          description: Hash of the Cardano database snapshot
+          type: string
+          format: bytes
         merkle_root:
           description: Merkle root of the Cardano database snapshot
           type: string
@@ -1952,6 +1958,7 @@ components:
           type: string
       examples:
         {
+          "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
           "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
           "beacon":
             {
@@ -1971,6 +1978,7 @@ components:
       type: object
       additionalProperties: false
       required:
+        - hash
         - merkle_root
         - beacon
         - certificate_hash
@@ -1978,6 +1986,10 @@ components:
         - created_at
         - locations
       properties:
+        hash:
+          description: Hash of the Cardano database snapshot
+          type: string
+          format: bytes
         merkle_root:
           description: Merkle root of the Cardano database snapshot
           type: string
@@ -2006,6 +2018,7 @@ components:
           type: string
       examples:
         {
+          "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
           "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
           "beacon":
             {

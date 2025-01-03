@@ -188,12 +188,12 @@ impl<'a> Spec<'a> {
 
         // Verify that Cardano database snapshot artifacts are produced and signed correctly
         if self.is_signing_cardano_database {
-            let merkle_root =
+            let hash =
                 assertions::assert_node_producing_cardano_database_snapshot(&aggregator_endpoint)
                     .await?;
             let certificate_hash = assertions::assert_signer_is_signing_cardano_database_snapshot(
                 &aggregator_endpoint,
-                &merkle_root,
+                &hash,
                 expected_epoch_min,
             )
             .await?;
