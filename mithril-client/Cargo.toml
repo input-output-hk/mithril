@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.10.5"
+version = "0.10.6"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -24,27 +24,27 @@ path = "tests/cardano_transaction_proof.rs"
 required-features = ["unstable"]
 
 [dependencies]
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 async-recursion = "1.1.1"
 async-trait = "0.1.83"
 chrono = { version = "0.4.39", features = ["serde"] }
 flate2 = { version = "1.0.35", optional = true }
 flume = { version = "0.11.1", optional = true }
 futures = "0.3.31"
-reqwest = { version = "0.12.9", default-features = false, features = [
+reqwest = { version = "0.12.12", default-features = false, features = [
     "charset",
     "http2",
     "macos-system-configuration",
     "json",
     "stream",
 ] }
-semver = "1.0.23"
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = "1.0.133"
+semver = "1.0.24"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.134"
 slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_warn"] }
 strum = { version = "0.26.3", features = ["derive"] }
 tar = { version = "0.4.43", optional = true }
-thiserror = "2.0.6"
+thiserror = "2.0.9"
 tokio = { version = "1.42.0", features = ["sync"] }
 uuid = { version = "1.11.0", features = ["v4"] }
 zstd = { version = "0.13.2", optional = true }
@@ -57,7 +57,7 @@ mithril-common = { path = "../mithril-common", version = "=0.4", default-feature
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2.15", features = ["js"] }
 mithril-common = { path = "../mithril-common", version = "=0.4", default-features = false }
-reqwest = { version = "0.12.9", default-features = false, features = [
+reqwest = { version = "0.12.12", default-features = false, features = [
     "charset",
     "http2",
     "macos-system-configuration",

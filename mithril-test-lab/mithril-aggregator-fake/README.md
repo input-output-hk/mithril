@@ -59,6 +59,14 @@ TRANSACTION_HASH_SAMPLE=$(sqlite3 $WORKING_DIR_END_TO_END/stores/aggregator/card
 ./scripts/import.sh $JSON_OUTPUT http://localhost:8080/aggregator "$TRANSACTION_HASH_SAMPLE"
 ```
 
+## Build
+
+Run the following command to build the binary:
+
+```
+make build
+```
+
 ## Command line synopsis
 
 Usage: `mithril-aggregator-fake [OPTIONS]`

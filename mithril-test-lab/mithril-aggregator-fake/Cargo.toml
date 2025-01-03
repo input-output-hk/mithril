@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator-fake"
-version = "0.3.16"
+version = "0.3.17"
 description = "Mithril Fake Aggregator for client testing"
 authors = { workspace = true }
 documentation = { workspace = true }
@@ -10,13 +10,13 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-anyhow = "1.0.94"
-axum = { version = "0.7.9", features = ["tokio", "http1"] }
+anyhow = "1.0.95"
+axum = { version = "0.8.1", features = ["tokio", "http1"] }
 clap = { version = "4.5.23", features = ["derive"] }
 clap_derive = "4.5.18"
 futures = "0.3.31"
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = "1.0.133"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.134"
 signal-hook = "0.3.17"
 signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
 tokio = { version = "1.42.0", features = ["full"] }
@@ -29,7 +29,7 @@ mithril-common = { "path" = "../../mithril-common", features = [
     "test_tools",
     "random",
 ] }
-reqwest = "0.12.9"
+reqwest = "0.12.12"
 warp = "0.3.7"
 
 [build-dependencies]

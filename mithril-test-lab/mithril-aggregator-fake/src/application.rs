@@ -483,7 +483,7 @@ mod tests {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
             yield_now().await;
 
-            let path = "/proof/cardano-transaction";
+            let path = "/proof/cardano-transaction?transaction_hashes=";
             let response = http_request(PORT, path).await;
 
             APISpec::verify_conformity(

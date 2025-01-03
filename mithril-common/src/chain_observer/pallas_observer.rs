@@ -10,7 +10,7 @@ use pallas_network::{
     miniprotocols::{
         localstate::{
             queries_v16::{
-                self, Addr, Addrs, ChainBlockNumber, Genesis, PostAlonsoTransactionOutput,
+                self, Addr, Addrs, ChainBlockNumber, GenesisConfig, PostAlonsoTransactionOutput,
                 StakeSnapshot, Stakes, TransactionOutput, UTxOByAddress,
             },
             Client,
@@ -322,7 +322,7 @@ impl PallasChainObserver {
     async fn do_get_genesis_config_state_query(
         &self,
         statequery: &mut Client,
-    ) -> StdResult<Vec<Genesis>> {
+    ) -> StdResult<Vec<GenesisConfig>> {
         let era = self.do_get_current_era_state_query(statequery).await?;
         let genesis_config = queries_v16::get_genesis_config(statequery, era)
             .await
@@ -519,7 +519,7 @@ mod tests {
     use pallas_network::miniprotocols::{
         localstate::{
             queries_v16::{
-                BlockQuery, ChainBlockNumber, Fraction, Genesis, HardForkQuery, LedgerQuery,
+                BlockQuery, ChainBlockNumber, Fraction, GenesisConfig, HardForkQuery, LedgerQuery,
                 Request, Snapshots, StakeSnapshot, SystemStart, Value,
             },
             ClientQueryRequest,
@@ -623,8 +623,8 @@ mod tests {
         }
     }
 
-    fn get_fake_genesis_config() -> Vec<Genesis> {
-        let genesis = Genesis {
+    fn get_fake_genesis_config() -> Vec<GenesisConfig> {
+        let genesis = GenesisConfig {
             system_start: SystemStart {
                 year: 2021,
                 day_of_year: 150,
@@ -632,7 +632,7 @@ mod tests {
             },
             network_magic: 42,
             network_id: 42,
-            active_slots_coefficient: Fraction { num: 6, dem: 10 },
+            active_slots_coefficient: Fraction { num: 6, den: 10 },
             security_param: 2160,
             epoch_length: 432000,
             slots_per_kes_period: 129600,

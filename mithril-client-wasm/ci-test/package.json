@@ -1,6 +1,6 @@
 {
   "name": "client-wasm-ci-test",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "private": true,
   "scripts": {
     "build": "webpack --config webpack.config.js",
@@ -16,7 +16,7 @@
     "dotenv-webpack": "^8.1.0",
     "prettier": "^3.3.2",
     "webpack": "^5.97.1",
-    "webpack-cli": "^5.1.4",
-    "webpack-dev-server": "^5.1.0"
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.0"
   }
 }

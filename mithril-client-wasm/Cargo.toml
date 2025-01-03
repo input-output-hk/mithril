@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-wasm"
-version = "0.7.3"
+version = "0.7.4"
 description = "Mithril client WASM"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -13,14 +13,14 @@ categories = ["cryptography"]
 crate-type = ["cdylib"]
 
 [dependencies]
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 async-trait = "0.1.83"
-chrono = { version = "0.4.38", features = ["serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
 futures = "0.3.31"
 mithril-client = { path = "../mithril-client", features = ["unstable"] }
-serde = { version = "1.0.215", features = ["derive"] }
+serde = { version = "1.0.217", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"
-serde_json = "1.0.132"
+serde_json = "1.0.134"
 wasm-bindgen = "0.2.99"
 wasm-bindgen-futures = "0.4.49"
 web-sys = { version = "0.3.76", features = ["BroadcastChannel", "console", "Storage", "Window"] }

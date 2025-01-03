@@ -26,19 +26,19 @@ pub async fn aggregator_router() -> Router<SharedState> {
         .route("/epoch-settings", get(epoch_settings))
         .route("/artifact/snapshots", get(snapshots))
         .route("/artifact/mithril-stake-distributions", get(msds))
-        .route("/artifact/mithril-stake-distribution/:digest", get(msd))
-        .route("/artifact/snapshot/:digest", get(snapshot))
+        .route("/artifact/mithril-stake-distribution/{digest}", get(msd))
+        .route("/artifact/snapshot/{digest}", get(snapshot))
         .route("/artifact/cardano-transactions", get(ctx_snapshots))
-        .route("/artifact/cardano-transaction/:hash", get(ctx_snapshot))
+        .route("/artifact/cardano-transaction/{hash}", get(ctx_snapshot))
         .route("/artifact/cardano-stake-distributions", get(csds))
-        .route("/artifact/cardano-stake-distribution/:hash", get(csd))
+        .route("/artifact/cardano-stake-distribution/{hash}", get(csd))
         .route(
-            "/artifact/cardano-stake-distribution/epoch/:epoch",
+            "/artifact/cardano-stake-distribution/epoch/{epoch}",
             get(csd_by_epoch),
         )
         .route("/proof/cardano-transaction", get(ctx_proof))
         .route("/certificates", get(certificates))
-        .route("/certificate/:hash", get(certificate))
+        .route("/certificate/{hash}", get(certificate))
         .route("/statistics/snapshot", post(statistics))
         .layer(CorsLayer::permissive())
         .layer(from_fn(set_json_app_header))
@@ -235,11 +235,10 @@ pub struct CardanoTransactionProofQueryParams {
 
 /// HTTP: return a cardano transaction proof identified by a transaction hash.
 pub async fn ctx_proof(
-    params: Option<Query<CardanoTransactionProofQueryParams>>,
+    Query(params): Query<CardanoTransactionProofQueryParams>,
     State(state): State<SharedState>,
 ) -> Result<Response<Body>, AppError> {
     let app_state = state.read().await;
-    let Query(params) = params.unwrap_or_default();
 
     app_state
         .get_ctx_proofs(&params.transaction_hashes)
@@ -384,10 +383,14 @@ mod tests {
     #[tokio::test]
     async fn no_hash_ctx_proof() {
         let state: State<SharedState> = State(AppState::default().into());
+        let transaction_hashes = "".to_string();
 
-        let error = ctx_proof(None, state)
-            .await
-            .expect_err("The handler was expected to fail since no transaction hash was provided.");
+        let error = ctx_proof(
+            Query(CardanoTransactionProofQueryParams { transaction_hashes }),
+            state,
+        )
+        .await
+        .expect_err("The handler was expected to fail since no transaction hash was provided.");
 
         assert!(matches!(error, AppError::NotFound));
     }
@@ -398,9 +401,7 @@ mod tests {
         let transaction_hashes = "whatever".to_string();
 
         let error = ctx_proof(
-            Some(Query(CardanoTransactionProofQueryParams {
-                transaction_hashes,
-            })),
+            Query(CardanoTransactionProofQueryParams { transaction_hashes }),
             state,
         )
         .await
@@ -415,9 +416,7 @@ mod tests {
         let transaction_hashes = default_values::proof_transaction_hashes()[0].to_string();
 
         let response = ctx_proof(
-            Some(Query(CardanoTransactionProofQueryParams {
-                transaction_hashes,
-            })),
+            Query(CardanoTransactionProofQueryParams { transaction_hashes }),
             state,
         )
         .await

@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.221"
+version = "0.2.222"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -14,12 +14,12 @@ name = "mktree_store_sqlite"
 harness = false
 
 [dependencies]
-anyhow = "1.0.94"
+anyhow = "1.0.95"
 async-trait = "0.1.83"
-axum = "0.7.9"
+axum = "0.8.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 clap = { version = "4.5.23", features = ["derive", "env"] }
-config = "0.14.1"
+config = "0.15.4"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
@@ -31,9 +31,9 @@ paste = "1.0.15"
 prometheus = "0.13.4"
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
-reqwest = { version = "0.12.9", features = ["json", "stream"] }
-serde = { version = "1.0.215", features = ["derive"] }
-serde_json = "1.0.133"
+reqwest = { version = "0.12.12", features = ["json", "stream"] }
+serde = { version = "1.0.217", features = ["derive"] }
+serde_json = "1.0.134"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_debug",
@@ -41,7 +41,7 @@ slog = { version = "2.7.0", features = [
 slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
-thiserror = "2.0.6"
+thiserror = "2.0.9"
 tokio = { version = "1.42.0", features = ["full"] }
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

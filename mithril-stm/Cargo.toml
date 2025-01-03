@@ -1,6 +1,6 @@
 [package]
 name = "mithril-stm"
-version = "0.3.34"
+version = "0.3.35"
 edition = { workspace = true }
 authors = { workspace = true }
 homepage = { workspace = true }
@@ -20,8 +20,8 @@ blst = { version = "0.3.13", features = ["portable"] }
 digest = { version = "0.10.7", features = ["alloc"] }
 rand_core = "0.6.4"
 rayon = "1.10.0"
-serde = { version = "1.0.215", features = ["rc", "derive"] }
-thiserror = "2.0.6"
+serde = { version = "1.0.217", features = ["rc", "derive"] }
+thiserror = "2.0.9"
 
 [target.'cfg(not(any(target_family = "wasm", windows)))'.dependencies]
 # only unix supports the rug backend
@@ -42,7 +42,7 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 hex = "0.4.3"
 num-bigint = "0.4.6"
 num-rational = "0.4.2"
-proptest = "1.5.0"
+proptest = "1.6.0"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 
