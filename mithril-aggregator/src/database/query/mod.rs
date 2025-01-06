@@ -2,6 +2,7 @@
 mod buffered_single_signature;
 mod certificate;
 mod epoch_settings;
+mod immutable_file_digest;
 mod open_message;
 mod pending_certificate;
 mod signed_entity;
@@ -13,6 +14,7 @@ mod stake_pool;
 pub use buffered_single_signature::*;
 pub use certificate::*;
 pub use epoch_settings::*;
+pub use immutable_file_digest::*;
 pub use open_message::*;
 pub use pending_certificate::*;
 pub use signed_entity::*;
