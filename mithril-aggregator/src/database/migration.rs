@@ -880,5 +880,17 @@ drop table pending_certificate;
 alter table new_pending_certificate rename to pending_certificate;
         "#,
         ),
+        // Migration 34
+        // Add the `immutable_file_digest` table.
+        SqlMigration::new(
+            34,
+            r#"
+create table immutable_file_digest (
+    immutable_file_name     text    not null,
+    digest                  text    not null,
+    primary key (immutable_file_name)
+);
+        "#,
+        ),
     ]
 }
