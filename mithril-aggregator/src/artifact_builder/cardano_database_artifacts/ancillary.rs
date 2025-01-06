@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use slog::{debug, Logger};
 
@@ -53,14 +53,20 @@ impl AncillaryArtifactBuilder {
         cardano_network: CardanoNetwork,
         compression_algorithm: CompressionAlgorithm,
         logger: Logger,
-    ) -> Self {
-        Self {
+    ) -> StdResult<Self> {
+        if uploaders.is_empty() {
+            return Err(anyhow!(
+                "At least one uploader is required to create an 'AncillaryArtifactBuilder'"
+            ));
+        }
+
+        Ok(Self {
             uploaders,
             logger: logger.new_with_component_name::<Self>(),
             cardano_network,
             compression_algorithm,
             snapshotter,
-        }
+        })
     }
 
     pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<AncillaryLocation>> {
@@ -164,8 +170,8 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn upload_ancillary_archive_should_return_empty_locations_with_no_uploader() {
-        let builder = AncillaryArtifactBuilder::new(
+    async fn create_ancillary_builder_should_error_when_no_uploader() {
+        let result = AncillaryArtifactBuilder::new(
             vec![],
             Arc::new(DumbSnapshotter::new()),
             CardanoNetwork::DevNet(123),
@@ -173,12 +179,7 @@ mod tests {
             TestLogger::stdout(),
         );
 
-        let locations = builder
-            .upload_ancillary_archive(Path::new("whatever"))
-            .await
-            .unwrap();
-
-        assert!(locations.is_empty());
+        assert!(result.is_err(), "Should return an error when no uploaders")
     }
 
     #[tokio::test]
@@ -214,7 +215,8 @@ mod tests {
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
-        );
+        )
+        .unwrap();
 
         let locations = builder
             .upload_ancillary_archive(Path::new("archive_path"))
@@ -256,12 +258,13 @@ mod tests {
         };
 
         let builder = AncillaryArtifactBuilder::new(
-            vec![],
+            vec![Arc::new(MockAncillaryFileUploader::new())],
             Arc::new(snapshotter),
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
-        );
+        )
+        .unwrap();
 
         let snapshot = builder
             .create_ancillary_archive(&CardanoDbBeacon::new(99, 2))
@@ -322,7 +325,8 @@ mod tests {
             CardanoNetwork::DevNet(123),
             CompressionAlgorithm::Gzip,
             TestLogger::stdout(),
-        );
+        )
+        .unwrap();
 
         builder
             .upload(&CardanoDbBeacon::new(99, 1))

@@ -1225,7 +1225,7 @@ impl DependenciesBuilder {
             self.configuration.get_network()?,
             self.configuration.snapshot_compression_algorithm,
             logger.clone(),
-        ));
+        )?);
 
         Ok(CardanoDatabaseArtifactBuilder::new(
             self.configuration.db_directory.clone(),

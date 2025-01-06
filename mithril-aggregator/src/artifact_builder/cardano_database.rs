@@ -178,13 +178,16 @@ mod tests {
             test_dir,
             &Version::parse("1.0.0").unwrap(),
             CompressionAlgorithm::Zstandard,
-            Arc::new(AncillaryArtifactBuilder::new(
-                vec![Arc::new(ancillary_uploader)],
-                Arc::new(DumbSnapshotter::new()),
-                CardanoNetwork::DevNet(123),
-                CompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )),
+            Arc::new(
+                AncillaryArtifactBuilder::new(
+                    vec![Arc::new(ancillary_uploader)],
+                    Arc::new(DumbSnapshotter::new()),
+                    CardanoNetwork::DevNet(123),
+                    CompressionAlgorithm::Gzip,
+                    TestLogger::stdout(),
+                )
+                .unwrap(),
+            ),
         );
 
         let beacon = fake_data::beacon();
