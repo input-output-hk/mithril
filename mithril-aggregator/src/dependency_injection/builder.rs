@@ -1,4 +1,5 @@
 use anyhow::Context;
+use reqwest::Url;
 use semver::Version;
 use slog::{debug, Logger};
 use std::{collections::BTreeSet, path::Path, sync::Arc};
@@ -64,8 +65,11 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    file_uploaders::{FileUploader, GcpUploader},
-    http_server::routes::router::{self, RouterConfig, RouterState},
+    file_uploaders::{FileUploader, GcpUploader, LocalUploader},
+    http_server::{
+        routes::router::{self, RouterConfig, RouterState},
+        SERVER_BASE_PATH,
+    },
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
         CardanoTransactionsImporter, CertifierService, EpochServiceDependencies, MessageService,
@@ -78,7 +82,7 @@ use crate::{
     tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
-    LocalUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
     SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
     SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
@@ -303,6 +307,19 @@ impl DependenciesBuilder {
         }
     }
 
+    fn get_server_url_prefix(&self) -> Result<Url> {
+        let url = format!(
+            "{}{}",
+            self.configuration.get_server_url(),
+            SERVER_BASE_PATH
+        );
+
+        Url::parse(&url).map_err(|e| DependenciesBuilderError::Initialization {
+            message: format!("Could not parse server url:'{url}'."),
+            error: Some(e.into()),
+        })
+    }
+
     /// Get the allowed signed entity types discriminants
     fn get_allowed_signed_entity_types_discriminants(
         &self,
@@ -468,11 +485,11 @@ impl DependenciesBuilder {
                         logger.clone(),
                     )))
                 }
-                SnapshotUploaderType::Local => Ok(Arc::new(LocalUploader::new(
-                    self.configuration.get_server_url(),
+                SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
+                    self.get_server_url_prefix()?,
                     &self.configuration.get_snapshot_dir()?,
                     logger,
-                ))),
+                )?)),
             }
         } else {
             Ok(Arc::new(DumbUploader::new()))
@@ -1186,6 +1203,7 @@ impl DependenciesBuilder {
         &self,
         logger: &Logger,
         cardano_node_version: Version,
+        snapshotter: Arc<dyn Snapshotter>,
     ) -> Result<CardanoDatabaseArtifactBuilder> {
         let artifacts_dir = Path::new("cardano-database").join("ancillary");
         let snapshot_dir = self
@@ -1198,14 +1216,16 @@ impl DependenciesBuilder {
                 error: Some(e.into()),
             }
         })?;
-        let local_uploader = LocalUploader::new(
-            self.configuration.get_server_url(),
-            &snapshot_dir,
+
+        let local_uploader =
+            LocalUploader::new(self.get_server_url_prefix()?, &snapshot_dir, logger.clone())?;
+        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
+            vec![Arc::new(local_uploader)],
+            snapshotter,
+            self.configuration.get_network()?,
+            self.configuration.snapshot_compression_algorithm,
             logger.clone(),
-        );
-        let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(vec![Arc::new(
-            local_uploader,
-        )]));
+        )?);
 
         Ok(CardanoDatabaseArtifactBuilder::new(
             self.configuration.db_directory.clone(),
@@ -1230,7 +1250,7 @@ impl DependenciesBuilder {
             Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
                 self.configuration.get_network()?,
                 &cardano_node_version,
-                snapshotter,
+                snapshotter.clone(),
                 snapshot_uploader,
                 self.configuration.snapshot_compression_algorithm,
                 logger.clone(),
@@ -1243,7 +1263,11 @@ impl DependenciesBuilder {
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
         let cardano_database_artifact_builder =
-            Arc::new(self.create_cardano_database_artifact_builder(&logger, cardano_node_version)?);
+            Arc::new(self.create_cardano_database_artifact_builder(
+                &logger,
+                cardano_node_version,
+                snapshotter,
+            )?);
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
@@ -1820,6 +1844,7 @@ mod tests {
             .create_cardano_database_artifact_builder(
                 &TestLogger::stdout(),
                 Version::parse("1.0.0").unwrap(),
+                Arc::new(DumbSnapshotter::new()),
             )
             .unwrap();
 

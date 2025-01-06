@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use mithril_common::{
-    digesters::{CardanoImmutableDigester, DummyImmutableDb, ImmutableDigester},
+    digesters::{CardanoImmutableDigester, DummyCardanoDb, ImmutableDigester},
     entities::{
         CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
         SignedEntityType, Signer, SingleSignatures,
@@ -96,7 +96,7 @@ pub async fn precompute_mithril_stake_distribution_signatures(
 
 /// Compute all signers single signatures for the given fixture
 pub async fn compute_immutable_files_signatures(
-    immutable_db: &DummyImmutableDb,
+    cardano_db: &DummyCardanoDb,
     epoch: Epoch,
     signers_fixture: &MithrilFixture,
     timeout: Duration,
@@ -106,17 +106,17 @@ pub async fn compute_immutable_files_signatures(
             let beacon = CardanoDbBeacon::new(
                 *epoch,
                 // Minus one because the last immutable isn't "finished"
-                immutable_db.last_immutable_number().unwrap() - 1,
+                cardano_db.last_immutable_number().unwrap() - 1,
             );
             let digester =
                 CardanoImmutableDigester::new("devnet".to_string(), None, slog_scope::logger());
             let digest = digester
-                .compute_digest(&immutable_db.dir, &beacon)
+                .compute_digest(cardano_db.get_immutable_dir(), &beacon)
                 .await
                 .with_context(|| {
                     format!(
                         "Payload Builder can not compute digest of '{}'",
-                        &immutable_db.dir.display()
+                        cardano_db.get_immutable_dir().display()
                     )
                 })?;
             let signers_fixture = signers_fixture.clone();

@@ -1,36 +1,22 @@
 use crate::test_utils::TempDir;
-use crate::{digesters::ImmutableFile, entities::ImmutableFileNumber};
+use crate::{
+    digesters::{ImmutableFile, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
+    entities::ImmutableFileNumber,
+};
 use std::{
     fs::File,
     io::prelude::Write,
     path::{Path, PathBuf},
 };
 
-const IMMUTABLE_DIR: &str = "immutable";
-const LEDGER_DIR: &str = "ledger";
-const VOLATILE_DIR: &str = "volatile";
-
-/// A [DummyImmutableDb] builder.
-pub struct DummyImmutablesDbBuilder {
-    dir: PathBuf,
-    immutables_to_write: Vec<ImmutableFileNumber>,
-    non_immutables_to_write: Vec<String>,
-    append_uncompleted_trio: bool,
-    immutable_file_size: Option<u64>,
-    ledger_files_to_write: Vec<String>,
-    ledger_file_size: Option<u64>,
-    volatile_files_to_write: Vec<String>,
-    volatile_file_size: Option<u64>,
-}
-
 /// A dummy cardano immutable db.
-pub struct DummyImmutableDb {
+struct DummyImmutableDb {
     /// The dummy cardano db directory path.
-    pub dir: PathBuf,
+    dir: PathBuf,
     /// The [immutables files][ImmutableFile] in the dummy cardano db.
-    pub immutables_files: Vec<ImmutableFile>,
+    immutables_files: Vec<ImmutableFile>,
     /// Files that doesn't follow the immutable file name scheme in the dummy cardano db.
-    pub non_immutables_files: Vec<PathBuf>,
+    non_immutables_files: Vec<PathBuf>,
 }
 
 impl DummyImmutableDb {
@@ -50,12 +36,66 @@ impl DummyImmutableDb {
     }
 }
 
-impl DummyImmutablesDbBuilder {
-    /// [DummyImmutablesDbBuilder] factory, will create a folder with the given `dirname` in the
+/// A dummy cardano db.
+pub struct DummyCardanoDb {
+    /// The dummy cardano db directory path.
+    dir: PathBuf,
+
+    /// Dummy immutable db
+    immutable_db: DummyImmutableDb,
+}
+
+impl DummyCardanoDb {
+    /// Return the cardano db directory path.
+    pub fn get_dir(&self) -> &PathBuf {
+        &self.dir
+    }
+
+    /// Return the immutable db directory path.
+    pub fn get_immutable_dir(&self) -> &PathBuf {
+        &self.immutable_db.dir
+    }
+
+    /// Return the file number of the last immutable
+    pub fn get_immutable_files(&self) -> &Vec<ImmutableFile> {
+        &self.immutable_db.immutables_files
+    }
+
+    /// Add an immutable chunk file and its primary & secondary to the dummy DB.
+    pub fn add_immutable_file(&mut self) -> ImmutableFileNumber {
+        self.immutable_db.add_immutable_file()
+    }
+
+    /// Return the file number of the last immutable
+    pub fn last_immutable_number(&self) -> Option<ImmutableFileNumber> {
+        self.immutable_db.last_immutable_number()
+    }
+
+    /// Return the non immutables files in the immutables directory
+    pub fn get_non_immutables_files(&self) -> &Vec<PathBuf> {
+        &self.immutable_db.non_immutables_files
+    }
+}
+
+/// A [DummyCardanoDbBuilder] builder.
+pub struct DummyCardanoDbBuilder {
+    sub_dir: String,
+    immutables_to_write: Vec<ImmutableFileNumber>,
+    non_immutables_to_write: Vec<String>,
+    append_uncompleted_trio: bool,
+    immutable_file_size: Option<u64>,
+    ledger_files_to_write: Vec<String>,
+    ledger_file_size: Option<u64>,
+    volatile_files_to_write: Vec<String>,
+    volatile_file_size: Option<u64>,
+}
+
+impl DummyCardanoDbBuilder {
+    /// [DummyCardanoDbBuilder] factory, will create a folder with the given `dirname` in the
     /// system temp directory, if it exists already it will be cleaned.
     pub fn new(dir_name: &str) -> Self {
         Self {
-            dir: get_test_dir(dir_name),
+            sub_dir: dir_name.to_string(),
             immutables_to_write: vec![],
             non_immutables_to_write: vec![],
             append_uncompleted_trio: false,
@@ -125,8 +165,10 @@ impl DummyImmutablesDbBuilder {
         self
     }
 
-    /// Build a [DummyImmutableDb].
-    pub fn build(&self) -> DummyImmutableDb {
+    /// Build a [DummyCardanoDb].
+    pub fn build(&self) -> DummyCardanoDb {
+        let dir = get_test_dir(&self.sub_dir);
+
         let mut non_immutables_files = vec![];
         let mut immutable_numbers = self.immutables_to_write.clone();
         immutable_numbers.sort();
@@ -134,7 +176,7 @@ impl DummyImmutablesDbBuilder {
         if self.append_uncompleted_trio {
             write_immutable_trio(
                 self.immutable_file_size,
-                &self.dir.join(IMMUTABLE_DIR),
+                &dir.join(IMMUTABLE_DIR),
                 match immutable_numbers.last() {
                     None => 0,
                     Some(last) => last + 1,
@@ -145,37 +187,31 @@ impl DummyImmutablesDbBuilder {
         for non_immutable in &self.non_immutables_to_write {
             non_immutables_files.push(write_dummy_file(
                 self.immutable_file_size,
-                &self.dir.join(IMMUTABLE_DIR),
+                &dir.join(IMMUTABLE_DIR),
                 non_immutable,
             ));
         }
 
         for filename in &self.ledger_files_to_write {
-            write_dummy_file(self.ledger_file_size, &self.dir.join(LEDGER_DIR), filename);
+            write_dummy_file(self.ledger_file_size, &dir.join(LEDGER_DIR), filename);
         }
 
         for filename in &self.volatile_files_to_write {
-            write_dummy_file(
-                self.volatile_file_size,
-                &self.dir.join(VOLATILE_DIR),
-                filename,
-            );
+            write_dummy_file(self.volatile_file_size, &dir.join(VOLATILE_DIR), filename);
         }
 
-        DummyImmutableDb {
-            dir: self.dir.join(IMMUTABLE_DIR),
+        let immutable_db = DummyImmutableDb {
+            dir: dir.join(IMMUTABLE_DIR),
             immutables_files: immutable_numbers
                 .into_iter()
                 .flat_map(|ifn| {
-                    write_immutable_trio(
-                        self.immutable_file_size,
-                        &self.dir.join(IMMUTABLE_DIR),
-                        ifn,
-                    )
+                    write_immutable_trio(self.immutable_file_size, &dir.join(IMMUTABLE_DIR), ifn)
                 })
                 .collect::<Vec<_>>(),
             non_immutables_files,
-        }
+        };
+
+        DummyCardanoDb { dir, immutable_db }
     }
 }
 

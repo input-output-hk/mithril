@@ -4,7 +4,7 @@ use std::{ops::Deref, sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 
 use mithril_common::{
-    digesters::{DummyImmutableDb, DummyImmutablesDbBuilder},
+    digesters::{DummyCardanoDb, DummyCardanoDbBuilder},
     entities::{CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
     test_utils::MithrilFixture,
     StdResult,
@@ -35,13 +35,13 @@ async fn main() -> StdResult<()> {
     let mut reporter: Reporter = Reporter::new(opts.num_signers, opts.num_clients);
     reporter.start("stress tests bootstrap");
     // configure a dummy immutable db
-    let immutable_db = DummyImmutablesDbBuilder::new("load-tester")
+    let cardano_db = DummyCardanoDbBuilder::new("load-tester")
         .with_immutables(&[1, 2, 3])
         .append_immutable_trio()
         .build();
 
     let _logger_guard = init_logger(&opts);
-    let aggregator_parameters = AggregatorParameters::new(&opts, &immutable_db.dir)?;
+    let aggregator_parameters = AggregatorParameters::new(&opts, cardano_db.get_immutable_dir())?;
     let mut current_epoch = Epoch(1);
     let protocol_parameters = ProtocolParameters::new(2422, 20973, 0.20);
     info!(">> Starting stress test with options: {opts:?}");
@@ -71,7 +71,7 @@ async fn main() -> StdResult<()> {
         aggregator,
         aggregator_parameters,
         signers_fixture,
-        immutable_db,
+        cardano_db,
         reporter,
         precomputed_mithril_stake_distribution_signatures: mithril_stake_distribution_signatures,
     };
@@ -121,7 +121,7 @@ struct ScenarioParameters {
     aggregator: Aggregator,
     aggregator_parameters: AggregatorParameters,
     signers_fixture: MithrilFixture,
-    immutable_db: DummyImmutableDb,
+    cardano_db: DummyCardanoDb,
     precomputed_mithril_stake_distribution_signatures: Vec<SingleSignatures>,
     reporter: Reporter,
 }
@@ -154,7 +154,7 @@ async fn main_scenario(
 
     // Creating the new immutable file early will avoid time effects due to the aggregator runtime design when high client traffic is sent
     info!(">> Add new immutable file");
-    parameters.immutable_db.add_immutable_file();
+    parameters.cardano_db.add_immutable_file();
 
     wait::for_epoch_settings_at_epoch(
         &parameters.aggregator,
@@ -227,7 +227,7 @@ async fn main_scenario(
         Duration::from_secs(60),
         &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
             *current_epoch.deref(),
-            parameters.immutable_db.last_immutable_number().unwrap() - 1,
+            parameters.cardano_db.last_immutable_number().unwrap() - 1,
         )),
     )
     .await?;
@@ -235,7 +235,7 @@ async fn main_scenario(
     info!(">> Compute the immutable files signature");
     let (current_beacon, immutable_files_signatures) =
         payload_builder::compute_immutable_files_signatures(
-            &parameters.immutable_db,
+            &parameters.cardano_db,
             current_epoch,
             &parameters.signers_fixture,
             Duration::from_secs(60),
