@@ -24,6 +24,9 @@ pub trait Snapshotter: Sync + Send {
 
     /// Create a new snapshot with the given filepath from a subset of directories and files.
     fn snapshot_subset(&self, filepath: &Path, files: Vec<PathBuf>) -> StdResult<OngoingSnapshot>;
+
+    /// Check if the snapshot exists.
+    fn is_snapshot_exist(&self, filepath: &Path) -> bool;
 }
 
 /// Compression algorithm and parameters of the [CompressedArchiveSnapshotter].
@@ -182,6 +185,10 @@ impl Snapshotter for CompressedArchiveSnapshotter {
 
         self.snapshot(filepath, appender)
     }
+
+    fn is_snapshot_exist(&self, filepath: &Path) -> bool {
+        self.archive_path(filepath).exists()
+    }
 }
 
 impl CompressedArchiveSnapshotter {
@@ -220,7 +227,7 @@ impl CompressedArchiveSnapshotter {
     }
 
     fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {
-        let archive_path = self.ongoing_snapshot_directory.join(filepath);
+        let archive_path = self.archive_path(filepath);
         if let Some(archive_dir) = archive_path.parent() {
             fs::create_dir_all(archive_dir).with_context(|| {
                 format!(
@@ -245,6 +252,10 @@ impl CompressedArchiveSnapshotter {
             filepath: archive_path,
             filesize,
         })
+    }
+
+    fn archive_path(&self, filepath: &Path) -> PathBuf {
+        self.ongoing_snapshot_directory.join(filepath)
     }
 
     fn get_file_size(filepath: &Path) -> StdResult<u64> {
@@ -491,6 +502,10 @@ impl Snapshotter for DumbSnapshotter {
         _files: Vec<PathBuf>,
     ) -> StdResult<OngoingSnapshot> {
         self.snapshot_all(archive_name)
+    }
+
+    fn is_snapshot_exist(&self, _filepath: &Path) -> bool {
+        return false;
     }
 }
 
@@ -884,5 +899,29 @@ mod tests {
 
         let unpack_path = unpack_gz_decoder(test_dir, second_snapshot);
         assert!(unpack_path.join("another_file_to_archive.txt").exists());
+    }
+
+    #[test]
+    fn is_snapshot_exist_return_true_when_file_exists() {
+        let test_dir = get_test_directory("is_snapshot_exist_return_true_when_file_exists");
+        let destination = test_dir.join(create_dir(&test_dir, "destination"));
+        let source = test_dir.join(create_dir(&test_dir, "source"));
+
+        create_file(&source, "file_to_archive.txt");
+
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            source,
+            destination,
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let snapshot_path = PathBuf::from(random_archive_name());
+        assert!(!snapshotter.is_snapshot_exist(&snapshot_path));
+
+        snapshotter.snapshot_all(&snapshot_path).unwrap();
+
+        assert!(snapshotter.is_snapshot_exist(&snapshot_path));
     }
 }
