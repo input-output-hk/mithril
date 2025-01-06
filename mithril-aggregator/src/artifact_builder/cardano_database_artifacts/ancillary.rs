@@ -119,9 +119,13 @@ impl AncillaryArtifactBuilder {
             self.compression_algorithm.tar_file_extension()
         );
 
+        let ancillary_archive_path = Path::new("cardano-database")
+            .join("ancillary")
+            .join(&archive_name);
+
         let snapshot = self
             .snapshotter
-            .snapshot_subset(&archive_name, paths_to_include)
+            .snapshot_subset(&ancillary_archive_path, paths_to_include)
             .with_context(|| {
                 format!(
                     "Failed to create ancillary archive for immutable file number: {}",

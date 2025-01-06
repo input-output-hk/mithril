@@ -2,6 +2,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use semver::Version;
 use slog::{debug, warn, Logger};
+use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -74,7 +75,7 @@ impl CardanoImmutableFilesFullArtifactBuilder {
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot =
             tokio::task::spawn_blocking(move || -> StdResult<OngoingSnapshot> {
-                snapshotter.snapshot_all(&snapshot_name)
+                snapshotter.snapshot_all(Path::new(&snapshot_name))
             })
             .await??;
 
