@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog::{debug, Logger};
+use slog::{debug, error, Logger};
 
 use mithril_common::{
     digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
@@ -29,7 +29,10 @@ pub trait AncillaryFileUploader: Send + Sync {
 #[async_trait]
 impl AncillaryFileUploader for LocalUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
-        let uri = FileUploader::upload(self, filepath).await?.into();
+        let uri = FileUploader::upload(self, filepath)
+            .await
+            .with_context(|| "Error while uploading with 'LocalUploader'")?
+            .into();
 
         Ok(AncillaryLocation::CloudStorage { uri })
     }
@@ -142,8 +145,25 @@ impl AncillaryArtifactBuilder {
     ) -> StdResult<Vec<AncillaryLocation>> {
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
-            let location = uploader.upload(archive_filepath).await?;
-            locations.push(location);
+            let result = uploader.upload(archive_filepath).await;
+            match result {
+                Ok(location) => {
+                    locations.push(location);
+                }
+                Err(e) => {
+                    error!(
+                        self.logger,
+                        "Failed to upload ancillary archive";
+                        "error" => e.to_string()
+                    );
+                }
+            }
+        }
+
+        if locations.is_empty() {
+            return Err(anyhow!(
+                "Failed to upload ancillary archive with all uploaders"
+            ));
         }
 
         Ok(locations)
@@ -158,8 +178,9 @@ mod tests {
     use mockall::predicate::eq;
     use tar::Archive;
 
-    use mithril_common::digesters::{
-        DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR,
+    use mithril_common::{
+        digesters::{DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
+        test_utils::TempDir,
     };
 
     use crate::{
@@ -180,6 +201,64 @@ mod tests {
         );
 
         assert!(result.is_err(), "Should return an error when no uploaders")
+    }
+
+    #[tokio::test]
+    async fn upload_ancillary_archive_should_log_upload_errors() {
+        let log_path = TempDir::create(
+            "ancillary",
+            "upload_ancillary_archive_should_log_upload_errors",
+        )
+        .join("test.log");
+
+        let mut uploader = MockAncillaryFileUploader::new();
+        uploader
+            .expect_upload()
+            .return_once(|_| Err(anyhow!("Failure while uploading...")));
+
+        {
+            let builder = AncillaryArtifactBuilder::new(
+                vec![Arc::new(uploader)],
+                Arc::new(DumbSnapshotter::new()),
+                CardanoNetwork::DevNet(123),
+                CompressionAlgorithm::Gzip,
+                TestLogger::file(&log_path),
+            )
+            .unwrap();
+
+            let _ = builder
+                .upload_ancillary_archive(Path::new("archive_path"))
+                .await;
+        }
+
+        let logs = std::fs::read_to_string(&log_path).unwrap();
+        assert!(logs.contains("Failure while uploading..."));
+    }
+
+    #[tokio::test]
+    async fn upload_ancillary_archive_should_error_when_no_location_is_returned() {
+        let mut uploader = MockAncillaryFileUploader::new();
+        uploader
+            .expect_upload()
+            .return_once(|_| Err(anyhow!("Failure while uploading, no location returned")));
+
+        let builder = AncillaryArtifactBuilder::new(
+            vec![Arc::new(uploader)],
+            Arc::new(DumbSnapshotter::new()),
+            CardanoNetwork::DevNet(123),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let result = builder
+            .upload_ancillary_archive(Path::new("archive_path"))
+            .await;
+
+        assert!(
+            result.is_err(),
+            "Should return an error when no location is returned"
+        );
     }
 
     #[tokio::test]
