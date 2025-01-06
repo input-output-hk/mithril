@@ -194,8 +194,8 @@ mod tests {
 
     use super::*;
 
-    #[tokio::test]
-    async fn create_ancillary_builder_should_error_when_no_uploader() {
+    #[test]
+    fn create_ancillary_builder_should_error_when_no_uploader() {
         let result = AncillaryArtifactBuilder::new(
             vec![],
             Arc::new(DumbSnapshotter::new()),
