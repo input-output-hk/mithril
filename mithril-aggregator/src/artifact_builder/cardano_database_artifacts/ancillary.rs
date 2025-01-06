@@ -179,7 +179,6 @@ mod tests {
     use std::fs::File;
 
     use flate2::read::GzDecoder;
-    use mockall::predicate::eq;
     use tar::Archive;
 
     use mithril_common::{
@@ -193,6 +192,28 @@ mod tests {
     };
 
     use super::*;
+
+    fn fake_uploader_returning_error() -> MockAncillaryFileUploader {
+        let mut uploader = MockAncillaryFileUploader::new();
+        uploader
+            .expect_upload()
+            .return_once(|_| Err(anyhow!("Failure while uploading...")));
+
+        uploader
+    }
+
+    fn fake_uploader(archive_path: &str, location_uri: &str) -> MockAncillaryFileUploader {
+        let uri = location_uri.to_string();
+        let filepath = archive_path.to_string();
+        let mut uploader = MockAncillaryFileUploader::new();
+        uploader
+            .expect_upload()
+            .withf(move |p| p == Path::new(&filepath))
+            .times(1)
+            .return_once(|_| Ok(AncillaryLocation::CloudStorage { uri }));
+
+        uploader
+    }
 
     #[test]
     fn create_ancillary_builder_should_error_when_no_uploader() {
@@ -241,10 +262,7 @@ mod tests {
 
     #[tokio::test]
     async fn upload_ancillary_archive_should_error_when_no_location_is_returned() {
-        let mut uploader = MockAncillaryFileUploader::new();
-        uploader
-            .expect_upload()
-            .return_once(|_| Err(anyhow!("Failure while uploading, no location returned")));
+        let uploader = fake_uploader_returning_error();
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],
@@ -266,28 +284,43 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_ancillary_archive_should_return_all_uploaders_returned_locations() {
-        let mut first_uploader = MockAncillaryFileUploader::new();
-        first_uploader
-            .expect_upload()
-            .with(eq(Path::new("archive_path")))
-            .times(1)
-            .return_once(|_| {
-                Ok(AncillaryLocation::CloudStorage {
-                    uri: "an_uri".to_string(),
-                })
-            });
+    async fn upload_ancillary_archive_should_return_location_even_with_uploaders_errors() {
+        let first_uploader = fake_uploader_returning_error();
+        let second_uploader = fake_uploader("archive_path", "an_uri");
+        let third_uploader = fake_uploader_returning_error();
 
-        let mut second_uploader = MockAncillaryFileUploader::new();
-        second_uploader
-            .expect_upload()
-            .with(eq(Path::new("archive_path")))
-            .times(1)
-            .return_once(|_| {
-                Ok(AncillaryLocation::CloudStorage {
-                    uri: "another_uri".to_string(),
-                })
-            });
+        let uploaders: Vec<Arc<dyn AncillaryFileUploader>> = vec![
+            Arc::new(first_uploader),
+            Arc::new(second_uploader),
+            Arc::new(third_uploader),
+        ];
+
+        let builder = AncillaryArtifactBuilder::new(
+            uploaders,
+            Arc::new(DumbSnapshotter::new()),
+            CardanoNetwork::DevNet(123),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let locations = builder
+            .upload_ancillary_archive(Path::new("archive_path"))
+            .await
+            .unwrap();
+
+        assert_eq!(
+            locations,
+            vec![AncillaryLocation::CloudStorage {
+                uri: "an_uri".to_string()
+            }]
+        );
+    }
+
+    #[tokio::test]
+    async fn upload_ancillary_archive_should_return_all_uploaders_returned_locations() {
+        let first_uploader = fake_uploader("archive_path", "an_uri");
+        let second_uploader = fake_uploader("archive_path", "another_uri");
 
         let uploaders: Vec<Arc<dyn AncillaryFileUploader>> =
             vec![Arc::new(first_uploader), Arc::new(second_uploader)];
