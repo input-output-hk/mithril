@@ -25,15 +25,12 @@ on:
   workflow_call:
     inputs:
       num_signers:
-        required: true
         type: string
         default: "100"
       num_clients:
-        required: true
         type: string
         default: "100"
       enable_debug:
-        required: true
         type: boolean
         default: false
 
