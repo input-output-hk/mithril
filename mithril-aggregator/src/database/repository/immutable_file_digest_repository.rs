@@ -16,6 +16,7 @@ use crate::database::query::{
     DeleteImmutableFileDigestQuery, GetImmutableFileDigestQuery, UpsertImmutableFileDigestQuery,
 };
 use crate::database::record::ImmutableFileDigestRecord;
+use crate::ImmutableFileDigestMapper;
 
 /// ImmutableFileDigestRepository store for the immutable file digests.
 pub struct ImmutableFileDigestRepository {
@@ -109,6 +110,22 @@ impl ImmutableFileDigestCacheProvider for ImmutableFileDigestRepository {
             .map_err(ImmutableDigesterCacheGetError::StoreError)?;
 
         Ok(())
+    }
+}
+
+#[async_trait]
+impl ImmutableFileDigestMapper for ImmutableFileDigestRepository {
+    async fn get_immutable_file_digest_map(
+        &self,
+    ) -> StdResult<BTreeMap<ImmutableFileName, HexEncodedDigest>> {
+        let immutable_file_digest_map = BTreeMap::from_iter(
+            self.get_all_immutable_file_digest()
+                .await?
+                .into_iter()
+                .map(|record| (record.immutable_file_name, record.digest)),
+        );
+
+        Ok(immutable_file_digest_map)
     }
 }
 
@@ -381,6 +398,37 @@ mod tests {
                 .expect("Cache read should not fail");
 
             assert!(result.into_iter().all(|(_, cache)| cache.is_none()));
+        }
+    }
+
+    #[cfg(test)]
+    mod digest_mapper {
+
+        use mithril_common::digesters::cache::ImmutableFileDigestCacheProvider;
+
+        use super::*;
+
+        #[tokio::test]
+        async fn get_immutable_file_digest_map() {
+            let provider = ImmutableFileDigestRepository::new(get_connection().await);
+            let immutable_file_digest_records = vec![
+                ("0.chunk".to_string(), "digest 0".to_string()),
+                ("1.chunk".to_string(), "digest 1".to_string()),
+                ("2.chunk".to_string(), "digest 2".to_string()),
+            ];
+            let expected_immutable_file_digest_map =
+                BTreeMap::from_iter(immutable_file_digest_records.clone().into_iter());
+            provider
+                .store(immutable_file_digest_records)
+                .await
+                .expect("Cache write should not fail");
+
+            let immutable_file_digest_map = provider.get_immutable_file_digest_map().await.unwrap();
+
+            assert_eq!(
+                expected_immutable_file_digest_map,
+                immutable_file_digest_map
+            );
         }
     }
 }
