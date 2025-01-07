@@ -43,30 +43,23 @@ on:
   workflow_call:
     inputs:
       commit_sha:
-        required: false
         type: string
       docker_image_id:
-        required: true
         type: string
         default: latest
       network:
-        required: true
         type: string
         default: preview
       aggregator_endpoint:
-        required: true
         type: string
         default: https://aggregator.testing-preview.api.mithril.network/aggregator
       genesis_verification_key:
-        required: true
         type: string
         default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey
       transactions_hashes_to_certify:
-        required: true
         type: string
         default: 1f7dbc899a898ceb4274bbc33b31ca5f0de497753c6c6795fa34838fc252de9b,c43e809de628f7c1ba41a44f188ed3872bb1f97aa101271e35424a8e1d95bea9,c61e22ac4a79a02b28ed36217369ff6959465790a4fe9e66738b7a820e174fcd
       enable_debug:
-        required: true
         type: boolean
         default: false
 
