@@ -16,6 +16,7 @@ use mithril_common::StdResult;
 use crate::dependency_injection::DependenciesBuilderError;
 use crate::ZstandardCompressionParameters;
 
+#[cfg_attr(test, mockall::automock)]
 /// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
     /// Create a new snapshot with the given filepath.
@@ -849,5 +850,39 @@ mod tests {
 
         assert!(unpack_path.join(directory_to_archive_path).is_dir());
         assert!(unpack_path.join(file_to_archive_path).is_file());
+    }
+
+    #[test]
+    fn snapshot_overwrite_archive_already_existing() {
+        let test_dir = get_test_directory("snapshot_overwrite_archive_already_existing");
+        let destination = test_dir.join(create_dir(&test_dir, "destination"));
+        let source = test_dir.join(create_dir(&test_dir, "source"));
+
+        create_file(&source, "file_to_archive.txt");
+
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            source.clone(),
+            destination,
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let first_snapshot = snapshotter
+            .snapshot_all(Path::new(&random_archive_name()))
+            .unwrap();
+        let first_snapshot_size = first_snapshot.get_file_size();
+
+        create_file(&source, "another_file_to_archive.txt");
+
+        let second_snapshot = snapshotter
+            .snapshot_all(Path::new(&random_archive_name()))
+            .unwrap();
+        let second_snapshot_size = second_snapshot.get_file_size();
+
+        assert_ne!(first_snapshot_size, second_snapshot_size);
+
+        let unpack_path = unpack_gz_decoder(test_dir, second_snapshot);
+        assert!(unpack_path.join("another_file_to_archive.txt").exists());
     }
 }
