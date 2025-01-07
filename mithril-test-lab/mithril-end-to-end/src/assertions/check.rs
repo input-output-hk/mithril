@@ -6,11 +6,11 @@ use anyhow::{anyhow, Context};
 use mithril_common::{
     entities::{Epoch, TransactionHash},
     messages::{
-        CardanoDatabaseSnapshotListMessage, CardanoDatabaseSnapshotMessage,
-        CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
-        CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
-        CertificateMessage, MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
-        SnapshotMessage,
+        CardanoDatabaseDigestListMessage, CardanoDatabaseSnapshotListMessage,
+        CardanoDatabaseSnapshotMessage, CardanoStakeDistributionListMessage,
+        CardanoStakeDistributionMessage, CardanoTransactionSnapshotListMessage,
+        CardanoTransactionSnapshotMessage, CertificateMessage, MithrilStakeDistributionListMessage,
+        MithrilStakeDistributionMessage, SnapshotMessage,
     },
     StdResult,
 };
@@ -273,6 +273,52 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(anyhow!(
             "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{url}`"
+        )),
+    }
+}
+
+pub async fn assert_node_producing_cardano_database_digests_map(
+    aggregator_endpoint: &str,
+) -> StdResult<Vec<(String, String)>> {
+    let url = format!("{aggregator_endpoint}/artifact/cardano-database/digests");
+    info!("Waiting for the aggregator to produce a Cardano database digests map");
+
+    async fn fetch_cardano_database_digests_map(
+        url: String,
+    ) -> StdResult<Option<Vec<(String, String)>>> {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response
+                    .json::<CardanoDatabaseDigestListMessage>()
+                    .await
+                    .as_deref()
+                {
+                    Ok(&[]) => Ok(None),
+                    Ok(cardano_database_digests_map) => Ok(Some(
+                        cardano_database_digests_map
+                            .iter()
+                            .map(|item| (item.immutable_file_name.clone(), item.digest.clone()))
+                            .collect(),
+                    )),
+                    Err(err) => Err(anyhow!("Invalid Cardano database digests map body : {err}",)),
+                },
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+            },
+            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        }
+    }
+
+    // todo: reduce the number of attempts if we can reduce the delay between two immutables
+    match attempt!(45, Duration::from_millis(2000), {
+        fetch_cardano_database_digests_map(url.clone()).await
+    }) {
+        AttemptResult::Ok(cardano_database_digests_map) => {
+            info!("Aggregator produced a Cardano database digests map"; "total_digests" => &cardano_database_digests_map.len());
+            Ok(cardano_database_digests_map)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(anyhow!(
+            "Timeout exhausted assert_node_producing_cardano_database_digests_map, no response from `{url}`"
         )),
     }
 }

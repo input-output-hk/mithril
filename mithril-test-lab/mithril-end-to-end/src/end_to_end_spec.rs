@@ -205,6 +205,9 @@ impl<'a> Spec<'a> {
             )
             .await?;
 
+            assertions::assert_node_producing_cardano_database_digests_map(&aggregator_endpoint)
+                .await?;
+
             // TODO: uncomment when the client can verify Cardano database snapshots
             //let mut client = self.infrastructure.build_client()?;
             //assertions::assert_client_can_verify_cardano_database_snapshot(&mut client, &digest).await?;
