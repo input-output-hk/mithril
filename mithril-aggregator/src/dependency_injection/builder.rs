@@ -26,9 +26,9 @@ use mithril_common::{
         ProtocolGenesisVerifier,
     },
     digesters::{
-        cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
-        CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
-        ImmutableFileObserver, ImmutableFileSystemObserver,
+        cache::ImmutableFileDigestCacheProvider, CardanoImmutableDigester,
+        DumbImmutableFileObserver, ImmutableDigester, ImmutableFileObserver,
+        ImmutableFileSystemObserver,
     },
     entities::{CompressionAlgorithm, Epoch, SignedEntityTypeDiscriminants},
     era::{
@@ -60,8 +60,9 @@ use crate::{
     configuration::ExecutionEnvironment,
     database::repository::{
         BufferedSingleSignatureRepository, CertificatePendingRepository, CertificateRepository,
-        EpochSettingsStore, OpenMessageRepository, SignedEntityStore, SignedEntityStorer,
-        SignerRegistrationStore, SignerStore, SingleSignatureRepository, StakePoolStore,
+        EpochSettingsStore, ImmutableFileDigestRepository, OpenMessageRepository,
+        SignedEntityStore, SignedEntityStorer, SignerRegistrationStore, SignerStore,
+        SingleSignatureRepository, StakePoolStore,
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
@@ -725,14 +726,14 @@ impl DependenciesBuilder {
     async fn build_immutable_cache_provider(
         &mut self,
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
-        let cache_provider = JsonImmutableFileDigestCacheProviderBuilder::new(
-            &self.configuration.data_stores_directory,
-            &format!("immutables_digests_{}.json", self.configuration.network),
-        )
-        .with_logger(self.root_logger())
-        .should_reset_digests_cache(self.configuration.reset_digests_cache)
-        .build()
-        .await?;
+        let cache_provider =
+            ImmutableFileDigestRepository::new(self.get_sqlite_connection().await?);
+        if self.configuration.reset_digests_cache {
+            cache_provider
+                .reset()
+                .await
+                .with_context(|| "Failure occurred when resetting immutable file digest cache")?;
+        }
 
         Ok(Arc::new(cache_provider))
     }
