@@ -10,16 +10,19 @@ tags: [era, switch, thales, pythagoras]
 We have introduced the **Pythagoras era** in the Mithril networks. The switch to `Pythagoras` is a significant milestone that brings new features and improvements to the Mithril protocol.
 
 :::danger
+
 **Mithril signer versions** compatible with the new `Pythagoras` era are:
 
-- `v.0.2.221`
-- `v.0.2.209`
-- `v.0.2.200`
+- `0.2.221`
+- `0.2.209`
+- `0.2.200`
 
 All other versions are **not** compatible with the new era and must be updated.
+
 :::
 
 :::tip
+
 You can easily update your Mithril signer with this one-line command (it will be downloaded to the current directory by default; you can specify a custom folder with the `-p` option):
 
 
@@ -49,6 +52,5 @@ We use the **era switch mechanism** to introduce breaking changes in the Mithril
 
 If you have any questions or need assistance, feel free to contact the team on our [Discord channel](https://discord.gg/5kaErDKDRq).
 
-:::
 
 For any inquiries or assistance, don't hesitate to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
