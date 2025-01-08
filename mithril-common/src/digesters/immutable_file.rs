@@ -108,11 +108,11 @@ impl ImmutableFile {
 
     cfg_test_tools! {
         /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
-        pub fn dummy(path: PathBuf, number: ImmutableFileNumber, filename: String) -> Self {
+        pub fn dummy<T: Into<String>>(path: PathBuf, number: ImmutableFileNumber, filename: T) -> Self {
             Self {
                 path,
                 number,
-                filename,
+                filename: filename.into(),
             }
         }
     }
