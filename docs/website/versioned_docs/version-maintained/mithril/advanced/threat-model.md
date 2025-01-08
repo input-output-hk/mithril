@@ -65,7 +65,7 @@ Missing: the currently recommended relay (reverse proxy)
 
 This document focuses on the standard deployment architecture, where a Mithril signer runs alongside the block-producing node, and the aggregator is accessed only through a relay.
 
-[![Mithril - architecture](mithril-network/images/architecture.svg)](mithril-network/images/architecture.svg)
+[![Mithril - Architecture](mithril-network/images/architecture.svg)](mithril-network/images/architecture.svg)
 
 Additional information is available in:
 
