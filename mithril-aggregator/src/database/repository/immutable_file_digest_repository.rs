@@ -143,6 +143,8 @@ mod tests {
     }
 
     mod repository {
+        use mithril_common::test_utils::assert_equivalent;
+
         use super::*;
 
         #[tokio::test]
@@ -155,7 +157,7 @@ mod tests {
                 .get_immutable_file_digest(&immutable_file_name)
                 .await
                 .unwrap();
-            assert!(immutable_file_digest_result.is_none());
+            assert_eq!(None, immutable_file_digest_result);
 
             repository
                 .upsert_immutable_file_digest(&immutable_file_name, digest)
@@ -165,7 +167,13 @@ mod tests {
                 .get_immutable_file_digest(&immutable_file_name)
                 .await
                 .unwrap();
-            assert!(immutable_file_digest_result.is_some());
+            assert_eq!(
+                Some(ImmutableFileDigestRecord {
+                    immutable_file_name,
+                    digest: digest.to_string()
+                }),
+                immutable_file_digest_result
+            );
         }
 
         #[tokio::test]
@@ -186,7 +194,20 @@ mod tests {
                 .unwrap();
             let all_immutable_file_digests =
                 repository.get_all_immutable_file_digest().await.unwrap();
-            assert_eq!(2, all_immutable_file_digests.len());
+
+            assert_equivalent(
+                vec![
+                    ImmutableFileDigestRecord {
+                        immutable_file_name: "123.chunk".to_string(),
+                        digest: "digest-123".to_string(),
+                    },
+                    ImmutableFileDigestRecord {
+                        immutable_file_name: "456.chunk".to_string(),
+                        digest: "digest-456".to_string(),
+                    },
+                ],
+                all_immutable_file_digests,
+            );
         }
 
         #[tokio::test]

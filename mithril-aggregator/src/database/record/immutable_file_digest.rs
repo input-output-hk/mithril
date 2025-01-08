@@ -4,7 +4,7 @@ use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
 
 /// ImmutableFileDigestRecord is the record that stores the digest of an immutable file.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ImmutableFileDigestRecord {
     /// Immutable file name
     pub immutable_file_name: ImmutableFileName,
