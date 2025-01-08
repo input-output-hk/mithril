@@ -49,7 +49,7 @@ Each Mithril signer checks if there is something that can be signed independentl
 
 The aggregator repeatedly checks whether enough valid signatures (to reach the quorum) are available to aggregate a Mithril stake-based multi-signature into a certificate.
 
-Mithril certificates are certifying some chain data using an aggregated multi-signature verification key and are chained up to some genesis certificate, which is signed by a genesis signing key.
+Mithril certificates certify some chain data using an aggregated multi-signature verification key and are chained up to some genesis certificate, which is signed by a genesis signing key.
 
 Mithril clients do connect to an aggregator using HTTP over TLS to query Mithril certificates for certified chain data and locate artifacts.
 
@@ -70,7 +70,7 @@ This document focuses on the standard deployment architecture, where a Mithril s
 Additional information is available in:
 
 - [Mithril network architecture](https://mithril.network/doc/mithril/mithril-network/architecture)
-- [Run a Mithril signer as a stake pool operator (SPO)](https://mithril.network/doc/manual/getting-started/run-signer-node)
+- [Run a Mithril signer as a stake pool operator (SPO)](https://mithril.network/doc/manual/getting-started/run-signer-node).
 
 ### External dependencies
 
@@ -179,7 +179,7 @@ A `mithril-signer` must register a new verification key each epoch with the aggr
 - **Integrity**: Yes (the key registration must be correct and timely for a given epoch)
 - **Availability**: Yes (the signer needs aggregator access to register its key).
 
-#### Mithril signatures diffusion
+#### Mithril signature diffusion
 
 Mithril signers produce signatures for new immutable files or other relevant data in the chain database. These signatures are derived from a random lottery based on the signer’s stake and protocol parameters.  
 Preventing signers from submitting signatures reduces the overall number of signatures, which could allow an attacker a greater influence over snapshot production.
@@ -219,7 +219,7 @@ An era address is used by signers to identify the current Mithril era, which def
 The current and next (if any) eras are announced on-chain with an era activation marker. (See [ADR](https://mithril.network/doc/adr/4#era-activation-marker).)
 
 - **Confidentiality**: No (public)
-- **Integrity**: Yes (tampering the marker could break multi-signature generation)
+- **Integrity**: Yes (tampering with the marker could break multi-signature generation)
 - **Availability**: Yes (the marker is on-chain).
 
 #### Era verification key
@@ -274,12 +274,12 @@ The genesis verification key is stored in [GitHub](https://github.com/input-outp
 - **Integrity**: No (the protocol enforces integrity)
 - **Availability**: Yes (needed to verify the entire certificate chain).
 
-## Threat & mitigations
+## Threats and mitigations
 
 :::info
 
-- This list of threat and mitigations is not exhaustive.
-- [Developers Portal](https://developers.cardano.org/docs/operate-a-stake-pool/hardening-server) already provides thorough documentation on hardeing a linux-based host to run `cardano-node`.
+- This list of threats and mitigations is not exhaustive.
+- [Developer Portal](https://developers.cardano.org/docs/operate-a-stake-pool/hardening-server) already provides thorough documentation on hardening a Linux-based host to run `cardano-node`.
 
 :::
 
@@ -294,11 +294,11 @@ A denial-of-service (DoS) attack targeting a `mithril-signer` running alongside 
 #### Block diffusion exhaustion
 
 - Diffusion is ensured through the connection between BPs, local relays, and downstream/upstream relays
-- preventing them to operate can harm the Cardano network
-- Relay hosts connect the BP to the network,
-- Starving relay hosts prevents Mithril signatures and key registration to be shared
-- Starving a cardano-node running on a relay host would prevent or delay the diffusion of new blocks thus harming
-- Compromising relay hosts would be an extreme form of starving resources
+- Preventing them from operating can harm the Cardano network
+- Relay hosts connect the BP to the network
+- Starving relay hosts prevents Mithril signatures and key registration from being shared
+- Starving a `cardano-node` running on a relay host would prevent or delay the diffusion of new blocks, thus harming
+- Compromising relay hosts would be an extreme form of starving resources.
 
 ### Resource exhaustion on Cardano block producer
 
@@ -307,7 +307,7 @@ A denial-of-service (DoS) attack targeting a `mithril-signer` running alongside 
 
 #### Block production exhaustion
 
-- A malfunctioning or malicious `mithril-signer` could starve a `cardano-node` of resources, preventing it from producing and diffusing blocks in time.
+- A malfunctioning or malicious `mithril-signer` could starve a `cardano-node` of resources, preventing it from producing and diffusing blocks in time
 - Compromising a block-producing node severely harms an SPO’s economic viability.
 
 ### Resource exhaustion on Mithril aggregator
@@ -322,12 +322,12 @@ A DoS on the `mithril-aggregator`.
 
 ### Integrity of the Cardano block producer database
 
-Data integrity of the Cardano block producer’s on-disk database could be compromised either by action of the Mithril signer or by an attacker with access to the signer.
+Data integrity of the Cardano block producer’s on-disk database could be compromised either by the action of the Mithril signer or by an attacker with access to the signer.
 
 - **Assets at risk**:
 
   - [Block production](#block-production)
-  - [Cardano Chain database](#cardano-chain-database).
+  - [Cardano chain database](#cardano-chain-database).
 
 - **Mitigation**: assign the Mithril signer only _read-only_ permissions to the Cardano block producer’s database folder.
 
@@ -338,10 +338,10 @@ Data integrity of the Cardano block producer’s on-disk database could be compr
 - [Run a Mithril signer as an SPO](https://mithril.network/doc/manual/getting-started/run-signer-node)
 - [Mithril: Stake-based Threshold Multisignatures](https://iohk.io/en/research/library/papers/mithril-stake-based-threshold-multisignatures/)
 - [Mithril network upgrade strategy](https://mithril.network/doc/adr/4)
-- [OWASP threat modelling process](https://owasp.org/www-community/Threat_Modeling_Process)
+- [OWASP threat modeling process](https://owasp.org/www-community/Threat_Modeling_Process)
 - [Lightning book security chapter](https://github.com/lnbook/lnbook/blob/develop/16_security_privacy_ln.asciidoc)
 - [Lightning gossip protocol](https://github.com/lnbook/lnbook/blob/develop/11_gossip_channel_graph.asciidoc)
 - [Consul security model](https://developer.hashicorp.com/consul/docs/security/security-models/core)
 - [Parsec threat model](https://parallaxsecond.github.io/parsec-book/parsec_security/parsec_threat_model/threat_model.html)
 - A list of [threat models](https://github.com/hysnsec/awesome-threat-modelling#threat-model-examples)
-- there's even a [threat model manifesto](https://www.threatmodelingmanifesto.org) :open_mouth: !
+- There is even a [threat model manifesto](https://www.threatmodelingmanifesto.org) :open_mouth: !
