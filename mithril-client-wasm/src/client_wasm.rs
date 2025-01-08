@@ -42,9 +42,9 @@ impl JSBroadcastChannelFeedbackReceiver {
 impl FeedbackReceiver for JSBroadcastChannelFeedbackReceiver {
     async fn handle_event(&self, event: MithrilEvent) {
         let event = MithrilEventWasm::from(event);
-        let _ = web_sys::BroadcastChannel::new(&self.channel)
-            .unwrap()
-            .post_message(&serde_wasm_bindgen::to_value(&event).unwrap());
+        let bc = web_sys::BroadcastChannel::new(&self.channel).unwrap();
+        let _ = bc.post_message(&serde_wasm_bindgen::to_value(&event).unwrap());
+        bc.close();
     }
 }
 
