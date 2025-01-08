@@ -15,7 +15,7 @@ We have introduced the **Pythagoras era** in the Mithril networks. The switch to
 
 - `0.2.221`
 - `0.2.209`
-- `0.2.200`
+- `0.2.200`.
 
 All other versions are **not** compatible with the new era and must be updated.
 
