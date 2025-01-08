@@ -1,7 +1,7 @@
 use sqlite::Row;
 
 use mithril_common::entities::{HexEncodedDigest, ImmutableFileName};
-use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};
+use mithril_persistence::sqlite::{HydrationError, Projection, SourceAlias, SqLiteEntity};
 
 /// ImmutableFileDigestRecord is the record that stores the digest of an immutable file.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -14,6 +14,12 @@ pub struct ImmutableFileDigestRecord {
 }
 
 impl ImmutableFileDigestRecord {
+    /// Construct a [Projection] that will allow to hydrate this `CertificatePendingRecord` and expend table alias.
+    pub fn expand_projection(table: &str) -> String {
+        let aliases = SourceAlias::new(&[("{:immutable_file_digest:}", table)]);
+        Self::get_projection().expand(aliases)
+    }
+
     #[cfg(test)]
     /// Create a dumb ImmutableFileDigestRecord instance mainly for test purposes
     pub fn dummy() -> Self {

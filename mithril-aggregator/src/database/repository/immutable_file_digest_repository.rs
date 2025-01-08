@@ -66,7 +66,7 @@ impl ImmutableFileDigestRepository {
     /// Delete all [ImmutableFileDigestRecord] from the database.
     pub async fn delete_all(&self) -> StdResult<()> {
         self.connection
-            .fetch_first(DeleteImmutableFileDigestQuery::all())?;
+            .apply(DeleteImmutableFileDigestQuery::all())?;
 
         Ok(())
     }

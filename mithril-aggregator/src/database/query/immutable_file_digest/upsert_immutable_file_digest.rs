@@ -2,7 +2,7 @@ use sqlite::Value;
 
 use mithril_common::entities::ImmutableFileName;
 use mithril_common::StdResult;
-use mithril_persistence::sqlite::{Query, SourceAlias, SqLiteEntity, WhereCondition};
+use mithril_persistence::sqlite::{Query, WhereCondition};
 
 use crate::database::record::ImmutableFileDigestRecord;
 
@@ -33,8 +33,7 @@ impl Query for UpsertImmutableFileDigestQuery {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        let aliases = SourceAlias::new(&[("{:immutable_file_digest:}", "immutable_file_digest")]);
-        let projection = Self::Entity::get_projection().expand(aliases);
+        let projection = Self::Entity::expand_projection("immutable_file_digest");
 
         format!(
             r#"
