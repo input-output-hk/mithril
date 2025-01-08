@@ -34,15 +34,15 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-out
 
 #### Era switch plan for `Pythagoras`
 
-- **Pre-release-preview** network  
+- **pre-release-preview** network  
   - [x] Create the era switch transaction (done at epoch `757`).  
   - [x] Complete the era switch to `Pythagoras` at the transition to epoch `759`.
 
-- **Release-preprod** network  
+- **release-preprod** network  
   - [x] Create the era switch transaction (done at epoch `184`).  
   - [x] Complete the era switch to `Pythagoras` at the transition to epoch `186`.
 
-- **Release-mainnet** network  
+- **release-mainnet** network  
   - [ ] Create the era switch transaction (planned for early January 2025).  
   - [ ] Complete the era switch to `Pythagoras`.
 
