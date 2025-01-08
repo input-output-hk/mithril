@@ -1,8 +1,10 @@
-use crate::{
-    attempt, utils::AttemptResult, CardanoDbCommand, CardanoStakeDistributionCommand,
-    CardanoTransactionCommand, Client, ClientCommand, MithrilStakeDistributionCommand,
-};
+use std::time::Duration;
+
 use anyhow::{anyhow, Context};
+use reqwest::StatusCode;
+use serde::de::DeserializeOwned;
+use slog_scope::info;
+
 use mithril_common::{
     entities::{Epoch, TransactionHash},
     messages::{
@@ -14,9 +16,24 @@ use mithril_common::{
     },
     StdResult,
 };
-use reqwest::StatusCode;
-use slog_scope::info;
-use std::time::Duration;
+
+use crate::{
+    attempt, utils::AttemptResult, CardanoDbCommand, CardanoStakeDistributionCommand,
+    CardanoTransactionCommand, Client, ClientCommand, MithrilStakeDistributionCommand,
+};
+
+async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwest::Result<T>> {
+    match reqwest::get(url.clone()).await {
+        Ok(response) => {
+            let r = response.status();
+            match r {
+                StatusCode::OK => Ok(response.json::<T>().await),
+                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+            }
+        }
+        Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+    }
+}
 
 pub async fn assert_node_producing_mithril_stake_distribution(
     aggregator_endpoint: &str,
@@ -25,20 +42,13 @@ pub async fn assert_node_producing_mithril_stake_distribution(
     info!("Waiting for the aggregator to produce a mithril stake distribution");
 
     async fn fetch_last_mithril_stake_distribution_hash(url: String) -> StdResult<Option<String>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response
-                    .json::<MithrilStakeDistributionListMessage>()
-                    .await
-                    .as_deref()
-                {
-                    Ok([stake_distribution, ..]) => Ok(Some(stake_distribution.hash.clone())),
-                    Ok(&[]) => Ok(None),
-                    Err(err) => Err(anyhow!("Invalid mithril stake distribution body : {err}",)),
-                },
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        match get_json_response::<MithrilStakeDistributionListMessage>(url)
+            .await?
+            .as_deref()
+        {
+            Ok([stake_distribution, ..]) => Ok(Some(stake_distribution.hash.clone())),
+            Ok(&[]) => Ok(None),
+            Err(err) => Err(anyhow!("Invalid mithril stake distribution body : {err}",)),
         }
     }
 
@@ -73,22 +83,17 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<MithrilStakeDistributionMessage>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<MithrilStakeDistributionMessage>().await {
-                    Ok(stake_distribution) => match stake_distribution.epoch {
-                        epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
-                        epoch => Err(anyhow!(
-                            "Minimum expected mithril stake distribution epoch not reached : {epoch} < {expected_epoch_min}"
-                        )),
-                    },
-                    Err(err) => Err(anyhow!(err).context("Invalid mithril stake distribution body",)),
+        match get_json_response::<MithrilStakeDistributionMessage>(url)
+            .await?
+            {
+                Ok(stake_distribution) => match stake_distribution.epoch {
+                    epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
+                    epoch => Err(anyhow!(
+                        "Minimum expected mithril stake distribution epoch not reached : {epoch} < {expected_epoch_min}"
+                    )),
                 },
-                StatusCode::NOT_FOUND => Ok(None),
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
-        }
+                Err(err) => Err(anyhow!("Invalid mithril stake distribution body : {err}",)),
+            }
     }
 
     match attempt!(10, Duration::from_millis(1000), {
@@ -111,16 +116,13 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdRes
     info!("Waiting for the aggregator to produce a snapshot");
 
     async fn fetch_last_snapshot_digest(url: String) -> StdResult<Option<String>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Vec<SnapshotMessage>>().await.as_deref() {
-                    Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
-                    Ok(&[]) => Ok(None),
-                    Err(err) => Err(anyhow!("Invalid snapshot body : {err}",)),
-                },
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        match get_json_response::<Vec<SnapshotMessage>>(url)
+            .await?
+            .as_deref()
+        {
+            Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
+            Ok(&[]) => Ok(None),
+            Err(err) => Err(anyhow!("Invalid snapshot body : {err}",)),
         }
     }
 
@@ -155,21 +157,14 @@ pub async fn assert_signer_is_signing_snapshot(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<SnapshotMessage>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<SnapshotMessage>().await {
-                    Ok(snapshot) => match snapshot.beacon.epoch {
-                        epoch if epoch >= expected_epoch_min => Ok(Some(snapshot)),
-                        epoch => Err(anyhow!(
-                            "Minimum expected snapshot epoch not reached : {epoch} < {expected_epoch_min}"
-                        )),
-                    },
-                    Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
-                },
-                StatusCode::NOT_FOUND => Ok(None),
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+        match get_json_response::<SnapshotMessage>(url).await? {
+            Ok(snapshot) => match snapshot.beacon.epoch {
+                epoch if epoch >= expected_epoch_min => Ok(Some(snapshot)),
+                epoch => Err(anyhow!(
+                    "Minimum expected snapshot epoch not reached : {epoch} < {expected_epoch_min}"
+                )),
             },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+            Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
         }
     }
 
@@ -195,22 +190,13 @@ pub async fn assert_node_producing_cardano_database_snapshot(
     info!("Waiting for the aggregator to produce a Cardano database snapshot");
 
     async fn fetch_last_cardano_database_snapshot_hash(url: String) -> StdResult<Option<String>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response
-                    .json::<CardanoDatabaseSnapshotListMessage>()
-                    .await
-                    .as_deref()
-                {
-                    Ok([cardano_database_snapshot, ..]) => {
-                        Ok(Some(cardano_database_snapshot.hash.clone()))
-                    }
-                    Ok(&[]) => Ok(None),
-                    Err(err) => Err(anyhow!("Invalid Cardano database snapshot body : {err}",)),
-                },
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        match get_json_response::<CardanoDatabaseSnapshotListMessage>(url)
+            .await?
+            .as_deref()
+        {
+            Ok([cardano_database_snapshot, ..]) => Ok(Some(cardano_database_snapshot.hash.clone())),
+            Ok(&[]) => Ok(None),
+            Err(err) => Err(anyhow!("Invalid Cardano database snapshot body : {err}",)),
         }
     }
 
@@ -245,22 +231,17 @@ pub async fn assert_signer_is_signing_cardano_database_snapshot(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<CardanoDatabaseSnapshotMessage>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<CardanoDatabaseSnapshotMessage>().await {
-                    Ok(cardano_database_snapshot) => match cardano_database_snapshot.beacon.epoch {
-                        epoch if epoch >= expected_epoch_min => Ok(Some(cardano_database_snapshot)),
-                        epoch => Err(anyhow!(
-                            "Minimum expected Cardano database snapshot epoch not reached : {epoch} < {expected_epoch_min}"
-                        )),
-                    },
-                    Err(err) => Err(anyhow!(err).context("Invalid Cardano database snapshot body")),
+        match get_json_response::<CardanoDatabaseSnapshotMessage>(url)
+            .await?
+            {
+                Ok(cardano_database_snapshot) => match cardano_database_snapshot.beacon.epoch {
+                    epoch if epoch >= expected_epoch_min => Ok(Some(cardano_database_snapshot)),
+                    epoch => Err(anyhow!(
+                        "Minimum expected Cardano database snapshot epoch not reached : {epoch} < {expected_epoch_min}"
+                    )),
                 },
-                StatusCode::NOT_FOUND => Ok(None),
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
-        }
+                Err(err) => Err(anyhow!(err).context("Invalid Cardano database snapshot body")),
+            }
     }
 
     match attempt!(10, Duration::from_millis(1000), {
@@ -286,25 +267,18 @@ pub async fn assert_node_producing_cardano_database_digests_map(
     async fn fetch_cardano_database_digests_map(
         url: String,
     ) -> StdResult<Option<Vec<(String, String)>>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response
-                    .json::<CardanoDatabaseDigestListMessage>()
-                    .await
-                    .as_deref()
-                {
-                    Ok(&[]) => Ok(None),
-                    Ok(cardano_database_digests_map) => Ok(Some(
-                        cardano_database_digests_map
-                            .iter()
-                            .map(|item| (item.immutable_file_name.clone(), item.digest.clone()))
-                            .collect(),
-                    )),
-                    Err(err) => Err(anyhow!("Invalid Cardano database digests map body : {err}",)),
-                },
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        match get_json_response::<CardanoDatabaseDigestListMessage>(url)
+            .await?
+            .as_deref()
+        {
+            Ok(&[]) => Ok(None),
+            Ok(cardano_database_digests_map) => Ok(Some(
+                cardano_database_digests_map
+                    .iter()
+                    .map(|item| (item.immutable_file_name.clone(), item.digest.clone()))
+                    .collect(),
+            )),
+            Err(err) => Err(anyhow!("Invalid Cardano database digests map body : {err}",)),
         }
     }
 
@@ -332,22 +306,15 @@ pub async fn assert_node_producing_cardano_transactions(
     async fn fetch_last_cardano_transaction_snapshot_hash(
         url: String,
     ) -> StdResult<Option<String>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response
-                    .json::<CardanoTransactionSnapshotListMessage>()
-                    .await
-                    .as_deref()
-                {
-                    Ok([artifact, ..]) => Ok(Some(artifact.hash.clone())),
-                    Ok(&[]) => Ok(None),
-                    Err(err) => Err(anyhow!(
-                        "Invalid Cardano transactions artifact body : {err}",
-                    )),
-                },
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        match get_json_response::<CardanoTransactionSnapshotListMessage>(url)
+            .await?
+            .as_deref()
+        {
+            Ok([artifact, ..]) => Ok(Some(artifact.hash.clone())),
+            Ok(&[]) => Ok(None),
+            Err(err) => Err(anyhow!(
+                "Invalid Cardano transactions artifact body : {err}",
+            )),
         }
     }
 
@@ -381,21 +348,14 @@ pub async fn assert_signer_is_signing_cardano_transactions(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<CardanoTransactionSnapshotMessage>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<CardanoTransactionSnapshotMessage>().await {
-                    Ok(artifact) => match artifact.epoch {
-                        epoch if epoch >= expected_epoch_min => Ok(Some(artifact)),
-                        epoch => Err(anyhow!(
-                            "Minimum expected artifact epoch not reached : {epoch} < {expected_epoch_min}"
-                        )),
-                    },
-                    Err(err) => Err(anyhow!(err).context("Invalid Cardano transactions artifact body")),
-                },
-                StatusCode::NOT_FOUND => Ok(None),
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+        match get_json_response::<CardanoTransactionSnapshotMessage>(url).await? {
+            Ok(artifact) => match artifact.epoch {
+                epoch if epoch >= expected_epoch_min => Ok(Some(artifact)),
+                epoch => Err(anyhow!(
+                    "Minimum expected artifact epoch not reached : {epoch} < {expected_epoch_min}"
+                )),
             },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+            Err(err) => Err(anyhow!(err).context("Invalid Cardano transactions artifact body")),
         }
     }
 
@@ -422,23 +382,16 @@ pub async fn assert_node_producing_cardano_stake_distribution(
     async fn fetch_last_cardano_stake_distribution_message(
         url: String,
     ) -> StdResult<Option<(String, Epoch)>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response
-                    .json::<CardanoStakeDistributionListMessage>()
-                    .await
-                    .as_deref()
-                {
-                    Ok([stake_distribution, ..]) => Ok(Some((
-                        stake_distribution.hash.clone(),
-                        stake_distribution.epoch,
-                    ))),
-                    Ok(&[]) => Ok(None),
-                    Err(err) => Err(anyhow!("Invalid Cardano stake distribution body : {err}",)),
-                },
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        match get_json_response::<CardanoStakeDistributionListMessage>(url)
+            .await?
+            .as_deref()
+        {
+            Ok([stake_distribution, ..]) => Ok(Some((
+                stake_distribution.hash.clone(),
+                stake_distribution.epoch,
+            ))),
+            Ok(&[]) => Ok(None),
+            Err(err) => Err(anyhow!("Invalid Cardano stake distribution body : {err}",)),
         }
     }
 
@@ -472,21 +425,16 @@ pub async fn assert_signer_is_signing_cardano_stake_distribution(
         url: String,
         expected_epoch_min: Epoch,
     ) -> StdResult<Option<CardanoStakeDistributionMessage>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<CardanoStakeDistributionMessage>().await {
-                    Ok(stake_distribution) => match stake_distribution.epoch {
-                        epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
-                        epoch => Err(anyhow!(
-                            "Minimum expected Cardano stake distribution epoch not reached : {epoch} < {expected_epoch_min}"
-                        )),
-                    },
-                    Err(err) => Err(anyhow!(err).context("Invalid Cardano stake distribution body",)),
-                },
-                StatusCode::NOT_FOUND => Ok(None),
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
+        match get_json_response::<CardanoStakeDistributionMessage>(url)
+        .await?
+        {
+            Ok(stake_distribution) => match stake_distribution.epoch {
+                epoch if epoch >= expected_epoch_min => Ok(Some(stake_distribution)),
+                epoch => Err(anyhow!(
+                    "Minimum expected Cardano stake distribution epoch not reached : {epoch} < {expected_epoch_min}"
+                )),
             },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+            Err(err) => Err(anyhow!(err).context("Invalid Cardano stake distribution body",)),
         }
     }
 
@@ -512,16 +460,9 @@ pub async fn assert_is_creating_certificate_with_enough_signers(
     let url = format!("{aggregator_endpoint}/certificate/{certificate_hash}");
 
     async fn fetch_certificate_message(url: String) -> StdResult<Option<CertificateMessage>> {
-        match reqwest::get(url.clone()).await {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<CertificateMessage>().await {
-                    Ok(certificate) => Ok(Some(certificate)),
-                    Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
-                },
-                StatusCode::NOT_FOUND => Ok(None),
-                s => Err(anyhow!("Unexpected status code from Aggregator: {s}")),
-            },
-            Err(err) => Err(anyhow!(err).context(format!("Request to `{url}` failed"))),
+        match get_json_response::<CertificateMessage>(url).await? {
+            Ok(certificate) => Ok(Some(certificate)),
+            Err(err) => Err(anyhow!(err).context("Invalid snapshot body")),
         }
     }
 
