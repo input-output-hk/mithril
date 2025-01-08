@@ -14,6 +14,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE** Cardano database incremental certification:
 
   - Implement the artifact routes of the aggregator for the signed entity type `CardanoDatabase`.
+  - Implement the immutable file digests route in the aggregator.
   - Implement the artifact ancillary builder in the aggregator.
 
 - Crates versions:
