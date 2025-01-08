@@ -33,23 +33,23 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-out
 
 #### Era switch plan for `Pythagoras`
 
-- **pre-release-preview** network
+- **pre-release-preview** network:
 
-  - [x] Create the era switch transaction (done at epoch `757`).
-  - [x] Complete the era switch to `Pythagoras` at the transition to epoch `759`.
+  - [x] Create the era switch transaction (done at epoch `757`)
+  - [x] Complete the era switch to `Pythagoras` at the transition to epoch `759`
 
-- **release-preprod** network
+- **release-preprod** network:
 
-  - [x] Create the era switch transaction (done at epoch `184`).
-  - [x] Complete the era switch to `Pythagoras` at the transition to epoch `186`.
+  - [x] Create the era switch transaction (done at epoch `184`)
+  - [x] Complete the era switch to `Pythagoras` at the transition to epoch `186`
 
-- **release-mainnet** network
-  - [ ] Create the era switch transaction (planned for early January 2025).
+- **release-mainnet** network:
+  - [ ] Create the era switch transaction (planned for early January 2025)
   - [ ] Complete the era switch to `Pythagoras`.
 
 :::info
 
-We use the **era switch mechanism** to introduce breaking changes in the Mithril protocol. Because these features are not backward compatible with the previous era, at least **95% of the stake** must be running the new version for `Pythagoras` to activate. Refer to the [Mithril Network Upgrade Strategy](https://mithril.network/doc/adr/4) ADR for more details.
+We use the **era switch mechanism** to introduce breaking changes in the Mithril protocol. Because these features are not backward compatible with the previous era, at least **95% of the stake** must be running the new version for `Pythagoras` to activate. Refer to the [Mithril network upgrade strategy](https://mithril.network/doc/adr/4) ADR for more details.
 
 :::
 
