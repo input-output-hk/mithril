@@ -113,6 +113,9 @@ pub struct CompressedArchiveSnapshotter {
     /// Compression algorithm used for the archive
     compression_algorithm: SnapshotterCompressionAlgorithm,
 
+    // Temporary directory to store the unpacked archive for verification
+    temp_dir: PathBuf,
+
     logger: Logger,
 }
 
@@ -222,8 +225,15 @@ impl CompressedArchiveSnapshotter {
             db_directory,
             ongoing_snapshot_directory,
             compression_algorithm,
+            temp_dir: std::env::temp_dir(),
             logger: logger.new_with_component_name::<Self>(),
         })
+    }
+
+    #[cfg(test)]
+    /// Allow to use a custom temporary directory to avoid conflicts during the snapshot verification.
+    pub fn set_sub_temp_dir<P: AsRef<Path>>(&mut self, sub_dir: P) {
+        self.temp_dir = std::env::temp_dir().join(sub_dir);
     }
 
     fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {
@@ -370,7 +380,8 @@ impl CompressedArchiveSnapshotter {
             }
         };
 
-        let unpack_temp_dir = std::env::temp_dir()
+        let unpack_temp_dir = self
+            .temp_dir
             .join("mithril_snapshotter_verify_archive")
             // Add the archive name to the directory to allow two verifications at the same time
             // (useful for tests).
@@ -923,5 +934,21 @@ mod tests {
         snapshotter.snapshot_all(&snapshot_path).unwrap();
 
         assert!(snapshotter.is_snapshot_exist(&snapshot_path));
+    }
+
+    #[test]
+    fn can_set_temp_dir_with_path_or_str() {
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            PathBuf::from("db"),
+            PathBuf::from("pending_snapshot"),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        snapshotter.set_sub_temp_dir(Path::new("sub_dir"));
+        snapshotter.set_sub_temp_dir(PathBuf::from("sub_dir"));
+        snapshotter.set_sub_temp_dir("sub_dir");
+        snapshotter.set_sub_temp_dir("sub_dir".to_string());
     }
 }
