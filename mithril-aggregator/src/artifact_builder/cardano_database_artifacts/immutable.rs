@@ -103,6 +103,7 @@ impl ImmutableArtifactBuilder {
 mod tests {
     use mithril_common::{digesters::DummyCardanoDbBuilder, test_utils::assert_equivalent};
     use mockall::predicate::eq;
+    use uuid::Uuid;
 
     use crate::{
         file_uploaders::MockFileUploader,
@@ -126,7 +127,7 @@ mod tests {
 
     #[test]
     fn upload_should_return_locations() {
-        let test_dir = "cardano_database/upload_should_return_locations";
+        let test_dir = "upload_should_return_locations/cardano_database";
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 2, 3])
             .build();
@@ -258,7 +259,7 @@ mod tests {
     #[test]
     fn create_immutables_archives_should_return_error_when_one_of_the_three_immutable_files_is_missing(
     ) {
-        let test_dir = "cardano_database/error_when_one_of_the_three_immutable_files_is_missing";
+        let test_dir = "error_when_one_of_the_three_immutable_files_is_missing/cardano_database";
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 2])
             .build();
@@ -267,15 +268,14 @@ mod tests {
         std::fs::remove_file(file_to_remove).unwrap();
 
         let db_directory = cardano_db.get_dir().to_path_buf();
-        let snapshotter = {
-            CompressedArchiveSnapshotter::new(
-                db_directory.clone(),
-                db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap()
-        };
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory.clone(),
+            db_directory.parent().unwrap().join("snapshot_dest"),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let builder = ImmutableArtifactBuilder::new(
             vec![Arc::new(MockImmutableFilesUploader::new())],
@@ -291,21 +291,20 @@ mod tests {
 
     #[test]
     fn create_immutables_archives_should_return_error_when_an_immutable_file_trio_is_missing() {
-        let test_dir = "cardano_database/error_when_an_immutable_file_trio_is_missing";
+        let test_dir = "error_when_an_immutable_file_trio_is_missing/cardano_database";
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 3])
             .build();
 
         let db_directory = cardano_db.get_dir().to_path_buf();
-        let snapshotter = {
-            CompressedArchiveSnapshotter::new(
-                db_directory.clone(),
-                db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap()
-        };
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory.clone(),
+            db_directory.parent().unwrap().join("snapshot_dest"),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let builder = ImmutableArtifactBuilder::new(
             vec![Arc::new(MockImmutableFilesUploader::new())],
@@ -322,21 +321,20 @@ mod tests {
     #[test]
     fn create_immutables_archives_should_return_error_when_up_to_immutable_file_number_is_missing()
     {
-        let test_dir = "cardano_database/error_when_up_to_immutable_file_number_is_missing";
+        let test_dir = "error_when_up_to_immutable_file_number_is_missing/cardano_database";
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 2])
             .build();
 
         let db_directory = cardano_db.get_dir().to_path_buf();
-        let snapshotter = {
-            CompressedArchiveSnapshotter::new(
-                db_directory.clone(),
-                db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap()
-        };
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory.clone(),
+            db_directory.parent().unwrap().join("snapshot_dest"),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let builder = ImmutableArtifactBuilder::new(
             vec![Arc::new(MockImmutableFilesUploader::new())],

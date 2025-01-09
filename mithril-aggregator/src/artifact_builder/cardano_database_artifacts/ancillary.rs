@@ -183,8 +183,9 @@ mod tests {
 
     use mithril_common::{
         digesters::{DummyCardanoDbBuilder, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
-        test_utils::TempDir,
+        test_utils::{assert_equivalent, TempDir},
     };
+    use uuid::Uuid;
 
     use crate::{
         test_tools::TestLogger, CompressedArchiveSnapshotter, DumbSnapshotter,
@@ -309,11 +310,11 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(
+        assert_equivalent(
             locations,
             vec![AncillaryLocation::CloudStorage {
-                uri: "an_uri".to_string()
-            }]
+                uri: "an_uri".to_string(),
+            }],
         );
     }
 
@@ -339,22 +340,22 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(
+        assert_equivalent(
             locations,
             vec![
                 AncillaryLocation::CloudStorage {
-                    uri: "an_uri".to_string()
+                    uri: "an_uri".to_string(),
                 },
                 AncillaryLocation::CloudStorage {
-                    uri: "another_uri".to_string()
-                }
-            ]
+                    uri: "another_uri".to_string(),
+                },
+            ],
         );
     }
 
     #[tokio::test]
     async fn create_archive_should_embed_ledger_volatile_directories_and_last_immutables() {
-        let test_dir = "cardano_database/create_archive";
+        let test_dir = "create_archive/cardano_database";
         let cardano_db = DummyCardanoDbBuilder::new(test_dir)
             .with_immutables(&[1, 2, 3])
             .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
@@ -363,15 +364,14 @@ mod tests {
         std::fs::create_dir(cardano_db.get_dir().join("whatever")).unwrap();
 
         let db_directory = cardano_db.get_dir().to_path_buf();
-        let snapshotter = {
-            CompressedArchiveSnapshotter::new(
-                db_directory.clone(),
-                db_directory.parent().unwrap().join("snapshot_dest"),
-                SnapshotterCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap()
-        };
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory.clone(),
+            db_directory.parent().unwrap().join("snapshot_dest"),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(MockAncillaryFileUploader::new())],
@@ -422,15 +422,14 @@ mod tests {
 
     #[tokio::test]
     async fn upload_should_return_error_and_not_upload_when_archive_creation_fails() {
-        let snapshotter = {
-            CompressedArchiveSnapshotter::new(
-                PathBuf::from("directory_not_existing"),
-                PathBuf::from("whatever"),
-                SnapshotterCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap()
-        };
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            PathBuf::from("directory_not_existing"),
+            PathBuf::from("whatever"),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let mut uploader = MockAncillaryFileUploader::new();
         uploader.expect_upload().never();
