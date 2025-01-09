@@ -65,8 +65,6 @@ impl SingleSignatures {
 cfg_test_tools! {
 impl SingleSignatures {
     /// Create a fake [SingleSignatures] with valid cryptographic data for testing purposes.
-    // TODO: this method is slow due to the fixture creation, we should either make
-    // the fixture faster or find a faster alternative.
     pub fn fake<TPartyId: Into<String>, TMessage: Into<String>>(party_id: TPartyId, message: TMessage) -> Self {
         use crate::entities::{ProtocolParameters};
         use crate::test_utils::{MithrilFixtureBuilder, StakeDistributionGenerationMethod};
