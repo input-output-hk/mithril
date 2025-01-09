@@ -10,7 +10,6 @@ use mithril_common::StdResult;
 use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader, FileUri};
 use crate::tools;
 
-// TODO: This specific local uploader will be removed.
 // It's only used by the legacy snapshot that uploads the entire Cardano database.
 /// LocalSnapshotUploader is a file uploader working using local files
 pub struct LocalSnapshotUploader {
