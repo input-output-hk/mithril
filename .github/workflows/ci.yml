@@ -116,6 +116,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
@@ -158,7 +163,7 @@ jobs:
       - name: Test 'mithril-client-wasm' - NodeJS
         shell: bash
         run: |
-          wasm-pack test --node mithril-client-wasm --release
+          wasm-pack test --node mithril-client-wasm --release --features test-node
 
       - name: Publish Mithril Distribution (WASM)
         uses: actions/upload-artifact@v4

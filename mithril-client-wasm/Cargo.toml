@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-wasm"
-version = "0.7.4"
+version = "0.7.5"
 description = "Mithril client WASM"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -34,6 +34,7 @@ mithril-build-script = { path = "../internal/mithril-build-script" }
 [features]
 # Include nothing by default
 default = []
+test-node = []
 
 [package.metadata.docs.rs]
 all-features = true

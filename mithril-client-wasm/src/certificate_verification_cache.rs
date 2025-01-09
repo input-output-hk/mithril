@@ -151,7 +151,7 @@ impl CertificateVerifierCache for LocalStorageCertificateVerifierCache {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "test-node")))]
 pub(crate) mod test_tools {
     use std::collections::HashMap;
 
@@ -249,7 +249,7 @@ pub(crate) mod test_tools {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(feature = "test-node")))]
 mod tests {
     use std::collections::HashMap;
     use wasm_bindgen_test::*;
