@@ -104,6 +104,14 @@ impl StructDoc {
         };
         result
     }
+
+    /// Get a field by its name.
+    pub fn get_field(&self, name: &str) -> &FieldDoc {
+        let mut fields = self.data.iter().filter(|f| f.parameter == name);
+
+        assert_eq!(1, fields.clone().count());
+        fields.next().unwrap()
+    }
 }
 
 /// Extractor for struct without Default trait.
