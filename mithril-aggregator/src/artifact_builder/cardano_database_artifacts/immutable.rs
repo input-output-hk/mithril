@@ -52,13 +52,15 @@ impl ImmutableArtifactBuilder {
         })
     }
 
-    pub fn upload(
+    pub async fn upload(
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Vec<ImmutablesLocation>> {
-        let _archives_paths = self.create_immutables_archives(up_to_immutable_file_number)?;
+        let archives_paths = self.create_immutables_archives(up_to_immutable_file_number)?;
+        let archives_paths: Vec<_> = archives_paths.iter().map(Path::new).collect();
+        let locations = self.upload_immutable_archives(&archives_paths).await?;
 
-        Ok(vec![])
+        Ok(locations)
     }
 
     pub fn create_immutables_archives(
@@ -136,8 +138,11 @@ impl ImmutableArtifactBuilder {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::{digesters::DummyCardanoDbBuilder, test_utils::assert_equivalent};
-    use mockall::predicate::eq;
+    use mithril_common::{
+        digesters::DummyCardanoDbBuilder,
+        test_utils::{assert_equivalent, equivalent_to},
+    };
+    use mockall::predicate::{always, eq};
     use uuid::Uuid;
 
     use crate::{
@@ -148,60 +153,77 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn upload_should_return_locations() {
-        let test_dir = "upload_should_return_locations/cardano_database";
-        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
-            .with_immutables(&[1, 2, 3])
-            .build();
-
-        let db_directory = cardano_db.get_dir().to_path_buf();
-        let snapshot_directory = db_directory.parent().unwrap().join("snapshot_dest");
-        let mut snapshotter = MockSnapshotter::new();
-        snapshotter.expect_is_snapshot_exist().returning(|_| false);
-
-        let dest_filepath = Path::new("/tmp");
-        snapshotter
-            .expect_snapshot_subset()
-            .times(1)
-            .with(
-                eq(Path::new("cardano-database/immutable/00001.tar.gz")),
-                eq(vec![
-                    PathBuf::from(IMMUTABLE_DIR).join("00001.chunk"),
-                    PathBuf::from(IMMUTABLE_DIR).join("00001.primary"),
-                    PathBuf::from(IMMUTABLE_DIR).join("00001.secondary"),
-                ]),
-            )
-            .returning(|filepath, _| Ok(OngoingSnapshot::new(dest_filepath.join(filepath), 0)));
-
-        snapshotter
-            .expect_snapshot_subset()
-            .times(1)
-            .with(
-                eq(Path::new("cardano-database/immutable/00002.tar.gz")),
-                eq(vec![
-                    PathBuf::from(IMMUTABLE_DIR).join("00002.chunk"),
-                    PathBuf::from(IMMUTABLE_DIR).join("00002.primary"),
-                    PathBuf::from(IMMUTABLE_DIR).join("00002.secondary"),
-                ]),
-            )
-            .returning(|filepath, _| Ok(OngoingSnapshot::new(dest_filepath.join(filepath), 0)));
-        // let snapshotter = SnapshotterWrapper {
-        //     snapshotter: {
-        //         CompressedArchiveSnapshotter::new(
-        //             db_directory.clone(),
-        //             snapshot_directory.clone(),
-        //             SnapshotterCompressionAlgorithm::Gzip,
-        //             TestLogger::stdout(),
-        //         )
-        //         .unwrap()
-        //     },
-        // };
+    fn fake_uploader(archive_paths: Vec<&str>, location_uri: &str) -> MockImmutableFilesUploader {
+        let uri = location_uri.to_string();
+        let archive_paths: Vec<_> = archive_paths.into_iter().map(String::from).collect();
 
         let mut uploader = MockImmutableFilesUploader::new();
         uploader
             .expect_upload()
-            .return_once(|_| Err(anyhow!("Failure while uploading, no location returned")));
+            .withf(move |p| {
+                let paths: Vec<_> = p.iter().map(|s| s.to_string_lossy().into_owned()).collect();
+
+                equivalent_to(paths, archive_paths.clone())
+            })
+            .times(1)
+            .return_once(|_| Ok(ImmutablesLocation::CloudStorage { uri }));
+
+        uploader
+    }
+
+    fn fake_uploader_returning_error() -> MockImmutableFilesUploader {
+        let mut uploader = MockImmutableFilesUploader::new();
+        uploader
+            .expect_upload()
+            .return_once(|_| Err(anyhow!("Failure while uploading...")));
+
+        uploader
+    }
+
+    // TODO: Find a better name for this test
+    #[tokio::test]
+    async fn upload_should_send_parameters_through_methods_to_obtain_the_final_location() {
+        let snapshotter = {
+            let mut snapshotter = MockSnapshotter::new();
+            snapshotter.expect_is_snapshot_exist().returning(|_| false);
+
+            snapshotter
+                .expect_snapshot_subset()
+                .times(1)
+                .with(
+                    eq(Path::new("cardano-database/immutable/00001.tar.gz")),
+                    always(),
+                )
+                .returning(|_, _| {
+                    Ok(OngoingSnapshot::new(
+                        PathBuf::from("/destination/cardano-database/immutable/00001.tar.gz"),
+                        0,
+                    ))
+                });
+
+            snapshotter
+                .expect_snapshot_subset()
+                .times(1)
+                .with(
+                    eq(Path::new("cardano-database/immutable/00002.tar.gz")),
+                    always(),
+                )
+                .returning(|_, _| {
+                    Ok(OngoingSnapshot::new(
+                        PathBuf::from("/destination/cardano-database/immutable/00002.tar.gz"),
+                        0,
+                    ))
+                });
+            snapshotter
+        };
+
+        let uploader = fake_uploader(
+            vec![
+                "/destination/cardano-database/immutable/00001.tar.gz",
+                "/destination/cardano-database/immutable/00002.tar.gz",
+            ],
+            "archive.tar.gz",
+        );
 
         let builder = ImmutableArtifactBuilder::new(
             vec![Arc::new(uploader)],
@@ -211,17 +233,14 @@ mod tests {
         )
         .unwrap();
 
-        builder.upload(2).unwrap();
+        let archive_paths = builder.upload(2).await.unwrap();
 
-        // let expected_archives_directory = snapshot_directory
-        //     .join("cardano-database")
-        //     .join("immutable");
-        // assert!(expected_archives_directory.join("00001.tar.gz").exists());
-        // assert!(expected_archives_directory.join("00002.tar.gz").exists());
-        // let archives_nb = std::fs::read_dir(expected_archives_directory)
-        //     .unwrap()
-        //     .count();
-        // assert_eq!(2, archives_nb);
+        assert_equivalent(
+            archive_paths,
+            vec![ImmutablesLocation::CloudStorage {
+                uri: "archive.tar.gz".to_string(),
+            }],
+        )
     }
 
     mod create_archive {
@@ -436,42 +455,11 @@ mod tests {
     }
 
     mod upload {
-        use mithril_common::test_utils::{equivalent_to, TempDir};
+        use mithril_common::test_utils::TempDir;
 
         use super::MockImmutableFilesUploader;
 
         use super::*;
-
-        fn fake_uploader(
-            archive_paths: Vec<&str>,
-            location_uri: &str,
-        ) -> MockImmutableFilesUploader {
-            let uri = location_uri.to_string();
-            let archive_paths: Vec<_> = archive_paths.into_iter().map(String::from).collect();
-
-            let mut uploader = MockImmutableFilesUploader::new();
-            uploader
-                .expect_upload()
-                .withf(move |p| {
-                    let paths: Vec<_> =
-                        p.iter().map(|s| s.to_string_lossy().into_owned()).collect();
-
-                    equivalent_to(paths, archive_paths.clone())
-                })
-                .times(1)
-                .return_once(|_| Ok(ImmutablesLocation::CloudStorage { uri }));
-
-            uploader
-        }
-
-        fn fake_uploader_returning_error() -> MockImmutableFilesUploader {
-            let mut uploader = MockImmutableFilesUploader::new();
-            uploader
-                .expect_upload()
-                .return_once(|_| Err(anyhow!("Failure while uploading...")));
-
-            uploader
-        }
 
         #[test]
         fn create_immutable_builder_should_error_when_no_uploader() {
