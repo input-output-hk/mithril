@@ -43,7 +43,8 @@ pub type KESPeriod = u32;
 #[derive(Error, Debug)]
 pub enum ProtocolRegistrationErrorWrapper {
     /// Error raised when a party id is needed but not provided
-    // TODO: Should be removed once the signer certification is fully deployed
+    ///
+    /// Used only for testing when SPO pool id is not certified
     #[error("missing party id")]
     PartyIdMissing,
 
@@ -246,9 +247,9 @@ impl KeyRegWrapper {
     /// Mithril key (with its corresponding Proof of Possession).
     pub fn register(
         &mut self,
-        party_id: Option<ProtocolPartyId>, // TODO: Parameter should be removed once the signer certification is fully deployed
-        opcert: Option<ProtocolOpCert>, // TODO: Option should be removed once the signer certification is fully deployed
-        kes_sig: Option<ProtocolSignerVerificationKeySignature>, // TODO: Option should be removed once the signer certification is fully deployed
+        party_id: Option<ProtocolPartyId>, // Used for only for testing when SPO pool id is not certified
+        opcert: Option<ProtocolOpCert>, // Used for only for testing when SPO pool id is not certified
+        kes_sig: Option<ProtocolSignerVerificationKeySignature>, // Used for only for testing when SPO pool id is not certified
         kes_period: Option<KESPeriod>,
         pk: ProtocolSignerVerificationKey,
     ) -> Result<ProtocolPartyId, ProtocolRegistrationErrorWrapper> {
