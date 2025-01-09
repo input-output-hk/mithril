@@ -1,7 +1,5 @@
 use crate::http_server::routes::middlewares;
 use crate::http_server::routes::router::RouterState;
-use crate::http_server::SERVER_BASE_PATH;
-use warp::hyper::Uri;
 use warp::Filter;
 
 pub fn routes(
@@ -11,8 +9,6 @@ pub fn routes(
         .or(artifact_cardano_full_immutable_snapshot_by_id(router_state))
         .or(serve_snapshots_dir(router_state))
         .or(snapshot_download(router_state))
-        .or(artifact_cardano_full_immutable_snapshots_legacy())
-        .or(artifact_cardano_full_immutable_snapshot_by_id_legacy())
 }
 
 /// GET /artifact/snapshots
@@ -65,34 +61,6 @@ fn serve_snapshots_dir(
             config.allow_http_serve_directory
         }))
         .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
-}
-
-/// GET /snapshots
-// TODO: This legacy route should be removed when this code is released with a new distribution
-fn artifact_cardano_full_immutable_snapshots_legacy(
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("snapshots").map(|| {
-        warp::redirect(
-            format!("/{SERVER_BASE_PATH}/artifact/snapshots")
-                .as_str()
-                .parse::<Uri>()
-                .unwrap(),
-        )
-    })
-}
-
-/// GET /snapshot/digest
-// TODO: This legacy route should be removed when this code is released with a new distribution
-fn artifact_cardano_full_immutable_snapshot_by_id_legacy(
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("snapshot" / String).map(|digest| {
-        warp::redirect(
-            format!("/{SERVER_BASE_PATH}/artifact/snapshot/{digest}")
-                .as_str()
-                .parse::<Uri>()
-                .unwrap(),
-        )
-    })
 }
 
 mod handlers {
