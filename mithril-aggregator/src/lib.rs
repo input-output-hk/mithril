@@ -20,6 +20,7 @@ pub mod entities;
 pub mod event_store;
 mod file_uploaders;
 mod http_server;
+mod immutable_file_digest_mapper;
 mod message_adapters;
 pub mod metrics;
 mod multi_signer;
@@ -57,6 +58,8 @@ pub use tools::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
     SingleSignatureAuthenticator,
 };
+
+pub use immutable_file_digest_mapper::ImmutableFileDigestMapper;
 
 #[cfg(test)]
 pub(crate) use dependency_injection::tests::initialize_dependencies;

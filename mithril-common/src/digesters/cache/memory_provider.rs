@@ -87,11 +87,11 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk".to_string()),
+                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
                 Some("digest 0".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk".to_string()),
+                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
                 Some("digest 1".to_string()),
             ),
         ]);
@@ -116,7 +116,7 @@ mod tests {
             ("1.chunk".to_string(), "digest 1".to_string()),
         ]));
         let expected: BTreeMap<_, _> = BTreeMap::from([(
-            ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk".to_string()),
+            ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
             Some("digest 0".to_string()),
         )]);
         let immutables = expected.keys().cloned().collect();
@@ -135,10 +135,8 @@ mod tests {
             "0.chunk".to_string(),
             "digest 0".to_string(),
         )]));
-        let expected: BTreeMap<_, _> = BTreeMap::from([(
-            ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk".to_string()),
-            None,
-        )]);
+        let expected: BTreeMap<_, _> =
+            BTreeMap::from([(ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk"), None)]);
         let immutables = expected.keys().cloned().collect();
 
         let result = provider
@@ -162,21 +160,18 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk".to_string()),
+                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
                 Some("updated".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk".to_string()),
+                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
                 Some("keep me".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk".to_string()),
+                ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk"),
                 Some("keep me too".to_string()),
             ),
-            (
-                ImmutableFile::dummy(PathBuf::default(), 3, "3.chunk".to_string()),
-                None,
-            ),
+            (ImmutableFile::dummy(PathBuf::default(), 3, "3.chunk"), None),
         ]);
         let immutables = expected.keys().cloned().collect();
 
@@ -201,11 +196,11 @@ mod tests {
         ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
-                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk".to_string()),
+                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk"),
                 Some("digest 0".to_string()),
             ),
             (
-                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk".to_string()),
+                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk"),
                 Some("digest 1".to_string()),
             ),
         ]);

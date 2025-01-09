@@ -26,9 +26,9 @@ use mithril_common::{
         ProtocolGenesisVerifier,
     },
     digesters::{
-        cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
-        CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
-        ImmutableFileObserver, ImmutableFileSystemObserver,
+        cache::ImmutableFileDigestCacheProvider, CardanoImmutableDigester,
+        DumbImmutableFileObserver, ImmutableDigester, ImmutableFileObserver,
+        ImmutableFileSystemObserver,
     },
     entities::{CompressionAlgorithm, Epoch, SignedEntityTypeDiscriminants},
     era::{
@@ -60,8 +60,9 @@ use crate::{
     configuration::ExecutionEnvironment,
     database::repository::{
         BufferedSingleSignatureRepository, CertificatePendingRepository, CertificateRepository,
-        EpochSettingsStore, OpenMessageRepository, SignedEntityStore, SignedEntityStorer,
-        SignerRegistrationStore, SignerStore, SingleSignatureRepository, StakePoolStore,
+        EpochSettingsStore, ImmutableFileDigestRepository, OpenMessageRepository,
+        SignedEntityStore, SignedEntityStorer, SignerRegistrationStore, SignerStore,
+        SingleSignatureRepository, StakePoolStore,
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
@@ -82,8 +83,8 @@ use crate::{
     tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
     Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
-    LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
+    ImmutableFileDigestMapper, LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer,
+    MultiSigner, MultiSignerImpl, SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
     SnapshotterCompressionAlgorithm, VerificationKeyStorer,
 };
 
@@ -166,6 +167,9 @@ pub struct DependenciesBuilder {
 
     /// Immutable cache provider service.
     pub immutable_cache_provider: Option<Arc<dyn ImmutableFileDigestCacheProvider>>,
+
+    /// Immutable file digest mapper service.
+    pub immutable_file_digest_mapper: Option<Arc<dyn ImmutableFileDigestMapper>>,
 
     /// Digester service.
     pub digester: Option<Arc<dyn ImmutableDigester>>,
@@ -277,6 +281,7 @@ impl DependenciesBuilder {
             immutable_digester: None,
             immutable_file_observer: None,
             immutable_cache_provider: None,
+            immutable_file_digest_mapper: None,
             digester: None,
             snapshotter: None,
             certificate_verifier: None,
@@ -725,14 +730,14 @@ impl DependenciesBuilder {
     async fn build_immutable_cache_provider(
         &mut self,
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
-        let cache_provider = JsonImmutableFileDigestCacheProviderBuilder::new(
-            &self.configuration.data_stores_directory,
-            &format!("immutables_digests_{}.json", self.configuration.network),
-        )
-        .with_logger(self.root_logger())
-        .should_reset_digests_cache(self.configuration.reset_digests_cache)
-        .build()
-        .await?;
+        let cache_provider =
+            ImmutableFileDigestRepository::new(self.get_sqlite_connection().await?);
+        if self.configuration.reset_digests_cache {
+            cache_provider
+                .reset()
+                .await
+                .with_context(|| "Failure occurred when resetting immutable file digest cache")?;
+        }
 
         Ok(Arc::new(cache_provider))
     }
@@ -833,6 +838,26 @@ impl DependenciesBuilder {
         }
 
         Ok(self.immutable_digester.as_ref().cloned().unwrap())
+    }
+
+    async fn build_immutable_file_digest_mapper(
+        &mut self,
+    ) -> Result<Arc<dyn ImmutableFileDigestMapper>> {
+        let mapper = ImmutableFileDigestRepository::new(self.get_sqlite_connection().await?);
+
+        Ok(Arc::new(mapper))
+    }
+
+    /// Immutable digest mapper.
+    pub async fn get_immutable_file_digest_mapper(
+        &mut self,
+    ) -> Result<Arc<dyn ImmutableFileDigestMapper>> {
+        if self.immutable_file_digest_mapper.is_none() {
+            self.immutable_file_digest_mapper =
+                Some(self.build_immutable_file_digest_mapper().await?);
+        }
+
+        Ok(self.immutable_file_digest_mapper.as_ref().cloned().unwrap())
     }
 
     async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
@@ -1719,7 +1744,12 @@ impl DependenciesBuilder {
             self.get_sqlite_connection().await?,
         ));
         let signed_entity_storer = self.get_signed_entity_storer().await?;
-        let service = MithrilMessageService::new(certificate_repository, signed_entity_storer);
+        let immutable_file_digest_mapper = self.get_immutable_file_digest_mapper().await?;
+        let service = MithrilMessageService::new(
+            certificate_repository,
+            signed_entity_storer,
+            immutable_file_digest_mapper,
+        );
 
         Ok(Arc::new(service))
     }

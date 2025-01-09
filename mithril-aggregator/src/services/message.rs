@@ -8,6 +8,7 @@ use thiserror::Error;
 use mithril_common::{
     entities::{Epoch, SignedEntityTypeDiscriminants},
     messages::{
+        CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage,
         CardanoDatabaseSnapshotListMessage, CardanoDatabaseSnapshotMessage,
         CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
         CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
@@ -17,7 +18,10 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::database::repository::{CertificateRepository, SignedEntityStorer};
+use crate::{
+    database::repository::{CertificateRepository, SignedEntityStorer},
+    ImmutableFileDigestMapper,
+};
 
 /// Error related to the [MessageService]
 #[derive(Debug, Error)]
@@ -61,6 +65,11 @@ pub trait MessageService: Sync + Send {
         &self,
         limit: usize,
     ) -> StdResult<CardanoDatabaseSnapshotListMessage>;
+
+    /// Return the list of the Cardano database immutable file names and their digests.
+    async fn get_cardano_database_digest_list_message(
+        &self,
+    ) -> StdResult<CardanoDatabaseDigestListMessage>;
 
     /// Return the information regarding the Mithril stake distribution for the given identifier.
     async fn get_mithril_stake_distribution_message(
@@ -109,6 +118,7 @@ pub trait MessageService: Sync + Send {
 pub struct MithrilMessageService {
     certificate_repository: Arc<CertificateRepository>,
     signed_entity_storer: Arc<dyn SignedEntityStorer>,
+    immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
 }
 
 impl MithrilMessageService {
@@ -116,10 +126,12 @@ impl MithrilMessageService {
     pub fn new(
         certificate_repository: Arc<CertificateRepository>,
         signed_entity_storer: Arc<dyn SignedEntityStorer>,
+        immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
     ) -> Self {
         Self {
             certificate_repository,
             signed_entity_storer,
+            immutable_file_digest_mapper,
         }
     }
 }
@@ -189,6 +201,23 @@ impl MessageService for MithrilMessageService {
             .await?;
 
         entities.into_iter().map(|i| i.try_into()).collect()
+    }
+
+    async fn get_cardano_database_digest_list_message(
+        &self,
+    ) -> StdResult<CardanoDatabaseDigestListMessage> {
+        Ok(self
+            .immutable_file_digest_mapper
+            .get_immutable_file_digest_map()
+            .await?
+            .into_iter()
+            .map(
+                |(immutable_file_name, digest)| CardanoDatabaseDigestListItemMessage {
+                    immutable_file_name,
+                    digest,
+                },
+            )
+            .collect::<Vec<_>>())
     }
 
     async fn get_mithril_stake_distribution_message(
@@ -285,7 +314,7 @@ mod tests {
     use mithril_common::test_utils::fake_data;
 
     use crate::database::record::SignedEntityRecord;
-    use crate::database::repository::SignedEntityStore;
+    use crate::database::repository::{ImmutableFileDigestRepository, SignedEntityStore};
     use crate::database::test_helper::main_db_connection;
 
     use super::*;
@@ -293,6 +322,7 @@ mod tests {
     struct MessageServiceBuilder {
         certificates: Vec<Certificate>,
         signed_entity_records: Vec<SignedEntityRecord>,
+        immutable_file_digest_messages: Vec<CardanoDatabaseDigestListItemMessage>,
     }
 
     impl MessageServiceBuilder {
@@ -300,6 +330,7 @@ mod tests {
             Self {
                 certificates: Vec::new(),
                 signed_entity_records: Vec::new(),
+                immutable_file_digest_messages: Vec::new(),
             }
         }
 
@@ -317,10 +348,21 @@ mod tests {
             self
         }
 
+        fn with_immutable_file_digest_messages(
+            mut self,
+            digests: &[CardanoDatabaseDigestListItemMessage],
+        ) -> Self {
+            self.immutable_file_digest_messages
+                .extend_from_slice(digests);
+            self
+        }
+
         async fn build(self) -> MithrilMessageService {
             let connection = Arc::new(main_db_connection().unwrap());
             let certificate_repository = CertificateRepository::new(connection.clone());
-            let signed_entity_store = SignedEntityStore::new(connection);
+            let signed_entity_store = SignedEntityStore::new(connection.clone());
+            let immutable_file_digest_mapper =
+                ImmutableFileDigestRepository::new(connection.clone());
 
             certificate_repository
                 .create_many_certificates(self.certificates)
@@ -333,9 +375,20 @@ mod tests {
                     .unwrap();
             }
 
+            for digest_message in self.immutable_file_digest_messages {
+                immutable_file_digest_mapper
+                    .upsert_immutable_file_digest(
+                        &digest_message.immutable_file_name,
+                        &digest_message.digest,
+                    )
+                    .await
+                    .unwrap();
+            }
+
             MithrilMessageService::new(
                 Arc::new(certificate_repository),
                 Arc::new(signed_entity_store),
+                Arc::new(immutable_file_digest_mapper),
             )
         }
     }
@@ -536,6 +589,34 @@ mod tests {
 
             let response = service.get_cardano_database_list_message(3).await.unwrap();
             assert_eq!(message, response);
+        }
+
+        #[tokio::test]
+        async fn get_cardano_database_digest_list_message() {
+            let messages: CardanoDatabaseDigestListMessage = vec![
+                CardanoDatabaseDigestListItemMessage {
+                    immutable_file_name: "06685.chunk".to_string(),
+                    digest: "0af556ab2620dd9363bf76963a231abe8948a500ea6be31b131d87907ab09b1e"
+                        .to_string(),
+                },
+                CardanoDatabaseDigestListItemMessage {
+                    immutable_file_name: "06685.primary".to_string(),
+                    digest: "32dfd6b722d87f253e78eb8b478fb94f1e13463826e674d6ec7b6bf0892b2e39"
+                        .to_string(),
+                },
+            ];
+
+            let service = MessageServiceBuilder::new()
+                .with_immutable_file_digest_messages(&messages)
+                .build()
+                .await;
+
+            let response = service
+                .get_cardano_database_digest_list_message()
+                .await
+                .unwrap();
+
+            assert_eq!(messages, response);
         }
     }
 

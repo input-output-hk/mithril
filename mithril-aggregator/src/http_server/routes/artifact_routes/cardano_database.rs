@@ -6,6 +6,7 @@ pub fn routes(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     artifact_cardano_database_list(router_state)
+        .or(artifact_cardano_database_digest_list(router_state))
         .or(artifact_cardano_database_by_id(router_state))
         .or(serve_cardano_database_dir(router_state))
 }
@@ -31,6 +32,17 @@ fn artifact_cardano_database_by_id(
         .and(middlewares::with_http_message_service(dependency_manager))
         .and(middlewares::with_metrics_service(dependency_manager))
         .and_then(handlers::get_artifact_by_signed_entity_id)
+}
+
+/// GET /artifact/cardano-database/digests
+fn artifact_cardano_database_digest_list(
+    router_state: &RouterState,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("artifact" / "cardano-database" / "digests")
+        .and(warp::get())
+        .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_http_message_service(router_state))
+        .and_then(handlers::list_digests)
 }
 
 fn serve_cardano_database_dir(
@@ -132,6 +144,23 @@ mod handlers {
             }
         }
     }
+
+    /// List digests
+    pub async fn list_digests(
+        logger: Logger,
+        http_message_service: Arc<dyn MessageService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        match http_message_service
+            .get_cardano_database_digest_list_message()
+            .await
+        {
+            Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
+            Err(err) => {
+                warn!(logger,"list_digests_cardano_database"; "error" => ?err);
+                Ok(reply::server_error(err))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -141,7 +170,8 @@ mod tests {
         http_server::SERVER_BASE_PATH, initialize_dependencies, services::MockMessageService,
     };
     use mithril_common::messages::{
-        CardanoDatabaseSnapshotListItemMessage, CardanoDatabaseSnapshotMessage,
+        CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotListItemMessage,
+        CardanoDatabaseSnapshotMessage,
     };
     use mithril_common::test_utils::apispec::APISpec;
     use mithril_persistence::sqlite::HydrationError;
@@ -338,6 +368,72 @@ mod tests {
 
         let method = Method::GET.as_str();
         let path = "/artifact/cardano-database/{hash}";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::INTERNAL_SERVER_ERROR,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cardano_database_get_digests_ok() {
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_cardano_database_digest_list_message()
+            .return_once(|| Ok(vec![CardanoDatabaseDigestListItemMessage::dummy()]))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
+
+        let method = Method::GET.as_str();
+        let path = "/artifact/cardano-database/digests";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+            &StatusCode::OK,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_cardano_database_get_digests_ko() {
+        let mut mock_http_message_service = MockMessageService::new();
+        mock_http_message_service
+            .expect_get_cardano_database_digest_list_message()
+            .return_once(|| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.message_service = Arc::new(mock_http_message_service);
+
+        let method = Method::GET.as_str();
+        let path = "/artifact/cardano-database/digests";
 
         let response = request()
             .method(method)

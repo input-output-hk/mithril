@@ -106,13 +106,14 @@ impl ImmutableFile {
         })
     }
 
-    /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
-    #[cfg(test)]
-    pub(crate) fn dummy(path: PathBuf, number: ImmutableFileNumber, filename: String) -> Self {
-        Self {
-            path,
-            number,
-            filename,
+    cfg_test_tools! {
+        /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
+        pub fn dummy<T: Into<String>>(path: PathBuf, number: ImmutableFileNumber, filename: T) -> Self {
+            Self {
+                path,
+                number,
+                filename: filename.into(),
+            }
         }
     }
 

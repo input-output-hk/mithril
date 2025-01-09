@@ -1,13 +1,12 @@
-use crate::digesters::ImmutableFile;
-use crate::entities::{HexEncodedDigest, ImmutableFileName};
-
-use async_trait::async_trait;
 use std::collections::BTreeMap;
 use std::io;
+
+use async_trait::async_trait;
 use thiserror::Error;
 
-#[cfg(test)]
-pub use mockall::automock;
+use crate::digesters::ImmutableFile;
+use crate::entities::{HexEncodedDigest, ImmutableFileName};
+use crate::StdError;
 
 /// A specialized result type for [ImmutableFileDigestCacheProvider].
 pub type CacheProviderResult<T> = Result<T, ImmutableDigesterCacheProviderError>;
@@ -34,6 +33,10 @@ pub enum ImmutableDigesterCacheStoreError {
     /// Raised when json cache serialization fails.
     #[error("IO error when serializing json cache")]
     JsonSerialization(#[from] serde_json::Error),
+
+    /// Raised when the underlying store failed storing a cache.
+    #[error("Underlying store raised an error when storing cache")]
+    StoreError(#[source] StdError),
 }
 
 /// [ImmutableFileDigestCacheProvider::get] related errors.
@@ -46,10 +49,14 @@ pub enum ImmutableDigesterCacheGetError {
     /// Raised when json cache deserialization fails.
     #[error("IO error when deserializing json cache")]
     JsonDeserialization(#[from] serde_json::Error),
+
+    /// Raised when the underlying store failed getting a cache.
+    #[error("Underlying store raised an error when getting cache")]
+    StoreError(#[source] StdError),
 }
 
 /// A cache provider that store individual [ImmutableFile] digests.
-#[cfg_attr(test, automock)]
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ImmutableFileDigestCacheProvider: Sync + Send {
     /// Store the given digests

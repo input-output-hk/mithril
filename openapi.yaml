@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.40
+  version: 0.1.41
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -292,6 +292,27 @@ paths:
           description: API version mismatch
         default:
           description: Cardano database snapshots retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artifact/cardano-database/digests:
+    get:
+      summary: Get Cardano database immutable file digests
+      description: |
+        Returns the mapping of a Cardano database immutable files with their digests
+      responses:
+        "200":
+          description: Cardano database immutable file digests found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardanoDatabaseDigestListMessage"
+        "412":
+          description: API version mismatch
+        default:
+          description: Cardano database immutable files digest retrieval error
           content:
             application/json:
               schema:
@@ -2059,6 +2080,49 @@ components:
           "compression_algorithm": "zstandard",
           "cardano_node_version": "0.0.1",
           "created_at": "2023-01-19T13:43:05.618857482Z"
+        }
+
+    CardanoDatabaseDigestListMessage:
+      description: CardanoDatabaseDigestListMessage represents a list of Cardano database immutable files and their digests
+      type: array
+      items:
+        $ref: "#/components/schemas/CardanoDatabaseDigestListItemMessage"
+      examples:
+        [
+          {
+            "immutable_file_name": "06685.chunk",
+            "digest": "0af556ab2620dd9363bf76963a231abe8948a500ea6be31b131d87907ab09b1e"
+          },
+          {
+            "immutable_file_name": "06685.primary",
+            "digest": "32dfd6b722d87f253e78eb8b478fb94f1e13463826e674d6ec7b6bf0892b2e39"
+          },
+          {
+            "immutable_file_name": "06685.secondary",
+            "digest": "f37e751c1d7866f9c2bf88e870e5a9c9351f8521b41f259601fb208d5641a5ec"
+          }
+        ]
+
+    CardanoDatabaseDigestListItemMessage:
+      description: CardanoDatabaseSnapshotListItemMessage represents a list item of Cardano database immutable file and digest
+      type: object
+      additionalProperties: false
+      required:
+        - immutable_file_name
+        - digest
+      properties:
+        immutable_file_name:
+          description: Immutable file name
+          type: string
+          format: bytes
+        digest:
+          description: Digest of an immutable file
+          type: string
+          format: bytes
+      examples:
+        {
+          "immutable_file_name": "06685.chunk",
+          "digest": "0af556ab2620dd9363bf76963a231abe8948a500ea6be31b131d87907ab09b1e"
         }
 
     MithrilStakeDistributionListMessage:
