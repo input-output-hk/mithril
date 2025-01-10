@@ -3,7 +3,7 @@ use mithril_common::StdResult;
 use std::path::Path;
 
 /// FileUri represents a file URI used to identify the file's location
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
 pub struct FileUri(pub String);
 
 impl From<FileUri> for String {

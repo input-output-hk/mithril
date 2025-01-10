@@ -102,8 +102,7 @@ mod tests {
 
         let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
         let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
-        let location = uploader
-            .upload(&archive)
+        let location = FileUploader::upload(&uploader, &archive)
             .await
             .expect("local upload should not fail");
 
@@ -128,7 +127,7 @@ mod tests {
             TestLogger::stdout(),
         )
         .unwrap();
-        uploader.upload(&archive).await.unwrap();
+        FileUploader::upload(&uploader, &archive).await.unwrap();
 
         assert!(target_dir.join(archive.file_name().unwrap()).exists());
     }
@@ -149,8 +148,7 @@ mod tests {
             TestLogger::stdout(),
         )
         .unwrap();
-        uploader
-            .upload(&source_dir)
+        FileUploader::upload(&uploader, &source_dir)
             .await
             .expect_err("Uploading a directory should fail");
     }

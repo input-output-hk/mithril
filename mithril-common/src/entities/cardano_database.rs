@@ -68,7 +68,7 @@ impl CardanoDatabaseSnapshot {
     }
 }
 
-/// Locations of the the immutable file digests.
+/// Locations of the immutable file digests.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum DigestLocation {
@@ -84,7 +84,7 @@ pub enum DigestLocation {
     },
 }
 
-/// Locations of the ancillary files.
+/// Locations of the immutable files.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ImmutablesLocation {

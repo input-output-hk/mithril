@@ -1,27 +1,95 @@
 use std::{
+    collections::HashSet,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use anyhow::anyhow;
 use async_trait::async_trait;
+use regex::Regex;
+use slog::{error, Logger};
 
 use mithril_common::{
     digesters::IMMUTABLE_DIR,
-    entities::{CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation},
+    entities::{CompressionAlgorithm, ImmutableFileNumber},
     logging::LoggerExtensions,
     StdResult,
 };
-use slog::{error, Logger};
 
-use crate::Snapshotter;
+use crate::{
+    file_uploaders::{FileUri, LocalUploader},
+    FileUploader, Snapshotter,
+};
+
+/// [TemplateUri] represents an URI pattern used to build a file's location
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub struct TemplateUri(pub String);
+
+fn default_extractor(file_uri: &FileUri) -> StdResult<Option<String>> {
+    let regex = Regex::new(r".*(\d{5})")?;
+    let initial_uri: String = file_uri.clone().into();
+
+    Ok(regex
+        .captures(&initial_uri)
+        .and_then(|mat| mat.get(1))
+        .map(|immutable_match| {
+            let mut template = initial_uri.to_string();
+            template.replace_range(immutable_match.range(), "{immutable_file_number}");
+
+            template
+        }))
+}
+
+/// [MultiFilesUri] represents a unique location uri for multiple files
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum MultiFilesUri {
+    Template(TemplateUri),
+}
+
+impl MultiFilesUri {
+    fn extract_template_from_uris(
+        file_uris: Vec<FileUri>,
+        extractor: impl Fn(&FileUri) -> StdResult<Option<String>>,
+    ) -> StdResult<Option<TemplateUri>> {
+        let mut templates = HashSet::new();
+        for file_uri in file_uris {
+            let template_uri = extractor(&file_uri)?;
+            template_uri.map(|template| templates.insert(template));
+        }
+
+        if templates.len() > 1 {
+            return Err(anyhow!("Multiple templates found in the file URIs"));
+        }
+
+        if let Some(template) = templates.into_iter().next() {
+            Ok(Some(TemplateUri(template)))
+        } else {
+            Ok(None)
+        }
+    }
+}
 
 /// The [ImmutableFilesUploader] trait allows identifying uploaders that return locations for immutable files archive.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait ImmutableFilesUploader: Send + Sync {
     /// Uploads the archives at the given filepaths and returns the location of the uploaded file.
-    async fn upload<'a>(&self, filepaths: &[&'a Path]) -> StdResult<ImmutablesLocation>;
+    async fn batch_upload<'a>(&self, filepaths: &[&'a Path]) -> StdResult<MultiFilesUri>;
+}
+
+#[async_trait]
+impl ImmutableFilesUploader for LocalUploader {
+    async fn batch_upload<'a>(&self, filepaths: &[&'a Path]) -> StdResult<MultiFilesUri> {
+        let mut file_uris = Vec::new();
+        for filepath in filepaths {
+            file_uris.push(self.upload(filepath).await?);
+        }
+
+        let template_uri = MultiFilesUri::extract_template_from_uris(file_uris, default_extractor)?
+            .ok_or_else(|| anyhow!("No template found in the uploaded files"))?;
+
+        Ok(MultiFilesUri::Template(template_uri))
+    }
 }
 
 pub struct ImmutableArtifactBuilder {
@@ -55,7 +123,7 @@ impl ImmutableArtifactBuilder {
     pub async fn upload(
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
-    ) -> StdResult<Vec<ImmutablesLocation>> {
+    ) -> StdResult<Vec<MultiFilesUri>> {
         let archives_paths =
             self.immutable_archives_paths_creating_the_missing_ones(up_to_immutable_file_number)?;
         let archives_paths: Vec<_> = archives_paths.iter().map(Path::new).collect();
@@ -108,10 +176,10 @@ impl ImmutableArtifactBuilder {
     async fn upload_immutable_archives(
         &self,
         archive_paths: &[&Path],
-    ) -> StdResult<Vec<ImmutablesLocation>> {
+    ) -> StdResult<Vec<MultiFilesUri>> {
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
-            let result = uploader.upload(archive_paths).await;
+            let result = uploader.batch_upload(archive_paths).await;
             match result {
                 Ok(location) => {
                     locations.push(location);
@@ -146,6 +214,7 @@ mod tests {
     use uuid::Uuid;
 
     use crate::{
+        file_uploaders::FileUri,
         snapshotter::{MockSnapshotter, OngoingSnapshot},
         test_tools::TestLogger,
         CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
@@ -159,14 +228,14 @@ mod tests {
 
         let mut uploader = MockImmutableFilesUploader::new();
         uploader
-            .expect_upload()
+            .expect_batch_upload()
             .withf(move |p| {
                 let paths: Vec<_> = p.iter().map(|s| s.to_string_lossy().into_owned()).collect();
 
                 equivalent_to(paths, archive_paths.clone())
             })
             .times(1)
-            .return_once(|_| Ok(ImmutablesLocation::CloudStorage { uri }));
+            .return_once(|_| Ok(MultiFilesUri::Template(TemplateUri(uri))));
 
         uploader
     }
@@ -174,7 +243,7 @@ mod tests {
     fn fake_uploader_returning_error() -> MockImmutableFilesUploader {
         let mut uploader = MockImmutableFilesUploader::new();
         uploader
-            .expect_upload()
+            .expect_batch_upload()
             .return_once(|_| Err(anyhow!("Failure while uploading...")));
 
         uploader
@@ -233,9 +302,9 @@ mod tests {
 
         assert_equivalent(
             archive_paths,
-            vec![ImmutablesLocation::CloudStorage {
-                uri: "archive.tar.gz".to_string(),
-            }],
+            vec![MultiFilesUri::Template(TemplateUri(
+                "archive.tar.gz".to_string(),
+            ))],
         )
     }
 
@@ -515,7 +584,7 @@ mod tests {
 
             let mut uploader = MockImmutableFilesUploader::new();
             uploader
-                .expect_upload()
+                .expect_batch_upload()
                 .return_once(|_| Err(anyhow!("Failure while uploading...")));
 
             {
@@ -528,10 +597,7 @@ mod tests {
                 .unwrap();
 
                 let _ = builder
-                    .upload_immutable_archives(&vec![
-                        Path::new("01.tar.gz"),
-                        Path::new("02.tar.gz"),
-                    ])
+                    .upload_immutable_archives(&[Path::new("01.tar.gz"), Path::new("02.tar.gz")])
                     .await;
             }
 
@@ -553,7 +619,7 @@ mod tests {
             .unwrap();
 
             let result = builder
-                .upload_immutable_archives(&vec![Path::new("01.tar.gz"), Path::new("02.tar.gz")])
+                .upload_immutable_archives(&[Path::new("01.tar.gz"), Path::new("02.tar.gz")])
                 .await;
 
             assert!(
@@ -582,15 +648,15 @@ mod tests {
             .unwrap();
 
             let archive_paths = builder
-                .upload_immutable_archives(&vec![Path::new("01.tar.gz"), Path::new("02.tar.gz")])
+                .upload_immutable_archives(&[Path::new("01.tar.gz"), Path::new("02.tar.gz")])
                 .await
                 .unwrap();
 
             assert_equivalent(
                 archive_paths,
-                vec![ImmutablesLocation::CloudStorage {
-                    uri: "archive_2.tar.gz".to_string(),
-                }],
+                vec![MultiFilesUri::Template(TemplateUri(
+                    "archive_2.tar.gz".to_string(),
+                ))],
             )
         }
 
@@ -616,21 +682,167 @@ mod tests {
             .unwrap();
 
             let archive_paths = builder
-                .upload_immutable_archives(&vec![Path::new("01.tar.gz"), Path::new("02.tar.gz")])
+                .upload_immutable_archives(&[Path::new("01.tar.gz"), Path::new("02.tar.gz")])
                 .await
                 .unwrap();
 
             assert_equivalent(
                 archive_paths,
                 vec![
-                    ImmutablesLocation::CloudStorage {
-                        uri: "archive_1.tar.gz".to_string(),
-                    },
-                    ImmutablesLocation::CloudStorage {
-                        uri: "archive_2.tar.gz".to_string(),
-                    },
+                    MultiFilesUri::Template(TemplateUri("archive_1.tar.gz".to_string())),
+                    MultiFilesUri::Template(TemplateUri("archive_2.tar.gz".to_string())),
                 ],
             )
+        }
+    }
+
+    mod uploader {
+        use std::fs::File;
+        use std::io::Write;
+
+        use mithril_common::test_utils::TempDir;
+        use reqwest::Url;
+
+        use super::*;
+
+        fn create_fake_archive(dir: &Path, name: &str) -> PathBuf {
+            let file_path = dir.join(name);
+            let mut file = File::create(&file_path).unwrap();
+            writeln!(
+                file,
+                "I swear, this is an archive, not a temporary test file."
+            )
+            .unwrap();
+
+            file_path
+        }
+
+        #[tokio::test]
+        async fn extract_archive_name_to_deduce_template_location() {
+            let source_dir = TempDir::create(
+                "immutable",
+                "extract_archive_name_to_deduce_template_location_source",
+            );
+            let target_dir = TempDir::create(
+                "immutable",
+                "extract_archive_name_to_deduce_template_location_target",
+            );
+
+            let archive_1 = create_fake_archive(&source_dir, "00001.tar.gz");
+            let archive_2 = create_fake_archive(&source_dir, "00002.tar.gz");
+
+            let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
+            let uploader =
+                LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
+            let location =
+                ImmutableFilesUploader::batch_upload(&uploader, &[&archive_1, &archive_2])
+                    .await
+                    .expect("local upload should not fail");
+
+            assert!(target_dir.join(archive_1.file_name().unwrap()).exists());
+            assert!(target_dir.join(archive_2.file_name().unwrap()).exists());
+
+            let expected_location = MultiFilesUri::Template(TemplateUri(
+                "http://test.com:8080/base-root/artifact/snapshot/{immutable_file_number}.tar.gz"
+                    .to_string(),
+            ));
+            assert_eq!(expected_location, location);
+        }
+
+        #[tokio::test]
+        async fn returns_error_when_uploaded_filename_not_templatable_without_5_digits() {
+            let source_dir = TempDir::create(
+                "immutable",
+                "returns_error_when_uploaded_filename_not_templatable",
+            );
+            let target_dir = TempDir::create(
+                "immutable",
+                "returns_error_when_uploaded_filename_not_templatable",
+            );
+
+            let archive = create_fake_archive(&source_dir, "not-templatable.tar.gz");
+
+            let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
+            let uploader =
+                LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
+
+            ImmutableFilesUploader::batch_upload(&uploader, &[&archive])
+                .await
+                .expect_err("Should return an error when not template found");
+        }
+    }
+
+    mod extract_template_from_uris_with_default_extractor {
+        use super::*;
+
+        #[test]
+        fn returns_none_when_not_templatable_without_5_digits() {
+            let file_uris = vec![FileUri("not-templatable.tar.gz".to_string())];
+
+            let template =
+                MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).unwrap();
+
+            assert!(template.is_none());
+        }
+
+        #[test]
+        fn returns_template() {
+            let file_uris = vec![
+                FileUri("http://whatever/00001.tar.gz".to_string()),
+                FileUri("http://whatever/00002.tar.gz".to_string()),
+            ];
+
+            let template =
+                MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).unwrap();
+
+            assert_eq!(
+                template,
+                Some(TemplateUri(
+                    "http://whatever/{immutable_file_number}.tar.gz".to_string()
+                ))
+            );
+        }
+
+        #[test]
+        fn replaces_last_occurence_of_5_digits() {
+            let file_uris = vec![FileUri("http://00001/whatever/00001.tar.gz".to_string())];
+
+            let template =
+                MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).unwrap();
+
+            assert_eq!(
+                template,
+                Some(TemplateUri(
+                    "http://00001/whatever/{immutable_file_number}.tar.gz".to_string()
+                ))
+            );
+        }
+
+        #[test]
+        fn replaces_last_occurence_when_more_than_5_digits() {
+            let file_uris = vec![FileUri("http://whatever/123456789.tar.gz".to_string())];
+
+            let template =
+                MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).unwrap();
+
+            assert_eq!(
+                template,
+                Some(TemplateUri(
+                    "http://whatever/1234{immutable_file_number}.tar.gz".to_string()
+                ))
+            );
+        }
+
+        #[test]
+        fn returns_error_with_multiple_templates() {
+            let file_uris = vec![
+                FileUri("http://whatever/00001.tar.gz".to_string()),
+                FileUri("http://00002.tar.gz/whatever".to_string()),
+            ];
+
+            MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).expect_err(
+                "Should return an error when multiple templates are found in the file URIs",
+            );
         }
     }
 }

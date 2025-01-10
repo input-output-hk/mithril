@@ -3600,6 +3600,7 @@ dependencies = [
  "paste",
  "prometheus",
  "rayon",
+ "regex",
  "reqwest 0.12.12",
  "semver",
  "serde",
