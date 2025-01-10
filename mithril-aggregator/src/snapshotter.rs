@@ -27,6 +27,9 @@ pub trait Snapshotter: Sync + Send {
 
     /// Check if the snapshot exists.
     fn is_snapshot_exist(&self, filepath: &Path) -> bool;
+
+    /// Give the full target path for the filepath.
+    fn get_file_path(&self, filepath: &Path) -> PathBuf;
 }
 
 /// Compression algorithm and parameters of the [CompressedArchiveSnapshotter].
@@ -190,7 +193,11 @@ impl Snapshotter for CompressedArchiveSnapshotter {
     }
 
     fn is_snapshot_exist(&self, filepath: &Path) -> bool {
-        self.archive_path(filepath).exists()
+        self.get_file_path(filepath).exists()
+    }
+
+    fn get_file_path(&self, filepath: &Path) -> PathBuf {
+        self.ongoing_snapshot_directory.join(filepath)
     }
 }
 
@@ -237,7 +244,7 @@ impl CompressedArchiveSnapshotter {
     }
 
     fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {
-        let archive_path = self.archive_path(filepath);
+        let archive_path = self.get_file_path(filepath);
         if let Some(archive_dir) = archive_path.parent() {
             fs::create_dir_all(archive_dir).with_context(|| {
                 format!(
@@ -262,10 +269,6 @@ impl CompressedArchiveSnapshotter {
             filepath: archive_path,
             filesize,
         })
-    }
-
-    fn archive_path(&self, filepath: &Path) -> PathBuf {
-        self.ongoing_snapshot_directory.join(filepath)
     }
 
     fn get_file_size(filepath: &Path) -> StdResult<u64> {
@@ -499,7 +502,7 @@ impl Snapshotter for DumbSnapshotter {
             .write()
             .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?;
         let snapshot = OngoingSnapshot {
-            filepath: archive_name.to_path_buf(),
+            filepath: self.get_file_path(archive_name),
             filesize: 0,
         };
         *value = Some(snapshot.clone());
@@ -517,6 +520,10 @@ impl Snapshotter for DumbSnapshotter {
 
     fn is_snapshot_exist(&self, _filepath: &Path) -> bool {
         return false;
+    }
+
+    fn get_file_path(&self, filepath: &Path) -> PathBuf {
+        filepath.to_path_buf()
     }
 }
 
@@ -564,7 +571,7 @@ mod tests {
     }
 
     #[test]
-    fn test_dumb_snapshotter_snasphot_return_archive_name_with_size_0() {
+    fn test_dumb_snapshotter_snapshot_return_archive_name_with_size_0() {
         let snapshotter = DumbSnapshotter::new();
         let snapshot = snapshotter
             .snapshot_all(Path::new("archive.tar.gz"))
@@ -934,6 +941,25 @@ mod tests {
         snapshotter.snapshot_all(&snapshot_path).unwrap();
 
         assert!(snapshotter.is_snapshot_exist(&snapshot_path));
+    }
+
+    #[test]
+    fn can_return_full_archive_path() {
+        let destination = get_test_directory("can_return_full_archive_path");
+        let source = PathBuf::from("/source");
+
+        let snapshotter = CompressedArchiveSnapshotter::new(
+            source,
+            destination.clone(),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let snapshot_path = PathBuf::from("snapshot.tar.gz");
+        let full_path = snapshotter.get_file_path(&snapshot_path);
+
+        assert_eq!(destination.join("snapshot.tar.gz"), full_path);
     }
 
     #[test]

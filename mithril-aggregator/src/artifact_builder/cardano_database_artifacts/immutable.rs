@@ -56,14 +56,15 @@ impl ImmutableArtifactBuilder {
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Vec<ImmutablesLocation>> {
-        let archives_paths = self.create_immutables_archives(up_to_immutable_file_number)?;
+        let archives_paths =
+            self.immutable_archives_paths_creating_the_missing_ones(up_to_immutable_file_number)?;
         let archives_paths: Vec<_> = archives_paths.iter().map(Path::new).collect();
         let locations = self.upload_immutable_archives(&archives_paths).await?;
 
         Ok(locations)
     }
 
-    pub fn create_immutables_archives(
+    pub fn immutable_archives_paths_creating_the_missing_ones(
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Vec<PathBuf>> {
@@ -75,7 +76,7 @@ impl ImmutableArtifactBuilder {
             ]
         }
 
-        let immutable_archive_path = Path::new("cardano-database").join("immutable");
+        let immutable_archive_dir_path = Path::new("cardano-database").join("immutable");
 
         let mut archive_paths = vec![];
         for immutable_file_number in 1..=up_to_immutable_file_number {
@@ -90,16 +91,15 @@ impl ImmutableArtifactBuilder {
                 self.compression_algorithm.tar_file_extension()
             );
 
+            let immutable_archive_file_path = immutable_archive_dir_path.join(archive_name);
             if !self
                 .snapshotter
-                .is_snapshot_exist(&immutable_archive_path.join(archive_name.clone()))
+                .is_snapshot_exist(&immutable_archive_file_path)
             {
-                let archive_path = self.snapshotter.snapshot_subset(
-                    &immutable_archive_path.join(archive_name),
-                    files_to_archive,
-                )?;
-                archive_paths.push(archive_path.get_file_path().to_path_buf());
+                self.snapshotter
+                    .snapshot_subset(&immutable_archive_file_path, files_to_archive)?;
             }
+            archive_paths.push(self.snapshotter.get_file_path(&immutable_archive_file_path));
         }
 
         Ok(archive_paths)
@@ -180,12 +180,18 @@ mod tests {
         uploader
     }
 
-    // TODO: Find a better name for this test
+    fn dummy_ongoing_snapshot() -> OngoingSnapshot {
+        OngoingSnapshot::new(PathBuf::from("/whatever"), 0)
+    }
+
     #[tokio::test]
-    async fn upload_should_send_parameters_through_methods_to_obtain_the_final_location() {
+    async fn upload_call_archive_creation_and_upload_to_retrieve_locations() {
         let snapshotter = {
             let mut snapshotter = MockSnapshotter::new();
             snapshotter.expect_is_snapshot_exist().returning(|_| false);
+            snapshotter
+                .expect_get_file_path()
+                .returning(move |f| Path::new("/destination").join(f));
 
             snapshotter
                 .expect_snapshot_subset()
@@ -194,12 +200,7 @@ mod tests {
                     eq(Path::new("cardano-database/immutable/00001.tar.gz")),
                     always(),
                 )
-                .returning(|_, _| {
-                    Ok(OngoingSnapshot::new(
-                        PathBuf::from("/destination/cardano-database/immutable/00001.tar.gz"),
-                        0,
-                    ))
-                });
+                .returning(|_, _| Ok(dummy_ongoing_snapshot()));
 
             snapshotter
                 .expect_snapshot_subset()
@@ -208,12 +209,7 @@ mod tests {
                     eq(Path::new("cardano-database/immutable/00002.tar.gz")),
                     always(),
                 )
-                .returning(|_, _| {
-                    Ok(OngoingSnapshot::new(
-                        PathBuf::from("/destination/cardano-database/immutable/00002.tar.gz"),
-                        0,
-                    ))
-                });
+                .returning(|_, _| Ok(dummy_ongoing_snapshot()));
             snapshotter
         };
 
@@ -248,9 +244,12 @@ mod tests {
         use super::*;
 
         #[test]
-        fn create_immutables_archives_should_snapshot_immutables_files_up_to_the_given_immutable_file_number(
-        ) {
+        fn snapshot_immutables_files_up_to_the_given_immutable_file_number() {
             let mut snapshotter = MockSnapshotter::new();
+            snapshotter
+                .expect_get_file_path()
+                .returning(move |f| Path::new("/tmp").join(f));
+
             snapshotter.expect_is_snapshot_exist().returning(|_| false);
 
             snapshotter
@@ -264,10 +263,7 @@ mod tests {
                         PathBuf::from(IMMUTABLE_DIR).join("00001.secondary"),
                     ]),
                 )
-                .returning(|filepath, _| {
-                    let path = Path::new("/tmp").join(filepath);
-                    Ok(OngoingSnapshot::new(path, 0))
-                });
+                .returning(|_, _| Ok(dummy_ongoing_snapshot()));
 
             snapshotter
                 .expect_snapshot_subset()
@@ -280,10 +276,7 @@ mod tests {
                         PathBuf::from(IMMUTABLE_DIR).join("00002.secondary"),
                     ]),
                 )
-                .returning(|filepath, _| {
-                    let path = Path::new("/tmp").join(filepath);
-                    Ok(OngoingSnapshot::new(path, 0))
-                });
+                .returning(|_, _| Ok(dummy_ongoing_snapshot()));
 
             let builder = ImmutableArtifactBuilder::new(
                 vec![Arc::new(MockImmutableFilesUploader::new())],
@@ -293,7 +286,9 @@ mod tests {
             )
             .unwrap();
 
-            let archive_paths = builder.create_immutables_archives(2).unwrap();
+            let archive_paths = builder
+                .immutable_archives_paths_creating_the_missing_ones(2)
+                .unwrap();
 
             assert_equivalent(
                 archive_paths,
@@ -305,8 +300,7 @@ mod tests {
         }
 
         #[test]
-        fn create_immutables_archives_should_return_error_when_one_of_the_three_immutable_files_is_missing(
-        ) {
+        fn return_error_when_one_of_the_three_immutable_files_is_missing() {
             let test_dir =
                 "error_when_one_of_the_three_immutable_files_is_missing/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
@@ -334,13 +328,15 @@ mod tests {
             )
             .unwrap();
 
-            builder.create_immutables_archives(2).expect_err(
-                "Should return an error when one of the three immutable files is missing",
-            );
+            builder
+                .immutable_archives_paths_creating_the_missing_ones(2)
+                .expect_err(
+                    "Should return an error when one of the three immutable files is missing",
+                );
         }
 
         #[test]
-        fn create_immutables_archives_should_return_error_when_an_immutable_file_trio_is_missing() {
+        fn return_error_when_an_immutable_file_trio_is_missing() {
             let test_dir = "error_when_an_immutable_file_trio_is_missing/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
                 .with_immutables(&[1, 3])
@@ -365,13 +361,12 @@ mod tests {
             .unwrap();
 
             builder
-                .create_immutables_archives(3)
+                .immutable_archives_paths_creating_the_missing_ones(3)
                 .expect_err("Should return an error when an immutable file trio is missing");
         }
 
         #[test]
-        fn create_immutables_archives_should_return_error_when_up_to_immutable_file_number_is_missing(
-        ) {
+        fn return_error_when_up_to_immutable_file_number_is_missing() {
             let test_dir = "error_when_up_to_immutable_file_number_is_missing/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
                 .with_immutables(&[1, 2])
@@ -396,24 +391,29 @@ mod tests {
             .unwrap();
 
             builder
-                .create_immutables_archives(3)
+                .immutable_archives_paths_creating_the_missing_ones(3)
                 .expect_err("Should return an error when an immutable file trio is missing");
         }
 
         #[test]
-        fn create_immutables_archives_should_not_rebuild_archives_already_compressed() {
+        fn return_all_archives_but_not_rebuild_archives_already_compressed() {
             let mut snapshotter = MockSnapshotter::new();
+            snapshotter
+                .expect_get_file_path()
+                .returning(move |f| Path::new("/tmp").join(f));
 
             snapshotter
                 .expect_is_snapshot_exist()
                 .times(1)
                 .with(eq(Path::new("cardano-database/immutable/00001.tar.gz")))
                 .returning(|_| true);
+
             snapshotter
                 .expect_is_snapshot_exist()
                 .times(1)
                 .with(eq(Path::new("cardano-database/immutable/00002.tar.gz")))
                 .returning(|_| true);
+
             snapshotter
                 .expect_is_snapshot_exist()
                 .times(1)
@@ -430,10 +430,7 @@ mod tests {
                         PathBuf::from(IMMUTABLE_DIR).join("00003.secondary"),
                     ]),
                 )
-                .returning(|filepath, _| {
-                    let path = Path::new("/tmp").join(filepath);
-                    Ok(OngoingSnapshot::new(path, 0))
-                });
+                .returning(|_, _| Ok(dummy_ongoing_snapshot()));
 
             let builder = ImmutableArtifactBuilder::new(
                 vec![Arc::new(MockImmutableFilesUploader::new())],
@@ -443,13 +440,48 @@ mod tests {
             )
             .unwrap();
 
-            let archive_paths = builder.create_immutables_archives(3).unwrap();
+            let archive_paths = builder
+                .immutable_archives_paths_creating_the_missing_ones(3)
+                .unwrap();
 
             assert_equivalent(
                 archive_paths,
-                vec![PathBuf::from(
-                    "/tmp/cardano-database/immutable/00003.tar.gz",
-                )],
+                vec![
+                    PathBuf::from("/tmp/cardano-database/immutable/00001.tar.gz"),
+                    PathBuf::from("/tmp/cardano-database/immutable/00002.tar.gz"),
+                    PathBuf::from("/tmp/cardano-database/immutable/00003.tar.gz"),
+                ],
+            )
+        }
+
+        #[test]
+        fn return_all_archives_paths_even_if_all_archives_already_exist() {
+            let mut snapshotter = MockSnapshotter::new();
+            snapshotter
+                .expect_get_file_path()
+                .returning(move |f| Path::new("/tmp").join(f));
+            snapshotter.expect_is_snapshot_exist().returning(|_| true);
+            snapshotter.expect_snapshot_subset().never();
+
+            let builder = ImmutableArtifactBuilder::new(
+                vec![Arc::new(MockImmutableFilesUploader::new())],
+                Arc::new(snapshotter),
+                CompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
+            )
+            .unwrap();
+
+            let archive_paths = builder
+                .immutable_archives_paths_creating_the_missing_ones(3)
+                .unwrap();
+
+            assert_equivalent(
+                archive_paths,
+                vec![
+                    PathBuf::from("/tmp/cardano-database/immutable/00001.tar.gz"),
+                    PathBuf::from("/tmp/cardano-database/immutable/00002.tar.gz"),
+                    PathBuf::from("/tmp/cardano-database/immutable/00003.tar.gz"),
+                ],
             )
         }
     }
