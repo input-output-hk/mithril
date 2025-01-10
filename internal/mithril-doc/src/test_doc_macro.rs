@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::{Documenter, DocumenterDefault, FieldDoc, StructDoc};
+    use crate::{Documenter, DocumenterDefault, StructDoc};
     use config::{Map, Source, Value, ValueKind};
 
     #[allow(dead_code)]
@@ -41,18 +41,10 @@ mod tests {
         }
     }
 
-    // TODO May be part of StructDoc.
-    pub fn get_field<'a>(struct_doc: &'a StructDoc, name: &str) -> &'a FieldDoc {
-        let mut fields = struct_doc.data.iter().filter(|f| f.parameter == name);
-
-        assert_eq!(1, fields.clone().count());
-        fields.next().unwrap()
-    }
-
     #[test]
     fn test_extract_struct_of_default_configuration() {
         let doc = MyDefaultConfiguration::extract();
-        let field = get_field(&doc, "environment");
+        let field = doc.get_field("environment");
 
         assert_eq!("environment", field.parameter);
         assert_eq!("ENVIRONMENT", field.environment_variable.as_ref().unwrap());
@@ -63,7 +55,7 @@ mod tests {
     #[test]
     fn test_extract_struct_of_configuration() {
         let doc = MyConfiguration::extract();
-        let field = get_field(&doc, "environment");
+        let field = doc.get_field("environment");
 
         assert_eq!("environment", field.parameter);
         assert_eq!("ENVIRONMENT", field.environment_variable.as_ref().unwrap());
@@ -75,12 +67,12 @@ mod tests {
     fn test_extract_example_of_configuration() {
         {
             let doc_with_example = MyConfiguration::extract();
-            let field = get_field(&doc_with_example, "environment");
+            let field = doc_with_example.get_field("environment");
             assert_eq!(Some("dev".to_string()), field.example);
         }
         {
             let doc_without_example = MyDefaultConfiguration::extract();
-            let field = get_field(&doc_without_example, "environment");
+            let field = doc_without_example.get_field("environment");
             assert_eq!(None, field.example);
         }
     }

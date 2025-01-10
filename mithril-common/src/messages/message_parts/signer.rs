@@ -16,7 +16,8 @@ use std::fmt::{Debug, Formatter};
 #[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerWithStakeMessagePart {
     /// The unique identifier of the signer
-    // TODO: Should be removed once the signer certification is fully deployed
+    ///
+    /// Used only for testing when SPO pool id is not certified
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
@@ -24,15 +25,15 @@ pub struct SignerWithStakeMessagePart {
 
     /// The encoded signer 'Mithril verification key' signature (signed by the
     /// Cardano node KES secret key).
-    // TODO: Option should be removed once the signer certification is fully
-    //       deployed.
+    ///
+    /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to
     /// the signer node.
-    // TODO: Option should be removed once the signer certification is fully
-    //       deployed.
+    ///
+    /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operational_certificate: Option<HexEncodedOpCert>,
 
@@ -161,7 +162,8 @@ impl Debug for SignerMessagePart {
 #[derive(Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerMessagePart {
     /// The unique identifier of the signer
-    // TODO: Should be removed once the signer certification is fully deployed
+    ///
+    /// Used only for testing when SPO pool id is not certified
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
@@ -169,15 +171,15 @@ pub struct SignerMessagePart {
 
     /// The encoded signer 'Mithril verification key' signature (signed by the
     /// Cardano node KES secret key).
-    // TODO: Option should be removed once the signer certification is fully
-    //       deployed.
+    ///
+    /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to
     /// the signer node.
-    // TODO: Option should be removed once the signer certification is fully
-    //       deployed.
+    ///
+    /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operational_certificate: Option<HexEncodedOpCert>,
 

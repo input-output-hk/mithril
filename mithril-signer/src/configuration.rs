@@ -52,7 +52,8 @@ pub struct Configuration {
     pub relay_endpoint: Option<String>,
 
     /// Party Id
-    // TODO: Field should be removed once the signer certification is fully deployed
+    ///
+    /// Used only for testing when SPO pool id is not certified
     #[example = "`pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x`"]
     pub party_id: Option<PartyId>,
 

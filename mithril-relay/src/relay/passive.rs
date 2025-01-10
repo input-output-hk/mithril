@@ -7,8 +7,7 @@ use slog::{debug, info, Logger};
 /// A passive relay
 pub struct PassiveRelay {
     /// Relay peer
-    // TODO: should be private
-    pub peer: Peer,
+    peer: Peer,
     logger: Logger,
 }
 
@@ -24,13 +23,9 @@ impl PassiveRelay {
         })
     }
 
-    /// Convert event to broadcast message
-    /// TODO: should be removed
-    pub fn convert_peer_event_to_message(
-        &mut self,
-        event: PeerEvent,
-    ) -> StdResult<Option<BroadcastMessage>> {
-        self.peer.convert_peer_event_to_message(event)
+    /// Get the peer of the passive relay
+    pub fn peer_mut(&mut self) -> &mut Peer {
+        &mut self.peer
     }
 
     /// Tick the passive relay

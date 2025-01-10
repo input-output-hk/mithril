@@ -14,19 +14,22 @@ use sha2::{Digest, Sha256};
 #[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct Signer {
     /// The unique identifier of the signer
-    // TODO: Should be removed once the signer certification is fully deployed
+    ///
+    /// Used only for testing when SPO pool id is not certified
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
     pub verification_key: ProtocolSignerVerificationKey,
 
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
-    // TODO: Option should be removed once the signer certification is fully deployed
+    ///
+    /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to the signer node
-    // TODO: Option should be removed once the signer certification is fully deployed
+    ///
+    /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operational_certificate: Option<ProtocolOpCert>,
 
@@ -136,19 +139,22 @@ impl From<SignerWithStake> for Signer {
 #[derive(Clone, Eq, Serialize, Deserialize)]
 pub struct SignerWithStake {
     /// The unique identifier of the signer
-    // TODO: Should be removed once the signer certification is fully deployed
+    ///
+    /// Used only for testing when SPO pool id is not certified
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
     pub verification_key: ProtocolSignerVerificationKey,
 
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
-    // TODO: Option should be removed once the signer certification is fully deployed
+    ///
+    /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_key_signature: Option<ProtocolSignerVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to the signer node
-    // TODO: Option should be removed once the signer certification is fully deployed
+    ///
+    /// None is used only for testing when SPO pool id is not certified
     #[serde(skip_serializing_if = "Option::is_none")]
     pub operational_certificate: Option<ProtocolOpCert>,
 

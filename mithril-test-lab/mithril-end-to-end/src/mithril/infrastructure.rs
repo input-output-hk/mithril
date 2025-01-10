@@ -259,7 +259,6 @@ impl MithrilInfrastructure {
         for (index, pool_node) in pool_nodes.iter().enumerate() {
             // 50% of signers with key certification if allow unverified signer registration
             // Or 100% of signers otherwise
-            // TODO: Should be removed once the signer certification is fully deployed
             let enable_certification =
                 index % 2 == 0 || cfg!(not(feature = "allow_skip_signer_certification"));
             let aggregator_endpoint = if config.use_p2p_network_mode {

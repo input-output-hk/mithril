@@ -229,7 +229,6 @@ EOF
 EOF
 else
     # 50% of signers without key certification (legacy)
-    # TODO: Should be removed once the signer certification is fully deployed
     cat >> ${NODE}/info.json <<EOF
 {
 "name": "Signer ${NODE_ID}",
