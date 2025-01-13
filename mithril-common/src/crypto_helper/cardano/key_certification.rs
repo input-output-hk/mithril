@@ -102,8 +102,13 @@ pub enum ProtocolInitializerErrorWrapper {
 /// their correct identity with respect to a Cardano PoolID.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
+    /// The StmInitializer
     stm_initializer: StmInitializer,
-    kes_signature: Option<Sum6KesSig>, // todo: The option is ONLY for a smooth transition. We have to remove this.
+
+    /// The KES signature over the Mithril key
+    ///
+    /// None is used only for testing when SPO pool id is not certified
+    kes_signature: Option<Sum6KesSig>,
 }
 
 /// Wrapper structure for [MithrilStm:KeyReg](mithril_stm::key_reg::KeyReg).
@@ -210,10 +215,13 @@ impl StmInitializerWrapper {
     /// # Layout
     /// * StmInitialiser
     /// * KesSignature
-    pub fn to_bytes(&self) -> [u8; 704] {
-        let mut out = [0u8; 704];
-        out[..256].copy_from_slice(&self.stm_initializer.to_bytes());
-        // out[256..].copy_from_slice(&self.kes_signature.to_bytes()); todo: repair
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&self.stm_initializer.to_bytes());
+        if let Some(kes_signature) = &self.kes_signature {
+            out.extend_from_slice(&kes_signature.to_bytes());
+        }
+
         out
     }
 
@@ -221,13 +229,19 @@ impl StmInitializerWrapper {
     /// # Error
     /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
-        let stm_initializer = StmInitializer::from_bytes(bytes)?;
-        let kes_signature =
-            Sum6KesSig::from_bytes(&bytes[256..]).map_err(|_| RegisterError::SerializationError)?;
+        let stm_initializer = StmInitializer::from_bytes(&bytes[..256])?;
+        let kes_signature = if bytes[256..].is_empty() {
+            None
+        } else {
+            Some(
+                Sum6KesSig::from_bytes(&bytes[256..])
+                    .map_err(|_| RegisterError::SerializationError)?,
+            )
+        };
 
         Ok(Self {
             stm_initializer,
-            kes_signature: Some(kes_signature),
+            kes_signature,
         })
     }
 }
@@ -402,53 +416,85 @@ mod test {
         assert!(key_registration_2.is_ok())
     }
 
-    #[test]
-    fn golden_initializer_deserialization() {
-        let string = r#"
-        {
-            "stm_initializer": {
-                "stake": 9497432569,
-                "params": {
-                    "m": 20973,
-                    "k": 2422,
-                    "phi_f": 0.2
-                },
-                "sk": [49, 181, 118, 110, 190, 161, 107, 218, 165, 20, 147, 129, 193, 79, 160, 0, 37, 23, 102, 223, 88, 174, 208, 70, 97, 79, 174, 51, 28, 0, 192, 210],
-                "pk": {
-                    "vk": [173, 149, 133, 21, 100, 254, 36, 74, 165, 174, 56, 9, 145, 190, 48, 14, 12, 193, 243, 3, 200, 148, 221, 124, 170, 143, 89, 5, 168, 0, 226, 125, 61, 181, 190, 80, 62, 199, 99, 161, 117, 49, 65, 34, 81, 96, 34, 81, 2, 235, 173, 57, 58, 128, 49, 22, 242, 42, 30, 137, 6, 51, 77, 57, 142, 192, 140, 161, 206, 206, 213, 114, 156, 191, 127, 167, 167, 9, 39, 29, 97, 166, 134, 76, 55, 179, 72, 29, 41, 251, 14, 71, 89, 181, 31, 115],
-                    "pop": [171, 0, 214, 91, 37, 208, 228, 71, 228, 31, 138, 0, 237, 175, 24, 45, 160, 117, 14, 210, 23, 46, 235, 83, 45, 9, 58, 207, 18, 36, 31, 160, 252, 111, 69, 102, 248, 205, 46, 71, 24, 38, 41, 77, 29, 129, 95, 16, 136, 114, 250, 44, 230, 184, 222, 122, 120, 58, 249, 103, 48, 121, 141, 244, 243, 26, 252, 60, 230, 64, 75, 3, 86, 107, 198, 198, 117, 242, 107, 104, 219, 209, 211, 255, 174, 203, 43, 141, 34, 146, 25, 181, 212, 38, 194, 99]
-                }
+    const GOLDEN_STM_INITIALIZER_WRAPPER_JSON: &str = r#"
+    {
+        "stm_initializer": {
+            "stake": 9497432569,
+            "params": {
+                "m": 20973,
+                "k": 2422,
+                "phi_f": 0.2
             },
-            "kes_signature": {
+            "sk": [49, 181, 118, 110, 190, 161, 107, 218, 165, 20, 147, 129, 193, 79, 160, 0, 37, 23, 102, 223, 88, 174, 208, 70, 97, 79, 174, 51, 28, 0, 192, 210],
+            "pk": {
+                "vk": [173, 149, 133, 21, 100, 254, 36, 74, 165, 174, 56, 9, 145, 190, 48, 14, 12, 193, 243, 3, 200, 148, 221, 124, 170, 143, 89, 5, 168, 0, 226, 125, 61, 181, 190, 80, 62, 199, 99, 161, 117, 49, 65, 34, 81, 96, 34, 81, 2, 235, 173, 57, 58, 128, 49, 22, 242, 42, 30, 137, 6, 51, 77, 57, 142, 192, 140, 161, 206, 206, 213, 114, 156, 191, 127, 167, 167, 9, 39, 29, 97, 166, 134, 76, 55, 179, 72, 29, 41, 251, 14, 71, 89, 181, 31, 115],
+                "pop": [171, 0, 214, 91, 37, 208, 228, 71, 228, 31, 138, 0, 237, 175, 24, 45, 160, 117, 14, 210, 23, 46, 235, 83, 45, 9, 58, 207, 18, 36, 31, 160, 252, 111, 69, 102, 248, 205, 46, 71, 24, 38, 41, 77, 29, 129, 95, 16, 136, 114, 250, 44, 230, 184, 222, 122, 120, 58, 249, 103, 48, 121, 141, 244, 243, 26, 252, 60, 230, 64, 75, 3, 86, 107, 198, 198, 117, 242, 107, 104, 219, 209, 211, 255, 174, 203, 43, 141, 34, 146, 25, 181, 212, 38, 194, 99]
+            }
+        },
+        "kes_signature": {
+            "sigma": {
                 "sigma": {
                     "sigma": {
                         "sigma": {
                             "sigma": {
-                                "sigma": {
-                                    "sigma": [71, 225, 146, 98, 81, 62, 28, 21, 7, 157, 88, 4, 226, 126, 27, 133, 146, 171, 216, 170, 77, 17, 38, 146, 98, 202, 35, 87, 166, 162, 25, 207, 105, 174, 48, 225, 152, 68, 19, 109, 72, 241, 69, 111, 22, 214, 72, 20, 81, 56, 181, 104, 69, 121, 173, 194, 37, 60, 16, 155, 86, 99, 253, 7],
-                                    "lhs_pk": [
-                                        91, 82, 235, 39, 167, 29, 141, 253, 163, 163, 55, 185, 162, 191, 52, 8, 245, 7, 104, 22, 182, 239, 133, 138, 131, 15, 233, 116, 147, 251, 182, 140],
-                                        "rhs_pk": [189, 26, 9, 118, 59, 34, 225, 34, 104, 202, 192, 7, 66, 150, 137, 75, 106, 7, 22, 234, 42, 94, 139, 65, 241, 65, 1, 190, 153, 16, 221, 87]
-                                        },
-                                "lhs_pk": [206, 50, 185, 93, 20, 234, 100, 168, 163, 125, 95, 201, 162, 104, 35, 2, 205, 41, 180, 73, 107, 140, 79, 182, 173, 17, 172, 49, 51, 85, 180, 5],
-                                "rhs_pk": [68, 40, 90, 110, 254, 68, 87, 12, 19, 21, 252, 197, 69, 255, 33, 172, 140, 70, 79, 39, 71, 217, 12, 254, 82, 125, 123, 148, 221, 217, 141, 194]
-                            },
-                            "lhs_pk": [155, 2, 30, 71, 52, 89, 112, 247, 108, 177, 144, 212, 206, 254, 87, 126, 180, 207, 146, 223, 164, 246, 178, 62, 148, 96, 39, 136, 106, 36, 253, 56],
-                            "rhs_pk": [155, 140, 124, 154, 235, 97, 51, 77, 208, 24, 45, 219, 199, 232, 222, 26, 160, 62, 38, 253, 121, 241, 219, 233, 36, 50, 60, 182, 127, 255, 132, 245]
+                                "sigma": [71, 225, 146, 98, 81, 62, 28, 21, 7, 157, 88, 4, 226, 126, 27, 133, 146, 171, 216, 170, 77, 17, 38, 146, 98, 202, 35, 87, 166, 162, 25, 207, 105, 174, 48, 225, 152, 68, 19, 109, 72, 241, 69, 111, 22, 214, 72, 20, 81, 56, 181, 104, 69, 121, 173, 194, 37, 60, 16, 155, 86, 99, 253, 7],
+                                "lhs_pk": [
+                                    91, 82, 235, 39, 167, 29, 141, 253, 163, 163, 55, 185, 162, 191, 52, 8, 245, 7, 104, 22, 182, 239, 133, 138, 131, 15, 233, 116, 147, 251, 182, 140],
+                                    "rhs_pk": [189, 26, 9, 118, 59, 34, 225, 34, 104, 202, 192, 7, 66, 150, 137, 75, 106, 7, 22, 234, 42, 94, 139, 65, 241, 65, 1, 190, 153, 16, 221, 87]
+                                    },
+                            "lhs_pk": [206, 50, 185, 93, 20, 234, 100, 168, 163, 125, 95, 201, 162, 104, 35, 2, 205, 41, 180, 73, 107, 140, 79, 182, 173, 17, 172, 49, 51, 85, 180, 5],
+                            "rhs_pk": [68, 40, 90, 110, 254, 68, 87, 12, 19, 21, 252, 197, 69, 255, 33, 172, 140, 70, 79, 39, 71, 217, 12, 254, 82, 125, 123, 148, 221, 217, 141, 194]
                         },
-                        "lhs_pk": [172, 176, 18, 228, 203, 85, 44, 151, 221, 13, 91, 250, 67, 232, 114, 16, 251, 13, 115, 233, 214, 194, 102, 199, 200, 124, 30, 190, 143, 18, 85, 75],
-                        "rhs_pk": [100, 192, 98, 123, 150, 116, 55, 42, 207, 44, 181, 31, 203, 65, 237, 13, 55, 246, 185, 211, 149, 245, 245, 219, 183, 41, 237, 253, 128, 231, 161, 226]
+                        "lhs_pk": [155, 2, 30, 71, 52, 89, 112, 247, 108, 177, 144, 212, 206, 254, 87, 126, 180, 207, 146, 223, 164, 246, 178, 62, 148, 96, 39, 136, 106, 36, 253, 56],
+                        "rhs_pk": [155, 140, 124, 154, 235, 97, 51, 77, 208, 24, 45, 219, 199, 232, 222, 26, 160, 62, 38, 253, 121, 241, 219, 233, 36, 50, 60, 182, 127, 255, 132, 245]
                     },
-                    "lhs_pk": [112, 16, 177, 142, 158, 1, 36, 210, 87, 165, 5, 195, 199, 61, 13, 195, 219, 26, 231, 103, 163, 223, 54, 16, 106, 0, 252, 69, 242, 31, 210, 167],
-                    "rhs_pk": [15, 246, 81, 72, 172, 15, 170, 235, 10, 64, 229, 233, 169, 140, 179, 209, 244, 183, 3, 59, 2, 252, 233, 229, 13, 190, 196, 208, 109, 30, 73, 113]
+                    "lhs_pk": [172, 176, 18, 228, 203, 85, 44, 151, 221, 13, 91, 250, 67, 232, 114, 16, 251, 13, 115, 233, 214, 194, 102, 199, 200, 124, 30, 190, 143, 18, 85, 75],
+                    "rhs_pk": [100, 192, 98, 123, 150, 116, 55, 42, 207, 44, 181, 31, 203, 65, 237, 13, 55, 246, 185, 211, 149, 245, 245, 219, 183, 41, 237, 253, 128, 231, 161, 226]
                 },
-                "lhs_pk": [114, 238, 75, 184, 228, 147, 37, 72, 134, 65, 139, 64, 81, 114, 157, 148, 197, 108, 80, 89, 30, 235, 75, 108, 193, 53, 185, 15, 57, 61, 181, 119],
-                "rhs_pk": [82, 28, 113, 114, 168, 192, 222, 110, 96, 15, 28, 179, 164, 180, 76, 87, 254, 72, 48, 154, 167, 102, 220, 74, 76, 136, 45, 105, 243, 87, 165, 212]
-            }
+                "lhs_pk": [112, 16, 177, 142, 158, 1, 36, 210, 87, 165, 5, 195, 199, 61, 13, 195, 219, 26, 231, 103, 163, 223, 54, 16, 106, 0, 252, 69, 242, 31, 210, 167],
+                "rhs_pk": [15, 246, 81, 72, 172, 15, 170, 235, 10, 64, 229, 233, 169, 140, 179, 209, 244, 183, 3, 59, 2, 252, 233, 229, 13, 190, 196, 208, 109, 30, 73, 113]
+            },
+            "lhs_pk": [114, 238, 75, 184, 228, 147, 37, 72, 134, 65, 139, 64, 81, 114, 157, 148, 197, 108, 80, 89, 30, 235, 75, 108, 193, 53, 185, 15, 57, 61, 181, 119],
+            "rhs_pk": [82, 28, 113, 114, 168, 192, 222, 110, 96, 15, 28, 179, 164, 180, 76, 87, 254, 72, 48, 154, 167, 102, 220, 74, 76, 136, 45, 105, 243, 87, 165, 212]
         }
-        "#;
+    }
+    "#;
 
-        let _: StmInitializerWrapper = serde_json::from_str(string)
+    #[test]
+    fn golden_initializer_deserialization() {
+        let _: StmInitializerWrapper = serde_json::from_str(GOLDEN_STM_INITIALIZER_WRAPPER_JSON)
             .expect("Deserializing a StmInitializerWrapper should not fail");
+    }
+
+    #[test]
+    fn test_initializer_wrapper_conversions() {
+        let stm_initializer_wrapper_json = GOLDEN_STM_INITIALIZER_WRAPPER_JSON;
+
+        let stm_initializer_wrapper_from_json: StmInitializerWrapper =
+            serde_json::from_str(stm_initializer_wrapper_json)
+                .expect("Deserializing a StmInitializerWrapper should not fail");
+        let stm_initializer_wrapper_from_json_to_json =
+            serde_json::to_string(&stm_initializer_wrapper_from_json)
+                .expect("Serializing a StmInitializerWrapper to json should not fail");
+
+        let stm_initializer_wrapper_from_bytes =
+            StmInitializerWrapper::from_bytes(&stm_initializer_wrapper_from_json.to_bytes())
+                .expect("Deserializing a StmInitializerWrapper from bytes should not fail");
+        let stm_initializer_wrapper_from_bytes_to_json =
+            serde_json::to_string(&stm_initializer_wrapper_from_bytes)
+                .expect("Serializing a StmInitializerWrapper to json should not fail");
+
+        assert_eq!(
+            stm_initializer_wrapper_from_json_to_json,
+            stm_initializer_wrapper_from_bytes_to_json
+        );
+
+        let mut stm_initializer_wrapper_from_json = stm_initializer_wrapper_from_json;
+        stm_initializer_wrapper_from_json.kes_signature = None;
+
+        let stm_initializer_wrapper_from_bytes =
+            StmInitializerWrapper::from_bytes(&stm_initializer_wrapper_from_json.to_bytes())
+                .expect("Deserializing a StmInitializerWrapper from bytes should not fail");
+        assert_eq!(None, stm_initializer_wrapper_from_bytes.kes_signature);
     }
 }
