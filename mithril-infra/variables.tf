@@ -141,7 +141,7 @@ locals {
 variable "cardano_image_id" {
   type        = string
   description = "The Cardano image tag of service to deploy"
-  default     = "10.1.3"
+  default     = "10.1.4"
 }
 
 variable "cardano_image_registry" {
