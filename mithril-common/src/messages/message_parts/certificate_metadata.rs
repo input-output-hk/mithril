@@ -67,7 +67,7 @@ impl CertificateMetadataMessagePart {
 mod tests {
     use super::*;
 
-    fn golden_message() -> CertificateMetadataMessagePart {
+    fn golden_message_actual() -> CertificateMetadataMessagePart {
         CertificateMetadataMessagePart {
             network: "testnet".to_string(),
             protocol_version: "0.1.0".to_string(),
@@ -91,10 +91,7 @@ mod tests {
         }
     }
 
-    // Test the backward compatibility with possible future upgrades.
-    #[test]
-    fn test_v2() {
-        let json = r#"{
+    const ACTUAL_JSON: &str = r#"{
             "network": "testnet",
             "version": "0.1.0",
             "parameters": {
@@ -115,10 +112,15 @@ mod tests {
                 }
             ]
         }"#;
+
+    // Test the backward compatibility with possible future upgrades.
+    #[test]
+    fn test_actual_json_deserialized_into_actual_message() {
+        let json = ACTUAL_JSON;
         let message: CertificateMetadataMessagePart = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a CertificateMetadataMessagePart instance.",
         );
 
-        assert_eq!(golden_message(), message);
+        assert_eq!(golden_message_actual(), message);
     }
 }

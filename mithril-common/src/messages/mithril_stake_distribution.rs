@@ -53,7 +53,7 @@ impl MithrilStakeDistributionMessage {
 mod tests {
     use super::*;
 
-    fn golden_message() -> MithrilStakeDistributionMessage {
+    fn golden_message_actual() -> MithrilStakeDistributionMessage {
         MithrilStakeDistributionMessage {
             epoch: Epoch(1),
             signers_with_stake: vec![
@@ -75,10 +75,7 @@ mod tests {
         }
     }
 
-    // Test the backward compatibility with possible future upgrades.
-    #[test]
-    fn test_v1() {
-        let json = r#"{
+    const ACTUAL_JSON: &str = r#"{
             "epoch": 1,
             "signers": [
                 {
@@ -92,10 +89,15 @@ mod tests {
             "created_at": "2023-01-19T13:43:05.618857482Z",
             "protocol_parameters": {"k": 5, "m": 100, "phi_f": 0.65 }
         }"#;
+
+    // Test the backward compatibility with possible future upgrades.
+    #[test]
+    fn test_actual_json_deserialized_into_actual_message() {
+        let json = ACTUAL_JSON;
         let message: MithrilStakeDistributionMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a MithrilStakeDistributionMessage instance.",
         );
 
-        assert_eq!(golden_message(), message);
+        assert_eq!(golden_message_actual(), message);
     }
 }
