@@ -96,11 +96,7 @@ async fn create_certificate() {
         )
     );
 
-    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
-    // todo!: remove this immutable increase:
-    // right now because we only have one state machine for all signed entity type we need it else
-    // the state machine will stay in the idle state since its beacon didn't change.
-    // With one state machine per signed entity type this problem will disappear.
+    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull when a new immutable file exists");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     let signers_for_immutables = &fixture.signers_fixture()[0..=6];
