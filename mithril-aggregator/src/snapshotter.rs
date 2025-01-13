@@ -519,7 +519,7 @@ impl Snapshotter for DumbSnapshotter {
     }
 
     fn is_snapshot_exist(&self, _filepath: &Path) -> bool {
-        return false;
+        false
     }
 
     fn get_file_path(&self, filepath: &Path) -> PathBuf {
