@@ -90,7 +90,6 @@ mod tests {
             "protocol_parameters": {"k": 5, "m": 100, "phi_f": 0.65 }
         }"#;
 
-    // Test the backward compatibility with possible future upgrades.
     #[test]
     fn test_actual_json_deserialized_into_actual_message() {
         let json = ACTUAL_JSON;

@@ -277,7 +277,6 @@ mod tests {
         }
     }
 
-    // Test the backward compatibility with the structure supported until OpenAPI version 0.1.28.
     #[test]
     fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_28() {
         let json = ACTUAL_JSON;
@@ -288,7 +287,6 @@ mod tests {
         assert_eq!(golden_message_until_open_api_0_1_28(), message);
     }
 
-    // Test the backward compatibility with the structure supported until OpenAPI version 0.1.29.
     #[test]
     fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_29() {
         let json = ACTUAL_JSON;
@@ -299,7 +297,6 @@ mod tests {
         assert_eq!(golden_message_until_open_api_0_1_29(), message);
     }
 
-    // Test the backward compatibility with the structure supported until OpenAPI version 0.1.32.
     #[test]
     fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_32() {
         let json = ACTUAL_JSON;
@@ -310,7 +307,6 @@ mod tests {
         assert_eq!(golden_message_until_open_api_0_1_32(), message);
     }
 
-    // Test the compatibility with current structure.
     #[test]
     fn test_actual_json_deserialized_into_actual_message() {
         let json = ACTUAL_JSON;

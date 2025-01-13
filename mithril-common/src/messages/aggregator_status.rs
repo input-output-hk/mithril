@@ -101,7 +101,6 @@ mod tests {
         }
     }
 
-    // Test the compatibility with current structure.
     #[test]
     fn test_actual_json_deserialized_into_actual_message() {
         let json = ACTUAL_JSON;

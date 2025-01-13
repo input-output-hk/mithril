@@ -58,7 +58,6 @@ mod tests {
         "created_at": "2023-01-19T13:43:05.618857482Z"
         }]"#;
 
-    // Test the backward compatibility with possible future upgrades.
     #[test]
     fn test_actual_json_deserialized_into_actual_message() {
         let json = ACTUAL_JSON;

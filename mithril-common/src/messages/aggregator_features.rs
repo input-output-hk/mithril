@@ -125,7 +125,6 @@ mod tests {
         }
     }"#;
 
-    // Test the backward compatibility with possible future upgrades.
     #[test]
     fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_27() {
         let json = ACTUAL_JSON;
