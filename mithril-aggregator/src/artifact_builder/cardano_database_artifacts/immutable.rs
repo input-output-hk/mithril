@@ -1,5 +1,4 @@
 use std::{
-    collections::HashSet,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -11,62 +10,25 @@ use slog::{error, Logger};
 
 use mithril_common::{
     digesters::IMMUTABLE_DIR,
-    entities::{CompressionAlgorithm, ImmutableFileNumber},
+    entities::{CompressionAlgorithm, ImmutableFileNumber, MultiFilesUri},
     logging::LoggerExtensions,
     StdResult,
 };
 
-use crate::{
-    file_uploaders::{FileUri, LocalUploader},
-    FileUploader, Snapshotter,
-};
+use crate::{file_uploaders::LocalUploader, FileUploader, Snapshotter};
 
-/// [TemplateUri] represents an URI pattern used to build a file's location
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub struct TemplateUri(pub String);
-
-fn default_extractor(file_uri: &FileUri) -> StdResult<Option<String>> {
+fn default_extractor(file_uri: &str) -> StdResult<Option<String>> {
     let regex = Regex::new(r".*(\d{5})")?;
-    let initial_uri: String = file_uri.clone().into();
 
     Ok(regex
-        .captures(&initial_uri)
+        .captures(file_uri)
         .and_then(|mat| mat.get(1))
         .map(|immutable_match| {
-            let mut template = initial_uri.to_string();
+            let mut template = file_uri.to_string();
             template.replace_range(immutable_match.range(), "{immutable_file_number}");
 
             template
         }))
-}
-
-/// [MultiFilesUri] represents a unique location uri for multiple files
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone)]
-pub enum MultiFilesUri {
-    Template(TemplateUri),
-}
-
-impl MultiFilesUri {
-    fn extract_template_from_uris(
-        file_uris: Vec<FileUri>,
-        extractor: impl Fn(&FileUri) -> StdResult<Option<String>>,
-    ) -> StdResult<Option<TemplateUri>> {
-        let mut templates = HashSet::new();
-        for file_uri in file_uris {
-            let template_uri = extractor(&file_uri)?;
-            template_uri.map(|template| templates.insert(template));
-        }
-
-        if templates.len() > 1 {
-            return Err(anyhow!("Multiple templates found in the file URIs"));
-        }
-
-        if let Some(template) = templates.into_iter().next() {
-            Ok(Some(TemplateUri(template)))
-        } else {
-            Ok(None)
-        }
-    }
 }
 
 /// The [ImmutableFilesUploader] trait allows identifying uploaders that return locations for immutable files archive.
@@ -82,7 +44,7 @@ impl ImmutableFilesUploader for LocalUploader {
     async fn batch_upload<'a>(&self, filepaths: &[&'a Path]) -> StdResult<MultiFilesUri> {
         let mut file_uris = Vec::new();
         for filepath in filepaths {
-            file_uris.push(self.upload(filepath).await?);
+            file_uris.push(self.upload(filepath).await?.into());
         }
 
         let template_uri = MultiFilesUri::extract_template_from_uris(file_uris, default_extractor)?
@@ -208,13 +170,13 @@ impl ImmutableArtifactBuilder {
 mod tests {
     use mithril_common::{
         digesters::DummyCardanoDbBuilder,
+        entities::TemplateUri,
         test_utils::{assert_equivalent, equivalent_to},
     };
     use mockall::predicate::{always, eq};
     use uuid::Uuid;
 
     use crate::{
-        file_uploaders::FileUri,
         snapshotter::{MockSnapshotter, OngoingSnapshot},
         test_tools::TestLogger,
         CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
@@ -772,76 +734,43 @@ mod tests {
         }
     }
 
-    mod extract_template_from_uris_with_default_extractor {
+    mod default_extractor {
         use super::*;
 
         #[test]
         fn returns_none_when_not_templatable_without_5_digits() {
-            let file_uris = vec![FileUri("not-templatable.tar.gz".to_string())];
-
-            let template =
-                MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).unwrap();
+            let template = default_extractor("not-templatable.tar.gz").unwrap();
 
             assert!(template.is_none());
         }
 
         #[test]
         fn returns_template() {
-            let file_uris = vec![
-                FileUri("http://whatever/00001.tar.gz".to_string()),
-                FileUri("http://whatever/00002.tar.gz".to_string()),
-            ];
-
-            let template =
-                MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).unwrap();
+            let template = default_extractor("http://whatever/00001.tar.gz").unwrap();
 
             assert_eq!(
                 template,
-                Some(TemplateUri(
-                    "http://whatever/{immutable_file_number}.tar.gz".to_string()
-                ))
+                Some("http://whatever/{immutable_file_number}.tar.gz".to_string())
             );
         }
 
         #[test]
         fn replaces_last_occurence_of_5_digits() {
-            let file_uris = vec![FileUri("http://00001/whatever/00001.tar.gz".to_string())];
-
-            let template =
-                MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).unwrap();
+            let template = default_extractor("http://00001/whatever/00001.tar.gz").unwrap();
 
             assert_eq!(
                 template,
-                Some(TemplateUri(
-                    "http://00001/whatever/{immutable_file_number}.tar.gz".to_string()
-                ))
+                Some("http://00001/whatever/{immutable_file_number}.tar.gz".to_string())
             );
         }
 
         #[test]
         fn replaces_last_occurence_when_more_than_5_digits() {
-            let file_uris = vec![FileUri("http://whatever/123456789.tar.gz".to_string())];
-
-            let template =
-                MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).unwrap();
+            let template = default_extractor("http://whatever/123456789.tar.gz").unwrap();
 
             assert_eq!(
                 template,
-                Some(TemplateUri(
-                    "http://whatever/1234{immutable_file_number}.tar.gz".to_string()
-                ))
-            );
-        }
-
-        #[test]
-        fn returns_error_with_multiple_templates() {
-            let file_uris = vec![
-                FileUri("http://whatever/00001.tar.gz".to_string()),
-                FileUri("http://00002.tar.gz/whatever".to_string()),
-            ];
-
-            MultiFilesUri::extract_template_from_uris(file_uris, default_extractor).expect_err(
-                "Should return an error when multiple templates are found in the file URIs",
+                Some("http://whatever/1234{immutable_file_number}.tar.gz".to_string())
             );
         }
     }

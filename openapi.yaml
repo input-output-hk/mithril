@@ -1871,7 +1871,7 @@ components:
         immutables:
           type: array
           items:
-            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
+            $ref: "#/components/schemas/CardanoDatabaseImmutableLocationMessagePart"
         ancillary:
           type: array
           items:
@@ -1911,6 +1911,49 @@ components:
         {
           "type": "cloud_storage",
           "uri": "https://mithril-cdn-us.iohk.io/snapshot/digests-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.txt"
+        }
+
+    CardanoDatabaseImmutableLocationMessagePart:
+      description: CardanoDatabaseImmutableLocationMessagePart represents the location of a single Cardano database immutable archive
+      type: object
+      required:
+        - type
+        - uri
+      properties:
+        type:
+          description: Type of the artifact location
+          type: string
+        uri:
+          $ref: "#/components/schemas/MultiFilesUri"
+      examples:
+        {
+          "type": "cloud_storage",
+          "uri":
+            { "Template": "https://aggregator/{immutable_file_number}.tar.gz" }
+        }
+
+    MultiFilesUri:
+      description: MultiFilesUri represents information to retrieve multiple files
+      oneOf:
+          - $ref: "#/components/schemas/TemplateUri"
+      examples:
+        {
+          "Template": "https://aggregator/{immutable_file_number}.tar.gz"
+        }
+
+    TemplateUri:
+      description: TemplateUri represents a URI template for multiple files
+      type: object
+      additionalProperties: false
+      required:
+        - Template
+      properties:
+        Template:
+          description: URI template
+          type: string
+      examples:
+        {
+          "Template": "https://aggregator/{immutable_file_number}.tar.gz"
         }
 
     CardanoDatabaseSnapshotListMessage:
