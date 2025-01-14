@@ -19,9 +19,6 @@ Here are the next steps that we will follow in order to get the `release-mainnet
 1. [x] Create the genesis certificate of the `release-mainnet` network (1 epoch).
 1. [x] Wait for the first certificates to be produced by the `release-mainnet` network.
 
-<!---
-This diagram randomly crashes. We replace it with a screenshot until a fix is available
-TODO: revert this modification when it is possible
 ```mermaid
 timeline
 section Initialization
@@ -32,9 +29,6 @@ section Observation
 Monitoring : Epochs 428-432 : Starts on 08/04/23 : Ends on 08/28/23 : New SPOs run a Mithril Signer on `release-mainnet` : `release-mainnet` is monitored by Mithril Team
 
 ```
--->
-
-[![Mainnet Beta Launch Timeline](img/mainnet-launch-timeline.png)](img/mainnet-launch-timeline.png)
 
 This is an expected timeline, in case of modification, we will amend this post with a new one.
 

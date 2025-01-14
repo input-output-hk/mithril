@@ -52,8 +52,7 @@ pub async fn assert_node_producing_mithril_stake_distribution(
         }
     }
 
-    // todo: reduce the number of attempts if we can reduce the delay between two immutables
-    match attempt!(45, Duration::from_millis(2000), {
+    match attempt!(30, Duration::from_millis(2000), {
         fetch_last_mithril_stake_distribution_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
@@ -100,7 +99,6 @@ pub async fn assert_signer_is_signing_mithril_stake_distribution(
         fetch_mithril_stake_distribution_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(stake_distribution) => {
-            // todo: assert that the mithril stake distribution is really signed
             info!("Signer signed a mithril stake distribution"; "certificate_hash" => &stake_distribution.certificate_hash);
             Ok(stake_distribution.certificate_hash)
         }
@@ -126,8 +124,7 @@ pub async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> StdRes
         }
     }
 
-    // todo: reduce the number of attempts if we can reduce the delay between two immutables
-    match attempt!(45, Duration::from_millis(2000), {
+    match attempt!(30, Duration::from_millis(2000), {
         fetch_last_snapshot_digest(url.clone()).await
     }) {
         AttemptResult::Ok(digest) => {
@@ -172,7 +169,6 @@ pub async fn assert_signer_is_signing_snapshot(
         fetch_snapshot_message(url.clone(), expected_epoch_min).await
     }) {
         AttemptResult::Ok(snapshot) => {
-            // todo: assert that the snapshot is really signed
             info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
             Ok(snapshot.certificate_hash)
         }
@@ -200,8 +196,7 @@ pub async fn assert_node_producing_cardano_database_snapshot(
         }
     }
 
-    // todo: reduce the number of attempts if we can reduce the delay between two immutables
-    match attempt!(45, Duration::from_millis(2000), {
+    match attempt!(30, Duration::from_millis(2000), {
         fetch_last_cardano_database_snapshot_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
@@ -282,8 +277,7 @@ pub async fn assert_node_producing_cardano_database_digests_map(
         }
     }
 
-    // todo: reduce the number of attempts if we can reduce the delay between two immutables
-    match attempt!(45, Duration::from_millis(2000), {
+    match attempt!(30, Duration::from_millis(2000), {
         fetch_cardano_database_digests_map(url.clone()).await
     }) {
         AttemptResult::Ok(cardano_database_digests_map) => {
@@ -318,7 +312,7 @@ pub async fn assert_node_producing_cardano_transactions(
         }
     }
 
-    match attempt!(45, Duration::from_millis(2000), {
+    match attempt!(30, Duration::from_millis(2000), {
         fetch_last_cardano_transaction_snapshot_hash(url.clone()).await
     }) {
         AttemptResult::Ok(hash) => {
@@ -395,7 +389,7 @@ pub async fn assert_node_producing_cardano_stake_distribution(
         }
     }
 
-    match attempt!(45, Duration::from_millis(2000), {
+    match attempt!(30, Duration::from_millis(2000), {
         fetch_last_cardano_stake_distribution_message(url.clone()).await
     }) {
         AttemptResult::Ok((hash, epoch)) => {

@@ -32,12 +32,9 @@ pub struct ClosedKeyReg<D: Digest> {
 }
 
 impl KeyReg {
-    /// Initialise an empty `KeyReg`.
-    /// todo: remove this init function
+    /// Initialize an empty `KeyReg`.
     pub fn init() -> Self {
-        Self {
-            keys: HashMap::new(),
-        }
+        Self::default()
     }
 
     /// Verify and register a public key and stake for a particular party.

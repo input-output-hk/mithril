@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Utc};
 use mithril_common::StdResult;
 use sqlite::{Row, Value};
 use std::{
@@ -64,18 +64,13 @@ impl SqLiteEntity for DatabaseVersion {
             version,
             application_type: ApplicationNodeType::new(application_type)
                 .map_err(|e| HydrationError::InvalidData(format!("{e}")))?,
-            updated_at: match DateTime::parse_from_rfc3339(updated_at) {
-                Ok(date) => Ok(date.with_timezone(&Utc)),
-                // todo: remove this fallback when aggregators & signers have been migrated
-                // Fallback to previous date format for compatibility
-                Err(_) => NaiveDateTime::parse_from_str(updated_at, "%Y-%m-%d %H:%M:%S")
-                    .map_err(|e| {
-                        HydrationError::InvalidData(format!(
-                            "Could not turn string '{updated_at}' to rfc3339 Datetime. Error: {e}"
-                        ))
-                    })
-                    .map(|d| d.and_utc()),
-            }?,
+            updated_at: DateTime::parse_from_rfc3339(updated_at)
+                .map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Could not turn string '{updated_at}' to rfc3339 Datetime. Error: {e}"
+                    ))
+                })?
+                .with_timezone(&Utc),
         })
     }
 
