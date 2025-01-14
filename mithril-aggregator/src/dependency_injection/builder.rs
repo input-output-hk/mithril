@@ -67,7 +67,7 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    file_uploaders::{FileUploader, GcpUploader, LocalUploader},
+    file_uploaders::{FileUploader, GcpBackendUploader, GcpUploader, LocalUploader},
     http_server::{
         routes::router::{self, RouterConfig, RouterState},
         SERVER_BASE_PATH,
@@ -485,11 +485,13 @@ impl DependenciesBuilder {
                             )
                         })?;
 
-                    Ok(Arc::new(GcpUploader::new(
-                        bucket,
-                        self.configuration.snapshot_use_cdn_domain,
-                        logger.clone(),
-                    )))
+                    Ok(Arc::new(GcpUploader::new(Arc::new(
+                        GcpBackendUploader::try_new(
+                            bucket,
+                            self.configuration.snapshot_use_cdn_domain,
+                            logger.clone(),
+                        )?,
+                    ))))
                 }
                 SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
                     self.get_server_url_prefix()?,
