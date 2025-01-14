@@ -63,7 +63,7 @@ mod tests {
     use super::*;
 
     #[derive(Debug, Serialize, Deserialize, PartialEq)]
-    struct AggregatorFeaturesMessagePrevious {
+    struct AggregatorFeaturesMessageUntilV0_1_27 {
         pub open_api_version: String,
         pub documentation_url: String,
         pub capabilities: AggregatorCapabilitiesPrevious,
@@ -76,8 +76,8 @@ mod tests {
         pub cardano_transactions_prover: Option<CardanoTransactionsProverCapabilities>,
     }
 
-    fn golden_message_previous() -> AggregatorFeaturesMessagePrevious {
-        AggregatorFeaturesMessagePrevious {
+    fn golden_message_until_open_api_0_1_27() -> AggregatorFeaturesMessageUntilV0_1_27 {
+        AggregatorFeaturesMessageUntilV0_1_27 {
             open_api_version: "0.0.1".to_string(),
             documentation_url: "https://example.com".to_string(),
             capabilities: AggregatorCapabilitiesPrevious {
@@ -91,7 +91,7 @@ mod tests {
         }
     }
 
-    fn golden_message_actual() -> AggregatorFeaturesMessage {
+    fn golden_message_current() -> AggregatorFeaturesMessage {
         AggregatorFeaturesMessage {
             open_api_version: "0.0.1".to_string(),
             documentation_url: "https://example.com".to_string(),
@@ -110,7 +110,7 @@ mod tests {
         }
     }
 
-    const ACTUAL_JSON: &str = r#"{
+    const CURRENT_JSON: &str = r#"{
         "open_api_version": "0.0.1",
         "documentation_url": "https://example.com",
         "capabilities": {
@@ -125,20 +125,19 @@ mod tests {
         }
     }"#;
 
-    // Test the backward compatibility with possible future upgrades.
     #[test]
-    fn test_actual_json_deserialized_into_previous_message() {
-        let json = ACTUAL_JSON;
-        let message: AggregatorFeaturesMessagePrevious = serde_json::from_str(json).unwrap();
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_27() {
+        let json = CURRENT_JSON;
+        let message: AggregatorFeaturesMessageUntilV0_1_27 = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_previous(), message);
+        assert_eq!(golden_message_until_open_api_0_1_27(), message);
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: AggregatorFeaturesMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_actual(), message);
+        assert_eq!(golden_message_current(), message);
     }
 }

@@ -74,7 +74,7 @@ mod tests {
 
     use super::*;
 
-    const ACTUAL_JSON: &str = r#"{
+    const CURRENT_JSON: &str = r#"{
         "entity_type": {
             "CardanoImmutableFilesFull": {
                 "network": "testnet",
@@ -109,7 +109,7 @@ mod tests {
         }
     }
 
-    fn golden_message_actual() -> RegisterSignatureMessage {
+    fn golden_message_current() -> RegisterSignatureMessage {
         RegisterSignatureMessage {
             signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
                 CardanoDbBeaconMessagePart::new("testnet", Epoch(10), 1728),
@@ -122,18 +122,18 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_28() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_28() {
+        let json = CURRENT_JSON;
         let message: RegisterSignatureMessageUntilV0_1_28 = serde_json::from_str(json).unwrap();
 
         assert_eq!(golden_message_until_open_api_0_1_28(), message);
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: RegisterSignatureMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_actual(), message);
+        assert_eq!(golden_message_current(), message);
     }
 }

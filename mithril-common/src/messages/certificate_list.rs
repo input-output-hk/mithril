@@ -158,7 +158,7 @@ mod tests {
 
     use super::*;
 
-    const ACTUAL_JSON: &str = r#"[{
+    const CURRENT_JSON: &str = r#"[{
             "hash": "hash",
             "previous_hash": "previous_hash",
             "epoch": 10,
@@ -245,7 +245,7 @@ mod tests {
         }
     }
 
-    fn golden_actual_message() -> CertificateListItemMessage {
+    fn golden_current_message() -> CertificateListItemMessage {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -283,18 +283,18 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_32() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_32() {
+        let json = CURRENT_JSON;
         let message: CertificateListMessageUntilV0_1_32 = serde_json::from_str(json).unwrap();
 
         assert_eq!(vec![golden_message_until_open_api_0_1_32()], message);
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: CertificateListMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(vec![golden_actual_message()], message);
+        assert_eq!(vec![golden_current_message()], message);
     }
 }

@@ -50,7 +50,7 @@ impl CardanoTransactionSnapshotListItemMessage {
 mod tests {
     use super::*;
 
-    fn golden_message() -> CardanoTransactionSnapshotListMessage {
+    fn golden_message_current() -> CardanoTransactionSnapshotListMessage {
         vec![CardanoTransactionSnapshotListItemMessage {
             merkle_root: "mkroot-123".to_string(),
             epoch: Epoch(7),
@@ -63,21 +63,21 @@ mod tests {
         }]
     }
 
-    // Test the backward compatibility with possible future upgrades.
-    #[test]
-    fn test_v1() {
-        let json = r#"[{
+    const CURRENT_JSON: &str = r#"[{
         "merkle_root": "mkroot-123",
         "epoch": 7,
         "block_number": 5,
         "hash": "hash-123",
         "certificate_hash": "certificate-hash-123",
         "created_at": "2023-01-19T13:43:05.618857482Z"
-        }]"#;
+    }]"#;
 
+    #[test]
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: CardanoTransactionSnapshotListMessage = serde_json::from_str(json).expect(
                     "This JSON is expected to be successfully parsed into a CardanoTransactionSnapshotListMessage instance.",
                 );
-        assert_eq!(golden_message(), message);
+        assert_eq!(golden_message_current(), message);
     }
 }

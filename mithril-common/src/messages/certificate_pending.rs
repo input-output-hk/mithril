@@ -88,7 +88,7 @@ mod tests {
 
     use super::*;
 
-    const ACTUAL_JSON: &str = r#"{
+    const CURRENT_JSON: &str = r#"{
             "epoch": 86,
             "beacon": {
                 "network": "",
@@ -188,7 +188,7 @@ mod tests {
         }
     }
 
-    fn golden_actual_message() -> CertificatePendingMessage {
+    fn golden_current_message() -> CertificatePendingMessage {
         let beacon = CardanoDbBeaconMessagePart {
             network: Some("preview".to_string()),
             epoch: Epoch(86),
@@ -237,23 +237,23 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_25() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_25() {
+        let json = CURRENT_JSON;
         let message: CertificatePendingMessageUntilV0_1_25 = serde_json::from_str(json).unwrap();
 
         assert_eq!(golden_message_until_open_api_0_1_25(), message);
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: CertificatePendingMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_actual_message(), message);
+        assert_eq!(golden_current_message(), message);
     }
 
     #[test]
-    fn test_json_next_version_deserialized_into_actual_message() {
+    fn test_json_next_version_deserialized_into_current_message() {
         let next_json = r#"{
             "epoch": 86,
             "entity_type": {
@@ -297,7 +297,7 @@ mod tests {
                     immutable_file_number: 1728,
                 },
             ),
-            ..golden_actual_message()
+            ..golden_current_message()
         };
 
         assert_eq!(golden_message, message);
