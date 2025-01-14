@@ -52,7 +52,7 @@ mod tests {
     use super::*;
     use crate::messages::CardanoDbBeaconMessagePart;
 
-    const ACTUAL_JSON: &str = r#"{
+    const CURRENT_JSON: &str = r#"{
         "digest": "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6",
         "network": "preview",
         "beacon": {
@@ -68,7 +68,7 @@ mod tests {
         "cardano_node_version": "0.0.1"
     }"#;
 
-    fn golden_message_actual() -> SnapshotDownloadMessage {
+    fn golden_message_current() -> SnapshotDownloadMessage {
         SnapshotDownloadMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             network: "preview".to_string(),
@@ -85,10 +85,10 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: SnapshotDownloadMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_actual(), message);
+        assert_eq!(golden_message_current(), message);
     }
 }

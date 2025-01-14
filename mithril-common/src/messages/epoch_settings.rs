@@ -81,7 +81,7 @@ mod tests {
 
     use super::*;
 
-    const ACTUAL_JSON: &str = r#"{
+    const CURRENT_JSON: &str = r#"{
         "epoch": 10,
         "protocol":  { "k": 5, "m": 100, "phi_f": 0.65 },
         "next_protocol":  { "k": 50, "m": 1000, "phi_f": 0.65 },
@@ -233,7 +233,7 @@ mod tests {
         }
     }
 
-    fn golden_actual_message() -> EpochSettingsMessage {
+    fn golden_current_message() -> EpochSettingsMessage {
         #[allow(deprecated)]
         EpochSettingsMessage {
             epoch: Epoch(10),
@@ -278,8 +278,8 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_28() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_28() {
+        let json = CURRENT_JSON;
         let message: EpochSettingsMessageUntilV0_1_28 = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a EpochSettingsMessageUntilVersion0_1_28 instance.",
         );
@@ -288,8 +288,8 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_29() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_29() {
+        let json = CURRENT_JSON;
         let message: EpochSettingsMessageUntilV0_1_29 = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a EpochSettingsMessageUntilVersion0_1_29 instance.",
         );
@@ -298,8 +298,8 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_32() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_32() {
+        let json = CURRENT_JSON;
         let message: EpochSettingsMessageUntilV0_1_32 = serde_json::from_str(json).expect(
                 "This JSON is expected to be successfully parsed into a EpochSettingsMessageUntilVersion0_1_32 instance.",
             );
@@ -308,12 +308,12 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: EpochSettingsMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a EpochSettingsMessage instance.",
         );
 
-        assert_eq!(golden_actual_message(), message);
+        assert_eq!(golden_current_message(), message);
     }
 }

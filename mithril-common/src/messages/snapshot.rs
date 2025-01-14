@@ -63,7 +63,7 @@ impl SnapshotMessage {
 mod tests {
     use super::*;
 
-    const ACTUAL_JSON: &str = r#"{
+    const CURRENT_JSON: &str = r#"{
         "digest": "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6",
         "network": "preview",
         "beacon": {
@@ -115,7 +115,7 @@ mod tests {
         }
     }
 
-    fn golden_message_actual() -> SnapshotMessage {
+    fn golden_message_current() -> SnapshotMessage {
         SnapshotMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             network: "preview".to_string(),
@@ -137,18 +137,18 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_35() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_35() {
+        let json = CURRENT_JSON;
         let message: SnapshotMessageUntilV0_1_35 = serde_json::from_str(json).unwrap();
 
         assert_eq!(golden_message_until_open_api_0_1_35(), message);
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: SnapshotMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_actual(), message);
+        assert_eq!(golden_message_current(), message);
     }
 }

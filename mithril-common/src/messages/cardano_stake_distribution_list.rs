@@ -40,7 +40,7 @@ impl CardanoStakeDistributionListItemMessage {
 mod tests {
     use super::*;
 
-    fn golden_message_actual() -> CardanoStakeDistributionListMessage {
+    fn golden_message_current() -> CardanoStakeDistributionListMessage {
         vec![CardanoStakeDistributionListItemMessage {
             epoch: Epoch(1),
             hash: "hash-123".to_string(),
@@ -51,7 +51,7 @@ mod tests {
         }]
     }
 
-    const ACTUAL_JSON: &str = r#"[{
+    const CURRENT_JSON: &str = r#"[{
         "epoch": 1,
         "hash": "hash-123",
         "certificate_hash": "cert-hash-123",
@@ -59,12 +59,12 @@ mod tests {
     }]"#;
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: CardanoStakeDistributionListMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a CardanoStakeDistributionListMessage instance.",
         );
 
-        assert_eq!(golden_message_actual(), message);
+        assert_eq!(golden_message_current(), message);
     }
 }

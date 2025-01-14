@@ -101,7 +101,7 @@ impl CardanoDatabaseSnapshotMessage {
 mod tests {
     use super::*;
 
-    const ACTUAL_JSON: &str = r#"
+    const CURRENT_JSON: &str = r#"
     {
         "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
         "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
@@ -140,7 +140,7 @@ mod tests {
         "created_at": "2023-01-19T13:43:05.618857482Z"
     }"#;
 
-    fn golden_actual_message() -> CardanoDatabaseSnapshotMessage {
+    fn golden_current_message() -> CardanoDatabaseSnapshotMessage {
         CardanoDatabaseSnapshotMessage {
             hash: "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb".to_string(),
             merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
@@ -177,12 +177,12 @@ mod tests {
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: CardanoDatabaseSnapshotMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be successfully parsed into a CardanoDatabaseSnapshotMessage instance.",
         );
 
-        assert_eq!(golden_actual_message(), message);
+        assert_eq!(golden_current_message(), message);
     }
 }

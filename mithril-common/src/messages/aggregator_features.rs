@@ -91,7 +91,7 @@ mod tests {
         }
     }
 
-    fn golden_message_actual() -> AggregatorFeaturesMessage {
+    fn golden_message_current() -> AggregatorFeaturesMessage {
         AggregatorFeaturesMessage {
             open_api_version: "0.0.1".to_string(),
             documentation_url: "https://example.com".to_string(),
@@ -110,7 +110,7 @@ mod tests {
         }
     }
 
-    const ACTUAL_JSON: &str = r#"{
+    const CURRENT_JSON: &str = r#"{
         "open_api_version": "0.0.1",
         "documentation_url": "https://example.com",
         "capabilities": {
@@ -126,18 +126,18 @@ mod tests {
     }"#;
 
     #[test]
-    fn test_actual_json_deserialized_into_message_supported_until_open_api_0_1_27() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_27() {
+        let json = CURRENT_JSON;
         let message: AggregatorFeaturesMessageUntilV0_1_27 = serde_json::from_str(json).unwrap();
 
         assert_eq!(golden_message_until_open_api_0_1_27(), message);
     }
 
     #[test]
-    fn test_actual_json_deserialized_into_actual_message() {
-        let json = ACTUAL_JSON;
+    fn test_current_json_deserialized_into_current_message() {
+        let json = CURRENT_JSON;
         let message: AggregatorFeaturesMessage = serde_json::from_str(json).unwrap();
 
-        assert_eq!(golden_message_actual(), message);
+        assert_eq!(golden_message_current(), message);
     }
 }
