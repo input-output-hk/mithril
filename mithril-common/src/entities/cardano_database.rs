@@ -107,49 +107,6 @@ impl MultiFilesUri {
     }
 }
 
-mod extract_template_from_uris {
-
-    #[test]
-    fn returns_template() {
-        let file_uris = vec![
-            "http://whatever/00001.tar.gz".to_string(),
-            "http://whatever/00002.tar.gz".to_string(),
-        ];
-        fn extractor_returning_same_uri(_file_uri: &str) -> StdResult<Option<String>> {
-            Ok(Some(
-                "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-            ))
-        }
-
-        let template =
-            MultiFilesUri::extract_template_from_uris(file_uris, extractor_returning_same_uri)
-                .unwrap();
-
-        assert_eq!(
-            template,
-            Some(TemplateUri(
-                "http://whatever/{immutable_file_number}.tar.gz".to_string()
-            ))
-        );
-    }
-
-    #[test]
-    fn returns_error_with_multiple_templates() {
-        let file_uris = vec![
-            "http://whatever/00001.tar.gz".to_string(),
-            "http://00002.tar.gz/whatever".to_string(),
-        ];
-        fn extractor_returning_different_uri(file_uri: &str) -> StdResult<Option<String>> {
-            Ok(Some(file_uri.to_string()))
-        }
-
-        MultiFilesUri::extract_template_from_uris(file_uris, extractor_returning_different_uri)
-            .expect_err(
-                "Should return an error when multiple templates are found in the file URIs",
-            );
-    }
-}
-
 /// Locations of the immutable file digests.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
@@ -229,89 +186,137 @@ mod tests {
         )
     }
 
-    #[test]
-    fn test_cardano_database_snapshot_compute_hash() {
-        let cardano_database_snapshot = CardanoDatabaseSnapshot {
-            merkle_root: "mk-root-123".to_string(),
-            beacon: CardanoDbBeacon::new(123, 98),
-            ..dummy()
-        };
+    mod cardano_database_snapshot_compute_hash {
+        use super::*;
 
-        assert_eq!(
-            "b1cc5e0deaa7856e8e811e349d6e639fa667aa70288602955f438c5893ce29c8",
-            cardano_database_snapshot.compute_hash()
-        );
+        #[test]
+        fn test_cardano_database_snapshot_compute_hash() {
+            let cardano_database_snapshot = CardanoDatabaseSnapshot {
+                merkle_root: "mk-root-123".to_string(),
+                beacon: CardanoDbBeacon::new(123, 98),
+                ..dummy()
+            };
+
+            assert_eq!(
+                "b1cc5e0deaa7856e8e811e349d6e639fa667aa70288602955f438c5893ce29c8",
+                cardano_database_snapshot.compute_hash()
+            );
+        }
+
+        #[test]
+        fn compute_hash_returns_same_hash_with_same_cardano_database_snapshot() {
+            assert_eq!(
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash(),
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash()
+            );
+        }
+
+        #[test]
+        fn compute_hash_returns_different_hash_with_different_merkle_root() {
+            assert_ne!(
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash(),
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-456".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash()
+            );
+        }
+
+        #[test]
+        fn compute_hash_returns_different_hash_with_same_epoch_in_beacon() {
+            assert_eq!(
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash(),
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 12),
+                    ..dummy()
+                }
+                .compute_hash()
+            );
+        }
+
+        #[test]
+        fn compute_hash_returns_different_hash_with_different_beacon() {
+            assert_ne!(
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash(),
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(456, 98),
+                    ..dummy()
+                }
+                .compute_hash()
+            );
+        }
     }
 
-    #[test]
-    fn compute_hash_returns_same_hash_with_same_cardano_database_snapshot() {
-        assert_eq!(
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash(),
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash()
-        );
-    }
+    mod extract_template_from_uris {
+        use super::*;
 
-    #[test]
-    fn compute_hash_returns_different_hash_with_different_merkle_root() {
-        assert_ne!(
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
+        #[test]
+        fn returns_template() {
+            let file_uris = vec![
+                "http://whatever/00001.tar.gz".to_string(),
+                "http://whatever/00002.tar.gz".to_string(),
+            ];
+            fn extractor_returning_same_uri(_file_uri: &str) -> StdResult<Option<String>> {
+                Ok(Some(
+                    "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                ))
             }
-            .compute_hash(),
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-456".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash()
-        );
-    }
 
-    #[test]
-    fn compute_hash_returns_different_hash_with_same_epoch_in_beacon() {
-        assert_eq!(
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash(),
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 12),
-                ..dummy()
-            }
-            .compute_hash()
-        );
-    }
+            let template =
+                MultiFilesUri::extract_template_from_uris(file_uris, extractor_returning_same_uri)
+                    .unwrap();
 
-    #[test]
-    fn compute_hash_returns_different_hash_with_different_beacon() {
-        assert_ne!(
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
+            assert_eq!(
+                template,
+                Some(TemplateUri(
+                    "http://whatever/{immutable_file_number}.tar.gz".to_string()
+                ))
+            );
+        }
+
+        #[test]
+        fn returns_error_with_multiple_templates() {
+            let file_uris = vec![
+                "http://whatever/00001.tar.gz".to_string(),
+                "http://00002.tar.gz/whatever".to_string(),
+            ];
+            fn extractor_returning_different_uri(file_uri: &str) -> StdResult<Option<String>> {
+                Ok(Some(file_uri.to_string()))
             }
-            .compute_hash(),
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(456, 98),
-                ..dummy()
-            }
-            .compute_hash()
-        );
+
+            MultiFilesUri::extract_template_from_uris(file_uris, extractor_returning_different_uri)
+                .expect_err(
+                    "Should return an error when multiple templates are found in the file URIs",
+                );
+        }
     }
 }

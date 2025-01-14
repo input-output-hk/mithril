@@ -55,7 +55,8 @@ use crate::{
     artifact_builder::{
         AncillaryArtifactBuilder, CardanoDatabaseArtifactBuilder,
         CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
-        CardanoTransactionsArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
+        CardanoTransactionsArtifactBuilder, ImmutableArtifactBuilder,
+        MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
     database::repository::{
@@ -1246,8 +1247,17 @@ impl DependenciesBuilder {
             LocalUploader::new(self.get_server_url_prefix()?, &snapshot_dir, logger.clone())?;
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
             vec![Arc::new(local_uploader)],
-            snapshotter,
+            snapshotter.clone(),
             self.configuration.get_network()?,
+            self.configuration.snapshot_compression_algorithm,
+            logger.clone(),
+        )?);
+
+        let local_uploader =
+            LocalUploader::new(self.get_server_url_prefix()?, &snapshot_dir, logger.clone())?;
+        let immutable_builder = Arc::new(ImmutableArtifactBuilder::new(
+            vec![Arc::new(local_uploader)],
+            snapshotter,
             self.configuration.snapshot_compression_algorithm,
             logger.clone(),
         )?);
@@ -1257,6 +1267,7 @@ impl DependenciesBuilder {
             &cardano_node_version,
             self.configuration.snapshot_compression_algorithm,
             ancillary_builder,
+            immutable_builder,
         ))
     }
 

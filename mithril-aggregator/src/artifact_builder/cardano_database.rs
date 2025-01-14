@@ -17,11 +17,14 @@ use mithril_common::{
 
 use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
 
+use super::ImmutableArtifactBuilder;
+
 pub struct CardanoDatabaseArtifactBuilder {
     db_directory: PathBuf,
     cardano_node_version: Version,
     compression_algorithm: CompressionAlgorithm,
     ancillary_builder: Arc<AncillaryArtifactBuilder>,
+    immutable_builder: Arc<ImmutableArtifactBuilder>,
 }
 
 impl CardanoDatabaseArtifactBuilder {
@@ -30,12 +33,14 @@ impl CardanoDatabaseArtifactBuilder {
         cardano_node_version: &Version,
         compression_algorithm: CompressionAlgorithm,
         ancillary_builder: Arc<AncillaryArtifactBuilder>,
+        immutable_builder: Arc<ImmutableArtifactBuilder>,
     ) -> Self {
         Self {
             db_directory,
             cardano_node_version: cardano_node_version.clone(),
             compression_algorithm,
             ancillary_builder,
+            immutable_builder,
         }
     }
 }
@@ -62,11 +67,15 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
         let ancillary_locations = self.ancillary_builder.upload(&beacon).await?;
+        let immutables_locations = self
+            .immutable_builder
+            .upload(beacon.immutable_file_number)
+            .await?;
 
         let locations = ArtifactsLocations {
             ancillary: ancillary_locations,
             digests: vec![],
-            immutables: vec![],
+            immutables: immutables_locations,
         };
 
         let cardano_database = CardanoDatabaseSnapshot::new(
@@ -113,13 +122,18 @@ mod tests {
 
     use mithril_common::{
         digesters::DummyCardanoDbBuilder,
-        entities::{AncillaryLocation, ProtocolMessage, ProtocolMessagePartKey},
+        entities::{
+            AncillaryLocation, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
+            ProtocolMessagePartKey, TemplateUri,
+        },
         test_utils::{fake_data, TempDir},
         CardanoNetwork,
     };
 
     use crate::{
-        artifact_builder::MockAncillaryFileUploader, test_tools::TestLogger, DumbSnapshotter,
+        artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
+        test_tools::TestLogger,
+        DumbSnapshotter,
     };
 
     use super::*;
@@ -155,6 +169,7 @@ mod tests {
     async fn should_compute_valid_artifact() {
         let test_dir = get_test_directory("should_compute_valid_artifact");
 
+        let beacon = fake_data::beacon();
         let immutable_trio_file_size = 777;
         let ledger_file_size = 6666;
         let volatile_file_size = 99;
@@ -168,29 +183,55 @@ mod tests {
             .build();
         let expected_total_size = immutable_trio_file_size + ledger_file_size + volatile_file_size;
 
-        let mut ancillary_uploader = MockAncillaryFileUploader::new();
-        ancillary_uploader.expect_upload().return_once(|_| {
-            Ok(AncillaryLocation::CloudStorage {
-                uri: "ancillary_uri".to_string(),
-            })
-        });
+        let ancillary_artifact_builder = {
+            let mut ancillary_uploader = MockAncillaryFileUploader::new();
+            ancillary_uploader.expect_upload().return_once(|_| {
+                Ok(AncillaryLocation::CloudStorage {
+                    uri: "ancillary_uri".to_string(),
+                })
+            });
+
+            AncillaryArtifactBuilder::new(
+                vec![Arc::new(ancillary_uploader)],
+                Arc::new(DumbSnapshotter::new()),
+                CardanoNetwork::DevNet(123),
+                CompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
+            )
+            .unwrap()
+        };
+
+        let immutable_artifact_builder = {
+            let number_of_immutable_file_loaded = fake_data::beacon().immutable_file_number;
+            let mut immutable_uploader = MockImmutableFilesUploader::new();
+            immutable_uploader
+                .expect_batch_upload()
+                .withf(move |paths| paths.len() == number_of_immutable_file_loaded as usize)
+                .return_once(|_| {
+                    Ok(ImmutablesLocation::CloudStorage {
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "immutable_template_uri".to_string(),
+                        )),
+                    })
+                });
+
+            ImmutableArtifactBuilder::new(
+                vec![Arc::new(immutable_uploader)],
+                Arc::new(DumbSnapshotter::new()),
+                CompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
+            )
+            .unwrap()
+        };
+
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             test_dir,
             &Version::parse("1.0.0").unwrap(),
             CompressionAlgorithm::Zstandard,
-            Arc::new(
-                AncillaryArtifactBuilder::new(
-                    vec![Arc::new(ancillary_uploader)],
-                    Arc::new(DumbSnapshotter::new()),
-                    CardanoNetwork::DevNet(123),
-                    CompressionAlgorithm::Gzip,
-                    TestLogger::stdout(),
-                )
-                .unwrap(),
-            ),
+            Arc::new(ancillary_artifact_builder),
+            Arc::new(immutable_artifact_builder),
         );
 
-        let beacon = fake_data::beacon();
         let certificate_with_merkle_root = {
             let mut protocol_message = ProtocolMessage::new();
             protocol_message.set_message_part(
@@ -211,6 +252,10 @@ mod tests {
         let expected_ancillary_locations = vec![AncillaryLocation::CloudStorage {
             uri: "ancillary_uri".to_string(),
         }];
+
+        let expected_immutables_locations = vec![ImmutablesLocation::CloudStorage {
+            uri: MultiFilesUri::Template(TemplateUri("immutable_template_uri".to_string())),
+        }];
         let artifact_expected = CardanoDatabaseSnapshot::new(
             "merkleroot".to_string(),
             beacon,
@@ -218,7 +263,7 @@ mod tests {
             ArtifactsLocations {
                 ancillary: expected_ancillary_locations,
                 digests: vec![],
-                immutables: vec![],
+                immutables: expected_immutables_locations,
             },
             CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),
