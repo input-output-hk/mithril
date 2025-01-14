@@ -53,9 +53,9 @@ use mithril_persistence::{
 use super::{DependenciesBuilderError, EpochServiceWrapper, Result};
 use crate::{
     artifact_builder::{
-        AncillaryArtifactBuilder, CardanoDatabaseArtifactBuilder,
+        AggregatorDigestFileUploader, AncillaryArtifactBuilder, CardanoDatabaseArtifactBuilder,
         CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
-        CardanoTransactionsArtifactBuilder, ImmutableArtifactBuilder,
+        CardanoTransactionsArtifactBuilder, DigestArtifactBuilder, ImmutableArtifactBuilder,
         MithrilStakeDistributionArtifactBuilder,
     },
     configuration::ExecutionEnvironment,
@@ -1262,12 +1262,20 @@ impl DependenciesBuilder {
             logger.clone(),
         )?);
 
+        let local_uploader =
+            AggregatorDigestFileUploader::new(self.get_server_url_prefix()?, logger.clone())?;
+        let digest_builder = Arc::new(DigestArtifactBuilder::new(
+            vec![Arc::new(local_uploader)],
+            logger.clone(),
+        )?);
+
         Ok(CardanoDatabaseArtifactBuilder::new(
             self.configuration.db_directory.clone(),
             &cardano_node_version,
             self.configuration.snapshot_compression_algorithm,
             ancillary_builder,
             immutable_builder,
+            digest_builder,
         ))
     }
 

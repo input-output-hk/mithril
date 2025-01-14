@@ -3,7 +3,10 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use mithril_common::{entities::DigestLocation, logging::LoggerExtensions, StdResult};
-use slog::{error, Logger};
+use reqwest::Url;
+use slog::{debug, error, Logger};
+
+use crate::file_uploaders::url_sanitizer::sanitize_url_path;
 
 /// The [DigestFileUploader] trait allows identifying uploaders that return locations for digest archive files.
 #[cfg_attr(test, mockall::automock)]
@@ -11,6 +14,34 @@ use slog::{error, Logger};
 pub trait DigestFileUploader: Send + Sync {
     /// Uploads the archive at the given filepath and returns the location of the uploaded file.
     async fn upload(&self) -> StdResult<DigestLocation>;
+}
+
+/// The [AggregatorDigestFileUploader] is a [DigestFileUploader] that return the Url of the aggregator.
+pub struct AggregatorDigestFileUploader {
+    /// Server URL prefix
+    server_url_prefix: Url,
+}
+
+impl AggregatorDigestFileUploader {
+    pub(crate) fn new(server_url_prefix: Url, logger: Logger) -> StdResult<Self> {
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New LocalUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
+        let server_url_prefix = sanitize_url_path(&server_url_prefix)?;
+
+        Ok(Self { server_url_prefix })
+    }
+}
+
+#[async_trait]
+impl DigestFileUploader for AggregatorDigestFileUploader {
+    async fn upload(&self) -> StdResult<DigestLocation> {
+        Ok(DigestLocation::Aggregator {
+            uri: self
+                .server_url_prefix
+                .join("artifact/cardano-database/digests")?
+                .to_string(),
+        })
+    }
 }
 
 pub struct DigestArtifactBuilder {
@@ -91,6 +122,23 @@ mod tests {
             .return_once(|| Ok(DigestLocation::CloudStorage { uri }));
 
         uploader
+    }
+
+    #[tokio::test]
+    async fn aggregator_digest_uploader_return_aggregator_url() {
+        let uploader = AggregatorDigestFileUploader::new(
+            Url::parse("https://aggregator/").unwrap(),
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let location = uploader.upload().await.unwrap();
+        assert_eq!(
+            DigestLocation::Aggregator {
+                uri: "https://aggregator/artifact/cardano-database/digests".to_string()
+            },
+            location
+        );
     }
 
     #[test]

@@ -17,7 +17,7 @@ use mithril_common::{
 
 use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
 
-use super::ImmutableArtifactBuilder;
+use super::{DigestArtifactBuilder, ImmutableArtifactBuilder};
 
 pub struct CardanoDatabaseArtifactBuilder {
     db_directory: PathBuf,
@@ -25,6 +25,7 @@ pub struct CardanoDatabaseArtifactBuilder {
     compression_algorithm: CompressionAlgorithm,
     ancillary_builder: Arc<AncillaryArtifactBuilder>,
     immutable_builder: Arc<ImmutableArtifactBuilder>,
+    digest_builder: Arc<DigestArtifactBuilder>,
 }
 
 impl CardanoDatabaseArtifactBuilder {
@@ -34,6 +35,7 @@ impl CardanoDatabaseArtifactBuilder {
         compression_algorithm: CompressionAlgorithm,
         ancillary_builder: Arc<AncillaryArtifactBuilder>,
         immutable_builder: Arc<ImmutableArtifactBuilder>,
+        digest_builder: Arc<DigestArtifactBuilder>,
     ) -> Self {
         Self {
             db_directory,
@@ -41,6 +43,7 @@ impl CardanoDatabaseArtifactBuilder {
             compression_algorithm,
             ancillary_builder,
             immutable_builder,
+            digest_builder,
         }
     }
 }
@@ -71,10 +74,11 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             .immutable_builder
             .upload(beacon.immutable_file_number)
             .await?;
+        let digest_locations = self.digest_builder.upload().await?;
 
         let locations = ArtifactsLocations {
             ancillary: ancillary_locations,
-            digests: vec![],
+            digests: digest_locations,
             immutables: immutables_locations,
         };
 
@@ -123,7 +127,7 @@ mod tests {
     use mithril_common::{
         digesters::DummyCardanoDbBuilder,
         entities::{
-            AncillaryLocation, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
+            AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
             ProtocolMessagePartKey, TemplateUri,
         },
         test_utils::{fake_data, TempDir},
@@ -131,7 +135,9 @@ mod tests {
     };
 
     use crate::{
-        artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
+        artifact_builder::{
+            MockAncillaryFileUploader, MockDigestFileUploader, MockImmutableFilesUploader,
+        },
         test_tools::TestLogger,
         DumbSnapshotter,
     };
@@ -224,12 +230,25 @@ mod tests {
             .unwrap()
         };
 
+        let digest_artifact_builder = {
+            let mut digest_uploader = MockDigestFileUploader::new();
+            digest_uploader.expect_upload().return_once(|| {
+                Ok(DigestLocation::Aggregator {
+                    uri: "aggregator_uri".to_string(),
+                })
+            });
+
+            DigestArtifactBuilder::new(vec![Arc::new(digest_uploader)], TestLogger::stdout())
+                .unwrap()
+        };
+
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             test_dir,
             &Version::parse("1.0.0").unwrap(),
             CompressionAlgorithm::Zstandard,
             Arc::new(ancillary_artifact_builder),
             Arc::new(immutable_artifact_builder),
+            Arc::new(digest_artifact_builder),
         );
 
         let certificate_with_merkle_root = {
@@ -256,13 +275,18 @@ mod tests {
         let expected_immutables_locations = vec![ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(TemplateUri("immutable_template_uri".to_string())),
         }];
+
+        let expected_digest_locations = vec![DigestLocation::Aggregator {
+            uri: "aggregator_uri".to_string(),
+        }];
+
         let artifact_expected = CardanoDatabaseSnapshot::new(
             "merkleroot".to_string(),
             beacon,
             expected_total_size,
             ArtifactsLocations {
                 ancillary: expected_ancillary_locations,
-                digests: vec![],
+                digests: expected_digest_locations,
                 immutables: expected_immutables_locations,
             },
             CompressionAlgorithm::Zstandard,
