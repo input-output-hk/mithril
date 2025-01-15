@@ -1935,11 +1935,9 @@ components:
     MultiFilesUri:
       description: MultiFilesUri represents information to retrieve multiple files
       oneOf:
-          - $ref: "#/components/schemas/TemplateUri"
+        - $ref: "#/components/schemas/TemplateUri"
       examples:
-        {
-          "Template": "https://aggregator/{immutable_file_number}.tar.gz"
-        }
+        { "Template": "https://aggregator/{immutable_file_number}.tar.gz" }
 
     TemplateUri:
       description: TemplateUri represents a URI template for multiple files
@@ -1952,9 +1950,7 @@ components:
           description: URI template
           type: string
       examples:
-        {
-          "Template": "https://aggregator/{immutable_file_number}.tar.gz"
-        }
+        { "Template": "https://aggregator/{immutable_file_number}.tar.gz" }
 
     CardanoDatabaseSnapshotListMessage:
       description: CardanoDatabaseSnapshotListMessage represents a list of Cardano database snapshots

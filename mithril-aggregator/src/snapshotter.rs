@@ -975,6 +975,5 @@ mod tests {
         snapshotter.set_sub_temp_dir(Path::new("sub_dir"));
         snapshotter.set_sub_temp_dir(PathBuf::from("sub_dir"));
         snapshotter.set_sub_temp_dir("sub_dir");
-        snapshotter.set_sub_temp_dir("sub_dir".to_string());
     }
 }
