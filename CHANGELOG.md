@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Support for `Cardano node` `10.1.4` in the signer and the aggregator.
 
+- Activate aggregator HTTP responses compression by the reverse proxy in the infrastructure.
+
 - **UNSTABLE** Cardano database incremental certification:
 
   - Implement the artifact routes of the aggregator for the signed entity type `CardanoDatabase`.
