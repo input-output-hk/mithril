@@ -484,14 +484,16 @@ impl DependenciesBuilder {
                                 "snapshot_bucket_name".to_string(),
                             )
                         })?;
+                    let allow_overwriting = false;
 
-                    Ok(Arc::new(GcpUploader::new(Arc::new(
-                        GcpBackendUploader::try_new(
+                    Ok(Arc::new(GcpUploader::new(
+                        Arc::new(GcpBackendUploader::try_new(
                             bucket,
                             self.configuration.snapshot_use_cdn_domain,
                             logger.clone(),
-                        )?,
-                    ))))
+                        )?),
+                        allow_overwriting,
+                    )))
                 }
                 SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
                     self.get_server_url_prefix()?,

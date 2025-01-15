@@ -16,6 +16,9 @@ use crate::FileUploader;
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait CloudBackendUploader: Send + Sync {
+    /// Check if a file exists in the Cloud backend
+    async fn file_exists(&self, file_path: &Path) -> StdResult<Option<FileUri>>;
+
     /// Upload a file to the Cloud backend
     async fn upload_file(&self, file_path: &Path) -> StdResult<FileUri>;
 
@@ -63,6 +66,32 @@ impl GcpBackendUploader {
 
 #[async_trait]
 impl CloudBackendUploader for GcpBackendUploader {
+    async fn file_exists(&self, file_path: &Path) -> StdResult<Option<FileUri>> {
+        let file_name =
+            get_file_name(file_path).with_context(|| "computing file name from path")?;
+        info!(self.logger, "Reading file metadata {file_name}");
+        let file_uri = match self
+            .client
+            .object()
+            .read(&self.bucket, file_name)
+            .await
+            .with_context(|| "remote reading file metadata failure")
+        {
+            Ok(_) => {
+                info!(self.logger, "Found file metadata {file_name}");
+
+                Some(self.get_location(file_name))
+            }
+            Err(_) => {
+                info!(self.logger, "Missing file metadata {file_name}");
+
+                None
+            }
+        };
+
+        Ok(file_uri)
+    }
+
     async fn upload_file(&self, file_path: &Path) -> StdResult<FileUri> {
         let file_name =
             get_file_name(file_path).with_context(|| "computing file name from path")?;
@@ -119,13 +148,18 @@ fn get_file_name(file_path: &Path) -> StdResult<&str> {
 /// GcpUploader represents a Google Cloud Platform file uploader interactor
 pub struct GcpUploader {
     cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
+    allow_overwrite: bool,
 }
 
 impl GcpUploader {
     /// GcpUploader factory
-    pub fn new(cloud_backend_uploader: Arc<dyn CloudBackendUploader>) -> Self {
+    pub fn new(
+        cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
+        allow_overwrite: bool,
+    ) -> Self {
         Self {
             cloud_backend_uploader,
+            allow_overwrite,
         }
     }
 }
@@ -133,6 +167,17 @@ impl GcpUploader {
 #[async_trait]
 impl FileUploader for GcpUploader {
     async fn upload(&self, file_path: &Path) -> StdResult<FileUri> {
+        if self.allow_overwrite {
+            if let Some(file_uri) = self
+                .cloud_backend_uploader
+                .file_exists(file_path)
+                .await
+                .with_context(|| "checking if file exists in cloud")?
+            {
+                return Ok(file_uri);
+            }
+        }
+
         let file_uri = self
             .cloud_backend_uploader
             .upload_file(file_path)
@@ -160,7 +205,68 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn upload_public_file_success() {
+        async fn upload_public_file_succeeds_when_file_does_not_exist_remotely_and_with_overwriting_allowed(
+        ) {
+            let allow_overwriting = true;
+            let file_path = Path::new("snapshot.xxx.tar.gz");
+            let expected_file_uri = FileUri("https://cloud-host/snapshot.xxx.tar.gz".to_string());
+            let expected_file_uri_clone = expected_file_uri.clone();
+            let cloud_backend_uploader = {
+                let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
+                mock_cloud_backend_uploader
+                    .expect_file_exists()
+                    .with(eq(file_path))
+                    .return_once(move |_| Ok(None))
+                    .once();
+                mock_cloud_backend_uploader
+                    .expect_upload_file()
+                    .with(eq(file_path))
+                    .return_once(move |_| Ok(expected_file_uri_clone))
+                    .once();
+                mock_cloud_backend_uploader
+                    .expect_make_file_public()
+                    .with(eq(file_path))
+                    .return_once(move |_| Ok(()))
+                    .once();
+
+                mock_cloud_backend_uploader
+            };
+            let file_uploader =
+                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+
+            let file_uri = file_uploader.upload(file_path).await.unwrap();
+
+            assert_eq!(expected_file_uri, file_uri);
+        }
+
+        #[tokio::test]
+        async fn upload_public_file_succeeds_when_file_exists_remotely_and_with_overwriting_allowed(
+        ) {
+            let allow_overwriting = true;
+            let file_path = Path::new("snapshot.xxx.tar.gz");
+            let expected_file_uri = FileUri("https://cloud-host/snapshot.xxx.tar.gz".to_string());
+            let expected_file_uri_clone = expected_file_uri.clone();
+            let cloud_backend_uploader = {
+                let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
+                mock_cloud_backend_uploader
+                    .expect_file_exists()
+                    .with(eq(file_path))
+                    .return_once(move |_| Ok(Some(expected_file_uri_clone)))
+                    .once();
+
+                mock_cloud_backend_uploader
+            };
+            let file_uploader =
+                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+
+            let file_uri = file_uploader.upload(file_path).await.unwrap();
+
+            assert_eq!(expected_file_uri, file_uri);
+        }
+
+        #[tokio::test]
+        async fn upload_public_file_succeeds_without_overwriting_allowed() {
+            let allow_overwriting = false;
             let file_path = Path::new("snapshot.xxx.tar.gz");
             let expected_file_uri = FileUri("https://cloud-host/snapshot.xxx.tar.gz".to_string());
             let expected_file_uri_clone = expected_file_uri.clone();
@@ -179,7 +285,8 @@ mod tests {
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader = GcpUploader::new(Arc::new(cloud_backend_uploader));
+            let file_uploader =
+                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
 
             let file_uri = file_uploader.upload(file_path).await.unwrap();
 
@@ -187,7 +294,31 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn upload_public_file_fails_when_file_exists_fails_and_with_overwriting_allowed() {
+            let allow_overwriting = true;
+            let file_path = Path::new("snapshot.xxx.tar.gz");
+            let cloud_backend_uploader = {
+                let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
+                mock_cloud_backend_uploader
+                    .expect_file_exists()
+                    .with(eq(file_path))
+                    .return_once(move |_| Err(anyhow!("file exists error")))
+                    .once();
+
+                mock_cloud_backend_uploader
+            };
+            let file_uploader =
+                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+
+            file_uploader
+                .upload(file_path)
+                .await
+                .expect_err("should have failed");
+        }
+
+        #[tokio::test]
         async fn upload_public_file_fails_when_upload_fails() {
+            let allow_overwriting = false;
             let file_path = Path::new("snapshot.xxx.tar.gz");
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
@@ -199,7 +330,8 @@ mod tests {
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader = GcpUploader::new(Arc::new(cloud_backend_uploader));
+            let file_uploader =
+                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
 
             file_uploader
                 .upload(file_path)
@@ -209,6 +341,7 @@ mod tests {
 
         #[tokio::test]
         async fn upload_public_file_fails_when_make_public_fails() {
+            let allow_overwriting = false;
             let file_path = Path::new("snapshot.xxx.tar.gz");
             let expected_file_uri = FileUri("https://cloud-host/snapshot.xxx.tar.gz".to_string());
             let expected_file_uri_clone = expected_file_uri.clone();
@@ -227,7 +360,8 @@ mod tests {
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader = GcpUploader::new(Arc::new(cloud_backend_uploader));
+            let file_uploader =
+                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
 
             file_uploader
                 .upload(file_path)
