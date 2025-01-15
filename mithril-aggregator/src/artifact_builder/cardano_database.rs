@@ -133,6 +133,7 @@ mod tests {
         test_utils::{fake_data, TempDir},
         CardanoNetwork,
     };
+    use reqwest::Url;
 
     use crate::{
         artifact_builder::{
@@ -230,17 +231,12 @@ mod tests {
             .unwrap()
         };
 
-        let digest_artifact_builder = {
-            let mut digest_uploader = MockDigestFileUploader::new();
-            digest_uploader.expect_upload().return_once(|| {
-                Ok(DigestLocation::Aggregator {
-                    uri: "aggregator_uri".to_string(),
-                })
-            });
-
-            DigestArtifactBuilder::new(vec![Arc::new(digest_uploader)], TestLogger::stdout())
-                .unwrap()
-        };
+        let digest_artifact_builder = DigestArtifactBuilder::new(
+            Url::parse("http://aggregator_uri").unwrap(),
+            vec![],
+            TestLogger::stdout(),
+        )
+        .unwrap();
 
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             test_dir,
@@ -277,7 +273,7 @@ mod tests {
         }];
 
         let expected_digest_locations = vec![DigestLocation::Aggregator {
-            uri: "aggregator_uri".to_string(),
+            uri: "http://aggregator_uri/artifact/cardano-database/digests".to_string(),
         }];
 
         let artifact_expected = CardanoDatabaseSnapshot::new(

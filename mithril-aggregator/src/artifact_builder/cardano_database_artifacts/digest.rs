@@ -1,4 +1,7 @@
-use std::sync::Arc;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -6,73 +9,60 @@ use mithril_common::{entities::DigestLocation, logging::LoggerExtensions, StdRes
 use reqwest::Url;
 use slog::{debug, error, Logger};
 
-use crate::file_uploaders::url_sanitizer::sanitize_url_path;
+use crate::{file_uploaders::url_sanitizer::sanitize_url_path, snapshotter::OngoingSnapshot};
 
 /// The [DigestFileUploader] trait allows identifying uploaders that return locations for digest archive files.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait DigestFileUploader: Send + Sync {
     /// Uploads the archive at the given filepath and returns the location of the uploaded file.
-    async fn upload(&self) -> StdResult<DigestLocation>;
-}
-
-/// The [AggregatorDigestFileUploader] is a [DigestFileUploader] that return the Url of the aggregator.
-pub struct AggregatorDigestFileUploader {
-    /// Server URL prefix
-    server_url_prefix: Url,
-}
-
-impl AggregatorDigestFileUploader {
-    pub(crate) fn new(server_url_prefix: Url, logger: Logger) -> StdResult<Self> {
-        let logger = logger.new_with_component_name::<Self>();
-        debug!(logger, "New LocalUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
-        let server_url_prefix = sanitize_url_path(&server_url_prefix)?;
-
-        Ok(Self { server_url_prefix })
-    }
-}
-
-#[async_trait]
-impl DigestFileUploader for AggregatorDigestFileUploader {
-    async fn upload(&self) -> StdResult<DigestLocation> {
-        Ok(DigestLocation::Aggregator {
-            uri: self
-                .server_url_prefix
-                .join("artifact/cardano-database/digests")?
-                .to_string(),
-        })
-    }
+    async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation>;
 }
 
 pub struct DigestArtifactBuilder {
+    /// Aggregator URL prefix
+    aggregator_url_prefix: Url,
+    /// Uploaders
     uploaders: Vec<Arc<dyn DigestFileUploader>>,
     logger: Logger,
 }
 
 impl DigestArtifactBuilder {
     /// Creates a new [DigestArtifactBuilder].
-    pub fn new(uploaders: Vec<Arc<dyn DigestFileUploader>>, logger: Logger) -> StdResult<Self> {
-        if uploaders.is_empty() {
-            return Err(anyhow!(
-                "At least one uploader is required to create an 'DigestArtifactBuilder'"
-            ));
-        }
-
+    pub fn new(
+        aggregator_url_prefix: Url,
+        uploaders: Vec<Arc<dyn DigestFileUploader>>,
+        logger: Logger,
+    ) -> StdResult<Self> {
         Ok(Self {
+            aggregator_url_prefix,
             uploaders,
             logger: logger.new_with_component_name::<Self>(),
         })
     }
 
     pub async fn upload(&self) -> StdResult<Vec<DigestLocation>> {
-        self.upload_digest_archive().await
+        // let snapshot = self.create_digest_archive(beacon)?;
+        // let digest_path = snapshot.get_file_path();
+        let digest_path = Path::new("");
+
+        self.upload_digest_archive(digest_path).await
+    }
+
+    async fn create_digest_archive() -> StdResult<OngoingSnapshot> {
+        // get message service::get_cardano_database_digest_list_message
+        // output json (created from message) to file
+        todo!()
     }
 
     /// Uploads the digest archive and returns the locations of the uploaded files.
-    async fn upload_digest_archive(&self) -> StdResult<Vec<DigestLocation>> {
+    async fn upload_digest_archive(
+        &self,
+        digest_filepath: &Path,
+    ) -> StdResult<Vec<DigestLocation>> {
         let mut locations = Vec::<DigestLocation>::new();
         for uploader in &self.uploaders {
-            let result = uploader.upload().await;
+            let result = uploader.upload(digest_filepath).await;
             match result {
                 Ok(location) => {
                     locations.push(location);
@@ -87,13 +77,18 @@ impl DigestArtifactBuilder {
             }
         }
 
-        if locations.is_empty() {
-            return Err(anyhow!(
-                "Failed to upload digest archive with all uploaders"
-            ));
-        }
+        locations.push(self.aggregator_location()?);
 
         Ok(locations)
+    }
+
+    fn aggregator_location(&self) -> StdResult<DigestLocation> {
+        Ok(DigestLocation::Aggregator {
+            uri: self
+                .aggregator_url_prefix
+                .join("artifact/cardano-database/digests")?
+                .to_string(),
+        })
     }
 }
 
@@ -108,7 +103,7 @@ mod tests {
         let mut uploader = MockDigestFileUploader::new();
         uploader
             .expect_upload()
-            .return_once(|| Err(anyhow!("Failure while uploading...")));
+            .return_once(|_| Err(anyhow!("Failure while uploading...")));
 
         uploader
     }
@@ -119,33 +114,27 @@ mod tests {
         uploader
             .expect_upload()
             .times(1)
-            .return_once(|| Ok(DigestLocation::CloudStorage { uri }));
+            .return_once(|_| Ok(DigestLocation::CloudStorage { uri }));
 
         uploader
     }
 
     #[tokio::test]
-    async fn aggregator_digest_uploader_return_aggregator_url() {
-        let uploader = AggregatorDigestFileUploader::new(
+    async fn digest_artifact_builder_return_digests_route_on_aggregator() {
+        let builder = DigestArtifactBuilder::new(
             Url::parse("https://aggregator/").unwrap(),
+            vec![],
             TestLogger::stdout(),
         )
         .unwrap();
 
-        let location = uploader.upload().await.unwrap();
+        let locations = builder.upload().await.unwrap();
         assert_eq!(
-            DigestLocation::Aggregator {
+            vec!(DigestLocation::Aggregator {
                 uri: "https://aggregator/artifact/cardano-database/digests".to_string()
-            },
-            location
+            }),
+            locations
         );
-    }
-
-    #[test]
-    fn create_digest_builder_should_error_when_no_uploader() {
-        let result = DigestArtifactBuilder::new(vec![], TestLogger::stdout());
-
-        assert!(result.is_err(), "Should return an error when no uploaders")
     }
 
     #[tokio::test]
@@ -156,14 +145,17 @@ mod tests {
         let mut uploader = MockDigestFileUploader::new();
         uploader
             .expect_upload()
-            .return_once(|| Err(anyhow!("Failure while uploading...")));
+            .return_once(|_| Err(anyhow!("Failure while uploading...")));
 
         {
-            let builder =
-                DigestArtifactBuilder::new(vec![Arc::new(uploader)], TestLogger::file(&log_path))
-                    .unwrap();
+            let builder = DigestArtifactBuilder::new(
+                Url::parse("https://aggregator/").unwrap(),
+                vec![Arc::new(uploader)],
+                TestLogger::file(&log_path),
+            )
+            .unwrap();
 
-            let _ = builder.upload_digest_archive().await;
+            let _ = builder.upload_digest_archive(&Path::new("")).await;
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -171,18 +163,19 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_digest_archive_should_error_when_no_location_is_returned() {
+    async fn upload_digest_archive_should_not_error_even_if_no_location_returned_from_uploaders() {
         let uploader = fake_uploader_returning_error();
 
-        let builder =
-            DigestArtifactBuilder::new(vec![Arc::new(uploader)], TestLogger::stdout()).unwrap();
+        let builder = DigestArtifactBuilder::new(
+            Url::parse("https://aggregator/").unwrap(),
+            vec![Arc::new(uploader)],
+            TestLogger::stdout(),
+        )
+        .unwrap();
 
-        let result = builder.upload_digest_archive().await;
+        let locations = builder.upload_digest_archive(&Path::new("")).await.unwrap();
 
-        assert!(
-            result.is_err(),
-            "Should return an error when no location is returned"
-        );
+        assert!(!locations.is_empty());
     }
 
     #[tokio::test]
@@ -197,15 +190,25 @@ mod tests {
             Arc::new(third_uploader),
         ];
 
-        let builder = DigestArtifactBuilder::new(uploaders, TestLogger::stdout()).unwrap();
+        let builder = DigestArtifactBuilder::new(
+            Url::parse("https://aggregator/").unwrap(),
+            uploaders,
+            TestLogger::stdout(),
+        )
+        .unwrap();
 
-        let locations = builder.upload_digest_archive().await.unwrap();
+        let locations = builder.upload_digest_archive(&Path::new("")).await.unwrap();
 
         assert_equivalent(
             locations,
-            vec![DigestLocation::CloudStorage {
-                uri: "an_uri".to_string(),
-            }],
+            vec![
+                DigestLocation::CloudStorage {
+                    uri: "an_uri".to_string(),
+                },
+                DigestLocation::Aggregator {
+                    uri: "https://aggregator/artifact/cardano-database/digests".to_string(),
+                },
+            ],
         );
     }
 
@@ -217,9 +220,14 @@ mod tests {
         let uploaders: Vec<Arc<dyn DigestFileUploader>> =
             vec![Arc::new(first_uploader), Arc::new(second_uploader)];
 
-        let builder = DigestArtifactBuilder::new(uploaders, TestLogger::stdout()).unwrap();
+        let builder = DigestArtifactBuilder::new(
+            Url::parse("https://aggregator/").unwrap(),
+            uploaders,
+            TestLogger::stdout(),
+        )
+        .unwrap();
 
-        let locations = builder.upload_digest_archive().await.unwrap();
+        let locations = builder.upload_digest_archive(&Path::new("")).await.unwrap();
 
         assert_equivalent(
             locations,
@@ -229,6 +237,9 @@ mod tests {
                 },
                 DigestLocation::CloudStorage {
                     uri: "another_uri".to_string(),
+                },
+                DigestLocation::Aggregator {
+                    uri: "https://aggregator/artifact/cardano-database/digests".to_string(),
                 },
             ],
         );
