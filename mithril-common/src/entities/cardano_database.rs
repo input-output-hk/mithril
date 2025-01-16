@@ -99,11 +99,7 @@ impl MultiFilesUri {
             return Err(anyhow!("Multiple templates found in the file URIs"));
         }
 
-        if let Some(template) = templates.into_iter().next() {
-            Ok(Some(TemplateUri(template)))
-        } else {
-            Ok(None)
-        }
+        Ok(templates.into_iter().next().map(TemplateUri))
     }
 }
 

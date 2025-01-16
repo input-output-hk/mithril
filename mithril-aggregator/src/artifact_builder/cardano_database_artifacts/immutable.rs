@@ -17,7 +17,7 @@ use mithril_common::{
 
 use crate::{file_uploaders::LocalUploader, FileUploader, Snapshotter};
 
-fn default_extractor(file_uri: &str) -> StdResult<Option<String>> {
+fn immmutable_file_number_extractor(file_uri: &str) -> StdResult<Option<String>> {
     let regex = Regex::new(r".*(\d{5})")?;
 
     Ok(regex
@@ -36,19 +36,20 @@ fn default_extractor(file_uri: &str) -> StdResult<Option<String>> {
 #[async_trait]
 pub trait ImmutableFilesUploader: Send + Sync {
     /// Uploads the archives at the given filepaths and returns the location of the uploaded file.
-    async fn batch_upload<'a>(&self, filepaths: &[&'a Path]) -> StdResult<ImmutablesLocation>;
+    async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation>;
 }
 
 #[async_trait]
 impl ImmutableFilesUploader for LocalUploader {
-    async fn batch_upload<'a>(&self, filepaths: &[&'a Path]) -> StdResult<ImmutablesLocation> {
+    async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation> {
         let mut file_uris = Vec::new();
         for filepath in filepaths {
             file_uris.push(self.upload(filepath).await?.into());
         }
 
-        let template_uri = MultiFilesUri::extract_template_from_uris(file_uris, default_extractor)?
-            .ok_or_else(|| anyhow!("No template found in the uploaded files"))?;
+        let template_uri =
+            MultiFilesUri::extract_template_from_uris(file_uris, immmutable_file_number_extractor)?
+                .ok_or_else(|| anyhow!("No matching template found in the uploaded files"))?;
 
         Ok(ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(template_uri),
@@ -90,7 +91,6 @@ impl ImmutableArtifactBuilder {
     ) -> StdResult<Vec<ImmutablesLocation>> {
         let archives_paths =
             self.immutable_archives_paths_creating_the_missing_ones(up_to_immutable_file_number)?;
-        let archives_paths: Vec<_> = archives_paths.iter().map(Path::new).collect();
         let locations = self.upload_immutable_archives(&archives_paths).await?;
 
         Ok(locations)
@@ -139,7 +139,7 @@ impl ImmutableArtifactBuilder {
 
     async fn upload_immutable_archives(
         &self,
-        archive_paths: &[&Path],
+        archive_paths: &[PathBuf],
     ) -> StdResult<Vec<ImmutablesLocation>> {
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
@@ -403,7 +403,7 @@ mod tests {
         }
 
         #[test]
-        fn return_error_when_up_to_immutable_file_number_is_missing() {
+        fn return_error_when_immutable_file_number_is_not_produced_yet() {
             let test_dir = "error_when_up_to_immutable_file_number_is_missing/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
                 .with_immutables(&[1, 2])
@@ -565,7 +565,10 @@ mod tests {
                 .unwrap();
 
                 let _ = builder
-                    .upload_immutable_archives(&[Path::new("01.tar.gz"), Path::new("02.tar.gz")])
+                    .upload_immutable_archives(&[
+                        PathBuf::from("01.tar.gz"),
+                        PathBuf::from("02.tar.gz"),
+                    ])
                     .await;
             }
 
@@ -587,7 +590,10 @@ mod tests {
             .unwrap();
 
             let result = builder
-                .upload_immutable_archives(&[Path::new("01.tar.gz"), Path::new("02.tar.gz")])
+                .upload_immutable_archives(&[
+                    PathBuf::from("01.tar.gz"),
+                    PathBuf::from("02.tar.gz"),
+                ])
                 .await;
 
             assert!(
@@ -616,7 +622,10 @@ mod tests {
             .unwrap();
 
             let archive_paths = builder
-                .upload_immutable_archives(&[Path::new("01.tar.gz"), Path::new("02.tar.gz")])
+                .upload_immutable_archives(&[
+                    PathBuf::from("01.tar.gz"),
+                    PathBuf::from("02.tar.gz"),
+                ])
                 .await
                 .unwrap();
 
@@ -650,7 +659,10 @@ mod tests {
             .unwrap();
 
             let archive_paths = builder
-                .upload_immutable_archives(&[Path::new("01.tar.gz"), Path::new("02.tar.gz")])
+                .upload_immutable_archives(&[
+                    PathBuf::from("01.tar.gz"),
+                    PathBuf::from("02.tar.gz"),
+                ])
                 .await
                 .unwrap();
 
@@ -668,7 +680,7 @@ mod tests {
         }
     }
 
-    mod uploader {
+    mod batch_upload {
         use std::fs::File;
         use std::io::Write;
 
@@ -706,10 +718,12 @@ mod tests {
             let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
             let uploader =
                 LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
-            let location =
-                ImmutableFilesUploader::batch_upload(&uploader, &[&archive_1, &archive_2])
-                    .await
-                    .expect("local upload should not fail");
+            let location = ImmutableFilesUploader::batch_upload(
+                &uploader,
+                &[archive_1.clone(), archive_2.clone()],
+            )
+            .await
+            .expect("local upload should not fail");
 
             assert!(target_dir.join(archive_1.file_name().unwrap()).exists());
             assert!(target_dir.join(archive_2.file_name().unwrap()).exists());
@@ -739,25 +753,26 @@ mod tests {
             let uploader =
                 LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
 
-            ImmutableFilesUploader::batch_upload(&uploader, &[&archive])
+            ImmutableFilesUploader::batch_upload(&uploader, &[archive])
                 .await
                 .expect_err("Should return an error when not template found");
         }
     }
 
-    mod default_extractor {
+    mod immutable_file_number_extractor {
         use super::*;
 
         #[test]
         fn returns_none_when_not_templatable_without_5_digits() {
-            let template = default_extractor("not-templatable.tar.gz").unwrap();
+            let template = immmutable_file_number_extractor("not-templatable.tar.gz").unwrap();
 
             assert!(template.is_none());
         }
 
         #[test]
         fn returns_template() {
-            let template = default_extractor("http://whatever/00001.tar.gz").unwrap();
+            let template =
+                immmutable_file_number_extractor("http://whatever/00001.tar.gz").unwrap();
 
             assert_eq!(
                 template,
@@ -767,7 +782,8 @@ mod tests {
 
         #[test]
         fn replaces_last_occurence_of_5_digits() {
-            let template = default_extractor("http://00001/whatever/00001.tar.gz").unwrap();
+            let template =
+                immmutable_file_number_extractor("http://00001/whatever/00001.tar.gz").unwrap();
 
             assert_eq!(
                 template,
@@ -777,7 +793,8 @@ mod tests {
 
         #[test]
         fn replaces_last_occurence_when_more_than_5_digits() {
-            let template = default_extractor("http://whatever/123456789.tar.gz").unwrap();
+            let template =
+                immmutable_file_number_extractor("http://whatever/123456789.tar.gz").unwrap();
 
             assert_eq!(
                 template,

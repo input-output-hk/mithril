@@ -1267,9 +1267,7 @@ impl DependenciesBuilder {
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.get_server_url_prefix()?,
             vec![],
-            self.configuration
-                .get_snapshot_dir()?
-                .join(digests_dir.clone()),
+            self.configuration.get_snapshot_dir()?.join(digests_dir),
             immutable_file_digest_mapper,
             logger.clone(),
         )?);
