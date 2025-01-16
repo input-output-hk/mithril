@@ -1263,9 +1263,13 @@ impl DependenciesBuilder {
             logger.clone(),
         )?);
 
+        let digests_dir = Path::new("cardano-database").join("digests");
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.get_server_url_prefix()?,
             vec![],
+            self.configuration
+                .get_snapshot_dir()?
+                .join(digests_dir.clone()),
             immutable_file_digest_mapper,
             logger.clone(),
         )?);

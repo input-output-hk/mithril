@@ -29,6 +29,8 @@ pub struct DigestArtifactBuilder {
     /// Uploaders
     uploaders: Vec<Arc<dyn DigestFileUploader>>,
 
+    digests_dir: PathBuf,
+
     immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
 
     logger: Logger,
@@ -39,12 +41,14 @@ impl DigestArtifactBuilder {
     pub fn new(
         aggregator_url_prefix: Url,
         uploaders: Vec<Arc<dyn DigestFileUploader>>,
+        digests_dir: PathBuf,
         immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
         logger: Logger,
     ) -> StdResult<Self> {
         Ok(Self {
             aggregator_url_prefix,
             uploaders,
+            digests_dir,
             immutable_file_digest_mapper,
             logger: logger.new_with_component_name::<Self>(),
         })
@@ -77,8 +81,7 @@ impl DigestArtifactBuilder {
             )
             .collect::<Vec<_>>();
 
-        // TODO : change that injecting the path or using snapshotter
-        let digests_file_path = Path::new("/tmp").join("mithril").join("digests.json");
+        let digests_file_path = DigestArtifactBuilder::get_digests_file_path(&self.digests_dir);
 
         if let Some(digests_dir) = digests_file_path.parent() {
             fs::create_dir_all(digests_dir).with_context(|| {
@@ -130,6 +133,10 @@ impl DigestArtifactBuilder {
                 .to_string(),
         })
     }
+
+    fn get_digests_file_path<P: AsRef<Path>>(digests_dir: P) -> PathBuf {
+        digests_dir.as_ref().join("digests.json")
+    }
 }
 
 #[cfg(test)]
@@ -177,6 +184,7 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             Url::parse("https://aggregator/").unwrap(),
             vec![],
+            PathBuf::from("/tmp/mithril"),
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
         )
@@ -205,6 +213,7 @@ mod tests {
             let builder = DigestArtifactBuilder::new(
                 Url::parse("https://aggregator/").unwrap(),
                 vec![Arc::new(uploader)],
+                PathBuf::from("/tmp/mithril"),
                 Arc::new(MockImmutableFileDigestMapper::new()),
                 TestLogger::file(&log_path),
             )
@@ -226,6 +235,7 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             Url::parse("https://aggregator/").unwrap(),
             vec![Arc::new(uploader)],
+            PathBuf::from("/tmp/mithril"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
         )
@@ -254,6 +264,7 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             Url::parse("https://aggregator/").unwrap(),
             uploaders,
+            PathBuf::from("/tmp/mithril"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
         )
@@ -288,6 +299,7 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             Url::parse("https://aggregator/").unwrap(),
             uploaders,
+            PathBuf::from("/tmp/mithril"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
         )
@@ -329,12 +341,14 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             Url::parse("https://aggregator/").unwrap(),
             vec![],
+            PathBuf::from("/tmp/mithril"),
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
         )
         .unwrap();
 
         let archive_path = builder.create_digest_archive().await.unwrap();
+
         let file_content = read_to_string(archive_path).unwrap();
         let digest_content: CardanoDatabaseDigestListMessage =
             serde_json::from_str(&file_content).unwrap();
@@ -351,16 +365,23 @@ mod tests {
 
     #[tokio::test]
     async fn upload_should_call_upload_with_created_digest_file_and_delete_the_file() {
-        // TODO : This test is flaky because we create and remove a file with an hard coded path
+        let digests_dir = TempDir::create(
+            "digests",
+            "upload_should_call_upload_with_created_digest_file_and_delete_the_file",
+        );
         let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
         immutable_file_digest_mapper
             .expect_get_immutable_file_digest_map()
             .returning(|| Ok(BTreeMap::new()));
 
         let mut digest_file_uploader = MockDigestFileUploader::new();
+
+        let digest_file = DigestArtifactBuilder::get_digests_file_path(&digests_dir);
+
+        let digest_file_clone = digest_file.clone();
         digest_file_uploader
             .expect_upload()
-            .withf(|path| path == Path::new("/tmp/mithril/digests.json") && path.exists())
+            .withf(move |path| path == digest_file_clone && path.exists())
             .times(1)
             .return_once(|_| {
                 Ok(DigestLocation::CloudStorage {
@@ -371,6 +392,7 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             Url::parse("https://aggregator/").unwrap(),
             vec![Arc::new(digest_file_uploader)],
+            digests_dir,
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
         )
@@ -378,6 +400,6 @@ mod tests {
 
         let _locations = builder.upload().await.unwrap();
 
-        assert!(!Path::new("/tmp/mithril/digests.json").exists());
+        assert!(!digest_file.exists());
     }
 }

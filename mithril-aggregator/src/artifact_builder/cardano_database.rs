@@ -240,6 +240,7 @@ mod tests {
             DigestArtifactBuilder::new(
                 Url::parse("http://aggregator_uri").unwrap(),
                 vec![],
+                test_dir.join("digests"),
                 Arc::new(immutable_file_digest_mapper),
                 TestLogger::stdout(),
             )
