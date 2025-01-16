@@ -122,7 +122,7 @@ fn compute_uncompressed_database_size(path: &Path) -> StdResult<u64> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{collections::BTreeMap, path::PathBuf};
 
     use mithril_common::{
         digesters::DummyCardanoDbBuilder,
@@ -136,9 +136,8 @@ mod tests {
     use reqwest::Url;
 
     use crate::{
-        artifact_builder::{
-            MockAncillaryFileUploader, MockDigestFileUploader, MockImmutableFilesUploader,
-        },
+        artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
+        immutable_file_digest_mapper::MockImmutableFileDigestMapper,
         test_tools::TestLogger,
         DumbSnapshotter,
     };
@@ -231,12 +230,21 @@ mod tests {
             .unwrap()
         };
 
-        let digest_artifact_builder = DigestArtifactBuilder::new(
-            Url::parse("http://aggregator_uri").unwrap(),
-            vec![],
-            TestLogger::stdout(),
-        )
-        .unwrap();
+        let digest_artifact_builder = {
+            let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
+
+            immutable_file_digest_mapper
+                .expect_get_immutable_file_digest_map()
+                .returning(|| Ok(BTreeMap::new()));
+
+            DigestArtifactBuilder::new(
+                Url::parse("http://aggregator_uri").unwrap(),
+                vec![],
+                Arc::new(immutable_file_digest_mapper),
+                TestLogger::stdout(),
+            )
+            .unwrap()
+        };
 
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
             test_dir,

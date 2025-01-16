@@ -1230,6 +1230,7 @@ impl DependenciesBuilder {
         logger: &Logger,
         cardano_node_version: Version,
         snapshotter: Arc<dyn Snapshotter>,
+        immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
     ) -> Result<CardanoDatabaseArtifactBuilder> {
         let artifacts_dir = Path::new("cardano-database").join("ancillary");
         let snapshot_dir = self
@@ -1265,6 +1266,7 @@ impl DependenciesBuilder {
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.get_server_url_prefix()?,
             vec![],
+            immutable_file_digest_mapper,
             logger.clone(),
         )?);
 
@@ -1305,11 +1307,13 @@ impl DependenciesBuilder {
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
+        let immutable_file_digest_mapper = self.get_immutable_file_digest_mapper().await?;
         let cardano_database_artifact_builder =
             Arc::new(self.create_cardano_database_artifact_builder(
                 &logger,
                 cardano_node_version,
                 snapshotter,
+                immutable_file_digest_mapper,
             )?);
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
@@ -1825,7 +1829,9 @@ impl DependenciesBuilder {
 mod tests {
     use mithril_common::{entities::SignedEntityTypeDiscriminants, test_utils::TempDir};
 
-    use crate::test_tools::TestLogger;
+    use crate::{
+        immutable_file_digest_mapper::MockImmutableFileDigestMapper, test_tools::TestLogger,
+    };
 
     use super::*;
 
@@ -1888,11 +1894,14 @@ mod tests {
 
         assert!(!ancillary_dir.exists());
 
+        let immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
+
         dep_builder
             .create_cardano_database_artifact_builder(
                 &TestLogger::stdout(),
                 Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
+                Arc::new(immutable_file_digest_mapper),
             )
             .unwrap();
 
