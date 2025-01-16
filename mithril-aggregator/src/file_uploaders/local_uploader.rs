@@ -4,10 +4,10 @@ use reqwest::Url;
 use slog::{debug, Logger};
 use std::path::{Path, PathBuf};
 
-use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
+use mithril_common::{entities::FileUri, logging::LoggerExtensions};
 
-use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader, FileUri};
+use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader};
 
 /// LocalUploader is a file uploader working using local files
 pub struct LocalUploader {

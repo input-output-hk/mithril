@@ -1,12 +1,13 @@
 use anyhow::Context;
 use async_trait::async_trait;
+use mithril_common::entities::FileUri;
 use semver::Version;
 use slog::{debug, warn, Logger};
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{file_uploaders::FileUri, snapshotter::OngoingSnapshot, FileUploader, Snapshotter};
+use crate::{snapshotter::OngoingSnapshot, FileUploader, Snapshotter};
 
 use super::ArtifactBuilder;
 use mithril_common::logging::LoggerExtensions;

@@ -1,9 +1,9 @@
 use anyhow::anyhow;
 use async_trait::async_trait;
-use mithril_common::StdResult;
+use mithril_common::{entities::FileUri, StdResult};
 use std::{path::Path, sync::RwLock};
 
-use crate::file_uploaders::{FileUploader, FileUri};
+use crate::file_uploaders::FileUploader;
 
 /// Dummy uploader for test purposes.
 ///

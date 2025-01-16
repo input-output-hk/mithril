@@ -16,6 +16,7 @@ mod certificate_metadata;
 mod certificate_pending;
 mod compression_algorithm;
 mod epoch;
+mod file_uri;
 mod http_server_error;
 mod mithril_stake_distribution;
 mod protocol_message;
@@ -35,7 +36,7 @@ pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
 pub use cardano_chain_point::{BlockHash, ChainPoint};
 pub use cardano_database::{
     AncillaryLocation, AncillaryLocationDiscriminants, ArtifactsLocations, CardanoDatabaseSnapshot,
-    DigestLocation, ImmutablesLocation, MultiFilesUri, TemplateUri,
+    DigestLocation, ImmutablesLocation,
 };
 pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
@@ -48,6 +49,7 @@ pub use certificate_metadata::{CertificateMetadata, StakeDistributionParty};
 pub use certificate_pending::CertificatePending;
 pub use compression_algorithm::*;
 pub use epoch::{Epoch, EpochError};
+pub use file_uri::{FileUri, MultiFilesUri, TemplateUri};
 pub use http_server_error::{ClientError, ServerError};
 pub use mithril_stake_distribution::MithrilStakeDistribution;
 pub use protocol_message::{ProtocolMessage, ProtocolMessagePartKey, ProtocolMessagePartValue};
