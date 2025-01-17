@@ -2,6 +2,9 @@
 sidebar_position: 3
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 import CompiledBinaries from '../../../compiled-binaries.mdx'
 
 # Mithril client node
@@ -38,12 +41,28 @@ The Mithril network configurations are available in the [**Network configuration
 
 ## Prerequisites
 
+<Tabs groupId="system" queryString>
+<TabItem value="linux-mac" label="Linux / Mac">
 - Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust
   toolchain
 
 - Install build tools `build-essential` and `m4`; for example, on Ubuntu/Debian/Mint, run `sudo apt install build-essential m4`
 
 - Install OpenSSL development libraries; for example, on Ubuntu/Debian/Mint, run `apt install libssl-dev`.
+
+</TabItem>
+<TabItem value="windows" label="Windows">
+:::info
+All Windows commands below are run on PowerShell 5.
+:::
+
+- Install [Visual Studio C++ Build tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) (required by the Rust toolchain).
+
+- Install the latest stable version of the [correctly configured](https://www.rust-lang.org/learn/get-started) Rust
+  toolchain
+
+</TabItem>
+</Tabs>
 
 ## Download the source file
 
@@ -69,55 +88,127 @@ git checkout **YOUR_BUILD_BRANCH_OR_TAG**
 
 Change the directory:
 
-```bash
-cd mithril/mithril-client-cli
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  cd mithril/mithril-client-cli
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  cd mithril\mithril-client-cli
+  ```
+  </TabItem>
+</Tabs>
 
 ## Development testing and building
 
 Run tests:
 
-```bash
-make test
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  make test
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  cargo test
+  ```
+  </TabItem>
+</Tabs>
 
 Create the help menu:
 
-```bash
-make help
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  make help
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  cargo run -- -h
+  ```
+  </TabItem>
+</Tabs>
 
 Generate the Rust documentation:
 
-```bash
-make doc
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  make doc
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  cargo doc --no-deps --open
+  ```
+  </TabItem>
+</Tabs>
 
 Run in debug mode with the default configuration:
 
-```bash
-make debug
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  make debug
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  cargo run
+  ```
+  </TabItem>
+</Tabs>
 
 ## Release the build and run the binary
 
 Build and run in release mode with the default configuration:
 
-```bash
-make run
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  make run
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  cargo build --release; copy ..\target\release\mithril-client.exe .; .\mithril-client
+  ```
+  </TabItem>
+</Tabs>
 
 Or, build only in release mode:
 
-```bash
-make build
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  make build
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  cargo build --release; copy ..\target\release\mithril-client.exe .
+  ```
+  </TabItem>
+</Tabs>
 
 Display the help menu:
 
-```bash
-./mithril-client-cli --help
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  ./mithril-client --help
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  .\mithril-client --help
+  ```
+  </TabItem>
+</Tabs>
 
 You should see:
 
@@ -156,29 +247,65 @@ Options:
 
 Run in release mode with the default configuration:
 
-```bash
-./mithril-client-cli
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  ./mithril-client
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  .\mithril-client
+  ```
+  </TabItem>
+</Tabs>
 
 Run in release mode with a specific mode:
 
-```bash
-./mithril-client-cli --run-mode preview
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  ./mithril-client --run-mode preview
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  .\mithril-client --run-mode preview
+  ```
+  </TabItem>
+</Tabs>
 
 Run in release mode with a custom configuration using environment variables:
 
-```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./mithril-client
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./mithril-client
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  $env:GENESIS_VERIFICATION_KEY = curl.exe --silent - **YOUR_GENESIS_VERIFICATION_KEY**; $env:AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**; .\mithril-client
+  ```
+  </TabItem>
+</Tabs>
 
 :::tip
 
 To display results in JSON format for the `list` and `show` commands, simply use the `--json` (or `-j`) option:
 
-```bash
-./mithril-client-cli cardano-db snapshot list --json
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  ./mithril-client cardano-db snapshot list --json
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  .\mithril-client cardano-db snapshot list --json
+  ```
+  </TabItem>
+</Tabs>
 
 :::
 
@@ -195,7 +322,19 @@ If you wish to delve deeper and access several levels of logs from the Mithril c
 
 ## Download the pre-built binary
 
-<CompiledBinaries  node="mithril-client"/>
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  <CompiledBinaries  node="mithril-client"/>
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  :::info
+  Each distribution (pre-)release comes with pre-compiled binaries ready to use.
+  You can download them from the distribution (pre-)release distribution page on GitHub that depends on the Mithril network you
+  are targeting.
+  These links are available in the **Build from** field in the [**network configurations**](/manual/getting-started/network-configurations) table.
+  :::
+  </TabItem>
+</Tabs>
 
 ## Run a Docker container
 
@@ -206,29 +345,64 @@ found [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-c
 
 To prepare the environment variables, retrieve the values from the **Mithril networks** section.
 
-```bash
-export MITHRIL_IMAGE_ID=**YOUR_MITHRIL_IMAGE_ID**
-export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
-export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
-export SNAPSHOT_DIGEST=latest
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  export MITHRIL_IMAGE_ID=**YOUR_MITHRIL_IMAGE_ID**
+  export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
+  export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
+  export SNAPSHOT_DIGEST=latest
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  $env:MITHRIL_IMAGE_ID="**YOUR_MITHRIL_IMAGE_ID**"
+  $env:AGGREGATOR_ENDPOINT="**YOUR_AGGREGATOR_ENDPOINT**"
+  $env:GENESIS_VERIFICATION_KEY = curl.exe --silent - **YOUR_GENESIS_VERIFICATION_KEY**
+  $env:SNAPSHOT_DIGEST="latest"
+  ```
+  </TabItem>
+</Tabs>
 
 Here is an example configuration for the `release-preprod` network and the `latest` stable Docker image:
 
-```bash
-export MITHRIL_IMAGE_ID=latest
-export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
-export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
-export SNAPSHOT_DIGEST=latest
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  export MITHRIL_IMAGE_ID=latest
+  export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
+  export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
+  export SNAPSHOT_DIGEST=latest
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  $env:MITHRIL_IMAGE_ID="latest"
+  $env:AGGREGATOR_ENDPOINT="https://aggregator.release-preprod.api.mithril.network/aggregator"
+  $env:GENESIS_VERIFICATION_KEY = curl.exe --silent - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey
+  $env:SNAPSHOT_DIGEST="latest"
+  ```
+  </TabItem>
+</Tabs>
 
 Proceed by creating a shell function for the Mithril client:
 
-```bash
-mithril_client () {
-  docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
-}
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  mithril_client () {
+    docker run --rm -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+  }
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  function mithril_client {
+    docker run --rm -e GENESIS_VERIFICATION_KEY=$env:GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$env:AGGREGATOR_ENDPOINT --name='mithril-client' -v ${PWD}:/app/data ghcr.io/input-output-hk/mithril-client:$env:MITHRIL_IMAGE_ID $args
+  }
+  ```
+  </TabItem>
+</Tabs>
 
 Now you can use the `mithril_client` functions:
 
@@ -271,15 +445,33 @@ mithril_client cardano-stake-distribution download $UNIQUE_IDENTIFIER
 
 Build a local Docker image:
 
-```bash
-make docker-build
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  make docker-build
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  pushd ..\; docker build -t mithril/mithril-client -f mithril-client-cli\Dockerfile . ; popd
+  ```
+  </TabItem>
+</Tabs>
 
 Run a local Docker container:
 
-```bash
-make docker-run
-```
+<Tabs groupId="system" queryString>
+  <TabItem value="linux-mac" label="Linux / Mac">
+  ```bash
+  make docker-run
+  ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+  ```powershell
+  docker run --rm --name='mithril-client' mithril/mithril-client
+  ```
+  </TabItem>
+</Tabs>
 
 ## Subcommands
 
