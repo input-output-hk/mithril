@@ -18,6 +18,8 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Implement the artifact routes of the aggregator for the signed entity type `CardanoDatabase`.
   - Implement the immutable file digests route in the aggregator.
   - Implement the artifact ancillary builder in the aggregator.
+  - Implement the artifact immutable builder in the aggregator.
+  - Implement the artifact digest builder in the aggregator.
 
 - Crates versions:
 
