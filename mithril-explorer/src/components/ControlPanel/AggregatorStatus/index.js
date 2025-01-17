@@ -1,19 +1,11 @@
 import React, { useEffect, useState } from "react";
-import {
-  Card,
-  Row,
-  Col,
-  Collapse,
-  Container,
-  OverlayTrigger,
-  Stack,
-  Tooltip,
-} from "react-bootstrap";
+import { Card, Row, Col, Collapse, Container, Stack } from "react-bootstrap";
 import { useSelector } from "react-redux";
 import EpochSettings from "#/ControlPanel/EpochSettings";
 import LinkButton from "#/LinkButton";
 import RawJsonButton from "#/RawJsonButton";
 import ProtocolParameters from "#/ProtocolParameters";
+import QuestionTooltip from "#/QuestionTooltip";
 import Stake from "#/Stake";
 import { selectedAggregator } from "@/store/settingsSlice";
 import { checkUrl, formatStake } from "@/utils";
@@ -46,13 +38,7 @@ function InfoRow({ label, children, className = "", ...props }) {
 }
 
 function PercentTooltip({ value, total, ...props }) {
-  return (
-    <OverlayTrigger overlay={<Tooltip>{`${value} out of ${total}`}</Tooltip>}>
-      <span {...props}>
-        <i className="bi bi-question-circle text-secondary"></i>
-      </span>
-    </OverlayTrigger>
-  );
+  return <QuestionTooltip tooltip={`${value} out of ${total}`} {...props} />;
 }
 
 export default function AggregatorStatus({ showContent = true }) {
