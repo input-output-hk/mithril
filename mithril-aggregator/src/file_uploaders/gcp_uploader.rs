@@ -8,9 +8,9 @@ use slog::{info, Logger};
 use std::{env, path::Path};
 use tokio_util::codec::{BytesCodec, FramedRead};
 
-use mithril_common::{logging::LoggerExtensions, StdResult};
+use mithril_common::{entities::FileUri, logging::LoggerExtensions, StdResult};
 
-use crate::{file_uploaders::FileUri, FileUploader};
+use crate::FileUploader;
 
 /// GcpUploader represents a Google Cloud Platform file uploader interactor
 pub struct GcpUploader {

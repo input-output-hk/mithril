@@ -3578,7 +3578,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.6.12"
+version = "0.6.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3600,6 +3600,7 @@ dependencies = [
  "paste",
  "prometheus",
  "rayon",
+ "regex",
  "reqwest 0.12.12",
  "semver",
  "serde",
@@ -3738,7 +3739,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.4.104"
+version = "0.4.105"
 dependencies = [
  "anyhow",
  "async-trait",

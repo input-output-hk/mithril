@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::{
     AncillaryLocation, ArtifactsLocations, CardanoDbBeacon, CompressionAlgorithm, DigestLocation,
-    Epoch, ImmutablesLocation,
+    Epoch, ImmutablesLocation, MultiFilesUri, TemplateUri,
 };
 
 /// Locations of the Cardano database related files.
@@ -81,10 +81,14 @@ impl CardanoDatabaseSnapshotMessage {
                 }],
                 immutables: vec![
                     ImmutablesLocation::CloudStorage {
-                        uri: "https://host-1/immutables-2".to_string(),
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "https://host-1/immutables-2".to_string(),
+                        )),
                     },
                     ImmutablesLocation::CloudStorage {
-                        uri: "https://host-2/immutables-2".to_string(),
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "https://host-2/immutables-2".to_string(),
+                        )),
                     },
                 ],
                 ancillary: vec![AncillaryLocation::CloudStorage {
@@ -121,11 +125,15 @@ mod tests {
             "immutables": [
             {
                 "type": "cloud_storage",
-                "uri": "https://host-1/immutables-2"
+                "uri": {
+                    "Template": "https://host-1/immutables-{immutable_file_number}"
+                }
             },
             {
                 "type": "cloud_storage",
-                "uri": "https://host-2/immutables-2"
+                "uri": {
+                    "Template": "https://host-2/immutables-{immutable_file_number}"
+                }
             }
             ],
             "ancillary": [
@@ -161,10 +169,14 @@ mod tests {
                 }],
                 immutables: vec![
                     ImmutablesLocation::CloudStorage {
-                        uri: "https://host-1/immutables-2".to_string(),
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "https://host-1/immutables-{immutable_file_number}".to_string(),
+                        )),
                     },
                     ImmutablesLocation::CloudStorage {
-                        uri: "https://host-2/immutables-2".to_string(),
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "https://host-2/immutables-{immutable_file_number}".to_string(),
+                        )),
                     },
                 ],
                 ancillary: vec![AncillaryLocation::CloudStorage {

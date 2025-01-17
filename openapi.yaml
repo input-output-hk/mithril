@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.41
+  version: 0.1.42
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -1871,28 +1871,45 @@ components:
         immutables:
           type: array
           items:
-            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
+            $ref: "#/components/schemas/CardanoDatabaseImmutableLocationMessagePart"
         ancillary:
           type: array
           items:
             $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
       examples:
-        [
-          {
-            "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
-            "beacon":
+        {
+          "digests":
+            [
               {
-                "network": "preview",
-                "epoch": 123,
-                "immutable_file_number": 2345
+                "type": "cloud_storage",
+                "uri": "https://aggregator-endpoint/artifact/cardano-database/digests"
+              }
+            ],
+          "immutables":
+            [
+              {
+                "type": "cloud_storage",
+                "uri":
+                  {
+                    "Template": "https://mithril-cdn-us.iohk.io/snapshot/{immutable-file_number}.tar.zst"
+                  }
               },
-            "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
-            "total_db_size_uncompressed": 800796318,
-            "compression_algorithm": "gzip",
-            "cardano_node_version": "0.0.1",
-            "created_at": "2023-01-19T13:43:05.618857482Z"
-          }
-        ]
+              {
+                "type": "cloud_storage",
+                "uri":
+                  {
+                    "Template": "https://mithril-cdn-eu.iohk.io/snapshot/{immutable-file_number}.tar.zst"
+                  }
+              }
+            ],
+          "ancillary":
+            [
+              {
+                "type": "cloud_storage",
+                "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+              }
+            ]
+        }
 
     CardanoDatabaseArtifactLocationMessagePart:
       description: CardanoDatabaseArtifactLocationMessagePart represents the location of a single Cardano database artifact
@@ -1912,6 +1929,45 @@ components:
           "type": "cloud_storage",
           "uri": "https://mithril-cdn-us.iohk.io/snapshot/digests-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.txt"
         }
+
+    CardanoDatabaseImmutableLocationMessagePart:
+      description: CardanoDatabaseImmutableLocationMessagePart represents the location of a single Cardano database immutable archive
+      type: object
+      required:
+        - type
+        - uri
+      properties:
+        type:
+          description: Type of the artifact location
+          type: string
+        uri:
+          $ref: "#/components/schemas/MultiFilesUri"
+      examples:
+        {
+          "type": "cloud_storage",
+          "uri":
+            { "Template": "https://aggregator/{immutable_file_number}.tar.gz" }
+        }
+
+    MultiFilesUri:
+      description: MultiFilesUri represents information to retrieve multiple files
+      oneOf:
+        - $ref: "#/components/schemas/TemplateUri"
+      examples:
+        { "Template": "https://aggregator/{immutable_file_number}.tar.gz" }
+
+    TemplateUri:
+      description: TemplateUri represents a URI template for multiple files
+      type: object
+      additionalProperties: false
+      required:
+        - Template
+      properties:
+        Template:
+          description: URI template
+          type: string
+      examples:
+        { "Template": "https://aggregator/{immutable_file_number}.tar.gz" }
 
     CardanoDatabaseSnapshotListMessage:
       description: CardanoDatabaseSnapshotListMessage represents a list of Cardano database snapshots
@@ -2055,18 +2111,24 @@ components:
                 [
                   {
                     "type": "cloud_storage",
-                    "uri": "https://mithril-cdn-us.iohk.io/snapshot/digests-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.txt"
+                    "uri": "https://aggregator-endpoint/artifact/cardano-database/digests"
                   }
                 ],
               "immutables":
                 [
                   {
                     "type": "cloud_storage",
-                    "uri": "https://mithril-cdn-us.iohk.io/snapshot/immutables-{immutable-file_number}.tar.zst"
+                    "uri":
+                      {
+                        "Template": "https://mithril-cdn-us.iohk.io/snapshot/{immutable-file_number}.tar.zst"
+                      }
                   },
                   {
                     "type": "cloud_storage",
-                    "uri": "https://mithril-cdn-eu.iohk.io/snapshot/immutables-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732-{immutable-file_number}.tar.zst"
+                    "uri":
+                      {
+                        "Template": "https://mithril-cdn-eu.iohk.io/snapshot/{immutable-file_number}.tar.zst"
+                      }
                   }
                 ],
               "ancillary":

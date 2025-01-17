@@ -1,5 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
+use mithril_common::entities::FileUri;
 use reqwest::Url;
 use slog::{debug, Logger};
 use std::path::{Path, PathBuf};
@@ -7,7 +8,7 @@ use std::path::{Path, PathBuf};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader, FileUri};
+use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader};
 use crate::tools;
 
 // It's only used by the legacy snapshot that uploads the entire Cardano database.
@@ -70,7 +71,7 @@ mod tests {
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
-    use crate::file_uploaders::{FileUploader, FileUri};
+    use crate::file_uploaders::FileUploader;
     use crate::test_tools::TestLogger;
 
     use super::*;

@@ -8,7 +8,6 @@ pub mod url_sanitizer;
 pub use dumb_uploader::*;
 pub use gcp_uploader::GcpUploader;
 pub use interface::FileUploader;
-pub use interface::FileUri;
 pub use local_snapshot_uploader::LocalSnapshotUploader;
 pub use local_uploader::LocalUploader;
 

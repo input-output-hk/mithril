@@ -8,6 +8,8 @@ use crate::{
     signable_builder::Artifact,
 };
 
+use super::MultiFilesUri;
+
 /// Cardano database snapshot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoDatabaseSnapshot {
@@ -68,8 +70,8 @@ impl CardanoDatabaseSnapshot {
     }
 }
 
-/// Locations of the the immutable file digests.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Locations of the immutable file digests.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum DigestLocation {
     /// Aggregator digest route location.
@@ -84,19 +86,21 @@ pub enum DigestLocation {
     },
 }
 
-/// Locations of the ancillary files.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Locations of the immutable files.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ImmutablesLocation {
     /// Cloud storage location.
     CloudStorage {
         /// URI of the cloud storage location.
-        uri: String,
+        uri: MultiFilesUri,
     },
 }
 
 /// Locations of the ancillary files.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumDiscriminants,
+)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum AncillaryLocation {
     /// Cloud storage location.
@@ -145,89 +149,93 @@ mod tests {
         )
     }
 
-    #[test]
-    fn test_cardano_database_snapshot_compute_hash() {
-        let cardano_database_snapshot = CardanoDatabaseSnapshot {
-            merkle_root: "mk-root-123".to_string(),
-            beacon: CardanoDbBeacon::new(123, 98),
-            ..dummy()
-        };
+    mod cardano_database_snapshot_compute_hash {
+        use super::*;
 
-        assert_eq!(
-            "b1cc5e0deaa7856e8e811e349d6e639fa667aa70288602955f438c5893ce29c8",
-            cardano_database_snapshot.compute_hash()
-        );
-    }
+        #[test]
+        fn test_cardano_database_snapshot_compute_hash() {
+            let cardano_database_snapshot = CardanoDatabaseSnapshot {
+                merkle_root: "mk-root-123".to_string(),
+                beacon: CardanoDbBeacon::new(123, 98),
+                ..dummy()
+            };
 
-    #[test]
-    fn compute_hash_returns_same_hash_with_same_cardano_database_snapshot() {
-        assert_eq!(
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash(),
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash()
-        );
-    }
+            assert_eq!(
+                "b1cc5e0deaa7856e8e811e349d6e639fa667aa70288602955f438c5893ce29c8",
+                cardano_database_snapshot.compute_hash()
+            );
+        }
 
-    #[test]
-    fn compute_hash_returns_different_hash_with_different_merkle_root() {
-        assert_ne!(
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash(),
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-456".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash()
-        );
-    }
+        #[test]
+        fn compute_hash_returns_same_hash_with_same_cardano_database_snapshot() {
+            assert_eq!(
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash(),
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash()
+            );
+        }
 
-    #[test]
-    fn compute_hash_returns_different_hash_with_same_epoch_in_beacon() {
-        assert_eq!(
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash(),
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 12),
-                ..dummy()
-            }
-            .compute_hash()
-        );
-    }
+        #[test]
+        fn compute_hash_returns_different_hash_with_different_merkle_root() {
+            assert_ne!(
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash(),
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-456".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash()
+            );
+        }
 
-    #[test]
-    fn compute_hash_returns_different_hash_with_different_beacon() {
-        assert_ne!(
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(123, 98),
-                ..dummy()
-            }
-            .compute_hash(),
-            CardanoDatabaseSnapshot {
-                merkle_root: "mk-root-123".to_string(),
-                beacon: CardanoDbBeacon::new(456, 98),
-                ..dummy()
-            }
-            .compute_hash()
-        );
+        #[test]
+        fn compute_hash_returns_different_hash_with_same_epoch_in_beacon() {
+            assert_eq!(
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash(),
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 12),
+                    ..dummy()
+                }
+                .compute_hash()
+            );
+        }
+
+        #[test]
+        fn compute_hash_returns_different_hash_with_different_beacon() {
+            assert_ne!(
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(123, 98),
+                    ..dummy()
+                }
+                .compute_hash(),
+                CardanoDatabaseSnapshot {
+                    merkle_root: "mk-root-123".to_string(),
+                    beacon: CardanoDbBeacon::new(456, 98),
+                    ..dummy()
+                }
+                .compute_hash()
+            );
+        }
     }
 }

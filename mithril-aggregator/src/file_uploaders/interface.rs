@@ -1,16 +1,6 @@
 use async_trait::async_trait;
-use mithril_common::StdResult;
+use mithril_common::{entities::FileUri, StdResult};
 use std::path::Path;
-
-/// FileUri represents a file URI used to identify the file's location
-#[derive(Debug, PartialEq, Clone)]
-pub struct FileUri(pub String);
-
-impl From<FileUri> for String {
-    fn from(file_uri: FileUri) -> Self {
-        file_uri.0
-    }
-}
 
 /// FileUploader represents a file uploader interactor
 #[cfg_attr(test, mockall::automock)]
