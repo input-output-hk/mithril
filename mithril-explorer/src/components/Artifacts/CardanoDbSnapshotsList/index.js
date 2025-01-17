@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
+import LatestBadge from "#/Artifacts/LatestBadge";
 import CertificateModal from "#/CertificateModal";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
@@ -92,13 +93,8 @@ export default function CardanoDbSnapshotsList(props) {
                     </Card.Body>
                     <Card.Footer>
                       <Stack direction="horizontal" gap={1}>
-                        {index === 0 && (
-                          <>
-                            <Badge bg="primary">Latest</Badge>{" "}
-                          </>
-                        )}
+                        <LatestBadge show={index === 0} />
                         <Badge bg="secondary">{snapshot.beacon.network}</Badge>
-
                         <RawJsonButton
                           href={`${aggregator}/artifact/snapshot/${snapshot.digest}`}
                           size="sm"
