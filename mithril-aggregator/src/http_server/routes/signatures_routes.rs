@@ -94,6 +94,10 @@ mod handlers {
                     debug!(logger,"register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
                     Ok(reply::empty(StatusCode::GONE))
                 }
+                Some(CertifierServiceError::Expired(signed_entity_type)) => {
+                    debug!(logger,"register_signatures::open_message_expired"; "signed_entity_type" => ?signed_entity_type);
+                    Ok(reply::empty(StatusCode::GONE))
+                }
                 Some(CertifierServiceError::NotFound(signed_entity_type)) => {
                     debug!(logger,"register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
                     Ok(reply::empty(StatusCode::NOT_FOUND))
@@ -387,7 +391,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_410() {
+    async fn test_register_signatures_post_ko_410_when_already_certified() {
         let signed_entity_type = SignedEntityType::dummy();
         let message = RegisterSignatureMessage::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
@@ -396,6 +400,43 @@ mod tests {
             .return_once(move |_, _| {
                 Err(CertifierServiceError::AlreadyCertified(signed_entity_type).into())
             });
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&message)
+            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
+                dependency_manager,
+            ))))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &message,
+            &response,
+            &StatusCode::GONE,
+        )
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_post_ko_410_when_expired() {
+        let signed_entity_type = SignedEntityType::dummy();
+        let message = RegisterSignatureMessage::dummy();
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_register_single_signature()
+            .return_once(
+                move |_, _| Err(CertifierServiceError::Expired(signed_entity_type).into()),
+            );
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
