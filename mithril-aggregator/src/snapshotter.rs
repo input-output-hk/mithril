@@ -26,7 +26,7 @@ pub trait Snapshotter: Sync + Send {
     fn snapshot_subset(&self, filepath: &Path, files: Vec<PathBuf>) -> StdResult<OngoingSnapshot>;
 
     /// Check if the snapshot exists.
-    fn is_snapshot_exist(&self, filepath: &Path) -> bool;
+    fn does_snapshot_exist(&self, filepath: &Path) -> bool;
 
     /// Give the full target path for the filepath.
     fn get_file_path(&self, filepath: &Path) -> PathBuf;
@@ -192,7 +192,7 @@ impl Snapshotter for CompressedArchiveSnapshotter {
         self.snapshot(filepath, appender)
     }
 
-    fn is_snapshot_exist(&self, filepath: &Path) -> bool {
+    fn does_snapshot_exist(&self, filepath: &Path) -> bool {
         self.get_file_path(filepath).exists()
     }
 
@@ -518,7 +518,7 @@ impl Snapshotter for DumbSnapshotter {
         self.snapshot_all(archive_name)
     }
 
-    fn is_snapshot_exist(&self, _filepath: &Path) -> bool {
+    fn does_snapshot_exist(&self, _filepath: &Path) -> bool {
         false
     }
 
@@ -936,11 +936,11 @@ mod tests {
         .unwrap();
 
         let snapshot_path = PathBuf::from(random_archive_name());
-        assert!(!snapshotter.is_snapshot_exist(&snapshot_path));
+        assert!(!snapshotter.does_snapshot_exist(&snapshot_path));
 
         snapshotter.snapshot_all(&snapshot_path).unwrap();
 
-        assert!(snapshotter.is_snapshot_exist(&snapshot_path));
+        assert!(snapshotter.does_snapshot_exist(&snapshot_path));
     }
 
     #[test]

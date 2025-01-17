@@ -126,7 +126,7 @@ impl ImmutableArtifactBuilder {
             let immutable_archive_file_path = immutable_archive_dir_path.join(archive_name);
             if !self
                 .snapshotter
-                .is_snapshot_exist(&immutable_archive_file_path)
+                .does_snapshot_exist(&immutable_archive_file_path)
             {
                 self.snapshotter
                     .snapshot_subset(&immutable_archive_file_path, files_to_archive)?;
@@ -225,7 +225,9 @@ mod tests {
     async fn upload_call_archive_creation_and_upload_to_retrieve_locations() {
         let snapshotter = {
             let mut snapshotter = MockSnapshotter::new();
-            snapshotter.expect_is_snapshot_exist().returning(|_| false);
+            snapshotter
+                .expect_does_snapshot_exist()
+                .returning(|_| false);
             snapshotter
                 .expect_get_file_path()
                 .returning(move |f| Path::new("/destination").join(f));
@@ -287,7 +289,9 @@ mod tests {
                 .expect_get_file_path()
                 .returning(move |f| Path::new("/tmp").join(f));
 
-            snapshotter.expect_is_snapshot_exist().returning(|_| false);
+            snapshotter
+                .expect_does_snapshot_exist()
+                .returning(|_| false);
 
             snapshotter
                 .expect_snapshot_subset()
@@ -440,19 +444,19 @@ mod tests {
                 .returning(move |f| Path::new("/tmp").join(f));
 
             snapshotter
-                .expect_is_snapshot_exist()
+                .expect_does_snapshot_exist()
                 .times(1)
                 .with(eq(Path::new("cardano-database/immutable/00001.tar.gz")))
                 .returning(|_| true);
 
             snapshotter
-                .expect_is_snapshot_exist()
+                .expect_does_snapshot_exist()
                 .times(1)
                 .with(eq(Path::new("cardano-database/immutable/00002.tar.gz")))
                 .returning(|_| true);
 
             snapshotter
-                .expect_is_snapshot_exist()
+                .expect_does_snapshot_exist()
                 .times(1)
                 .with(eq(Path::new("cardano-database/immutable/00003.tar.gz")))
                 .returning(|_| false);
@@ -497,7 +501,7 @@ mod tests {
             snapshotter
                 .expect_get_file_path()
                 .returning(move |f| Path::new("/tmp").join(f));
-            snapshotter.expect_is_snapshot_exist().returning(|_| true);
+            snapshotter.expect_does_snapshot_exist().returning(|_| true);
             snapshotter.expect_snapshot_subset().never();
 
             let builder = ImmutableArtifactBuilder::new(

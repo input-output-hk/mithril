@@ -15,11 +15,11 @@ use slog::{error, Logger};
 
 use crate::ImmutableFileDigestMapper;
 
-/// The [DigestFileUploader] trait allows identifying uploaders that return locations for digest archive files.
+/// The [DigestFileUploader] trait allows identifying uploaders that return locations for digest files.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait DigestFileUploader: Send + Sync {
-    /// Uploads the archive at the given filepath and returns the location of the uploaded file.
+    /// Uploads the file at the given filepath and returns the location of the uploaded file.
     async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation>;
 }
 
@@ -55,20 +55,17 @@ impl DigestArtifactBuilder {
     }
 
     pub async fn upload(&self) -> StdResult<Vec<DigestLocation>> {
-        let digest_path = self.create_digest_archive().await?;
+        let digest_path = self.create_digest_file().await?;
 
-        let locations = self.upload_digest_archive(&digest_path).await;
+        let locations = self.upload_digest_file(&digest_path).await;
         fs::remove_file(&digest_path).with_context(|| {
-            format!(
-                "Could not remove digest archive file: '{}'",
-                digest_path.display()
-            )
+            format!("Could not remove digest file: '{}'", digest_path.display())
         })?;
 
         locations
     }
 
-    async fn create_digest_archive(&self) -> StdResult<PathBuf> {
+    async fn create_digest_file(&self) -> StdResult<PathBuf> {
         let immutable_file_digest_map = self
             .immutable_file_digest_mapper
             .get_immutable_file_digest_map()
@@ -99,11 +96,8 @@ impl DigestArtifactBuilder {
         Ok(digests_file_path)
     }
 
-    /// Uploads the digest archive and returns the locations of the uploaded files.
-    async fn upload_digest_archive(
-        &self,
-        digest_filepath: &Path,
-    ) -> StdResult<Vec<DigestLocation>> {
+    /// Uploads the digest file and returns the locations of the uploaded files.
+    async fn upload_digest_file(&self, digest_filepath: &Path) -> StdResult<Vec<DigestLocation>> {
         let mut locations = Vec::<DigestLocation>::new();
         for uploader in &self.uploaders {
             let result = uploader.upload(digest_filepath).await;
@@ -114,7 +108,7 @@ impl DigestArtifactBuilder {
                 Err(e) => {
                     error!(
                         self.logger,
-                        "Failed to upload digest archive";
+                        "Failed to upload digest file";
                         "error" => e.to_string()
                     );
                 }
@@ -205,8 +199,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_digest_archive_should_log_upload_errors() {
-        let log_path = TempDir::create("digest", "upload_digest_archive_should_log_upload_errors")
+    async fn upload_digest_file_should_log_upload_errors() {
+        let log_path = TempDir::create("digest", "upload_digest_file_should_log_upload_errors")
             .join("test.log");
 
         let mut uploader = MockDigestFileUploader::new();
@@ -224,9 +218,7 @@ mod tests {
             )
             .unwrap();
 
-            let _ = builder
-                .upload_digest_archive(Path::new("digest_file"))
-                .await;
+            let _ = builder.upload_digest_file(Path::new("digest_file")).await;
         }
 
         let logs = std::fs::read_to_string(&log_path).unwrap();
@@ -234,7 +226,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_digest_archive_should_not_error_even_if_no_location_returned_from_uploaders() {
+    async fn upload_digest_file_should_not_error_even_if_no_location_returned_from_uploaders() {
         let uploader = fake_uploader_returning_error();
 
         let builder = DigestArtifactBuilder::new(
@@ -247,7 +239,7 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_archive(Path::new("digest_file"))
+            .upload_digest_file(Path::new("digest_file"))
             .await
             .unwrap();
 
@@ -255,7 +247,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_digest_archive_should_return_location_even_with_uploaders_errors() {
+    async fn upload_digest_file_should_return_location_even_with_uploaders_errors() {
         let first_uploader = fake_uploader_returning_error();
         let second_uploader = fake_uploader("an_uri");
         let third_uploader = fake_uploader_returning_error();
@@ -276,7 +268,7 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_archive(Path::new("digest_file"))
+            .upload_digest_file(Path::new("digest_file"))
             .await
             .unwrap();
 
@@ -294,7 +286,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_digest_archive_should_return_all_uploaders_returned_locations() {
+    async fn upload_digest_file_should_return_all_uploaders_returned_locations() {
         let first_uploader = fake_uploader("an_uri");
         let second_uploader = fake_uploader("another_uri");
 
@@ -311,7 +303,7 @@ mod tests {
         .unwrap();
 
         let locations = builder
-            .upload_digest_archive(Path::new("digest_file"))
+            .upload_digest_file(Path::new("digest_file"))
             .await
             .unwrap();
 
@@ -332,10 +324,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn create_digest_archive_should_create_json_file_with_all_digests() {
+    async fn create_digest_file_should_create_json_file_with_all_digests() {
         let temp_dir = TempDir::create(
             "digest",
-            "create_digest_archive_should_create_json_file_with_all_digests",
+            "create_digest_file_should_create_json_file_with_all_digests",
         );
         let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
         immutable_file_digest_mapper
@@ -356,9 +348,9 @@ mod tests {
         )
         .unwrap();
 
-        let archive_path = builder.create_digest_archive().await.unwrap();
+        let digest_file = builder.create_digest_file().await.unwrap();
 
-        let file_content = read_to_string(archive_path).unwrap();
+        let file_content = read_to_string(digest_file).unwrap();
         let digest_content: CardanoDatabaseDigestListMessage =
             serde_json::from_str(&file_content).unwrap();
 
