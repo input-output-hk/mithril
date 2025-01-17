@@ -354,9 +354,6 @@ impl AggregatorClient for AggregatorHTTPClient {
                     Ok(())
                 }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                StatusCode::CONFLICT => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                    "already registered single signatures"
-                ))),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
