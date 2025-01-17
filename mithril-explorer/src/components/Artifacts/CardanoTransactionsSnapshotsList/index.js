@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Badge, Button, Card, Col, Container, Form, ListGroup, Row, Stack } from "react-bootstrap";
+import { Button, Card, Col, Container, Form, ListGroup, Row, Stack } from "react-bootstrap";
+import LatestBadge from "#/Artifacts/LatestBadge";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
 import CardanoTransactionsFormInput from "#/CardanoTransactionsFormInput";
@@ -145,12 +146,7 @@ export default function CardanoTransactionsSnapshotsList(props) {
                     </Card.Body>
                     <Card.Footer>
                       <Stack direction="horizontal" gap={1}>
-                        {index === 0 && (
-                          <>
-                            <Badge bg="primary">Latest</Badge>{" "}
-                          </>
-                        )}
-
+                        <LatestBadge show={index === 0} />
                         <RawJsonButton
                           href={`${aggregator}/artifact/cardano-transaction/${cardanoTransactionsSnapshot.hash}`}
                           size="sm"

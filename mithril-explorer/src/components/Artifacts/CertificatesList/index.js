@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
+import LatestBadge from "#/Artifacts/LatestBadge";
 import CertificateModal from "#/CertificateModal";
 import LocalDateTime from "#/LocalDateTime";
 import RawJsonButton from "#/RawJsonButton";
@@ -98,11 +99,8 @@ export default function CertificatesList(props) {
                     </Card.Body>
                     <Card.Footer>
                       <Stack direction="horizontal" gap={1}>
-                        {index === 0 && (
-                          <>
-                            <Badge bg="primary">Latest</Badge>{" "}
-                          </>
-                        )}
+                        <LatestBadge show={index === 0} />
+
                         <Badge bg="secondary">{certificate.metadata.network}</Badge>
 
                         <RawJsonButton
