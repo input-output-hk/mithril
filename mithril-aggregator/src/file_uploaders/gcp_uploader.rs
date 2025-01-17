@@ -5,25 +5,73 @@ use cloud_storage::{
     Client,
 };
 use slog::{info, Logger};
-use std::{env, path::Path, sync::Arc};
+use std::{
+    env,
+    fmt::Display,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use tokio_util::codec::{BytesCodec, FramedRead};
 
 use mithril_common::{entities::FileUri, logging::LoggerExtensions, StdResult};
 
 use crate::FileUploader;
 
+/// CloudRemotePath represents a cloud remote path
+#[derive(Debug, Clone, PartialEq)]
+pub struct CloudRemotePath(PathBuf);
+
+impl CloudRemotePath {
+    /// CloudRemotePath factory
+    pub fn new(file_path: &str) -> Self {
+        Self(PathBuf::from(file_path))
+    }
+
+    /// Join a file path to the current remote path
+    pub fn join(&self, file_path: &str) -> Self {
+        let mut path = self.0.clone();
+        path.push(file_path);
+
+        Self(path)
+    }
+}
+
+impl Display for CloudRemotePath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0.to_string_lossy())
+    }
+}
+
+impl From<&Path> for CloudRemotePath {
+    fn from(path: &Path) -> Self {
+        CloudRemotePath(path.to_path_buf())
+    }
+}
+
+fn get_file_name(file_path: &Path) -> StdResult<&str> {
+    file_path
+        .file_name()
+        .map(|s| s.to_str())
+        .ok_or(anyhow!("Could not convert file path to file name"))?
+        .ok_or(anyhow!("Could not find the final component of the path"))
+}
+
 /// CloudBackendUploader represents a cloud backend uploader
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait CloudBackendUploader: Send + Sync {
-    /// Check if a file exists in the Cloud backend
-    async fn file_exists(&self, file_path: &Path) -> StdResult<Option<FileUri>>;
+    /// Check if a file exists in the cloud backend
+    async fn file_exists(&self, remote_file_path: &CloudRemotePath) -> StdResult<Option<FileUri>>;
 
-    /// Upload a file to the Cloud backend
-    async fn upload_file(&self, file_path: &Path) -> StdResult<FileUri>;
+    /// Upload a file to the cloud backend
+    async fn upload_file(
+        &self,
+        local_file_path: &Path,
+        remote_file_path: &CloudRemotePath,
+    ) -> StdResult<FileUri>;
 
-    /// Make a file public in the Cloud backend
-    async fn make_file_public(&self, file_path: &Path) -> StdResult<()>;
+    /// Make a file public in the cloud backend
+    async fn make_file_public(&self, remote_file_path: &CloudRemotePath) -> StdResult<()>;
 }
 
 /// GcpBackendUploader represents a Google Cloud Platform file uploader
@@ -52,13 +100,14 @@ impl GcpBackendUploader {
         })
     }
 
-    fn get_location(&self, filename: &str) -> FileUri {
+    fn get_location(&self, remote_file_path: &CloudRemotePath) -> FileUri {
         let mut uri = vec![];
         if !self.use_cdn_domain {
             uri.push("storage.googleapis.com");
         }
         uri.push(&self.bucket);
-        uri.push(filename);
+        let file_path = remote_file_path.to_string();
+        uri.push(&file_path);
 
         FileUri(format!("https://{}", uri.join("/")))
     }
@@ -66,24 +115,22 @@ impl GcpBackendUploader {
 
 #[async_trait]
 impl CloudBackendUploader for GcpBackendUploader {
-    async fn file_exists(&self, file_path: &Path) -> StdResult<Option<FileUri>> {
-        let file_name =
-            get_file_name(file_path).with_context(|| "computing file name from path")?;
-        info!(self.logger, "Reading file metadata {file_name}");
+    async fn file_exists(&self, remote_file_path: &CloudRemotePath) -> StdResult<Option<FileUri>> {
+        info!(self.logger, "Reading file metadata {remote_file_path}");
         let file_uri = match self
             .client
             .object()
-            .read(&self.bucket, file_name)
+            .read(&self.bucket, &remote_file_path.to_string())
             .await
             .with_context(|| "remote reading file metadata failure")
         {
             Ok(_) => {
-                info!(self.logger, "Found file metadata {file_name}");
+                info!(self.logger, "Found file metadata {remote_file_path}");
 
-                Some(self.get_location(file_name))
+                Some(self.get_location(remote_file_path))
             }
             Err(_) => {
-                info!(self.logger, "Missing file metadata {file_name}");
+                info!(self.logger, "Missing file metadata {remote_file_path}");
 
                 None
             }
@@ -92,11 +139,16 @@ impl CloudBackendUploader for GcpBackendUploader {
         Ok(file_uri)
     }
 
-    async fn upload_file(&self, file_path: &Path) -> StdResult<FileUri> {
-        let file_name =
-            get_file_name(file_path).with_context(|| "computing file name from path")?;
-        info!(self.logger, "Uploading {file_name}");
-        let file = tokio::fs::File::open(file_path).await.unwrap();
+    async fn upload_file(
+        &self,
+        local_file_path: &Path,
+        remote_file_path: &CloudRemotePath,
+    ) -> StdResult<FileUri> {
+        info!(
+            self.logger,
+            "Uploading {local_file_path:?} to {remote_file_path}"
+        );
+        let file = tokio::fs::File::open(local_file_path).await.unwrap();
         let stream = FramedRead::new(file, BytesCodec::new());
         self.client
             .object()
@@ -104,50 +156,48 @@ impl CloudBackendUploader for GcpBackendUploader {
                 &self.bucket,
                 stream,
                 None,
-                file_name,
+                &remote_file_path.to_string(),
                 "application/octet-stream",
             )
             .await
             .with_context(|| "remote uploading failure")?;
-        info!(self.logger, "Uploaded {file_name}");
+        info!(
+            self.logger,
+            "Uploaded {local_file_path:?} to {remote_file_path}"
+        );
 
-        Ok(self.get_location(file_name))
+        Ok(self.get_location(remote_file_path))
     }
 
-    async fn make_file_public(&self, file_path: &Path) -> StdResult<()> {
-        let file_name =
-            get_file_name(file_path).with_context(|| "computing file name from path")?;
+    async fn make_file_public(&self, remote_file_path: &CloudRemotePath) -> StdResult<()> {
         let new_bucket_access_control = NewObjectAccessControl {
             entity: Entity::AllUsers,
             role: Role::Reader,
         };
         info!(
             self.logger,
-            "Updating acl for {file_name}: {new_bucket_access_control:?}"
+            "Updating acl for {remote_file_path}: {new_bucket_access_control:?}"
         );
         self.client
             .object_access_control()
-            .create(&self.bucket, file_name, &new_bucket_access_control)
+            .create(
+                &self.bucket,
+                &remote_file_path.to_string(),
+                &new_bucket_access_control,
+            )
             .await
             .with_context(|| "updating acl failure")?;
 
-        info!(self.logger, "Updated acl for {file_name}");
+        info!(self.logger, "Updated acl for {remote_file_path}");
 
         Ok(())
     }
 }
 
-fn get_file_name(file_path: &Path) -> StdResult<&str> {
-    file_path
-        .file_name()
-        .map(|s| s.to_str())
-        .ok_or(anyhow!("Could not convert file path to file name"))?
-        .ok_or(anyhow!("Could not find the final component of the path"))
-}
-
 /// GcpUploader represents a Google Cloud Platform file uploader interactor
 pub struct GcpUploader {
     cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
+    remote_folder: CloudRemotePath,
     allow_overwrite: bool,
 }
 
@@ -155,10 +205,12 @@ impl GcpUploader {
     /// GcpUploader factory
     pub fn new(
         cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
+        remote_folder: CloudRemotePath,
         allow_overwrite: bool,
     ) -> Self {
         Self {
             cloud_backend_uploader,
+            remote_folder,
             allow_overwrite,
         }
     }
@@ -167,10 +219,11 @@ impl GcpUploader {
 #[async_trait]
 impl FileUploader for GcpUploader {
     async fn upload(&self, file_path: &Path) -> StdResult<FileUri> {
+        let remote_file_path = self.remote_folder.join(get_file_name(file_path)?);
         if self.allow_overwrite {
             if let Some(file_uri) = self
                 .cloud_backend_uploader
-                .file_exists(file_path)
+                .file_exists(&remote_file_path)
                 .await
                 .with_context(|| "checking if file exists in cloud")?
             {
@@ -180,12 +233,11 @@ impl FileUploader for GcpUploader {
 
         let file_uri = self
             .cloud_backend_uploader
-            .upload_file(file_path)
+            .upload_file(file_path, &remote_file_path)
             .await
             .with_context(|| "uploading file to cloud")?;
-
         self.cloud_backend_uploader
-            .make_file_public(file_path)
+            .make_file_public(&remote_file_path)
             .await
             .with_context(|| "making file public in cloud")?;
 
@@ -207,34 +259,40 @@ mod tests {
         #[tokio::test]
         async fn upload_public_file_succeeds_when_file_does_not_exist_remotely_and_with_overwriting_allowed(
         ) {
-            let allow_overwriting = true;
-            let file_path = Path::new("snapshot.xxx.tar.gz");
-            let expected_file_uri = FileUri("https://cloud-host/snapshot.xxx.tar.gz".to_string());
-            let expected_file_uri_clone = expected_file_uri.clone();
+            let allow_overwrite = true;
+            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
+            let remote_folder_path = CloudRemotePath::new("remote_folder");
+            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
+            let expected_file_uri =
+                FileUri("https://cloud-host/remote_folder/snapshot.xxx.tar.gz".to_string());
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
                 mock_cloud_backend_uploader
                     .expect_file_exists()
-                    .with(eq(file_path))
+                    .with(eq(remote_file_path.clone()))
                     .return_once(move |_| Ok(None))
                     .once();
+                let expected_file_uri_clone = expected_file_uri.clone();
                 mock_cloud_backend_uploader
                     .expect_upload_file()
-                    .with(eq(file_path))
-                    .return_once(move |_| Ok(expected_file_uri_clone))
+                    .with(eq(local_file_path.clone()), eq(remote_file_path.clone()))
+                    .return_once(move |_, _| Ok(expected_file_uri_clone))
                     .once();
                 mock_cloud_backend_uploader
                     .expect_make_file_public()
-                    .with(eq(file_path))
+                    .with(eq(remote_file_path.clone()))
                     .return_once(move |_| Ok(()))
                     .once();
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader =
-                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+            let file_uploader = GcpUploader::new(
+                Arc::new(cloud_backend_uploader),
+                remote_folder_path,
+                allow_overwrite,
+            );
 
-            let file_uri = file_uploader.upload(file_path).await.unwrap();
+            let file_uri = file_uploader.upload(&local_file_path).await.unwrap();
 
             assert_eq!(expected_file_uri, file_uri);
         }
@@ -242,129 +300,157 @@ mod tests {
         #[tokio::test]
         async fn upload_public_file_succeeds_when_file_exists_remotely_and_with_overwriting_allowed(
         ) {
-            let allow_overwriting = true;
-            let file_path = Path::new("snapshot.xxx.tar.gz");
-            let expected_file_uri = FileUri("https://cloud-host/snapshot.xxx.tar.gz".to_string());
-            let expected_file_uri_clone = expected_file_uri.clone();
+            let allow_overwrite = true;
+            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
+            let remote_folder_path = CloudRemotePath::new("remote_folder");
+            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
+            let expected_file_uri =
+                FileUri("https://cloud-host/remote_folder/snapshot.xxx.tar.gz".to_string());
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
+                let expected_file_uri_clone = expected_file_uri.clone();
                 mock_cloud_backend_uploader
                     .expect_file_exists()
-                    .with(eq(file_path))
+                    .with(eq(remote_file_path))
                     .return_once(move |_| Ok(Some(expected_file_uri_clone)))
                     .once();
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader =
-                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+            let file_uploader = GcpUploader::new(
+                Arc::new(cloud_backend_uploader),
+                remote_folder_path,
+                allow_overwrite,
+            );
 
-            let file_uri = file_uploader.upload(file_path).await.unwrap();
+            let file_uri = file_uploader.upload(&local_file_path).await.unwrap();
 
             assert_eq!(expected_file_uri, file_uri);
         }
 
         #[tokio::test]
         async fn upload_public_file_succeeds_without_overwriting_allowed() {
-            let allow_overwriting = false;
-            let file_path = Path::new("snapshot.xxx.tar.gz");
-            let expected_file_uri = FileUri("https://cloud-host/snapshot.xxx.tar.gz".to_string());
-            let expected_file_uri_clone = expected_file_uri.clone();
+            let allow_overwrite = false;
+            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
+            let remote_folder_path = CloudRemotePath::new("remote_folder");
+            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
+            let expected_file_uri =
+                FileUri("https://cloud-host/remote_folder/snapshot.xxx.tar.gz".to_string());
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
+                let expected_file_uri_clone = expected_file_uri.clone();
                 mock_cloud_backend_uploader
                     .expect_upload_file()
-                    .with(eq(file_path))
-                    .return_once(move |_| Ok(expected_file_uri_clone))
+                    .with(eq(local_file_path.clone()), eq(remote_file_path.clone()))
+                    .return_once(move |_, _| Ok(expected_file_uri_clone))
                     .once();
                 mock_cloud_backend_uploader
                     .expect_make_file_public()
-                    .with(eq(file_path))
+                    .with(eq(remote_file_path))
                     .return_once(move |_| Ok(()))
                     .once();
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader =
-                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+            let file_uploader = GcpUploader::new(
+                Arc::new(cloud_backend_uploader),
+                remote_folder_path,
+                allow_overwrite,
+            );
 
-            let file_uri = file_uploader.upload(file_path).await.unwrap();
+            let file_uri = file_uploader.upload(&local_file_path).await.unwrap();
 
             assert_eq!(expected_file_uri, file_uri);
         }
 
         #[tokio::test]
         async fn upload_public_file_fails_when_file_exists_fails_and_with_overwriting_allowed() {
-            let allow_overwriting = true;
-            let file_path = Path::new("snapshot.xxx.tar.gz");
+            let allow_overwrite = true;
+            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
+            let remote_folder_path = CloudRemotePath::new("remote_folder");
+            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
                 mock_cloud_backend_uploader
                     .expect_file_exists()
-                    .with(eq(file_path))
+                    .with(eq(remote_file_path))
                     .return_once(move |_| Err(anyhow!("file exists error")))
                     .once();
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader =
-                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+            let file_uploader = GcpUploader::new(
+                Arc::new(cloud_backend_uploader),
+                remote_folder_path,
+                allow_overwrite,
+            );
 
             file_uploader
-                .upload(file_path)
+                .upload(&local_file_path)
                 .await
                 .expect_err("should have failed");
         }
 
         #[tokio::test]
         async fn upload_public_file_fails_when_upload_fails() {
-            let allow_overwriting = false;
-            let file_path = Path::new("snapshot.xxx.tar.gz");
+            let allow_overwrite = false;
+            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
+            let remote_folder_path = CloudRemotePath::new("remote_folder");
+            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
                 mock_cloud_backend_uploader
                     .expect_upload_file()
-                    .with(eq(file_path))
-                    .return_once(move |_| Err(anyhow!("upload error")))
+                    .with(eq(local_file_path.clone()), eq(remote_file_path.clone()))
+                    .return_once(move |_, _| Err(anyhow!("upload error")))
                     .once();
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader =
-                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+            let file_uploader = GcpUploader::new(
+                Arc::new(cloud_backend_uploader),
+                remote_folder_path,
+                allow_overwrite,
+            );
 
             file_uploader
-                .upload(file_path)
+                .upload(&local_file_path)
                 .await
                 .expect_err("should have failed");
         }
 
         #[tokio::test]
         async fn upload_public_file_fails_when_make_public_fails() {
-            let allow_overwriting = false;
-            let file_path = Path::new("snapshot.xxx.tar.gz");
-            let expected_file_uri = FileUri("https://cloud-host/snapshot.xxx.tar.gz".to_string());
-            let expected_file_uri_clone = expected_file_uri.clone();
+            let allow_overwrite = false;
+            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
+            let remote_folder_path = CloudRemotePath::new("remote_folder");
+            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
+            let expected_file_uri =
+                FileUri("https://cloud-host/remote_folder/snapshot.xxx.tar.gz".to_string());
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
+                let expected_file_uri_clone = expected_file_uri.clone();
                 mock_cloud_backend_uploader
                     .expect_upload_file()
-                    .with(eq(file_path))
-                    .return_once(move |_| Ok(expected_file_uri_clone))
+                    .with(eq(local_file_path.clone()), eq(remote_file_path.clone()))
+                    .return_once(move |_, _| Ok(expected_file_uri_clone))
                     .once();
                 mock_cloud_backend_uploader
                     .expect_make_file_public()
-                    .with(eq(file_path))
+                    .with(eq(remote_file_path))
                     .return_once(move |_| Err(anyhow!("make public error")))
                     .once();
 
                 mock_cloud_backend_uploader
             };
-            let file_uploader =
-                GcpUploader::new(Arc::new(cloud_backend_uploader), allow_overwriting);
+            let file_uploader = GcpUploader::new(
+                Arc::new(cloud_backend_uploader),
+                remote_folder_path,
+                allow_overwrite,
+            );
 
             file_uploader
-                .upload(file_path)
+                .upload(&local_file_path)
                 .await
                 .expect_err("should have failed");
         }
@@ -383,12 +469,13 @@ mod tests {
                 TestLogger::stdout(),
             )
             .unwrap();
-            let filename = "snapshot.xxx.tar.gz";
+            let remote_file_path =
+                CloudRemotePath::new("remote_folder").join("snapshot.xxx.tar.gz");
             let expected_location =
-                "https://storage.googleapis.com/cdn.mithril.network/snapshot.xxx.tar.gz"
+                "https://storage.googleapis.com/cdn.mithril.network/remote_folder/snapshot.xxx.tar.gz"
                     .to_string();
 
-            let location = gcp_file_uploader.get_location(filename);
+            let location = gcp_file_uploader.get_location(&remote_file_path);
 
             assert_eq!(FileUri(expected_location), location);
         }
@@ -403,10 +490,12 @@ mod tests {
                 TestLogger::stdout(),
             )
             .unwrap();
-            let filename = "snapshot.xxx.tar.gz";
-            let expected_location = "https://cdn.mithril.network/snapshot.xxx.tar.gz".to_string();
+            let remote_file_path =
+                CloudRemotePath::new("remote_folder").join("snapshot.xxx.tar.gz");
+            let expected_location =
+                "https://cdn.mithril.network/remote_folder/snapshot.xxx.tar.gz".to_string();
 
-            let location = gcp_file_uploader.get_location(filename);
+            let location = gcp_file_uploader.get_location(&remote_file_path);
 
             assert_eq!(FileUri(expected_location), location);
         }

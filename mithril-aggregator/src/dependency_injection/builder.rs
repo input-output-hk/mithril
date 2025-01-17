@@ -67,7 +67,9 @@ use crate::{
     },
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
-    file_uploaders::{FileUploader, GcpBackendUploader, GcpUploader, LocalUploader},
+    file_uploaders::{
+        CloudRemotePath, FileUploader, GcpBackendUploader, GcpUploader, LocalUploader,
+    },
     http_server::{
         routes::router::{self, RouterConfig, RouterState},
         SERVER_BASE_PATH,
@@ -485,6 +487,7 @@ impl DependenciesBuilder {
                             )
                         })?;
                     let allow_overwriting = false;
+                    let remote_folder_path = CloudRemotePath::new("");
 
                     Ok(Arc::new(GcpUploader::new(
                         Arc::new(GcpBackendUploader::try_new(
@@ -492,6 +495,7 @@ impl DependenciesBuilder {
                             self.configuration.snapshot_use_cdn_domain,
                             logger.clone(),
                         )?),
+                        remote_folder_path,
                         allow_overwriting,
                     )))
                 }
