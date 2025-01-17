@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
+import { Button, Card, Col, Container, Row, Stack } from "react-bootstrap";
+import ArtifactListItem from "#/Artifacts/ArtifactListItem";
 import LatestBadge from "#/Artifacts/LatestBadge";
 import CertificateModal from "#/CertificateModal";
-import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
-import { selectedAggregator } from "@/store/settingsSlice";
+import QuestionTooltip from "#/QuestionTooltip";
+import RawJsonButton from "#/RawJsonButton";
 import { formatBytes } from "@/utils";
+import { selectedAggregator } from "@/store/settingsSlice";
 
 export default function CardanoDbV2SnapshotsList(props) {
   const [cardanoDbSnapshots, setCardanoDbSnapshots] = useState([]);
@@ -64,35 +66,34 @@ export default function CardanoDbV2SnapshotsList(props) {
                   <Card border={index === 0 ? "primary" : ""}>
                     <Card.Body>
                       <Card.Title>{cdb_snapshot.hash}</Card.Title>
-                      <ListGroup variant="flush" className="data-list-group">
-                        <ListGroup.Item>Epoch: {cdb_snapshot.beacon.epoch}</ListGroup.Item>
-                        <ListGroup.Item>
-                          Immutable file number: {cdb_snapshot.beacon.immutable_file_number}
-                        </ListGroup.Item>
-                        <ListGroup.Item>Merkle Root: {cdb_snapshot.merkle_root}</ListGroup.Item>
-                        <ListGroup.Item>
-                          Cardano node: {cdb_snapshot.cardano_node_version}
-                        </ListGroup.Item>
-                        <ListGroup.Item>
-                          Compression: {cdb_snapshot.compression_algorithm}
-                        </ListGroup.Item>
-                        <ListGroup.Item>
-                          Certificate hash: <br />
-                          {cdb_snapshot.certificate_hash}{" "}
-                          <Button
-                            size="sm"
-                            onClick={() => showCertificate(cdb_snapshot.certificate_hash)}>
-                            Show
-                          </Button>
-                        </ListGroup.Item>
-                        <ListGroup.Item>
-                          Created: <LocalDateTime datetime={cdb_snapshot.created_at} />
-                        </ListGroup.Item>
-                        <ListGroup.Item>
-                          Uncompressed DB size:{" "}
-                          {formatBytes(cdb_snapshot.total_db_size_uncompressed)}
-                        </ListGroup.Item>
-                      </ListGroup>
+                      <ArtifactListItem label="Epoch">{cdb_snapshot.beacon.epoch}</ArtifactListItem>
+                      <ArtifactListItem label="Immutable file number">
+                        {cdb_snapshot.beacon.immutable_file_number}
+                      </ArtifactListItem>
+                      <ArtifactListItem label="Merkle Root" wordBreak vertical>
+                        {cdb_snapshot.merkle_root}
+                      </ArtifactListItem>
+                      <ArtifactListItem label="Cardano node">
+                        {cdb_snapshot.cardano_node_version}
+                      </ArtifactListItem>
+                      <ArtifactListItem label="Compression">
+                        {cdb_snapshot.compression_algorithm}
+                      </ArtifactListItem>
+                      <ArtifactListItem label="Certificate hash" wordBreak vertical>
+                        {cdb_snapshot.certificate_hash}{" "}
+                        <Button
+                          size="sm"
+                          onClick={() => showCertificate(cdb_snapshot.certificate_hash)}>
+                          Show
+                        </Button>
+                      </ArtifactListItem>
+                      <ArtifactListItem label="Created">
+                        <LocalDateTime datetime={cdb_snapshot.created_at} />
+                      </ArtifactListItem>
+                      <ArtifactListItem label="DB size">
+                        {formatBytes(cdb_snapshot.total_db_size_uncompressed)}{" "}
+                        <QuestionTooltip tooltip="Total uncompressed database size" />
+                      </ArtifactListItem>
                     </Card.Body>
                     <Card.Footer>
                       <Stack direction="horizontal" gap={1}>
