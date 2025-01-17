@@ -7,7 +7,8 @@ resource "google_storage_bucket" "cloud_storage" {
 
   lifecycle_rule {
     condition {
-      age = var.google_storage_bucket_max_age
+      age            = var.google_storage_bucket_max_age
+      matches_prefix = var.google_storage_bucket_prefix_with_lifecyle_rule
     }
     action {
       type = "Delete"
