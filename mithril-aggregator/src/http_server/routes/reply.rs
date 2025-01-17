@@ -59,6 +59,15 @@ pub fn service_unavailable<T: Into<ServerError>>(message: T) -> Box<dyn warp::Re
     json(&message.into(), StatusCode::SERVICE_UNAVAILABLE)
 }
 
+pub fn gone<E: Into<StdError>>(error: E) -> Box<dyn warp::Reply> {
+    let std_error: StdError = error.into();
+
+    json(
+        &ServerError::new(format!("{std_error:?}")),
+        StatusCode::GONE,
+    )
+}
+
 pub fn add_content_disposition_header(
     reply: warp::fs::File,
     filepath: &Path,

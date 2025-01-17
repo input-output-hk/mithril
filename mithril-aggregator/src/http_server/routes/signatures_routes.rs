@@ -92,11 +92,11 @@ mod handlers {
             Err(err) => match err.downcast_ref::<CertifierServiceError>() {
                 Some(CertifierServiceError::AlreadyCertified(signed_entity_type)) => {
                     debug!(logger,"register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
-                    Ok(reply::empty(StatusCode::GONE))
+                    Ok(reply::gone(err))
                 }
                 Some(CertifierServiceError::Expired(signed_entity_type)) => {
                     debug!(logger,"register_signatures::open_message_expired"; "signed_entity_type" => ?signed_entity_type);
-                    Ok(reply::empty(StatusCode::GONE))
+                    Ok(reply::gone(err))
                 }
                 Some(CertifierServiceError::NotFound(signed_entity_type)) => {
                     debug!(logger,"register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
@@ -415,6 +415,11 @@ mod tests {
             ))))
             .await;
 
+        let response_body = String::from_utf8(response.body().to_vec()).unwrap();
+        assert!(response_body.contains(
+            &CertifierServiceError::AlreadyCertified(SignedEntityType::dummy()).to_string()
+        ));
+
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
             method,
@@ -429,14 +434,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_post_ko_410_when_expired() {
-        let signed_entity_type = SignedEntityType::dummy();
         let message = RegisterSignatureMessage::dummy();
         let mut mock_certifier_service = MockCertifierService::new();
         mock_certifier_service
             .expect_register_single_signature()
-            .return_once(
-                move |_, _| Err(CertifierServiceError::Expired(signed_entity_type).into()),
-            );
+            .return_once(move |_, _| {
+                Err(CertifierServiceError::Expired(SignedEntityType::dummy()).into())
+            });
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
@@ -451,6 +455,10 @@ mod tests {
                 dependency_manager,
             ))))
             .await;
+
+        let response_body = String::from_utf8(response.body().to_vec()).unwrap();
+        assert!(response_body
+            .contains(&CertifierServiceError::Expired(SignedEntityType::dummy()).to_string()));
 
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
