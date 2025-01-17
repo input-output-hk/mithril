@@ -60,10 +60,10 @@ upgrade: clean install
 		bootstrap-icons@latest \
 		chart.js@latest \
 		next@latest \
-		react@^18.3.1 \
+		react@latest \
 		react-bootstrap@latest \
 		react-chartjs-2@latest \
-		react-dom@^18.3.1 \
+		react-dom@latest \
 		react-redux@latest \
 		@testing-library/jest-dom@latest \
 		@testing-library/react@latest \
