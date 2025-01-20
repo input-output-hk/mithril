@@ -92,11 +92,14 @@ mod handlers {
             Err(err) => match err.downcast_ref::<CertifierServiceError>() {
                 Some(CertifierServiceError::AlreadyCertified(signed_entity_type)) => {
                     debug!(logger,"register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
-                    Ok(reply::gone(err))
+                    Ok(reply::gone(
+                        "already_certified".to_string(),
+                        err.to_string(),
+                    ))
                 }
                 Some(CertifierServiceError::Expired(signed_entity_type)) => {
                     debug!(logger,"register_signatures::open_message_expired"; "signed_entity_type" => ?signed_entity_type);
-                    Ok(reply::gone(err))
+                    Ok(reply::gone("expired".to_string(), err.to_string()))
                 }
                 Some(CertifierServiceError::NotFound(signed_entity_type)) => {
                     debug!(logger,"register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
@@ -116,6 +119,7 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use anyhow::anyhow;
+    use mithril_common::entities::ClientError;
     use std::sync::Arc;
     use warp::http::{Method, StatusCode};
     use warp::test::request;
@@ -415,10 +419,14 @@ mod tests {
             ))))
             .await;
 
-        let response_body = String::from_utf8(response.body().to_vec()).unwrap();
-        assert!(response_body.contains(
-            &CertifierServiceError::AlreadyCertified(SignedEntityType::dummy()).to_string()
-        ));
+        let response_body: ClientError = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(
+            response_body,
+            ClientError::new(
+                "already_certified",
+                CertifierServiceError::AlreadyCertified(SignedEntityType::dummy()).to_string()
+            )
+        );
 
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),
@@ -456,9 +464,14 @@ mod tests {
             ))))
             .await;
 
-        let response_body = String::from_utf8(response.body().to_vec()).unwrap();
-        assert!(response_body
-            .contains(&CertifierServiceError::Expired(SignedEntityType::dummy()).to_string()));
+        let response_body: ClientError = serde_json::from_slice(response.body()).unwrap();
+        assert_eq!(
+            response_body,
+            ClientError::new(
+                "expired",
+                CertifierServiceError::Expired(SignedEntityType::dummy()).to_string()
+            )
+        );
 
         APISpec::verify_conformity(
             APISpec::get_all_spec_files(),

@@ -28,6 +28,10 @@ pub fn bad_request(label: String, message: String) -> Box<dyn warp::Reply> {
     json(&ClientError::new(label, message), StatusCode::BAD_REQUEST)
 }
 
+pub fn gone(label: String, message: String) -> Box<dyn warp::Reply> {
+    json(&ClientError::new(label, message), StatusCode::GONE)
+}
+
 pub fn server_error<E: Into<StdError>>(error: E) -> Box<dyn warp::Reply> {
     let std_error: StdError = error.into();
     let status_code = {
@@ -57,15 +61,6 @@ pub fn internal_server_error<T: Into<ServerError>>(message: T) -> Box<dyn warp::
 
 pub fn service_unavailable<T: Into<ServerError>>(message: T) -> Box<dyn warp::Reply> {
     json(&message.into(), StatusCode::SERVICE_UNAVAILABLE)
-}
-
-pub fn gone<E: Into<StdError>>(error: E) -> Box<dyn warp::Reply> {
-    let std_error: StdError = error.into();
-
-    json(
-        &ServerError::new(format!("{std_error:?}")),
-        StatusCode::GONE,
-    )
 }
 
 pub fn add_content_disposition_header(
