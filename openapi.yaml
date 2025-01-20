@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.42
+  version: 0.1.43
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -695,6 +695,10 @@ paths:
           description: open message not found
         "410":
           description: signatures registration done too late
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "412":
           description: API version mismatch
         default:

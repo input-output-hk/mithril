@@ -2,7 +2,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use reqwest::header::{self, HeaderValue};
 use reqwest::{self, Client, Proxy, RequestBuilder, Response, StatusCode};
-use slog::{debug, Logger};
+use slog::{debug, error, Logger};
 use std::{io, sync::Arc, time::Duration};
 use thiserror::Error;
 
@@ -342,13 +342,12 @@ impl AggregatorClient for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::CREATED | StatusCode::ACCEPTED => Ok(()),
                 StatusCode::GONE => {
-                    debug!(self.logger, "Aggregator already certified that message"; "signed_entity_type" => ?signed_entity_type);
+                    let root_cause = AggregatorClientError::get_root_cause(response).await;
+                    debug!(self.logger, "Message already certified or expired"; "details" => &root_cause);
+
                     Ok(())
                 }
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
-                StatusCode::CONFLICT => Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                    "already registered single signatures"
-                ))),
                 _ => Err(AggregatorClientError::from_response(response).await),
             },
             Err(err) => Err(AggregatorClientError::RemoteServerUnreachable(anyhow!(err))),
@@ -470,7 +469,7 @@ mod tests {
     use mithril_common::entities::Epoch;
     use mithril_common::era::{EraChecker, SupportedEra};
     use mithril_common::messages::TryFromMessageAdapter;
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::test_utils::{fake_data, TempDir};
 
     use crate::test_tools::TestLogger;
 
@@ -878,28 +877,41 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_ok_410() {
-        let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, client) = setup_server_and_client();
-        let _server_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signatures");
-            then.status(410).body(
-                serde_json::to_vec(&ClientError::new(
-                    "already_aggregated".to_string(),
-                    "too late".to_string(),
-                ))
-                .unwrap(),
-            );
-        });
+    async fn test_register_signatures_ok_410_log_response_body() {
+        let log_path = TempDir::create(
+            "aggregator_client",
+            "test_register_signatures_ok_410_log_response_body",
+        )
+        .join("test.log");
 
-        client
-            .register_signatures(
-                &SignedEntityType::dummy(),
-                &single_signatures,
-                &ProtocolMessage::default(),
-            )
-            .await
-            .expect("Should not fail when status is 410 (GONE)");
+        let single_signatures = fake_data::single_signatures((1..5).collect());
+        {
+            let (server, mut client) = setup_server_and_client();
+            client.logger = TestLogger::file(&log_path);
+            let _server_mock = server.mock(|when, then| {
+                when.method(POST).path("/register-signatures");
+                then.status(410).body(
+                    serde_json::to_vec(&ClientError::new(
+                        "already_aggregated".to_string(),
+                        "too late".to_string(),
+                    ))
+                    .unwrap(),
+                );
+            });
+
+            client
+                .register_signatures(
+                    &SignedEntityType::dummy(),
+                    &single_signatures,
+                    &ProtocolMessage::default(),
+                )
+                .await
+                .expect("Should not fail when status is 410 (GONE)");
+        }
+
+        let logs = std::fs::read_to_string(&log_path).unwrap();
+        assert!(logs.contains("already_aggregated"));
+        assert!(logs.contains("too late"));
     }
 
     #[tokio::test]
