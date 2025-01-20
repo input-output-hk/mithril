@@ -218,11 +218,12 @@ macro_rules! impl_codec_and_type_conversions_for_protocol_key {
 
 #[cfg(test)]
 mod test {
-    use std::io::Write;
+    use std::{io::Write, path::Path};
 
     use crate::{
         crypto_helper::ProtocolKey,
         test_utils::{fake_keys, TempDir},
+        StdResult,
     };
     use mithril_stm::stm::StmVerificationKeyPoP;
     use serde::{Deserialize, Serialize};
@@ -297,6 +298,13 @@ mod test {
 
     #[test]
     fn can_read_a_verification_key_from_file_with_trailing_whitespaces() {
+        fn add_space_to_file(key_path: &Path) -> StdResult<()> {
+            let mut key_file = std::fs::OpenOptions::new().append(true).open(key_path)?;
+            key_file.write_all(b"\n")?;
+
+            Ok(())
+        }
+
         let expected_key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY.try_into().unwrap();
         let key_path = TempDir::create(
             "protocol_key",
@@ -307,13 +315,7 @@ mod test {
         expected_key
             .write_json_hex_to_file(&key_path)
             .expect("Writing to file should not fail");
-        let mut key_file = std::fs::OpenOptions::new()
-            .append(true)
-            .open(&key_path)
-            .expect("Opening the file in append mode should not fail");
-        key_file
-            .write_all(b"\n")
-            .expect("Writing to file should not fail");
+        add_space_to_file(&key_path).expect("Adding space to file should not fail");
         let read_key = ProtocolKey::<StmVerificationKeyPoP>::read_json_hex_from_file(&key_path)
             .expect("Reading from file should not fail");
 
