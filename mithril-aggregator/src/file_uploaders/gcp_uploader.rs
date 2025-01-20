@@ -220,7 +220,7 @@ impl GcpUploader {
 impl FileUploader for GcpUploader {
     async fn upload(&self, file_path: &Path) -> StdResult<FileUri> {
         let remote_file_path = self.remote_folder.join(get_file_name(file_path)?);
-        if self.allow_overwrite {
+        if !self.allow_overwrite {
             if let Some(file_uri) = self
                 .cloud_backend_uploader
                 .file_exists(&remote_file_path)
@@ -257,9 +257,9 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn upload_public_file_succeeds_when_file_does_not_exist_remotely_and_with_overwriting_allowed(
+        async fn upload_public_file_succeeds_when_file_does_not_exist_remotely_and_without_overwriting_allowed(
         ) {
-            let allow_overwrite = true;
+            let allow_overwrite = false;
             let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
             let remote_folder_path = CloudRemotePath::new("remote_folder");
             let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
@@ -298,9 +298,9 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn upload_public_file_succeeds_when_file_exists_remotely_and_with_overwriting_allowed(
+        async fn upload_public_file_succeeds_when_file_exists_remotely_and_without_overwriting_allowed(
         ) {
-            let allow_overwrite = true;
+            let allow_overwrite = false;
             let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
             let remote_folder_path = CloudRemotePath::new("remote_folder");
             let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
@@ -329,8 +329,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn upload_public_file_succeeds_without_overwriting_allowed() {
-            let allow_overwrite = false;
+        async fn upload_public_file_succeeds_with_overwriting_allowed() {
+            let allow_overwrite = true;
             let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
             let remote_folder_path = CloudRemotePath::new("remote_folder");
             let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
@@ -364,8 +364,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn upload_public_file_fails_when_file_exists_fails_and_with_overwriting_allowed() {
-            let allow_overwrite = true;
+        async fn upload_public_file_fails_when_file_exists_fails_and_without_overwriting_allowed() {
+            let allow_overwrite = false;
             let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
             let remote_folder_path = CloudRemotePath::new("remote_folder");
             let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
@@ -393,7 +393,7 @@ mod tests {
 
         #[tokio::test]
         async fn upload_public_file_fails_when_upload_fails() {
-            let allow_overwrite = false;
+            let allow_overwrite = true;
             let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
             let remote_folder_path = CloudRemotePath::new("remote_folder");
             let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
@@ -421,7 +421,7 @@ mod tests {
 
         #[tokio::test]
         async fn upload_public_file_fails_when_make_public_fails() {
-            let allow_overwrite = false;
+            let allow_overwrite = true;
             let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
             let remote_folder_path = CloudRemotePath::new("remote_folder");
             let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
