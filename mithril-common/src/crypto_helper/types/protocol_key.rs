@@ -50,7 +50,7 @@ where
 
     /// Create an instance from a JSON hex representation
     pub fn from_json_hex(hex_string: &str) -> StdResult<Self> {
-        let key = key_decode_hex::<T>(hex_string).with_context(|| {
+        let key = key_decode_hex::<T>(hex_string.trim()).with_context(|| {
             format!(
                 "Could not deserialize a ProtocolKey from JSON hex string. Inner key type: {}",
                 type_name::<T>()
@@ -218,6 +218,8 @@ macro_rules! impl_codec_and_type_conversions_for_protocol_key {
 
 #[cfg(test)]
 mod test {
+    use std::io::Write;
+
     use crate::{crypto_helper::ProtocolKey, test_utils::fake_keys};
     use mithril_stm::stm::StmVerificationKeyPoP;
     use serde::{Deserialize, Serialize};
@@ -279,6 +281,27 @@ mod test {
 
         expected_key
             .write_json_hex_to_file(&key_path)
+            .expect("Writing to file should not fail");
+        let read_key = ProtocolKey::<StmVerificationKeyPoP>::read_json_hex_from_file(&key_path)
+            .expect("Reading from file should not fail");
+
+        assert_eq!(expected_key, read_key);
+    }
+
+    #[test]
+    fn can_read_a_verification_key_from_file_with_trailing_whitespaces() {
+        let expected_key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY.try_into().unwrap();
+        let key_path = std::env::temp_dir().join("can_read_and_write_to_file_a_verification_key");
+
+        expected_key
+            .write_json_hex_to_file(&key_path)
+            .expect("Writing to file should not fail");
+        let mut key_file = std::fs::OpenOptions::new()
+            .append(true)
+            .open(&key_path)
+            .expect("Opening the file in append mode should not fail");
+        key_file
+            .write_all(b"\n")
             .expect("Writing to file should not fail");
         let read_key = ProtocolKey::<StmVerificationKeyPoP>::read_json_hex_from_file(&key_path)
             .expect("Reading from file should not fail");
