@@ -342,14 +342,8 @@ impl AggregatorClient for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::CREATED | StatusCode::ACCEPTED => Ok(()),
                 StatusCode::GONE => {
-                    match response.text().await {
-                        Ok(body) => {
-                            debug!(self.logger, "{body}");
-                        }
-                        Err(err) => {
-                            error!(self.logger, "Could not parse GONE error message"; "signed_entity_type" => ?signed_entity_type, "error" => ?err);
-                        }
-                    }
+                    let root_cause = AggregatorClientError::get_root_cause(response).await;
+                    debug!(self.logger, "Message already certified or expired"; "details" => &root_cause);
 
                     Ok(())
                 }
