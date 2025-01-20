@@ -31,10 +31,7 @@ pub trait AncillaryFileUploader: Send + Sync {
 #[async_trait]
 impl AncillaryFileUploader for DumbUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
-        let uri = FileUploader::upload(self, filepath)
-            .await
-            .with_context(|| "Error while uploading with 'GcpUploader'")?
-            .into();
+        let uri = FileUploader::upload(self, filepath).await?.into();
 
         Ok(AncillaryLocation::CloudStorage { uri })
     }
@@ -43,10 +40,7 @@ impl AncillaryFileUploader for DumbUploader {
 #[async_trait]
 impl AncillaryFileUploader for LocalUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
-        let uri = FileUploader::upload(self, filepath)
-            .await
-            .with_context(|| "Error while uploading with 'LocalUploader'")?
-            .into();
+        let uri = FileUploader::upload(self, filepath).await?.into();
 
         Ok(AncillaryLocation::CloudStorage { uri })
     }
@@ -55,10 +49,7 @@ impl AncillaryFileUploader for LocalUploader {
 #[async_trait]
 impl AncillaryFileUploader for GcpUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
-        let uri = FileUploader::upload(self, filepath)
-            .await
-            .with_context(|| "Error while uploading with 'GcpUploader'")?
-            .into();
+        let uri = FileUploader::upload(self, filepath).await?.into();
 
         Ok(AncillaryLocation::CloudStorage { uri })
     }

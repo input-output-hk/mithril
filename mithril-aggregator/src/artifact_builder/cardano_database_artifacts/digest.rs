@@ -29,10 +29,7 @@ pub trait DigestFileUploader: Send + Sync {
 #[async_trait]
 impl DigestFileUploader for DumbUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
-        let uri = FileUploader::upload(self, filepath)
-            .await
-            .with_context(|| "Error while uploading with 'LocalUploader'")?
-            .into();
+        let uri = FileUploader::upload(self, filepath).await?.into();
 
         Ok(DigestLocation::CloudStorage { uri })
     }
@@ -41,10 +38,7 @@ impl DigestFileUploader for DumbUploader {
 #[async_trait]
 impl DigestFileUploader for LocalUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
-        let uri = FileUploader::upload(self, filepath)
-            .await
-            .with_context(|| "Error while uploading with 'LocalUploader'")?
-            .into();
+        let uri = FileUploader::upload(self, filepath).await?.into();
 
         Ok(DigestLocation::CloudStorage { uri })
     }
@@ -53,10 +47,7 @@ impl DigestFileUploader for LocalUploader {
 #[async_trait]
 impl DigestFileUploader for GcpUploader {
     async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
-        let uri = FileUploader::upload(self, filepath)
-            .await
-            .with_context(|| "Error while uploading with 'GcpUploader'")?
-            .into();
+        let uri = FileUploader::upload(self, filepath).await?.into();
 
         Ok(DigestLocation::CloudStorage { uri })
     }

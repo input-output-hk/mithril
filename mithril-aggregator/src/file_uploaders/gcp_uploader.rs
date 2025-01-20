@@ -29,10 +29,7 @@ impl CloudRemotePath {
 
     /// Join a file path to the current remote path
     pub fn join(&self, file_path: &str) -> Self {
-        let mut path = self.0.clone();
-        path.push(file_path);
-
-        Self(path)
+        Self(self.0.join(file_path))
     }
 }
 
@@ -146,7 +143,8 @@ impl CloudBackendUploader for GcpBackendUploader {
     ) -> StdResult<FileUri> {
         info!(
             self.logger,
-            "Uploading {local_file_path:?} to {remote_file_path}"
+            "Uploading {} to {remote_file_path}",
+            local_file_path.display()
         );
         let file = tokio::fs::File::open(local_file_path).await.unwrap();
         let stream = FramedRead::new(file, BytesCodec::new());
@@ -163,7 +161,8 @@ impl CloudBackendUploader for GcpBackendUploader {
             .with_context(|| "remote uploading failure")?;
         info!(
             self.logger,
-            "Uploaded {local_file_path:?} to {remote_file_path}"
+            "Uploaded {} to {remote_file_path}",
+            local_file_path.display()
         );
 
         Ok(self.get_location(remote_file_path))
@@ -366,27 +365,22 @@ mod tests {
         #[tokio::test]
         async fn upload_public_file_fails_when_file_exists_fails_and_without_overwriting_allowed() {
             let allow_overwrite = false;
-            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
-            let remote_folder_path = CloudRemotePath::new("remote_folder");
-            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
                 mock_cloud_backend_uploader
                     .expect_file_exists()
-                    .with(eq(remote_file_path))
-                    .return_once(move |_| Err(anyhow!("file exists error")))
-                    .once();
+                    .returning(|_| Err(anyhow!("file exists error")));
 
                 mock_cloud_backend_uploader
             };
             let file_uploader = GcpUploader::new(
                 Arc::new(cloud_backend_uploader),
-                remote_folder_path,
+                CloudRemotePath::new("remote_folder"),
                 allow_overwrite,
             );
 
             file_uploader
-                .upload(&local_file_path)
+                .upload(Path::new("whatever"))
                 .await
                 .expect_err("should have failed");
         }
@@ -394,14 +388,10 @@ mod tests {
         #[tokio::test]
         async fn upload_public_file_fails_when_upload_fails() {
             let allow_overwrite = true;
-            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
-            let remote_folder_path = CloudRemotePath::new("remote_folder");
-            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
                 mock_cloud_backend_uploader
                     .expect_upload_file()
-                    .with(eq(local_file_path.clone()), eq(remote_file_path.clone()))
                     .return_once(move |_, _| Err(anyhow!("upload error")))
                     .once();
 
@@ -409,12 +399,12 @@ mod tests {
             };
             let file_uploader = GcpUploader::new(
                 Arc::new(cloud_backend_uploader),
-                remote_folder_path,
+                CloudRemotePath::new("remote_folder"),
                 allow_overwrite,
             );
 
             file_uploader
-                .upload(&local_file_path)
+                .upload(Path::new("whatever"))
                 .await
                 .expect_err("should have failed");
         }
@@ -422,35 +412,25 @@ mod tests {
         #[tokio::test]
         async fn upload_public_file_fails_when_make_public_fails() {
             let allow_overwrite = true;
-            let local_file_path = Path::new("local_folder").join("snapshot.xxx.tar.gz");
-            let remote_folder_path = CloudRemotePath::new("remote_folder");
-            let remote_file_path = remote_folder_path.join("snapshot.xxx.tar.gz");
-            let expected_file_uri =
-                FileUri("https://cloud-host/remote_folder/snapshot.xxx.tar.gz".to_string());
             let cloud_backend_uploader = {
                 let mut mock_cloud_backend_uploader = MockCloudBackendUploader::new();
-                let expected_file_uri_clone = expected_file_uri.clone();
                 mock_cloud_backend_uploader
                     .expect_upload_file()
-                    .with(eq(local_file_path.clone()), eq(remote_file_path.clone()))
-                    .return_once(move |_, _| Ok(expected_file_uri_clone))
-                    .once();
+                    .returning(|_, _| Ok(FileUri("https://whatever".to_string())));
                 mock_cloud_backend_uploader
                     .expect_make_file_public()
-                    .with(eq(remote_file_path))
-                    .return_once(move |_| Err(anyhow!("make public error")))
-                    .once();
+                    .returning(|_| Err(anyhow!("make public error")));
 
                 mock_cloud_backend_uploader
             };
             let file_uploader = GcpUploader::new(
                 Arc::new(cloud_backend_uploader),
-                remote_folder_path,
+                CloudRemotePath::new("remote_folder"),
                 allow_overwrite,
             );
 
             file_uploader
-                .upload(&local_file_path)
+                .upload(Path::new("whatever"))
                 .await
                 .expect_err("should have failed");
         }
