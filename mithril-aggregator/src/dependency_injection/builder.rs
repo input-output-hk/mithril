@@ -2,7 +2,7 @@ use anyhow::Context;
 use reqwest::Url;
 use semver::Version;
 use slog::{debug, Logger};
-use std::{collections::BTreeSet, path::Path, sync::Arc};
+use std::{collections::BTreeSet, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -72,7 +72,7 @@ use crate::{
     },
     http_server::{
         routes::router::{self, RouterConfig, RouterState},
-        SERVER_BASE_PATH,
+        CARDANO_DATABASE_DOWNLOAD_PATH, SERVER_BASE_PATH,
     },
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
@@ -94,6 +94,8 @@ use crate::{
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 const SQLITE_FILE_CARDANO_TRANSACTION: &str = "cardano-transaction.sqlite3";
 const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
+const CARDANO_DB_ARTIFACTS_DIR: &str = "cardano-database";
+const SNAPSHOT_ARTIFACTS_DIR: &str = "cardano-immutable-files-full";
 
 /// ## Dependencies container builder
 ///
@@ -484,11 +486,26 @@ impl DependenciesBuilder {
                         self.build_gcp_uploader(remote_folder_path, allow_overwrite)?,
                     ))
                 }
-                SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
-                    self.get_server_url_prefix()?,
-                    &self.configuration.get_snapshot_dir()?,
-                    logger,
-                )?)),
+                SnapshotUploaderType::Local => {
+                    let snapshot_artifacts_dir = self
+                        .configuration
+                        .get_snapshot_dir()?
+                        .join(SNAPSHOT_ARTIFACTS_DIR);
+                    std::fs::create_dir_all(&snapshot_artifacts_dir).map_err(|e| {
+                        DependenciesBuilderError::Initialization {
+                            message: format!(
+                                "Cannot create '{snapshot_artifacts_dir:?}' directory."
+                            ),
+                            error: Some(e.into()),
+                        }
+                    })?;
+
+                    Ok(Arc::new(LocalSnapshotUploader::new(
+                        self.get_server_url_prefix()?,
+                        &snapshot_artifacts_dir,
+                        logger,
+                    )?))
+                }
             }
         } else {
             Ok(Arc::new(DumbUploader::new()))
@@ -1259,11 +1276,32 @@ impl DependenciesBuilder {
                         allow_overwrite,
                     )?)])
                 }
-                SnapshotUploaderType::Local => Ok(vec![Arc::new(LocalUploader::new(
-                    self.get_server_url_prefix()?,
-                    &self.configuration.get_snapshot_dir()?,
-                    logger,
-                )?)]),
+                SnapshotUploaderType::Local => {
+                    let server_url_prefix = self.get_server_url_prefix()?;
+                    let ancillary_url_prefix = server_url_prefix
+                        .join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/ancillary/"))
+                        .with_context(|| {
+                            format!("Could not join `{CARDANO_DATABASE_DOWNLOAD_PATH}/ancillary/` to URL `{server_url_prefix}`")
+                        })?;
+                    let target_dir = self
+                        .configuration
+                        .get_snapshot_dir()?
+                        .join(CARDANO_DB_ARTIFACTS_DIR)
+                        .join("ancillary");
+
+                    std::fs::create_dir_all(&target_dir).map_err(|e| {
+                        DependenciesBuilderError::Initialization {
+                            message: format!("Cannot create '{target_dir:?}' directory."),
+                            error: Some(e.into()),
+                        }
+                    })?;
+
+                    Ok(vec![Arc::new(LocalUploader::new(
+                        ancillary_url_prefix,
+                        &target_dir,
+                        logger,
+                    )?)])
+                }
             }
         } else {
             Ok(vec![Arc::new(DumbUploader::new())])
@@ -1286,11 +1324,23 @@ impl DependenciesBuilder {
                         allow_overwrite,
                     )?)])
                 }
-                SnapshotUploaderType::Local => Ok(vec![Arc::new(LocalUploader::new(
-                    self.get_server_url_prefix()?,
-                    &self.configuration.get_snapshot_dir()?,
-                    logger,
-                )?)]),
+                SnapshotUploaderType::Local => {
+                    let server_url_prefix = self.get_server_url_prefix()?;
+                    let immutable_url_prefix = server_url_prefix
+                        .join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/"))
+                        .with_context(|| format!("Could not join `{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/` to URL `{server_url_prefix}`"))?;
+                    let target_dir = self
+                        .configuration
+                        .get_snapshot_dir()?
+                        .join(CARDANO_DB_ARTIFACTS_DIR)
+                        .join("immutable");
+
+                    Ok(vec![Arc::new(LocalUploader::new(
+                        immutable_url_prefix,
+                        &target_dir,
+                        logger,
+                    )?)])
+                }
             }
         } else {
             Ok(vec![Arc::new(DumbUploader::new())])
@@ -1329,17 +1379,21 @@ impl DependenciesBuilder {
         snapshotter: Arc<dyn Snapshotter>,
         immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
     ) -> Result<CardanoDatabaseArtifactBuilder> {
-        let artifacts_dir = Path::new("cardano-database").join("ancillary");
-        let snapshot_dir = self
+        let artifacts_dir = self
             .configuration
             .get_snapshot_dir()?
-            .join(artifacts_dir.clone());
-        std::fs::create_dir_all(snapshot_dir.clone()).map_err(|e| {
-            DependenciesBuilderError::Initialization {
-                message: format!("Cannot create '{artifacts_dir:?}' directory."),
-                error: Some(e.into()),
-            }
-        })?;
+            .join(CARDANO_DB_ARTIFACTS_DIR);
+
+        let immutable_dir = artifacts_dir.join("immutable");
+        let digests_dir = artifacts_dir.join("digests");
+        for subdir in [&immutable_dir, &digests_dir] {
+            std::fs::create_dir_all(subdir).map_err(|e| {
+                DependenciesBuilderError::Initialization {
+                    message: format!("Cannot create '{subdir:?}' directory."),
+                    error: Some(e.into()),
+                }
+            })?;
+        }
 
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
             self.build_cardano_database_ancillary_uploaders()?,
@@ -1356,11 +1410,10 @@ impl DependenciesBuilder {
             logger.clone(),
         )?);
 
-        let digests_dir = Path::new("cardano-database").join("digests");
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.get_server_url_prefix()?,
             self.build_cardano_database_digests_uploaders()?,
-            self.configuration.get_snapshot_dir()?.join(digests_dir),
+            digests_dir,
             immutable_file_digest_mapper,
             logger.clone(),
         )?);
@@ -1707,6 +1760,7 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
+        let snapshot_dir = self.configuration.get_snapshot_dir()?;
         let router_state = RouterState::new(
             dependency_container.clone(),
             RouterConfig {
@@ -1720,7 +1774,8 @@ impl DependenciesBuilder {
                     .configuration
                     .cardano_transactions_signing_config
                     .clone(),
-                snapshot_directory: self.configuration.get_snapshot_dir()?,
+                cardano_db_artifacts_directory: snapshot_dir.join(CARDANO_DB_ARTIFACTS_DIR),
+                snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
                 cardano_node_version: self.configuration.cardano_node_version.clone(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
             },
@@ -1968,38 +2023,88 @@ mod tests {
         );
     }
 
-    #[test]
-    fn build_cardano_database_artifact_builder_creates_cardano_database_and_ancillary_directories_in_snapshot_directory(
-    ) {
-        let snapshot_directory = TempDir::create(
-            "builder",
-            "create_cardano_database_and_ancillary_directories",
-        );
-        let ancillary_dir = snapshot_directory
-            .join("cardano-database")
-            .join("ancillary");
-        let dep_builder = {
-            let config = Configuration {
-                snapshot_directory,
-                ..Configuration::new_sample()
+    mod build_cardano_database_artifact_builder {
+        use super::*;
+
+        #[test]
+        fn if_not_local_uploader_create_cardano_database_immutable_and_digests_dirs() {
+            let snapshot_directory = TempDir::create(
+                "builder",
+                "if_not_local_uploader_create_cardano_database_immutable_and_digests_dirs",
+            );
+            let cdb_dir = snapshot_directory.join(CARDANO_DB_ARTIFACTS_DIR);
+            let ancillary_dir = cdb_dir.join("ancillary");
+            let immutable_dir = cdb_dir.join("immutable");
+            let digests_dir = cdb_dir.join("digests");
+
+            let mut dep_builder = {
+                let config = Configuration {
+                    snapshot_directory,
+                    // Test environment yield dumb uploaders
+                    environment: ExecutionEnvironment::Test,
+                    ..Configuration::new_sample()
+                };
+
+                DependenciesBuilder::new_with_stdout_logger(config)
             };
 
-            DependenciesBuilder::new_with_stdout_logger(config)
-        };
+            assert!(!ancillary_dir.exists());
+            assert!(!immutable_dir.exists());
+            assert!(!digests_dir.exists());
 
-        assert!(!ancillary_dir.exists());
+            dep_builder
+                .build_cardano_database_artifact_builder(
+                    &TestLogger::stdout(),
+                    Version::parse("1.0.0").unwrap(),
+                    Arc::new(DumbSnapshotter::new()),
+                    Arc::new(MockImmutableFileDigestMapper::new()),
+                )
+                .unwrap();
 
-        let immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
+            assert!(!ancillary_dir.exists());
+            assert!(immutable_dir.exists());
+            assert!(digests_dir.exists());
+        }
 
-        dep_builder
-            .build_cardano_database_artifact_builder(
-                &TestLogger::stdout(),
-                Version::parse("1.0.0").unwrap(),
-                Arc::new(DumbSnapshotter::new()),
-                Arc::new(immutable_file_digest_mapper),
-            )
-            .unwrap();
+        #[test]
+        fn if_local_uploader_creates_all_cardano_database_subdirs() {
+            let snapshot_directory = TempDir::create(
+                "builder",
+                "if_local_uploader_creates_all_cardano_database_subdirs",
+            );
+            let cdb_dir = snapshot_directory.join(CARDANO_DB_ARTIFACTS_DIR);
+            let ancillary_dir = cdb_dir.join("ancillary");
+            let immutable_dir = cdb_dir.join("immutable");
+            let digests_dir = cdb_dir.join("digests");
 
-        assert!(ancillary_dir.exists());
+            let mut dep_builder = {
+                let config = Configuration {
+                    snapshot_directory,
+                    // Must use production environment to make `snapshot_uploader_type` effective
+                    environment: ExecutionEnvironment::Production,
+                    snapshot_uploader_type: SnapshotUploaderType::Local,
+                    ..Configuration::new_sample()
+                };
+
+                DependenciesBuilder::new_with_stdout_logger(config)
+            };
+
+            assert!(!ancillary_dir.exists());
+            assert!(!immutable_dir.exists());
+            assert!(!digests_dir.exists());
+
+            dep_builder
+                .build_cardano_database_artifact_builder(
+                    &TestLogger::stdout(),
+                    Version::parse("1.0.0").unwrap(),
+                    Arc::new(DumbSnapshotter::new()),
+                    Arc::new(MockImmutableFileDigestMapper::new()),
+                )
+                .unwrap();
+
+            assert!(ancillary_dir.exists());
+            assert!(immutable_dir.exists());
+            assert!(digests_dir.exists());
+        }
     }
 }

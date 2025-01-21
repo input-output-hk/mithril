@@ -48,13 +48,13 @@ impl FileUploader for LocalUploader {
             .await
             .with_context(|| "File copy failure")?;
 
-        let location = &self
-            .server_url_prefix
-            .join("artifact/snapshot/")?
-            .join(archive_name)?;
+        let location = &self.server_url_prefix.join(archive_name)?;
         let location = location.as_str().to_string();
 
-        debug!(self.logger, "File 'uploaded' to local storage"; "location" => &location);
+        debug!(
+            self.logger, "File 'uploaded' to local storage";
+            "location" => &location, "disk_path" => target_path.display()
+        );
         Ok(FileUri(location))
     }
 }
@@ -96,7 +96,7 @@ mod tests {
         let archive_name = "an_archive";
         let archive = create_fake_archive(&source_dir, archive_name);
         let expected_location = format!(
-            "http://test.com:8080/base-root/artifact/snapshot/{}",
+            "http://test.com:8080/base-root/{}",
             &archive.file_name().unwrap().to_str().unwrap()
         );
 
