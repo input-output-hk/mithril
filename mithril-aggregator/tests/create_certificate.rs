@@ -22,7 +22,13 @@ async fn create_certificate() {
     };
     let configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        signed_entity_types: Some(SignedEntityTypeDiscriminants::CardanoTransactions.to_string()),
+        signed_entity_types: Some(
+            [
+                SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
+                SignedEntityTypeDiscriminants::CardanoDatabase.to_string(),
+            ]
+            .join(","),
+        ),
         data_stores_directory: get_test_dir("create_certificate"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {
             security_parameter: BlockNumber(0),
@@ -124,6 +130,33 @@ async fn create_certificate() {
         )
     );
 
+    comment!("The state machine should get back to signing to sign CardanoDatabase with the previously created immutable file");
+    cycle!(tester, "signing");
+    let signers_for_cardano_database = &fixture.signers_fixture()[1..=6];
+    tester
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoDatabase,
+            signers_for_cardano_database,
+        )
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the CardanoDatabase");
+    cycle!(tester, "ready");
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Epoch(1),
+            &signers_for_cardano_database
+                .iter()
+                .map(|s| s.signer_with_stake.clone().into())
+                .collect::<Vec<_>>(),
+            fixture.compute_and_encode_avk(),
+            SignedEntityType::CardanoDatabase(CardanoDbBeacon::new(1, 3)),
+            ExpectedCertificate::genesis_identifier(Epoch(1)),
+        )
+    );
+
     comment!(
         "Increase cardano chain block number to 185, 
         the state machine should be signing CardanoTransactions for block 179"
@@ -203,8 +236,9 @@ async fn create_certificate() {
     assert_metrics_eq!(
         tester.metrics_verifier,
         ExpectedMetrics::new()
-            .certificate_total(4)
-            .artifact_cardano_db_total(1)
+            .certificate_total(5)
+            .artifact_cardano_immutable_files_full_total(1)
+            .artifact_cardano_database_total(1)
             .artifact_mithril_stake_distribution_total(1)
             .artifact_cardano_transaction_total(2)
     );

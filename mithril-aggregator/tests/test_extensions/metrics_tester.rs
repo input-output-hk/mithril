@@ -5,6 +5,7 @@ use std::sync::Arc;
 pub struct ExpectedMetrics {
     certificate_total: Option<u32>,
     artifact_cardano_immutable_files_full_total: Option<u32>,
+    artifact_cardano_database_total: Option<u32>,
     artifact_mithril_stake_distribution_total: Option<u32>,
     artifact_cardano_stake_distribution_total: Option<u32>,
     artifact_cardano_transaction_total: Option<u32>,
@@ -17,6 +18,7 @@ impl ExpectedMetrics {
         Self {
             certificate_total: None,
             artifact_cardano_immutable_files_full_total: None,
+            artifact_cardano_database_total: None,
             artifact_mithril_stake_distribution_total: None,
             artifact_cardano_stake_distribution_total: None,
             artifact_cardano_transaction_total: None,
@@ -33,6 +35,12 @@ impl ExpectedMetrics {
 
     pub fn artifact_cardano_immutable_files_full_total(mut self, value: u32) -> Self {
         self.artifact_cardano_immutable_files_full_total = Some(value);
+
+        self
+    }
+
+    pub fn artifact_cardano_database_total(mut self, value: u32) -> Self {
+        self.artifact_cardano_database_total = Some(value);
 
         self
     }
@@ -103,6 +111,12 @@ impl MetricsVerifier {
             expected_metrics.artifact_cardano_immutable_files_full_total,
             self.metrics_service
                 .get_artifact_cardano_immutable_files_full_total_produced_since_startup()
+        );
+
+        verify_metric!(
+            expected_metrics.artifact_cardano_database_total,
+            self.metrics_service
+                .get_artifact_cardano_database_total_produced_since_startup()
         );
 
         verify_metric!(

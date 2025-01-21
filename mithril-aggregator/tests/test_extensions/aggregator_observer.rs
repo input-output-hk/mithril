@@ -138,8 +138,13 @@ impl AggregatorObserver {
                     .await?
                     .first()
                     .map(|s| &s.signed_entity_type)),
-            // TODO: This case will be implemented once the signable and artifact builders are available.
-            SignedEntityType::CardanoDatabase(_) => Ok(false),
+            SignedEntityType::CardanoDatabase(_) => Ok(Some(signed_entity_type_expected)
+                == self
+                    .signed_entity_service
+                    .get_last_signed_cardano_database_snapshots(1)
+                    .await?
+                    .first()
+                    .map(|s| &s.signed_entity_type)),
         }
     }
 }
