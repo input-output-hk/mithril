@@ -1369,12 +1369,9 @@ impl DependenciesBuilder {
         }
     }
 
-    fn build_cardano_database_artifact_builder(
-        &self,
-        logger: &Logger,
+    async fn build_cardano_database_artifact_builder(
+        &mut self,
         cardano_node_version: Version,
-        snapshotter: Arc<dyn Snapshotter>,
-        immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
     ) -> Result<CardanoDatabaseArtifactBuilder> {
         let artifacts_dir = self
             .configuration
@@ -1394,25 +1391,25 @@ impl DependenciesBuilder {
 
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
             self.build_cardano_database_ancillary_uploaders()?,
-            snapshotter.clone(),
+            self.get_snapshotter().await?,
             self.configuration.get_network()?,
             self.configuration.snapshot_compression_algorithm,
-            logger.clone(),
+            self.root_logger(),
         )?);
 
         let immutable_builder = Arc::new(ImmutableArtifactBuilder::new(
             self.build_cardano_database_immutable_uploaders()?,
-            snapshotter,
+            self.get_snapshotter().await?,
             self.configuration.snapshot_compression_algorithm,
-            logger.clone(),
+            self.root_logger(),
         )?);
 
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.get_server_url_prefix()?,
             self.build_cardano_database_digests_uploaders()?,
             digests_dir,
-            immutable_file_digest_mapper,
-            logger.clone(),
+            self.get_immutable_file_digest_mapper().await?,
+            self.root_logger(),
         )?);
 
         Ok(CardanoDatabaseArtifactBuilder::new(
@@ -1452,14 +1449,10 @@ impl DependenciesBuilder {
         let stake_store = self.get_stake_store().await?;
         let cardano_stake_distribution_artifact_builder =
             Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
-        let immutable_file_digest_mapper = self.get_immutable_file_digest_mapper().await?;
-        let cardano_database_artifact_builder =
-            Arc::new(self.build_cardano_database_artifact_builder(
-                &logger,
-                cardano_node_version,
-                snapshotter,
-                immutable_file_digest_mapper,
-            )?);
+        let cardano_database_artifact_builder = Arc::new(
+            self.build_cardano_database_artifact_builder(cardano_node_version)
+                .await?,
+        );
         let dependencies = SignedEntityServiceArtifactsDependencies::new(
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
@@ -1976,10 +1969,6 @@ impl DependenciesBuilder {
 mod tests {
     use mithril_common::{entities::SignedEntityTypeDiscriminants, test_utils::TempDir};
 
-    use crate::{
-        immutable_file_digest_mapper::MockImmutableFileDigestMapper, test_tools::TestLogger,
-    };
-
     use super::*;
 
     #[tokio::test]
@@ -2023,8 +2012,8 @@ mod tests {
     mod build_cardano_database_artifact_builder {
         use super::*;
 
-        #[test]
-        fn if_not_local_uploader_create_cardano_database_immutable_and_digests_dirs() {
+        #[tokio::test]
+        async fn if_not_local_uploader_create_cardano_database_immutable_and_digests_dirs() {
             let snapshot_directory = TempDir::create(
                 "builder",
                 "if_not_local_uploader_create_cardano_database_immutable_and_digests_dirs",
@@ -2050,12 +2039,8 @@ mod tests {
             assert!(!digests_dir.exists());
 
             dep_builder
-                .build_cardano_database_artifact_builder(
-                    &TestLogger::stdout(),
-                    Version::parse("1.0.0").unwrap(),
-                    Arc::new(DumbSnapshotter::new()),
-                    Arc::new(MockImmutableFileDigestMapper::new()),
-                )
+                .build_cardano_database_artifact_builder(Version::parse("1.0.0").unwrap())
+                .await
                 .unwrap();
 
             assert!(!ancillary_dir.exists());
@@ -2063,8 +2048,8 @@ mod tests {
             assert!(digests_dir.exists());
         }
 
-        #[test]
-        fn if_local_uploader_creates_all_cardano_database_subdirs() {
+        #[tokio::test]
+        async fn if_local_uploader_creates_all_cardano_database_subdirs() {
             let snapshot_directory = TempDir::create(
                 "builder",
                 "if_local_uploader_creates_all_cardano_database_subdirs",
@@ -2085,18 +2070,18 @@ mod tests {
 
                 DependenciesBuilder::new_with_stdout_logger(config)
             };
+            // In production environment the builder can't create in-memory SQLite connections, we
+            // need to provide it manually to avoid creations of unnecessary files.
+            dep_builder.sqlite_connection =
+                Some(Arc::new(ConnectionBuilder::open_memory().build().unwrap()));
 
             assert!(!ancillary_dir.exists());
             assert!(!immutable_dir.exists());
             assert!(!digests_dir.exists());
 
             dep_builder
-                .build_cardano_database_artifact_builder(
-                    &TestLogger::stdout(),
-                    Version::parse("1.0.0").unwrap(),
-                    Arc::new(DumbSnapshotter::new()),
-                    Arc::new(MockImmutableFileDigestMapper::new()),
-                )
+                .build_cardano_database_artifact_builder(Version::parse("1.0.0").unwrap())
+                .await
                 .unwrap();
 
             assert!(ancillary_dir.exists());
