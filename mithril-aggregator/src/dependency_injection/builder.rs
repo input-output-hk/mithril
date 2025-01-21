@@ -319,7 +319,7 @@ impl DependenciesBuilder {
 
     fn get_server_url_prefix(&self) -> Result<Url> {
         let url = format!(
-            "{}{}",
+            "{}{}/",
             self.configuration.get_server_url(),
             SERVER_BASE_PATH
         );
@@ -2106,5 +2106,27 @@ mod tests {
             assert!(immutable_dir.exists());
             assert!(digests_dir.exists());
         }
+    }
+
+    #[test]
+    fn joining_to_server_url_prefix_keep_base_path() {
+        let dep_builder = {
+            let config = Configuration {
+                server_ip: "1.2.3.4".to_string(),
+                server_port: 6789,
+                ..Configuration::new_sample()
+            };
+
+            DependenciesBuilder::new_with_stdout_logger(config)
+        };
+
+        let server_url_prefix = dep_builder.get_server_url_prefix().unwrap();
+        assert!(server_url_prefix.as_str().contains(SERVER_BASE_PATH));
+
+        let joined_url = server_url_prefix.join("some/path").unwrap();
+        assert!(
+            joined_url.as_str().contains(SERVER_BASE_PATH),
+            "Joined URL `{joined_url}`, does not contain base path `{SERVER_BASE_PATH}`"
+        );
     }
 }
