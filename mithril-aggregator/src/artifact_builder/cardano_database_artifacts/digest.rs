@@ -13,7 +13,10 @@ use mithril_common::{
 use reqwest::Url;
 use slog::{error, Logger};
 
-use crate::ImmutableFileDigestMapper;
+use crate::{
+    file_uploaders::{GcpUploader, LocalUploader},
+    DumbUploader, FileUploader, ImmutableFileDigestMapper,
+};
 
 /// The [DigestFileUploader] trait allows identifying uploaders that return locations for digest files.
 #[cfg_attr(test, mockall::automock)]
@@ -21,6 +24,33 @@ use crate::ImmutableFileDigestMapper;
 pub trait DigestFileUploader: Send + Sync {
     /// Uploads the file at the given filepath and returns the location of the uploaded file.
     async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation>;
+}
+
+#[async_trait]
+impl DigestFileUploader for DumbUploader {
+    async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
+        let uri = FileUploader::upload(self, filepath).await?.into();
+
+        Ok(DigestLocation::CloudStorage { uri })
+    }
+}
+
+#[async_trait]
+impl DigestFileUploader for LocalUploader {
+    async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
+        let uri = FileUploader::upload(self, filepath).await?.into();
+
+        Ok(DigestLocation::CloudStorage { uri })
+    }
+}
+
+#[async_trait]
+impl DigestFileUploader for GcpUploader {
+    async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
+        let uri = FileUploader::upload(self, filepath).await?.into();
+
+        Ok(DigestLocation::CloudStorage { uri })
+    }
 }
 
 pub struct DigestArtifactBuilder {

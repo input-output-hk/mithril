@@ -15,7 +15,10 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::{file_uploaders::LocalUploader, FileUploader, Snapshotter};
+use crate::{
+    file_uploaders::{GcpUploader, LocalUploader},
+    DumbUploader, FileUploader, Snapshotter,
+};
 
 fn immmutable_file_number_extractor(file_uri: &str) -> StdResult<Option<String>> {
     let regex = Regex::new(r".*(\d{5})")?;
@@ -40,6 +43,27 @@ pub trait ImmutableFilesUploader: Send + Sync {
 }
 
 #[async_trait]
+impl ImmutableFilesUploader for DumbUploader {
+    async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation> {
+        let last_file_path = filepaths.last().ok_or_else(|| {
+            anyhow!("No file to upload with 'DumbUploader' as the filepaths list is empty")
+        })?;
+
+        let template_uri = MultiFilesUri::extract_template_from_uris(
+            vec![self.upload(last_file_path).await?.into()],
+            immmutable_file_number_extractor,
+        )?
+        .ok_or_else(|| {
+            anyhow!("No matching template found in the uploaded files with 'DumbUploader'")
+        })?;
+
+        Ok(ImmutablesLocation::CloudStorage {
+            uri: MultiFilesUri::Template(template_uri),
+        })
+    }
+}
+
+#[async_trait]
 impl ImmutableFilesUploader for LocalUploader {
     async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation> {
         let mut file_uris = Vec::new();
@@ -49,7 +73,29 @@ impl ImmutableFilesUploader for LocalUploader {
 
         let template_uri =
             MultiFilesUri::extract_template_from_uris(file_uris, immmutable_file_number_extractor)?
-                .ok_or_else(|| anyhow!("No matching template found in the uploaded files"))?;
+                .ok_or_else(|| {
+                    anyhow!("No matching template found in the uploaded files with 'LocalUploader'")
+                })?;
+
+        Ok(ImmutablesLocation::CloudStorage {
+            uri: MultiFilesUri::Template(template_uri),
+        })
+    }
+}
+
+#[async_trait]
+impl ImmutableFilesUploader for GcpUploader {
+    async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation> {
+        let mut file_uris = Vec::new();
+        for filepath in filepaths {
+            file_uris.push(self.upload(filepath).await?.into());
+        }
+
+        let template_uri =
+            MultiFilesUri::extract_template_from_uris(file_uris, immmutable_file_number_extractor)?
+                .ok_or_else(|| {
+                    anyhow!("No matching template found in the uploaded files with 'GcpUploader'")
+                })?;
 
         Ok(ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(template_uri),
