@@ -50,7 +50,7 @@ where
 
     /// Create an instance from a JSON hex representation
     pub fn from_json_hex(hex_string: &str) -> StdResult<Self> {
-        let key = key_decode_hex::<T>(hex_string.trim()).with_context(|| {
+        let key = key_decode_hex::<T>(hex_string).with_context(|| {
             format!(
                 "Could not deserialize a ProtocolKey from JSON hex string. Inner key type: {}",
                 type_name::<T>()
