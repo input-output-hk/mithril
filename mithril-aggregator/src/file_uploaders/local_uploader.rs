@@ -7,7 +7,8 @@ use std::path::{Path, PathBuf};
 use mithril_common::StdResult;
 use mithril_common::{entities::FileUri, logging::LoggerExtensions};
 
-use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader};
+use crate::file_uploaders::FileUploader;
+use crate::tools::url_sanitizer::sanitize_url_path;
 
 /// LocalUploader is a file uploader working using local files
 pub struct LocalUploader {

@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
-use crate::file_uploaders::{url_sanitizer::sanitize_url_path, FileUploader};
-use crate::tools;
+use crate::file_uploaders::FileUploader;
+use crate::tools::{self, url_sanitizer::sanitize_url_path};
 
 // It's only used by the legacy snapshot that uploads the entire Cardano database.
 /// LocalSnapshotUploader is a file uploader working using local files

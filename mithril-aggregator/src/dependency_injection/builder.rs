@@ -318,15 +318,12 @@ impl DependenciesBuilder {
     }
 
     fn get_server_url_prefix(&self) -> Result<Url> {
-        let url = format!(
-            "{}{}/",
-            self.configuration.get_server_url(),
-            SERVER_BASE_PATH
-        );
-
-        Url::parse(&url).map_err(|e| DependenciesBuilderError::Initialization {
-            message: format!("Could not parse server url:'{url}'."),
-            error: Some(e.into()),
+        let url = self.configuration.get_server_url()?;
+        url.join(&format!("{SERVER_BASE_PATH}/")).map_err(|e| {
+            DependenciesBuilderError::Initialization {
+                message: format!("Could not join `{SERVER_BASE_PATH}` to url:'{url}'."),
+                error: Some(e.into()),
+            }
         })
     }
 
@@ -1765,7 +1762,7 @@ impl DependenciesBuilder {
             dependency_container.clone(),
             RouterConfig {
                 network: self.configuration.get_network()?,
-                server_url: self.configuration.get_server_url(),
+                server_url: self.configuration.get_server_url()?.to_string(),
                 allowed_discriminants: self.get_allowed_signed_entity_types_discriminants()?,
                 cardano_transactions_prover_max_hashes_allowed_by_request: self
                     .configuration
