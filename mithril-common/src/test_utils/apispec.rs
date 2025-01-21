@@ -225,7 +225,11 @@ impl<'a> APISpec<'a> {
                 let components = self.openapi["components"].clone();
                 schema.insert(String::from("components"), components);
 
-                let validator = Validator::new(&json!(schema)).unwrap();
+                let result_validator = Validator::new(&json!(schema));
+                if let Err(e) = result_validator {
+                    return Err(format!("Error creating validator: {e}"));
+                }
+                let validator = result_validator.unwrap();
                 let errors = validator
                     .iter_errors(value)
                     .map(|e| e.to_string())
@@ -295,20 +299,43 @@ impl<'a> APISpec<'a> {
     }
 
     fn verify_example_conformity(&self, name: &str, component: &Value) -> Vec<String> {
-        if let Some(example) = component.get("example") {
-            // The type definition is at the same level as the example (components) unless there is a schema property (paths).
-            let component_definition = component.get("schema").unwrap_or(component);
-
-            let result = self.validate_conformity(example, component_definition);
+        fn register_example_errors(
+            apispec: &APISpec,
+            errors: &mut Vec<String>,
+            component_definition: &Value,
+            example: &Value,
+        ) {
+            let result = apispec.validate_conformity(example, component_definition);
             if let Err(e) = result {
-                return vec![format!(
-                    "- {}: Error\n    {}\n    Example: {}\n",
-                    name, e, example
-                )];
+                errors.push(format!("    {}\n    Example: {}\n", e, example));
             }
         }
 
-        vec![]
+        let mut errors = vec![];
+        let component_definition = component.get("schema").unwrap_or(component);
+        // The type definition is at the same level as the example (components) unless there is a schema property (paths).
+        if let Some(example) = component.get("example") {
+            register_example_errors(self, &mut errors, component_definition, example);
+        }
+
+        if let Some(examples) = component.get("examples") {
+            if let Some(examples) = examples.as_array() {
+                for example in examples {
+                    register_example_errors(self, &mut errors, component_definition, example);
+                }
+            } else {
+                errors.push(format!(
+                    "    Examples should be an array\n    Examples: {}\n",
+                    examples
+                ));
+            }
+        }
+
+        if !errors.is_empty() {
+            vec![format!("- {}: Error\n{}", name, errors.join("\n"))]
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -402,11 +429,11 @@ components:
     /// we create an openapi.yaml with an invalid example.
     /// If the example is verified, we should have an error message.
     /// A simple invalid example is one with a wrong type (string instead of integer)
-    fn check_example_error_is_detected(
+    fn check_example_errors_is_detected(
         id: u32,
         paths: &str,
         components: &str,
-        expected_error_message: &str,
+        expected_error_messages: &[&str],
     ) {
         let file = get_temp_openapi_filename("example", id);
 
@@ -417,12 +444,14 @@ components:
 
         assert_eq!(1, errors.len());
         let error_message = errors.first().unwrap();
-        assert!(
-            error_message.contains(expected_error_message),
-            "Error message: {:?}\nshould contains: {}\n",
-            errors,
-            expected_error_message
-        );
+        for expected_message in expected_error_messages {
+            assert!(
+                error_message.contains(expected_message),
+                "Error message: {:?}\nshould contains: {}\n",
+                errors,
+                expected_message
+            );
+        }
     }
 
     #[test]
@@ -786,6 +815,104 @@ components:
         assert!(spec_files.contains(&APISpec::get_default_spec_file()))
     }
 
+    fn check_example_detect_no_error(id: u32, paths: &str, components: &str) {
+        let file = get_temp_openapi_filename("example", id);
+
+        write_minimal_open_api_file("1.0.0", &file, paths, components);
+
+        let api_spec = APISpec::from_file(file.to_str().unwrap());
+        let errors: Vec<String> = api_spec.verify_examples();
+
+        let error_messages = errors.join("\n");
+        assert_eq!(0, errors.len(), "Error messages: {}", error_messages);
+    }
+
+    #[test]
+    fn test_example_success_with_a_valid_example() {
+        let components = r#"
+        MyComponent:
+            type: object
+            properties:
+                id:
+                    type: integer
+            example:
+                {
+                    "id": 123,
+                }
+        "#;
+        check_example_detect_no_error(line!(), "", components);
+    }
+
+    #[test]
+    fn test_examples_success_with_a_valid_examples() {
+        let components = r#"
+        MyComponent:
+            type: object
+            properties:
+                id:
+                    type: integer
+            examples:
+                - {
+                    "id": 123
+                  } 
+                - {
+                    "id": 456
+                  }
+        "#;
+        check_example_detect_no_error(line!(), "", components);
+    }
+
+    #[test]
+    fn test_examples_is_verified_on_object() {
+        let components = r#"
+        MyComponent:
+            type: object
+            properties:
+                id:
+                    type: integer
+            examples:
+                - {
+                    "id": 123
+                  } 
+                - {
+                    "id": "abc"
+                  } 
+                - {
+                    "id": "def"
+                  }
+        "#;
+        check_example_errors_is_detected(
+            line!(),
+            "",
+            components,
+            &[
+                "\"abc\" is not of type \"integer\"",
+                "\"def\" is not of type \"integer\"",
+            ],
+        );
+    }
+
+    #[test]
+    fn test_examples_should_be_an_array() {
+        let components = r#"
+        MyComponent:
+            type: object
+            properties:
+                id:
+                    type: integer
+            examples:
+                {
+                    "id": 123
+                }
+        "#;
+        check_example_errors_is_detected(
+            line!(),
+            "",
+            components,
+            &["Examples should be an array", "Examples: {\"id\":123}"],
+        );
+    }
+
     #[test]
     fn test_example_is_verified_on_object() {
         let components = r#"
@@ -799,11 +926,11 @@ components:
                     "id": "abc",
                 }
         "#;
-        check_example_error_is_detected(
+        check_example_errors_is_detected(
             line!(),
             "",
             components,
-            "\"abc\" is not of type \"integer\"",
+            &["\"abc\" is not of type \"integer\""],
         );
     }
 
@@ -819,11 +946,11 @@ components:
                     "abc"
                 ]
       "#;
-        check_example_error_is_detected(
+        check_example_errors_is_detected(
             line!(),
             "",
             components,
-            "\"abc\" is not of type \"integer\"",
+            &["\"abc\" is not of type \"integer\""],
         );
     }
 
@@ -837,11 +964,11 @@ components:
                 example: 
                     "abc"
         "#;
-        check_example_error_is_detected(
+        check_example_errors_is_detected(
             line!(),
             "",
             components,
-            "\"abc\" is not of type \"integer\"",
+            &["\"abc\" is not of type \"integer\""],
         );
     }
 
@@ -855,9 +982,14 @@ components:
                         in: path
                         schema:
                             type: integer
-                        example: "abc"
+                            example: "abc"
         "#;
-        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+        check_example_errors_is_detected(
+            line!(),
+            paths,
+            "",
+            &["\"abc\" is not of type \"integer\""],
+        );
     }
 
     #[test]
@@ -877,7 +1009,12 @@ components:
                                 "abc"
                             ]
         "#;
-        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+        check_example_errors_is_detected(
+            line!(),
+            paths,
+            "",
+            &["\"abc\" is not of type \"integer\""],
+        );
     }
 
     #[test]
@@ -897,7 +1034,12 @@ components:
                                     "abc"
                                 ]
         "#;
-        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+        check_example_errors_is_detected(
+            line!(),
+            paths,
+            "",
+            &["\"abc\" is not of type \"integer\""],
+        );
     }
 
     #[test]
@@ -915,7 +1057,12 @@ components:
                                 example: 
                                     "abc"
         "#;
-        check_example_error_is_detected(line!(), paths, "", "\"abc\" is not of type \"integer\"");
+        check_example_errors_is_detected(
+            line!(),
+            paths,
+            "",
+            &["\"abc\" is not of type \"integer\""],
+        );
     }
 
     #[test]
@@ -935,11 +1082,11 @@ components:
             type: integer
         "#;
 
-        check_example_error_is_detected(
+        check_example_errors_is_detected(
             line!(),
             paths,
             components,
-            "\"abc\" is not of type \"integer\"",
+            &["\"abc\" is not of type \"integer\""],
         );
     }
 }
