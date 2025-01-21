@@ -10,13 +10,17 @@ build_metrics_service!(
         "mithril_aggregator_certificate_detail_total_served_since_startup",
         "Number of certificate details served since startup on a Mithril aggregator node"
     ),
-    artifact_detail_cardano_db_total_served_since_startup:MetricCounter(
+    artifact_detail_cardano_immutable_files_full_total_served_since_startup:MetricCounter(
         "mithril_aggregator_artifact_detail_cardano_db_total_served_since_startup",
-        "Number of Cardano db artifact details served since startup on a Mithril aggregator node"
+        "Number of Cardano immutable files full artifact details served since startup on a Mithril aggregator node"
     ),
-    cardano_db_total_restoration_since_startup:MetricCounter(
+    cardano_immutable_files_full_total_restoration_since_startup:MetricCounter(
         "mithril_aggregator_cardano_db_total_restoration_since_startup",
-        "Number of Cardano db restorations since startup on a Mithril aggregator node"
+        "Number of Cardano immutable files full restorations since startup on a Mithril aggregator node"
+    ),
+    artifact_detail_cardano_database_total_served_since_startup:MetricCounter(
+        "mithril_aggregator_artifact_detail_cardano_database_total_served_since_startup",
+        "Number of Cardano database artifact details served since startup on a Mithril aggregator node"
     ),
     artifact_detail_mithril_stake_distribution_total_served_since_startup:MetricCounter(
         "mithril_aggregator_artifact_detail_mithril_stake_distribution_total_served_since_startup",
@@ -50,9 +54,13 @@ build_metrics_service!(
         "mithril_aggregator_certificate_total_produced_since_startup",
         "Number of certificates produced since startup on a Mithril aggregator node"
     ),
-    artifact_cardano_db_total_produced_since_startup:MetricCounter(
+    artifact_cardano_immutable_files_full_total_produced_since_startup:MetricCounter(
         "mithril_aggregator_artifact_cardano_db_total_produced_since_startup",
-        "Number of Cardano db artifacts produced since startup on a Mithril aggregator node"
+        "Number of Cardano immutable files full artifacts produced since startup on a Mithril aggregator node"
+    ),
+    artifact_cardano_database_total_produced_since_startup:MetricCounter(
+        "mithril_aggregator_artifact_cardano_database_total_produced_since_startup",
+        "Number of Cardano database artifacts produced since startup on a Mithril aggregator node"
     ),
     artifact_mithril_stake_distribution_total_produced_since_startup:MetricCounter(
         "mithril_aggregator_artifact_mithril_stake_distribution_total_produced_since_startup",
@@ -65,10 +73,6 @@ build_metrics_service!(
     artifact_cardano_transaction_total_produced_since_startup:MetricCounter(
         "mithril_aggregator_artifact_cardano_transaction_total_produced_since_startup",
         "Number of Cardano transaction artifacts produced since startup on a Mithril aggregator node"
-    ),
-    artifact_cardano_database_total_produced_since_startup:MetricCounter(
-        "mithril_aggregator_artifact_cardano_database_total_produced_since_startup",
-        "Number of Cardano database artifacts produced since startup on a Mithril aggregator node"
     ),
     runtime_cycle_success_since_startup:MetricCounter(
         "mithril_aggregator_runtime_cycle_success_since_startup",

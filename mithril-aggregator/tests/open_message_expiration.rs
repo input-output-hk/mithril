@@ -129,6 +129,6 @@ async fn open_message_expiration() {
         tester.metrics_verifier,
         ExpectedMetrics::new()
             .certificate_total(1)
-            .artifact_cardano_db_total(1)
+            .artifact_cardano_immutable_files_full_total(1)
     );
 }

@@ -307,7 +307,7 @@ impl MithrilSignedEntityService {
                 metrics.get_artifact_mithril_stake_distribution_total_produced_since_startup()
             }
             SignedEntityType::CardanoImmutableFilesFull(_) => {
-                metrics.get_artifact_cardano_db_total_produced_since_startup()
+                metrics.get_artifact_cardano_immutable_files_full_total_produced_since_startup()
             }
             SignedEntityType::CardanoStakeDistribution(_) => {
                 metrics.get_artifact_cardano_stake_distribution_total_produced_since_startup()
@@ -712,7 +712,7 @@ mod tests {
                 .get_artifact_mithril_stake_distribution_total_produced_since_startup()
                 .get(),
             SignedEntityType::CardanoImmutableFilesFull(_) => metrics_service
-                .get_artifact_cardano_db_total_produced_since_startup()
+                .get_artifact_cardano_immutable_files_full_total_produced_since_startup()
                 .get(),
             SignedEntityType::CardanoStakeDistribution(_) => metrics_service
                 .get_artifact_cardano_stake_distribution_total_produced_since_startup()
