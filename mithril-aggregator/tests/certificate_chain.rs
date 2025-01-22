@@ -297,7 +297,7 @@ async fn certificate_chain() {
         tester.metrics_verifier,
         ExpectedMetrics::new()
             .certificate_total(7)
-            .artifact_cardano_db_total(3)
+            .artifact_cardano_immutable_files_full_total(3)
             .artifact_mithril_stake_distribution_total(4)
     );
 }

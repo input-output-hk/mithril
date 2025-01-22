@@ -40,7 +40,7 @@ mod handlers {
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
-            .get_cardano_db_total_restoration_since_startup()
+            .get_cardano_immutable_files_full_total_restoration_since_startup()
             .increment();
 
         let headers: Vec<(&str, &str)> = Vec::new();
@@ -134,7 +134,7 @@ mod tests {
         let dependency_manager = Arc::new(initialize_dependencies().await);
         let initial_counter_value = dependency_manager
             .metrics_service
-            .get_cardano_db_total_restoration_since_startup()
+            .get_cardano_immutable_files_full_total_restoration_since_startup()
             .get();
 
         request()
@@ -150,7 +150,7 @@ mod tests {
             initial_counter_value + 1,
             dependency_manager
                 .metrics_service
-                .get_cardano_db_total_restoration_since_startup()
+                .get_cardano_immutable_files_full_total_restoration_since_startup()
                 .get()
         );
     }

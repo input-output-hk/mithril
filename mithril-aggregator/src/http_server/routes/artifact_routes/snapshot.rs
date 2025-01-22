@@ -102,7 +102,7 @@ mod handlers {
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
-            .get_artifact_detail_cardano_db_total_served_since_startup()
+            .get_artifact_detail_cardano_immutable_files_full_total_served_since_startup()
             .increment();
 
         match http_message_service
@@ -303,7 +303,7 @@ mod tests {
         let dependency_manager = Arc::new(initialize_dependencies().await);
         let initial_counter_value = dependency_manager
             .metrics_service
-            .get_artifact_detail_cardano_db_total_served_since_startup()
+            .get_artifact_detail_cardano_immutable_files_full_total_served_since_startup()
             .get();
 
         request()
@@ -318,7 +318,7 @@ mod tests {
             initial_counter_value + 1,
             dependency_manager
                 .metrics_service
-                .get_artifact_detail_cardano_db_total_served_since_startup()
+                .get_artifact_detail_cardano_immutable_files_full_total_served_since_startup()
                 .get()
         );
     }

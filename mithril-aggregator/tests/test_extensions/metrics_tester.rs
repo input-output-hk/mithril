@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 pub struct ExpectedMetrics {
     certificate_total: Option<u32>,
-    artifact_cardano_db_total: Option<u32>,
+    artifact_cardano_immutable_files_full_total: Option<u32>,
+    artifact_cardano_database_total: Option<u32>,
     artifact_mithril_stake_distribution_total: Option<u32>,
     artifact_cardano_stake_distribution_total: Option<u32>,
     artifact_cardano_transaction_total: Option<u32>,
@@ -16,7 +17,8 @@ impl ExpectedMetrics {
     pub fn new() -> Self {
         Self {
             certificate_total: None,
-            artifact_cardano_db_total: None,
+            artifact_cardano_immutable_files_full_total: None,
+            artifact_cardano_database_total: None,
             artifact_mithril_stake_distribution_total: None,
             artifact_cardano_stake_distribution_total: None,
             artifact_cardano_transaction_total: None,
@@ -27,36 +29,49 @@ impl ExpectedMetrics {
 
     pub fn certificate_total(mut self, value: u32) -> Self {
         self.certificate_total = Some(value);
+
         self
     }
 
-    pub fn artifact_cardano_db_total(mut self, value: u32) -> Self {
-        self.artifact_cardano_db_total = Some(value);
+    pub fn artifact_cardano_immutable_files_full_total(mut self, value: u32) -> Self {
+        self.artifact_cardano_immutable_files_full_total = Some(value);
+
+        self
+    }
+
+    pub fn artifact_cardano_database_total(mut self, value: u32) -> Self {
+        self.artifact_cardano_database_total = Some(value);
+
         self
     }
 
     pub fn artifact_mithril_stake_distribution_total(mut self, value: u32) -> Self {
         self.artifact_mithril_stake_distribution_total = Some(value);
+
         self
     }
 
     pub fn artifact_cardano_stake_distribution_total(mut self, value: u32) -> Self {
         self.artifact_cardano_stake_distribution_total = Some(value);
+
         self
     }
 
     pub fn artifact_cardano_transaction_total(mut self, value: u32) -> Self {
         self.artifact_cardano_transaction_total = Some(value);
+
         self
     }
 
     pub fn runtime_cycle_success(mut self, value: u32) -> Self {
         self.runtime_cycle_success = Some(value);
+
         self
     }
 
     pub fn runtime_cycle_total(mut self, value: u32) -> Self {
         self.runtime_cycle_total = Some(value);
+
         self
     }
 }
@@ -93,9 +108,15 @@ impl MetricsVerifier {
         );
 
         verify_metric!(
-            expected_metrics.artifact_cardano_db_total,
+            expected_metrics.artifact_cardano_immutable_files_full_total,
             self.metrics_service
-                .get_artifact_cardano_db_total_produced_since_startup()
+                .get_artifact_cardano_immutable_files_full_total_produced_since_startup()
+        );
+
+        verify_metric!(
+            expected_metrics.artifact_cardano_database_total,
+            self.metrics_service
+                .get_artifact_cardano_database_total_produced_since_startup()
         );
 
         verify_metric!(
