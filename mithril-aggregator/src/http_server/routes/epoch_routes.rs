@@ -123,8 +123,8 @@ mod tests {
         test_utils::{apispec::APISpec, fake_data, MithrilFixtureBuilder},
     };
 
+    use crate::entities::AggregatorEpochSettings;
     use crate::services::FakeEpochService;
-    use crate::{entities::AggregatorEpochSettings, http_server::SERVER_BASE_PATH};
     use crate::{initialize_dependencies, services::FakeEpochServiceBuilder};
 
     use super::*;
@@ -137,9 +137,7 @@ mod tests {
             .allow_headers(vec!["content-type"])
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
-        warp::any()
-            .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&state).with(cors))
+        warp::any().and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -280,7 +278,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -306,7 +304,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))

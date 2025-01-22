@@ -212,7 +212,6 @@ mod tests {
     use crate::http_server::routes::artifact_routes::test_utils::*;
     use crate::http_server::routes::router::RouterConfig;
     use crate::{
-        http_server::SERVER_BASE_PATH,
         initialize_dependencies,
         services::{MockMessageService, MockSignedEntityService},
     };
@@ -237,9 +236,7 @@ mod tests {
             .allow_headers(vec!["content-type"])
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
-        warp::any()
-            .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&state).with(cors))
+        warp::any().and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -257,7 +254,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -290,7 +287,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -320,7 +317,7 @@ mod tests {
 
         request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(
                 dependency_manager.clone(),
             )))
@@ -350,7 +347,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -383,7 +380,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -416,7 +413,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -457,7 +454,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new(
                 Arc::new(dependency_manager),
                 RouterConfig {
@@ -493,7 +490,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -526,7 +523,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))

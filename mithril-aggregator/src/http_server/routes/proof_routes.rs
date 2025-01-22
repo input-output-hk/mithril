@@ -154,7 +154,7 @@ mod tests {
         test_utils::{apispec::APISpec, assert_equivalent, fake_data},
     };
 
-    use crate::{http_server::SERVER_BASE_PATH, services::MockProverService};
+    use crate::services::MockProverService;
     use crate::{initialize_dependencies, services::MockSignedEntityService};
 
     use super::*;
@@ -167,9 +167,7 @@ mod tests {
             .allow_headers(vec!["content-type"])
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
-        warp::any()
-            .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&state).with(cors))
+        warp::any().and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -219,7 +217,7 @@ mod tests {
         request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{},{}",
+                "{path}?transaction_hashes={},{},{}",
                 fake_data::transaction_hashes()[0],
                 fake_data::transaction_hashes()[1],
                 fake_data::transaction_hashes()[2]
@@ -266,7 +264,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                "{path}?transaction_hashes={},{}",
                 fake_data::transaction_hashes()[0],
                 fake_data::transaction_hashes()[1]
             ))
@@ -297,7 +295,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                "{path}?transaction_hashes={},{}",
                 fake_data::transaction_hashes()[0],
                 fake_data::transaction_hashes()[1]
             ))
@@ -333,7 +331,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes={},{}",
+                "{path}?transaction_hashes={},{}",
                 fake_data::transaction_hashes()[0],
                 fake_data::transaction_hashes()[1]
             ))
@@ -364,7 +362,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes=invalid%3A%2F%2Fid,,tx-456"
+                "{path}?transaction_hashes=invalid%3A%2F%2Fid,,tx-456"
             ))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
@@ -406,9 +404,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!(
-                "/{SERVER_BASE_PATH}{path}?transaction_hashes={tx},{tx}",
-            ))
+            .path(&format!("{path}?transaction_hashes={tx},{tx}",))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
