@@ -138,7 +138,8 @@ mod handlers {
 
         // TODO: enhance this check with a regular expression once the file naming convention is defined
         let file_is_a_cardano_database_archive = filepath.to_string_lossy().contains("ancillary")
-            || filepath.to_string_lossy().contains("immutable");
+            || filepath.to_string_lossy().contains("immutable")
+            || filepath.to_string_lossy().contains("digests");
         match file_is_a_cardano_database_archive {
             true => Ok(reply::add_content_disposition_header(reply, &filepath)),
             false => {

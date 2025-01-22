@@ -1347,11 +1347,30 @@ impl DependenciesBuilder {
                         allow_overwrite,
                     )?)])
                 }
-                SnapshotUploaderType::Local => Ok(vec![Arc::new(LocalUploader::new(
-                    self.configuration.get_server_url()?,
-                    &self.configuration.get_snapshot_dir()?,
-                    logger,
-                )?)]),
+                SnapshotUploaderType::Local => {
+                    let server_url_prefix = self.configuration.get_server_url()?;
+                    let digests_url_prefix = server_url_prefix
+                        .join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/digests/"))
+                        .with_context(|| format!("Could not join `{CARDANO_DATABASE_DOWNLOAD_PATH}/digests/` to URL `{server_url_prefix}`"))?;
+                    let target_dir = self
+                        .configuration
+                        .get_snapshot_dir()?
+                        .join(CARDANO_DB_ARTIFACTS_DIR)
+                        .join("digests");
+
+                    std::fs::create_dir_all(&target_dir).map_err(|e| {
+                        DependenciesBuilderError::Initialization {
+                            message: format!("Cannot create '{target_dir:?}' directory."),
+                            error: Some(e.into()),
+                        }
+                    })?;
+
+                    Ok(vec![Arc::new(LocalUploader::new(
+                        digests_url_prefix,
+                        &target_dir,
+                        logger,
+                    )?)])
+                }
             }
         } else {
             Ok(vec![Arc::new(DumbUploader::new())])
@@ -1362,21 +1381,17 @@ impl DependenciesBuilder {
         &mut self,
         cardano_node_version: Version,
     ) -> Result<CardanoDatabaseArtifactBuilder> {
-        let artifacts_dir = self
-            .configuration
-            .get_snapshot_dir()?
-            .join(CARDANO_DB_ARTIFACTS_DIR);
+        let snapshot_dir = self.configuration.get_snapshot_dir()?;
 
-        let immutable_dir = artifacts_dir.join("immutable");
-        let digests_dir = artifacts_dir.join("digests");
-        for subdir in [&immutable_dir, &digests_dir] {
-            std::fs::create_dir_all(subdir).map_err(|e| {
-                DependenciesBuilderError::Initialization {
-                    message: format!("Cannot create '{subdir:?}' directory."),
-                    error: Some(e.into()),
-                }
-            })?;
-        }
+        let immutable_dir = snapshot_dir
+            .join(CARDANO_DB_ARTIFACTS_DIR)
+            .join("immutable");
+        std::fs::create_dir_all(&immutable_dir).map_err(|e| {
+            DependenciesBuilderError::Initialization {
+                message: format!("Cannot create '{immutable_dir:?}' directory."),
+                error: Some(e.into()),
+            }
+        })?;
 
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
             self.build_cardano_database_ancillary_uploaders()?,
@@ -1396,7 +1411,7 @@ impl DependenciesBuilder {
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.configuration.get_server_url()?,
             self.build_cardano_database_digests_uploaders()?,
-            digests_dir,
+            snapshot_dir.join("pending_cardano_database_digests"),
             self.get_immutable_file_digest_mapper().await?,
             self.root_logger(),
         )?);
@@ -2002,10 +2017,10 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn if_not_local_uploader_create_cardano_database_immutable_and_digests_dirs() {
+        async fn if_not_local_uploader_create_cardano_database_immutable_dirs() {
             let snapshot_directory = TempDir::create(
                 "builder",
-                "if_not_local_uploader_create_cardano_database_immutable_and_digests_dirs",
+                "if_not_local_uploader_create_cardano_database_immutable_dirs",
             );
             let cdb_dir = snapshot_directory.join(CARDANO_DB_ARTIFACTS_DIR);
             let ancillary_dir = cdb_dir.join("ancillary");
@@ -2034,7 +2049,7 @@ mod tests {
 
             assert!(!ancillary_dir.exists());
             assert!(immutable_dir.exists());
-            assert!(digests_dir.exists());
+            assert!(!digests_dir.exists());
         }
 
         #[tokio::test]
