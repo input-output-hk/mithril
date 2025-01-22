@@ -4,7 +4,6 @@ use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
-use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
@@ -18,7 +17,7 @@ use mithril_common::entities::{
 use mithril_common::{CardanoNetwork, StdResult};
 
 use crate::http_server::SERVER_BASE_PATH;
-use crate::tools::url_sanitizer;
+use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 /// Different kinds of execution environments
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -282,20 +281,19 @@ impl Configuration {
     }
 
     /// Build the local server URL from configuration.
-    pub fn get_local_server_url(&self) -> StdResult<Url> {
-        let url = Url::parse(&format!(
+    pub fn get_local_server_url(&self) -> StdResult<SanitizedUrlWithTrailingSlash> {
+        SanitizedUrlWithTrailingSlash::parse(&format!(
             "http://{}:{}/{SERVER_BASE_PATH}/",
             self.server_ip, self.server_port
-        ))?;
-        Ok(url)
+        ))
     }
 
     /// Get the server URL from the configuration.
     ///
     /// Will return the public server URL if it is set, otherwise the local server URL.
-    pub fn get_server_url(&self) -> StdResult<Url> {
+    pub fn get_server_url(&self) -> StdResult<SanitizedUrlWithTrailingSlash> {
         match &self.public_server_url {
-            Some(url) => Ok(url_sanitizer::sanitize_url_path(&Url::parse(url)?)?),
+            Some(url) => SanitizedUrlWithTrailingSlash::parse(url),
             None => self.get_local_server_url(),
         }
     }

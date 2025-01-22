@@ -3,6 +3,7 @@ use crate::http_server::routes::{
     signatures_routes, signer_routes, statistics_routes, status,
 };
 use crate::http_server::SERVER_BASE_PATH;
+use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 use crate::DependencyContainer;
 
 use mithril_common::api_version::APIVersionProvider;
@@ -33,7 +34,7 @@ impl Reject for VersionParseError {}
 /// HTTP Server configuration
 pub struct RouterConfig {
     pub network: CardanoNetwork,
-    pub server_url: String,
+    pub server_url: SanitizedUrlWithTrailingSlash,
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
     pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
@@ -48,7 +49,7 @@ impl RouterConfig {
     pub fn dummy() -> Self {
         Self {
             network: CardanoNetwork::DevNet(87),
-            server_url: "http://0.0.0.0:8000/".to_string(),
+            server_url: SanitizedUrlWithTrailingSlash::parse("http://0.0.0.0:8000/").unwrap(),
             allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
