@@ -90,7 +90,7 @@ jobs:
             terraform_backend_bucket: hydra-terraform-admin
             google_region: europe-west1
             google_zone: europe-west1-b
-            google_machine_type: e2-highmem-2
+            google_machine_type: e2-highmem-4
             google_compute_instance_boot_disk_size: 200
             google_compute_instance_boot_disk_type: pd-standard
             google_compute_instance_data_disk_size: 250
