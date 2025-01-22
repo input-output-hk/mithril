@@ -4,6 +4,7 @@ use mithril_common::chain_observer::ChainObserverType;
 use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use mithril_common::era::adapters::EraReaderAdapterType;
 use mithril_doc::{Documenter, DocumenterDefault, StructDoc};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
@@ -15,6 +16,9 @@ use mithril_common::entities::{
     SignedEntityTypeDiscriminants,
 };
 use mithril_common::{CardanoNetwork, StdResult};
+
+use crate::http_server::SERVER_BASE_PATH;
+use crate::tools::url_sanitizer;
 
 /// Different kinds of execution environments
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -95,6 +99,9 @@ pub struct Configuration {
 
     /// Server listening port
     pub server_port: u16,
+
+    /// Server URL that can be accessed from the outside
+    pub public_server_url: Option<String>,
 
     /// Run Interval is the interval between two runtime cycles in ms
     #[example = "`60000`"]
@@ -242,6 +249,7 @@ impl Configuration {
             snapshot_use_cdn_domain: false,
             server_ip: "0.0.0.0".to_string(),
             server_port: 8000,
+            public_server_url: None,
             run_interval: 5000,
             db_directory: PathBuf::new(),
             snapshot_directory: PathBuf::new(),
@@ -273,9 +281,23 @@ impl Configuration {
         }
     }
 
-    /// Build the server URL from configuration.
-    pub fn get_server_url(&self) -> String {
-        format!("http://{}:{}/", self.server_ip, self.server_port)
+    /// Build the local server URL from configuration.
+    pub fn get_local_server_url(&self) -> StdResult<Url> {
+        let url = Url::parse(&format!(
+            "http://{}:{}/{SERVER_BASE_PATH}/",
+            self.server_ip, self.server_port
+        ))?;
+        Ok(url)
+    }
+
+    /// Get the server URL from the configuration.
+    ///
+    /// Will return the public server URL if it is set, otherwise the local server URL.
+    pub fn get_server_url(&self) -> StdResult<Url> {
+        match &self.public_server_url {
+            Some(url) => Ok(url_sanitizer::sanitize_url_path(&Url::parse(url)?)?),
+            None => self.get_local_server_url(),
+        }
     }
 
     /// Check configuration and return a representation of the Cardano network.
@@ -624,5 +646,72 @@ mod test {
         };
 
         assert!(!config.allow_http_serve_directory());
+    }
+
+    #[test]
+    fn get_server_url_return_local_url_with_server_base_path_if_public_url_is_not_set() {
+        let config = Configuration {
+            server_ip: "1.2.3.4".to_string(),
+            server_port: 5678,
+            public_server_url: None,
+            ..Configuration::new_sample()
+        };
+
+        assert_eq!(
+            config.get_server_url().unwrap().as_str(),
+            &format!("http://1.2.3.4:5678/{SERVER_BASE_PATH}/")
+        );
+    }
+
+    #[test]
+    fn get_server_url_return_sanitized_public_url_if_it_is_set() {
+        let config = Configuration {
+            server_ip: "1.2.3.4".to_string(),
+            server_port: 5678,
+            public_server_url: Some("https://example.com".to_string()),
+            ..Configuration::new_sample()
+        };
+
+        assert_eq!(
+            config.get_server_url().unwrap().as_str(),
+            "https://example.com/"
+        );
+    }
+
+    #[test]
+    fn joining_to_local_server_url_keep_base_path() {
+        let config = Configuration {
+            server_ip: "1.2.3.4".to_string(),
+            server_port: 6789,
+            public_server_url: None,
+            ..Configuration::new_sample()
+        };
+
+        let joined_url = config
+            .get_local_server_url()
+            .unwrap()
+            .join("some/path")
+            .unwrap();
+        assert!(
+            joined_url.as_str().contains(SERVER_BASE_PATH),
+            "Joined URL `{joined_url}`, does not contain base path `{SERVER_BASE_PATH}`"
+        );
+    }
+
+    #[test]
+    fn joining_to_public_server_url_without_trailing_slash() {
+        let subpath_without_trailing_slash = "subpath_without_trailing_slash";
+        let config = Configuration {
+            public_server_url: Some(format!(
+                "https://example.com/{subpath_without_trailing_slash}"
+            )),
+            ..Configuration::new_sample()
+        };
+
+        let joined_url = config.get_server_url().unwrap().join("some/path").unwrap();
+        assert!(
+            joined_url.as_str().contains(subpath_without_trailing_slash),
+            "Joined URL `{joined_url}`, does not contain subpath `{subpath_without_trailing_slash}`"
+        );
     }
 }

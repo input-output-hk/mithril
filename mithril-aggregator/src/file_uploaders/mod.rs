@@ -3,7 +3,6 @@ mod gcp_uploader;
 mod interface;
 mod local_snapshot_uploader;
 mod local_uploader;
-pub mod url_sanitizer;
 
 pub use dumb_uploader::*;
 pub use gcp_uploader::{CloudRemotePath, GcpBackendUploader, GcpUploader};

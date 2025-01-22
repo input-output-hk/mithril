@@ -64,16 +64,19 @@ fn serve_snapshots_dir(
 }
 
 mod handlers {
-    use crate::http_server::routes::reply;
-    use crate::http_server::SERVER_BASE_PATH;
-    use crate::services::MessageService;
-    use crate::services::SignedEntityService;
-    use crate::MetricsService;
+    use reqwest::Url;
     use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::str::FromStr;
     use std::sync::Arc;
     use warp::http::{StatusCode, Uri};
+
+    use mithril_common::StdResult;
+
+    use crate::http_server::routes::reply;
+    use crate::services::{MessageService, SignedEntityService};
+    use crate::tools::url_sanitizer;
+    use crate::{unwrap_to_internal_server_error, MetricsService};
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
@@ -176,9 +179,10 @@ mod handlers {
                     snapshot.digest,
                     snapshot.compression_algorithm.tar_file_extension()
                 );
-                let snapshot_uri =
-                    format!("{server_url}{SERVER_BASE_PATH}/snapshot_download/{filename}",);
-                let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
+                let snapshot_uri = unwrap_to_internal_server_error!(
+                    absolute_snapshot_uri(&server_url, &filename),
+                    logger => "snapshot_download::error"
+                );
 
                 Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
             }
@@ -191,6 +195,14 @@ mod handlers {
                 Ok(reply::server_error(err))
             }
         }
+    }
+
+    fn absolute_snapshot_uri(server_url: &str, filename: &str) -> StdResult<Uri> {
+        // warp requires an `Uri` from the `http` crate, but it does not have a 'join' method
+        let sanitized_url = url_sanitizer::sanitize_url_path(&Url::parse(server_url)?)?
+            .join(&format!("snapshot_download/{filename}"))?;
+        let snapshot_uri = Uri::from_str(sanitized_url.as_str())?;
+        Ok(snapshot_uri)
     }
 }
 
@@ -442,7 +454,6 @@ mod tests {
 
         let method = Method::GET.as_str();
         let path = "/artifact/snapshot/{digest}/download";
-        let server_url = "https://1.2.3.4:5552/".to_string();
 
         let response = request()
             .method(method)
@@ -450,7 +461,8 @@ mod tests {
             .reply(&setup_router(RouterState::new(
                 Arc::new(dependency_manager),
                 RouterConfig {
-                    server_url: server_url.clone(),
+                    // Note: the trailing slash allows to test that the URL does not contain a double slash
+                    server_url: "https://1.2.3.4:5552/".to_string(),
                     ..RouterConfig::dummy()
                 },
             )))
@@ -461,8 +473,8 @@ mod tests {
             .unwrap()
             .to_string();
         assert!(
-            location.contains(&format!("{server_url}{SERVER_BASE_PATH}/snapshot_download/{network}")),
-            "Expected value '{server_url}{SERVER_BASE_PATH}/snapshot_download/testnet' not found in {location}",
+            location.contains(&format!("https://1.2.3.4:5552/snapshot_download/{network}")),
+            "Expected value 'https://1.2.3.4:5552/snapshot_download/testnet' not found in {location}",
         );
     }
 

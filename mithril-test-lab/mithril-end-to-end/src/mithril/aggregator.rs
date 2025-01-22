@@ -56,11 +56,14 @@ impl Aggregator {
             };
         let signed_entity_types = aggregator_config.signed_entity_types.join(",");
         let mithril_run_interval = format!("{}", aggregator_config.mithril_run_interval);
+        let public_server_url = format!("http://localhost:{server_port_parameter}/aggregator");
         let env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", &mithril_run_interval),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
+            ("PUBLIC_SERVER_URL", &public_server_url),
+            ("SNAPSHOT_READER_TYPE", "local"),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             (

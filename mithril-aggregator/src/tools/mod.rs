@@ -6,6 +6,7 @@ mod genesis;
 pub mod mocks;
 mod signer_importer;
 mod single_signature_authenticator;
+pub mod url_sanitizer;
 
 pub use certificates_hash_migrator::CertificatesHashMigrator;
 pub use digest_helpers::extract_digest_from_path;

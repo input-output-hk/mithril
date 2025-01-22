@@ -100,7 +100,7 @@ export default function CardanoDbSnapshotsList(props) {
                         <Badge bg="secondary">{snapshot.beacon.network}</Badge>
 
                         <RawJsonButton
-                          href={`${aggregator}/snapshot/${snapshot.digest}`}
+                          href={`${aggregator}/artifact/snapshot/${snapshot.digest}`}
                           size="sm"
                           className="ms-auto"
                         />

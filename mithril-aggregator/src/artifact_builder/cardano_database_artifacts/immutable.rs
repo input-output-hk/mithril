@@ -780,9 +780,9 @@ mod tests {
 
             let expected_location = ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri(
-                "http://test.com:8080/base-root/artifact/snapshot/{immutable_file_number}.tar.gz"
-                    .to_string(),
-            ))};
+                    "http://test.com:8080/base-root/{immutable_file_number}.tar.gz".to_string(),
+                )),
+            };
             assert_eq!(expected_location, location);
         }
 

@@ -48,10 +48,13 @@ fn artifact_cardano_database_digest_list(
 fn serve_cardano_database_dir(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path("cardano_database_download")
+    warp::path(crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH)
         .and(warp::fs::dir(
-            router_state.configuration.snapshot_directory.clone(),
-        )) //TODO: the directory opened here should be narrowed to the final directory where the artifacts are stored
+            router_state
+                .configuration
+                .cardano_db_artifacts_directory
+                .clone(),
+        ))
         .and(middlewares::with_logger(router_state))
         .and(middlewares::extract_config(router_state, |config| {
             config.allow_http_serve_directory
@@ -135,7 +138,8 @@ mod handlers {
 
         // TODO: enhance this check with a regular expression once the file naming convention is defined
         let file_is_a_cardano_database_archive = filepath.to_string_lossy().contains("ancillary")
-            || filepath.to_string_lossy().contains("immutable");
+            || filepath.to_string_lossy().contains("immutable")
+            || filepath.to_string_lossy().contains("digests");
         match file_is_a_cardano_database_archive {
             true => Ok(reply::add_content_disposition_header(reply, &filepath)),
             false => {

@@ -5,7 +5,7 @@ use std::{
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
-use slog::{debug, error, Logger};
+use slog::{debug, error, warn, Logger};
 
 use mithril_common::{
     digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
@@ -181,6 +181,13 @@ impl AncillaryArtifactBuilder {
             }
         }
 
+        if let Err(error) = tokio::fs::remove_file(archive_filepath).await {
+            warn!(
+                self.logger, " > Post upload ancillary archive file removal failure";
+                "error" => error
+            );
+        }
+
         if locations.is_empty() {
             return Err(anyhow!(
                 "Failed to upload ancillary archive with all uploaders"
@@ -231,6 +238,21 @@ mod tests {
             .return_once(|_| Ok(AncillaryLocation::CloudStorage { uri }));
 
         uploader
+    }
+
+    fn create_fake_archive(dir: &Path, name: &str) -> PathBuf {
+        use std::fs::File;
+        use std::io::Write;
+
+        let file_path = dir.join(name);
+        let mut file = File::create(&file_path).unwrap();
+        writeln!(
+            file,
+            "I swear, this is an archive, not a temporary test file."
+        )
+        .unwrap();
+
+        file_path
     }
 
     #[test]
@@ -368,6 +390,59 @@ mod tests {
                 },
             ],
         );
+    }
+
+    #[tokio::test]
+    async fn upload_ancillary_archive_should_remove_archive_after_upload() {
+        let source_dir = TempDir::create(
+            "ancillary",
+            "upload_ancillary_archive_should_remove_archive_after_upload",
+        );
+        let archive = create_fake_archive(&source_dir, "ancillary.tar.gz");
+        let uploader = fake_uploader(archive.as_os_str().to_str().unwrap(), "an_uri");
+
+        let builder = AncillaryArtifactBuilder::new(
+            vec![Arc::new(uploader)],
+            Arc::new(DumbSnapshotter::new()),
+            CardanoNetwork::DevNet(123),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        assert!(archive.exists());
+
+        builder.upload_ancillary_archive(&archive).await.unwrap();
+
+        assert!(!archive.exists());
+    }
+
+    #[tokio::test]
+    async fn upload_ancillary_archive_should_remove_archive_when_no_uploader_succeed() {
+        let source_dir = TempDir::create(
+            "ancillary",
+            "upload_ancillary_archive_should_remove_archive_when_no_uploader_succeed",
+        );
+        let archive = create_fake_archive(&source_dir, "ancillary.tar.gz");
+        let uploader = fake_uploader_returning_error();
+
+        let builder = AncillaryArtifactBuilder::new(
+            vec![Arc::new(uploader)],
+            Arc::new(DumbSnapshotter::new()),
+            CardanoNetwork::DevNet(123),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        assert!(archive.exists());
+
+        builder
+            .upload_ancillary_archive(&archive)
+            .await
+            .unwrap_err();
+
+        assert!(!archive.exists());
     }
 
     #[tokio::test]
