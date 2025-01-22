@@ -240,7 +240,8 @@ impl CompressedArchiveSnapshotter {
     #[cfg(test)]
     /// Allow to use a custom temporary directory to avoid conflicts during the snapshot verification.
     pub fn set_sub_temp_dir<P: AsRef<Path>>(&mut self, sub_dir: P) {
-        self.temp_dir = std::env::temp_dir().join(sub_dir);
+        self.temp_dir =
+            mithril_common::test_utils::TempDir::create("snapshotter", "temp_dir").join(sub_dir);
     }
 
     fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {

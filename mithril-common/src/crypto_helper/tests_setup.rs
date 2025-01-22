@@ -2,7 +2,7 @@
 use super::{genesis::*, types::*, OpCert, SerDeShelleyFileFormat};
 use crate::{
     entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, Stake},
-    test_utils::{CertificateChainBuilder, SignerFixture},
+    test_utils::{CertificateChainBuilder, SignerFixture, TempDir},
 };
 
 use rand_chacha::ChaCha20Rng;
@@ -14,9 +14,10 @@ pub fn setup_temp_directory_for_signer(
     party_id: &ProtocolPartyId,
     auto_create: bool,
 ) -> Option<PathBuf> {
-    let temp_dir = std::env::temp_dir()
-        .join("mithril_crypto_helper_material")
+    let temp_dir = TempDir::new("tests_setup", "mithril_crypto_helper_material")
+        .build_path()
         .join(party_id);
+
     if auto_create {
         fs::create_dir_all(&temp_dir).expect("temp dir creation should not fail");
     }

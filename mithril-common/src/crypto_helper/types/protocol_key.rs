@@ -218,7 +218,10 @@ macro_rules! impl_codec_and_type_conversions_for_protocol_key {
 
 #[cfg(test)]
 mod test {
-    use crate::{crypto_helper::ProtocolKey, test_utils::fake_keys};
+    use crate::{
+        crypto_helper::ProtocolKey,
+        test_utils::{fake_keys, TempDir},
+    };
     use mithril_stm::stm::StmVerificationKeyPoP;
     use serde::{Deserialize, Serialize};
 
@@ -275,7 +278,11 @@ mod test {
     #[test]
     fn can_read_and_write_to_file_a_verification_key() {
         let expected_key: ProtocolKey<StmVerificationKeyPoP> = VERIFICATION_KEY.try_into().unwrap();
-        let key_path = std::env::temp_dir().join("can_read_and_write_to_file_a_verification_key");
+        let key_path = TempDir::create(
+            "protocol_key",
+            "can_read_and_write_to_file_a_verification_key",
+        )
+        .join("key.out");
 
         expected_key
             .write_json_hex_to_file(&key_path)

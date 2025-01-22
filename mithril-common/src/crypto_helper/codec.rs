@@ -44,7 +44,7 @@ pub fn key_decode_hex<T>(from: HexEncodedKeySlice) -> Result<T, CodecError>
 where
     T: DeserializeOwned,
 {
-    let from_vec = Vec::from_hex(from).map_err(|e| {
+    let from_vec = Vec::from_hex(from.trim()).map_err(|e| {
         CodecError::new(
             "Key decode hex: can not turn hexadecimal value into bytes",
             e.into(),
@@ -88,6 +88,18 @@ mod tests {
             key_encode_hex(&test_to_serialize).expect("unexpected hex encoding error");
         let test_to_serialize_restored =
             key_decode_hex(&test_to_serialize_hex).expect("unexpected hex decoding error");
+        assert_eq!(test_to_serialize, test_to_serialize_restored);
+    }
+
+    #[test]
+    fn test_key_decode_hex_with_leading_and_trailing_whitespace() {
+        let test_to_serialize = TestSerialize {
+            inner_string: "my inner string".to_string(),
+        };
+        let test_to_serialize_hex =
+            key_encode_hex(&test_to_serialize).expect("unexpected hex encoding error");
+        let test_to_serialize_restored = key_decode_hex(&format!(" \r{test_to_serialize_hex} \n"))
+            .expect("unexpected hex decoding error");
         assert_eq!(test_to_serialize, test_to_serialize_restored);
     }
 
