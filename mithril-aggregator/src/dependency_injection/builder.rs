@@ -1,5 +1,4 @@
 use anyhow::Context;
-use reqwest::Url;
 use semver::Version;
 use slog::{debug, Logger};
 use std::{collections::BTreeSet, sync::Arc};
@@ -72,7 +71,7 @@ use crate::{
     },
     http_server::{
         routes::router::{self, RouterConfig, RouterState},
-        CARDANO_DATABASE_DOWNLOAD_PATH, SERVER_BASE_PATH,
+        CARDANO_DATABASE_DOWNLOAD_PATH,
     },
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
@@ -317,16 +316,6 @@ impl DependenciesBuilder {
         }
     }
 
-    fn get_server_url_prefix(&self) -> Result<Url> {
-        let url = self.configuration.get_server_url()?;
-        url.join(&format!("{SERVER_BASE_PATH}/")).map_err(|e| {
-            DependenciesBuilderError::Initialization {
-                message: format!("Could not join `{SERVER_BASE_PATH}` to url:'{url}'."),
-                error: Some(e.into()),
-            }
-        })
-    }
-
     /// Get the allowed signed entity types discriminants
     fn get_allowed_signed_entity_types_discriminants(
         &self,
@@ -498,7 +487,7 @@ impl DependenciesBuilder {
                     })?;
 
                     Ok(Arc::new(LocalSnapshotUploader::new(
-                        self.get_server_url_prefix()?,
+                        self.configuration.get_server_url()?,
                         &snapshot_artifacts_dir,
                         logger,
                     )?))
@@ -1274,7 +1263,7 @@ impl DependenciesBuilder {
                     )?)])
                 }
                 SnapshotUploaderType::Local => {
-                    let server_url_prefix = self.get_server_url_prefix()?;
+                    let server_url_prefix = self.configuration.get_server_url()?;
                     let ancillary_url_prefix = server_url_prefix
                         .join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/ancillary/"))
                         .with_context(|| {
@@ -1322,7 +1311,7 @@ impl DependenciesBuilder {
                     )?)])
                 }
                 SnapshotUploaderType::Local => {
-                    let server_url_prefix = self.get_server_url_prefix()?;
+                    let server_url_prefix = self.configuration.get_server_url()?;
                     let immutable_url_prefix = server_url_prefix
                         .join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/"))
                         .with_context(|| format!("Could not join `{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/` to URL `{server_url_prefix}`"))?;
@@ -1359,7 +1348,7 @@ impl DependenciesBuilder {
                     )?)])
                 }
                 SnapshotUploaderType::Local => Ok(vec![Arc::new(LocalUploader::new(
-                    self.get_server_url_prefix()?,
+                    self.configuration.get_server_url()?,
                     &self.configuration.get_snapshot_dir()?,
                     logger,
                 )?)]),
@@ -1405,7 +1394,7 @@ impl DependenciesBuilder {
         )?);
 
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
-            self.get_server_url_prefix()?,
+            self.configuration.get_server_url()?,
             self.build_cardano_database_digests_uploaders()?,
             digests_dir,
             self.get_immutable_file_digest_mapper().await?,
@@ -2088,27 +2077,5 @@ mod tests {
             assert!(immutable_dir.exists());
             assert!(digests_dir.exists());
         }
-    }
-
-    #[test]
-    fn joining_to_server_url_prefix_keep_base_path() {
-        let dep_builder = {
-            let config = Configuration {
-                server_ip: "1.2.3.4".to_string(),
-                server_port: 6789,
-                ..Configuration::new_sample()
-            };
-
-            DependenciesBuilder::new_with_stdout_logger(config)
-        };
-
-        let server_url_prefix = dep_builder.get_server_url_prefix().unwrap();
-        assert!(server_url_prefix.as_str().contains(SERVER_BASE_PATH));
-
-        let joined_url = server_url_prefix.join("some/path").unwrap();
-        assert!(
-            joined_url.as_str().contains(SERVER_BASE_PATH),
-            "Joined URL `{joined_url}`, does not contain base path `{SERVER_BASE_PATH}`"
-        );
     }
 }

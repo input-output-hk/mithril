@@ -17,6 +17,7 @@ use mithril_common::entities::{
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
+use crate::http_server::SERVER_BASE_PATH;
 use crate::tools::url_sanitizer;
 
 /// Different kinds of execution environments
@@ -282,7 +283,10 @@ impl Configuration {
 
     /// Build the local server URL from configuration.
     pub fn get_local_server_url(&self) -> StdResult<Url> {
-        let url = Url::parse(&format!("http://{}:{}/", self.server_ip, self.server_port))?;
+        let url = Url::parse(&format!(
+            "http://{}:{}/{SERVER_BASE_PATH}/",
+            self.server_ip, self.server_port
+        ))?;
         Ok(url)
     }
 
@@ -645,7 +649,7 @@ mod test {
     }
 
     #[test]
-    fn get_server_url_return_local_url_if_public_url_is_not_set() {
+    fn get_server_url_return_local_url_with_server_base_path_if_public_url_is_not_set() {
         let config = Configuration {
             server_ip: "1.2.3.4".to_string(),
             server_port: 5678,
@@ -655,7 +659,7 @@ mod test {
 
         assert_eq!(
             config.get_server_url().unwrap().as_str(),
-            "http://1.2.3.4:5678/"
+            &format!("http://1.2.3.4:5678/{SERVER_BASE_PATH}/")
         );
     }
 
@@ -671,6 +675,43 @@ mod test {
         assert_eq!(
             config.get_server_url().unwrap().as_str(),
             "https://example.com/"
+        );
+    }
+
+    #[test]
+    fn joining_to_local_server_url_keep_base_path() {
+        let config = Configuration {
+            server_ip: "1.2.3.4".to_string(),
+            server_port: 6789,
+            public_server_url: None,
+            ..Configuration::new_sample()
+        };
+
+        let joined_url = config
+            .get_local_server_url()
+            .unwrap()
+            .join("some/path")
+            .unwrap();
+        assert!(
+            joined_url.as_str().contains(SERVER_BASE_PATH),
+            "Joined URL `{joined_url}`, does not contain base path `{SERVER_BASE_PATH}`"
+        );
+    }
+
+    #[test]
+    fn joining_to_public_server_url_without_trailing_slash() {
+        let subpath_without_trailing_slash = "subpath_without_trailing_slash";
+        let config = Configuration {
+            public_server_url: Some(format!(
+                "https://example.com/{subpath_without_trailing_slash}"
+            )),
+            ..Configuration::new_sample()
+        };
+
+        let joined_url = config.get_server_url().unwrap().join("some/path").unwrap();
+        assert!(
+            joined_url.as_str().contains(subpath_without_trailing_slash),
+            "Joined URL `{joined_url}`, does not contain subpath `{subpath_without_trailing_slash}`"
         );
     }
 }
