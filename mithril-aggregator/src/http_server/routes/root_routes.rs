@@ -91,7 +91,6 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use crate::http_server::routes::router::RouterConfig;
-    use crate::http_server::SERVER_BASE_PATH;
     use crate::initialize_dependencies;
     use mithril_common::entities::{
         BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
@@ -118,9 +117,7 @@ mod tests {
             .allow_headers(vec!["content-type"])
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
-        warp::any()
-            .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&state).with(cors))
+        warp::any().and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -146,7 +143,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new(
                 Arc::new(dependency_manager),
                 config,
@@ -207,7 +204,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new(
                 Arc::new(dependency_manager),
                 config,

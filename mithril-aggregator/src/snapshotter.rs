@@ -239,9 +239,8 @@ impl CompressedArchiveSnapshotter {
 
     #[cfg(test)]
     /// Allow to use a custom temporary directory to avoid conflicts during the snapshot verification.
-    pub fn set_sub_temp_dir<P: AsRef<Path>>(&mut self, sub_dir: P) {
-        self.temp_dir =
-            mithril_common::test_utils::TempDir::create("snapshotter", "temp_dir").join(sub_dir);
+    pub fn set_sub_temp_dir<T: Into<String>>(&mut self, sub_dir: T) {
+        self.temp_dir = mithril_common::test_utils::TempDir::create("snapshotter-temp", sub_dir);
     }
 
     fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {
@@ -964,7 +963,7 @@ mod tests {
     }
 
     #[test]
-    fn can_set_temp_dir_with_path_or_str() {
+    fn can_set_temp_dir_with_str_or_string() {
         let mut snapshotter = CompressedArchiveSnapshotter::new(
             PathBuf::from("db"),
             PathBuf::from("pending_snapshot"),
@@ -973,8 +972,7 @@ mod tests {
         )
         .unwrap();
 
-        snapshotter.set_sub_temp_dir(Path::new("sub_dir"));
-        snapshotter.set_sub_temp_dir(PathBuf::from("sub_dir"));
         snapshotter.set_sub_temp_dir("sub_dir");
+        snapshotter.set_sub_temp_dir("sub_dir".to_string());
     }
 }

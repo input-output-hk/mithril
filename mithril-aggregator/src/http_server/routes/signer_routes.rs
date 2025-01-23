@@ -275,7 +275,6 @@ mod tests {
 
     use crate::{
         database::{record::SignerRecord, repository::MockSignerGetter},
-        http_server::SERVER_BASE_PATH,
         initialize_dependencies,
         services::FakeEpochService,
         signer_registerer::MockSignerRegisterer,
@@ -294,9 +293,7 @@ mod tests {
             .allow_headers(vec!["content-type"])
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
-        warp::any()
-            .and(warp::path(SERVER_BASE_PATH))
-            .and(routes(&state).with(cors))
+        warp::any().and(routes(&state).with(cors))
     }
 
     #[tokio::test]
@@ -316,7 +313,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .json(&signer)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
@@ -348,7 +345,7 @@ mod tests {
 
         request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .json(&RegisterSignerMessage::dummy())
             .reply(&setup_router(RouterState::new_with_dummy_config(
                 dependency_manager.clone(),
@@ -385,7 +382,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .json(&signer)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
@@ -424,7 +421,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .json(&signer)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
@@ -462,7 +459,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .json(&signer)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
@@ -496,7 +493,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .json(&signer)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
@@ -533,7 +530,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{base_path}/{}", asked_epoch))
+            .path(&format!("{base_path}/{}", asked_epoch))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -560,7 +557,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{base_path}/1"))
+            .path(&format!("{base_path}/1"))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -593,7 +590,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{base_path}/3"))
+            .path(&format!("{base_path}/3"))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -625,7 +622,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{base_path}/1"))
+            .path(&format!("{base_path}/1"))
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -675,7 +672,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))
@@ -708,7 +705,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .path(path)
             .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
                 dependency_manager,
             ))))

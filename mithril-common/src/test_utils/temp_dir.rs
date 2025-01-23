@@ -16,7 +16,7 @@ const DEFAULT_SHORT_PATH_MAX_LEN: usize = 90;
 
 impl TempDir {
     /// `TempDir` builder factory
-    pub fn new<T: Into<String>>(module: T, name: T) -> Self {
+    pub fn new<M: Into<String>, N: Into<String>>(module: M, name: N) -> Self {
         Self {
             module_name: module.into(),
             name: name.into(),
@@ -85,7 +85,7 @@ impl TempDir {
     /// # use crate::mithril_common::test_utils::TempDir;
     /// TempDir::new("module", "name").build();
     /// ```
-    pub fn create<T: Into<String>>(module: T, name: T) -> PathBuf {
+    pub fn create<M: Into<String>, N: Into<String>>(module: M, name: N) -> PathBuf {
         Self::new(module, name).build()
     }
 
@@ -97,7 +97,7 @@ impl TempDir {
     /// # use crate::mithril_common::test_utils::TempDir;
     /// TempDir::new("module", "name").generate_shorter_path().build();
     /// ```
-    pub fn create_with_short_path<T: Into<String>>(module: T, name: T) -> PathBuf {
+    pub fn create_with_short_path<M: Into<String>, N: Into<String>>(module: M, name: N) -> PathBuf {
         Self::new(module, name).generate_shorter_path().build()
     }
 
