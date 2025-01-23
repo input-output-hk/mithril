@@ -76,7 +76,7 @@ const config = {
       {
         specs: [
           {
-            spec: "../openapi.yaml",
+            spec: "../../openapi.yaml",
             route: "/aggregator-api/",
           },
         ],
