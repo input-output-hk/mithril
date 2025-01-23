@@ -59,14 +59,6 @@ impl Snapshotter for DumbSnapshotter {
     ) -> StdResult<OngoingSnapshot> {
         self.snapshot_all(archive_name)
     }
-
-    fn does_snapshot_exist(&self, _filepath: &Path) -> bool {
-        false
-    }
-
-    fn get_file_path(&self, filepath: &Path) -> PathBuf {
-        filepath.to_path_buf()
-    }
 }
 
 #[cfg(test)]
