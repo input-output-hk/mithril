@@ -11,15 +11,15 @@ use super::FileUploader;
 pub struct RetryableFileUploader<T: FileUploader> {
     wrapped_uploader: T,
     call_limit: u32,
-    delay_between_attemps: Duration,
+    delay_between_attempts: Duration,
 }
 
 impl<T: FileUploader> RetryableFileUploader<T> {
-    pub fn new(wrapped_uploader: T, call_limit: u32, delay_between_attemps: Duration) -> Self {
+    pub fn new(wrapped_uploader: T, call_limit: u32, delay_between_attempts: Duration) -> Self {
         Self {
             wrapped_uploader,
             call_limit,
-            delay_between_attemps,
+            delay_between_attempts,
         }
     }
 }
@@ -35,7 +35,7 @@ impl<T: FileUploader> FileUploader for RetryableFileUploader<T> {
                 Err(_) if nb_attemps >= self.call_limit => {
                     return Err(anyhow::anyhow!("Upload retry limit reached"));
                 }
-                _ => time::sleep(self.delay_between_attemps).await,
+                _ => time::sleep(self.delay_between_attempts).await,
             }
         }
     }
