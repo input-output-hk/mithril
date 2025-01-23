@@ -64,7 +64,6 @@ fn serve_snapshots_dir(
 }
 
 mod handlers {
-    use reqwest::Url;
     use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::str::FromStr;
@@ -75,7 +74,7 @@ mod handlers {
 
     use crate::http_server::routes::reply;
     use crate::services::{MessageService, SignedEntityService};
-    use crate::tools::url_sanitizer;
+    use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
     use crate::{unwrap_to_internal_server_error, MetricsService};
 
     pub const LIST_MAX_ITEMS: usize = 20;
@@ -162,7 +161,7 @@ mod handlers {
     pub async fn snapshot_download(
         digest: String,
         logger: Logger,
-        server_url: String,
+        server_url: SanitizedUrlWithTrailingSlash,
         signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
         match signed_entity_service
@@ -197,10 +196,12 @@ mod handlers {
         }
     }
 
-    fn absolute_snapshot_uri(server_url: &str, filename: &str) -> StdResult<Uri> {
+    fn absolute_snapshot_uri(
+        server_url: &SanitizedUrlWithTrailingSlash,
+        filename: &str,
+    ) -> StdResult<Uri> {
         // warp requires an `Uri` from the `http` crate, but it does not have a 'join' method
-        let sanitized_url = url_sanitizer::sanitize_url_path(&Url::parse(server_url)?)?
-            .join(&format!("snapshot_download/{filename}"))?;
+        let sanitized_url = server_url.join(&format!("snapshot_download/{filename}"))?;
         let snapshot_uri = Uri::from_str(sanitized_url.as_str())?;
         Ok(snapshot_uri)
     }
@@ -211,6 +212,7 @@ mod tests {
     use super::*;
     use crate::http_server::routes::artifact_routes::test_utils::*;
     use crate::http_server::routes::router::RouterConfig;
+    use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
     use crate::{
         initialize_dependencies,
         services::{MockMessageService, MockSignedEntityService},
@@ -458,8 +460,8 @@ mod tests {
             .reply(&setup_router(RouterState::new(
                 Arc::new(dependency_manager),
                 RouterConfig {
-                    // Note: the trailing slash allows to test that the URL does not contain a double slash
-                    server_url: "https://1.2.3.4:5552/".to_string(),
+                    server_url: SanitizedUrlWithTrailingSlash::parse("https://1.2.3.4:5552/")
+                        .unwrap(),
                     ..RouterConfig::dummy()
                 },
             )))

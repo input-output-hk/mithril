@@ -133,12 +133,12 @@ mod tests {
         test_utils::{fake_data, TempDir},
         CardanoNetwork,
     };
-    use reqwest::Url;
 
     use crate::{
         artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
         test_tools::TestLogger,
+        tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
         DumbSnapshotter,
     };
 
@@ -238,7 +238,7 @@ mod tests {
                 .returning(|| Ok(BTreeMap::new()));
 
             DigestArtifactBuilder::new(
-                Url::parse("http://aggregator_uri").unwrap(),
+                SanitizedUrlWithTrailingSlash::parse("http://aggregator_uri").unwrap(),
                 vec![],
                 test_dir.join("digests"),
                 Arc::new(immutable_file_digest_mapper),

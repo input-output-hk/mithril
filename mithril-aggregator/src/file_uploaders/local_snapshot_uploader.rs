@@ -1,7 +1,6 @@
 use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::entities::FileUri;
-use reqwest::Url;
 use slog::{debug, Logger};
 use std::path::{Path, PathBuf};
 
@@ -9,13 +8,13 @@ use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 
 use crate::file_uploaders::FileUploader;
-use crate::tools::{self, url_sanitizer::sanitize_url_path};
+use crate::tools::{self, url_sanitizer::SanitizedUrlWithTrailingSlash};
 
 // It's only used by the legacy snapshot that uploads the entire Cardano database.
 /// LocalSnapshotUploader is a file uploader working using local files
 pub struct LocalSnapshotUploader {
     /// File server URL prefix
-    server_url_prefix: Url,
+    server_url_prefix: SanitizedUrlWithTrailingSlash,
 
     /// Target folder where to store files archive
     target_location: PathBuf,
@@ -26,13 +25,12 @@ pub struct LocalSnapshotUploader {
 impl LocalSnapshotUploader {
     /// LocalSnapshotUploader factory
     pub(crate) fn new(
-        server_url_prefix: Url,
+        server_url_prefix: SanitizedUrlWithTrailingSlash,
         target_location: &Path,
         logger: Logger,
     ) -> StdResult<Self> {
         let logger = logger.new_with_component_name::<Self>();
         debug!(logger, "New LocalSnapshotUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
-        let server_url_prefix = sanitize_url_path(&server_url_prefix)?;
 
         Ok(Self {
             server_url_prefix,
@@ -99,7 +97,8 @@ mod tests {
             &digest
         );
 
-        let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
+        let url_prefix =
+            SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
         let uploader =
             LocalSnapshotUploader::new(url_prefix, target_dir.path(), TestLogger::stdout())
                 .unwrap();
@@ -118,7 +117,7 @@ mod tests {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let archive = create_fake_archive(source_dir.path(), digest);
         let uploader = LocalSnapshotUploader::new(
-            Url::parse("http://test.com:8080/base-root/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             target_dir.path(),
             TestLogger::stdout(),
         )
@@ -138,7 +137,7 @@ mod tests {
         create_fake_archive(source_dir.path(), digest);
         let target_dir = tempdir().unwrap();
         let uploader = LocalSnapshotUploader::new(
-            Url::parse("http://test.com:8080/base-root/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             target_dir.path(),
             TestLogger::stdout(),
         )

@@ -1265,10 +1265,7 @@ impl DependenciesBuilder {
                 SnapshotUploaderType::Local => {
                     let server_url_prefix = self.configuration.get_server_url()?;
                     let ancillary_url_prefix = server_url_prefix
-                        .join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/ancillary/"))
-                        .with_context(|| {
-                            format!("Could not join `{CARDANO_DATABASE_DOWNLOAD_PATH}/ancillary/` to URL `{server_url_prefix}`")
-                        })?;
+                        .sanitize_join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/ancillary/"))?;
                     let target_dir = self
                         .configuration
                         .get_snapshot_dir()?
@@ -1313,8 +1310,7 @@ impl DependenciesBuilder {
                 SnapshotUploaderType::Local => {
                     let server_url_prefix = self.configuration.get_server_url()?;
                     let immutable_url_prefix = server_url_prefix
-                        .join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/"))
-                        .with_context(|| format!("Could not join `{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/` to URL `{server_url_prefix}`"))?;
+                        .sanitize_join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/"))?;
                     let target_dir = self
                         .configuration
                         .get_snapshot_dir()?
@@ -1350,8 +1346,7 @@ impl DependenciesBuilder {
                 SnapshotUploaderType::Local => {
                     let server_url_prefix = self.configuration.get_server_url()?;
                     let digests_url_prefix = server_url_prefix
-                        .join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/digests/"))
-                        .with_context(|| format!("Could not join `{CARDANO_DATABASE_DOWNLOAD_PATH}/digests/` to URL `{server_url_prefix}`"))?;
+                        .sanitize_join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/digests/"))?;
                     let target_dir = self
                         .configuration
                         .get_snapshot_dir()?
@@ -1759,7 +1754,7 @@ impl DependenciesBuilder {
             dependency_container.clone(),
             RouterConfig {
                 network: self.configuration.get_network()?,
-                server_url: self.configuration.get_server_url()?.to_string(),
+                server_url: self.configuration.get_server_url()?,
                 allowed_discriminants: self.get_allowed_signed_entity_types_discriminants()?,
                 cardano_transactions_prover_max_hashes_allowed_by_request: self
                     .configuration

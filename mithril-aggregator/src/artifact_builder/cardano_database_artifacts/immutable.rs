@@ -734,8 +734,8 @@ mod tests {
         use std::fs::File;
         use std::io::Write;
 
+        use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
         use mithril_common::test_utils::TempDir;
-        use reqwest::Url;
 
         use super::*;
 
@@ -765,7 +765,8 @@ mod tests {
             let archive_1 = create_fake_archive(&source_dir, "00001.tar.gz");
             let archive_2 = create_fake_archive(&source_dir, "00002.tar.gz");
 
-            let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
+            let url_prefix =
+                SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
             let uploader =
                 LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
             let location = ImmutableFilesUploader::batch_upload(
@@ -799,7 +800,8 @@ mod tests {
 
             let archive = create_fake_archive(&source_dir, "not-templatable.tar.gz");
 
-            let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
+            let url_prefix =
+                SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
             let uploader =
                 LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
 

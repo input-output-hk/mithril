@@ -1,6 +1,5 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use reqwest::Url;
 use slog::{debug, Logger};
 use std::path::{Path, PathBuf};
 
@@ -8,12 +7,12 @@ use mithril_common::StdResult;
 use mithril_common::{entities::FileUri, logging::LoggerExtensions};
 
 use crate::file_uploaders::FileUploader;
-use crate::tools::url_sanitizer::sanitize_url_path;
+use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 /// LocalUploader is a file uploader working using local files
 pub struct LocalUploader {
     /// File server URL prefix
-    server_url_prefix: Url,
+    server_url_prefix: SanitizedUrlWithTrailingSlash,
 
     /// Target folder where to store files archive
     target_location: PathBuf,
@@ -24,13 +23,12 @@ pub struct LocalUploader {
 impl LocalUploader {
     /// LocalUploader factory
     pub(crate) fn new(
-        server_url_prefix: Url,
+        server_url_prefix: SanitizedUrlWithTrailingSlash,
         target_location: &Path,
         logger: Logger,
     ) -> StdResult<Self> {
         let logger = logger.new_with_component_name::<Self>();
         debug!(logger, "New LocalUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
-        let server_url_prefix = sanitize_url_path(&server_url_prefix)?;
 
         Ok(Self {
             server_url_prefix,
@@ -101,7 +99,8 @@ mod tests {
             &archive.file_name().unwrap().to_str().unwrap()
         );
 
-        let url_prefix = Url::parse("http://test.com:8080/base-root").unwrap();
+        let url_prefix =
+            SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
         let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
         let location = FileUploader::upload(&uploader, &archive)
             .await
@@ -123,7 +122,7 @@ mod tests {
         println!("target_dir: {:?}", target_dir);
         let archive = create_fake_archive(&source_dir, "an_archive");
         let uploader = LocalUploader::new(
-            Url::parse("http://test.com:8080/base-root/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
             TestLogger::stdout(),
         )
@@ -144,7 +143,7 @@ mod tests {
             "should_error_if_path_is_a_directory_target",
         );
         let uploader = LocalUploader::new(
-            Url::parse("http://test.com:8080/base-root/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
             TestLogger::stdout(),
         )

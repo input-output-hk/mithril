@@ -10,11 +10,11 @@ use mithril_common::{
     entities::DigestLocation, logging::LoggerExtensions,
     messages::CardanoDatabaseDigestListItemMessage, StdResult,
 };
-use reqwest::Url;
 use slog::{error, Logger};
 
 use crate::{
     file_uploaders::{GcpUploader, LocalUploader},
+    tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
     DumbUploader, FileUploader, ImmutableFileDigestMapper,
 };
 
@@ -55,7 +55,8 @@ impl DigestFileUploader for GcpUploader {
 
 pub struct DigestArtifactBuilder {
     /// Aggregator URL prefix
-    aggregator_url_prefix: Url,
+    aggregator_url_prefix: SanitizedUrlWithTrailingSlash,
+
     /// Uploaders
     uploaders: Vec<Arc<dyn DigestFileUploader>>,
 
@@ -69,7 +70,7 @@ pub struct DigestArtifactBuilder {
 impl DigestArtifactBuilder {
     /// Creates a new [DigestArtifactBuilder].
     pub fn new(
-        aggregator_url_prefix: Url,
+        aggregator_url_prefix: SanitizedUrlWithTrailingSlash,
         uploaders: Vec<Arc<dyn DigestFileUploader>>,
         digests_dir: PathBuf,
         immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
@@ -211,7 +212,7 @@ mod tests {
             .returning(|| Ok(BTreeMap::new()));
 
         let builder = DigestArtifactBuilder::new(
-            Url::parse("https://aggregator/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![],
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
@@ -240,7 +241,7 @@ mod tests {
 
         {
             let builder = DigestArtifactBuilder::new(
-                Url::parse("https://aggregator/").unwrap(),
+                SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
                 vec![Arc::new(uploader)],
                 PathBuf::from("/tmp/whatever"),
                 Arc::new(MockImmutableFileDigestMapper::new()),
@@ -260,7 +261,7 @@ mod tests {
         let uploader = fake_uploader_returning_error();
 
         let builder = DigestArtifactBuilder::new(
-            Url::parse("https://aggregator/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![Arc::new(uploader)],
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
@@ -289,7 +290,7 @@ mod tests {
         ];
 
         let builder = DigestArtifactBuilder::new(
-            Url::parse("https://aggregator/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             uploaders,
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
@@ -324,7 +325,7 @@ mod tests {
             vec![Arc::new(first_uploader), Arc::new(second_uploader)];
 
         let builder = DigestArtifactBuilder::new(
-            Url::parse("https://aggregator/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             uploaders,
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
@@ -370,7 +371,7 @@ mod tests {
             });
 
         let builder = DigestArtifactBuilder::new(
-            Url::parse("https://aggregator/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![],
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
@@ -421,7 +422,7 @@ mod tests {
             });
 
         let builder = DigestArtifactBuilder::new(
-            Url::parse("https://aggregator/").unwrap(),
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![Arc::new(digest_file_uploader)],
             digests_dir,
             Arc::new(immutable_file_digest_mapper),
