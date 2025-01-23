@@ -222,6 +222,7 @@ mod tests {
                 });
 
             ImmutableArtifactBuilder::new(
+                test_dir.join("immutable"),
                 vec![Arc::new(immutable_uploader)],
                 Arc::new(DumbSnapshotter::new()),
                 CompressionAlgorithm::Gzip,

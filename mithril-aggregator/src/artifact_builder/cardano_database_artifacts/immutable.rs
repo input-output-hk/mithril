@@ -1,9 +1,10 @@
 use std::{
+    fs,
     path::{Path, PathBuf},
     sync::Arc,
 };
 
-use anyhow::anyhow;
+use anyhow::{anyhow, Context};
 use async_trait::async_trait;
 use regex::Regex;
 use slog::{error, Logger};
@@ -105,6 +106,7 @@ impl ImmutableFilesUploader for GcpUploader {
 }
 
 pub struct ImmutableArtifactBuilder {
+    immutables_storage_dir: PathBuf,
     uploaders: Vec<Arc<dyn ImmutableFilesUploader>>,
     snapshotter: Arc<dyn Snapshotter>,
     compression_algorithm: CompressionAlgorithm,
@@ -113,6 +115,7 @@ pub struct ImmutableArtifactBuilder {
 
 impl ImmutableArtifactBuilder {
     pub fn new(
+        immutables_storage_dir: PathBuf,
         uploaders: Vec<Arc<dyn ImmutableFilesUploader>>,
         snapshotter: Arc<dyn Snapshotter>,
         compression_algorithm: CompressionAlgorithm,
@@ -124,7 +127,17 @@ impl ImmutableArtifactBuilder {
             ));
         }
 
+        if !immutables_storage_dir.exists() {
+            fs::create_dir(&immutables_storage_dir).with_context(|| {
+                format!(
+                    "Can not create immutable storage directory: '{}'",
+                    immutables_storage_dir.display()
+                )
+            })?;
+        }
+
         Ok(Self {
+            immutables_storage_dir,
             uploaders,
             snapshotter,
             compression_algorithm,
@@ -220,9 +233,10 @@ mod tests {
     use mithril_common::{
         digesters::DummyCardanoDbBuilder,
         entities::TemplateUri,
-        test_utils::{assert_equivalent, equivalent_to},
+        test_utils::{assert_equivalent, equivalent_to, TempDir},
     };
     use mockall::predicate::{always, eq};
+    use std::fs::File;
     use uuid::Uuid;
 
     use crate::services::{
@@ -268,8 +282,13 @@ mod tests {
         OngoingSnapshot::new(PathBuf::from("/whatever"), 0)
     }
 
+    fn get_builder_work_dir<N: Into<String>>(test_name: N) -> PathBuf {
+        TempDir::create("cdb_immutable_builder", test_name)
+    }
+
     #[tokio::test]
     async fn upload_call_archive_creation_and_upload_to_retrieve_locations() {
+        let work_dir = get_builder_work_dir("upload_call_archive_creation_and_upload");
         let snapshotter = {
             let mut snapshotter = MockSnapshotter::new();
             snapshotter
@@ -308,6 +327,7 @@ mod tests {
         );
 
         let builder = ImmutableArtifactBuilder::new(
+            work_dir,
             vec![Arc::new(uploader)],
             Arc::new(snapshotter),
             CompressionAlgorithm::Gzip,
@@ -325,12 +345,56 @@ mod tests {
         )
     }
 
+    #[test]
+    fn create_immutable_builder_should_create_immutable_storage_dir_if_not_exist() {
+        let work_dir = get_builder_work_dir(
+            "create_immutable_builder_should_create_immutable_storage_dir_if_not_exist",
+        );
+        let immutable_storage_dir = work_dir.join("immutable");
+
+        assert!(!immutable_storage_dir.exists());
+
+        ImmutableArtifactBuilder::new(
+            immutable_storage_dir.clone(),
+            vec![Arc::new(DumbUploader::default())],
+            Arc::new(DumbSnapshotter::new()),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        assert!(immutable_storage_dir.exists());
+    }
+
+    #[test]
+    fn create_immutable_builder_should_not_create_or_remove_immutable_storage_dir_if_it_exist() {
+        let immutable_storage_dir = get_builder_work_dir(
+            "create_immutable_builder_should_not_create_or_remove_immutable_storage_dir_if_it_exist",
+        );
+        let existing_file_path = immutable_storage_dir.join("file.txt");
+        File::create(&existing_file_path).unwrap();
+
+        ImmutableArtifactBuilder::new(
+            immutable_storage_dir,
+            vec![Arc::new(DumbUploader::default())],
+            Arc::new(DumbSnapshotter::new()),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        assert!(existing_file_path.exists());
+    }
+
     mod create_archive {
 
         use super::*;
 
         #[test]
         fn snapshot_immutables_files_up_to_the_given_immutable_file_number() {
+            let work_dir = get_builder_work_dir(
+                "snapshot_immutables_files_up_to_the_given_immutable_file_number",
+            );
             let mut snapshotter = MockSnapshotter::new();
             snapshotter
                 .expect_get_file_path()
@@ -367,6 +431,7 @@ mod tests {
                 .returning(|_, _| Ok(dummy_ongoing_snapshot()));
 
             let builder = ImmutableArtifactBuilder::new(
+                work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
                 CompressionAlgorithm::Gzip,
@@ -389,6 +454,9 @@ mod tests {
 
         #[test]
         fn return_error_when_one_of_the_three_immutable_files_is_missing() {
+            let work_dir = get_builder_work_dir(
+                "return_error_when_one_of_the_three_immutable_files_is_missing",
+            );
             let test_dir =
                 "error_when_one_of_the_three_immutable_files_is_missing/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
@@ -409,6 +477,7 @@ mod tests {
             snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
+                work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
                 CompressionAlgorithm::Gzip,
@@ -425,6 +494,8 @@ mod tests {
 
         #[test]
         fn return_error_when_an_immutable_file_trio_is_missing() {
+            let work_dir =
+                get_builder_work_dir("return_error_when_an_immutable_file_trio_is_missing");
             let test_dir = "error_when_an_immutable_file_trio_is_missing/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
                 .with_immutables(&[1, 3])
@@ -441,6 +512,7 @@ mod tests {
             snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
+                work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
                 CompressionAlgorithm::Gzip,
@@ -455,6 +527,8 @@ mod tests {
 
         #[test]
         fn return_error_when_immutable_file_number_is_not_produced_yet() {
+            let work_dir =
+                get_builder_work_dir("return_error_when_immutable_file_number_is_not_produced_yet");
             let test_dir = "error_when_up_to_immutable_file_number_is_missing/cardano_database";
             let cardano_db = DummyCardanoDbBuilder::new(test_dir)
                 .with_immutables(&[1, 2])
@@ -471,6 +545,7 @@ mod tests {
             snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
             let builder = ImmutableArtifactBuilder::new(
+                work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
                 CompressionAlgorithm::Gzip,
@@ -485,6 +560,7 @@ mod tests {
 
         #[test]
         fn return_all_archives_but_not_rebuild_archives_already_compressed() {
+            let work_dir = get_builder_work_dir("return_all_archives_but_not_rebuild_archives");
             let mut snapshotter = MockSnapshotter::new();
             snapshotter
                 .expect_get_file_path()
@@ -521,6 +597,7 @@ mod tests {
                 .returning(|_, _| Ok(dummy_ongoing_snapshot()));
 
             let builder = ImmutableArtifactBuilder::new(
+                work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
                 CompressionAlgorithm::Gzip,
@@ -544,6 +621,8 @@ mod tests {
 
         #[test]
         fn return_all_archives_paths_even_if_all_archives_already_exist() {
+            let work_dir =
+                get_builder_work_dir("return_all_archives_paths_even_if_all_archives_exist");
             let mut snapshotter = MockSnapshotter::new();
             snapshotter
                 .expect_get_file_path()
@@ -552,6 +631,7 @@ mod tests {
             snapshotter.expect_snapshot_subset().never();
 
             let builder = ImmutableArtifactBuilder::new(
+                work_dir,
                 vec![Arc::new(MockImmutableFilesUploader::new())],
                 Arc::new(snapshotter),
                 CompressionAlgorithm::Gzip,
@@ -584,6 +664,7 @@ mod tests {
         #[test]
         fn create_immutable_builder_should_error_when_no_uploader() {
             let result = ImmutableArtifactBuilder::new(
+                get_builder_work_dir("create_immutable_builder_should_error_when_no_uploader"),
                 vec![],
                 Arc::new(DumbSnapshotter::new()),
                 CompressionAlgorithm::Gzip,
@@ -608,6 +689,7 @@ mod tests {
 
             {
                 let builder = ImmutableArtifactBuilder::new(
+                    get_builder_work_dir("upload_immutable_archives_should_log_upload_errors"),
                     vec![Arc::new(uploader)],
                     Arc::new(MockSnapshotter::new()),
                     CompressionAlgorithm::Gzip,
@@ -633,6 +715,7 @@ mod tests {
                 vec![Arc::new(fake_uploader_returning_error())];
 
             let builder = ImmutableArtifactBuilder::new(
+                get_builder_work_dir("upload_immutable_archives_should_error_when_no_location"),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
                 CompressionAlgorithm::Gzip,
@@ -665,6 +748,9 @@ mod tests {
             ];
 
             let builder = ImmutableArtifactBuilder::new(
+                get_builder_work_dir(
+                    "upload_immutable_archives_should_return_location_even_with_uploaders_errors",
+                ),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
                 CompressionAlgorithm::Gzip,
@@ -702,6 +788,9 @@ mod tests {
             ];
 
             let builder = ImmutableArtifactBuilder::new(
+                get_builder_work_dir(
+                    "upload_immutable_archives_should_return_all_uploaders_returned_locations",
+                ),
                 uploaders,
                 Arc::new(MockSnapshotter::new()),
                 CompressionAlgorithm::Gzip,
