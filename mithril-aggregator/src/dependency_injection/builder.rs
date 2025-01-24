@@ -75,19 +75,19 @@ use crate::{
     },
     services::{
         AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
-        CardanoTransactionsImporter, CertifierService, EpochServiceDependencies, MessageService,
-        MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
+        CardanoTransactionsImporter, CertifierService, CompressedArchiveSnapshotter,
+        DumbSnapshotter, EpochServiceDependencies, MessageService, MithrilCertifierService,
+        MithrilEpochService, MithrilMessageService, MithrilProverService,
         MithrilSignedEntityService, MithrilStakeDistributionService, ProverService,
-        SignedEntityService, SignedEntityServiceArtifactsDependencies, StakeDistributionService,
-        UpkeepService, UsageReporter,
+        SignedEntityService, SignedEntityServiceArtifactsDependencies, Snapshotter,
+        SnapshotterCompressionAlgorithm, StakeDistributionService, UpkeepService, UsageReporter,
     },
     store::CertificatePendingStorer,
     tools::{CExplorerSignerRetriever, GenesisToolsDependency, SignersImporter},
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CompressedArchiveSnapshotter,
-    Configuration, DependencyContainer, DumbSnapshotter, DumbUploader, EpochSettingsStorer,
-    ImmutableFileDigestMapper, LocalSnapshotUploader, MetricsService, MithrilSignerRegisterer,
-    MultiSigner, MultiSignerImpl, SingleSignatureAuthenticator, SnapshotUploaderType, Snapshotter,
-    SnapshotterCompressionAlgorithm, VerificationKeyStorer,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
+    DumbUploader, EpochSettingsStorer, ImmutableFileDigestMapper, LocalSnapshotUploader,
+    MetricsService, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    SingleSignatureAuthenticator, SnapshotUploaderType, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -1321,7 +1321,7 @@ impl DependenciesBuilder {
                         immutable_url_prefix,
                         &target_dir,
                         logger,
-                    )?)])
+                    ))])
                 }
             }
         } else {

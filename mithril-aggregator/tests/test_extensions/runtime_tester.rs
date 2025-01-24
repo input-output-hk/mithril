@@ -7,8 +7,8 @@ use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     event_store::EventMessage,
-    AggregatorRuntime, Configuration, DependencyContainer, DumbSnapshotter, DumbUploader,
-    SignerRegistrationError,
+    services::DumbSnapshotter,
+    AggregatorRuntime, Configuration, DependencyContainer, DumbUploader, SignerRegistrationError,
 };
 use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},

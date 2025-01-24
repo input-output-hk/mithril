@@ -36,12 +36,12 @@ use crate::{
     multi_signer::MultiSigner,
     services::{
         CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
-        StakeDistributionService, TransactionStore, UpkeepService,
+        Snapshotter, StakeDistributionService, TransactionStore, UpkeepService,
     },
     signer_registerer::SignerRecorder,
     store::CertificatePendingStorer,
     EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
-    SingleSignatureAuthenticator, Snapshotter, VerificationKeyStorer,
+    SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps a [EpochService]

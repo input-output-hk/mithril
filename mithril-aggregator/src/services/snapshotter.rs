@@ -122,6 +122,7 @@ pub struct CompressedArchiveSnapshotter {
     logger: Logger,
 }
 
+/// An ongoing snapshot is a snapshot that is not yet uploaded.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OngoingSnapshot {
     filepath: PathBuf,
@@ -129,14 +130,17 @@ pub struct OngoingSnapshot {
 }
 
 impl OngoingSnapshot {
+    /// `OngoingSnapshot` factory
     pub fn new(filepath: PathBuf, filesize: u64) -> Self {
         Self { filepath, filesize }
     }
 
+    /// Get the path of the snapshot archive.
     pub fn get_file_path(&self) -> &PathBuf {
         &self.filepath
     }
 
+    /// Get the size of the snapshot archive.
     pub fn get_file_size(&self) -> &u64 {
         &self.filesize
     }

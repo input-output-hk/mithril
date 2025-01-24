@@ -17,7 +17,8 @@ use mithril_common::{
 
 use crate::{
     file_uploaders::{GcpUploader, LocalUploader},
-    DumbUploader, FileUploader, Snapshotter,
+    services::Snapshotter,
+    DumbUploader, FileUploader,
 };
 
 fn immmutable_file_number_extractor(file_uri: &str) -> StdResult<Option<String>> {
@@ -224,11 +225,11 @@ mod tests {
     use mockall::predicate::{always, eq};
     use uuid::Uuid;
 
-    use crate::{
-        snapshotter::{MockSnapshotter, OngoingSnapshot},
-        test_tools::TestLogger,
-        CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
+    use crate::services::{
+        CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter, OngoingSnapshot,
+        SnapshotterCompressionAlgorithm,
     };
+    use crate::test_tools::TestLogger;
 
     use super::*;
 

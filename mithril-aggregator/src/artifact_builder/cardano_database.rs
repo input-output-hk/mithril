@@ -137,9 +137,9 @@ mod tests {
     use crate::{
         artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
+        services::DumbSnapshotter,
         test_tools::TestLogger,
         tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
-        DumbSnapshotter,
     };
 
     use super::*;
