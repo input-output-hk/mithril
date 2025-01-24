@@ -768,8 +768,7 @@ mod tests {
 
             let url_prefix =
                 SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-            let uploader =
-                LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
+            let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
             let location = ImmutableFilesUploader::batch_upload(
                 &uploader,
                 &[archive_1.clone(), archive_2.clone()],
@@ -803,8 +802,7 @@ mod tests {
 
             let url_prefix =
                 SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-            let uploader =
-                LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
+            let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
 
             ImmutableFilesUploader::batch_upload(&uploader, &[archive])
                 .await

@@ -490,7 +490,7 @@ impl DependenciesBuilder {
                         self.configuration.get_server_url()?,
                         &snapshot_artifacts_dir,
                         logger,
-                    )?))
+                    )))
                 }
             }
         } else {
@@ -1283,7 +1283,7 @@ impl DependenciesBuilder {
                         ancillary_url_prefix,
                         &target_dir,
                         logger,
-                    )?)])
+                    ))])
                 }
             }
         } else {
@@ -1364,7 +1364,7 @@ impl DependenciesBuilder {
                         digests_url_prefix,
                         &target_dir,
                         logger,
-                    )?)])
+                    ))])
                 }
             }
         } else {
