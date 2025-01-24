@@ -5,12 +5,15 @@ use std::{path::Path, sync::RwLock};
 
 use crate::file_uploaders::FileUploader;
 
+use super::interface::FileUploadRetryPolicy;
+
 /// Dummy uploader for test purposes.
 ///
 /// It actually does NOT upload any file but remembers the last file it
 /// was asked to upload. This is intended to by used by integration tests.
 pub struct DumbUploader {
     last_uploaded: RwLock<Option<FileUri>>,
+    retry_policy: FileUploadRetryPolicy,
 }
 
 impl DumbUploader {
@@ -18,6 +21,15 @@ impl DumbUploader {
     pub fn new() -> Self {
         Self {
             last_uploaded: RwLock::new(None),
+            retry_policy: FileUploadRetryPolicy::never(),
+        }
+    }
+
+    /// Create a new instance with a custom retry policy.
+    pub fn with_retry_policy(retry_policy: FileUploadRetryPolicy) -> Self {
+        Self {
+            last_uploaded: RwLock::new(None),
+            retry_policy,
         }
     }
 
@@ -52,10 +64,16 @@ impl FileUploader for DumbUploader {
 
         Ok(location)
     }
+
+    fn retry_policy(&self) -> FileUploadRetryPolicy {
+        self.retry_policy.clone()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
 
     #[tokio::test]
@@ -76,5 +94,18 @@ mod tests {
                 .get_last_upload()
                 .expect("getting dumb uploader last value after a fake download should not fail")
         );
+    }
+
+    #[tokio::test]
+    async fn retry_policy_from_file_uploader_trait_should_be_implemented() {
+        let expected_policy = FileUploadRetryPolicy {
+            attempts: 10,
+            delay_between_attempts: Duration::from_millis(123),
+        };
+
+        let uploader: Box<dyn FileUploader> =
+            Box::new(DumbUploader::with_retry_policy(expected_policy.clone()));
+
+        assert_eq!(expected_policy, uploader.retry_policy());
     }
 }

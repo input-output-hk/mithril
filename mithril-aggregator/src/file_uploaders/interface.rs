@@ -1,19 +1,19 @@
 use async_trait::async_trait;
 use mithril_common::{entities::FileUri, StdResult};
-use std::{
-    any::{Any, TypeId},
-    path::Path,
-    time::Duration,
-};
+use std::{any::Any, path::Path, time::Duration};
 
 /// Policy for retrying file uploads.
+#[derive(Debug, PartialEq, Clone)]
 pub struct FileUploadRetryPolicy {
-    attempts: usize,
-    delay_between_attempts: Duration,
+    /// Number of attempts to upload a file.
+    pub attempts: usize,
+    /// Delay between two attempts.
+    pub delay_between_attempts: Duration,
 }
 
 impl FileUploadRetryPolicy {
-    fn never() -> Self {
+    /// Create a policy that never retries.
+    pub fn never() -> Self {
         Self {
             attempts: 1,
             delay_between_attempts: Duration::from_secs(0),
@@ -22,6 +22,7 @@ impl FileUploadRetryPolicy {
 }
 
 impl Default for FileUploadRetryPolicy {
+    /// Create a default retry policy.
     fn default() -> Self {
         Self {
             attempts: 3,
@@ -38,11 +39,12 @@ pub trait FileUploader: Any + Sync + Send {
     /// Try to upload once.
     async fn upload_without_retry(&self, filepath: &Path) -> StdResult<FileUri>;
 
+    /// Get the retry policy for this uploader.
     fn retry_policy(&self) -> FileUploadRetryPolicy {
         FileUploadRetryPolicy::never()
     }
 
-    // Upload a file
+    /// Upload a file with retries according to the retry policy.
     async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
         let retry_policy = self.retry_policy();
 

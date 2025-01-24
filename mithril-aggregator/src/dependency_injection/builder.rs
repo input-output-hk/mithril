@@ -67,7 +67,8 @@ use crate::{
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
     file_uploaders::{
-        CloudRemotePath, FileUploader, GcpBackendUploader, GcpUploader, LocalUploader,
+        CloudRemotePath, FileUploadRetryPolicy, FileUploader, GcpBackendUploader, GcpUploader,
+        LocalUploader,
     },
     http_server::{
         routes::router::{self, RouterConfig, RouterState},
@@ -1235,7 +1236,7 @@ impl DependenciesBuilder {
                 DependenciesBuilderError::MissingConfiguration("snapshot_bucket_name".to_string())
             })?;
 
-        Ok(GcpUploader::new(
+        Ok(GcpUploader::with_retry_policy(
             Arc::new(GcpBackendUploader::try_new(
                 bucket,
                 self.configuration.snapshot_use_cdn_domain,
@@ -1243,6 +1244,7 @@ impl DependenciesBuilder {
             )?),
             remote_folder_path,
             allow_overwrite,
+            FileUploadRetryPolicy::default(),
         ))
     }
 
@@ -1279,9 +1281,10 @@ impl DependenciesBuilder {
                         }
                     })?;
 
-                    Ok(vec![Arc::new(LocalUploader::new(
+                    Ok(vec![Arc::new(LocalUploader::with_retry_policy(
                         ancillary_url_prefix,
                         &target_dir,
+                        FileUploadRetryPolicy::default(),
                         logger,
                     ))])
                 }
@@ -1317,9 +1320,10 @@ impl DependenciesBuilder {
                         .join(CARDANO_DB_ARTIFACTS_DIR)
                         .join("immutable");
 
-                    Ok(vec![Arc::new(LocalUploader::new(
+                    Ok(vec![Arc::new(LocalUploader::with_retry_policy(
                         immutable_url_prefix,
                         &target_dir,
+                        FileUploadRetryPolicy::default(),
                         logger,
                     ))])
                 }
@@ -1360,9 +1364,10 @@ impl DependenciesBuilder {
                         }
                     })?;
 
-                    Ok(vec![Arc::new(LocalUploader::new(
+                    Ok(vec![Arc::new(LocalUploader::with_retry_policy(
                         digests_url_prefix,
                         &target_dir,
+                        FileUploadRetryPolicy::default(),
                         logger,
                     ))])
                 }

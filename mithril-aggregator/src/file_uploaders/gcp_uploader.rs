@@ -17,6 +17,8 @@ use mithril_common::{entities::FileUri, logging::LoggerExtensions, StdResult};
 
 use crate::FileUploader;
 
+use super::FileUploadRetryPolicy;
+
 /// CloudRemotePath represents a cloud remote path
 #[derive(Debug, Clone, PartialEq)]
 pub struct CloudRemotePath(PathBuf);
@@ -198,6 +200,7 @@ pub struct GcpUploader {
     cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
     remote_folder: CloudRemotePath,
     allow_overwrite: bool,
+    retry_policy: FileUploadRetryPolicy,
 }
 
 impl GcpUploader {
@@ -211,6 +214,22 @@ impl GcpUploader {
             cloud_backend_uploader,
             remote_folder,
             allow_overwrite,
+            retry_policy: FileUploadRetryPolicy::never(),
+        }
+    }
+
+    /// Create a new instance with a custom retry policy.
+    pub fn with_retry_policy(
+        cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
+        remote_folder: CloudRemotePath,
+        allow_overwrite: bool,
+        retry_policy: FileUploadRetryPolicy,
+    ) -> Self {
+        Self {
+            cloud_backend_uploader,
+            remote_folder,
+            allow_overwrite,
+            retry_policy,
         }
     }
 }
@@ -242,11 +261,17 @@ impl FileUploader for GcpUploader {
 
         Ok(file_uri)
     }
+
+    fn retry_policy(&self) -> FileUploadRetryPolicy {
+        self.retry_policy.clone()
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::test_tools::TestLogger;
+    use std::time::Duration;
+
+    use crate::{file_uploaders::FileUploadRetryPolicy, test_tools::TestLogger};
 
     use super::*;
 
@@ -479,5 +504,22 @@ mod tests {
 
             assert_eq!(FileUri(expected_location), location);
         }
+    }
+
+    #[tokio::test]
+    async fn retry_policy_from_file_uploader_trait_should_be_implemented() {
+        let expected_policy = FileUploadRetryPolicy {
+            attempts: 10,
+            delay_between_attempts: Duration::from_millis(123),
+        };
+
+        let file_uploader: Box<dyn FileUploader> = Box::new(GcpUploader::with_retry_policy(
+            Arc::new(MockCloudBackendUploader::new()),
+            CloudRemotePath::new("remote_folder"),
+            true,
+            expected_policy.clone(),
+        ));
+
+        assert_eq!(expected_policy, file_uploader.retry_policy());
     }
 }
