@@ -106,6 +106,7 @@ services:
       - "traefik.http.routers.mithril-aggregator.middlewares=test-auth,test-compress"
       - "traefik.http.middlewares.test-auth.basicauth.users=${AUTH_USER_PASSWORD}"
       - "traefik.http.middlewares.test-compress.compress=true"
+      - "traefik.http.middlewares.test-compress.compress.encodings=gzip"
 
   mithril-aggregator-relay:
     image: ghcr.io/input-output-hk/mithril-relay:${MITHRIL_IMAGE_ID}

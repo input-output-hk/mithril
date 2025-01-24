@@ -105,6 +105,7 @@ services:
       - "traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt"
       - "traefik.http.routers.mithril-aggregator.middlewares=test-compress"
       - "traefik.http.middlewares.test-compress.compress=true"
+      - "traefik.http.middlewares.test-compress.compress.encodings=gzip"
 
   mithril-aggregator-relay:
     image: ghcr.io/input-output-hk/mithril-relay:${MITHRIL_IMAGE_ID}
