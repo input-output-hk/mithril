@@ -41,7 +41,7 @@ impl Default for DumbUploader {
 #[async_trait]
 impl FileUploader for DumbUploader {
     /// Upload a file
-    async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
+    async fn upload_without_retry(&self, filepath: &Path) -> StdResult<FileUri> {
         let mut value = self
             .last_uploaded
             .write()

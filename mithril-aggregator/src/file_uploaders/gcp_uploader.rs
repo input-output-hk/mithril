@@ -217,7 +217,7 @@ impl GcpUploader {
 
 #[async_trait]
 impl FileUploader for GcpUploader {
-    async fn upload(&self, file_path: &Path) -> StdResult<FileUri> {
+    async fn upload_without_retry(&self, file_path: &Path) -> StdResult<FileUri> {
         let remote_file_path = self.remote_folder.join(get_file_name(file_path)?);
         if !self.allow_overwrite {
             if let Some(file_uri) = self
