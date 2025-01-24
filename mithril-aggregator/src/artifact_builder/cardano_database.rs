@@ -123,6 +123,7 @@ fn compute_uncompressed_database_size(path: &Path) -> StdResult<u64> {
 #[cfg(test)]
 mod tests {
     use std::{collections::BTreeMap, path::PathBuf};
+    use uuid::Uuid;
 
     use mithril_common::{
         digesters::DummyCardanoDbBuilder,
@@ -137,7 +138,7 @@ mod tests {
     use crate::{
         artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
         immutable_file_digest_mapper::MockImmutableFileDigestMapper,
-        services::DumbSnapshotter,
+        services::{CompressedArchiveSnapshotter, SnapshotterCompressionAlgorithm},
         test_tools::TestLogger,
         tools::url_sanitizer::SanitizedUrlWithTrailingSlash,
     };
@@ -175,19 +176,31 @@ mod tests {
     async fn should_compute_valid_artifact() {
         let test_dir = get_test_directory("should_compute_valid_artifact");
 
-        let beacon = fake_data::beacon();
+        let beacon = CardanoDbBeacon::new(123, 3);
         let immutable_trio_file_size = 777;
         let ledger_file_size = 6666;
         let volatile_file_size = 99;
-        DummyCardanoDbBuilder::new(test_dir.as_os_str().to_str().unwrap())
-            .with_immutables(&[1])
+        let cardano_db = DummyCardanoDbBuilder::new("should_compute_valid_artifact")
+            .with_immutables(&[1, 2, 3])
+            .append_immutable_trio()
             .set_immutable_trio_file_size(immutable_trio_file_size)
             .with_ledger_files(&["blocks-0.dat"])
             .set_ledger_file_size(ledger_file_size)
             .with_volatile_files(&["437"])
             .set_volatile_file_size(volatile_file_size)
             .build();
-        let expected_total_size = immutable_trio_file_size + ledger_file_size + volatile_file_size;
+        let expected_total_size =
+            (4 * immutable_trio_file_size) + ledger_file_size + volatile_file_size;
+
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            cardano_db.get_dir().to_owned(),
+            test_dir.join("snapshot_dest"),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
+        let snapshotter = Arc::new(snapshotter);
 
         let ancillary_artifact_builder = {
             let mut ancillary_uploader = MockAncillaryFileUploader::new();
@@ -199,7 +212,7 @@ mod tests {
 
             AncillaryArtifactBuilder::new(
                 vec![Arc::new(ancillary_uploader)],
-                Arc::new(DumbSnapshotter::new()),
+                snapshotter.clone(),
                 CardanoNetwork::DevNet(123),
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
@@ -208,7 +221,7 @@ mod tests {
         };
 
         let immutable_artifact_builder = {
-            let number_of_immutable_file_loaded = fake_data::beacon().immutable_file_number;
+            let number_of_immutable_file_loaded = beacon.immutable_file_number;
             let mut immutable_uploader = MockImmutableFilesUploader::new();
             immutable_uploader
                 .expect_batch_upload()
@@ -224,7 +237,7 @@ mod tests {
             ImmutableArtifactBuilder::new(
                 test_dir.join("immutable"),
                 vec![Arc::new(immutable_uploader)],
-                Arc::new(DumbSnapshotter::new()),
+                snapshotter,
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
@@ -249,7 +262,7 @@ mod tests {
         };
 
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
-            test_dir,
+            cardano_db.get_dir().to_owned(),
             &Version::parse("1.0.0").unwrap(),
             CompressionAlgorithm::Zstandard,
             Arc::new(ancillary_artifact_builder),
