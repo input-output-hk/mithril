@@ -1312,11 +1312,9 @@ impl DependenciesBuilder {
                     let server_url_prefix = self.configuration.get_server_url()?;
                     let immutable_url_prefix = server_url_prefix
                         .sanitize_join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/"))?;
-                    let target_dir = self.get_cardano_db_artifacts_dir()?.join("immutable");
 
-                    Ok(vec![Arc::new(LocalUploader::new(
+                    Ok(vec![Arc::new(LocalUploader::new_without_copy(
                         immutable_url_prefix,
-                        &target_dir,
                         FileUploadRetryPolicy::default(),
                         logger,
                     ))])

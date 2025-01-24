@@ -14,15 +14,15 @@ pub struct LocalUploader {
     /// File server URL prefix
     server_url_prefix: SanitizedUrlWithTrailingSlash,
 
-    /// Target folder where to store files archive
-    target_location: PathBuf,
+    /// Target folder where to store files archives
+    target_location: Option<PathBuf>,
 
     retry_policy: FileUploadRetryPolicy,
     logger: Logger,
 }
 
 impl LocalUploader {
-    /// LocalUploader factory
+    /// Instantiates a new LocalUploader that copies 'uploaded' files to a target location
     pub(crate) fn new(
         server_url_prefix: SanitizedUrlWithTrailingSlash,
         target_location: &Path,
@@ -34,9 +34,26 @@ impl LocalUploader {
 
         Self {
             server_url_prefix,
-            target_location: target_location.to_path_buf(),
-            retry_policy,
+            target_location: Some(target_location.to_path_buf()),
             logger,
+            retry_policy,
+        }
+    }
+
+    /// Instantiates a new LocalUploader that does not copy files and only returns the location
+    pub(crate) fn new_without_copy(
+        server_url_prefix: SanitizedUrlWithTrailingSlash,
+        retry_policy: FileUploadRetryPolicy,
+        logger: Logger,
+    ) -> Self {
+        let logger = logger.new_with_component_name::<Self>();
+        debug!(logger, "New LocalUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
+
+        Self {
+            server_url_prefix,
+            target_location: None,
+            logger,
+            retry_policy,
         }
     }
 }
@@ -45,19 +62,22 @@ impl LocalUploader {
 impl FileUploader for LocalUploader {
     async fn upload_without_retry(&self, filepath: &Path) -> StdResult<FileUri> {
         let archive_name = filepath.file_name().unwrap().to_str().unwrap();
-        let target_path = &self.target_location.join(archive_name);
-        tokio::fs::copy(filepath, target_path)
-            .await
-            .with_context(|| "File copy failure")?;
 
-        let location = &self.server_url_prefix.join(archive_name)?;
-        let location = location.as_str().to_string();
+        let disk_path = if let Some(target_location) = &self.target_location {
+            let target_path = target_location.join(archive_name);
+            tokio::fs::copy(filepath, &target_path)
+                .await
+                .with_context(|| "File copy failure")?;
+            target_path
+        } else {
+            filepath.to_path_buf()
+        };
 
-        debug!(
-            self.logger, "File 'uploaded' to local storage";
-            "location" => &location, "disk_path" => target_path.display()
-        );
-        Ok(FileUri(location))
+        let uri = self.server_url_prefix.join(archive_name)?.to_string();
+
+        debug!(self.logger, "File 'uploaded' to local storage"; "uri" => &uri, "disk_path" => disk_path.display());
+
+        Ok(FileUri(uri))
     }
 
     fn retry_policy(&self) -> FileUploadRetryPolicy {
@@ -104,7 +124,7 @@ mod tests {
         let archive = create_fake_archive(&source_dir, archive_name);
         let expected_location = format!(
             "http://test.com:8080/base-root/{}",
-            &archive.file_name().unwrap().to_str().unwrap()
+            &archive.file_name().unwrap().to_string_lossy()
         );
 
         let url_prefix =
@@ -132,7 +152,6 @@ mod tests {
             "local_uploader",
             "should_copy_file_to_target_location_target",
         );
-        println!("target_dir: {:?}", target_dir);
         let archive = create_fake_archive(&source_dir, "an_archive");
         let uploader = LocalUploader::new(
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
@@ -182,5 +201,26 @@ mod tests {
         ));
 
         assert_eq!(expected_policy, uploader.retry_policy());
+    }
+
+    #[tokio::test]
+    async fn should_only_return_location_if_copy_disabled() {
+        let source_dir = TempDir::create(
+            "local_uploader",
+            "should_only_return_location_and_not_copy_file_if_copy_disabled",
+        );
+        let archive = create_fake_archive(&source_dir, "an_archive");
+        let uploader = LocalUploader::new_without_copy(
+            SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
+            FileUploadRetryPolicy::never(),
+            TestLogger::stdout(),
+        );
+        let location = FileUploader::upload(&uploader, &archive).await.unwrap();
+
+        let expected_location = format!(
+            "http://test.com:8080/base-root/{}",
+            &archive.file_name().unwrap().to_string_lossy()
+        );
+        assert_eq!(FileUri(expected_location), location);
     }
 }
