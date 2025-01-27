@@ -85,7 +85,9 @@ macro_rules! cfg_unstable {
 }
 
 pub mod aggregator_client;
-pub mod cardano_database_client;
+cfg_unstable! {
+    pub mod cardano_database_client;
+}
 pub mod cardano_stake_distribution_client;
 pub mod cardano_transaction_client;
 pub mod certificate_client;

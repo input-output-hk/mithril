@@ -8,6 +8,7 @@ use std::sync::Arc;
 use mithril_common::api_version::APIVersionProvider;
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
+#[cfg(feature = "unstable")]
 use crate::cardano_database_client::CardanoDatabaseClient;
 use crate::cardano_stake_distribution_client::CardanoStakeDistributionClient;
 use crate::cardano_transaction_client::CardanoTransactionClient;
@@ -88,6 +89,7 @@ pub struct Client {
     certificate_client: Arc<CertificateClient>,
     mithril_stake_distribution_client: Arc<MithrilStakeDistributionClient>,
     snapshot_client: Arc<SnapshotClient>,
+    #[cfg(feature = "unstable")]
     cardano_database_client: Arc<CardanoDatabaseClient>,
     cardano_transaction_client: Arc<CardanoTransactionClient>,
     cardano_stake_distribution_client: Arc<CardanoStakeDistributionClient>,
@@ -110,6 +112,7 @@ impl Client {
     }
 
     /// Get the client that fetches and downloads Cardano database snapshots.
+    #[cfg(feature = "unstable")]
     pub fn cardano_database(&self) -> Arc<CardanoDatabaseClient> {
         self.cardano_database_client.clone()
     }
@@ -256,6 +259,7 @@ impl ClientBuilder {
             logger,
         ));
 
+        #[cfg(feature = "unstable")]
         let cardano_database_client =
             Arc::new(CardanoDatabaseClient::new(aggregator_client.clone()));
 
@@ -269,6 +273,7 @@ impl ClientBuilder {
             certificate_client,
             mithril_stake_distribution_client,
             snapshot_client,
+            #[cfg(feature = "unstable")]
             cardano_database_client,
             cardano_transaction_client,
             cardano_stake_distribution_client,

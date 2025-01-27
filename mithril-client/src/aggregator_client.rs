@@ -83,12 +83,14 @@ pub enum AggregatorRequest {
     },
 
     /// Get a specific [Cardano database snapshot][crate::CardanoDatabaseSnapshot] from the aggregator
+    #[cfg(feature = "unstable")]
     GetCardanoDatabaseSnapshot {
         /// Hash of the snapshot to retrieve
         hash: String,
     },
 
     /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot]
+    #[cfg(feature = "unstable")]
     ListCardanoDatabaseSnapshots,
 
     /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
@@ -143,9 +145,11 @@ impl AggregatorRequest {
             AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
                 "statistics/snapshot".to_string()
             }
+            #[cfg(feature = "unstable")]
             AggregatorRequest::GetCardanoDatabaseSnapshot { hash } => {
                 format!("artifact/cardano-database/{}", hash)
             }
+            #[cfg(feature = "unstable")]
             AggregatorRequest::ListCardanoDatabaseSnapshots => {
                 "artifact/cardano-database".to_string()
             }
@@ -591,6 +595,7 @@ mod tests {
             .route()
         );
 
+        #[cfg(feature = "unstable")]
         assert_eq!(
             "artifact/cardano-database/abc".to_string(),
             AggregatorRequest::GetCardanoDatabaseSnapshot {
@@ -599,6 +604,7 @@ mod tests {
             .route()
         );
 
+        #[cfg(feature = "unstable")]
         assert_eq!(
             "artifact/cardano-database".to_string(),
             AggregatorRequest::ListCardanoDatabaseSnapshots.route()

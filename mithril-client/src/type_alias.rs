@@ -12,14 +12,15 @@ pub use mithril_common::messages::SnapshotMessage as Snapshot;
 ///
 pub use mithril_common::messages::SnapshotListItemMessage as SnapshotListItem;
 
-/// A Cardano node database snapshot
-///
-pub use mithril_common::messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot;
+cfg_unstable! {
+    /// A Cardano node database snapshot
+    ///
+    pub use mithril_common::messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot;
 
-/// List items of Cardano node database snapshot
-///
-pub use mithril_common::messages::CardanoDatabaseSnapshotListItemMessage as CardanoDatabaseSnapshotListItem;
-
+    /// List items of Cardano node database snapshot
+    ///
+    pub use mithril_common::messages::CardanoDatabaseSnapshotListItemMessage as CardanoDatabaseSnapshotListItem;
+}
 /// A Mithril stake distribution.
 ///
 pub use mithril_common::messages::MithrilStakeDistributionMessage as MithrilStakeDistribution;
@@ -71,4 +72,10 @@ pub mod common {
         ImmutableFileNumber, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
         SlotNumber, StakeDistribution, TransactionHash,
     };
+    cfg_unstable! {
+        pub use mithril_common::entities::{
+            AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri, TemplateUri,
+        };
+        pub use mithril_common::messages::ArtifactsLocationsMessagePart;
+    }
 }
