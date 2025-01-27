@@ -1,10 +1,12 @@
 mod appender;
 mod compressed_archive_snapshotter;
 mod dumb_snapshotter;
+mod fake_snapshotter;
 mod interface;
 
 pub use compressed_archive_snapshotter::*;
 pub use dumb_snapshotter::*;
+pub use fake_snapshotter::*;
 pub use interface::*;
 
 #[cfg(test)]
