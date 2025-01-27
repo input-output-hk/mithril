@@ -7,7 +7,7 @@ use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
     dependency_injection::DependenciesBuilder,
     event_store::EventMessage,
-    services::DumbSnapshotter,
+    services::FakeSnapshotter,
     AggregatorRuntime, Configuration, DependencyContainer, DumbUploader, SignerRegistrationError,
 };
 use mithril_common::{
@@ -104,7 +104,6 @@ pub struct RuntimeTester {
     pub chain_observer: Arc<FakeObserver>,
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
     pub digester: Arc<DumbImmutableDigester>,
-    pub snapshotter: Arc<DumbSnapshotter>,
     pub genesis_signer: Arc<ProtocolGenesisSigner>,
     pub dependencies: DependencyContainer,
     pub runtime: AggregatorRuntime,
@@ -137,7 +136,12 @@ impl RuntimeTester {
             .await;
         let chain_observer = Arc::new(FakeObserver::new(Some(start_time_point)));
         let digester = Arc::new(DumbImmutableDigester::default());
-        let snapshotter = Arc::new(DumbSnapshotter::new());
+        let snapshotter = Arc::new(FakeSnapshotter::new(
+            configuration
+                .get_snapshot_dir()
+                .unwrap()
+                .join("fake_snapshots"),
+        ));
         let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
         let era_reader_adapter =
             Arc::new(EraReaderDummyAdapter::from_markers(vec![EraMarker::new(
@@ -168,7 +172,6 @@ impl RuntimeTester {
             chain_observer,
             immutable_file_observer,
             digester,
-            snapshotter,
             genesis_signer,
             dependencies,
             runtime,
