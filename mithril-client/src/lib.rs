@@ -6,7 +6,8 @@
 //!
 //! It handles the different types that can be queried to a Mithril aggregator:
 //!
-//! - [Snapshot][snapshot_client] list, get, download tarball and record statistics.
+//! - [Snapshot][snapshot_client] list, get, download archive and record statistics.
+//! - [Cardano Database v2][cardano_database_client] list, get, download archive and record statistics.
 //! - [Mithril stake distribution][mithril_stake_distribution_client] list and get.
 //! - [Cardano transactions][cardano_transaction_client] list & get snapshot, get proofs.
 //! - [Cardano stake distribution][cardano_stake_distribution_client] list, get and get by epoch.
@@ -84,6 +85,7 @@ macro_rules! cfg_unstable {
 }
 
 pub mod aggregator_client;
+pub mod cardano_database_client;
 pub mod cardano_stake_distribution_client;
 pub mod cardano_transaction_client;
 pub mod certificate_client;
