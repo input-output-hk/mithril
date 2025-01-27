@@ -27,7 +27,6 @@ mod multi_signer;
 mod runtime;
 pub mod services;
 mod signer_registerer;
-mod snapshotter;
 mod store;
 mod tools;
 
@@ -48,10 +47,6 @@ pub use runtime::{
 pub use signer_registerer::{
     MithrilSignerRegisterer, SignerRecorder, SignerRegisterer, SignerRegistrationError,
     SignerRegistrationRound, SignerRegistrationRoundOpener,
-};
-pub use snapshotter::{
-    CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotError, Snapshotter,
-    SnapshotterCompressionAlgorithm,
 };
 pub use store::{CertificatePendingStorer, EpochSettingsStorer, VerificationKeyStorer};
 pub use tools::{

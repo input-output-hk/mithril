@@ -28,15 +28,15 @@ impl LocalSnapshotUploader {
         server_url_prefix: SanitizedUrlWithTrailingSlash,
         target_location: &Path,
         logger: Logger,
-    ) -> StdResult<Self> {
+    ) -> Self {
         let logger = logger.new_with_component_name::<Self>();
         debug!(logger, "New LocalSnapshotUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
 
-        Ok(Self {
+        Self {
             server_url_prefix,
             target_location: target_location.to_path_buf(),
             logger,
-        })
+        }
     }
 }
 
@@ -100,8 +100,7 @@ mod tests {
         let url_prefix =
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
         let uploader =
-            LocalSnapshotUploader::new(url_prefix, target_dir.path(), TestLogger::stdout())
-                .unwrap();
+            LocalSnapshotUploader::new(url_prefix, target_dir.path(), TestLogger::stdout());
         let location = uploader
             .upload(&archive)
             .await
@@ -120,8 +119,7 @@ mod tests {
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             target_dir.path(),
             TestLogger::stdout(),
-        )
-        .unwrap();
+        );
         uploader.upload(&archive).await.unwrap();
 
         assert!(target_dir
@@ -140,8 +138,7 @@ mod tests {
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             target_dir.path(),
             TestLogger::stdout(),
-        )
-        .unwrap();
+        );
         uploader
             .upload(source_dir.path())
             .await

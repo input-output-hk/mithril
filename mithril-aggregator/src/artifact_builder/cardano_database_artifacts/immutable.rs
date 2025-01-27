@@ -17,7 +17,8 @@ use mithril_common::{
 
 use crate::{
     file_uploaders::{GcpUploader, LocalUploader},
-    DumbUploader, FileUploader, Snapshotter,
+    services::Snapshotter,
+    DumbUploader, FileUploader,
 };
 
 fn immmutable_file_number_extractor(file_uri: &str) -> StdResult<Option<String>> {
@@ -224,11 +225,11 @@ mod tests {
     use mockall::predicate::{always, eq};
     use uuid::Uuid;
 
-    use crate::{
-        snapshotter::{MockSnapshotter, OngoingSnapshot},
-        test_tools::TestLogger,
-        CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
+    use crate::services::{
+        CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter, OngoingSnapshot,
+        SnapshotterCompressionAlgorithm,
     };
+    use crate::test_tools::TestLogger;
 
     use super::*;
 
@@ -767,8 +768,7 @@ mod tests {
 
             let url_prefix =
                 SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-            let uploader =
-                LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
+            let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
             let location = ImmutableFilesUploader::batch_upload(
                 &uploader,
                 &[archive_1.clone(), archive_2.clone()],
@@ -802,8 +802,7 @@ mod tests {
 
             let url_prefix =
                 SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-            let uploader =
-                LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
+            let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
 
             ImmutableFilesUploader::batch_upload(&uploader, &[archive])
                 .await

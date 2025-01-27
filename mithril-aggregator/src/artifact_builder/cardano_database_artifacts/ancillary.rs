@@ -16,8 +16,8 @@ use mithril_common::{
 
 use crate::{
     file_uploaders::{GcpUploader, LocalUploader},
-    snapshotter::OngoingSnapshot,
-    DumbUploader, FileUploader, Snapshotter,
+    services::{OngoingSnapshot, Snapshotter},
+    DumbUploader, FileUploader,
 };
 
 /// The [AncillaryFileUploader] trait allows identifying uploaders that return locations for ancillary archive files.
@@ -211,10 +211,10 @@ mod tests {
     };
     use uuid::Uuid;
 
-    use crate::{
-        test_tools::TestLogger, CompressedArchiveSnapshotter, DumbSnapshotter,
-        SnapshotterCompressionAlgorithm,
+    use crate::services::{
+        CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
     };
+    use crate::test_tools::TestLogger;
 
     use super::*;
 

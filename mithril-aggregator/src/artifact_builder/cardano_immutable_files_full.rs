@@ -7,7 +7,10 @@ use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{snapshotter::OngoingSnapshot, FileUploader, Snapshotter};
+use crate::{
+    services::{OngoingSnapshot, Snapshotter},
+    FileUploader,
+};
 
 use super::ArtifactBuilder;
 use mithril_common::logging::LoggerExtensions;
@@ -178,7 +181,8 @@ mod tests {
     use mithril_common::{entities::CompressionAlgorithm, test_utils::fake_data};
 
     use crate::{
-        file_uploaders::MockFileUploader, test_tools::TestLogger, DumbSnapshotter, DumbUploader,
+        file_uploaders::MockFileUploader, services::DumbSnapshotter, test_tools::TestLogger,
+        DumbUploader,
     };
 
     use super::*;

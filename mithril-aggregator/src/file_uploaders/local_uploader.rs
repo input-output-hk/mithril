@@ -26,15 +26,15 @@ impl LocalUploader {
         server_url_prefix: SanitizedUrlWithTrailingSlash,
         target_location: &Path,
         logger: Logger,
-    ) -> StdResult<Self> {
+    ) -> Self {
         let logger = logger.new_with_component_name::<Self>();
         debug!(logger, "New LocalUploader created"; "server_url_prefix" => &server_url_prefix.as_str());
 
-        Ok(Self {
+        Self {
             server_url_prefix,
             target_location: target_location.to_path_buf(),
             logger,
-        })
+        }
     }
 }
 
@@ -101,7 +101,7 @@ mod tests {
 
         let url_prefix =
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-        let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout()).unwrap();
+        let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
         let location = FileUploader::upload(&uploader, &archive)
             .await
             .expect("local upload should not fail");
@@ -125,8 +125,7 @@ mod tests {
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
             TestLogger::stdout(),
-        )
-        .unwrap();
+        );
         FileUploader::upload(&uploader, &archive).await.unwrap();
 
         assert!(target_dir.join(archive.file_name().unwrap()).exists());
@@ -146,8 +145,7 @@ mod tests {
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
             TestLogger::stdout(),
-        )
-        .unwrap();
+        );
         FileUploader::upload(&uploader, &source_dir)
             .await
             .expect_err("Uploading a directory should fail");
