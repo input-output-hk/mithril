@@ -1,13 +1,11 @@
 mod appender;
 mod compressed_archive_snapshotter;
-mod dumb_snapshotter;
-mod fake_snapshotter;
 mod interface;
+mod test_doubles;
 
 pub use compressed_archive_snapshotter::*;
-pub use dumb_snapshotter::*;
-pub use fake_snapshotter::*;
 pub use interface::*;
+pub use test_doubles::*;
 
 #[cfg(test)]
 pub(crate) mod test_tools {
