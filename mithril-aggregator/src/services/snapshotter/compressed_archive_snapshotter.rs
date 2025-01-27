@@ -529,13 +529,13 @@ mod tests {
 
     #[test]
     fn can_set_temp_dir_with_str_or_string() {
-        let mut snapshotter = CompressedArchiveSnapshotter::new(
-            PathBuf::from("db"),
-            PathBuf::from("pending_snapshot"),
-            SnapshotterCompressionAlgorithm::Gzip,
-            TestLogger::stdout(),
-        )
-        .unwrap();
+        let mut snapshotter = CompressedArchiveSnapshotter {
+            db_directory: Default::default(),
+            ongoing_snapshot_directory: Default::default(),
+            compression_algorithm: SnapshotterCompressionAlgorithm::Gzip,
+            temp_dir: Default::default(),
+            logger: TestLogger::stdout(),
+        };
 
         snapshotter.set_sub_temp_dir("sub_dir");
         snapshotter.set_sub_temp_dir("sub_dir".to_string());
