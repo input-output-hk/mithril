@@ -171,7 +171,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_mithril_stake_distributions_returns_messages() {
+    async fn list_cardano_stake_distributions_returns_messages() {
         let message = fake_messages();
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
@@ -188,7 +188,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn list_mithril_stake_distributions_returns_error_when_invalid_json_structure_in_response(
+    async fn list_cardano_stake_distributions_returns_error_when_invalid_json_structure_in_response(
     ) {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
