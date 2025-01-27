@@ -12,6 +12,14 @@ pub use mithril_common::messages::SnapshotMessage as Snapshot;
 ///
 pub use mithril_common::messages::SnapshotListItemMessage as SnapshotListItem;
 
+/// A Cardano node database snapshot
+///
+pub use mithril_common::messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot;
+
+/// List items of Cardano node database snapshot
+///
+pub use mithril_common::messages::CardanoDatabaseSnapshotListItemMessage as CardanoDatabaseSnapshotListItem;
+
 /// A Mithril stake distribution.
 ///
 pub use mithril_common::messages::MithrilStakeDistributionMessage as MithrilStakeDistribution;
