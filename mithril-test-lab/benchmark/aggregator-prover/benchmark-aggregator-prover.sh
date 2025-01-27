@@ -118,7 +118,7 @@ RUN_STRESS_TEST() {
     echo ">> [#$INDEX_RUN/$TOTAL_RUN] Running stress test with $AB_TOTAL_REQUESTS requests with $TRANSACTIONS_PER_REQUEST transactions per request and $AB_CONCURRENCY concurrency"
     TRANSACTIONS_LIST=$(head -n $TRANSACTIONS_PER_REQUEST "$TRANSACTIONS_FILE" | tr "\n" ",")
     AGGREGATOR_PROVER_URL="${AGGREGATOR_ENDPOINT}${AGGREGATOR_PROVER_ROUTE}?transaction_hashes=${TRANSACTIONS_LIST::-1}"
-    if ab -n $AB_TOTAL_REQUESTS -c $AB_CONCURRENCY -s "$AB_TIMEOUT" "$AGGREGATOR_PROVER_URL" > $TMP_FILE ; then
+    if ab -n $AB_TOTAL_REQUESTS -c $AB_CONCURRENCY -s "$AB_TIMEOUT" -H "Accept-Encoding: gzip, deflate, br, zstd" "$AGGREGATOR_PROVER_URL" > $TMP_FILE ; then
         REQUESTS_PER_SECOND=$(cat $TMP_FILE | awk '/Requests per second:/ {print $4}')
         if [[ $INDEX_RUN -eq 1 ]] ; then
             echo "total_requests,concurrency,transactions/request,requests/s" >> "$OUT_FILE"

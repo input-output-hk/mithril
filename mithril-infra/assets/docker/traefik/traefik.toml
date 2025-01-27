@@ -1,5 +1,5 @@
 [log]
-  level = "WARN"
+  level = "INFO"
 
 [providers]
   [providers.docker]
@@ -32,4 +32,3 @@
     addEntryPointsLabels = true
     addRoutersLabels = true
     addServicesLabels = true
-

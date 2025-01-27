@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   reverse-proxy:
-    image: traefik:2.10
+    image: traefik:3.3
     container_name: reverse-proxy
     restart: always
     user: "${CURRENT_UID}:${DOCKER_GID}"

@@ -103,6 +103,9 @@ services:
       - "traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)"
       - "traefik.http.routers.mithril-aggregator.tls=true"
       - "traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt"
+      - "traefik.http.routers.mithril-aggregator.middlewares=test-compress"
+      - "traefik.http.middlewares.test-compress.compress=true"
+      - "traefik.http.middlewares.test-compress.compress.encodings=gzip"
 
 networks:
   default:
