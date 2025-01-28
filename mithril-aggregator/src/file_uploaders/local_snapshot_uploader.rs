@@ -42,7 +42,7 @@ impl LocalSnapshotUploader {
 
 #[async_trait]
 impl FileUploader for LocalSnapshotUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
+    async fn upload_without_retry(&self, filepath: &Path) -> StdResult<FileUri> {
         let archive_name = filepath.file_name().unwrap().to_str().unwrap();
         let target_path = &self.target_location.join(archive_name);
         tokio::fs::copy(filepath, target_path)

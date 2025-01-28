@@ -67,7 +67,8 @@ use crate::{
     entities::AggregatorEpochSettings,
     event_store::{EventMessage, EventStore, TransmitterService},
     file_uploaders::{
-        CloudRemotePath, FileUploader, GcpBackendUploader, GcpUploader, LocalUploader,
+        CloudRemotePath, FileUploadRetryPolicy, FileUploader, GcpBackendUploader, GcpUploader,
+        LocalUploader,
     },
     http_server::{
         routes::router::{self, RouterConfig, RouterState},
@@ -494,7 +495,7 @@ impl DependenciesBuilder {
                 }
             }
         } else {
-            Ok(Arc::new(DumbUploader::new()))
+            Ok(Arc::new(DumbUploader::new(FileUploadRetryPolicy::never())))
         }
     }
 
@@ -1243,6 +1244,7 @@ impl DependenciesBuilder {
             )?),
             remote_folder_path,
             allow_overwrite,
+            FileUploadRetryPolicy::default(),
         ))
     }
 
@@ -1282,12 +1284,15 @@ impl DependenciesBuilder {
                     Ok(vec![Arc::new(LocalUploader::new(
                         ancillary_url_prefix,
                         &target_dir,
+                        FileUploadRetryPolicy::default(),
                         logger,
                     ))])
                 }
             }
         } else {
-            Ok(vec![Arc::new(DumbUploader::new())])
+            Ok(vec![Arc::new(DumbUploader::new(
+                FileUploadRetryPolicy::never(),
+            ))])
         }
     }
 
@@ -1320,12 +1325,15 @@ impl DependenciesBuilder {
                     Ok(vec![Arc::new(LocalUploader::new(
                         immutable_url_prefix,
                         &target_dir,
+                        FileUploadRetryPolicy::default(),
                         logger,
                     ))])
                 }
             }
         } else {
-            Ok(vec![Arc::new(DumbUploader::new())])
+            Ok(vec![Arc::new(DumbUploader::new(
+                FileUploadRetryPolicy::never(),
+            ))])
         }
     }
 
@@ -1363,12 +1371,15 @@ impl DependenciesBuilder {
                     Ok(vec![Arc::new(LocalUploader::new(
                         digests_url_prefix,
                         &target_dir,
+                        FileUploadRetryPolicy::default(),
                         logger,
                     ))])
                 }
             }
         } else {
-            Ok(vec![Arc::new(DumbUploader::new())])
+            Ok(vec![Arc::new(DumbUploader::new(
+                FileUploadRetryPolicy::never(),
+            ))])
         }
     }
 

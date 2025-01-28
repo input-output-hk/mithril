@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use mithril_common::StdResult;
 use mithril_common::{entities::FileUri, logging::LoggerExtensions};
 
-use crate::file_uploaders::FileUploader;
+use crate::file_uploaders::{FileUploadRetryPolicy, FileUploader};
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
 /// LocalUploader is a file uploader working using local files
@@ -17,6 +17,7 @@ pub struct LocalUploader {
     /// Target folder where to store files archive
     target_location: PathBuf,
 
+    retry_policy: FileUploadRetryPolicy,
     logger: Logger,
 }
 
@@ -25,6 +26,7 @@ impl LocalUploader {
     pub(crate) fn new(
         server_url_prefix: SanitizedUrlWithTrailingSlash,
         target_location: &Path,
+        retry_policy: FileUploadRetryPolicy,
         logger: Logger,
     ) -> Self {
         let logger = logger.new_with_component_name::<Self>();
@@ -33,6 +35,7 @@ impl LocalUploader {
         Self {
             server_url_prefix,
             target_location: target_location.to_path_buf(),
+            retry_policy,
             logger,
         }
     }
@@ -40,7 +43,7 @@ impl LocalUploader {
 
 #[async_trait]
 impl FileUploader for LocalUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
+    async fn upload_without_retry(&self, filepath: &Path) -> StdResult<FileUri> {
         let archive_name = filepath.file_name().unwrap().to_str().unwrap();
         let target_path = &self.target_location.join(archive_name);
         tokio::fs::copy(filepath, target_path)
@@ -56,6 +59,10 @@ impl FileUploader for LocalUploader {
         );
         Ok(FileUri(location))
     }
+
+    fn retry_policy(&self) -> FileUploadRetryPolicy {
+        self.retry_policy.clone()
+    }
 }
 
 #[cfg(test)]
@@ -63,6 +70,7 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use std::path::{Path, PathBuf};
+    use std::time::Duration;
 
     use mithril_common::test_utils::TempDir;
 
@@ -101,7 +109,12 @@ mod tests {
 
         let url_prefix =
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-        let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
+        let uploader = LocalUploader::new(
+            url_prefix,
+            &target_dir,
+            FileUploadRetryPolicy::never(),
+            TestLogger::stdout(),
+        );
         let location = FileUploader::upload(&uploader, &archive)
             .await
             .expect("local upload should not fail");
@@ -124,6 +137,7 @@ mod tests {
         let uploader = LocalUploader::new(
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
+            FileUploadRetryPolicy::never(),
             TestLogger::stdout(),
         );
         FileUploader::upload(&uploader, &archive).await.unwrap();
@@ -144,10 +158,29 @@ mod tests {
         let uploader = LocalUploader::new(
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
+            FileUploadRetryPolicy::never(),
             TestLogger::stdout(),
         );
         FileUploader::upload(&uploader, &source_dir)
             .await
             .expect_err("Uploading a directory should fail");
+    }
+
+    #[tokio::test]
+    async fn retry_policy_from_file_uploader_trait_should_be_implemented() {
+        let target_dir = TempDir::create("local_uploader", "test_retry_policy");
+        let expected_policy = FileUploadRetryPolicy {
+            attempts: 10,
+            delay_between_attempts: Duration::from_millis(123),
+        };
+
+        let uploader: Box<dyn FileUploader> = Box::new(LocalUploader::new(
+            SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
+            &target_dir,
+            expected_policy.clone(),
+            TestLogger::stdout(),
+        ));
+
+        assert_eq!(expected_policy, uploader.retry_policy());
     }
 }

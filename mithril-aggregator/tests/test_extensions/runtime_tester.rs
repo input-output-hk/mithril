@@ -130,7 +130,7 @@ impl RuntimeTester {
         let logger = build_logger();
         let global_logger = slog_scope::set_global_logger(logger.clone());
         let network = configuration.network.clone();
-        let snapshot_uploader = Arc::new(DumbUploader::new());
+        let snapshot_uploader = Arc::new(DumbUploader::default());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_file_observer
             .shall_return(Some(start_time_point.immutable_file_number))

@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use mithril_common::{entities::FileUri, StdResult};
 use std::{path::Path, sync::RwLock};
 
-use crate::file_uploaders::FileUploader;
+use crate::file_uploaders::{FileUploadRetryPolicy, FileUploader};
 
 /// Dummy uploader for test purposes.
 ///
@@ -11,13 +11,15 @@ use crate::file_uploaders::FileUploader;
 /// was asked to upload. This is intended to by used by integration tests.
 pub struct DumbUploader {
     last_uploaded: RwLock<Option<FileUri>>,
+    retry_policy: FileUploadRetryPolicy,
 }
 
 impl DumbUploader {
-    /// Create a new instance.
-    pub fn new() -> Self {
+    /// Create a new instance with a custom retry policy.
+    pub fn new(retry_policy: FileUploadRetryPolicy) -> Self {
         Self {
             last_uploaded: RwLock::new(None),
+            retry_policy,
         }
     }
 
@@ -34,14 +36,14 @@ impl DumbUploader {
 
 impl Default for DumbUploader {
     fn default() -> Self {
-        Self::new()
+        Self::new(FileUploadRetryPolicy::never())
     }
 }
 
 #[async_trait]
 impl FileUploader for DumbUploader {
     /// Upload a file
-    async fn upload(&self, filepath: &Path) -> StdResult<FileUri> {
+    async fn upload_without_retry(&self, filepath: &Path) -> StdResult<FileUri> {
         let mut value = self
             .last_uploaded
             .write()
@@ -52,15 +54,21 @@ impl FileUploader for DumbUploader {
 
         Ok(location)
     }
+
+    fn retry_policy(&self) -> FileUploadRetryPolicy {
+        self.retry_policy.clone()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use super::*;
 
     #[tokio::test]
     async fn test_dumb_uploader() {
-        let uploader = DumbUploader::new();
+        let uploader = DumbUploader::default();
         assert!(uploader
             .get_last_upload()
             .expect("uploader should not fail")
@@ -76,5 +84,17 @@ mod tests {
                 .get_last_upload()
                 .expect("getting dumb uploader last value after a fake download should not fail")
         );
+    }
+
+    #[tokio::test]
+    async fn retry_policy_from_file_uploader_trait_should_be_implemented() {
+        let expected_policy = FileUploadRetryPolicy {
+            attempts: 10,
+            delay_between_attempts: Duration::from_millis(123),
+        };
+
+        let uploader: Box<dyn FileUploader> = Box::new(DumbUploader::new(expected_policy.clone()));
+
+        assert_eq!(expected_policy, uploader.retry_policy());
     }
 }
