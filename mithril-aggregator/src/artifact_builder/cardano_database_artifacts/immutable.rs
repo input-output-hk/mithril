@@ -735,6 +735,7 @@ mod tests {
         use std::fs::File;
         use std::io::Write;
 
+        use crate::file_uploaders::FileUploadRetryPolicy;
         use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
         use mithril_common::test_utils::TempDir;
 
@@ -768,7 +769,12 @@ mod tests {
 
             let url_prefix =
                 SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-            let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
+            let uploader = LocalUploader::new(
+                url_prefix,
+                &target_dir,
+                FileUploadRetryPolicy::never(),
+                TestLogger::stdout(),
+            );
             let location = ImmutableFilesUploader::batch_upload(
                 &uploader,
                 &[archive_1.clone(), archive_2.clone()],
@@ -802,7 +808,12 @@ mod tests {
 
             let url_prefix =
                 SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-            let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
+            let uploader = LocalUploader::new(
+                url_prefix,
+                &target_dir,
+                FileUploadRetryPolicy::never(),
+                TestLogger::stdout(),
+            );
 
             ImmutableFilesUploader::batch_upload(&uploader, &[archive])
                 .await

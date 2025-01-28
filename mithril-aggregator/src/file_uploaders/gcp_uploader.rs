@@ -209,20 +209,6 @@ impl GcpUploader {
         cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
         remote_folder: CloudRemotePath,
         allow_overwrite: bool,
-    ) -> Self {
-        Self {
-            cloud_backend_uploader,
-            remote_folder,
-            allow_overwrite,
-            retry_policy: FileUploadRetryPolicy::never(),
-        }
-    }
-
-    /// Create a new instance with a custom retry policy.
-    pub fn with_retry_policy(
-        cloud_backend_uploader: Arc<dyn CloudBackendUploader>,
-        remote_folder: CloudRemotePath,
-        allow_overwrite: bool,
         retry_policy: FileUploadRetryPolicy,
     ) -> Self {
         Self {
@@ -314,6 +300,7 @@ mod tests {
                 Arc::new(cloud_backend_uploader),
                 remote_folder_path,
                 allow_overwrite,
+                FileUploadRetryPolicy::never(),
             );
 
             let file_uri = file_uploader.upload(&local_file_path).await.unwrap();
@@ -345,6 +332,7 @@ mod tests {
                 Arc::new(cloud_backend_uploader),
                 remote_folder_path,
                 allow_overwrite,
+                FileUploadRetryPolicy::never(),
             );
 
             let file_uri = file_uploader.upload(&local_file_path).await.unwrap();
@@ -380,6 +368,7 @@ mod tests {
                 Arc::new(cloud_backend_uploader),
                 remote_folder_path,
                 allow_overwrite,
+                FileUploadRetryPolicy::never(),
             );
 
             let file_uri = file_uploader.upload(&local_file_path).await.unwrap();
@@ -402,6 +391,7 @@ mod tests {
                 Arc::new(cloud_backend_uploader),
                 CloudRemotePath::new("remote_folder"),
                 allow_overwrite,
+                FileUploadRetryPolicy::never(),
             );
 
             file_uploader
@@ -426,6 +416,7 @@ mod tests {
                 Arc::new(cloud_backend_uploader),
                 CloudRemotePath::new("remote_folder"),
                 allow_overwrite,
+                FileUploadRetryPolicy::never(),
             );
 
             file_uploader
@@ -452,6 +443,7 @@ mod tests {
                 Arc::new(cloud_backend_uploader),
                 CloudRemotePath::new("remote_folder"),
                 allow_overwrite,
+                FileUploadRetryPolicy::never(),
             );
 
             file_uploader
@@ -513,7 +505,7 @@ mod tests {
             delay_between_attempts: Duration::from_millis(123),
         };
 
-        let file_uploader: Box<dyn FileUploader> = Box::new(GcpUploader::with_retry_policy(
+        let file_uploader: Box<dyn FileUploader> = Box::new(GcpUploader::new(
             Arc::new(MockCloudBackendUploader::new()),
             CloudRemotePath::new("remote_folder"),
             true,

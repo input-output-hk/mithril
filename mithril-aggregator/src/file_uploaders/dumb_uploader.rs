@@ -3,9 +3,7 @@ use async_trait::async_trait;
 use mithril_common::{entities::FileUri, StdResult};
 use std::{path::Path, sync::RwLock};
 
-use crate::file_uploaders::FileUploader;
-
-use super::interface::FileUploadRetryPolicy;
+use crate::file_uploaders::{FileUploadRetryPolicy, FileUploader};
 
 /// Dummy uploader for test purposes.
 ///
@@ -17,16 +15,8 @@ pub struct DumbUploader {
 }
 
 impl DumbUploader {
-    /// Create a new instance.
-    pub fn new() -> Self {
-        Self {
-            last_uploaded: RwLock::new(None),
-            retry_policy: FileUploadRetryPolicy::never(),
-        }
-    }
-
     /// Create a new instance with a custom retry policy.
-    pub fn with_retry_policy(retry_policy: FileUploadRetryPolicy) -> Self {
+    pub fn new(retry_policy: FileUploadRetryPolicy) -> Self {
         Self {
             last_uploaded: RwLock::new(None),
             retry_policy,
@@ -46,7 +36,7 @@ impl DumbUploader {
 
 impl Default for DumbUploader {
     fn default() -> Self {
-        Self::new()
+        Self::new(FileUploadRetryPolicy::never())
     }
 }
 
@@ -78,7 +68,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_dumb_uploader() {
-        let uploader = DumbUploader::new();
+        let uploader = DumbUploader::default();
         assert!(uploader
             .get_last_upload()
             .expect("uploader should not fail")
@@ -103,8 +93,7 @@ mod tests {
             delay_between_attempts: Duration::from_millis(123),
         };
 
-        let uploader: Box<dyn FileUploader> =
-            Box::new(DumbUploader::with_retry_policy(expected_policy.clone()));
+        let uploader: Box<dyn FileUploader> = Box::new(DumbUploader::new(expected_policy.clone()));
 
         assert_eq!(expected_policy, uploader.retry_policy());
     }

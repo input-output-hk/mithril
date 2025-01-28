@@ -197,7 +197,7 @@ mod tests {
             .unwrap();
 
         let dumb_snapshotter = Arc::new(DumbSnapshotter::new());
-        let dumb_snapshot_uploader = Arc::new(DumbUploader::new());
+        let dumb_snapshot_uploader = Arc::new(DumbUploader::default());
 
         let cardano_immutable_files_full_artifact_builder =
             CardanoImmutableFilesFullArtifactBuilder::new(
@@ -245,7 +245,7 @@ mod tests {
                 fake_data::network(),
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
-                Arc::new(DumbUploader::new()),
+                Arc::new(DumbUploader::default()),
                 CompressionAlgorithm::default(),
                 TestLogger::stdout(),
             );
@@ -272,7 +272,7 @@ mod tests {
                 network,
                 &Version::parse("1.0.0").unwrap(),
                 Arc::new(DumbSnapshotter::new()),
-                Arc::new(DumbUploader::new()),
+                Arc::new(DumbUploader::default()),
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             );
@@ -301,7 +301,7 @@ mod tests {
                     fake_data::network(),
                     &Version::parse("1.0.0").unwrap(),
                     Arc::new(DumbSnapshotter::new()),
-                    Arc::new(DumbUploader::new()),
+                    Arc::new(DumbUploader::default()),
                     algorithm,
                     TestLogger::stdout(),
                 );

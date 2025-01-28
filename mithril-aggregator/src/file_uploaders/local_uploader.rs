@@ -26,19 +26,6 @@ impl LocalUploader {
     pub(crate) fn new(
         server_url_prefix: SanitizedUrlWithTrailingSlash,
         target_location: &Path,
-        logger: Logger,
-    ) -> Self {
-        Self::with_retry_policy(
-            server_url_prefix,
-            target_location,
-            FileUploadRetryPolicy::never(),
-            logger,
-        )
-    }
-
-    pub(crate) fn with_retry_policy(
-        server_url_prefix: SanitizedUrlWithTrailingSlash,
-        target_location: &Path,
         retry_policy: FileUploadRetryPolicy,
         logger: Logger,
     ) -> Self {
@@ -122,7 +109,12 @@ mod tests {
 
         let url_prefix =
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root").unwrap();
-        let uploader = LocalUploader::new(url_prefix, &target_dir, TestLogger::stdout());
+        let uploader = LocalUploader::new(
+            url_prefix,
+            &target_dir,
+            FileUploadRetryPolicy::never(),
+            TestLogger::stdout(),
+        );
         let location = FileUploader::upload(&uploader, &archive)
             .await
             .expect("local upload should not fail");
@@ -145,6 +137,7 @@ mod tests {
         let uploader = LocalUploader::new(
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
+            FileUploadRetryPolicy::never(),
             TestLogger::stdout(),
         );
         FileUploader::upload(&uploader, &archive).await.unwrap();
@@ -165,6 +158,7 @@ mod tests {
         let uploader = LocalUploader::new(
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
+            FileUploadRetryPolicy::never(),
             TestLogger::stdout(),
         );
         FileUploader::upload(&uploader, &source_dir)
@@ -180,7 +174,7 @@ mod tests {
             delay_between_attempts: Duration::from_millis(123),
         };
 
-        let uploader: Box<dyn FileUploader> = Box::new(LocalUploader::with_retry_policy(
+        let uploader: Box<dyn FileUploader> = Box::new(LocalUploader::new(
             SanitizedUrlWithTrailingSlash::parse("http://test.com:8080/base-root/").unwrap(),
             &target_dir,
             expected_policy.clone(),

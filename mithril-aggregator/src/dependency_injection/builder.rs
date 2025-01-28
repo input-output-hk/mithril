@@ -495,7 +495,7 @@ impl DependenciesBuilder {
                 }
             }
         } else {
-            Ok(Arc::new(DumbUploader::new()))
+            Ok(Arc::new(DumbUploader::new(FileUploadRetryPolicy::never())))
         }
     }
 
@@ -1236,7 +1236,7 @@ impl DependenciesBuilder {
                 DependenciesBuilderError::MissingConfiguration("snapshot_bucket_name".to_string())
             })?;
 
-        Ok(GcpUploader::with_retry_policy(
+        Ok(GcpUploader::new(
             Arc::new(GcpBackendUploader::try_new(
                 bucket,
                 self.configuration.snapshot_use_cdn_domain,
@@ -1281,7 +1281,7 @@ impl DependenciesBuilder {
                         }
                     })?;
 
-                    Ok(vec![Arc::new(LocalUploader::with_retry_policy(
+                    Ok(vec![Arc::new(LocalUploader::new(
                         ancillary_url_prefix,
                         &target_dir,
                         FileUploadRetryPolicy::default(),
@@ -1290,7 +1290,9 @@ impl DependenciesBuilder {
                 }
             }
         } else {
-            Ok(vec![Arc::new(DumbUploader::new())])
+            Ok(vec![Arc::new(DumbUploader::new(
+                FileUploadRetryPolicy::never(),
+            ))])
         }
     }
 
@@ -1320,7 +1322,7 @@ impl DependenciesBuilder {
                         .join(CARDANO_DB_ARTIFACTS_DIR)
                         .join("immutable");
 
-                    Ok(vec![Arc::new(LocalUploader::with_retry_policy(
+                    Ok(vec![Arc::new(LocalUploader::new(
                         immutable_url_prefix,
                         &target_dir,
                         FileUploadRetryPolicy::default(),
@@ -1329,7 +1331,9 @@ impl DependenciesBuilder {
                 }
             }
         } else {
-            Ok(vec![Arc::new(DumbUploader::new())])
+            Ok(vec![Arc::new(DumbUploader::new(
+                FileUploadRetryPolicy::never(),
+            ))])
         }
     }
 
@@ -1364,7 +1368,7 @@ impl DependenciesBuilder {
                         }
                     })?;
 
-                    Ok(vec![Arc::new(LocalUploader::with_retry_policy(
+                    Ok(vec![Arc::new(LocalUploader::new(
                         digests_url_prefix,
                         &target_dir,
                         FileUploadRetryPolicy::default(),
@@ -1373,7 +1377,9 @@ impl DependenciesBuilder {
                 }
             }
         } else {
-            Ok(vec![Arc::new(DumbUploader::new())])
+            Ok(vec![Arc::new(DumbUploader::new(
+                FileUploadRetryPolicy::never(),
+            ))])
         }
     }
 

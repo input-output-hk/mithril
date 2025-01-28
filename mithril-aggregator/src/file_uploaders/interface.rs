@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use mithril_common::{entities::FileUri, StdResult};
-use std::{any::Any, path::Path, time::Duration};
+use std::{path::Path, time::Duration};
 
 /// Policy for retrying file uploads.
 #[derive(Debug, PartialEq, Clone)]
@@ -35,7 +35,7 @@ impl Default for FileUploadRetryPolicy {
 /// It retries the upload operation according to the retry policy.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait FileUploader: Any + Sync + Send {
+pub trait FileUploader: Sync + Send {
     /// Try to upload once.
     async fn upload_without_retry(&self, filepath: &Path) -> StdResult<FileUri>;
 
