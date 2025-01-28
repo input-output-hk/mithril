@@ -103,6 +103,15 @@ cfg_fs! {
         }
     }
 
+    /// Options for downloading and unpacking a Cardano database
+    #[derive(Debug,Default)]
+    pub struct DownloadUnpackOptions {
+        /// Allow overriding the destination directory
+        pub allow_override: bool,
+
+        /// Include ancillary files in the download
+        pub include_ancillary: bool
+    }
 }
 
 /// HTTP client for CardanoDatabase API from the Aggregator
