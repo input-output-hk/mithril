@@ -162,6 +162,27 @@ impl CardanoDatabaseClient {
             Err(e) => Err(e.into()),
         }
     }
+
+    //cfg_fs! {
+    /// Download and unpack the given Cardano database part data by hash.
+    // TODO: Add example in module documentation
+    async fn download_unpack(
+        &self,
+        hash: &str,
+        immutable_file_range: ImmutableFileRange,
+        download_unpack_options: DownloadUnpackOptions,
+    ) -> StdResult<()> {
+        let cardano_database_snapshot = self
+            .get(hash)
+            .await?
+            .ok_or_else(|| anyhow!("Cardano database snapshot not found"))?;
+        let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
+        let immutable_file_number_range =
+            immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
+
+        Ok(())
+    }
+    //}
 }
 
 #[cfg(test)]
@@ -314,6 +335,70 @@ mod tests {
                 .await
                 .expect_err("Get Cardano database should return an error");
         }
+
+        //cfg_fs! {
+        mod download_unpack {
+            use super::*;
+
+            #[tokio::test]
+            async fn download_unpack_fails_with_invalid_snapshot() {
+                let immutable_file_range = ImmutableFileRange::Range(1, 10);
+                let download_unpack_options = DownloadUnpackOptions::default();
+                let cardano_db_snapshot_hash = &"hash-123";
+                let client = {
+                    let mut http_client = MockAggregatorHTTPClient::new();
+                    http_client.expect_get_content().return_once(move |_| {
+                        Err(AggregatorClientError::RemoteServerLogical(anyhow!(
+                            "not found"
+                        )))
+                    });
+
+                    CardanoDatabaseClient::new(Arc::new(http_client))
+                };
+
+                client
+                    .download_unpack(
+                        cardano_db_snapshot_hash,
+                        immutable_file_range,
+                        download_unpack_options,
+                    )
+                    .await
+                    .expect_err("download_unpack should fail");
+            }
+
+            #[tokio::test]
+            async fn download_unpack_fails_with_invalid_immutable_file_range() {
+                let immutable_file_range = ImmutableFileRange::Range(1, 0);
+                let download_unpack_options = DownloadUnpackOptions::default();
+                let cardano_db_snapshot_hash = &"hash-123";
+                let client = {
+                    let message = CardanoDatabaseSnapshot {
+                        hash: "hash-123".to_string(),
+                        ..CardanoDatabaseSnapshot::dummy()
+                    };
+                    let mut http_client = MockAggregatorHTTPClient::new();
+                    http_client
+                        .expect_get_content()
+                        .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
+                            hash: "hash-123".to_string(),
+                        }))
+                        .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+
+                    CardanoDatabaseClient::new(Arc::new(http_client))
+                };
+
+                client
+                    .download_unpack(
+                        cardano_db_snapshot_hash,
+                        immutable_file_range,
+                        download_unpack_options,
+                    )
+                    .await
+                    .expect_err("download_unpack should fail");
+            }
+        }
+
+        //}
     }
 
     cfg_fs! {
