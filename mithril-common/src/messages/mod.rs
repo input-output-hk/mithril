@@ -28,7 +28,7 @@ pub use aggregator_features::{
     AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
 };
 pub use aggregator_status::AggregatorStatusMessage;
-pub use cardano_database::CardanoDatabaseSnapshotMessage;
+pub use cardano_database::{ArtifactsLocationsMessagePart, CardanoDatabaseSnapshotMessage};
 pub use cardano_database_digest_list::{
     CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage,
 };

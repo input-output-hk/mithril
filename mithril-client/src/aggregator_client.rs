@@ -54,20 +54,25 @@ pub enum AggregatorRequest {
         /// Hash of the certificate to retrieve
         hash: String,
     },
+
     /// Lists the aggregator [certificates][crate::MithrilCertificate]
     ListCertificates,
+
     /// Get a specific [Mithril stake distribution][crate::MithrilStakeDistribution] from the aggregator
     GetMithrilStakeDistribution {
         /// Hash of the Mithril stake distribution to retrieve
         hash: String,
     },
+
     /// Lists the aggregator [Mithril stake distribution][crate::MithrilStakeDistribution]
     ListMithrilStakeDistributions,
+
     /// Get a specific [snapshot][crate::Snapshot] from the aggregator
     GetSnapshot {
         /// Digest of the snapshot to retrieve
         digest: String,
     },
+
     /// Lists the aggregator [snapshots][crate::Snapshot]
     ListSnapshots,
 
@@ -76,6 +81,17 @@ pub enum AggregatorRequest {
         /// Snapshot as HTTP request body
         snapshot: String,
     },
+
+    /// Get a specific [Cardano database snapshot][crate::CardanoDatabaseSnapshot] from the aggregator
+    #[cfg(feature = "unstable")]
+    GetCardanoDatabaseSnapshot {
+        /// Hash of the snapshot to retrieve
+        hash: String,
+    },
+
+    /// Lists the aggregator [Cardano database snapshots][crate::CardanoDatabaseSnapshot]
+    #[cfg(feature = "unstable")]
+    ListCardanoDatabaseSnapshots,
 
     /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
     GetTransactionsProofs {
@@ -128,6 +144,14 @@ impl AggregatorRequest {
             AggregatorRequest::ListSnapshots => "artifact/snapshots".to_string(),
             AggregatorRequest::IncrementSnapshotStatistic { snapshot: _ } => {
                 "statistics/snapshot".to_string()
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::GetCardanoDatabaseSnapshot { hash } => {
+                format!("artifact/cardano-database/{}", hash)
+            }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::ListCardanoDatabaseSnapshots => {
+                "artifact/cardano-database".to_string()
             }
             AggregatorRequest::GetTransactionsProofs {
                 transactions_hashes,
@@ -569,6 +593,21 @@ mod tests {
                 snapshot: "abc".to_string()
             }
             .route()
+        );
+
+        #[cfg(feature = "unstable")]
+        assert_eq!(
+            "artifact/cardano-database/abc".to_string(),
+            AggregatorRequest::GetCardanoDatabaseSnapshot {
+                hash: "abc".to_string()
+            }
+            .route()
+        );
+
+        #[cfg(feature = "unstable")]
+        assert_eq!(
+            "artifact/cardano-database".to_string(),
+            AggregatorRequest::ListCardanoDatabaseSnapshots.route()
         );
 
         assert_eq!(
