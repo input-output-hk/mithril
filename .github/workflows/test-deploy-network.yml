@@ -93,7 +93,7 @@ jobs:
             google_compute_instance_data_disk_type: pd-balanced
 
     environment: ${{ matrix.environment }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: mithril-infra

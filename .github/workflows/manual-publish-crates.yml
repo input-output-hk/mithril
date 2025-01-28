@@ -42,7 +42,7 @@ jobs:
           - package: mithril-client
             api_token_secret_name: CRATES_IO_API_TOKEN_MITHRIL_CLIENT
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
         if: inputs.package == matrix.package || inputs.package == 'all'

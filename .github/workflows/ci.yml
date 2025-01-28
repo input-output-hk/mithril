@@ -111,7 +111,7 @@ jobs:
           common-build-args: ${{ matrix.common-build-args }}
 
   build-test-wasm:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -176,10 +176,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-14, macos-14-large, windows-latest]
+        os: [ubuntu-24.04, macos-14, macos-14-large, windows-latest]
 
         include:
-          - os: ubuntu-22.04
+          - os: ubuntu-24.04
             test-args: --features full,unstable --workspace
           # Only test client on windows & mac (since its the only binaries supported for those os for now)
           - os: macos-14
@@ -228,7 +228,7 @@ jobs:
           path: ./test-results-*.xml
 
   check:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -289,7 +289,7 @@ jobs:
         run: make check-format
 
   e2e:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [build-ubuntu-X64]
     strategy:
       fail-fast: false
@@ -396,7 +396,7 @@ jobs:
 
   send-tests-results:
     if: success() || failure()
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - test
     steps:
@@ -414,7 +414,7 @@ jobs:
           junit_files: ./**/test-results-*.xml
 
   docker-mithril:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
       - check
@@ -488,7 +488,7 @@ jobs:
         package:
           [mithril-stm, mithril-build-script, mithril-common, mithril-client]
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
       - test
@@ -522,7 +522,7 @@ jobs:
             access: public
             api_token_secret_name: NPM_API_TOKEN_MITHRIL_CLIENT_WASM
 
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build-test-wasm
     steps:
@@ -547,7 +547,7 @@ jobs:
 
   unstable-release:
     if: vars.PUBLISH_UNSTABLE_RELEASE_IN_CI == 'true' && github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - build
       - build-test-wasm
@@ -696,7 +696,7 @@ jobs:
             google_compute_instance_boot_disk_size: 200
             google_compute_instance_data_disk_size: 250
     environment: ${{ matrix.environment }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - docker-mithril
     defaults:
@@ -761,7 +761,7 @@ jobs:
           loki_ingest_password: ${{ secrets.LOKI_INGEST_PASSWORD }}
 
   cargo-doc:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -811,7 +811,7 @@ jobs:
             target/doc/
 
   build-docusaurus:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -841,7 +841,7 @@ jobs:
             docs/website/build/*
 
   build-test-explorer:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build-test-wasm
     steps:
       - name: Checkout sources
@@ -900,7 +900,7 @@ jobs:
             mithril-explorer/out/*
 
   build-open-api-ui:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -923,7 +923,7 @@ jobs:
 
   publish-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs:
       - cargo-doc
       - build-docusaurus
