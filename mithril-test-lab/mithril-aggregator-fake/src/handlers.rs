@@ -36,6 +36,8 @@ pub async fn aggregator_router() -> Router<SharedState> {
             "/artifact/cardano-stake-distribution/epoch/{epoch}",
             get(csd_by_epoch),
         )
+        .route("/artifact/cardano-database", get(cdbs))
+        .route("/artifact/cardano-database/{hash}", get(cdb))
         .route("/proof/cardano-transaction", get(ctx_proof))
         .route("/certificates", get(certificates))
         .route("/certificate/{hash}", get(certificate))
@@ -224,6 +226,31 @@ pub async fn csd_by_epoch(
         .map(|s| s.into_response())
         .ok_or_else(|| {
             debug!("cardano stake distribution hash={hash} NOT FOUND.");
+            AppError::NotFound
+        })
+}
+
+/// HTTP: return the list of cardano database snapshots.
+pub async fn cdbs(State(state): State<SharedState>) -> Result<String, AppError> {
+    let app_state = state.read().await;
+    let cdbs = app_state.get_cdbs().await?;
+
+    Ok(cdbs)
+}
+
+/// HTTP: return a cardano database snapshot identified by its hash.
+pub async fn cdb(
+    Path(key): Path<String>,
+    State(state): State<SharedState>,
+) -> Result<Response<Body>, AppError> {
+    let app_state = state.read().await;
+
+    app_state
+        .get_cdb(&key)
+        .await?
+        .map(|s| s.into_response())
+        .ok_or_else(|| {
+            debug!("cardano database hash={key} NOT FOUND.");
             AppError::NotFound
         })
 }
@@ -469,6 +496,30 @@ mod tests {
         let error = csd_by_epoch(epoch, state)
             .await
             .expect_err("The handler was expected to fail since the csd's epoch does not exist.");
+
+        assert!(matches!(error, AppError::NotFound));
+    }
+
+    #[tokio::test]
+    async fn existing_cdb_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path(default_values::cdb_hashes()[0].to_string());
+
+        let response = cdb(hash, state)
+            .await
+            .expect("The handler was expected to succeed since the cdb's hash does exist.");
+
+        assert_eq!(StatusCode::OK, response.status());
+    }
+
+    #[tokio::test]
+    async fn invalid_cdb_hash() {
+        let state: State<SharedState> = State(AppState::default().into());
+        let hash = Path("whatever".to_string());
+
+        let error = cdb(hash, state)
+            .await
+            .expect_err("The handler was expected to fail since the cdb's hash does not exist.");
 
         assert!(matches!(error, AppError::NotFound));
     }

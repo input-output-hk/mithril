@@ -31,6 +31,9 @@ pub struct FakeAggregatorData {
 
     csds_list: FileContent,
     individual_csds: BTreeMap<ArtifactId, FileContent>,
+
+    cdbs_list: FileContent,
+    individual_cdbs: BTreeMap<ArtifactId, FileContent>,
 }
 
 impl FakeAggregatorData {
@@ -59,6 +62,9 @@ impl FakeAggregatorData {
                 "cardano-stake-distributions-list.json" => {
                     data.csds_list = file_content;
                 }
+                "cardano-databases-list.json" => {
+                    data.cdbs_list = file_content;
+                }
                 "certificates-list.json" => {
                     data.certificates_list = file_content;
                 }
@@ -73,6 +79,9 @@ impl FakeAggregatorData {
                 }
                 "cardano-stake-distributions.json" => {
                     data.individual_csds = Self::read_artifacts_json_file(&entry.path());
+                }
+                "cardano-databases.json" => {
+                    data.individual_cdbs = Self::read_artifacts_json_file(&entry.path());
                 }
                 "certificates.json" => {
                     data.individual_certificates = Self::read_artifacts_json_file(&entry.path());
@@ -109,6 +118,10 @@ impl FakeAggregatorData {
                 generate_ids_array(
                     "csd_epochs",
                     BTreeSet::from_iter(extract_csd_epochs(&self.individual_csds)),
+                ),
+                generate_ids_array(
+                    "cdb_hashes",
+                    BTreeSet::from_iter(self.individual_cdbs.keys().cloned()),
                 ),
                 generate_ids_array(
                     "certificate_hashes",
@@ -157,6 +170,12 @@ impl FakeAggregatorData {
                     "certificate_hashes",
                     BTreeSet::from_iter(self.individual_certificates.keys().cloned()),
                 ),
+                generate_ids_array(
+                    "cdb_hashes",
+                    BTreeSet::from_iter(self.individual_cdbs.keys().cloned()),
+                ),
+                generate_artifact_getter("cdbs", self.individual_cdbs),
+                generate_list_getter("cdb_list", self.cdbs_list),
                 generate_artifact_getter("certificates", self.individual_certificates),
                 generate_list_getter("certificate_list", self.certificates_list),
                 generate_ids_array(
