@@ -253,6 +253,7 @@ mod tests {
         test_utils::{assert_equivalent, equivalent_to, TempDir},
     };
     use std::fs::File;
+    use std::io::Write;
     use uuid::Uuid;
 
     use crate::services::{
@@ -292,6 +293,19 @@ mod tests {
             .return_once(|_| Err(anyhow!("Failure while uploading...")));
 
         uploader
+    }
+
+    fn create_fake_file(path: &Path, content: &str) {
+        let mut file = File::create(path).unwrap();
+        write!(file, "{content}").unwrap();
+    }
+
+    macro_rules! assert_file_content {
+        ($path:expr, $expected_content:expr) => {
+            assert!($path.exists());
+            let content = std::fs::read_to_string(&$path).unwrap();
+            assert_eq!(content, $expected_content);
+        };
     }
 
     fn get_builder_work_dir<N: Into<String>>(test_name: N) -> PathBuf {
@@ -370,7 +384,7 @@ mod tests {
             "create_immutable_builder_should_not_create_or_remove_immutable_storage_dir_if_it_exist",
         );
         let existing_file_path = immutable_storage_dir.join("file.txt");
-        File::create(&existing_file_path).unwrap();
+        create_fake_file(&existing_file_path, "existing file content");
 
         ImmutableArtifactBuilder::new(
             immutable_storage_dir,
@@ -381,7 +395,7 @@ mod tests {
         )
         .unwrap();
 
-        assert!(existing_file_path.exists());
+        assert_file_content!(existing_file_path, "existing file content");
     }
 
     mod create_archive {
@@ -575,8 +589,8 @@ mod tests {
             .unwrap();
             snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
-            fs::File::create(work_dir.join("00001.tar.gz")).unwrap();
-            fs::File::create(work_dir.join("00002.tar.gz")).unwrap();
+            create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
+            create_fake_file(&work_dir.join("00002.tar.gz"), "00002 content");
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir.clone(),
@@ -598,7 +612,10 @@ mod tests {
                     work_dir.join("00002.tar.gz"),
                     work_dir.join("00003.tar.gz"),
                 ],
-            )
+            );
+            // Check that the existing archives content have not changed
+            assert_file_content!(work_dir.join("00001.tar.gz"), "00001 content");
+            assert_file_content!(work_dir.join("00002.tar.gz"), "00002 content");
         }
 
         #[test]
@@ -608,9 +625,9 @@ mod tests {
             let mut snapshotter = MockSnapshotter::new();
             snapshotter.expect_snapshot_subset().never();
 
-            fs::File::create(work_dir.join("00001.tar.gz")).unwrap();
-            fs::File::create(work_dir.join("00002.tar.gz")).unwrap();
-            fs::File::create(work_dir.join("00003.tar.gz")).unwrap();
+            create_fake_file(&work_dir.join("00001.tar.gz"), "00001 content");
+            create_fake_file(&work_dir.join("00002.tar.gz"), "00002 content");
+            create_fake_file(&work_dir.join("00003.tar.gz"), "00003 content");
 
             let builder = ImmutableArtifactBuilder::new(
                 work_dir.clone(),
@@ -803,9 +820,6 @@ mod tests {
     }
 
     mod batch_upload {
-        use std::fs::File;
-        use std::io::Write;
-
         use crate::file_uploaders::FileUploadRetryPolicy;
         use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
         use mithril_common::test_utils::TempDir;
@@ -814,13 +828,10 @@ mod tests {
 
         fn create_fake_archive(dir: &Path, name: &str) -> PathBuf {
             let file_path = dir.join(name);
-            let mut file = File::create(&file_path).unwrap();
-            writeln!(
-                file,
-                "I swear, this is an archive, not a temporary test file."
-            )
-            .unwrap();
-
+            create_fake_file(
+                &file_path,
+                "I swear, this is an archive, not a temporary test file.",
+            );
             file_path
         }
 
