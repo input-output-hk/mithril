@@ -628,4 +628,80 @@ mod tests {
 
         test(task, PORT).await;
     }
+
+    #[tokio::test]
+    async fn get_cardano_database() {
+        const PORT: u16 = 3020;
+        let task = tokio::spawn(async move {
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
+            yield_now().await;
+
+            let path = "/artifact/cardano-database/{hash}";
+            let hash = default_values::cdb_hashes()[0];
+            let response = http_request(PORT, &path.replace("{hash}", hash)).await;
+
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
+        });
+
+        test(task, PORT).await;
+    }
+
+    #[tokio::test]
+    async fn get_no_cardano_database() {
+        const PORT: u16 = 3021;
+        let task = tokio::spawn(async move {
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
+            yield_now().await;
+
+            let path = "/artifact/cardano-database/{hash}";
+            let response = http_request(PORT, &path.replace("{hash}", "whatever")).await;
+
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::NOT_FOUND,
+            )
+            .map_err(|e| anyhow!(e))
+        });
+
+        test(task, PORT).await;
+    }
+
+    #[tokio::test]
+    async fn get_cardano_databases() {
+        const PORT: u16 = 3022;
+        let task = tokio::spawn(async move {
+            // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
+            yield_now().await;
+
+            let path = "/artifact/cardano-database";
+            let response = http_request(PORT, path).await;
+
+            APISpec::verify_conformity(
+                get_spec_files(),
+                "GET",
+                path,
+                "application/json",
+                &Null,
+                &response,
+                &StatusCode::OK,
+            )
+            .map_err(|e| anyhow!(e))
+        });
+
+        test(task, PORT).await;
+    }
 }
