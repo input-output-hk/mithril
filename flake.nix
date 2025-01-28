@@ -49,6 +49,7 @@
             pkgs.pkg-config
             pkgs.openssl
           ]
+          ++ lib.optional (pkgs.stdenv.isLinux) [ pkgs.perl ]
           ++ lib.optional (pkgs.stdenv.isDarwin) [
             pkgs.darwin.apple_sdk.frameworks.CoreServices
             pkgs.darwin.apple_sdk.frameworks.Security
