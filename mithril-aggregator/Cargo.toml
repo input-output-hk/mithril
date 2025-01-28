@@ -30,13 +30,11 @@ mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
-openssl = { version = "0.10.68", features = ["vendored"], optional = true }
-openssl-probe = { version = "0.1.5", optional = true }
 paste = "1.0.15"
 prometheus = "0.13.4"
 rayon = "1.10.0"
 regex = "1.11.1"
-reqwest = { version = "0.12.12", features = ["json"] }
+reqwest = { version = "0.12.12", features = ["json", "native-tls-vendored"] }
 semver = "1.0.24"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
@@ -80,5 +78,4 @@ tempfile = "3.14.0"
 [features]
 default = ["jemallocator"]
 
-bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
 jemallocator = ["dep:tikv-jemallocator"]
