@@ -34,8 +34,5 @@ async fn main() -> StdResult<()> {
     let args = MainOpts::parse();
     let root_logger = build_logger(&args);
 
-    #[cfg(feature = "bundle_openssl")]
-    openssl_probe::init_ssl_cert_env_vars();
-
     args.execute(root_logger).await
 }
