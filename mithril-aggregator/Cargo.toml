@@ -78,5 +78,4 @@ tempfile = "3.14.0"
 [features]
 default = ["jemallocator"]
 
-bundle_openssl = []
 jemallocator = ["dep:tikv-jemallocator"]

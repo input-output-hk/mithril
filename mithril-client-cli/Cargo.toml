@@ -50,4 +50,3 @@ tokio = { version = "1.42.0", features = ["full"] }
 mithril-common = { path = "../mithril-common", features = ["test_tools"] }
 
 [features]
-bundle_openssl = []

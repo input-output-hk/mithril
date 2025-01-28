@@ -5,7 +5,7 @@ CARGO = cargo
 all: test build
 
 build:
-	${CARGO} build --release --features bundle_openssl
+	${CARGO} build --release
 	cp ../target/release/mithril-signer .
 
 run: build

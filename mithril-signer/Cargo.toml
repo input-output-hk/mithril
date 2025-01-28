@@ -58,5 +58,4 @@ slog-term = "2.9.1"
 [features]
 default = ["jemallocator"]
 
-bundle_openssl = []
 jemallocator = ["dep:tikv-jemallocator"]
