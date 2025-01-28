@@ -15,13 +15,19 @@ cd mithril-client-wasm/
 - Before running the tests, make sure to install the required dependencies. Use the following command:
 
 ```bash
-make www-test-install
+make ci-test-install
 ```
 
 ## Running the tests in the browser
 
+Copy the example environment file with the following command and configure it, if needed:
+
 ```bash
-make www-test-serve
+cp ci-test/.env.example ci-test/.env
+```
+
+```bash
+make ci-test-serve
 ```
 
 ## Test Results Display
