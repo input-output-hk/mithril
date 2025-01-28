@@ -32,7 +32,7 @@ on:
 
 jobs:
   prepare-env-variables:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       cardano_node_version: ${{ steps.set-env.outputs.cardano_node_version }}
     steps:
@@ -43,7 +43,7 @@ jobs:
           echo "cardano_node_version=[\"${{ inputs.cardano-node-version }}\"]" >> $GITHUB_OUTPUT
 
   prepare-binaries:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       tags: ${{ steps.tags-test-lab.outputs.tags }}
     steps:
@@ -83,7 +83,7 @@ jobs:
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
   e2e:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [prepare-env-variables, prepare-binaries]
     strategy:
       fail-fast: false
@@ -198,7 +198,7 @@ jobs:
           if-no-files-found: error
 
   summarize-test-results:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [e2e]
     if: success() || failure()
 
