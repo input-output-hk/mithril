@@ -212,7 +212,8 @@ mod tests {
     use uuid::Uuid;
 
     use crate::services::{
-        CompressedArchiveSnapshotter, DumbSnapshotter, SnapshotterCompressionAlgorithm,
+        CompressedArchiveSnapshotter, DumbSnapshotter, MockSnapshotter,
+        SnapshotterCompressionAlgorithm,
     };
     use crate::test_tools::TestLogger;
 
@@ -514,14 +515,10 @@ mod tests {
 
     #[tokio::test]
     async fn upload_should_return_error_and_not_upload_when_archive_creation_fails() {
-        let mut snapshotter = CompressedArchiveSnapshotter::new(
-            PathBuf::from("directory_not_existing"),
-            PathBuf::from("whatever"),
-            SnapshotterCompressionAlgorithm::Gzip,
-            TestLogger::stdout(),
-        )
-        .unwrap();
-        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
+        let mut snapshotter = MockSnapshotter::new();
+        snapshotter
+            .expect_snapshot_subset()
+            .returning(|_, _| Err(anyhow!("Failed to create archive")));
 
         let mut uploader = MockAncillaryFileUploader::new();
         uploader.expect_upload().never();

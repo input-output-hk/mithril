@@ -61,14 +61,6 @@ impl Snapshotter for CompressedArchiveSnapshotter {
 
         self.snapshot(filepath, appender)
     }
-
-    fn does_snapshot_exist(&self, filepath: &Path) -> bool {
-        self.get_file_path(filepath).exists()
-    }
-
-    fn get_file_path(&self, filepath: &Path) -> PathBuf {
-        self.ongoing_snapshot_directory.join(filepath)
-    }
 }
 
 impl CompressedArchiveSnapshotter {
@@ -114,7 +106,7 @@ impl CompressedArchiveSnapshotter {
     }
 
     fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {
-        let archive_path = self.get_file_path(filepath);
+        let archive_path = self.ongoing_snapshot_directory.join(filepath);
         if let Some(archive_dir) = archive_path.parent() {
             fs::create_dir_all(archive_dir).with_context(|| {
                 format!(
@@ -536,57 +528,14 @@ mod tests {
     }
 
     #[test]
-    fn is_snapshot_exist_return_true_when_file_exists() {
-        let test_dir = get_test_directory("is_snapshot_exist_return_true_when_file_exists");
-        let destination = test_dir.join(create_dir(&test_dir, "destination"));
-        let source = test_dir.join(create_dir(&test_dir, "source"));
-
-        create_file(&source, "file_to_archive.txt");
-
-        let snapshotter = CompressedArchiveSnapshotter::new(
-            source,
-            destination,
-            SnapshotterCompressionAlgorithm::Gzip,
-            TestLogger::stdout(),
-        )
-        .unwrap();
-
-        let snapshot_path = PathBuf::from(random_archive_name());
-        assert!(!snapshotter.does_snapshot_exist(&snapshot_path));
-
-        snapshotter.snapshot_all(&snapshot_path).unwrap();
-
-        assert!(snapshotter.does_snapshot_exist(&snapshot_path));
-    }
-
-    #[test]
-    fn can_return_full_archive_path() {
-        let destination = get_test_directory("can_return_full_archive_path");
-        let source = PathBuf::from("/source");
-
-        let snapshotter = CompressedArchiveSnapshotter::new(
-            source,
-            destination.clone(),
-            SnapshotterCompressionAlgorithm::Gzip,
-            TestLogger::stdout(),
-        )
-        .unwrap();
-
-        let snapshot_path = PathBuf::from("snapshot.tar.gz");
-        let full_path = snapshotter.get_file_path(&snapshot_path);
-
-        assert_eq!(destination.join("snapshot.tar.gz"), full_path);
-    }
-
-    #[test]
     fn can_set_temp_dir_with_str_or_string() {
-        let mut snapshotter = CompressedArchiveSnapshotter::new(
-            PathBuf::from("db"),
-            PathBuf::from("pending_snapshot"),
-            SnapshotterCompressionAlgorithm::Gzip,
-            TestLogger::stdout(),
-        )
-        .unwrap();
+        let mut snapshotter = CompressedArchiveSnapshotter {
+            db_directory: Default::default(),
+            ongoing_snapshot_directory: Default::default(),
+            compression_algorithm: SnapshotterCompressionAlgorithm::Gzip,
+            temp_dir: Default::default(),
+            logger: TestLogger::stdout(),
+        };
 
         snapshotter.set_sub_temp_dir("sub_dir");
         snapshotter.set_sub_temp_dir("sub_dir".to_string());

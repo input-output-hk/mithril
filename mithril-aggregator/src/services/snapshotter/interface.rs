@@ -14,12 +14,6 @@ pub trait Snapshotter: Sync + Send {
 
     /// Create a new snapshot with the given filepath from a subset of directories and files.
     fn snapshot_subset(&self, filepath: &Path, files: Vec<PathBuf>) -> StdResult<OngoingSnapshot>;
-
-    /// Check if the snapshot exists.
-    fn does_snapshot_exist(&self, filepath: &Path) -> bool;
-
-    /// Give the full target path for the filepath.
-    fn get_file_path(&self, filepath: &Path) -> PathBuf;
 }
 
 /// Snapshotter error type.

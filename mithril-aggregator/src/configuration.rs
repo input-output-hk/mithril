@@ -251,7 +251,12 @@ impl Configuration {
             public_server_url: None,
             run_interval: 5000,
             db_directory: PathBuf::new(),
-            snapshot_directory: PathBuf::new(),
+            // Note: this is a band-aid solution to avoid IO operations in the `mithril-aggregator`
+            // crate directory.
+            // Know issue:
+            // - There may be collision of the `snapshot_directory` between tests. Tests that
+            // depend on the `snapshot_directory` should specify their own.
+            snapshot_directory: std::env::temp_dir(),
             data_stores_directory: PathBuf::from(":memory:"),
             genesis_verification_key: genesis_verification_key.to_json_hex().unwrap(),
             reset_digests_cache: false,
