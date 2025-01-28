@@ -136,9 +136,6 @@ async fn main() -> StdResult<()> {
             .map_err(|message| anyhow!(message));
     }
 
-    #[cfg(feature = "bundle_openssl")]
-    openssl_probe::init_ssl_cert_env_vars();
-
     debug!(root_logger, "Starting"; "node_version" => env!("CARGO_PKG_VERSION"));
 
     // Load config
