@@ -54,7 +54,10 @@ pub trait FileUploader: Sync + Send {
             match self.upload_without_retry(filepath).await {
                 Ok(result) => return Ok(result),
                 Err(_) if nb_attempts >= retry_policy.attempts => {
-                    return Err(anyhow::anyhow!("Upload retry limit reached"));
+                    return Err(anyhow::anyhow!(
+                        "Upload failed after {} attempts",
+                        nb_attempts
+                    ));
                 }
                 _ => tokio::time::sleep(retry_policy.delay_between_attempts).await,
             }
