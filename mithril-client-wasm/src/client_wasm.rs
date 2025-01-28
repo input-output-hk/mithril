@@ -15,15 +15,6 @@ use mithril_client::{
 use crate::certificate_verification_cache::LocalStorageCertificateVerifierCache;
 use crate::WasmResult;
 
-macro_rules! allow_unstable_dead_code {
-    ($($item:item)*) => {
-        $(
-            #[allow(dead_code)]
-            $item
-        )*
-    }
-}
-
 #[wasm_bindgen]
 struct JSBroadcastChannelFeedbackReceiver {
     channel: String,
@@ -427,17 +418,52 @@ impl MithrilClient {
     }
 }
 
-allow_unstable_dead_code! {
-    // Unstable functions are only available when the unstable flag is set
-    #[wasm_bindgen]
-    impl MithrilClient {
-        fn guard_unstable(&self) -> Result<(), wasm_bindgen::JsValue> {
-            if !self.unstable {
-                return Err(JsValue::from_str("Unstable functions are not enabled. Set the 'unstable' client option field to 'true' to enable them."));
-            }
-
-            Ok(())
+// Unstable functions are only available when the unstable flag is set
+#[wasm_bindgen]
+impl MithrilClient {
+    fn guard_unstable(&self) -> Result<(), wasm_bindgen::JsValue> {
+        if !self.unstable {
+            return Err(JsValue::from_str("Unstable functions are not enabled. Set the 'unstable' client option field to 'true' to enable them."));
         }
+
+        Ok(())
+    }
+
+    /// Call the client to get a cardano database snapshot from a hash
+    ///
+    /// Warning: this function is unstable and may be modified in the future
+    #[wasm_bindgen]
+    pub async fn get_cardano_database_v2(&self, hash: &str) -> WasmResult {
+        self.guard_unstable()?;
+
+        let result = self
+            .client
+            .cardano_database()
+            .get(hash)
+            .await
+            .map_err(|err| format!("{err:?}"))?
+            .ok_or(JsValue::from_str(&format!(
+                "No cardano database snapshot found for hash: '{hash}'"
+            )))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// Call the client for the list of available cardano database snapshots
+    ///
+    /// Warning: this function is unstable and may be modified in the future
+    #[wasm_bindgen]
+    pub async fn list_cardano_database_v2(&self) -> WasmResult {
+        self.guard_unstable()?;
+
+        let result = self
+            .client
+            .cardano_database()
+            .list()
+            .await
+            .map_err(|err| format!("{err:?}"))?;
+
+        Ok(serde_wasm_bindgen::to_value(&result)?)
     }
 }
 
@@ -447,9 +473,10 @@ mod tests {
     use wasm_bindgen_test::*;
 
     use mithril_client::{
-        common::ProtocolMessage, CardanoStakeDistribution, CardanoStakeDistributionListItem,
-        CardanoTransactionSnapshot, MithrilCertificateListItem, MithrilStakeDistribution,
-        MithrilStakeDistributionListItem, Snapshot, SnapshotListItem,
+        common::ProtocolMessage, CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem,
+        CardanoStakeDistribution, CardanoStakeDistributionListItem, CardanoTransactionSnapshot,
+        MithrilCertificateListItem, MithrilStakeDistribution, MithrilStakeDistributionListItem,
+        Snapshot, SnapshotListItem,
     };
 
     use crate::test_data;
@@ -474,6 +501,11 @@ mod tests {
 
     fn get_mithril_client_stable() -> MithrilClient {
         let options = ClientOptions::new(None).with_unstable_features(false);
+        get_mithril_client(options)
+    }
+
+    fn get_mithril_client_unstable() -> MithrilClient {
+        let options = ClientOptions::new(None).with_unstable_features(true);
         get_mithril_client(options)
     }
 
@@ -846,5 +878,43 @@ mod tests {
             .expect("compute_cardano_stake_distribution_message should not fail");
         serde_wasm_bindgen::from_value::<ProtocolMessage>(message_js_value)
             .expect("conversion should not fail");
+    }
+
+    #[wasm_bindgen_test]
+    async fn list_cardano_database_v2_should_return_value_convertible_in_rust_type() {
+        let cdb_list_js_value = get_mithril_client_unstable()
+            .list_cardano_database_v2()
+            .await
+            .expect("list_cardano_database_v2 should not fail");
+        let cdb_list = serde_wasm_bindgen::from_value::<Vec<CardanoDatabaseSnapshotListItem>>(
+            cdb_list_js_value,
+        )
+        .expect("conversion should not fail");
+
+        assert_eq!(
+            cdb_list.len(),
+            // Aggregator return up to 20 items for a list route
+            test_data::cdb_hashes().len().min(20)
+        );
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_database_v2_should_return_value_convertible_in_rust_type() {
+        let cdb_js_value = get_mithril_client_unstable()
+            .get_cardano_database_v2(test_data::cdb_hashes()[0])
+            .await
+            .expect("get_cardano_database_v2 should not fail");
+        let csd = serde_wasm_bindgen::from_value::<CardanoDatabaseSnapshot>(cdb_js_value)
+            .expect("conversion should not fail");
+
+        assert_eq!(csd.hash, test_data::cdb_hashes()[0]);
+    }
+
+    #[wasm_bindgen_test]
+    async fn get_cardano_database_v2_should_fail_with_unknown_hash() {
+        get_mithril_client_unstable()
+            .get_cardano_database_v2("whatever")
+            .await
+            .expect_err("get_cardano_database_v2 should fail");
     }
 }
