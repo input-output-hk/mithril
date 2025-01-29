@@ -1,7 +1,7 @@
 use anyhow::Context;
 use semver::Version;
 use slog::{debug, Logger};
-use std::{collections::BTreeSet, sync::Arc};
+use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -1268,11 +1268,7 @@ impl DependenciesBuilder {
                     let server_url_prefix = self.configuration.get_server_url()?;
                     let ancillary_url_prefix = server_url_prefix
                         .sanitize_join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/ancillary/"))?;
-                    let target_dir = self
-                        .configuration
-                        .get_snapshot_dir()?
-                        .join(CARDANO_DB_ARTIFACTS_DIR)
-                        .join("ancillary");
+                    let target_dir = self.get_cardano_db_artifacts_dir()?.join("ancillary");
 
                     std::fs::create_dir_all(&target_dir).map_err(|e| {
                         DependenciesBuilderError::Initialization {
@@ -1316,15 +1312,9 @@ impl DependenciesBuilder {
                     let server_url_prefix = self.configuration.get_server_url()?;
                     let immutable_url_prefix = server_url_prefix
                         .sanitize_join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/immutable/"))?;
-                    let target_dir = self
-                        .configuration
-                        .get_snapshot_dir()?
-                        .join(CARDANO_DB_ARTIFACTS_DIR)
-                        .join("immutable");
 
-                    Ok(vec![Arc::new(LocalUploader::new(
+                    Ok(vec![Arc::new(LocalUploader::new_without_copy(
                         immutable_url_prefix,
-                        &target_dir,
                         FileUploadRetryPolicy::default(),
                         logger,
                     ))])
@@ -1355,11 +1345,7 @@ impl DependenciesBuilder {
                     let server_url_prefix = self.configuration.get_server_url()?;
                     let digests_url_prefix = server_url_prefix
                         .sanitize_join(&format!("{CARDANO_DATABASE_DOWNLOAD_PATH}/digests/"))?;
-                    let target_dir = self
-                        .configuration
-                        .get_snapshot_dir()?
-                        .join(CARDANO_DB_ARTIFACTS_DIR)
-                        .join("digests");
+                    let target_dir = self.get_cardano_db_artifacts_dir()?.join("digests");
 
                     std::fs::create_dir_all(&target_dir).map_err(|e| {
                         DependenciesBuilderError::Initialization {
@@ -1388,16 +1374,7 @@ impl DependenciesBuilder {
         cardano_node_version: Version,
     ) -> Result<CardanoDatabaseArtifactBuilder> {
         let snapshot_dir = self.configuration.get_snapshot_dir()?;
-
-        let immutable_dir = snapshot_dir
-            .join(CARDANO_DB_ARTIFACTS_DIR)
-            .join("immutable");
-        std::fs::create_dir_all(&immutable_dir).map_err(|e| {
-            DependenciesBuilderError::Initialization {
-                message: format!("Cannot create '{immutable_dir:?}' directory."),
-                error: Some(e.into()),
-            }
-        })?;
+        let immutable_dir = self.get_cardano_db_artifacts_dir()?.join("immutable");
 
         let ancillary_builder = Arc::new(AncillaryArtifactBuilder::new(
             self.build_cardano_database_ancillary_uploaders()?,
@@ -1408,6 +1385,7 @@ impl DependenciesBuilder {
         )?);
 
         let immutable_builder = Arc::new(ImmutableArtifactBuilder::new(
+            immutable_dir,
             self.build_cardano_database_immutable_uploaders()?,
             self.get_snapshotter().await?,
             self.configuration.snapshot_compression_algorithm,
@@ -1430,6 +1408,24 @@ impl DependenciesBuilder {
             immutable_builder,
             digest_builder,
         ))
+    }
+
+    fn get_cardano_db_artifacts_dir(&self) -> Result<PathBuf> {
+        let cardano_db_artifacts_dir = self
+            .configuration
+            .get_snapshot_dir()?
+            .join(CARDANO_DB_ARTIFACTS_DIR);
+
+        if !cardano_db_artifacts_dir.exists() {
+            std::fs::create_dir(&cardano_db_artifacts_dir).map_err(|e| {
+                DependenciesBuilderError::Initialization {
+                    message: format!("Cannot create '{cardano_db_artifacts_dir:?}' directory."),
+                    error: Some(e.into()),
+                }
+            })?;
+        }
+
+        Ok(cardano_db_artifacts_dir)
     }
 
     async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
@@ -1774,7 +1770,7 @@ impl DependenciesBuilder {
                     .configuration
                     .cardano_transactions_signing_config
                     .clone(),
-                cardano_db_artifacts_directory: snapshot_dir.join(CARDANO_DB_ARTIFACTS_DIR),
+                cardano_db_artifacts_directory: self.get_cardano_db_artifacts_dir()?,
                 snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
                 cardano_node_version: self.configuration.cardano_node_version.clone(),
                 allow_http_serve_directory: self.configuration.allow_http_serve_directory(),
