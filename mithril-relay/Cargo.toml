@@ -33,7 +33,7 @@ libp2p = { version = "0.54.1", features = [
 ] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
-reqwest = { version = "0.12.12", features = ["json", "native-tls-vendored"] }
+reqwest = { version = "0.12.12", features = ["json"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
 serde_yaml = "0.9.34"
@@ -50,3 +50,6 @@ warp = "0.3.7"
 [dev-dependencies]
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
+
+[features]
+bundle_tls = ["reqwest/native-tls-vendored"]

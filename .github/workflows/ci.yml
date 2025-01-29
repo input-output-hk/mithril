@@ -33,12 +33,12 @@ jobs:
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
         shell: bash
-        run: cargo build --release --bin mithril-end-to-end --bin load-aggregator
+        run: cargo build --release --bin mithril-end-to-end --bin load-aggregator --features bundle_tls
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features bundle_openssl,full
+          binaries-build-args: --bin mithril-aggregator --bin mithril-signer --bin mithril-client --bin mithril-relay --features bundle_tls,full
           libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
 
       - name: Build Debian packages
@@ -81,15 +81,15 @@ jobs:
         include:
           # Only build client on windows & mac
           - os: macos-14
-            binaries-build-args: --bin mithril-client --features bundle_openssl
+            binaries-build-args: --bin mithril-client --features bundle_tls
             libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
           - os: macos-14-large
-            binaries-build-args: --bin mithril-client --features bundle_openssl
+            binaries-build-args: --bin mithril-client --features bundle_tls
             libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
           - os: windows-latest
             # Use `--bins --package <package>` instead of `--bin <package>`, otherwise the 'windows' compatibility
             # hack in mithril common cargo.toml doesn't apply (we have no idea why).
-            binaries-build-args: --bins --package mithril-client-cli --features bundle_openssl
+            binaries-build-args: --bins --package mithril-client-cli --features bundle_tls
             libraries-build-args: --package mithril-stm --package mithril-client --no-default-features --features num-integer-backend,full,unstable
     runs-on: ${{ matrix.os }}
 

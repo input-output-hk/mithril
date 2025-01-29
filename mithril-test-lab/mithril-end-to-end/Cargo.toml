@@ -24,7 +24,7 @@ hex = "0.4.3"
 indicatif = { version = "0.17.9", features = ["tokio"] }
 mithril-common = { path = "../../mithril-common", features = ["full"] }
 mithril-doc = { path = "../../internal/mithril-doc" }
-reqwest = { version = "0.12.12", features = ["json", "native-tls-vendored"] }
+reqwest = { version = "0.12.12", features = ["json"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
 serde_yaml = "0.9.34"
@@ -42,3 +42,4 @@ tokio-util = { version = "0.7.13", features = ["codec"] }
 [features]
 default = []
 allow_skip_signer_certification = []
+bundle_tls = ["reqwest/native-tls-vendored"]

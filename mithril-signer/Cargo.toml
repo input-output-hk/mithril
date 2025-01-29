@@ -29,7 +29,7 @@ paste = "1.0.15"
 prometheus = "0.13.4"
 rand_chacha = "0.3.1"
 rand_core = "0.6.4"
-reqwest = { version = "0.12.12", features = ["json", "native-tls-vendored", "stream"] }
+reqwest = { version = "0.12.12", features = ["json", "stream"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
 slog = { version = "2.7.0", features = [
@@ -58,5 +58,5 @@ slog-term = "2.9.1"
 [features]
 default = ["jemallocator"]
 
-bundle_openssl = []
+bundle_tls = ["reqwest/native-tls-vendored"]
 jemallocator = ["dep:tikv-jemallocator"]
