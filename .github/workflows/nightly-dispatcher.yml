@@ -21,22 +21,6 @@ jobs:
     uses: ./.github/workflows/test-client.yml
 
   notify-on-failure:
-    runs-on: ubuntu-24.04
+    uses: ./.github/workflows/test-notify-on-failure.yml
     needs: [docker-builds, aggregator-stress-test, test-client]
     if: failure()
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Make script executable
-        shell: bash
-        run: |
-          chmod +x ./.github/workflows/scripts/notify-nightly-failure.js
-
-      - name: Send failure notification by email
-        uses: peter-evans/sendgrid-action@v1
-        env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          SCRIPT_FILEPATH: ./.github/workflows/scripts/notify-nightly-failure.js
-          SENDGRID_MAIL_FROM: ${{ secrets.CI_NOTIFICATION_EMAIL_FROM }}
-          SENDGRID_MAIL_TO: ${{ secrets.CI_NOTIFICATION_EMAIL_TO }}
