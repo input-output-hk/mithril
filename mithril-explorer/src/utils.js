@@ -173,6 +173,13 @@ function compareRegistrations(left, right) {
   };
 }
 
+function getImmutableUrlFromTemplate(urlTemplate, immutableFileNumber) {
+  return urlTemplate.replace(
+    "{immutable_file_number}",
+    String(immutableFileNumber).padStart(5, "0"),
+  );
+}
+
 module.exports = {
   checkUrl,
   formatStake,
@@ -188,4 +195,5 @@ module.exports = {
   computeInOutRegistrations,
   dedupInOutRegistrations,
   compareRegistrations,
+  getImmutableUrlFromTemplate,
 };

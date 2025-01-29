@@ -8,6 +8,7 @@ import LocalDateTime from "#/LocalDateTime";
 import QuestionTooltip from "#/QuestionTooltip";
 import RawJsonButton from "#/RawJsonButton";
 import { formatBytes } from "@/utils";
+import DownloadButton from "#/Artifacts/CardanoDbV2SnapshotsList/DownloadButton";
 import { selectedAggregator } from "@/store/settingsSlice";
 
 export default function CardanoDbV2SnapshotsList(props) {
@@ -98,10 +99,14 @@ export default function CardanoDbV2SnapshotsList(props) {
                     <Card.Footer>
                       <Stack direction="horizontal" gap={1}>
                         <LatestBadge show={index === 0} />
+                        <DownloadButton
+                          size="sm"
+                          className="ms-auto"
+                          artifactUrl={`${artifactsEndpoint}/${cdb_snapshot.hash}`}
+                        />
                         <RawJsonButton
                           href={`${artifactsEndpoint}/${cdb_snapshot.hash}`}
                           size="sm"
-                          className="ms-auto"
                         />
                       </Stack>
                     </Card.Footer>
