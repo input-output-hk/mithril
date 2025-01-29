@@ -5,7 +5,7 @@ CARGO = cargo
 all: test build
 
 build:
-	${CARGO} build --release --features bundle_tls
+	${CARGO} build
 	cp ../target/release/mithril-aggregator .
 
 run: build
