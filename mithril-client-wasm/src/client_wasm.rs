@@ -606,20 +606,20 @@ mod tests {
         assert_eq!(
             msd_list.len(),
             // Aggregator return up to 20 items for a list route
-            test_data::msd_hashes().len().min(20)
+            test_data::mithril_stake_distribution_hashes().len().min(20)
         );
     }
 
     #[wasm_bindgen_test]
     async fn get_mithril_stake_distribution_should_return_value_convertible_in_rust_type() {
         let msd_js_value = get_mithril_client_stable()
-            .get_mithril_stake_distribution(test_data::msd_hashes()[0])
+            .get_mithril_stake_distribution(test_data::mithril_stake_distribution_hashes()[0])
             .await
             .expect("get_mithril_stake_distribution should not fail");
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value)
             .expect("conversion should not fail");
 
-        assert_eq!(msd.hash, test_data::msd_hashes()[0]);
+        assert_eq!(msd.hash, test_data::mithril_stake_distribution_hashes()[0]);
     }
 
     #[wasm_bindgen_test]
@@ -674,7 +674,7 @@ mod tests {
     ) {
         let client = get_mithril_client_stable();
         let msd_js_value = client
-            .get_mithril_stake_distribution(test_data::msd_hashes()[0])
+            .get_mithril_stake_distribution(test_data::mithril_stake_distribution_hashes()[0])
             .await
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value.clone())
@@ -696,7 +696,7 @@ mod tests {
     async fn verify_certificate_chain_should_return_value_convertible_in_rust_type() {
         let client = get_mithril_client_stable();
         let msd_js_value = client
-            .get_mithril_stake_distribution(test_data::msd_hashes()[0])
+            .get_mithril_stake_distribution(test_data::mithril_stake_distribution_hashes()[0])
             .await
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value).unwrap();
@@ -713,7 +713,7 @@ mod tests {
     async fn verify_message_match_certificate_should_return_true() {
         let client = get_mithril_client_stable();
         let msd_js_value = client
-            .get_mithril_stake_distribution(test_data::msd_hashes()[0])
+            .get_mithril_stake_distribution(test_data::mithril_stake_distribution_hashes()[0])
             .await
             .unwrap();
         let msd = serde_wasm_bindgen::from_value::<MithrilStakeDistribution>(msd_js_value.clone())
@@ -750,21 +750,26 @@ mod tests {
         assert_eq!(
             cardano_tx_sets.len(),
             // Aggregator return up to 20 items for a list route
-            test_data::ctx_snapshot_hashes().len().min(20)
+            test_data::cardano_transaction_snapshot_hashes()
+                .len()
+                .min(20)
         );
     }
 
     #[wasm_bindgen_test]
     async fn get_cardano_transactions_snapshot_should_return_value_convertible_in_rust_type() {
         let cardano_tx_set_js_value = get_mithril_client_stable()
-            .get_cardano_transactions_snapshot(test_data::ctx_snapshot_hashes()[0])
+            .get_cardano_transactions_snapshot(test_data::cardano_transaction_snapshot_hashes()[0])
             .await
             .expect("get_cardano_transactions_snapshot should not fail");
         let cardano_tx_set =
             serde_wasm_bindgen::from_value::<CardanoTransactionSnapshot>(cardano_tx_set_js_value)
                 .expect("conversion should not fail");
 
-        assert_eq!(cardano_tx_set.hash, test_data::ctx_snapshot_hashes()[0]);
+        assert_eq!(
+            cardano_tx_set.hash,
+            test_data::cardano_transaction_snapshot_hashes()[0]
+        );
     }
 
     #[wasm_bindgen_test]
@@ -810,20 +815,20 @@ mod tests {
         assert_eq!(
             csd_list.len(),
             // Aggregator return up to 20 items for a list route
-            test_data::csd_hashes().len().min(20)
+            test_data::cardano_stake_distribution_hashes().len().min(20)
         );
     }
 
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_should_return_value_convertible_in_rust_type() {
         let csd_js_value = get_mithril_client_stable()
-            .get_cardano_stake_distribution(test_data::csd_hashes()[0])
+            .get_cardano_stake_distribution(test_data::cardano_stake_distribution_hashes()[0])
             .await
             .expect("get_cardano_stake_distribution should not fail");
         let csd = serde_wasm_bindgen::from_value::<CardanoStakeDistribution>(csd_js_value)
             .expect("conversion should not fail");
 
-        assert_eq!(csd.hash, test_data::csd_hashes()[0]);
+        assert_eq!(csd.hash, test_data::cardano_stake_distribution_hashes()[0]);
     }
 
     #[wasm_bindgen_test]
@@ -837,7 +842,9 @@ mod tests {
     #[wasm_bindgen_test]
     async fn get_cardano_stake_distribution_by_epoch_should_return_value_convertible_in_rust_type()
     {
-        let epoch: u64 = test_data::csd_epochs()[0].parse().unwrap();
+        let epoch: u64 = test_data::cardano_stake_distribution_epochs()[0]
+            .parse()
+            .unwrap();
         let csd_js_value = get_mithril_client_stable()
             .get_cardano_stake_distribution_by_epoch(epoch)
             .await
@@ -862,7 +869,7 @@ mod tests {
     ) {
         let client = get_mithril_client_stable();
         let csd_js_value = client
-            .get_cardano_stake_distribution(test_data::csd_hashes()[0])
+            .get_cardano_stake_distribution(test_data::cardano_stake_distribution_hashes()[0])
             .await
             .unwrap();
         let csd = serde_wasm_bindgen::from_value::<CardanoStakeDistribution>(csd_js_value.clone())
@@ -894,20 +901,20 @@ mod tests {
         assert_eq!(
             cdb_list.len(),
             // Aggregator return up to 20 items for a list route
-            test_data::cdb_hashes().len().min(20)
+            test_data::cardano_database_snapshot_hashes().len().min(20)
         );
     }
 
     #[wasm_bindgen_test]
     async fn get_cardano_database_v2_should_return_value_convertible_in_rust_type() {
         let cdb_js_value = get_mithril_client_unstable()
-            .get_cardano_database_v2(test_data::cdb_hashes()[0])
+            .get_cardano_database_v2(test_data::cardano_database_snapshot_hashes()[0])
             .await
             .expect("get_cardano_database_v2 should not fail");
         let csd = serde_wasm_bindgen::from_value::<CardanoDatabaseSnapshot>(cdb_js_value)
             .expect("conversion should not fail");
 
-        assert_eq!(csd.hash, test_data::cdb_hashes()[0]);
+        assert_eq!(csd.hash, test_data::cardano_database_snapshot_hashes()[0]);
     }
 
     #[wasm_bindgen_test]
