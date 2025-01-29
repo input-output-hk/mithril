@@ -4,6 +4,7 @@
 //!
 
 pub mod cardano_db;
+pub mod cardano_db_v2;
 pub mod cardano_stake_distribution;
 pub mod cardano_transaction;
 mod deprecation;
