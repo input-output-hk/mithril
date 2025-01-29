@@ -16,15 +16,15 @@ pub struct AppState {
     certificates: BTreeMap<String, String>,
     snapshot_list: String,
     snapshots: BTreeMap<String, String>,
-    msd_list: String,
-    msds: BTreeMap<String, String>,
-    ctx_snapshot_list: String,
-    ctx_snapshots: BTreeMap<String, String>,
-    ctx_proofs: BTreeMap<String, String>,
-    csd_list: String,
-    csds: BTreeMap<String, String>,
-    cdb_list: String,
-    cdbs: BTreeMap<String, String>,
+    mithril_stake_distribution_list: String,
+    mithril_stake_distributions: BTreeMap<String, String>,
+    cardano_transaction_snapshot_list: String,
+    cardano_transaction_snapshots: BTreeMap<String, String>,
+    cardano_transaction_proofs: BTreeMap<String, String>,
+    cardano_stake_distribution_list: String,
+    cardano_stake_distributions: BTreeMap<String, String>,
+    cardano_database_snapshot_list: String,
+    cardano_database_snapshots: BTreeMap<String, String>,
 }
 
 /// Wrapper to access the application state in shared execution.
@@ -45,15 +45,15 @@ impl Default for AppState {
             certificates: default_values::certificates(),
             snapshot_list: default_values::snapshot_list().to_owned(),
             snapshots: default_values::snapshots(),
-            msd_list: default_values::msd_list().to_owned(),
-            msds: default_values::msds(),
-            ctx_snapshot_list: default_values::ctx_snapshots_list().to_owned(),
-            ctx_snapshots: default_values::ctx_snapshots(),
-            ctx_proofs: default_values::ctx_proofs(),
-            csd_list: default_values::csd_list().to_owned(),
-            csds: default_values::csds(),
-            cdb_list: default_values::cdb_list().to_owned(),
-            cdbs: default_values::cdbs(),
+            mithril_stake_distribution_list: default_values::msd_list().to_owned(),
+            mithril_stake_distributions: default_values::msds(),
+            cardano_transaction_snapshot_list: default_values::ctx_snapshots_list().to_owned(),
+            cardano_transaction_snapshots: default_values::ctx_snapshots(),
+            cardano_transaction_proofs: default_values::ctx_proofs(),
+            cardano_stake_distribution_list: default_values::csd_list().to_owned(),
+            cardano_stake_distributions: default_values::csds(),
+            cardano_database_snapshot_list: default_values::cdb_list().to_owned(),
+            cardano_database_snapshots: default_values::cdbs(),
         }
     }
 }
@@ -66,11 +66,15 @@ impl AppState {
         let epoch_settings = reader.read_file("epoch-settings")?;
         let (certificate_list, certificates) = reader.read_files("certificate")?;
         let (snapshot_list, snapshots) = reader.read_files("snapshot")?;
-        let (msd_list, msds) = reader.read_files("mithril-stake-distribution")?;
-        let (ctx_snapshot_list, ctx_snapshots) = reader.read_files("ctx-snapshot")?;
-        let (_, ctx_proofs) = reader.read_files("ctx-proof")?;
-        let (csd_list, csds) = reader.read_files("cardano-stake-distribution")?;
-        let (cdb_list, cdbs) = reader.read_files("cardano-database")?;
+        let (mithril_stake_distribution_list, mithril_stake_distributions) =
+            reader.read_files("mithril-stake-distribution")?;
+        let (cardano_transaction_snapshot_list, cardano_transaction_snapshots) =
+            reader.read_files("ctx-snapshot")?;
+        let (_, cardano_transaction_proofs) = reader.read_files("ctx-proof")?;
+        let (cardano_stake_distribution_list, cardano_stake_distributions) =
+            reader.read_files("cardano-stake-distribution")?;
+        let (cardano_database_snapshot_list, cardano_database_snapshots) =
+            reader.read_files("cardano-database")?;
 
         let instance = Self {
             epoch_settings,
@@ -78,15 +82,15 @@ impl AppState {
             certificates,
             snapshot_list,
             snapshots,
-            msd_list,
-            msds,
-            ctx_snapshot_list,
-            ctx_snapshots,
-            ctx_proofs,
-            csd_list,
-            csds,
-            cdb_list,
-            cdbs,
+            mithril_stake_distribution_list,
+            mithril_stake_distributions,
+            cardano_transaction_snapshot_list,
+            cardano_transaction_snapshots,
+            cardano_transaction_proofs,
+            cardano_stake_distribution_list,
+            cardano_stake_distributions,
+            cardano_database_snapshot_list,
+            cardano_database_snapshots,
         };
 
         Ok(instance)
@@ -103,8 +107,8 @@ impl AppState {
     }
 
     /// return the list of Mithril stake distributions in the same order as they were read
-    pub async fn get_msds(&self) -> StdResult<String> {
-        Ok(self.msd_list.clone())
+    pub async fn get_mithril_stake_distributions(&self) -> StdResult<String> {
+        Ok(self.mithril_stake_distribution_list.clone())
     }
 
     /// return the list of certificates in the same order as they were read
@@ -118,8 +122,8 @@ impl AppState {
     }
 
     /// return the Mithril stake distribution identified by the given key if any.
-    pub async fn get_msd(&self, key: &str) -> StdResult<Option<String>> {
-        Ok(self.msds.get(key).cloned())
+    pub async fn get_mithril_stake_distribution(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.mithril_stake_distributions.get(key).cloned())
     }
 
     /// return the certificate identified by the given key if any.
@@ -128,38 +132,38 @@ impl AppState {
     }
 
     /// return the list of Cardano transactions snapshots in the same order as they were read
-    pub async fn get_ctx_snapshots(&self) -> StdResult<String> {
-        Ok(self.ctx_snapshot_list.clone())
+    pub async fn get_cardano_transaction_snapshots(&self) -> StdResult<String> {
+        Ok(self.cardano_transaction_snapshot_list.clone())
     }
 
     /// return the Cardano transactions snapshot identified by the given key if any.
-    pub async fn get_ctx_snapshot(&self, key: &str) -> StdResult<Option<String>> {
-        Ok(self.ctx_snapshots.get(key).cloned())
+    pub async fn get_cardano_transaction_snapshot(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.cardano_transaction_snapshots.get(key).cloned())
     }
 
     /// return the Cardano transactions proofs from Cardano transaction hashes.
-    pub async fn get_ctx_proofs(&self, key: &str) -> StdResult<Option<String>> {
-        Ok(self.ctx_proofs.get(key).cloned())
+    pub async fn get_cardano_transaction_proofs(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.cardano_transaction_proofs.get(key).cloned())
     }
 
     /// return the list of Cardano stake distributions in the same order as they were read
-    pub async fn get_csds(&self) -> StdResult<String> {
-        Ok(self.csd_list.clone())
+    pub async fn get_cardano_stake_distributions(&self) -> StdResult<String> {
+        Ok(self.cardano_stake_distribution_list.clone())
     }
 
     /// return the Cardano stake distribution identified by the given key if any.
-    pub async fn get_csd(&self, key: &str) -> StdResult<Option<String>> {
-        Ok(self.csds.get(key).cloned())
+    pub async fn get_cardano_stake_distribution(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.cardano_stake_distributions.get(key).cloned())
     }
 
     /// return the list of Cardano database snapshots in the same order as they were read
-    pub async fn get_cdbs(&self) -> StdResult<String> {
-        Ok(self.cdb_list.clone())
+    pub async fn get_cardano_database_snapshots(&self) -> StdResult<String> {
+        Ok(self.cardano_database_snapshot_list.clone())
     }
 
     /// return the Cardano database snapshot identified by the given key if any.
-    pub async fn get_cdb(&self, key: &str) -> StdResult<Option<String>> {
-        Ok(self.cdbs.get(key).cloned())
+    pub async fn get_cardano_database_snapshot(&self, key: &str) -> StdResult<Option<String>> {
+        Ok(self.cardano_database_snapshots.get(key).cloned())
     }
 }
 

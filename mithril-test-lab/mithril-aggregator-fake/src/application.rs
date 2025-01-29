@@ -193,7 +193,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_msds() {
+    async fn get_mithril_stake_distributions() {
         const PORT: u16 = 3003;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
@@ -323,7 +323,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_msd() {
+    async fn get_mithril_stake_distribution() {
         const PORT: u16 = 3008;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
@@ -349,7 +349,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_no_msd() {
+    async fn get_no_mithril_stake_distribution() {
         const PORT: u16 = 3009;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
@@ -399,7 +399,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_ctx_snapshot() {
+    async fn get_cardano_transaction_snapshot() {
         const PORT: u16 = 3011;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
@@ -425,7 +425,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_no_ctx_snapshot() {
+    async fn get_no_cardano_transaction_snapshot() {
         const PORT: u16 = 3012;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
@@ -451,7 +451,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_ctx_proof() {
+    async fn get_cardano_transaction_proof() {
         const PORT: u16 = 3013;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
@@ -477,7 +477,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn get_no_ctx_proof() {
+    async fn get_no_cardano_transaction_proof() {
         const PORT: u16 = 3014;
         let task = tokio::spawn(async move {
             // Yield back to Tokio's scheduler to ensure the web server is ready before going on.
