@@ -167,6 +167,11 @@ runs:
     - name: Checkout sources
       uses: actions/checkout@v4
 
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_wrapper: false
+
     - name: Prepare service account credentials
       shell: bash
       working-directory: mithril-infra
@@ -230,11 +235,6 @@ runs:
         EOF
         terraform fmt ./env.variables.tfvars
         cat ./env.variables.tfvars
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_wrapper: false
 
     - name: Init Terraform
       shell: bash

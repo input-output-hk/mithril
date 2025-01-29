@@ -21,7 +21,7 @@ jobs:
     uses: ./.github/workflows/test-client.yml
 
   notify-on-failure:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: [docker-builds, aggregator-stress-test, test-client]
     if: failure()
     steps:
