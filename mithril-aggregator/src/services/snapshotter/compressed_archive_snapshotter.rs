@@ -106,6 +106,9 @@ impl CompressedArchiveSnapshotter {
     }
 
     fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {
+        let temporary_archive_path = self
+            .ongoing_snapshot_directory
+            .join(filepath.with_extension("tmp"));
         let archive_path = self.ongoing_snapshot_directory.join(filepath);
         if let Some(archive_dir) = archive_path.parent() {
             fs::create_dir_all(archive_dir).with_context(|| {
@@ -115,17 +118,33 @@ impl CompressedArchiveSnapshotter {
                 )
             })?;
         }
-        let filesize = self.create_and_verify_archive(&archive_path, appender).inspect_err(|_err| {
-            if archive_path.exists() {
-                if let Err(remove_error) = fs::remove_file(&archive_path) {
-                    warn!(
-                        self.logger, " > Post snapshotter.snapshot failure, could not remove temporary archive";
-                        "archive_path" => archive_path.display(),
-                        "error" => remove_error
-                    );
+        let filesize = self
+            .create_and_verify_archive(&temporary_archive_path, appender)
+            .inspect_err(|_err| {
+                if temporary_archive_path.exists() {
+                    if let Err(remove_error) = fs::remove_file(&temporary_archive_path) {
+                        warn!(
+                            self.logger, " > Post snapshotter.snapshot failure, could not remove temporary archive";
+                            "archive_path" => temporary_archive_path.display(),
+                            "error" => remove_error
+                        );
+                    }
                 }
-            }
-        }).with_context(|| format!("CompressedArchiveSnapshotter can not create and verify archive: '{}'", archive_path.display()))?;
+            })
+            .with_context(|| {
+                format!(
+                    "CompressedArchiveSnapshotter can not create and verify archive: '{}'",
+                    archive_path.display()
+                )
+            })?;
+
+        fs::rename(&temporary_archive_path, &archive_path).with_context(|| {
+            format!(
+                "CompressedArchiveSnapshotter can not rename temporary archive: '{}' to final archive: '{}'",
+                temporary_archive_path.display(),
+                archive_path.display()
+            )
+        })?;
 
         Ok(OngoingSnapshot {
             filepath: archive_path,
@@ -331,6 +350,8 @@ mod tests {
 
     use mithril_common::digesters::DummyCardanoDbBuilder;
 
+    use mithril_common::test_utils::assert_equivalent;
+
     use crate::services::snapshotter::test_tools::*;
     use crate::test_tools::TestLogger;
     use crate::ZstandardCompressionParameters;
@@ -410,6 +431,47 @@ mod tests {
             .collect();
 
         assert_eq!(vec!["other-process.file".to_string()], remaining_files);
+    }
+
+    #[test]
+    fn should_not_delete_an_alreay_existing_archive_with_same_name_if_snapshotting_fail() {
+        let test_dir = get_test_directory(
+            "should_not_delete_an_alreay_existing_archive_with_same_name_if_snapshotting_fail",
+        );
+        let pending_snapshot_directory = test_dir.join("pending_snapshot");
+        let db_directory = test_dir.join("db");
+
+        let snapshotter = Arc::new(
+            CompressedArchiveSnapshotter::new(
+                db_directory,
+                pending_snapshot_directory.clone(),
+                SnapshotterCompressionAlgorithm::Gzip,
+                TestLogger::stdout(),
+            )
+            .unwrap(),
+        );
+
+        // this file should not be deleted by the archive creation
+        create_file(&pending_snapshot_directory, "other-process.file");
+        create_file(&pending_snapshot_directory, "whatever.tar.gz");
+        // an already existing temporary archive file should be deleted
+        create_file(&pending_snapshot_directory, "whatever.tar.tmp");
+
+        let _ = snapshotter
+            .snapshot_all(Path::new("whatever.tar.gz"))
+            .expect_err("Snapshotter::snapshot should fail if the db is empty.");
+        let remaining_files: Vec<String> = fs::read_dir(&pending_snapshot_directory)
+            .unwrap()
+            .map(|f| f.unwrap().file_name().to_str().unwrap().to_owned())
+            .collect();
+
+        assert_equivalent(
+            vec![
+                "other-process.file".to_string(),
+                "whatever.tar.gz".to_string(),
+            ],
+            remaining_files,
+        );
     }
 
     #[test]
