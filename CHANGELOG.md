@@ -23,6 +23,7 @@ As a minor extension, we have adopted a slightly different versioning convention
   - Implement the artifact immutable builder in the aggregator.
   - Implement the artifact digest builder in the aggregator.
   - Implement the client library for the the signed entity type `CardanoDatabase` (list snapshots and get snapshot detail).
+  - Implement the client library functions for the the signed entity type `CardanoDatabase` within the WASM library.
 
 - Crates versions:
 

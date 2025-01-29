@@ -239,6 +239,24 @@ if (aggregator_capabilities.includes("CardanoStakeDistribution")) {
       valid_cardano_stake_distribution_message,
     );
   });
+
+  if (aggregator_capabilities.includes("CardanoDatabase")) {
+    let cardano_database_snapshots;
+    test_number++;
+    await run_test("list_cardano_database_v2", test_number, async () => {
+      cardano_database_snapshots = await client.list_cardano_database_v2();
+      console.log("cardano_database_snapshots", cardano_database_snapshots);
+    });
+
+    let cardano_database_snapshot;
+    test_number++;
+    await run_test("get_cardano_database_v2", test_number, async () => {
+      cardano_database_snapshot = await client.get_cardano_database_v2(
+        cardano_database_snapshots[0].hash,
+      );
+      console.log("cardano_database_snapshot", cardano_database_snapshot);
+    });
+  }
 }
 
 add_finished_div();
