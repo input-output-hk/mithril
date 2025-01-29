@@ -108,7 +108,7 @@ impl CompressedArchiveSnapshotter {
     fn snapshot<T: TarAppender>(&self, filepath: &Path, appender: T) -> StdResult<OngoingSnapshot> {
         let temporary_archive_path = self
             .ongoing_snapshot_directory
-            .join(Path::new(&format!("{}.tmp", filepath.display())));
+            .join(filepath.with_extension("tmp"));
         let archive_path = self.ongoing_snapshot_directory.join(filepath);
         if let Some(archive_dir) = archive_path.parent() {
             fs::create_dir_all(archive_dir).with_context(|| {
@@ -455,7 +455,7 @@ mod tests {
         create_file(&pending_snapshot_directory, "other-process.file");
         create_file(&pending_snapshot_directory, "whatever.tar.gz");
         // an already existing temporary archive file should be deleted
-        create_file(&pending_snapshot_directory, "whatever.tar.gz.tmp");
+        create_file(&pending_snapshot_directory, "whatever.tar.tmp");
 
         let _ = snapshotter
             .snapshot_all(Path::new("whatever.tar.gz"))
