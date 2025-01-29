@@ -189,6 +189,13 @@ async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
   return new MithrilClient(aggregator, genesisVerificationKey, client_options);
 }
 
+function getImmutableUrlFromTemplate(urlTemplate, immutableFileNumber) {
+  return urlTemplate.replace(
+    "{immutable_file_number}",
+    String(immutableFileNumber).padStart(5, "0"),
+  );
+}
+
 module.exports = {
   checkUrl,
   formatStake,
@@ -205,4 +212,5 @@ module.exports = {
   dedupInOutRegistrations,
   compareRegistrations,
   newMithrilWasmClient,
+  getImmutableUrlFromTemplate,
 };
