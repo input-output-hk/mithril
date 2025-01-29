@@ -1,6 +1,6 @@
 [package]
 name = "mithril-end-to-end"
-version = "0.4.64"
+version = "0.4.65"
 authors = { workspace = true }
 edition = { workspace = true }
 documentation = { workspace = true }
@@ -42,3 +42,4 @@ tokio-util = { version = "0.7.13", features = ["codec"] }
 [features]
 default = []
 allow_skip_signer_certification = []
+bundle_tls = ["reqwest/native-tls-vendored"]

@@ -10,7 +10,7 @@ CARGO = cargo
 all: test build
 
 build:
-	${CARGO} build --release --features bundle_openssl
+	${CARGO} build
 	cp ../target/release/mithril-client .
 
 run: build

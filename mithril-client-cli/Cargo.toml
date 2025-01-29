@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client-cli"
-version = "0.10.7"
+version = "0.10.8"
 description = "A Mithril Client"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -34,8 +34,6 @@ human_bytes = { version = "0.4.3", features = ["fast"] }
 indicatif = { version = "0.17.9", features = ["tokio"] }
 mithril-client = { path = "../mithril-client", features = ["fs", "unstable"] }
 mithril-doc = { path = "../internal/mithril-doc" }
-openssl = { version = "0.10.68", features = ["vendored"], optional = true }
-openssl-probe = { version = "0.1.5", optional = true }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.134"
 slog = { version = "2.7.0", features = [
@@ -52,4 +50,4 @@ tokio = { version = "1.42.0", features = ["full"] }
 mithril-common = { path = "../mithril-common", features = ["test_tools"] }
 
 [features]
-bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
+bundle_tls = ["mithril-client/native-tls-vendored"]

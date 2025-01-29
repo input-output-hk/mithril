@@ -3578,7 +3578,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.6.22"
+version = "0.6.23"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3595,8 +3595,6 @@ dependencies = [
  "mithril-metric",
  "mithril-persistence",
  "mockall",
- "openssl",
- "openssl-probe",
  "paste",
  "prometheus",
  "rayon",
@@ -3691,7 +3689,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.10.7"
+version = "0.10.8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3706,8 +3704,6 @@ dependencies = [
  "mithril-client",
  "mithril-common",
  "mithril-doc",
- "openssl",
- "openssl-probe",
  "serde",
  "serde_json",
  "slog",
@@ -3810,7 +3806,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.64"
+version = "0.4.65"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3873,7 +3869,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.31"
+version = "0.1.32"
 dependencies = [
  "anyhow",
  "clap",
@@ -3897,7 +3893,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.224"
+version = "0.2.225"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3914,8 +3910,6 @@ dependencies = [
  "mithril-metric",
  "mithril-persistence",
  "mockall",
- "openssl",
- "openssl-probe",
  "paste",
  "prometheus",
  "prometheus-parse",

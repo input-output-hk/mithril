@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.31"
+version = "0.1.32"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -50,3 +50,6 @@ warp = "0.3.7"
 [dev-dependencies]
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
+
+[features]
+bundle_tls = ["reqwest/native-tls-vendored"]

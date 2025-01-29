@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.224"
+version = "0.2.225"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -25,8 +25,6 @@ mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
-openssl = { version = "0.10.68", features = ["vendored"], optional = true }
-openssl-probe = { version = "0.1.5", optional = true }
 paste = "1.0.15"
 prometheus = "0.13.4"
 rand_chacha = "0.3.1"
@@ -60,5 +58,5 @@ slog-term = "2.9.1"
 [features]
 default = ["jemallocator"]
 
-bundle_openssl = ["dep:openssl", "dep:openssl-probe"]
+bundle_tls = ["reqwest/native-tls-vendored"]
 jemallocator = ["dep:tikv-jemallocator"]
