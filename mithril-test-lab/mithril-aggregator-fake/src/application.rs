@@ -330,7 +330,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/mithril-stake-distribution/{hash}";
-            let hash = default_values::msd_hashes()[0];
+            let hash = default_values::mithril_stake_distribution_hashes()[0];
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
@@ -406,7 +406,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/cardano-transaction/{hash}";
-            let hash = default_values::ctx_snapshot_hashes()[0];
+            let hash = default_values::cardano_transaction_snapshot_hashes()[0];
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
@@ -509,7 +509,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/cardano-stake-distribution/{hash}";
-            let hash = default_values::csd_hashes()[0];
+            let hash = default_values::cardano_stake_distribution_hashes()[0];
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(
@@ -585,7 +585,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/cardano-stake-distribution/epoch/{epoch}";
-            let epoch = default_values::csd_epochs()[0];
+            let epoch = default_values::cardano_stake_distribution_epochs()[0];
             let response = http_request(PORT, &path.replace("{epoch}", epoch)).await;
 
             APISpec::verify_conformity(
@@ -637,7 +637,7 @@ mod tests {
             yield_now().await;
 
             let path = "/artifact/cardano-database/{hash}";
-            let hash = default_values::cdb_hashes()[0];
+            let hash = default_values::cardano_database_snapshot_hashes()[0];
             let response = http_request(PORT, &path.replace("{hash}", hash)).await;
 
             APISpec::verify_conformity(

@@ -22,18 +22,18 @@ pub struct FakeAggregatorData {
     snapshots_list: FileContent,
     individual_snapshots: BTreeMap<ArtifactId, FileContent>,
 
-    msds_list: FileContent,
-    individual_msds: BTreeMap<ArtifactId, FileContent>,
+    mithril_stake_distributions_list: FileContent,
+    individual_mithril_stake_distributions: BTreeMap<ArtifactId, FileContent>,
 
-    ctx_snapshots_list: FileContent,
-    individual_ctx_snapshots: BTreeMap<ArtifactId, FileContent>,
-    ctx_proofs: BTreeMap<ArtifactId, FileContent>,
+    cardano_transaction_snapshots_list: FileContent,
+    individual_cardano_transaction_snapshots: BTreeMap<ArtifactId, FileContent>,
+    cardano_transaction_proofs: BTreeMap<ArtifactId, FileContent>,
 
-    csds_list: FileContent,
-    individual_csds: BTreeMap<ArtifactId, FileContent>,
+    cardano_stake_distributions_list: FileContent,
+    individual_cardano_stake_distributions: BTreeMap<ArtifactId, FileContent>,
 
-    cdbs_list: FileContent,
-    individual_cdbs: BTreeMap<ArtifactId, FileContent>,
+    cardano_database_snapshots_list: FileContent,
+    individual_cardano_database_snapshots: BTreeMap<ArtifactId, FileContent>,
 }
 
 impl FakeAggregatorData {
@@ -54,43 +54,47 @@ impl FakeAggregatorData {
                     data.epoch_settings = file_content;
                 }
                 "mithril-stake-distributions-list.json" => {
-                    data.msds_list = file_content;
+                    data.mithril_stake_distributions_list = file_content;
                 }
                 "snapshots-list.json" => {
                     data.snapshots_list = file_content;
                 }
                 "cardano-stake-distributions-list.json" => {
-                    data.csds_list = file_content;
+                    data.cardano_stake_distributions_list = file_content;
                 }
                 "cardano-databases-list.json" => {
-                    data.cdbs_list = file_content;
+                    data.cardano_database_snapshots_list = file_content;
                 }
                 "certificates-list.json" => {
                     data.certificates_list = file_content;
                 }
                 "ctx-snapshots-list.json" => {
-                    data.ctx_snapshots_list = file_content;
+                    data.cardano_transaction_snapshots_list = file_content;
                 }
                 "mithril-stake-distributions.json" => {
-                    data.individual_msds = Self::read_artifacts_json_file(&entry.path());
+                    data.individual_mithril_stake_distributions =
+                        Self::read_artifacts_json_file(&entry.path());
                 }
                 "snapshots.json" => {
                     data.individual_snapshots = Self::read_artifacts_json_file(&entry.path());
                 }
                 "cardano-stake-distributions.json" => {
-                    data.individual_csds = Self::read_artifacts_json_file(&entry.path());
+                    data.individual_cardano_stake_distributions =
+                        Self::read_artifacts_json_file(&entry.path());
                 }
                 "cardano-databases.json" => {
-                    data.individual_cdbs = Self::read_artifacts_json_file(&entry.path());
+                    data.individual_cardano_database_snapshots =
+                        Self::read_artifacts_json_file(&entry.path());
                 }
                 "certificates.json" => {
                     data.individual_certificates = Self::read_artifacts_json_file(&entry.path());
                 }
                 "ctx-snapshots.json" => {
-                    data.individual_ctx_snapshots = Self::read_artifacts_json_file(&entry.path());
+                    data.individual_cardano_transaction_snapshots =
+                        Self::read_artifacts_json_file(&entry.path());
                 }
                 "ctx-proofs.json" => {
-                    data.ctx_proofs = Self::read_artifacts_json_file(&entry.path());
+                    data.cardano_transaction_proofs = Self::read_artifacts_json_file(&entry.path());
                 }
                 // unknown file
                 _ => {}
@@ -108,32 +112,42 @@ impl FakeAggregatorData {
                     BTreeSet::from_iter(self.individual_snapshots.keys().cloned()),
                 ),
                 generate_ids_array(
-                    "msd_hashes",
-                    BTreeSet::from_iter(self.individual_msds.keys().cloned()),
+                    "mithril_stake_distribution_hashes",
+                    BTreeSet::from_iter(
+                        self.individual_mithril_stake_distributions.keys().cloned(),
+                    ),
                 ),
                 generate_ids_array(
-                    "csd_hashes",
-                    BTreeSet::from_iter(self.individual_csds.keys().cloned()),
+                    "cardano_stake_distribution_hashes",
+                    BTreeSet::from_iter(
+                        self.individual_cardano_stake_distributions.keys().cloned(),
+                    ),
                 ),
                 generate_ids_array(
-                    "csd_epochs",
-                    BTreeSet::from_iter(extract_csd_epochs(&self.individual_csds)),
+                    "cardano_stake_distribution_epochs",
+                    BTreeSet::from_iter(extract_cardano_stake_distribution_epochs(
+                        &self.individual_cardano_stake_distributions,
+                    )),
                 ),
                 generate_ids_array(
-                    "cdb_hashes",
-                    BTreeSet::from_iter(self.individual_cdbs.keys().cloned()),
+                    "cardano_database_snapshot_hashes",
+                    BTreeSet::from_iter(self.individual_cardano_database_snapshots.keys().cloned()),
                 ),
                 generate_ids_array(
                     "certificate_hashes",
                     BTreeSet::from_iter(self.individual_certificates.keys().cloned()),
                 ),
                 generate_ids_array(
-                    "ctx_snapshot_hashes",
-                    BTreeSet::from_iter(self.individual_ctx_snapshots.keys().cloned()),
+                    "cardano_transaction_snapshot_hashes",
+                    BTreeSet::from_iter(
+                        self.individual_cardano_transaction_snapshots
+                            .keys()
+                            .cloned(),
+                    ),
                 ),
                 generate_ids_array(
                     "proof_transaction_hashes",
-                    BTreeSet::from_iter(self.ctx_proofs.keys().cloned()),
+                    BTreeSet::from_iter(self.cardano_transaction_proofs.keys().cloned()),
                 ),
             ],
             false,
@@ -151,44 +165,81 @@ impl FakeAggregatorData {
                 generate_artifact_getter("snapshots", self.individual_snapshots),
                 generate_list_getter("snapshot_list", self.snapshots_list),
                 generate_ids_array(
-                    "msd_hashes",
-                    BTreeSet::from_iter(self.individual_msds.keys().cloned()),
+                    "mithril_stake_distribution_hashes",
+                    BTreeSet::from_iter(
+                        self.individual_mithril_stake_distributions.keys().cloned(),
+                    ),
                 ),
-                generate_artifact_getter("msds", self.individual_msds),
-                generate_list_getter("msd_list", self.msds_list),
+                generate_artifact_getter(
+                    "mithril_stake_distributions",
+                    self.individual_mithril_stake_distributions,
+                ),
+                generate_list_getter(
+                    "mithril_stake_distribution_list",
+                    self.mithril_stake_distributions_list,
+                ),
                 generate_ids_array(
-                    "csd_hashes",
-                    BTreeSet::from_iter(self.individual_csds.keys().cloned()),
+                    "cardano_stake_distribution_hashes",
+                    BTreeSet::from_iter(
+                        self.individual_cardano_stake_distributions.keys().cloned(),
+                    ),
                 ),
                 generate_ids_array(
-                    "csd_epochs",
-                    BTreeSet::from_iter(extract_csd_epochs(&self.individual_csds)),
+                    "cardano_stake_distribution_epochs",
+                    BTreeSet::from_iter(extract_cardano_stake_distribution_epochs(
+                        &self.individual_cardano_stake_distributions,
+                    )),
                 ),
-                generate_artifact_getter("csds", self.individual_csds),
-                generate_list_getter("csd_list", self.csds_list),
+                generate_artifact_getter(
+                    "cardano_stake_distributions",
+                    self.individual_cardano_stake_distributions,
+                ),
+                generate_list_getter(
+                    "cardano_stake_distribution_list",
+                    self.cardano_stake_distributions_list,
+                ),
                 generate_ids_array(
                     "certificate_hashes",
                     BTreeSet::from_iter(self.individual_certificates.keys().cloned()),
                 ),
                 generate_ids_array(
-                    "cdb_hashes",
-                    BTreeSet::from_iter(self.individual_cdbs.keys().cloned()),
+                    "cardano_database_snapshot_hashes",
+                    BTreeSet::from_iter(self.individual_cardano_database_snapshots.keys().cloned()),
                 ),
-                generate_artifact_getter("cdbs", self.individual_cdbs),
-                generate_list_getter("cdb_list", self.cdbs_list),
+                generate_artifact_getter(
+                    "cardano_database_snapshots",
+                    self.individual_cardano_database_snapshots,
+                ),
+                generate_list_getter(
+                    "cardano_database_snapshot_list",
+                    self.cardano_database_snapshots_list,
+                ),
                 generate_artifact_getter("certificates", self.individual_certificates),
                 generate_list_getter("certificate_list", self.certificates_list),
                 generate_ids_array(
-                    "ctx_snapshot_hashes",
-                    BTreeSet::from_iter(self.individual_ctx_snapshots.keys().cloned()),
+                    "cardano_transaction_snapshot_hashes",
+                    BTreeSet::from_iter(
+                        self.individual_cardano_transaction_snapshots
+                            .keys()
+                            .cloned(),
+                    ),
                 ),
-                generate_artifact_getter("ctx_snapshots", self.individual_ctx_snapshots),
-                generate_list_getter("ctx_snapshots_list", self.ctx_snapshots_list),
+                generate_artifact_getter(
+                    "cardano_transaction_snapshots",
+                    self.individual_cardano_transaction_snapshots,
+                ),
+                generate_list_getter(
+                    "cardano_transaction_snapshots_list",
+                    self.cardano_transaction_snapshots_list,
+                ),
                 generate_ids_array(
                     "proof_transaction_hashes",
-                    BTreeSet::from_iter(self.ctx_proofs.keys().cloned()),
+                    BTreeSet::from_iter(self.cardano_transaction_proofs.keys().cloned()),
                 ),
-                generate_artifact_getter("ctx_proofs", self.ctx_proofs),
+                generate_artifact_getter(
+                    "cardano_transaction_proofs",
+                    self.cardano_transaction_proofs,
+                ),
             ],
             true,
         )
@@ -227,7 +278,9 @@ impl FakeAggregatorData {
     }
 }
 
-pub fn extract_csd_epochs(individual_csds: &BTreeMap<ArtifactId, FileContent>) -> Vec<String> {
+pub fn extract_cardano_stake_distribution_epochs(
+    individual_csds: &BTreeMap<ArtifactId, FileContent>,
+) -> Vec<String> {
     individual_csds
         .values()
         .map(|content| {
@@ -439,7 +492,7 @@ fn b() {}
             r#"{"hash": "csd-456", "epoch": 456}"#.to_string(),
         );
 
-        let epochs = extract_csd_epochs(&csds);
+        let epochs = extract_cardano_stake_distribution_epochs(&csds);
 
         assert_eq!(epochs, vec![123.to_string(), 456.to_string()]);
     }
@@ -453,7 +506,7 @@ fn b() {}
             r#""hash": "csd-123", "epoch": "123"#.to_string(),
         );
 
-        extract_csd_epochs(&csds);
+        extract_cardano_stake_distribution_epochs(&csds);
     }
 
     #[test]
@@ -462,14 +515,14 @@ fn b() {}
         let mut csds = BTreeMap::new();
         csds.insert("csd-123".to_string(), r#"{"hash": "csd-123"}"#.to_string());
 
-        extract_csd_epochs(&csds);
+        extract_cardano_stake_distribution_epochs(&csds);
     }
 
     #[test]
     fn test_extract_csd_epochs_with_empty_map() {
         let csds = BTreeMap::new();
 
-        let epochs = extract_csd_epochs(&csds);
+        let epochs = extract_cardano_stake_distribution_epochs(&csds);
 
         assert!(epochs.is_empty());
     }

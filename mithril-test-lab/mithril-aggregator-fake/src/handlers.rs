@@ -407,7 +407,7 @@ mod tests {
     #[tokio::test]
     async fn existing_mithril_stake_distribution_hash() {
         let state: State<SharedState> = State(AppState::default().into());
-        let hash = Path(default_values::msd_hashes()[0].to_string());
+        let hash = Path(default_values::mithril_stake_distribution_hashes()[0].to_string());
 
         let response = mithril_stake_distribution(hash, state)
             .await
@@ -431,7 +431,7 @@ mod tests {
     #[tokio::test]
     async fn existing_cardano_transaction_snapshot_hash() {
         let state: State<SharedState> = State(AppState::default().into());
-        let hash = Path(default_values::ctx_snapshot_hashes()[0].to_string());
+        let hash = Path(default_values::cardano_transaction_snapshot_hashes()[0].to_string());
 
         let response = cardano_transaction_snapshot(hash, state).await.expect(
             "The handler was expected to succeed since the cardano transaction snapshot's hash does exist.",
@@ -488,7 +488,7 @@ mod tests {
     #[tokio::test]
     async fn existing_cardano_stake_distribution_hash() {
         let state: State<SharedState> = State(AppState::default().into());
-        let hash = Path(default_values::csd_hashes()[0].to_string());
+        let hash = Path(default_values::cardano_stake_distribution_hashes()[0].to_string());
 
         let response = cardano_stake_distribution(hash, state)
             .await
@@ -512,7 +512,7 @@ mod tests {
     #[tokio::test]
     async fn existing_cardano_stake_distribution_epoch() {
         let state: State<SharedState> = State(AppState::default().into());
-        let epoch = Path(default_values::csd_epochs()[0].to_string());
+        let epoch = Path(default_values::cardano_stake_distribution_epochs()[0].to_string());
 
         let response = cardano_stake_distribution_by_epoch(epoch, state)
             .await
@@ -536,7 +536,7 @@ mod tests {
     #[tokio::test]
     async fn existing_cardano_database_snapshot_hash() {
         let state: State<SharedState> = State(AppState::default().into());
-        let hash = Path(default_values::cdb_hashes()[0].to_string());
+        let hash = Path(default_values::cardano_database_snapshot_hashes()[0].to_string());
 
         let response = cardano_database_snapshot(hash, state)
             .await

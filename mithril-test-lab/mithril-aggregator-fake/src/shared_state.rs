@@ -45,15 +45,19 @@ impl Default for AppState {
             certificates: default_values::certificates(),
             snapshot_list: default_values::snapshot_list().to_owned(),
             snapshots: default_values::snapshots(),
-            mithril_stake_distribution_list: default_values::msd_list().to_owned(),
-            mithril_stake_distributions: default_values::msds(),
-            cardano_transaction_snapshot_list: default_values::ctx_snapshots_list().to_owned(),
-            cardano_transaction_snapshots: default_values::ctx_snapshots(),
-            cardano_transaction_proofs: default_values::ctx_proofs(),
-            cardano_stake_distribution_list: default_values::csd_list().to_owned(),
-            cardano_stake_distributions: default_values::csds(),
-            cardano_database_snapshot_list: default_values::cdb_list().to_owned(),
-            cardano_database_snapshots: default_values::cdbs(),
+            mithril_stake_distribution_list: default_values::mithril_stake_distribution_list()
+                .to_owned(),
+            mithril_stake_distributions: default_values::mithril_stake_distributions(),
+            cardano_transaction_snapshot_list: default_values::cardano_transaction_snapshots_list()
+                .to_owned(),
+            cardano_transaction_snapshots: default_values::cardano_transaction_snapshots(),
+            cardano_transaction_proofs: default_values::cardano_transaction_proofs(),
+            cardano_stake_distribution_list: default_values::cardano_stake_distribution_list()
+                .to_owned(),
+            cardano_stake_distributions: default_values::cardano_stake_distributions(),
+            cardano_database_snapshot_list: default_values::cardano_database_snapshot_list()
+                .to_owned(),
+            cardano_database_snapshots: default_values::cardano_database_snapshots(),
         }
     }
 }
