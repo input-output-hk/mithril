@@ -68,9 +68,10 @@ pub use mithril_common::messages::CardanoStakeDistributionListItemMessage as Car
 /// `mithril-common` re-exports
 pub mod common {
     pub use mithril_common::entities::{
-        BlockHash, BlockNumber, CardanoDbBeacon, ChainPoint, CompressionAlgorithm, Epoch,
-        ImmutableFileNumber, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
-        SlotNumber, StakeDistribution, TransactionHash,
+        AncillaryLocationDiscriminants, BlockHash, BlockNumber, CardanoDbBeacon, ChainPoint,
+        CompressionAlgorithm, DigestLocationDiscriminants, Epoch, ImmutableFileNumber,
+        ImmutablesLocationDiscriminants, ProtocolMessage, ProtocolMessagePartKey,
+        ProtocolParameters, SlotNumber, StakeDistribution, TransactionHash,
     };
     cfg_unstable! {
         pub use mithril_common::entities::{

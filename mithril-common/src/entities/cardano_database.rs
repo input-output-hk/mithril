@@ -71,7 +71,9 @@ impl CardanoDatabaseSnapshot {
 }
 
 /// Locations of the immutable file digests.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumDiscriminants,
+)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum DigestLocation {
     /// Aggregator digest route location.
@@ -87,7 +89,9 @@ pub enum DigestLocation {
 }
 
 /// Locations of the immutable files.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumDiscriminants,
+)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum ImmutablesLocation {
     /// Cloud storage location.
