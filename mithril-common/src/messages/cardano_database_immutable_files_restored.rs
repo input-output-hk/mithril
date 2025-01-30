@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoDatabaseImmutableFilesRestoredMessage {
     /// Number of immutable files restored.
-    pub nb_immutable_files: u64,
+    pub nb_immutable_files: u32,
 }
 
 impl CardanoDatabaseImmutableFilesRestoredMessage {
@@ -22,11 +22,10 @@ mod tests {
 
     const CURRENT_JSON: &str = r#"{
         "nb_immutable_files": 62
-        },
     }"#;
 
-    fn golden_message_current() -> SnapshotMessage {
-        SnapshotMessage {
+    fn golden_message_current() -> CardanoDatabaseImmutableFilesRestoredMessage {
+        CardanoDatabaseImmutableFilesRestoredMessage {
             nb_immutable_files: 62,
         }
     }

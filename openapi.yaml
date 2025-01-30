@@ -766,6 +766,70 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/ancillary-files-restored:
+    post:
+      summary: Records ancillary files restored event
+      description: Records ancillary files restored event
+      requestBody:
+        description: Ancillary files restored message
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardanoDatabaseAncillaryFilesRestoredMessage"
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/complete-restoration:
+    post:
+      summary: Records complete restoration event
+      description: Records complete restoration event
+      requestBody:
+        description: Complete restoration message
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardanoDatabaseCompleteRestorationMessage"
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/partial-restoration:
+    post:
+      summary: Records partial restoration event
+      description: Records partial restoration event
+      requestBody:
+        description: Partial restoration message
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardanoDatabasePartialRestorationMessage"
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     AggregatorStatusMessage:
@@ -1911,9 +1975,46 @@ components:
           description: Number of immutable files restored
           type: integer
       examples:
-        - {
-            "nb_immutable_files": 15
-          }
+        - { "nb_immutable_files": 15 }
+
+    CardanoDatabaseAncillaryFilesRestoredMessage:
+      description: CardanoDatabaseAncillaryFilesRestoredMessage represents a Cardano database Ancillary files restored event
+      type: object
+      additionalProperties: false
+      required:
+        - nb_ancillary_files
+      properties:
+        nb_ancillary_files:
+          description: Number of ancillary files restored
+          type: integer
+      examples:
+        - { "nb_ancillary_files": 15 }
+
+    CardanoDatabaseCompleteRestorationMessage:
+      description: CardanoDatabaseCompleteRestorationMessage represents a Cardano database complete restoration event
+      type: object
+      additionalProperties: false
+      required:
+        - nb_complete_restoration
+      properties:
+        nb_complete_restoration:
+          description: Number of complete restoration
+          type: integer
+      examples:
+        - { "nb_complete_restoration": 15 }
+
+    CardanoDatabasePartialRestorationMessage:
+      description: CardanoDatabasePartialRestorationMessage represents a Cardano database partial restoration event
+      type: object
+      additionalProperties: false
+      required:
+        - nb_partial_restoration
+      properties:
+        nb_partial_restoration:
+          description: Number of partial restoration
+          type: integer
+      examples:
+        - { "nb_partial_restoration": 15 }
 
     CardanoDatabaseArtifactsLocationsMessagePart:
       description: CardanoDatabaseArtifactsLocationsMessagePart represents the locations of the Cardano database artifacts
