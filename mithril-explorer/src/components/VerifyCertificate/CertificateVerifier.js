@@ -37,7 +37,11 @@ function CertificateHash({ hash, onClick, showLink, linkVariant = "dark" }) {
 
   return showLink ? (
     <>
-      <a href="#" target="_blank" className={`link-${linkVariant}`} onClick={clicked}>
+      <a
+        href="#"
+        target="_blank"
+        className={`link-${linkVariant} link-underline-opacity-0 link-underline-opacity-100-hover`}
+        onClick={clicked}>
         {hash}
       </a>{" "}
       <CopyButton textToCopy={hash} />
