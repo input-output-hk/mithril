@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Badge, Button, Card, Container, Row, Stack } from "react-bootstrap";
+import { Badge, Button, Card, Col, Container, Row, Stack } from "react-bootstrap";
 import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
@@ -72,55 +72,63 @@ export default function CertificatesList(props) {
           Certificates{" "}
           <RawJsonButton href={certificatesEndpoint} variant="outline-light" size="sm" />
         </h2>
-        <Stack className="mx-2" gap={2}>
-          {Object.entries(certificates).length === 0 ? (
-            <p>No certificate available</p>
-          ) : (
-            certificates.map((certificate, index) => (
-              <Card border={index === 0 ? "primary" : ""} key={certificate.hash} className="mb-2">
-                <Card.Body>
-                  <ArtifactTitle hash={certificate.hash} index={index} />
-                  <Container fluid>
-                    <Row>
-                      <ArtifactCol label="Parent hash">{certificate.previous_hash} </ArtifactCol>
-                      <ArtifactCol label="Epoch">{certificate.epoch}</ArtifactCol>
-                      <BeaconArtifactCol signedEntity={certificate.signed_entity_type} />
-                      <ArtifactCol label="Number of signers">
-                        {certificate.metadata.total_signers}
-                      </ArtifactCol>
-                      <ArtifactCol label="Initiated at">
-                        <LocalDateTime datetime={certificate.metadata.initiated_at} />
-                      </ArtifactCol>
-                      <ArtifactCol label="Sealed at">
-                        <LocalDateTime datetime={certificate.metadata.sealed_at} />
-                      </ArtifactCol>
-                    </Row>
-                  </Container>
-                </Card.Body>
-                <Card.Footer>
-                  <Stack direction="horizontal" gap={1}>
-                    <LatestBadge show={index === 0} />
-                    <Badge bg="secondary">{certificate.metadata.network}</Badge>
+        <Container fluid>
+          <Row>
+            {Object.entries(certificates).length === 0 ? (
+              <p>No certificate available</p>
+            ) : (
+              certificates.map((certificate, index) => (
+                <Col key={certificate.hash} className="mb-2">
+                  <Card border={index === 0 ? "primary" : ""}>
+                    <Card.Body>
+                      <ArtifactTitle hash={certificate.hash} index={index} />
+                      <Container fluid>
+                        <Row>
+                          <ArtifactCol label="Parent hash">
+                            {certificate.previous_hash}{" "}
+                          </ArtifactCol>
+                          <ArtifactCol label="Epoch">{certificate.epoch}</ArtifactCol>
+                          <BeaconArtifactCol signedEntity={certificate.signed_entity_type} />
+                          <ArtifactCol label="Number of signers">
+                            {certificate.metadata.total_signers}
+                          </ArtifactCol>
+                          <ArtifactCol label="Initiated at">
+                            <LocalDateTime datetime={certificate.metadata.initiated_at} />
+                          </ArtifactCol>
+                          <ArtifactCol label="Sealed at">
+                            <LocalDateTime datetime={certificate.metadata.sealed_at} />
+                          </ArtifactCol>
+                        </Row>
+                      </Container>
+                    </Card.Body>
+                    <Card.Footer>
+                      <Stack direction="horizontal" gap={1}>
+                        <LatestBadge show={index === 0} />
+                        <Badge bg="secondary">{certificate.metadata.network}</Badge>
 
-                    <Button
-                      size="sm"
-                      onClick={() => showCertificate(certificate.hash)}
-                      className="ms-auto">
-                      Show Details
-                    </Button>
-                    <Button size="sm" onClick={() => showCertificate(certificate.previous_hash)}>
-                      Show Parent
-                    </Button>
-                    <RawJsonButton
-                      href={`${aggregator}/certificate/${certificate.hash}`}
-                      size="sm"
-                    />
-                  </Stack>
-                </Card.Footer>
-              </Card>
-            ))
-          )}
-        </Stack>
+                        <Button
+                          size="sm"
+                          onClick={() => showCertificate(certificate.hash)}
+                          className="ms-auto">
+                          Show Details
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => showCertificate(certificate.previous_hash)}>
+                          Show Parent
+                        </Button>
+                        <RawJsonButton
+                          href={`${aggregator}/certificate/${certificate.hash}`}
+                          size="sm"
+                        />
+                      </Stack>
+                    </Card.Footer>
+                  </Card>
+                </Col>
+              ))
+            )}
+          </Row>
+        </Container>
       </div>
     </>
   );

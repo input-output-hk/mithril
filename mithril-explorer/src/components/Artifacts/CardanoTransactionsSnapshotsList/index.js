@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Button, Card, Container, Form, Row, Stack } from "react-bootstrap";
+import { Button, Card, Col, Container, Form, Row, Stack } from "react-bootstrap";
 import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
@@ -94,69 +94,76 @@ export default function CardanoTransactionsSnapshotsList(props) {
           Cardano Transactions Snapshots{" "}
           <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
         </h2>
-        <Stack className="mx-2" gap={2}>
-          <Form
-            onSubmit={handleCtxCertificationSubmit}
-            noValidate
-            validated={showCertificationFormValidation}>
-            <Row>
-              <CardanoTransactionsFormInput
-                maxAllowedHashesByRequest={
-                  currentAggregatorCapabilities?.cardano_transactions_prover
-                    ?.max_hashes_allowed_by_request ??
-                  defaultAggregatorCapabilities.cardano_transactions_prover
-                    .max_hashes_allowed_by_request
-                }
-              />
-            </Row>
-          </Form>
-          {Object.entries(cardanoTransactionsSnapshots).length === 0 ? (
-            <p>No Cardano Transactions Snapshot available</p>
-          ) : (
-            cardanoTransactionsSnapshots.map((cardanoTransactionsSnapshot, index) => (
-              <Card
-                border={index === 0 ? "primary" : ""}
-                key={cardanoTransactionsSnapshot.hash}
-                className="mb-2">
-                <Card.Body className="pt-2 pb-1">
-                  <ArtifactTitle hash={cardanoTransactionsSnapshot.hash} index={index} />
-                  <Container fluid>
-                    <Row>
-                      <ArtifactCol label="Epoch">{cardanoTransactionsSnapshot.epoch}</ArtifactCol>
-                      <ArtifactCol label="Block Number">
-                        {cardanoTransactionsSnapshot.block_number}
-                      </ArtifactCol>
-                      <ArtifactCol label="Created">
-                        <LocalDateTime datetime={cardanoTransactionsSnapshot.created_at} />
-                      </ArtifactCol>
-                      <ArtifactCol label="Merkle Root">
-                        {cardanoTransactionsSnapshot.merkle_root}
-                      </ArtifactCol>
-                      <ArtifactCol label="Certificate hash">
-                        {cardanoTransactionsSnapshot.certificate_hash}
-                      </ArtifactCol>
-                    </Row>
-                  </Container>
-                </Card.Body>
-                <Card.Footer>
-                  <Stack direction="horizontal" gap={1}>
-                    <LatestBadge show={index === 0} />
-                    <Button
-                      size="sm"
-                      className="ms-auto"
-                      onClick={() => showCertificate(cardanoTransactionsSnapshot.certificate_hash)}>
-                      Show Certificate
-                    </Button>
-                    <RawJsonButton
-                      href={`${aggregator}/artifact/cardano-transaction/${cardanoTransactionsSnapshot.hash}`}
-                      size="sm"
-                    />
-                  </Stack>
-                </Card.Footer>
-              </Card>
-            ))
-          )}
-        </Stack>
+        <Container fluid>
+          <Row className="mb-2">
+            <Form
+              onSubmit={handleCtxCertificationSubmit}
+              noValidate
+              validated={showCertificationFormValidation}>
+              <Row>
+                <CardanoTransactionsFormInput
+                  maxAllowedHashesByRequest={
+                    currentAggregatorCapabilities?.cardano_transactions_prover
+                      ?.max_hashes_allowed_by_request ??
+                    defaultAggregatorCapabilities.cardano_transactions_prover
+                      .max_hashes_allowed_by_request
+                  }
+                />
+              </Row>
+            </Form>
+          </Row>
+          <Row>
+            {Object.entries(cardanoTransactionsSnapshots).length === 0 ? (
+              <p>No Cardano Transactions Snapshot available</p>
+            ) : (
+              cardanoTransactionsSnapshots.map((cardanoTransactionsSnapshot, index) => (
+                <Col key={cardanoTransactionsSnapshot.hash} className="mb-2">
+                  <Card border={index === 0 ? "primary" : ""}>
+                    <Card.Body className="pt-2 pb-1">
+                      <ArtifactTitle hash={cardanoTransactionsSnapshot.hash} index={index} />
+                      <Container fluid>
+                        <Row>
+                          <ArtifactCol label="Epoch">
+                            {cardanoTransactionsSnapshot.epoch}
+                          </ArtifactCol>
+                          <ArtifactCol label="Block Number">
+                            {cardanoTransactionsSnapshot.block_number}
+                          </ArtifactCol>
+                          <ArtifactCol label="Created">
+                            <LocalDateTime datetime={cardanoTransactionsSnapshot.created_at} />
+                          </ArtifactCol>
+                          <ArtifactCol label="Merkle Root">
+                            {cardanoTransactionsSnapshot.merkle_root}
+                          </ArtifactCol>
+                          <ArtifactCol label="Certificate hash">
+                            {cardanoTransactionsSnapshot.certificate_hash}
+                          </ArtifactCol>
+                        </Row>
+                      </Container>
+                    </Card.Body>
+                    <Card.Footer>
+                      <Stack direction="horizontal" gap={1}>
+                        <LatestBadge show={index === 0} />
+                        <Button
+                          size="sm"
+                          className="ms-auto"
+                          onClick={() =>
+                            showCertificate(cardanoTransactionsSnapshot.certificate_hash)
+                          }>
+                          Show Certificate
+                        </Button>
+                        <RawJsonButton
+                          href={`${aggregator}/artifact/cardano-transaction/${cardanoTransactionsSnapshot.hash}`}
+                          size="sm"
+                        />
+                      </Stack>
+                    </Card.Footer>
+                  </Card>
+                </Col>
+              ))
+            )}
+          </Row>
+        </Container>
       </div>
     </>
   );

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Button, Card, Container, Row, Stack } from "react-bootstrap";
+import { Button, Card, Col, Container, Row, Stack } from "react-bootstrap";
 import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
@@ -60,48 +60,51 @@ export default function MithrilStakeDistributionsList(props) {
           Mithril Stake Distribution{" "}
           <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
         </h2>
-        <Stack className="mx-2" gap={2}>
-          {Object.entries(mithrilStakeDistributions).length === 0 ? (
-            <p>No mithril stake distribution available</p>
-          ) : (
-            mithrilStakeDistributions.map((mithrilStakeDistribution, index) => (
-              <Card
-                border={index === 0 ? "primary" : ""}
-                key={mithrilStakeDistribution.hash}
-                className="mb-2">
-                <Card.Body className="pt-2 pb-1">
-                  <ArtifactTitle hash={mithrilStakeDistribution.hash} index={index} />
-                  <Container fluid>
-                    <Row>
-                      <ArtifactCol label="Epoch">{mithrilStakeDistribution.epoch}</ArtifactCol>
-                      <ArtifactCol label="Created">
-                        <LocalDateTime datetime={mithrilStakeDistribution.created_at} />
-                      </ArtifactCol>
-                      <ArtifactCol label="Certificate hash">
-                        {mithrilStakeDistribution.certificate_hash}
-                      </ArtifactCol>
-                    </Row>
-                  </Container>
-                </Card.Body>
-                <Card.Footer>
-                  <Stack direction="horizontal" gap={1}>
-                    <LatestBadge show={index === 0} />
-                    <Button
-                      size="sm"
-                      className="ms-auto"
-                      onClick={() => showCertificate(mithrilStakeDistribution.certificate_hash)}>
-                      Show Certificate
-                    </Button>
-                    <RawJsonButton
-                      href={`${aggregator}/artifact/mithril-stake-distribution/${mithrilStakeDistribution.hash}`}
-                      size="sm"
-                    />
-                  </Stack>
-                </Card.Footer>
-              </Card>
-            ))
-          )}
-        </Stack>
+        <Container fluid>
+          <Row>
+            {Object.entries(mithrilStakeDistributions).length === 0 ? (
+              <p>No mithril stake distribution available</p>
+            ) : (
+              mithrilStakeDistributions.map((mithrilStakeDistribution, index) => (
+                <Col key={mithrilStakeDistribution.hash} className="mb-2">
+                  <Card border={index === 0 ? "primary" : ""}>
+                    <Card.Body className="pt-2 pb-1">
+                      <ArtifactTitle hash={mithrilStakeDistribution.hash} index={index} />
+                      <Container fluid>
+                        <Row>
+                          <ArtifactCol label="Epoch">{mithrilStakeDistribution.epoch}</ArtifactCol>
+                          <ArtifactCol label="Created">
+                            <LocalDateTime datetime={mithrilStakeDistribution.created_at} />
+                          </ArtifactCol>
+                          <ArtifactCol label="Certificate hash">
+                            {mithrilStakeDistribution.certificate_hash}
+                          </ArtifactCol>
+                        </Row>
+                      </Container>
+                    </Card.Body>
+                    <Card.Footer>
+                      <Stack direction="horizontal" gap={1}>
+                        <LatestBadge show={index === 0} />
+                        <Button
+                          size="sm"
+                          className="ms-auto"
+                          onClick={() =>
+                            showCertificate(mithrilStakeDistribution.certificate_hash)
+                          }>
+                          Show Certificate
+                        </Button>
+                        <RawJsonButton
+                          href={`${aggregator}/artifact/mithril-stake-distribution/${mithrilStakeDistribution.hash}`}
+                          size="sm"
+                        />
+                      </Stack>
+                    </Card.Footer>
+                  </Card>
+                </Col>
+              ))
+            )}
+          </Row>
+        </Container>
       </div>
     </>
   );

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Badge, Button, Card, Container, Row, Stack } from "react-bootstrap";
+import { Badge, Button, Card, Col, Container, Row, Stack } from "react-bootstrap";
 import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
 import LatestBadge from "#/Artifacts/LatestBadge";
@@ -57,56 +57,62 @@ export default function CardanoDbSnapshotsList(props) {
           Cardano Db Snapshots{" "}
           <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
         </h2>
-        <Stack className="mx-2" gap={2}>
-          {Object.entries(cardanoDbSnapshots).length === 0 ? (
-            <p>No snapshot available</p>
-          ) : (
-            cardanoDbSnapshots.map((snapshot, index) => (
-              <Card border={index === 0 ? "primary" : ""} key={snapshot.digest}>
-                <Card.Body className="pt-2 pb-1">
-                  <ArtifactTitle hash={snapshot.digest} index={index} />
-                  <Container fluid>
-                    <Row>
-                      <ArtifactCol label="Epoch">{snapshot.beacon.epoch}</ArtifactCol>
-                      <ArtifactCol label="Immutable file number">
-                        {snapshot.beacon.immutable_file_number}
-                      </ArtifactCol>
-                      <ArtifactCol label="Created">
-                        <LocalDateTime datetime={snapshot.created_at} />
-                      </ArtifactCol>
-                      <ArtifactCol label="Archive size">{formatBytes(snapshot.size)}</ArtifactCol>
-                      <ArtifactCol label="Cardano node">
-                        {snapshot.cardano_node_version}
-                      </ArtifactCol>
-                      <ArtifactCol label="Compression">
-                        {snapshot.compression_algorithm}
-                      </ArtifactCol>
-                      <ArtifactCol label="Certificate hash">
-                        {snapshot.certificate_hash}
-                      </ArtifactCol>
-                    </Row>
-                  </Container>
-                </Card.Body>
-                <Card.Footer>
-                  <Stack direction="horizontal" gap={1}>
-                    <LatestBadge show={index === 0} />
-                    <Badge bg="secondary">{snapshot.network}</Badge>
-                    <Button
-                      size="sm"
-                      className="ms-auto"
-                      onClick={() => showCertificate(snapshot.certificate_hash)}>
-                      Show Certificate
-                    </Button>
-                    <RawJsonButton
-                      href={`${aggregator}/artifact/snapshot/${snapshot.digest}`}
-                      size="sm"
-                    />
-                  </Stack>
-                </Card.Footer>
-              </Card>
-            ))
-          )}
-        </Stack>
+        <Container fluid>
+          <Row>
+            {Object.entries(cardanoDbSnapshots).length === 0 ? (
+              <p>No snapshot available</p>
+            ) : (
+              cardanoDbSnapshots.map((snapshot, index) => (
+                <Col key={snapshot.digest} className="mb-2">
+                  <Card border={index === 0 ? "primary" : ""}>
+                    <Card.Body className="pt-2 pb-1">
+                      <ArtifactTitle hash={snapshot.digest} index={index} />
+                      <Container fluid>
+                        <Row>
+                          <ArtifactCol label="Epoch">{snapshot.beacon.epoch}</ArtifactCol>
+                          <ArtifactCol label="Immutable file number">
+                            {snapshot.beacon.immutable_file_number}
+                          </ArtifactCol>
+                          <ArtifactCol label="Created">
+                            <LocalDateTime datetime={snapshot.created_at} />
+                          </ArtifactCol>
+                          <ArtifactCol label="Archive size">
+                            {formatBytes(snapshot.size)}
+                          </ArtifactCol>
+                          <ArtifactCol label="Cardano node">
+                            {snapshot.cardano_node_version}
+                          </ArtifactCol>
+                          <ArtifactCol label="Compression">
+                            {snapshot.compression_algorithm}
+                          </ArtifactCol>
+                          <ArtifactCol label="Certificate hash">
+                            {snapshot.certificate_hash}
+                          </ArtifactCol>
+                        </Row>
+                      </Container>
+                    </Card.Body>
+                    <Card.Footer>
+                      <Stack direction="horizontal" gap={1}>
+                        <LatestBadge show={index === 0} />
+                        <Badge bg="secondary">{snapshot.network}</Badge>
+                        <Button
+                          size="sm"
+                          className="ms-auto"
+                          onClick={() => showCertificate(snapshot.certificate_hash)}>
+                          Show Certificate
+                        </Button>
+                        <RawJsonButton
+                          href={`${aggregator}/artifact/snapshot/${snapshot.digest}`}
+                          size="sm"
+                        />
+                      </Stack>
+                    </Card.Footer>
+                  </Card>
+                </Col>
+              ))
+            )}
+          </Row>
+        </Container>
       </div>
     </>
   );
