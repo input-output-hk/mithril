@@ -56,6 +56,7 @@ fn post_cardano_database_complete_restoration(
     warp::path!("statistics" / "cardano-database" / "complete-restoration")
         .and(warp::post())
         .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_complete_restoration)
 }
@@ -67,6 +68,7 @@ fn post_cardano_database_partial_restoration(
     warp::path!("statistics" / "cardano-database" / "partial-restoration")
         .and(warp::post())
         .and(middlewares::with_logger(router_state))
+        .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_partial_restoration)
 }
@@ -136,23 +138,51 @@ mod handlers {
     }
 
     pub async fn post_cardano_database_complete_restoration(
-        _logger: slog::Logger,
+        logger: slog::Logger,
+        event_transmitter: Arc<TransmitterService<EventMessage>>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_complete_restoration()
             .increment();
 
+        let headers: Vec<(&str, &str)> = Vec::new();
+        let message = EventMessage::new(
+            "HTTP::statistics",
+            "cardano_database_restoration",
+            &"full".to_string(),
+            headers,
+        );
+
+        if let Err(e) = event_transmitter.try_send(message.clone()) {
+            warn!(logger, "Event message error"; "error" => ?e);
+            return Ok(reply::internal_server_error(e));
+        };
+
         Ok(reply::empty(StatusCode::CREATED))
     }
 
     pub async fn post_cardano_database_partial_restoration(
-        _logger: slog::Logger,
+        logger: slog::Logger,
+        event_transmitter: Arc<TransmitterService<EventMessage>>,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_partial_restoration()
             .increment();
+
+        let headers: Vec<(&str, &str)> = Vec::new();
+        let message = EventMessage::new(
+            "HTTP::statistics",
+            "cardano_database_restoration",
+            &"partial".to_string(),
+            headers,
+        );
+
+        if let Err(e) = event_transmitter.try_send(message.clone()) {
+            warn!(logger, "Event message error"; "error" => ?e);
+            return Ok(reply::internal_server_error(e));
+        };
 
         Ok(reply::empty(StatusCode::CREATED))
     }
@@ -166,6 +196,7 @@ mod tests {
         CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
     };
     use mithril_common::test_utils::apispec::APISpec;
+    use tokio::sync::mpsc::UnboundedReceiver;
 
     use std::sync::Arc;
     use warp::{
@@ -173,6 +204,8 @@ mod tests {
         test::request,
     };
 
+    use crate::event_store::EventMessage;
+    use crate::DependencyContainer;
     use crate::{
         dependency_injection::DependenciesBuilder, initialize_dependencies, Configuration,
     };
@@ -363,6 +396,14 @@ mod tests {
         }
     }
 
+    async fn setup_dependencies() -> (Arc<DependencyContainer>, UnboundedReceiver<EventMessage>) {
+        let config = Configuration::new_sample();
+        let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
+        let rx = builder.get_event_transmitter_receiver().await.unwrap();
+        let dependency_manager = Arc::new(builder.build_dependency_container().await.unwrap());
+        (dependency_manager, rx)
+    }
+
     mod post_cardano_database_complete_restoration {
         use super::*;
 
@@ -371,7 +412,8 @@ mod tests {
 
         #[tokio::test]
         async fn conform_to_open_api_when_created() {
-            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let (dependency_manager, _rx) = setup_dependencies().await;
+
             let response = request()
                 .method(HTTP_METHOD.as_str())
                 .json(&Value::Null)
@@ -395,8 +437,53 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn should_conform_to_openapi_when_server_error() {
+            let (dependency_manager, mut rx) = setup_dependencies().await;
+            rx.close();
+
+            let response = request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
+                .await;
+
+            APISpec::verify_conformity(
+                APISpec::get_all_spec_files(),
+                HTTP_METHOD.as_str(),
+                PATH,
+                "application/json",
+                &Value::Null,
+                &response,
+                &StatusCode::INTERNAL_SERVER_ERROR,
+            )
+            .unwrap();
+        }
+
+        #[tokio::test]
+        async fn should_send_event() {
+            let (dependency_manager, mut rx) = setup_dependencies().await;
+
+            request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
+                .await;
+
+            let message = rx.try_recv().unwrap();
+            assert_eq!("HTTP::statistics", message.source);
+            assert_eq!("cardano_database_restoration", message.action);
+            assert_eq!("full", message.content);
+        }
+
+        #[tokio::test]
         async fn increments_metric() {
-            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let (dependency_manager, _rx) = setup_dependencies().await;
             let metric_counter = dependency_manager
                 .metrics_service
                 .get_cardano_database_complete_restoration();
@@ -424,7 +511,7 @@ mod tests {
 
         #[tokio::test]
         async fn conform_to_open_api_when_created() {
-            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let (dependency_manager, _rx) = setup_dependencies().await;
             let response = request()
                 .method(HTTP_METHOD.as_str())
                 .json(&Value::Null)
@@ -448,8 +535,53 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn should_conform_to_openapi_when_server_error() {
+            let (dependency_manager, mut rx) = setup_dependencies().await;
+            rx.close();
+
+            let response = request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
+                .await;
+
+            APISpec::verify_conformity(
+                APISpec::get_all_spec_files(),
+                HTTP_METHOD.as_str(),
+                PATH,
+                "application/json",
+                &Value::Null,
+                &response,
+                &StatusCode::INTERNAL_SERVER_ERROR,
+            )
+            .unwrap();
+        }
+
+        #[tokio::test]
+        async fn should_send_event() {
+            let (dependency_manager, mut rx) = setup_dependencies().await;
+
+            request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
+                .await;
+
+            let message = rx.try_recv().unwrap();
+            assert_eq!("HTTP::statistics", message.source);
+            assert_eq!("cardano_database_restoration", message.action);
+            assert_eq!("partial", message.content);
+        }
+
+        #[tokio::test]
         async fn increments_metric() {
-            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let (dependency_manager, _rx) = setup_dependencies().await;
             let metric_counter = dependency_manager
                 .metrics_service
                 .get_cardano_database_partial_restoration();
