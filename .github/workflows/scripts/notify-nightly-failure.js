@@ -28,5 +28,8 @@ const msg = {
 
 sgMail
   .send(msg)
-  .then(() => console.log("Mail sent successfully"))
-  .catch((error) => console.error(error.toString()));
+  .then(() => {
+    console.log("Mail sent successfully");
+    console.log("Message details:", msg);
+  })
+  .catch((error) => console.error("Error sending email:", error));
