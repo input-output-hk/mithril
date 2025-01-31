@@ -19,7 +19,7 @@ use crate::certificate_client::{
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(all(feature = "fs", feature = "unstable"))]
-use crate::file_downloader::ImmutablesFileDownloaderResolver;
+use crate::file_downloader::{DigestFileDownloaderResolver, ImmutablesFileDownloaderResolver};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
@@ -264,11 +264,16 @@ impl ClientBuilder {
         #[cfg(all(feature = "fs", feature = "unstable"))]
         let immutable_file_downloader_resolver =
             Arc::new(ImmutablesFileDownloaderResolver::new(Vec::new()));
+        #[cfg(all(feature = "fs", feature = "unstable"))]
+        let digest_file_downloader_resolver =
+            Arc::new(DigestFileDownloaderResolver::new(Vec::new()));
         #[cfg(feature = "unstable")]
         let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
             aggregator_client.clone(),
             #[cfg(feature = "fs")]
             immutable_file_downloader_resolver,
+            #[cfg(feature = "fs")]
+            digest_file_downloader_resolver,
             #[cfg(feature = "fs")]
             logger,
         ));
