@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Badge, Button, Card, Col, Container, ListGroup, Row, Stack } from "react-bootstrap";
+import { Button, Card, Col, Container, Row, Stack } from "react-bootstrap";
+import ArtifactTitle from "#/Artifacts/ArtifactTitle";
+import ArtifactCol from "#/Artifacts/ArtifactCol";
+import LatestBadge from "#/Artifacts/LatestBadge";
 import CertificateModal from "#/CertificateModal";
 import RawJsonButton from "#/RawJsonButton";
 import LocalDateTime from "#/LocalDateTime";
@@ -57,58 +60,51 @@ export default function MithrilStakeDistributionsList(props) {
           Mithril Stake Distribution{" "}
           <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
         </h2>
-        {Object.entries(mithrilStakeDistributions).length === 0 ? (
-          <p>No mithril stake distribution available</p>
-        ) : (
-          <Container fluid>
-            <Row xs={1} md={2} lg={3} xl={4}>
-              {mithrilStakeDistributions.map((mithrilStakeDistribution, index) => (
+        <Container fluid>
+          <Row>
+            {Object.entries(mithrilStakeDistributions).length === 0 ? (
+              <p>No mithril stake distribution available</p>
+            ) : (
+              mithrilStakeDistributions.map((mithrilStakeDistribution, index) => (
                 <Col key={mithrilStakeDistribution.hash} className="mb-2">
                   <Card border={index === 0 ? "primary" : ""}>
-                    <Card.Body>
-                      <Card.Title>{mithrilStakeDistribution.hash}</Card.Title>
-                      <ListGroup variant="flush" className="data-list-group">
-                        <ListGroup.Item>Epoch: {mithrilStakeDistribution.epoch}</ListGroup.Item>
-                        {mithrilStakeDistribution.created_at && (
-                          <ListGroup.Item>
-                            Created:{" "}
+                    <Card.Body className="pt-2 pb-1">
+                      <ArtifactTitle hash={mithrilStakeDistribution.hash} index={index} />
+                      <Container fluid>
+                        <Row>
+                          <ArtifactCol label="Epoch">{mithrilStakeDistribution.epoch}</ArtifactCol>
+                          <ArtifactCol label="Created">
                             <LocalDateTime datetime={mithrilStakeDistribution.created_at} />
-                          </ListGroup.Item>
-                        )}
-                        <ListGroup.Item>
-                          Certificate hash: <br />
-                          {mithrilStakeDistribution.certificate_hash}{" "}
-                          <Button
-                            size="sm"
-                            onClick={() =>
-                              showCertificate(mithrilStakeDistribution.certificate_hash)
-                            }>
-                            Show
-                          </Button>
-                        </ListGroup.Item>
-                      </ListGroup>
+                          </ArtifactCol>
+                          <ArtifactCol label="Certificate hash">
+                            {mithrilStakeDistribution.certificate_hash}
+                          </ArtifactCol>
+                        </Row>
+                      </Container>
                     </Card.Body>
                     <Card.Footer>
                       <Stack direction="horizontal" gap={1}>
-                        {index === 0 && (
-                          <>
-                            <Badge bg="primary">Latest</Badge>{" "}
-                          </>
-                        )}
-
+                        <LatestBadge show={index === 0} />
+                        <Button
+                          size="sm"
+                          className="ms-auto"
+                          onClick={() =>
+                            showCertificate(mithrilStakeDistribution.certificate_hash)
+                          }>
+                          Show Certificate
+                        </Button>
                         <RawJsonButton
                           href={`${aggregator}/artifact/mithril-stake-distribution/${mithrilStakeDistribution.hash}`}
                           size="sm"
-                          className="ms-auto"
                         />
                       </Stack>
                     </Card.Footer>
                   </Card>
                 </Col>
-              ))}
-            </Row>
-          </Container>
-        )}
+              ))
+            )}
+          </Row>
+        </Container>
       </div>
     </>
   );

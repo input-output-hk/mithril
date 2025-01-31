@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
-import { Button, Card, Container, Row, Stack } from "react-bootstrap";
+import { Button, Card, Col, Container, Row, Stack } from "react-bootstrap";
 import ArtifactCol from "#/Artifacts/ArtifactCol";
 import ArtifactTitle from "#/Artifacts/ArtifactTitle";
 import LatestBadge from "#/Artifacts/LatestBadge";
@@ -58,60 +58,67 @@ export default function CardanoDbV2SnapshotsList(props) {
           Cardano Db Snapshots v2{" "}
           <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
         </h2>
-        {Object.entries(cardanoDbSnapshots).length === 0 ? (
-          <p>No cardano database snapshot available</p>
-        ) : (
-          <Stack className="mx-2" gap={2}>
-            {cardanoDbSnapshots.map((cdb_snapshot, index) => (
-              <Card border={index === 0 ? "primary" : ""} key={cdb_snapshot.hash}>
-                <Card.Body className="pt-2 pb-1">
-                  <ArtifactTitle hash={cdb_snapshot.hash} index={index} />
-                  <Container fluid>
-                    <Row>
-                      <ArtifactCol label="Epoch">{cdb_snapshot.beacon.epoch}</ArtifactCol>
-                      <ArtifactCol label="Immutable file number">
-                        {cdb_snapshot.beacon.immutable_file_number}
-                      </ArtifactCol>
-                      <ArtifactCol label="Created">
-                        <LocalDateTime datetime={cdb_snapshot.created_at} />
-                      </ArtifactCol>
-                      <ArtifactCol label="DB size">
-                        {formatBytes(cdb_snapshot.total_db_size_uncompressed)}{" "}
-                        <QuestionTooltip tooltip="Total uncompressed database size" />
-                      </ArtifactCol>
-                      <ArtifactCol label="Cardano node">
-                        {cdb_snapshot.cardano_node_version}
-                      </ArtifactCol>
-                      <ArtifactCol label="Compression">
-                        {cdb_snapshot.compression_algorithm}
-                      </ArtifactCol>
-                      <ArtifactCol label="Merkle Root">{cdb_snapshot.merkle_root}</ArtifactCol>
-                      <ArtifactCol label="Certificate hash">
-                        {cdb_snapshot.certificate_hash}
-                      </ArtifactCol>
-                    </Row>
-                  </Container>
-                </Card.Body>
-                <Card.Footer>
-                  <Stack direction="horizontal" gap={1}>
-                    <LatestBadge show={index === 0} />
-                    <Button
-                      size="sm"
-                      className="ms-auto"
-                      onClick={() => showCertificate(cdb_snapshot.certificate_hash)}>
-                      Show Certificate
-                    </Button>
-                    <DownloadButton
-                      size="sm"
-                      artifactUrl={`${artifactsEndpoint}/${cdb_snapshot.hash}`}
-                    />
-                    <RawJsonButton href={`${artifactsEndpoint}/${cdb_snapshot.hash}`} size="sm" />
-                  </Stack>
-                </Card.Footer>
-              </Card>
-            ))}
-          </Stack>
-        )}
+        <Container fluid>
+          <Row>
+            {Object.entries(cardanoDbSnapshots).length === 0 ? (
+              <p>No cardano database snapshot available</p>
+            ) : (
+              cardanoDbSnapshots.map((cdb_snapshot, index) => (
+                <Col key={cdb_snapshot.hash} className="mb-2">
+                  <Card border={index === 0 ? "primary" : ""}>
+                    <Card.Body className="pt-2 pb-1">
+                      <ArtifactTitle hash={cdb_snapshot.hash} index={index} />
+                      <Container fluid>
+                        <Row>
+                          <ArtifactCol label="Epoch">{cdb_snapshot.beacon.epoch}</ArtifactCol>
+                          <ArtifactCol label="Immutable file number">
+                            {cdb_snapshot.beacon.immutable_file_number}
+                          </ArtifactCol>
+                          <ArtifactCol label="Created">
+                            <LocalDateTime datetime={cdb_snapshot.created_at} />
+                          </ArtifactCol>
+                          <ArtifactCol label="DB size">
+                            {formatBytes(cdb_snapshot.total_db_size_uncompressed)}{" "}
+                            <QuestionTooltip tooltip="Total uncompressed database size" />
+                          </ArtifactCol>
+                          <ArtifactCol label="Cardano node">
+                            {cdb_snapshot.cardano_node_version}
+                          </ArtifactCol>
+                          <ArtifactCol label="Compression">
+                            {cdb_snapshot.compression_algorithm}
+                          </ArtifactCol>
+                          <ArtifactCol label="Merkle Root">{cdb_snapshot.merkle_root}</ArtifactCol>
+                          <ArtifactCol label="Certificate hash">
+                            {cdb_snapshot.certificate_hash}
+                          </ArtifactCol>
+                        </Row>
+                      </Container>
+                    </Card.Body>
+                    <Card.Footer>
+                      <Stack direction="horizontal" gap={1}>
+                        <LatestBadge show={index === 0} />
+                        <Button
+                          size="sm"
+                          className="ms-auto"
+                          onClick={() => showCertificate(cdb_snapshot.certificate_hash)}>
+                          Show Certificate
+                        </Button>
+                        <DownloadButton
+                          size="sm"
+                          artifactUrl={`${artifactsEndpoint}/${cdb_snapshot.hash}`}
+                        />
+                        <RawJsonButton
+                          href={`${artifactsEndpoint}/${cdb_snapshot.hash}`}
+                          size="sm"
+                        />
+                      </Stack>
+                    </Card.Footer>
+                  </Card>
+                </Col>
+              ))
+            )}
+          </Row>
+        </Container>
       </div>
     </>
   );
