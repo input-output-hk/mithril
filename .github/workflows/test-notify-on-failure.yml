@@ -2,6 +2,7 @@ name: Test Notify on Failure
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   notify-on-failure:
