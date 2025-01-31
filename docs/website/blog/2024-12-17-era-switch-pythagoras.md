@@ -9,6 +9,13 @@ tags: [era, switch, thales, pythagoras]
 
 We have introduced the **Pythagoras era** in the Mithril networks. The switch to `Pythagoras` is a significant milestone that brings new features and improvements to the Mithril protocol.
 
+:::info Update 2025/01/31
+
+The transaction to activate the era switch to `Pythagoras` has been created on the `release-mainnet` network at epoch `537`.
+The era switch will be completed at the transition to epoch `539`.
+
+:::
+
 :::danger
 
 **Mithril signer versions** compatible with the new `Pythagoras` era are:
@@ -44,8 +51,8 @@ curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/input-out
   - [x] Complete the era switch to `Pythagoras` at the transition to epoch `186`
 
 - **release-mainnet** network:
-  - [ ] Create the era switch transaction (planned for early January 2025)
-  - [ ] Complete the era switch to `Pythagoras`.
+  - [x] Create the era switch transaction (done at epoch `537`)
+  - [ ] Complete the era switch to `Pythagoras` (transition to new era is scheduled at transition to epoch `539`).
 
 :::info
 
