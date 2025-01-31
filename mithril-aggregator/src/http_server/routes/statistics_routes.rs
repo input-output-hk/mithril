@@ -120,7 +120,7 @@ mod handlers {
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
-            .get_cardano_database_immutable_files_restored()
+            .get_cardano_database_immutable_files_restored_since_startup()
             .increment_by(message.nb_immutable_files);
 
         Ok(reply::empty(StatusCode::CREATED))
@@ -131,7 +131,7 @@ mod handlers {
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
-            .get_cardano_database_ancillary_files_restored()
+            .get_cardano_database_ancillary_files_restored_since_startup()
             .increment();
 
         Ok(reply::empty(StatusCode::CREATED))
@@ -143,14 +143,14 @@ mod handlers {
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
-            .get_cardano_database_complete_restoration()
+            .get_cardano_database_complete_restoration_since_startup()
             .increment();
 
         let headers: Vec<(&str, &str)> = Vec::new();
         let message = EventMessage::new(
             "HTTP::statistics",
             "cardano_database_restoration",
-            &"full".to_string(),
+            &"complete".to_string(),
             headers,
         );
 
@@ -168,7 +168,7 @@ mod handlers {
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
-            .get_cardano_database_partial_restoration()
+            .get_cardano_database_partial_restoration_since_startup()
             .increment();
 
         let headers: Vec<(&str, &str)> = Vec::new();
@@ -323,7 +323,7 @@ mod tests {
             let dependency_manager = Arc::new(initialize_dependencies().await);
             let metric_counter = dependency_manager
                 .metrics_service
-                .get_cardano_database_immutable_files_restored();
+                .get_cardano_database_immutable_files_restored_since_startup();
             let message = CardanoDatabaseImmutableFilesRestoredMessage {
                 nb_immutable_files: 3,
             };
@@ -379,7 +379,7 @@ mod tests {
             let dependency_manager = Arc::new(initialize_dependencies().await);
             let metric_counter = dependency_manager
                 .metrics_service
-                .get_cardano_database_ancillary_files_restored();
+                .get_cardano_database_ancillary_files_restored_since_startup();
 
             let initial_counter_value = metric_counter.get();
 
@@ -478,7 +478,7 @@ mod tests {
             let message = rx.try_recv().unwrap();
             assert_eq!("HTTP::statistics", message.source);
             assert_eq!("cardano_database_restoration", message.action);
-            assert_eq!("full", message.content);
+            assert_eq!("complete", message.content);
         }
 
         #[tokio::test]
@@ -486,7 +486,7 @@ mod tests {
             let (dependency_manager, _rx) = setup_dependencies().await;
             let metric_counter = dependency_manager
                 .metrics_service
-                .get_cardano_database_complete_restoration();
+                .get_cardano_database_complete_restoration_since_startup();
 
             let initial_counter_value = metric_counter.get();
 
@@ -584,7 +584,7 @@ mod tests {
             let (dependency_manager, _rx) = setup_dependencies().await;
             let metric_counter = dependency_manager
                 .metrics_service
-                .get_cardano_database_partial_restoration();
+                .get_cardano_database_partial_restoration_since_startup();
 
             let initial_counter_value = metric_counter.get();
 

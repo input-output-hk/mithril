@@ -18,21 +18,21 @@ build_metrics_service!(
         "mithril_aggregator_cardano_db_total_restoration_since_startup",
         "Number of Cardano immutable files full restorations since startup on a Mithril aggregator node"
     ),
-    cardano_database_immutable_files_restored:MetricCounter(
-        "mithril_aggregator_cardano_db_immutable_files_restored",
-        "Number of Cardano immutable files restored on a Mithril aggregator node"
+    cardano_database_immutable_files_restored_since_startup:MetricCounter(
+        "mithril_aggregator_cardano_db_immutable_files_restored_since_startup",
+        "Number of Cardano immutable files restored since startup on a Mithril aggregator node"
     ),
-    cardano_database_ancillary_files_restored:MetricCounter(
-        "mithril_aggregator_cardano_db_ancillary_files_restored",
-        "Number of Cardano ancillary files restored on a Mithril aggregator node"
+    cardano_database_ancillary_files_restored_since_startup:MetricCounter(
+        "mithril_aggregator_cardano_db_ancillary_files_restored_since_startup",
+        "Number of Cardano ancillary files restored since startup on a Mithril aggregator node"
     ),
-    cardano_database_complete_restoration:MetricCounter(
-        "mithril_aggregator_cardano_db_complete_restoration",
-        "Number of complete Cardano database restoration on a Mithril aggregator node"
+    cardano_database_complete_restoration_since_startup:MetricCounter(
+        "mithril_aggregator_cardano_db_complete_restoration_since_startup",
+        "Number of complete Cardano database restoration since startup on a Mithril aggregator node"
     ),
-    cardano_database_partial_restoration:MetricCounter(
-        "mithril_aggregator_cardano_db_partial_restoration",
-        "Number of partial Cardano database restoration on a Mithril aggregator node"
+    cardano_database_partial_restoration_since_startup:MetricCounter(
+        "mithril_aggregator_cardano_db_partial_restoration_since_startup",
+        "Number of partial Cardano database restoration since startup on a Mithril aggregator node"
     ),
     artifact_detail_cardano_database_total_served_since_startup:MetricCounter(
         "mithril_aggregator_artifact_detail_cardano_database_total_served_since_startup",
