@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,12 @@ impl From<FileUri> for String {
         file_uri.0
     }
 }
+
+/// TemplateVariable represents a variable in a template
+pub type TemplateVariable = String;
+
+/// TemplateValue represents a value in a template
+pub type TemplateValue = String;
 
 /// [TemplateUri] represents an URI pattern used to build a file's location
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize)]
@@ -43,6 +49,26 @@ impl MultiFilesUri {
         }
 
         Ok(templates.into_iter().next().map(TemplateUri))
+    }
+
+    /// Expand the template to a list of file URIs
+    pub fn expand_to_file_uris(
+        &self,
+        variables: Vec<HashMap<TemplateVariable, TemplateValue>>,
+    ) -> StdResult<Vec<FileUri>> {
+        match self {
+            MultiFilesUri::Template(template) => Ok(variables
+                .into_iter()
+                .map(|variable| {
+                    let mut file_uri = template.0.clone();
+                    for (key, value) in variable {
+                        file_uri = file_uri.replace(&format!("{{{}}}", key), &value);
+                    }
+
+                    FileUri(file_uri)
+                })
+                .collect()),
+        }
     }
 }
 
@@ -88,5 +114,36 @@ mod tests {
             .expect_err(
                 "Should return an error when multiple templates are found in the file URIs",
             );
+    }
+
+    #[test]
+    fn expand_multi_file_template_to_multiple_file_uris() {
+        let template = MultiFilesUri::Template(TemplateUri(
+            "http://whatever/{var1}-{var2}.tar.gz".to_string(),
+        ));
+        let variables = vec![
+            HashMap::from([
+                ("var1".to_string(), "00001".to_string()),
+                ("var2".to_string(), "abc".to_string()),
+            ]),
+            HashMap::from([
+                ("var1".to_string(), "00001".to_string()),
+                ("var2".to_string(), "def".to_string()),
+            ]),
+            HashMap::from([
+                ("var1".to_string(), "00002".to_string()),
+                ("var2".to_string(), "def".to_string()),
+            ]),
+        ];
+
+        let expanded_file_uris = template.expand_to_file_uris(variables).unwrap();
+        assert_eq!(
+            vec![
+                FileUri("http://whatever/00001-abc.tar.gz".to_string()),
+                FileUri("http://whatever/00001-def.tar.gz".to_string()),
+                FileUri("http://whatever/00002-def.tar.gz".to_string()),
+            ],
+            expanded_file_uris,
+        );
     }
 }
