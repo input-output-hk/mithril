@@ -3,12 +3,9 @@
 mod aggregator_features;
 mod aggregator_status;
 mod cardano_database;
-mod cardano_database_ancillary_files_restored;
-mod cardano_database_complete_restoration;
 mod cardano_database_digest_list;
 mod cardano_database_immutable_files_restored;
 mod cardano_database_list;
-mod cardano_database_partial_restoration;
 mod cardano_stake_distribution;
 mod cardano_stake_distribution_list;
 mod cardano_transaction_snapshot;
@@ -33,8 +30,6 @@ pub use aggregator_features::{
 };
 pub use aggregator_status::AggregatorStatusMessage;
 pub use cardano_database::{ArtifactsLocationsMessagePart, CardanoDatabaseSnapshotMessage};
-pub use cardano_database_ancillary_files_restored::CardanoDatabaseAncillaryFilesRestoredMessage;
-pub use cardano_database_complete_restoration::CardanoDatabaseCompleteRestorationMessage;
 pub use cardano_database_digest_list::{
     CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage,
 };
@@ -42,7 +37,6 @@ pub use cardano_database_immutable_files_restored::CardanoDatabaseImmutableFiles
 pub use cardano_database_list::{
     CardanoDatabaseSnapshotListItemMessage, CardanoDatabaseSnapshotListMessage,
 };
-pub use cardano_database_partial_restoration::CardanoDatabasePartialRestorationMessage;
 pub use cardano_stake_distribution::CardanoStakeDistributionMessage;
 pub use cardano_stake_distribution_list::{
     CardanoStakeDistributionListItemMessage, CardanoStakeDistributionListMessage,

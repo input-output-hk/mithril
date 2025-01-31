@@ -34,7 +34,6 @@ fn post_cardano_database_immutable_files_restored(
         .and(warp::post())
         .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
-        .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_immutable_files_restored)
 }
@@ -45,9 +44,7 @@ fn post_cardano_database_ancillary_files_restored(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "ancillary-files-restored")
         .and(warp::post())
-        .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
-        .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_ancillary_files_restored)
 }
@@ -58,9 +55,7 @@ fn post_cardano_database_complete_restoration(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "complete-restoration")
         .and(warp::post())
-        .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
-        .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_complete_restoration)
 }
@@ -71,23 +66,18 @@ fn post_cardano_database_partial_restoration(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("statistics" / "cardano-database" / "partial-restoration")
         .and(warp::post())
-        .and(warp::body::json())
         .and(middlewares::with_logger(router_state))
-        .and(middlewares::with_event_transmitter(router_state))
         .and(middlewares::with_metrics_service(router_state))
         .and_then(handlers::post_cardano_database_partial_restoration)
 }
 
 mod handlers {
-    use serde::Serialize;
     use slog::warn;
     use std::{convert::Infallible, sync::Arc};
     use warp::http::StatusCode;
 
     use mithril_common::messages::{
-        CardanoDatabaseAncillaryFilesRestoredMessage, CardanoDatabaseCompleteRestorationMessage,
-        CardanoDatabaseImmutableFilesRestoredMessage, CardanoDatabasePartialRestorationMessage,
-        SnapshotDownloadMessage,
+        CardanoDatabaseImmutableFilesRestoredMessage, SnapshotDownloadMessage,
     };
 
     use crate::event_store::{EventMessage, TransmitterService};
@@ -124,97 +114,47 @@ mod handlers {
 
     pub async fn post_cardano_database_immutable_files_restored(
         message: CardanoDatabaseImmutableFilesRestoredMessage,
-        logger: slog::Logger,
-        event_transmitter: Arc<TransmitterService<EventMessage>>,
+        _logger: slog::Logger,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_immutable_files_restored()
             .increment_by(message.nb_immutable_files);
 
-        transmit_event_message(
-            message,
-            logger,
-            event_transmitter,
-            "cardano_database_immutable_files_restored",
-        )
-        .await
+        Ok(reply::empty(StatusCode::CREATED))
     }
 
     pub async fn post_cardano_database_ancillary_files_restored(
-        message: CardanoDatabaseAncillaryFilesRestoredMessage,
-        logger: slog::Logger,
-        event_transmitter: Arc<TransmitterService<EventMessage>>,
+        _logger: slog::Logger,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_ancillary_files_restored()
-            .increment_by(message.nb_ancillary_files);
+            .increment();
 
-        transmit_event_message(
-            message,
-            logger,
-            event_transmitter,
-            "cardano_database_ancillary_files_restored",
-        )
-        .await
+        Ok(reply::empty(StatusCode::CREATED))
     }
 
     pub async fn post_cardano_database_complete_restoration(
-        message: CardanoDatabaseCompleteRestorationMessage,
-        logger: slog::Logger,
-        event_transmitter: Arc<TransmitterService<EventMessage>>,
+        _logger: slog::Logger,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_complete_restoration()
-            .increment_by(message.nb_complete_restoration);
+            .increment();
 
-        transmit_event_message(
-            message,
-            logger,
-            event_transmitter,
-            "cardano_database_complete_restoration",
-        )
-        .await
+        Ok(reply::empty(StatusCode::CREATED))
     }
 
     pub async fn post_cardano_database_partial_restoration(
-        message: CardanoDatabasePartialRestorationMessage,
-        logger: slog::Logger,
-        event_transmitter: Arc<TransmitterService<EventMessage>>,
+        _logger: slog::Logger,
         metrics_service: Arc<MetricsService>,
     ) -> Result<impl warp::Reply, Infallible> {
         metrics_service
             .get_cardano_database_partial_restoration()
-            .increment_by(message.nb_partial_restoration);
+            .increment();
 
-        transmit_event_message(
-            message,
-            logger,
-            event_transmitter,
-            "cardano_database_partial_restoration",
-        )
-        .await
-    }
-
-    async fn transmit_event_message<T: Serialize>(
-        message: T,
-        logger: slog::Logger,
-        event_transmitter: Arc<TransmitterService<EventMessage>>,
-        action: &str,
-    ) -> Result<impl warp::Reply, Infallible> {
-        let headers: Vec<(&str, &str)> = Vec::new();
-
-        let message = EventMessage::new("HTTP::statistics", action, &message, headers);
-
-        match event_transmitter.try_send(message.clone()) {
-            Err(e) => {
-                warn!(logger, "Event message error"; "error" => ?e);
-                Ok(reply::internal_server_error(e))
-            }
-            Ok(_) => Ok(reply::empty(StatusCode::CREATED)),
-        }
+        Ok(reply::empty(StatusCode::CREATED))
     }
 }
 
@@ -236,6 +176,8 @@ mod tests {
     use crate::{
         dependency_injection::DependenciesBuilder, initialize_dependencies, Configuration,
     };
+
+    use serde_json::Value;
 
     fn setup_router(
         state: RouterState,
@@ -310,35 +252,21 @@ mod tests {
         );
     }
 
-    mod restoration {
-        use mithril_metric::CounterValue;
-        use serde::Serialize;
-        use tokio::sync::mpsc::UnboundedReceiver;
-
-        use crate::{event_store::EventMessage, DependencyContainer, MetricsService};
-
+    mod post_cardano_database_immutable_files_restored {
         use super::*;
 
-        async fn setup_dependencies() -> (Arc<DependencyContainer>, UnboundedReceiver<EventMessage>)
-        {
-            let config = Configuration::new_sample();
-            let mut builder = DependenciesBuilder::new_with_stdout_logger(config);
-            let rx = builder.get_event_transmitter_receiver().await.unwrap();
-            let dependency_manager = Arc::new(builder.build_dependency_container().await.unwrap());
-            (dependency_manager, rx)
-        }
+        const HTTP_METHOD: Method = Method::POST;
+        const PATH: &str = "/statistics/cardano-database/immutable-files-restored";
 
-        async fn check_conform_to_open_api_when_created(
-            method: Method,
-            path: &str,
-            message: &impl Serialize,
-        ) {
-            let (dependency_manager, _rx) = setup_dependencies().await;
+        #[tokio::test]
+        async fn conform_to_open_api_when_created() {
+            let message = CardanoDatabaseImmutableFilesRestoredMessage::dummy();
 
+            let dependency_manager = Arc::new(initialize_dependencies().await);
             let response = request()
-                .method(method.as_str())
-                .json(message)
-                .path(path)
+                .method(HTTP_METHOD.as_str())
+                .json(&message)
+                .path(PATH)
                 .reply(&setup_router(RouterState::new_with_dummy_config(
                     dependency_manager.clone(),
                 )))
@@ -346,10 +274,10 @@ mod tests {
 
             let result = APISpec::verify_conformity(
                 APISpec::get_all_spec_files(),
-                method.as_str(),
-                path,
+                HTTP_METHOD.as_str(),
+                PATH,
                 "application/json",
-                message,
+                &message,
                 &response,
                 &StatusCode::CREATED,
             );
@@ -357,273 +285,187 @@ mod tests {
             result.unwrap();
         }
 
-        async fn check_conform_to_open_api_when_server_error(
-            method: Method,
-            path: &str,
-            message: &impl Serialize,
-        ) {
-            let (dependency_manager, mut rx) = setup_dependencies().await;
-            rx.close();
+        #[tokio::test]
+        async fn increments_metric() {
+            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let metric_counter = dependency_manager
+                .metrics_service
+                .get_cardano_database_immutable_files_restored();
+            let message = CardanoDatabaseImmutableFilesRestoredMessage {
+                nb_immutable_files: 3,
+            };
 
+            let initial_counter_value = metric_counter.get();
+
+            request()
+                .method(HTTP_METHOD.as_str())
+                .json(&message)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
+                .await;
+
+            assert_eq!(initial_counter_value + 3, metric_counter.get());
+        }
+    }
+
+    mod post_cardano_database_ancillary_files_restored {
+        use super::*;
+
+        const HTTP_METHOD: Method = Method::POST;
+        const PATH: &str = "/statistics/cardano-database/ancillary-files-restored";
+
+        #[tokio::test]
+        async fn conform_to_open_api_when_created() {
+            let dependency_manager = Arc::new(initialize_dependencies().await);
             let response = request()
-                .method(method.as_str())
-                .json(message)
-                .path(path)
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
                 .reply(&setup_router(RouterState::new_with_dummy_config(
                     dependency_manager.clone(),
                 )))
                 .await;
 
-            APISpec::verify_conformity(
+            let result = APISpec::verify_conformity(
                 APISpec::get_all_spec_files(),
-                method.as_str(),
-                path,
+                HTTP_METHOD.as_str(),
+                PATH,
                 "application/json",
-                &message,
+                &Value::Null,
                 &response,
-                &StatusCode::INTERNAL_SERVER_ERROR,
-            )
-            .unwrap();
-        }
-
-        async fn check_should_send_event(method: Method, path: &str, message: &impl Serialize) {
-            let (dependency_manager, mut rx) = setup_dependencies().await;
-
-            request()
-                .method(method.as_str())
-                .json(message)
-                .path(path)
-                .reply(&setup_router(RouterState::new_with_dummy_config(
-                    dependency_manager.clone(),
-                )))
-                .await;
-
-            let _ = rx.try_recv().unwrap();
-        }
-
-        async fn check_increments_metric(
-            method: Method,
-            path: &str,
-            message: &impl Serialize,
-            expected_increment: u32,
-            get_metric_value: &dyn Fn(Arc<MetricsService>) -> CounterValue,
-        ) {
-            let (dependency_manager, _rx) = setup_dependencies().await;
-
-            let initial_counter_value =
-                get_metric_value(dependency_manager.metrics_service.clone());
-
-            request()
-                .method(method.as_str())
-                .json(message)
-                .path(path)
-                .reply(&setup_router(RouterState::new_with_dummy_config(
-                    dependency_manager.clone(),
-                )))
-                .await;
-
-            assert_eq!(
-                initial_counter_value + expected_increment,
-                get_metric_value(dependency_manager.metrics_service.clone())
+                &StatusCode::CREATED,
             );
+
+            result.unwrap();
         }
 
-        mod post_cardano_database_immutable_files_restored {
-            use super::*;
+        #[tokio::test]
+        async fn increments_metric() {
+            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let metric_counter = dependency_manager
+                .metrics_service
+                .get_cardano_database_ancillary_files_restored();
 
-            const HTTP_METHOD: Method = Method::POST;
-            const PATH: &str = "/statistics/cardano-database/immutable-files-restored";
+            let initial_counter_value = metric_counter.get();
 
-            #[tokio::test]
-            async fn conform_to_open_api_when_created() {
-                let message = CardanoDatabaseImmutableFilesRestoredMessage::dummy();
-
-                check_conform_to_open_api_when_created(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn conform_to_open_api_when_server_error() {
-                let message = CardanoDatabaseImmutableFilesRestoredMessage::dummy();
-
-                check_conform_to_open_api_when_server_error(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn should_send_event() {
-                let message = CardanoDatabaseImmutableFilesRestoredMessage::dummy();
-
-                check_should_send_event(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn increments_metric() {
-                let message = CardanoDatabaseImmutableFilesRestoredMessage {
-                    nb_immutable_files: 3,
-                };
-
-                check_increments_metric(
-                    HTTP_METHOD,
-                    PATH,
-                    &message,
-                    message.nb_immutable_files,
-                    &|metrics_service: Arc<MetricsService>| {
-                        metrics_service
-                            .get_cardano_database_immutable_files_restored()
-                            .get()
-                    },
-                )
+            request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
                 .await;
-            }
+
+            assert_eq!(initial_counter_value + 1, metric_counter.get());
+        }
+    }
+
+    mod post_cardano_database_complete_restoration {
+        use super::*;
+
+        const HTTP_METHOD: Method = Method::POST;
+        const PATH: &str = "/statistics/cardano-database/complete-restoration";
+
+        #[tokio::test]
+        async fn conform_to_open_api_when_created() {
+            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let response = request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
+                .await;
+
+            let result = APISpec::verify_conformity(
+                APISpec::get_all_spec_files(),
+                HTTP_METHOD.as_str(),
+                PATH,
+                "application/json",
+                &Value::Null,
+                &response,
+                &StatusCode::CREATED,
+            );
+
+            result.unwrap();
         }
 
-        mod post_cardano_database_ancillary_files_restored {
-            use mithril_common::messages::CardanoDatabaseAncillaryFilesRestoredMessage;
+        #[tokio::test]
+        async fn increments_metric() {
+            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let metric_counter = dependency_manager
+                .metrics_service
+                .get_cardano_database_complete_restoration();
 
-            use super::*;
+            let initial_counter_value = metric_counter.get();
 
-            const HTTP_METHOD: Method = Method::POST;
-            const PATH: &str = "/statistics/cardano-database/ancillary-files-restored";
-
-            #[tokio::test]
-            async fn conform_to_open_api_when_created() {
-                let message = CardanoDatabaseAncillaryFilesRestoredMessage::dummy();
-
-                check_conform_to_open_api_when_created(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn conform_to_open_api_when_server_error() {
-                let message = CardanoDatabaseAncillaryFilesRestoredMessage::dummy();
-
-                check_conform_to_open_api_when_server_error(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn should_send_event() {
-                let message = CardanoDatabaseAncillaryFilesRestoredMessage::dummy();
-
-                check_should_send_event(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn increments_metric() {
-                let message = CardanoDatabaseAncillaryFilesRestoredMessage {
-                    nb_ancillary_files: 3,
-                };
-
-                check_increments_metric(
-                    HTTP_METHOD,
-                    PATH,
-                    &message,
-                    message.nb_ancillary_files,
-                    &|metrics_service: Arc<MetricsService>| {
-                        metrics_service
-                            .get_cardano_database_ancillary_files_restored()
-                            .get()
-                    },
-                )
+            request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
                 .await;
-            }
+
+            assert_eq!(initial_counter_value + 1, metric_counter.get());
+        }
+    }
+
+    mod post_cardano_database_partial_restoration {
+        use super::*;
+
+        const HTTP_METHOD: Method = Method::POST;
+        const PATH: &str = "/statistics/cardano-database/partial-restoration";
+
+        #[tokio::test]
+        async fn conform_to_open_api_when_created() {
+            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let response = request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
+                .await;
+
+            let result = APISpec::verify_conformity(
+                APISpec::get_all_spec_files(),
+                HTTP_METHOD.as_str(),
+                PATH,
+                "application/json",
+                &Value::Null,
+                &response,
+                &StatusCode::CREATED,
+            );
+
+            result.unwrap();
         }
 
-        mod post_cardano_database_complete_restoration {
-            use mithril_common::messages::CardanoDatabaseCompleteRestorationMessage;
+        #[tokio::test]
+        async fn increments_metric() {
+            let dependency_manager = Arc::new(initialize_dependencies().await);
+            let metric_counter = dependency_manager
+                .metrics_service
+                .get_cardano_database_partial_restoration();
 
-            use super::*;
+            let initial_counter_value = metric_counter.get();
 
-            const HTTP_METHOD: Method = Method::POST;
-            const PATH: &str = "/statistics/cardano-database/complete-restoration";
-
-            #[tokio::test]
-            async fn conform_to_open_api_when_created() {
-                let message = CardanoDatabaseCompleteRestorationMessage::dummy();
-
-                check_conform_to_open_api_when_created(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn conform_to_open_api_when_server_error() {
-                let message = CardanoDatabaseCompleteRestorationMessage::dummy();
-
-                check_conform_to_open_api_when_server_error(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn should_send_event() {
-                let message = CardanoDatabaseCompleteRestorationMessage::dummy();
-
-                check_should_send_event(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn increments_metric() {
-                let message = CardanoDatabaseCompleteRestorationMessage {
-                    nb_complete_restoration: 3,
-                };
-
-                check_increments_metric(
-                    HTTP_METHOD,
-                    PATH,
-                    &message,
-                    message.nb_complete_restoration,
-                    &|metrics_service: Arc<MetricsService>| {
-                        metrics_service
-                            .get_cardano_database_complete_restoration()
-                            .get()
-                    },
-                )
+            request()
+                .method(HTTP_METHOD.as_str())
+                .json(&Value::Null)
+                .path(PATH)
+                .reply(&setup_router(RouterState::new_with_dummy_config(
+                    dependency_manager.clone(),
+                )))
                 .await;
-            }
-        }
 
-        mod post_cardano_database_partial_restoration {
-            use mithril_common::messages::CardanoDatabasePartialRestorationMessage;
-
-            use super::*;
-
-            const HTTP_METHOD: Method = Method::POST;
-            const PATH: &str = "/statistics/cardano-database/partial-restoration";
-
-            #[tokio::test]
-            async fn conform_to_open_api_when_created() {
-                let message = CardanoDatabasePartialRestorationMessage::dummy();
-
-                check_conform_to_open_api_when_created(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn conform_to_open_api_when_server_error() {
-                let message = CardanoDatabasePartialRestorationMessage::dummy();
-
-                check_conform_to_open_api_when_server_error(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn should_send_event() {
-                let message = CardanoDatabasePartialRestorationMessage::dummy();
-
-                check_should_send_event(HTTP_METHOD, PATH, &message).await;
-            }
-
-            #[tokio::test]
-            async fn increments_metric() {
-                let message = CardanoDatabasePartialRestorationMessage {
-                    nb_partial_restoration: 3,
-                };
-
-                check_increments_metric(
-                    HTTP_METHOD,
-                    PATH,
-                    &message,
-                    message.nb_partial_restoration,
-                    &|metrics_service: Arc<MetricsService>| {
-                        metrics_service
-                            .get_cardano_database_partial_restoration()
-                            .get()
-                    },
-                )
-                .await;
-            }
+            assert_eq!(initial_counter_value + 1, metric_counter.get());
         }
     }
 }
