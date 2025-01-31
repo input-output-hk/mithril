@@ -746,6 +746,69 @@ paths:
               schema:
                 $ref: "#/components/schemas/Error"
 
+  /statistics/cardano-database/immutable-files-restored:
+    post:
+      summary: Records immutable files restored event
+      description: Records immutable files restored event
+      requestBody:
+        description: Immutable files restored message
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardanoDatabaseImmutableFilesRestoredMessage"
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/ancillary-files-restored:
+    post:
+      summary: Records ancillary files restored event
+      description: Records ancillary files restored event
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/complete-restoration:
+    post:
+      summary: Records complete restoration event
+      description: Records complete restoration event
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/partial-restoration:
+    post:
+      summary: Records partial restoration event
+      description: Records partial restoration event
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
 components:
   schemas:
     AggregatorStatusMessage:
@@ -1879,6 +1942,19 @@ components:
             "compression_algorithm": "zstandard",
             "cardano_node_version": "1.0.0"
           }
+
+    CardanoDatabaseImmutableFilesRestoredMessage:
+      description: CardanoDatabaseImmutableFilesRestoredMessage represents a Cardano database immutable files restored event
+      type: object
+      additionalProperties: false
+      required:
+        - nb_immutable_files
+      properties:
+        nb_immutable_files:
+          description: Number of immutable files restored
+          type: integer
+      examples:
+        - { "nb_immutable_files": 15 }
 
     CardanoDatabaseArtifactsLocationsMessagePart:
       description: CardanoDatabaseArtifactsLocationsMessagePart represents the locations of the Cardano database artifacts
