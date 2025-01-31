@@ -1,3 +1,5 @@
+import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
+
 function checkUrl(url) {
   try {
     // Use the url constructor to check if the value is an url
@@ -180,6 +182,20 @@ function getImmutableUrlFromTemplate(urlTemplate, immutableFileNumber) {
   );
 }
 
+async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
+  const isCacheEnabled = process.env.UNSTABLE === true;
+  const client_options = process.env.UNSTABLE
+    ? {
+        // The following option activates the unstable features of the client.
+        // Unstable features will trigger an error if this option is not set.
+        unstable: true,
+        enable_certificate_chain_verification_cache: isCacheEnabled,
+      }
+    : {};
+
+  return new MithrilClient(aggregator, genesisVerificationKey, client_options);
+}
+
 module.exports = {
   checkUrl,
   formatStake,
@@ -196,4 +212,5 @@ module.exports = {
   dedupInOutRegistrations,
   compareRegistrations,
   getImmutableUrlFromTemplate,
+  newMithrilWasmClient,
 };

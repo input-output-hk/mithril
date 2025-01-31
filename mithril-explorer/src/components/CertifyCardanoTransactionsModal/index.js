@@ -1,8 +1,7 @@
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import React, { useEffect, useState } from "react";
 import { Alert, Col, Modal, Row, Tab } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import { fetchGenesisVerificationKey } from "@/utils";
+import { fetchGenesisVerificationKey, newMithrilWasmClient } from "@/utils";
 import CertificateModal from "#/CertificateModal";
 import CertificateVerifier, {
   certificateValidationSteps,
@@ -49,7 +48,8 @@ export default function CertifyCardanoTransactionsModal({
 
     if (transactionHashes?.length > 0) {
       fetchGenesisVerificationKey(currentAggregator)
-        .then((genesisKey) => buildClient(currentAggregator, genesisKey))
+        .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
+        .then((client) => setClient(client))
         .then(() => setCurrentStep(validationSteps.fetchingProof))
         .catch((err) => handleError(err));
     }
@@ -95,16 +95,6 @@ export default function CertifyCardanoTransactionsModal({
         .catch((err) => handleError(err));
     }
   }, [client, currentStep, transactionsProofs, certificate]);
-
-  async function buildClient(aggregator, genesisKey) {
-    const client = new MithrilClient(aggregator, genesisKey, {
-      // The following option activates the unstable features of the client.
-      // Unstable features will trigger an error if this option is not set.
-      unstable: true,
-    });
-    setClient(client);
-    return client;
-  }
 
   async function getTransactionsProofsAndCertificate(client, transactionHashes) {
     const proofs = await client.get_cardano_transaction_proofs(transactionHashes);

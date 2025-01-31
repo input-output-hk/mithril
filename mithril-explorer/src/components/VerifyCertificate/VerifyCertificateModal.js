@@ -1,8 +1,7 @@
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
 import { Modal } from "react-bootstrap";
 import { useEffect, useState } from "react";
 import CertificateVerifier, { certificateValidationSteps } from "./CertificateVerifier";
-import { fetchGenesisVerificationKey } from "@/utils";
+import { fetchGenesisVerificationKey, newMithrilWasmClient } from "@/utils";
 import { useSelector } from "react-redux";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
@@ -31,14 +30,7 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
 
   async function init(aggregator, certificateHash) {
     const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
-    const isCacheEnabled = process.env.UNSTABLE === true;
-    const client_options = process.env.UNSTABLE
-      ? {
-          unstable: true,
-          enable_certificate_chain_verification_cache: isCacheEnabled,
-        }
-      : {};
-    const client = new MithrilClient(aggregator, genesisVerificationKey, client_options);
+    const client = await newMithrilWasmClient(aggregator, genesisVerificationKey);
     const certificate = await client.get_mithril_certificate(certificateHash);
 
     setClient(client);
