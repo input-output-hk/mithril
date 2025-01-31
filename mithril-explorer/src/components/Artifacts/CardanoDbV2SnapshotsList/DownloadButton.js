@@ -44,6 +44,12 @@ function LocationsSelect({ ariaLabel, locations, value, onChange }) {
   );
 }
 
+export function DownloadImmutableFormInput({ max, value, onChange }) {
+  return (
+    <Form.Control type="number" value={value} onChange={onChange} required min={0} max={max} />
+  );
+}
+
 export default function DownloadButton({ artifactUrl, ...props }) {
   const [show, setShow] = useState(false);
   const target = useRef(null);
@@ -54,6 +60,7 @@ export default function DownloadButton({ artifactUrl, ...props }) {
   const [digestLocationIndex, setDigestLocationIndex] = useState(0);
   const [immutableLocationIndex, setImmutableLocationIndex] = useState(0);
   const [ancillaryLocationIndex, setAncillaryLocationIndex] = useState(0);
+  const [showImmutableDownloadValidation, setShowImmutableDownloadValidation] = useState(false);
 
   const handleClose = () => setShow(false);
 
@@ -83,11 +90,20 @@ export default function DownloadButton({ artifactUrl, ...props }) {
     window.open(uri, "_blank", "noopener");
   }
 
-  function downloadImmutable() {
-    const location = artifact?.locations.immutables[immutableLocationIndex];
+  function downloadImmutable(event) {
+    // Prevent page refresh
+    event.preventDefault();
+    const form = event.target;
 
-    if (location?.type === "cloud_storage") {
-      directDownload(getImmutableUrlFromTemplate(location.uri.Template, immutableFileNumber));
+    if (form.checkValidity() === true) {
+      const location = artifact?.locations.immutables[immutableLocationIndex];
+
+      if (location?.type === "cloud_storage") {
+        directDownload(getImmutableUrlFromTemplate(location.uri.Template, immutableFileNumber));
+      }
+      setShowImmutableDownloadValidation(false);
+    } else {
+      setShowImmutableDownloadValidation(true);
     }
   }
 
@@ -141,22 +157,28 @@ export default function DownloadButton({ artifactUrl, ...props }) {
                   </Alert>
 
                   <Form.Text>Immutable (max: {maxImmutableFileNumber})</Form.Text>
-                  <InputGroup>
-                    <Form.Control
-                      type="text"
-                      value={immutableFileNumber}
-                      onChange={(e) => setImmutableFileNumber(e.target.value)}
-                    />
-                    <LocationsSelect
-                      ariaLabel="Immutable locations"
-                      locations={artifact?.locations.immutables}
-                      onChange={(e) => setImmutableLocationIndex(e.target.value)}
-                      value={immutableLocationIndex}
-                    />
-                    <Button variant="primary" onClick={downloadImmutable}>
-                      <DownloadIcon />
-                    </Button>
-                  </InputGroup>
+                  <Form
+                    noValidate
+                    onSubmit={downloadImmutable}
+                    validated={showImmutableDownloadValidation}>
+                    <InputGroup>
+                      <DownloadImmutableFormInput
+                        type="text"
+                        max={maxImmutableFileNumber}
+                        value={immutableFileNumber}
+                        onChange={(e) => setImmutableFileNumber(e.target.value)}
+                      />
+                      <LocationsSelect
+                        ariaLabel="Immutable locations"
+                        locations={artifact?.locations.immutables}
+                        onChange={(e) => setImmutableLocationIndex(e.target.value)}
+                        value={immutableLocationIndex}
+                      />
+                      <Button variant="primary" type="submit">
+                        <DownloadIcon />
+                      </Button>
+                    </InputGroup>
+                  </Form>
 
                   <Form.Text>Digests</Form.Text>
                   <InputGroup>
