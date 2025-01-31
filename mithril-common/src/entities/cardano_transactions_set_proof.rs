@@ -1,7 +1,6 @@
 use crate::crypto_helper::{MKMapProof, ProtocolMkProof};
 use crate::entities::TransactionHash;
-use crate::messages::CardanoTransactionsSetProofMessagePart;
-use crate::{StdError, StdResult};
+use crate::StdResult;
 
 use super::BlockRange;
 
@@ -15,10 +14,10 @@ cfg_test_tools! {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CardanoTransactionsSetProof {
     /// Hashes of the certified transactions
-    transactions_hashes: Vec<TransactionHash>,
+    pub transactions_hashes: Vec<TransactionHash>,
 
     /// Proof of the transactions
-    transactions_proof: ProtocolMkProof,
+    pub transactions_proof: ProtocolMkProof,
 }
 
 impl CardanoTransactionsSetProof {
@@ -101,28 +100,6 @@ impl CardanoTransactionsSetProof {
             Ok(Self::new(transactions_hashes, mk_proof))
         }
 
-    }
-}
-
-impl TryFrom<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessagePart {
-    type Error = StdError;
-
-    fn try_from(proof: CardanoTransactionsSetProof) -> Result<Self, Self::Error> {
-        Ok(Self {
-            transactions_hashes: proof.transactions_hashes,
-            proof: proof.transactions_proof.to_json_hex()?,
-        })
-    }
-}
-
-impl TryFrom<CardanoTransactionsSetProofMessagePart> for CardanoTransactionsSetProof {
-    type Error = StdError;
-
-    fn try_from(proof: CardanoTransactionsSetProofMessagePart) -> Result<Self, Self::Error> {
-        Ok(Self {
-            transactions_hashes: proof.transactions_hashes,
-            transactions_proof: ProtocolMkProof::from_json_hex(&proof.proof)?,
-        })
     }
 }
 

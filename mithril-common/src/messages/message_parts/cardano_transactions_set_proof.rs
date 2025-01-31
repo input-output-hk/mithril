@@ -1,4 +1,8 @@
-use crate::entities::{HexEncodedKey, TransactionHash};
+use crate::{
+    crypto_helper::ProtocolMkProof,
+    entities::{CardanoTransactionsSetProof, HexEncodedKey, TransactionHash},
+    StdError,
+};
 use serde::{Deserialize, Serialize};
 
 #[cfg(target_family = "wasm")]
@@ -21,5 +25,27 @@ impl CardanoTransactionsSetProofMessagePart {
         pub fn dummy() -> Self {
             crate::entities::CardanoTransactionsSetProof::dummy().try_into().unwrap()
         }
+    }
+}
+
+impl TryFrom<CardanoTransactionsSetProof> for CardanoTransactionsSetProofMessagePart {
+    type Error = StdError;
+
+    fn try_from(proof: CardanoTransactionsSetProof) -> Result<Self, Self::Error> {
+        Ok(Self {
+            transactions_hashes: proof.transactions_hashes,
+            proof: proof.transactions_proof.to_json_hex()?,
+        })
+    }
+}
+
+impl TryFrom<CardanoTransactionsSetProofMessagePart> for CardanoTransactionsSetProof {
+    type Error = StdError;
+
+    fn try_from(proof: CardanoTransactionsSetProofMessagePart) -> Result<Self, Self::Error> {
+        Ok(Self {
+            transactions_hashes: proof.transactions_hashes,
+            transactions_proof: ProtocolMkProof::from_json_hex(&proof.proof)?,
+        })
     }
 }
