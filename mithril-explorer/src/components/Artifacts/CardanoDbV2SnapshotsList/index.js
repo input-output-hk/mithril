@@ -58,11 +58,11 @@ export default function CardanoDbV2SnapshotsList(props) {
           Cardano Db Snapshots v2{" "}
           <RawJsonButton href={artifactsEndpoint} variant="outline-light" size="sm" />
         </h2>
-        {Object.entries(cardanoDbSnapshots).length === 0 ? (
-          <p>No cardano database snapshot available</p>
-        ) : (
-          <Stack className="mx-2" gap={2}>
-            {cardanoDbSnapshots.map((cdb_snapshot, index) => (
+        <Stack className="mx-2" gap={2}>
+          {Object.entries(cardanoDbSnapshots).length === 0 ? (
+            <p>No cardano database snapshot available</p>
+          ) : (
+            cardanoDbSnapshots.map((cdb_snapshot, index) => (
               <Card border={index === 0 ? "primary" : ""} key={cdb_snapshot.hash}>
                 <Card.Body className="pt-2 pb-1">
                   <ArtifactTitle hash={cdb_snapshot.hash} index={index} />
@@ -109,9 +109,9 @@ export default function CardanoDbV2SnapshotsList(props) {
                   </Stack>
                 </Card.Footer>
               </Card>
-            ))}
-          </Stack>
-        )}
+            ))
+          )}
+        </Stack>
       </div>
     </>
   );

@@ -196,6 +196,29 @@ async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
   return new MithrilClient(aggregator, genesisVerificationKey, client_options);
 }
 
+function parseSignedEntity(signedEntityType) {
+  let type_name = Object.keys(signedEntityType).at(0);
+  const result = {
+    name: type_name,
+    fields: {},
+  };
+
+  if (type_name === "MithrilStakeDistribution" || type_name === "CardanoStakeDistribution") {
+    result.fields = {
+      epoch: signedEntityType[type_name],
+    };
+  } else if (type_name === "CardanoTransactions") {
+    result.fields = {
+      epoch: signedEntityType[type_name][0],
+      block_number: signedEntityType[type_name][1],
+    };
+  } else {
+    result.fields = signedEntityType[type_name] ?? {};
+  }
+
+  return result;
+}
+
 module.exports = {
   checkUrl,
   formatStake,
@@ -213,4 +236,5 @@ module.exports = {
   compareRegistrations,
   getImmutableUrlFromTemplate,
   newMithrilWasmClient,
+  parseSignedEntity,
 };
