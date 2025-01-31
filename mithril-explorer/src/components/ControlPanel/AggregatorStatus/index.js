@@ -31,7 +31,7 @@ function InfoGroupCard({ children, title, ...props }) {
   );
 }
 
-function InfoRow({ label, children, className, ...props }) {
+function InfoRow({ label, children, className = "", ...props }) {
   return (
     <>
       <div className={`d-flex justify-content-between ${className}`} {...props}>
