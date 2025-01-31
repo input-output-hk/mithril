@@ -62,12 +62,12 @@ use slog::Logger;
 
 #[cfg(feature = "fs")]
 use mithril_common::{
-use mithril_common::{entities::ImmutableFileNumber, StdResult};
-    entities::{ImmutableFileNumber, ImmutablesLocation},
+    crypto_helper::MKProof,
     entities::{
         CompressionAlgorithm, DigestLocation, HexEncodedDigest, ImmutableFileNumber,
         ImmutablesLocation,
     },
+    messages::CardanoDatabaseDigestListItemMessage,
     StdResult,
 };
 
@@ -75,11 +75,12 @@ use crate::{
     aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest},
     file_downloader::{FileDownloaderResolver, FileDownloaderUri},
 };
-use crate::{
-    file_downloader, CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult,
-};
+use crate::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult};
 
 cfg_fs! {
+    /// Immutable file name
+    pub type ImmutableFileName = String;
+
     /// Immutable file range representation
     #[derive(Debug)]
     pub enum ImmutableFileRange {
@@ -211,228 +212,283 @@ impl CardanoDatabaseClient {
         }
     }
 
-    cfg_fs! {
-        /// Download and unpack the given Cardano database part data by hash.
-        // TODO: Add example in module documentation
-        pub async fn download_unpack(
-            &self,
-            hash: &str,
-            immutable_file_range: ImmutableFileRange,
-            target_dir: &Path,
-            download_unpack_options: DownloadUnpackOptions,
-        ) -> StdResult<()> {
-            let cardano_database_snapshot = self
-                .get(hash)
-                .await?
-                .ok_or_else(|| anyhow!("Cardano database snapshot not found"))?;
-            let compression_algorithm = cardano_database_snapshot.compression_algorithm;
-            let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
-            let immutable_file_number_range =
-                immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
+    //cfg_fs! {
+    /// Download and unpack the given Cardano database part data by hash.
+    // TODO: Add example in module documentation
+    pub async fn download_unpack(
+        &self,
+        hash: &str,
+        immutable_file_range: ImmutableFileRange,
+        target_dir: &Path,
+        download_unpack_options: DownloadUnpackOptions,
+    ) -> StdResult<()> {
+        let cardano_database_snapshot = self
+            .get(hash)
+            .await?
+            .ok_or_else(|| anyhow!("Cardano database snapshot not found"))?;
+        let compression_algorithm = cardano_database_snapshot.compression_algorithm;
+        let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
+        let immutable_file_number_range =
+            immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
 
-            self.verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
-            self.create_target_directory_sub_directories_if_not_exist(
-                target_dir,
-                &download_unpack_options,
-            )?;
+        self.verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
+        self.create_target_directory_sub_directories_if_not_exist(
+            target_dir,
+            &download_unpack_options,
+        )?;
 
-            let immutable_locations = cardano_database_snapshot.locations.immutables;
-            self.download_unpack_immutable_files(
-                &immutable_locations,
-                immutable_file_number_range,
-                &compression_algorithm,
-                &Self::immutable_files_target_dir(target_dir),
-            )
+        let immutable_locations = cardano_database_snapshot.locations.immutables;
+        self.download_unpack_immutable_files(
+            &immutable_locations,
+            immutable_file_number_range,
+            &compression_algorithm,
+            &Self::immutable_files_target_dir(target_dir),
+        )
+        .await?;
+
+        let digest_locations = cardano_database_snapshot.locations.digests;
+        self.download_unpack_digest_file(&digest_locations, &Self::digest_target_dir(target_dir))
             .await?;
+        let digests = self.read_digest_file(&Self::digest_target_dir(target_dir))?;
 
-            let digest_locations = cardano_database_snapshot.locations.digests;
-            self.download_unpack_digest_file(&digest_locations, &Self::digest_target_dir())
-                .await?;
+        Ok(())
+    }
 
-            Ok(())
+    fn digest_target_dir(target_dir: &Path) -> PathBuf {
+        target_dir.join("digest")
+    }
+
+    fn immutable_files_target_dir(target_dir: &Path) -> PathBuf {
+        target_dir.join("immutable")
+    }
+
+    fn volatile_target_dir(target_dir: &Path) -> PathBuf {
+        target_dir.join("volatile")
+    }
+
+    fn ledger_target_dir(target_dir: &Path) -> PathBuf {
+        target_dir.join("ledger")
+    }
+
+    fn create_directory_if_not_exists(dir: &Path) -> StdResult<()> {
+        if dir.exists() {
+            return Ok(());
         }
 
-        fn digest_target_dir() -> PathBuf {
-            std::env::temp_dir()
-                .join("mithril")
-                .join("cardano_database_client")
-                .join("digest")
-        }
+        fs::create_dir_all(dir).map_err(|e| anyhow!("Failed creating directory: {e}"))
+    }
 
-        fn immutable_files_target_dir(target_dir: &Path) -> PathBuf {
-            target_dir.join("immutable")
-        }
-
-        fn volatile_target_dir(target_dir: &Path) -> PathBuf {
-            target_dir.join("volatile")
-        }
-
-        fn ledger_target_dir(target_dir: &Path) -> PathBuf {
-            target_dir.join("ledger")
-        }
-
-        fn create_directory_if_not_exists(dir: &Path) -> StdResult<()> {
-            if dir.exists() {
-                return Ok(());
+    fn read_files_in_directory(dir: &Path) -> StdResult<Vec<PathBuf>> {
+        let mut files = vec![];
+        for entry in fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_file() {
+                files.push(path);
             }
-
-            fs::create_dir_all(dir).map_err(|e| anyhow!("Failed creating directory: {e}"))
         }
 
-        /// Verify if the target directory is writable.
-        fn verify_can_write_to_target_directory(
-            &self,
-            target_dir: &Path,
-            download_unpack_options: &DownloadUnpackOptions,
-        ) -> StdResult<()> {
-            let immutable_files_target_dir = Self::immutable_files_target_dir(target_dir);
-            let volatile_target_dir = Self::volatile_target_dir(target_dir);
-            let ledger_target_dir = Self::ledger_target_dir(target_dir);
-            if !download_unpack_options.allow_override {
-                if immutable_files_target_dir.exists() {
+        Ok(files)
+    }
+
+    /// Verify if the target directory is writable.
+    fn verify_can_write_to_target_directory(
+        &self,
+        target_dir: &Path,
+        download_unpack_options: &DownloadUnpackOptions,
+    ) -> StdResult<()> {
+        let immutable_files_target_dir = Self::immutable_files_target_dir(target_dir);
+        let volatile_target_dir = Self::volatile_target_dir(target_dir);
+        let ledger_target_dir = Self::ledger_target_dir(target_dir);
+        if !download_unpack_options.allow_override {
+            if immutable_files_target_dir.exists() {
+                return Err(anyhow!(
+                    "Immutable files target directory already exists in: {target_dir:?}"
+                ));
+            }
+            if download_unpack_options.include_ancillary {
+                if volatile_target_dir.exists() {
                     return Err(anyhow!(
-                        "Immutable files target directory already exists in: {target_dir:?}"
+                        "Volatile target directory already exists in: {target_dir:?}"
                     ));
                 }
-                if download_unpack_options.include_ancillary {
-                    if volatile_target_dir.exists() {
-                        return Err(anyhow!(
-                            "Volatile target directory already exists in: {target_dir:?}"
-                        ));
-                    }
-                    if ledger_target_dir.exists() {
-                        return Err(anyhow!(
-                            "Ledger target directory already exists in: {target_dir:?}"
-                        ));
-                    }
+                if ledger_target_dir.exists() {
+                    return Err(anyhow!(
+                        "Ledger target directory already exists in: {target_dir:?}"
+                    ));
                 }
             }
-
-            Ok(())
         }
 
-        /// Create the target directory sub-directories if they do not exist.
-        fn create_target_directory_sub_directories_if_not_exist(
-            &self,
-            target_dir: &Path,
-            download_unpack_options: &DownloadUnpackOptions,
-        ) -> StdResult<()> {
-            let immutable_files_target_dir = Self::immutable_files_target_dir(target_dir);
-            Self::create_directory_if_not_exists(&immutable_files_target_dir)?;
-            if download_unpack_options.include_ancillary {
-                let volatile_target_dir = Self::volatile_target_dir(target_dir);
-                let ledger_target_dir = Self::ledger_target_dir(target_dir);
-                Self::create_directory_if_not_exists(&volatile_target_dir)?;
-                Self::create_directory_if_not_exists(&ledger_target_dir)?;
-            }
+        Ok(())
+    }
 
-            Ok(())
+    /// Create the target directory sub-directories if they do not exist.
+    fn create_target_directory_sub_directories_if_not_exist(
+        &self,
+        target_dir: &Path,
+        download_unpack_options: &DownloadUnpackOptions,
+    ) -> StdResult<()> {
+        let immutable_files_target_dir = Self::immutable_files_target_dir(target_dir);
+        Self::create_directory_if_not_exists(&immutable_files_target_dir)?;
+        let digest_target_dir = Self::digest_target_dir(target_dir);
+        Self::create_directory_if_not_exists(&digest_target_dir)?;
+        if download_unpack_options.include_ancillary {
+            let volatile_target_dir = Self::volatile_target_dir(target_dir);
+            let ledger_target_dir = Self::ledger_target_dir(target_dir);
+            Self::create_directory_if_not_exists(&volatile_target_dir)?;
+            Self::create_directory_if_not_exists(&ledger_target_dir)?;
         }
 
-        /// Download and unpack the immutable files of the given range.
-        ///
-        /// The download is attempted for each location until the full range is downloaded.
-        /// An error is returned if not all the files are downloaded.
-        // TODO: Add feedback receivers
-        async fn download_unpack_immutable_files(
-            &self,
-            locations: &[ImmutablesLocation],
-            range: RangeInclusive<ImmutableFileNumber>,
-            compression_algorithm: &CompressionAlgorithm,
-            immutable_files_target_dir: &Path,
-        ) -> StdResult<()> {
-            let mut locations_sorted = locations.to_owned();
-            locations_sorted.sort();
-            let mut immutable_file_numbers_to_download =
-                range.clone().map(|n| n.to_owned()).collect::<HashSet<_>>();
-            for location in locations_sorted {
-                let file_downloader = self
-                    .immutable_file_downloader_resolver
-                    .resolve(&location)
-                    .ok_or_else(|| {
-                        anyhow!("Failed resolving a file downloader for location: {location:?}")
-                    })?;
-                let file_downloader_uris =
-                    FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
-                        &location,
-                        immutable_file_numbers_to_download
-                            .clone()
-                            .into_iter()
-                            .collect::<Vec<_>>()
-                            .as_slice(),
-                    )?;
-                for (immutable_file_number, file_downloader_uri) in file_downloader_uris {
-                    let download_id = format!("{location:?}"); //TODO: check if this is the correct way to format the download_id
-                    let downloaded = file_downloader
-                        .download_unpack(
-                            &file_downloader_uri,
-                            immutable_files_target_dir,
-                            Some(compression_algorithm.to_owned()),
-                            &download_id,
-                        )
-                        .await;
-                    match downloaded {
-                        Ok(_) => {
-                            immutable_file_numbers_to_download.remove(&immutable_file_number);
-                        }
-                        Err(e) => {
-                            slog::error!(
-                                self.logger,
-                                "Failed downloading and unpacking immutable files for location {file_downloader_uri:?}"; "error" => e.to_string()
-                            );
-                        }
-                    }
-                }
-                if immutable_file_numbers_to_download.is_empty() {
-                    return Ok(());
-                }
-            }
+        Ok(())
+    }
 
-            Err(anyhow!(
-                "Failed downloading and unpacking immutable files for locations: {locations:?}"
-            ))
-        }
-
-        async fn download_unpack_digest_file(
-            &self,
-            locations: &[DigestLocation],
-            digest_file_target_dir: &Path,
-        ) -> StdResult<()> {
-            let mut locations_sorted = locations.to_owned();
-            locations_sorted.sort();
-            for location in locations_sorted {
+    /// Download and unpack the immutable files of the given range.
+    ///
+    /// The download is attempted for each location until the full range is downloaded.
+    /// An error is returned if not all the files are downloaded.
+    // TODO: Add feedback receivers
+    async fn download_unpack_immutable_files(
+        &self,
+        locations: &[ImmutablesLocation],
+        range: RangeInclusive<ImmutableFileNumber>,
+        compression_algorithm: &CompressionAlgorithm,
+        immutable_files_target_dir: &Path,
+    ) -> StdResult<()> {
+        let mut locations_sorted = locations.to_owned();
+        locations_sorted.sort();
+        let mut immutable_file_numbers_to_download =
+            range.clone().map(|n| n.to_owned()).collect::<HashSet<_>>();
+        for location in locations_sorted {
+            let file_downloader = self
+                .immutable_file_downloader_resolver
+                .resolve(&location)
+                .ok_or_else(|| {
+                    anyhow!("Failed resolving a file downloader for location: {location:?}")
+                })?;
+            let file_downloader_uris =
+                FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
+                    &location,
+                    immutable_file_numbers_to_download
+                        .clone()
+                        .into_iter()
+                        .collect::<Vec<_>>()
+                        .as_slice(),
+                )?;
+            for (immutable_file_number, file_downloader_uri) in file_downloader_uris {
                 let download_id = format!("{location:?}"); //TODO: check if this is the correct way to format the download_id
-                let file_downloader = self
-                    .digest_file_downloader_resolver
-                    .resolve(&location)
-                    .ok_or_else(|| {
-                        anyhow!("Failed resolving a file downloader for location: {location:?}")
-                    })?;
-                let file_downloader_uri: FileDownloaderUri = location.into();
                 let downloaded = file_downloader
                     .download_unpack(
                         &file_downloader_uri,
-                        digest_file_target_dir,
-                        None,
+                        immutable_files_target_dir,
+                        Some(compression_algorithm.to_owned()),
                         &download_id,
                     )
                     .await;
                 match downloaded {
-                    Ok(_) => return Ok(()),
+                    Ok(_) => {
+                        immutable_file_numbers_to_download.remove(&immutable_file_number);
+                    }
                     Err(e) => {
                         slog::error!(
                             self.logger,
-                            "Failed downloading and unpacking digest for location {file_downloader_uri:?}"; "error" => e.to_string()
+                            "Failed downloading and unpacking immutable files for location {file_downloader_uri:?}"; "error" => e.to_string()
                         );
                     }
                 }
             }
-
-            Err(anyhow!(
-                "Failed downloading and unpacking digests for all locations"
-            ))
+            if immutable_file_numbers_to_download.is_empty() {
+                return Ok(());
+            }
         }
+
+        Err(anyhow!(
+            "Failed downloading and unpacking immutable files for locations: {locations:?}"
+        ))
     }
+
+    async fn download_unpack_digest_file(
+        &self,
+        locations: &[DigestLocation],
+        digest_file_target_dir: &Path,
+    ) -> StdResult<()> {
+        let mut locations_sorted = locations.to_owned();
+        locations_sorted.sort();
+        for location in locations_sorted {
+            let download_id = format!("{location:?}"); //TODO: check if this is the correct way to format the download_id
+            let file_downloader = self
+                .digest_file_downloader_resolver
+                .resolve(&location)
+                .ok_or_else(|| {
+                    anyhow!("Failed resolving a file downloader for location: {location:?}")
+                })?;
+            let file_downloader_uri: FileDownloaderUri = location.into();
+            let downloaded = file_downloader
+                .download_unpack(
+                    &file_downloader_uri,
+                    digest_file_target_dir,
+                    None,
+                    &download_id,
+                )
+                .await;
+            match downloaded {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    slog::error!(
+                        self.logger,
+                        "Failed downloading and unpacking digest for location {file_downloader_uri:?}"; "error" => e.to_string()
+                    );
+                }
+            }
+        }
+
+        Err(anyhow!(
+            "Failed downloading and unpacking digests for all locations"
+        ))
+    }
+
+    fn read_digest_file(
+        &self,
+        digest_file_target_dir: &Path,
+    ) -> StdResult<BTreeMap<ImmutableFileName, HexEncodedDigest>> {
+        let digest_files = Self::read_files_in_directory(digest_file_target_dir)?;
+        if digest_files.len() > 1 {
+            return Err(anyhow!(
+                "Multiple digest files found in directory: {digest_file_target_dir:?}"
+            ));
+        }
+        if digest_files.is_empty() {
+            return Err(anyhow!(
+                "No digest file found in directory: {digest_file_target_dir:?}"
+            ));
+        }
+
+        let digest_file = &digest_files[0];
+        let content = fs::read_to_string(digest_file)
+            .with_context(|| format!("Failed reading digest file: {digest_file:?}"))?;
+        let digest_messages: Vec<CardanoDatabaseDigestListItemMessage> =
+            serde_json::from_str(&content)
+                .with_context(|| format!("Failed deserializing digest file: {digest_file:?}"))?;
+        let digest_map = digest_messages
+            .into_iter()
+            .map(|message| (message.immutable_file_name, message.digest))
+            .collect::<BTreeMap<_, _>>();
+
+        Ok(digest_map)
+    }
+
+    /// Compute the Merkle proof of membership for the given immutable file range.
+    // TODO: Add example in module documentation
+    #[allow(unused)]
+    async fn compute_merkle_proof(
+        &self,
+        hash: &str,
+        immutable_file_range: ImmutableFileRange,
+        target_dir: &Path,
+    ) -> StdResult<()> {
+        todo!("compute_merkle_proof")
+    }
+    //}
 }
 
 #[cfg(test)]
@@ -678,867 +734,972 @@ mod tests {
             }
         }
 
-        cfg_fs! {
-            mod download_unpack {
-                use std::fs;
-                use std::path::Path;
+        //cfg_fs! {
+        mod download_unpack {
+            use std::fs;
+            use std::path::Path;
 
-                use mithril_common::{
-                    entities::{FileUri, ImmutablesLocationDiscriminants, MultiFilesUri, TemplateUri},
-                    test_utils::TempDir,
-                };
-                use mockall::predicate;
+            use mithril_common::{
+                entities::{FileUri, ImmutablesLocationDiscriminants, MultiFilesUri, TemplateUri},
+                test_utils::TempDir,
+            };
+            use mockall::predicate;
 
-                use crate::file_downloader::MockFileDownloader;
+            use crate::file_downloader::MockFileDownloader;
 
-                use super::*;
+            use super::*;
 
-                #[tokio::test]
-                async fn download_unpack_fails_with_invalid_snapshot() {
-                    let immutable_file_range = ImmutableFileRange::Range(1, 10);
-                    let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
-                    let target_dir = Path::new(".");
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            http_client.expect_get_content().return_once(move |_| {
-                                Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                                    "not found"
-                                )))
-                            });
-                        })
-                        .build_cardano_database_client();
+            #[tokio::test]
+            async fn download_unpack_fails_with_invalid_snapshot() {
+                let immutable_file_range = ImmutableFileRange::Range(1, 10);
+                let download_unpack_options = DownloadUnpackOptions::default();
+                let cardano_db_snapshot_hash = &"hash-123";
+                let target_dir = Path::new(".");
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_http_client_mock_config(|http_client| {
+                        http_client.expect_get_content().return_once(move |_| {
+                            Err(AggregatorClientError::RemoteServerLogical(anyhow!(
+                                "not found"
+                            )))
+                        });
+                    })
+                    .build_cardano_database_client();
 
-                    client
-                        .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
-                            target_dir,
-                            download_unpack_options,
-                        )
-                        .await
-                        .expect_err("download_unpack should fail");
-                }
-
-                #[tokio::test]
-                async fn download_unpack_fails_with_invalid_immutable_file_range() {
-                    let immutable_file_range = ImmutableFileRange::Range(1, 0);
-                    let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
-                    let target_dir = Path::new(".");
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            let message = CardanoDatabaseSnapshot {
-                                hash: "hash-123".to_string(),
-                                ..CardanoDatabaseSnapshot::dummy()
-                            };
-                            http_client
-                                .expect_get_content()
-                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                    hash: "hash-123".to_string(),
-                                }))
-                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                        })
-                        .build_cardano_database_client();
-
-                    client
-                        .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
-                            target_dir,
-                            download_unpack_options,
-                        )
-                        .await
-                        .expect_err("download_unpack should fail");
-                }
-
-                #[tokio::test]
-                async fn download_unpack_fails_when_immutable_files_download_fail() {
-                    let total_immutable_files = 10;
-                    let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
-                    let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "download_unpack_fails_when_immutable_files_download_fail",
+                client
+                    .download_unpack(
+                        cardano_db_snapshot_hash,
+                        immutable_file_range,
+                        target_dir,
+                        download_unpack_options,
                     )
-                    .build();
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            let mut message = CardanoDatabaseSnapshot {
+                    .await
+                    .expect_err("download_unpack should fail");
+            }
+
+            #[tokio::test]
+            async fn download_unpack_fails_with_invalid_immutable_file_range() {
+                let immutable_file_range = ImmutableFileRange::Range(1, 0);
+                let download_unpack_options = DownloadUnpackOptions::default();
+                let cardano_db_snapshot_hash = &"hash-123";
+                let target_dir = Path::new(".");
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_http_client_mock_config(|http_client| {
+                        let message = CardanoDatabaseSnapshot {
+                            hash: "hash-123".to_string(),
+                            ..CardanoDatabaseSnapshot::dummy()
+                        };
+                        http_client
+                            .expect_get_content()
+                            .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
                                 hash: "hash-123".to_string(),
-                                ..CardanoDatabaseSnapshot::dummy()
-                            };
-                            message.locations.immutables = vec![ImmutablesLocation::CloudStorage {
-                                uri: MultiFilesUri::Template(TemplateUri(
-                                    "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-                                )),
-                            }];
-                            http_client
-                                .expect_get_content()
-                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                    hash: "hash-123".to_string(),
-                                }))
-                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                        })
-                        .with_immutable_file_downloaders(vec![(
-                            ImmutablesLocationDiscriminants::CloudStorage,
-                            Arc::new({
-                                let mut mock_file_downloader = MockFileDownloader::new();
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .times(total_immutable_files as usize)
-                                    .returning(|_, _, _, _| Err(anyhow!("Download failed")));
+                            }))
+                            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                    })
+                    .build_cardano_database_client();
 
-                                mock_file_downloader
-                            }),
-                        )])
-                        .build_cardano_database_client();
+                client
+                    .download_unpack(
+                        cardano_db_snapshot_hash,
+                        immutable_file_range,
+                        target_dir,
+                        download_unpack_options,
+                    )
+                    .await
+                    .expect_err("download_unpack should fail");
+            }
 
-                    client
-                        .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
-                            &target_dir,
-                            download_unpack_options,
-                        )
-                        .await
-                        .expect_err("download_unpack should fail");
-                }
+            #[tokio::test]
+            async fn download_unpack_fails_when_immutable_files_download_fail() {
+                let total_immutable_files = 10;
+                let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+                let download_unpack_options = DownloadUnpackOptions::default();
+                let cardano_db_snapshot_hash = &"hash-123";
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "download_unpack_fails_when_immutable_files_download_fail",
+                )
+                .build();
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_http_client_mock_config(|http_client| {
+                        let mut message = CardanoDatabaseSnapshot {
+                            hash: "hash-123".to_string(),
+                            ..CardanoDatabaseSnapshot::dummy()
+                        };
+                        message.locations.immutables = vec![ImmutablesLocation::CloudStorage {
+                            uri: MultiFilesUri::Template(TemplateUri(
+                                "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                            )),
+                        }];
+                        http_client
+                            .expect_get_content()
+                            .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
+                                hash: "hash-123".to_string(),
+                            }))
+                            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                    })
+                    .with_immutable_file_downloaders(vec![(
+                        ImmutablesLocationDiscriminants::CloudStorage,
+                        Arc::new({
+                            let mut mock_file_downloader = MockFileDownloader::new();
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .times(total_immutable_files as usize)
+                                .returning(|_, _, _, _| Err(anyhow!("Download failed")));
 
-                #[tokio::test]
-                async fn download_unpack_fails_when_target_target_dir_would_be_overwritten_without_allow_overrdie(
-                ) {
-                    let immutable_file_range = ImmutableFileRange::Range(1, 10);
-                    let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
-                    let target_dir = &TempDir::new(
+                            mock_file_downloader
+                        }),
+                    )])
+                    .build_cardano_database_client();
+
+                client
+                    .download_unpack(
+                        cardano_db_snapshot_hash,
+                        immutable_file_range,
+                        &target_dir,
+                        download_unpack_options,
+                    )
+                    .await
+                    .expect_err("download_unpack should fail");
+            }
+
+            #[tokio::test]
+            async fn download_unpack_fails_when_target_target_dir_would_be_overwritten_without_allow_overrdie(
+            ) {
+                let immutable_file_range = ImmutableFileRange::Range(1, 10);
+                let download_unpack_options = DownloadUnpackOptions::default();
+                let cardano_db_snapshot_hash = &"hash-123";
+                let target_dir = &TempDir::new(
                                 "cardano_database_client",
                                 "download_unpack_fails_when_target_target_dir_would_be_overwritten_without_allow_overrdie",
                             )
                             .build();
-                    fs::create_dir_all(target_dir.join("immutable")).unwrap();
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            let message = CardanoDatabaseSnapshot {
+                fs::create_dir_all(target_dir.join("immutable")).unwrap();
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_http_client_mock_config(|http_client| {
+                        let message = CardanoDatabaseSnapshot {
+                            hash: "hash-123".to_string(),
+                            ..CardanoDatabaseSnapshot::dummy()
+                        };
+                        http_client
+                            .expect_get_content()
+                            .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
                                 hash: "hash-123".to_string(),
-                                ..CardanoDatabaseSnapshot::dummy()
-                            };
-                            http_client
-                                .expect_get_content()
-                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                    hash: "hash-123".to_string(),
-                                }))
-                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                        })
-                        .build_cardano_database_client();
+                            }))
+                            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                    })
+                    .build_cardano_database_client();
 
-                    client
-                        .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
-                            target_dir,
-                            download_unpack_options,
-                        )
-                        .await
-                        .expect_err("download_unpack should fail");
-                }
-
-                #[tokio::test]
-                async fn download_unpack_succeeds_with_valid_range() {
-                    let immutable_file_range = ImmutableFileRange::Range(1, 2);
-                    let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "download_unpack_succeeds_with_valid_range",
+                client
+                    .download_unpack(
+                        cardano_db_snapshot_hash,
+                        immutable_file_range,
+                        target_dir,
+                        download_unpack_options,
                     )
-                    .build();
-                    let mut message = CardanoDatabaseSnapshot {
-                        hash: "hash-123".to_string(),
-                        ..CardanoDatabaseSnapshot::dummy()
-                    };
-                    message.locations.immutables = vec![ImmutablesLocation::CloudStorage {
-                        uri: MultiFilesUri::Template(TemplateUri(
-                            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-                        )),
-                    }];
-                    message.locations.digests = vec![DigestLocation::CloudStorage {
-                        uri: "http://whatever/digest.txt".to_string(),
-                    }];
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            http_client
-                                .expect_get_content()
-                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                    hash: "hash-123".to_string(),
-                                }))
-                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                        })
-                        .with_immutable_file_downloaders(vec![(
-                            ImmutablesLocationDiscriminants::CloudStorage,
-                            Arc::new({
-                                let mut mock_file_downloader = MockFileDownloader::new();
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever/00001.tar.gz".to_string(),
-                                        ))),
-                                        eq(target_dir.join("immutable")),
-                                        eq(Some(CompressionAlgorithm::default())),
-                                        predicate::always(),
-                                    )
-                                    .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever/00002.tar.gz".to_string(),
-                                        ))),
-                                        eq(target_dir.join("immutable")),
-                                        eq(Some(CompressionAlgorithm::default())),
-                                        predicate::always(),
-                                    )
-                                    .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
+                    .await
+                    .expect_err("download_unpack should fail");
+            }
 
-                                mock_file_downloader
-                            }),
-                        )])
-                        .with_digest_file_downloaders(vec![(
+            #[tokio::test]
+            async fn download_unpack_succeeds_with_valid_range() {
+                let immutable_file_range = ImmutableFileRange::Range(1, 2);
+                let download_unpack_options = DownloadUnpackOptions::default();
+                let cardano_db_snapshot_hash = &"hash-123";
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "download_unpack_succeeds_with_valid_range",
+                )
+                .build();
+                let mut message = CardanoDatabaseSnapshot {
+                    hash: "hash-123".to_string(),
+                    ..CardanoDatabaseSnapshot::dummy()
+                };
+                message.locations.immutables = vec![ImmutablesLocation::CloudStorage {
+                    uri: MultiFilesUri::Template(TemplateUri(
+                        "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                    )),
+                }];
+                message.locations.digests = vec![DigestLocation::CloudStorage {
+                    uri: "http://whatever/digests.json".to_string(),
+                }];
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_http_client_mock_config(|http_client| {
+                        http_client
+                            .expect_get_content()
+                            .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
+                                hash: "hash-123".to_string(),
+                            }))
+                            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                    })
+                    .with_immutable_file_downloaders(vec![(
+                        ImmutablesLocationDiscriminants::CloudStorage,
+                        Arc::new({
+                            let mut mock_file_downloader = MockFileDownloader::new();
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .with(
+                                    eq(FileDownloaderUri::FileUri(FileUri(
+                                        "http://whatever/00001.tar.gz".to_string(),
+                                    ))),
+                                    eq(target_dir.join("immutable")),
+                                    eq(Some(CompressionAlgorithm::default())),
+                                    predicate::always(),
+                                )
+                                .times(1)
+                                .returning(|_, _, _, _| Ok(()));
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .with(
+                                    eq(FileDownloaderUri::FileUri(FileUri(
+                                        "http://whatever/00002.tar.gz".to_string(),
+                                    ))),
+                                    eq(target_dir.join("immutable")),
+                                    eq(Some(CompressionAlgorithm::default())),
+                                    predicate::always(),
+                                )
+                                .times(1)
+                                .returning(|_, _, _, _| Ok(()));
+
+                            mock_file_downloader
+                        }),
+                    )])
+                    .with_digest_file_downloaders(vec![(
+                        DigestLocationDiscriminants::CloudStorage,
+                        Arc::new({
+                            let mut mock_file_downloader = MockFileDownloader::new();
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .with(
+                                    eq(FileDownloaderUri::FileUri(FileUri(
+                                        "http://whatever/digests.json".to_string(),
+                                    ))),
+                                    eq(target_dir.join("digest")),
+                                    eq(None),
+                                    predicate::always(),
+                                )
+                                .times(1)
+                                .returning(|_, _, _, _| Ok(()));
+
+                            mock_file_downloader
+                        }),
+                    )])
+                    .build_cardano_database_client();
+
+                client
+                    .download_unpack(
+                        cardano_db_snapshot_hash,
+                        immutable_file_range,
+                        &target_dir,
+                        download_unpack_options,
+                    )
+                    .await
+                    .unwrap();
+            }
+        }
+
+        mod verify_can_write_to_target_dir {
+            use std::fs;
+
+            use mithril_common::test_utils::TempDir;
+
+            use super::*;
+
+            #[test]
+            fn verify_can_write_to_target_dir_always_succeeds_with_allow_overwrite() {
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "verify_can_write_to_target_dir_always_succeeds_with_allow_overwrite",
+                )
+                .build();
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: true,
+                            include_ancillary: false,
+                        },
+                    )
+                    .unwrap();
+
+                fs::create_dir_all(CardanoDatabaseClient::immutable_files_target_dir(
+                    &target_dir,
+                ))
+                .unwrap();
+                fs::create_dir_all(CardanoDatabaseClient::volatile_target_dir(&target_dir))
+                    .unwrap();
+                fs::create_dir_all(CardanoDatabaseClient::ledger_target_dir(&target_dir)).unwrap();
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: true,
+                            include_ancillary: false,
+                        },
+                    )
+                    .unwrap();
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: true,
+                            include_ancillary: true,
+                        },
+                    )
+                    .unwrap();
+            }
+
+            #[test]
+            fn verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_immutable_target_dir(
+            ) {
+                let target_dir = TempDir::new("cardano_database_client", "verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_immutable_target_dir").build();
+                fs::create_dir_all(CardanoDatabaseClient::immutable_files_target_dir(
+                    &target_dir,
+                ))
+                .unwrap();
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: false,
+                            include_ancillary: false,
+                        },
+                    )
+                    .expect_err("verify_can_write_to_target_dir should fail");
+
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: false,
+                            include_ancillary: true,
+                        },
+                    )
+                    .expect_err("verify_can_write_to_target_dir should fail");
+            }
+
+            #[test]
+            fn verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_ledger_target_dir(
+            ) {
+                let target_dir = TempDir::new("cardano_database_client", "verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_ledger_target_dir").build();
+                fs::create_dir_all(CardanoDatabaseClient::ledger_target_dir(&target_dir)).unwrap();
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: false,
+                            include_ancillary: true,
+                        },
+                    )
+                    .expect_err("verify_can_write_to_target_dir should fail");
+
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: false,
+                            include_ancillary: false,
+                        },
+                    )
+                    .unwrap();
+            }
+
+            #[test]
+            fn verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_volatile_target_dir(
+            ) {
+                let target_dir = TempDir::new("cardano_database_client", "verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_volatile_target_dir").build();
+                fs::create_dir_all(CardanoDatabaseClient::volatile_target_dir(&target_dir))
+                    .unwrap();
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: false,
+                            include_ancillary: true,
+                        },
+                    )
+                    .expect_err("verify_can_write_to_target_dir should fail");
+
+                client
+                    .verify_can_write_to_target_directory(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            allow_override: false,
+                            include_ancillary: false,
+                        },
+                    )
+                    .unwrap();
+            }
+        }
+
+        mod create_target_directory_sub_directories_if_not_exist {
+            use mithril_common::test_utils::TempDir;
+
+            use super::*;
+
+            #[test]
+            fn create_target_directory_sub_directories_if_not_exist_without_ancillary() {
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "create_target_directory_sub_directories_if_not_exist_without_ancillary",
+                )
+                .build();
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+                assert!(!target_dir.join("digest").exists());
+                assert!(!target_dir.join("immutable").exists());
+                assert!(!target_dir.join("volatile").exists());
+                assert!(!target_dir.join("ledger").exists());
+
+                client
+                    .create_target_directory_sub_directories_if_not_exist(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            include_ancillary: false,
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap();
+
+                assert!(target_dir.join("digest").exists());
+                assert!(target_dir.join("immutable").exists());
+                assert!(!target_dir.join("volatile").exists());
+                assert!(!target_dir.join("ledger").exists());
+            }
+
+            #[test]
+            fn create_target_directory_sub_directories_if_not_exist_with_ancillary() {
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "create_target_directory_sub_directories_if_not_exist_with_ancillary",
+                )
+                .build();
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+                assert!(!target_dir.join("digest").exists());
+                assert!(!target_dir.join("immutable").exists());
+                assert!(!target_dir.join("volatile").exists());
+                assert!(!target_dir.join("ledger").exists());
+
+                client
+                    .create_target_directory_sub_directories_if_not_exist(
+                        &target_dir,
+                        &DownloadUnpackOptions {
+                            include_ancillary: true,
+                            ..Default::default()
+                        },
+                    )
+                    .unwrap();
+
+                assert!(target_dir.join("digest").exists());
+                assert!(target_dir.join("immutable").exists());
+                assert!(target_dir.join("volatile").exists());
+                assert!(target_dir.join("ledger").exists());
+            }
+        }
+
+        mod download_unpack_immutable_files {
+            use mithril_common::{
+                entities::{FileUri, MultiFilesUri, TemplateUri},
+                test_utils::TempDir,
+            };
+            use mockall::predicate;
+
+            use crate::file_downloader::MockFileDownloader;
+
+            use super::*;
+
+            #[tokio::test]
+            async fn download_unpack_immutable_files_fails_if_one_is_not_retrieved() {
+                let total_immutable_files = 2;
+                let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "download_unpack_immutable_files_succeeds",
+                )
+                .build();
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_immutable_file_downloaders(vec![(
+                        ImmutablesLocationDiscriminants::CloudStorage,
+                        Arc::new({
+                            let mut mock_file_downloader = MockFileDownloader::new();
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .times(1)
+                                .returning(|_, _, _, _| Err(anyhow!("Download failed")));
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .times(1)
+                                .returning(|_, _, _, _| Ok(()));
+
+                            mock_file_downloader
+                        }),
+                    )])
+                    .build_cardano_database_client();
+
+                client
+                    .download_unpack_immutable_files(
+                        &[ImmutablesLocation::CloudStorage {
+                            uri: MultiFilesUri::Template(TemplateUri(
+                                "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                            )),
+                        }],
+                        immutable_file_range
+                            .to_range_inclusive(total_immutable_files)
+                            .unwrap(),
+                        &CompressionAlgorithm::default(),
+                        &target_dir,
+                    )
+                    .await
+                    .expect_err("download_unpack_immutable_files should fail");
+            }
+
+            #[tokio::test]
+            async fn download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_same_location(
+            ) {
+                let total_immutable_files = 2;
+                let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "download_unpack_immutable_files_succeeds",
+                )
+                .build();
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_immutable_file_downloaders(vec![(
+                        ImmutablesLocationDiscriminants::CloudStorage,
+                        Arc::new({
+                            let mut mock_file_downloader = MockFileDownloader::new();
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .times(2)
+                                .returning(|_, _, _, _| Ok(()));
+
+                            mock_file_downloader
+                        }),
+                    )])
+                    .build_cardano_database_client();
+
+                client
+                    .download_unpack_immutable_files(
+                        &[ImmutablesLocation::CloudStorage {
+                            uri: MultiFilesUri::Template(TemplateUri(
+                                "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
+                            )),
+                        }],
+                        immutable_file_range
+                            .to_range_inclusive(total_immutable_files)
+                            .unwrap(),
+                        &CompressionAlgorithm::default(),
+                        &target_dir,
+                    )
+                    .await
+                    .unwrap();
+            }
+
+            #[tokio::test]
+            async fn download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_different_locations(
+            ) {
+                let total_immutable_files = 2;
+                let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "download_unpack_immutable_files_succeeds",
+                )
+                .build();
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_immutable_file_downloaders(vec![(
+                        ImmutablesLocationDiscriminants::CloudStorage,
+                        Arc::new({
+                            let mut mock_file_downloader = MockFileDownloader::new();
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .with(
+                                    eq(FileDownloaderUri::FileUri(FileUri(
+                                        "http://whatever-1/00001.tar.gz".to_string(),
+                                    ))),
+                                    eq(target_dir.clone()),
+                                    eq(Some(CompressionAlgorithm::default())),
+                                    predicate::always(),
+                                )
+                                .times(1)
+                                .returning(|_, _, _, _| Err(anyhow!("Download failed")));
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .with(
+                                    eq(FileDownloaderUri::FileUri(FileUri(
+                                        "http://whatever-1/00002.tar.gz".to_string(),
+                                    ))),
+                                    eq(target_dir.clone()),
+                                    eq(Some(CompressionAlgorithm::default())),
+                                    predicate::always(),
+                                )
+                                .times(1)
+                                .returning(|_, _, _, _| Ok(()));
+                            mock_file_downloader
+                                .expect_download_unpack()
+                                .with(
+                                    eq(FileDownloaderUri::FileUri(FileUri(
+                                        "http://whatever-2/00001.tar.gz".to_string(),
+                                    ))),
+                                    eq(target_dir.clone()),
+                                    eq(Some(CompressionAlgorithm::default())),
+                                    predicate::always(),
+                                )
+                                .times(1)
+                                .returning(|_, _, _, _| Ok(()));
+
+                            mock_file_downloader
+                        }),
+                    )])
+                    .build_cardano_database_client();
+
+                client
+                    .download_unpack_immutable_files(
+                        &[
+                            ImmutablesLocation::CloudStorage {
+                                uri: MultiFilesUri::Template(TemplateUri(
+                                    "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
+                                )),
+                            },
+                            ImmutablesLocation::CloudStorage {
+                                uri: MultiFilesUri::Template(TemplateUri(
+                                    "http://whatever-2/{immutable_file_number}.tar.gz".to_string(),
+                                )),
+                            },
+                        ],
+                        immutable_file_range
+                            .to_range_inclusive(total_immutable_files)
+                            .unwrap(),
+                        &CompressionAlgorithm::default(),
+                        &target_dir,
+                    )
+                    .await
+                    .unwrap();
+            }
+        }
+
+        mod download_unpack_digest_file {
+
+            use crate::file_downloader::MockFileDownloader;
+
+            use super::*;
+
+            #[tokio::test]
+            async fn download_unpack_digest_file_fails_if_no_location_is_retrieved() {
+                let target_dir = Path::new(".");
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_digest_file_downloaders(vec![
+                        (
                             DigestLocationDiscriminants::CloudStorage,
                             Arc::new({
                                 let mut mock_file_downloader = MockFileDownloader::new();
                                 mock_file_downloader
                                     .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever/digest.txt".to_string(),
-                                        ))),
-                                        predicate::always(),
-                                        eq(None),
-                                        predicate::always(),
-                                    )
                                     .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
+                                    .returning(|_, _, _, _| Err(anyhow!("Download failed")));
 
                                 mock_file_downloader
                             }),
-                        )])
-                        .build_cardano_database_client();
-
-                    client
-                        .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
-                            &target_dir,
-                            download_unpack_options,
-                        )
-                        .await
-                        .unwrap();
-                }
-            }
-
-            mod verify_can_write_to_target_dir {
-                use std::fs;
-
-                use mithril_common::test_utils::TempDir;
-
-                use super::*;
-
-                #[test]
-                fn verify_can_write_to_target_dir_always_succeeds_with_allow_overwrite() {
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "verify_can_write_to_target_dir_always_succeeds_with_allow_overwrite",
-                    )
-                    .build();
-                    let client =
-                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: true,
-                                include_ancillary: false,
-                            },
-                        )
-                        .unwrap();
-
-                    fs::create_dir_all(CardanoDatabaseClient::immutable_files_target_dir(
-                        &target_dir,
-                    ))
-                    .unwrap();
-                    fs::create_dir_all(CardanoDatabaseClient::volatile_target_dir(&target_dir))
-                        .unwrap();
-                    fs::create_dir_all(CardanoDatabaseClient::ledger_target_dir(&target_dir)).unwrap();
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: true,
-                                include_ancillary: false,
-                            },
-                        )
-                        .unwrap();
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: true,
-                                include_ancillary: true,
-                            },
-                        )
-                        .unwrap();
-                }
-
-                #[test]
-                fn verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_immutable_target_dir(
-                ) {
-                    let target_dir = TempDir::new("cardano_database_client", "verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_immutable_target_dir").build();
-                    fs::create_dir_all(CardanoDatabaseClient::immutable_files_target_dir(
-                        &target_dir,
-                    ))
-                    .unwrap();
-                    let client =
-                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: false,
-                                include_ancillary: false,
-                            },
-                        )
-                        .expect_err("verify_can_write_to_target_dir should fail");
-
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: false,
-                                include_ancillary: true,
-                            },
-                        )
-                        .expect_err("verify_can_write_to_target_dir should fail");
-                }
-
-                #[test]
-                fn verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_ledger_target_dir(
-                ) {
-                    let target_dir = TempDir::new("cardano_database_client", "verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_ledger_target_dir").build();
-                    fs::create_dir_all(CardanoDatabaseClient::ledger_target_dir(&target_dir)).unwrap();
-                    let client =
-                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: false,
-                                include_ancillary: true,
-                            },
-                        )
-                        .expect_err("verify_can_write_to_target_dir should fail");
-
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: false,
-                                include_ancillary: false,
-                            },
-                        )
-                        .unwrap();
-                }
-
-                #[test]
-                fn verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_volatile_target_dir(
-                ) {
-                    let target_dir = TempDir::new("cardano_database_client", "verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_volatile_target_dir").build();
-                    fs::create_dir_all(CardanoDatabaseClient::volatile_target_dir(&target_dir))
-                        .unwrap();
-                    let client =
-                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: false,
-                                include_ancillary: true,
-                            },
-                        )
-                        .expect_err("verify_can_write_to_target_dir should fail");
-
-                    client
-                        .verify_can_write_to_target_directory(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                allow_override: false,
-                                include_ancillary: false,
-                            },
-                        )
-                        .unwrap();
-                }
-            }
-
-            mod create_target_directory_sub_directories_if_not_exist {
-                use mithril_common::test_utils::TempDir;
-
-                use super::*;
-
-                #[test]
-                fn create_target_directory_sub_directories_if_not_exist_without_ancillary() {
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "create_target_directory_sub_directories_if_not_exist_without_ancillary",
-                    )
-                    .build();
-                    let client =
-                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-                    assert!(!target_dir.join("immutable").exists());
-                    assert!(!target_dir.join("volatile").exists());
-                    assert!(!target_dir.join("ledger").exists());
-
-                    client
-                        .create_target_directory_sub_directories_if_not_exist(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                include_ancillary: false,
-                                ..Default::default()
-                            },
-                        )
-                        .unwrap();
-
-                    assert!(target_dir.join("immutable").exists());
-                    assert!(!target_dir.join("volatile").exists());
-                    assert!(!target_dir.join("ledger").exists());
-                }
-
-                #[test]
-                fn create_target_directory_sub_directories_if_not_exist_with_ancillary() {
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "create_target_directory_sub_directories_if_not_exist_with_ancillary",
-                    )
-                    .build();
-                    let client =
-                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-                    assert!(!target_dir.join("immutable").exists());
-                    assert!(!target_dir.join("volatile").exists());
-                    assert!(!target_dir.join("ledger").exists());
-
-                    client
-                        .create_target_directory_sub_directories_if_not_exist(
-                            &target_dir,
-                            &DownloadUnpackOptions {
-                                include_ancillary: true,
-                                ..Default::default()
-                            },
-                        )
-                        .unwrap();
-
-                    assert!(target_dir.join("immutable").exists());
-                    assert!(target_dir.join("volatile").exists());
-                    assert!(target_dir.join("ledger").exists());
-                }
-            }
-
-            mod download_unpack_immutable_files {
-                use mithril_common::{
-                    entities::{FileUri, MultiFilesUri, TemplateUri},
-                    test_utils::TempDir,
-                };
-                use mockall::predicate;
-
-                use crate::file_downloader::MockFileDownloader;
-
-                use super::*;
-
-                #[tokio::test]
-                async fn download_unpack_immutable_files_fails_if_one_is_not_retrieved() {
-                    let total_immutable_files = 2;
-                    let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "download_unpack_immutable_files_succeeds",
-                    )
-                    .build();
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_immutable_file_downloaders(vec![(
-                            ImmutablesLocationDiscriminants::CloudStorage,
+                        ),
+                        (
+                            DigestLocationDiscriminants::Aggregator,
                             Arc::new({
                                 let mut mock_file_downloader = MockFileDownloader::new();
                                 mock_file_downloader
                                     .expect_download_unpack()
                                     .times(1)
                                     .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
 
                                 mock_file_downloader
                             }),
-                        )])
-                        .build_cardano_database_client();
+                        ),
+                    ])
+                    .build_cardano_database_client();
 
-                    client
-                        .download_unpack_immutable_files(
-                            &[ImmutablesLocation::CloudStorage {
-                                uri: MultiFilesUri::Template(TemplateUri(
-                                    "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-                                )),
-                            }],
-                            immutable_file_range
-                                .to_range_inclusive(total_immutable_files)
-                                .unwrap(),
-                            &CompressionAlgorithm::default(),
-                            &target_dir,
-                        )
-                        .await
-                        .expect_err("download_unpack_immutable_files should fail");
-                }
-
-                #[tokio::test]
-                async fn download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_same_location(
-                ) {
-                    let total_immutable_files = 2;
-                    let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "download_unpack_immutable_files_succeeds",
+                client
+                    .download_unpack_digest_file(
+                        &[
+                            DigestLocation::CloudStorage {
+                                uri: "http://whatever-1/digests.json".to_string(),
+                            },
+                            DigestLocation::Aggregator {
+                                uri: "http://whatever-2/digest".to_string(),
+                            },
+                        ],
+                        &target_dir,
                     )
-                    .build();
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_immutable_file_downloaders(vec![(
-                            ImmutablesLocationDiscriminants::CloudStorage,
-                            Arc::new({
-                                let mut mock_file_downloader = MockFileDownloader::new();
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .times(2)
-                                    .returning(|_, _, _, _| Ok(()));
-
-                                mock_file_downloader
-                            }),
-                        )])
-                        .build_cardano_database_client();
-
-                    client
-                        .download_unpack_immutable_files(
-                            &[ImmutablesLocation::CloudStorage {
-                                uri: MultiFilesUri::Template(TemplateUri(
-                                    "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
-                                )),
-                            }],
-                            immutable_file_range
-                                .to_range_inclusive(total_immutable_files)
-                                .unwrap(),
-                            &CompressionAlgorithm::default(),
-                            &target_dir,
-                        )
-                        .await
-                        .unwrap();
-                }
-
-                #[tokio::test]
-                async fn download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_different_locations(
-                ) {
-                    let total_immutable_files = 2;
-                    let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "download_unpack_immutable_files_succeeds",
-                    )
-                    .build();
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_immutable_file_downloaders(vec![(
-                            ImmutablesLocationDiscriminants::CloudStorage,
-                            Arc::new({
-                                let mut mock_file_downloader = MockFileDownloader::new();
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever-1/00001.tar.gz".to_string(),
-                                        ))),
-                                        eq(target_dir.clone()),
-                                        eq(Some(CompressionAlgorithm::default())),
-                                        predicate::always(),
-                                    )
-                                    .times(1)
-                                    .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever-1/00002.tar.gz".to_string(),
-                                        ))),
-                                        eq(target_dir.clone()),
-                                        eq(Some(CompressionAlgorithm::default())),
-                                        predicate::always(),
-                                    )
-                                    .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever-2/00001.tar.gz".to_string(),
-                                        ))),
-                                        eq(target_dir.clone()),
-                                        eq(Some(CompressionAlgorithm::default())),
-                                        predicate::always(),
-                                    )
-                                    .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
-
-                                mock_file_downloader
-                            }),
-                        )])
-                        .build_cardano_database_client();
-
-                    client
-                        .download_unpack_immutable_files(
-                            &[
-                                ImmutablesLocation::CloudStorage {
-                                    uri: MultiFilesUri::Template(TemplateUri(
-                                        "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
-                                    )),
-                                },
-                                ImmutablesLocation::CloudStorage {
-                                    uri: MultiFilesUri::Template(TemplateUri(
-                                        "http://whatever-2/{immutable_file_number}.tar.gz".to_string(),
-                                    )),
-                                },
-                            ],
-                            immutable_file_range
-                                .to_range_inclusive(total_immutable_files)
-                                .unwrap(),
-                            &CompressionAlgorithm::default(),
-                            &target_dir,
-                        )
-                        .await
-                        .unwrap();
-                }
+                    .await
+                    .expect_err("download_unpack_digest_file should fail");
             }
 
-            mod download_unpack_digest_file {
+            #[tokio::test]
+            async fn download_unpack_digest_file_succeeds_if_at_least_one_location_is_retrieved() {
+                let target_dir = Path::new(".");
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_digest_file_downloaders(vec![
+                        (
+                            DigestLocationDiscriminants::CloudStorage,
+                            Arc::new({
+                                let mut mock_file_downloader = MockFileDownloader::new();
+                                mock_file_downloader
+                                    .expect_download_unpack()
+                                    .times(1)
+                                    .returning(|_, _, _, _| Err(anyhow!("Download failed")));
 
-                use crate::file_downloader::MockFileDownloader;
+                                mock_file_downloader
+                            }),
+                        ),
+                        (
+                            DigestLocationDiscriminants::Aggregator,
+                            Arc::new({
+                                let mut mock_file_downloader = MockFileDownloader::new();
+                                mock_file_downloader
+                                    .expect_download_unpack()
+                                    .times(1)
+                                    .returning(|_, _, _, _| Ok(()));
 
-                use super::*;
+                                mock_file_downloader
+                            }),
+                        ),
+                    ])
+                    .build_cardano_database_client();
 
-                #[tokio::test]
-                async fn download_unpack_digest_file_fails_if_no_location_is_retrieved() {
-                    let target_dir = Path::new(".");
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_digest_file_downloaders(vec![
-                            (
-                                DigestLocationDiscriminants::CloudStorage,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Err(anyhow!("Download failed")));
+                client
+                    .download_unpack_digest_file(
+                        &[
+                            DigestLocation::CloudStorage {
+                                uri: "http://whatever-1/digests.json".to_string(),
+                            },
+                            DigestLocation::Aggregator {
+                                uri: "http://whatever-2/digest".to_string(),
+                            },
+                        ],
+                        &target_dir,
+                    )
+                    .await
+                    .unwrap();
+            }
 
-                                    mock_file_downloader
-                                }),
-                            ),
-                            (
-                                DigestLocationDiscriminants::Aggregator,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Err(anyhow!("Download failed")));
+            #[tokio::test]
+            async fn download_unpack_digest_file_succeeds_when_first_location_is_retrieved() {
+                let target_dir = Path::new(".");
+                let client = CardanoDatabaseClientDependencyInjector::new()
+                    .with_digest_file_downloaders(vec![
+                        (
+                            DigestLocationDiscriminants::CloudStorage,
+                            Arc::new({
+                                let mut mock_file_downloader = MockFileDownloader::new();
+                                mock_file_downloader
+                                    .expect_download_unpack()
+                                    .times(1)
+                                    .returning(|_, _, _, _| Ok(()));
 
-                                    mock_file_downloader
-                                }),
-                            ),
-                        ])
-                        .build_cardano_database_client();
+                                mock_file_downloader
+                            }),
+                        ),
+                        (
+                            DigestLocationDiscriminants::Aggregator,
+                            Arc::new(MockFileDownloader::new()),
+                        ),
+                    ])
+                    .build_cardano_database_client();
 
-                    client
-                        .download_unpack_digest_file(
-                            &[
-                                DigestLocation::CloudStorage {
-                                    uri: "http://whatever-1/digest.txt".to_string(),
-                                },
-                                DigestLocation::Aggregator {
-                                    uri: "http://whatever-2/digest".to_string(),
-                                },
-                            ],
-                            &target_dir,
-                        )
-                        .await
-                        .expect_err("download_unpack_digest_file should fail");
-                }
-
-                #[tokio::test]
-                async fn download_unpack_digest_file_succeeds_if_at_least_one_location_is_retrieved() {
-                    let target_dir = Path::new(".");
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_digest_file_downloaders(vec![
-                            (
-                                DigestLocationDiscriminants::CloudStorage,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-
-                                    mock_file_downloader
-                                }),
-                            ),
-                            (
-                                DigestLocationDiscriminants::Aggregator,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Ok(()));
-
-                                    mock_file_downloader
-                                }),
-                            ),
-                        ])
-                        .build_cardano_database_client();
-
-                    client
-                        .download_unpack_digest_file(
-                            &[
-                                DigestLocation::CloudStorage {
-                                    uri: "http://whatever-1/digest.txt".to_string(),
-                                },
-                                DigestLocation::Aggregator {
-                                    uri: "http://whatever-2/digest".to_string(),
-                                },
-                            ],
-                            &target_dir,
-                        )
-                        .await
-                        .unwrap();
-                }
-
-                #[tokio::test]
-                async fn download_unpack_digest_file_succeeds_when_first_location_is_retrieved() {
-                    let target_dir = Path::new(".");
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_digest_file_downloaders(vec![
-                            (
-                                DigestLocationDiscriminants::CloudStorage,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Ok(()));
-
-                                    mock_file_downloader
-                                }),
-                            ),
-                            (
-                                DigestLocationDiscriminants::Aggregator,
-                                Arc::new(MockFileDownloader::new()),
-                            ),
-                        ])
-                        .build_cardano_database_client();
-
-                    client
-                        .download_unpack_digest_file(
-                            &[
-                                DigestLocation::CloudStorage {
-                                    uri: "http://whatever-1/digest.txt".to_string(),
-                                },
-                                DigestLocation::Aggregator {
-                                    uri: "http://whatever-2/digest".to_string(),
-                                },
-                            ],
-                            &target_dir,
-                        )
-                        .await
-                        .unwrap();
-                }
+                client
+                    .download_unpack_digest_file(
+                        &[
+                            DigestLocation::CloudStorage {
+                                uri: "http://whatever-1/digests.json".to_string(),
+                            },
+                            DigestLocation::Aggregator {
+                                uri: "http://whatever-2/digest".to_string(),
+                            },
+                        ],
+                        &target_dir,
+                    )
+                    .await
+                    .unwrap();
             }
         }
 
-        mod immutable_file_range {
+        mod read_digest_file {
+            use std::io::Write;
+
+            use mithril_common::test_utils::TempDir;
+
             use super::*;
 
-            #[test]
-            fn to_range_inclusive_with_full() {
-                let immutable_file_range = ImmutableFileRange::Full;
-                let last_immutable_file_number = 10;
+            fn create_valid_fake_digest_file(
+                file_path: &Path,
+                digest_messages: &[CardanoDatabaseDigestListItemMessage],
+            ) {
+                let mut file = fs::File::create(file_path).unwrap();
+                let digest_json = serde_json::to_string(&digest_messages).unwrap();
+                file.write_all(&digest_json.as_bytes()).unwrap();
+            }
 
-                let result = immutable_file_range
-                    .to_range_inclusive(last_immutable_file_number)
-                    .unwrap();
-                assert_eq!(0..=10, result);
+            fn create_invalid_fake_digest_file(file_path: &Path) {
+                let mut file = fs::File::create(file_path).unwrap();
+                file.write_all(b"incorrect-digest").unwrap();
             }
 
             #[test]
-            fn to_range_inclusive_with_from() {
-                let immutable_file_range = ImmutableFileRange::From(5);
+            fn read_digest_file_fails_when_no_digest_file() {
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "read_digest_file_fails_when_no_digest_file",
+                )
+                .build();
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
 
-                let last_immutable_file_number = 10;
-                let result = immutable_file_range
-                    .to_range_inclusive(last_immutable_file_number)
-                    .unwrap();
-                assert_eq!(5..=10, result);
-
-                let last_immutable_file_number = 3;
-                immutable_file_range
-                    .to_range_inclusive(last_immutable_file_number)
-                    .expect_err("conversion to range inlusive should fail");
+                client
+                    .read_digest_file(&target_dir)
+                    .expect_err("read_digest_file should fail");
             }
 
             #[test]
-            fn to_range_inclusive_with_range() {
-                let immutable_file_range = ImmutableFileRange::Range(5, 8);
+            fn read_digest_file_fails_when_multiple_digest_files() {
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "read_digest_file_fails_when_multiple_digest_files",
+                )
+                .build();
+                create_valid_fake_digest_file(&target_dir.join("digests.json"), &[]);
+                create_valid_fake_digest_file(&target_dir.join("digests-2.json"), &[]);
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
 
-                let last_immutable_file_number = 10;
-                let result = immutable_file_range
-                    .to_range_inclusive(last_immutable_file_number)
-                    .unwrap();
-                assert_eq!(5..=8, result);
-
-                let last_immutable_file_number = 7;
-                immutable_file_range
-                    .to_range_inclusive(last_immutable_file_number)
-                    .expect_err("conversion to range inlusive should fail");
-
-                let immutable_file_range = ImmutableFileRange::Range(10, 8);
-                immutable_file_range
-                    .to_range_inclusive(last_immutable_file_number)
-                    .expect_err("conversion to range inlusive should fail");
+                client
+                    .read_digest_file(&target_dir)
+                    .expect_err("read_digest_file should fail");
             }
 
             #[test]
-            fn to_range_inclusive_with_up_to() {
-                let immutable_file_range = ImmutableFileRange::UpTo(8);
+            fn read_digest_file_fails_when_invalid_unique_digest_file() {
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "read_digest_file_fails_when_invalid_unique_digest_file",
+                )
+                .build();
+                create_invalid_fake_digest_file(&target_dir.join("digests.json"));
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
 
-                let last_immutable_file_number = 10;
-                let result = immutable_file_range
-                    .to_range_inclusive(last_immutable_file_number)
-                    .unwrap();
-                assert_eq!(0..=8, result);
+                client
+                    .read_digest_file(&target_dir)
+                    .expect_err("read_digest_file should fail");
+            }
 
-                let last_immutable_file_number = 7;
-                immutable_file_range
-                    .to_range_inclusive(last_immutable_file_number)
-                    .expect_err("conversion to range inlusive should fail");
+            #[test]
+            fn read_digest_file_succeeds_when_valid_unique_digest_file() {
+                let target_dir = TempDir::new(
+                    "cardano_database_client",
+                    "read_digest_file_succeeds_when_valid_unique_digest_file",
+                )
+                .build();
+                let digest_messages = vec![
+                    CardanoDatabaseDigestListItemMessage {
+                        immutable_file_name: "00001.chunk".to_string(),
+                        digest: "digest-1".to_string(),
+                    },
+                    CardanoDatabaseDigestListItemMessage {
+                        immutable_file_name: "00002.chunk".to_string(),
+                        digest: "digest-2".to_string(),
+                    },
+                ];
+                create_valid_fake_digest_file(&target_dir.join("digests.json"), &digest_messages);
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                let digests = client.read_digest_file(&target_dir).unwrap();
+                assert_eq!(
+                    BTreeMap::from([
+                        ("00001.chunk".to_string(), "digest-1".to_string()),
+                        ("00002.chunk".to_string(), "digest-2".to_string())
+                    ]),
+                    digests
+                )
             }
         }
     }
+
+    mod immutable_file_range {
+        use super::*;
+
+        #[test]
+        fn to_range_inclusive_with_full() {
+            let immutable_file_range = ImmutableFileRange::Full;
+            let last_immutable_file_number = 10;
+
+            let result = immutable_file_range
+                .to_range_inclusive(last_immutable_file_number)
+                .unwrap();
+            assert_eq!(0..=10, result);
+        }
+
+        #[test]
+        fn to_range_inclusive_with_from() {
+            let immutable_file_range = ImmutableFileRange::From(5);
+
+            let last_immutable_file_number = 10;
+            let result = immutable_file_range
+                .to_range_inclusive(last_immutable_file_number)
+                .unwrap();
+            assert_eq!(5..=10, result);
+
+            let last_immutable_file_number = 3;
+            immutable_file_range
+                .to_range_inclusive(last_immutable_file_number)
+                .expect_err("conversion to range inlusive should fail");
+        }
+
+        #[test]
+        fn to_range_inclusive_with_range() {
+            let immutable_file_range = ImmutableFileRange::Range(5, 8);
+
+            let last_immutable_file_number = 10;
+            let result = immutable_file_range
+                .to_range_inclusive(last_immutable_file_number)
+                .unwrap();
+            assert_eq!(5..=8, result);
+
+            let last_immutable_file_number = 7;
+            immutable_file_range
+                .to_range_inclusive(last_immutable_file_number)
+                .expect_err("conversion to range inlusive should fail");
+
+            let immutable_file_range = ImmutableFileRange::Range(10, 8);
+            immutable_file_range
+                .to_range_inclusive(last_immutable_file_number)
+                .expect_err("conversion to range inlusive should fail");
+        }
+
+        #[test]
+        fn to_range_inclusive_with_up_to() {
+            let immutable_file_range = ImmutableFileRange::UpTo(8);
+
+            let last_immutable_file_number = 10;
+            let result = immutable_file_range
+                .to_range_inclusive(last_immutable_file_number)
+                .unwrap();
+            assert_eq!(0..=8, result);
+
+            let last_immutable_file_number = 7;
+            immutable_file_range
+                .to_range_inclusive(last_immutable_file_number)
+                .expect_err("conversion to range inlusive should fail");
+        }
+    }
+    //}
 }
