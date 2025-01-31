@@ -3,7 +3,9 @@ use std::{collections::HashMap, path::Path};
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{CompressionAlgorithm, FileUri, ImmutableFileNumber, ImmutablesLocation},
+    entities::{
+        CompressionAlgorithm, DigestLocation, FileUri, ImmutableFileNumber, ImmutablesLocation,
+    },
     StdResult,
 };
 
@@ -53,6 +55,16 @@ impl FileDownloaderUri {
 impl From<FileUri> for FileDownloaderUri {
     fn from(file_uri: FileUri) -> Self {
         Self::FileUri(file_uri)
+    }
+}
+
+impl From<DigestLocation> for FileDownloaderUri {
+    fn from(digest_location: DigestLocation) -> Self {
+        match digest_location {
+            DigestLocation::CloudStorage { uri } | DigestLocation::Aggregator { uri } => {
+                Self::FileUri(FileUri(uri))
+            }
+        }
     }
 }
 
