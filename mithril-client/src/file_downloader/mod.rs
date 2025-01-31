@@ -12,4 +12,6 @@ pub use interface::MockFileDownloader;
 pub use interface::{FileDownloader, FileDownloaderUri};
 #[cfg(test)]
 pub use resolver::MockFileDownloaderResolver;
-pub use resolver::{FileDownloaderResolver, ImmutablesFileDownloaderResolver};
+pub use resolver::{
+    DigestFileDownloaderResolver, FileDownloaderResolver, ImmutablesFileDownloaderResolver,
+};
