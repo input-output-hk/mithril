@@ -98,6 +98,7 @@ pub mod mithril_stake_distribution_client;
 pub mod snapshot_client;
 cfg_fs! {
     pub mod snapshot_downloader;
+    pub mod file_downloader;
 }
 
 mod type_alias;
