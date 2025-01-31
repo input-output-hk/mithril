@@ -2,12 +2,14 @@
 //!
 //! This module provides the necessary abstractions to download files from different sources.
 
+mod http;
 mod interface;
 #[cfg(test)]
 mod mock_builder;
 mod resolver;
 mod retry;
 
+pub use http::HttpFileDownloader;
 #[cfg(test)]
 pub use interface::MockFileDownloader;
 pub use interface::{FeedbackEventBuilder, FileDownloader, FileDownloaderUri};
