@@ -12,6 +12,8 @@ pub use multi_signer::MultiSigner;
 pub use signer_builder::{SignerBuilder, SignerBuilderError};
 pub use single_signer::SingleSigner;
 
+use crate::entities::ProtocolMessage;
+
 /// Trait to convert a type to a message that can be signed or verified by the Mithril protocol.
 pub trait ToMessage: Sync + Send {
     /// Return a String representation of the message.
@@ -27,5 +29,11 @@ impl ToMessage for String {
 impl ToMessage for &str {
     fn to_message(&self) -> String {
         self.to_string()
+    }
+}
+
+impl ToMessage for ProtocolMessage {
+    fn to_message(&self) -> String {
+        self.compute_hash()
     }
 }
