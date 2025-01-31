@@ -127,7 +127,12 @@ export default function DownloadButton({ artifactUrl, ...props }) {
         Download <DownloadIcon />
       </Button>
 
-      <Overlay target={target.current} show={show} rootClose onHide={handleClose}>
+      <Overlay
+        target={target.current}
+        show={show}
+        rootClose
+        onHide={handleClose}
+        placement="top-end">
         <Popover className={styles.downloadPopover}>
           <Popover.Header>
             Download Options{" "}
