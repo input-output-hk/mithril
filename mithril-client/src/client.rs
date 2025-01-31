@@ -18,6 +18,8 @@ use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
+#[cfg(all(feature = "fs", feature = "unstable"))]
+use crate::file_downloader::ImmutablesFileDownloaderResolver;
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
@@ -256,12 +258,20 @@ impl ClientBuilder {
             #[cfg(feature = "fs")]
             feedback_sender,
             #[cfg(feature = "fs")]
-            logger,
+            logger.clone(),
         ));
 
+        #[cfg(all(feature = "fs", feature = "unstable"))]
+        let immutable_file_downloader_resolver =
+            Arc::new(ImmutablesFileDownloaderResolver::new(Vec::new()));
         #[cfg(feature = "unstable")]
-        let cardano_database_client =
-            Arc::new(CardanoDatabaseClient::new(aggregator_client.clone()));
+        let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
+            aggregator_client.clone(),
+            #[cfg(feature = "fs")]
+            immutable_file_downloader_resolver,
+            #[cfg(feature = "fs")]
+            logger,
+        ));
 
         let cardano_transaction_client =
             Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
@@ -299,27 +309,27 @@ impl ClientBuilder {
     }
 
     cfg_unstable! {
-    /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
-    ///
-    /// Passing a `None` value will disable the cache if any was previously set.
-    pub fn with_certificate_verifier_cache(
-        mut self,
-        certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
-    ) -> ClientBuilder {
-        self.certificate_verifier_cache = certificate_verifier_cache;
-        self
-    }
+        /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
+        ///
+        /// Passing a `None` value will disable the cache if any was previously set.
+        pub fn with_certificate_verifier_cache(
+            mut self,
+            certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
+        ) -> ClientBuilder {
+            self.certificate_verifier_cache = certificate_verifier_cache;
+            self
+        }
     }
 
     cfg_fs! {
-    /// Set the [SnapshotDownloader] that will be used to download snapshots.
-    pub fn with_snapshot_downloader(
-        mut self,
-        snapshot_downloader: Arc<dyn SnapshotDownloader>,
-    ) -> ClientBuilder {
-        self.snapshot_downloader = Some(snapshot_downloader);
-        self
-    }
+        /// Set the [SnapshotDownloader] that will be used to download snapshots.
+        pub fn with_snapshot_downloader(
+            mut self,
+            snapshot_downloader: Arc<dyn SnapshotDownloader>,
+        ) -> ClientBuilder {
+            self.snapshot_downloader = Some(snapshot_downloader);
+            self
+        }
     }
 
     /// Set the [Logger] to use.
