@@ -100,8 +100,10 @@ jobs:
         run: |
           CARDANO_TRANSACTIONS_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])')
           CARDANO_STAKE_DISTRIBUTION_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])')
+          CARDANO_DATABASE_V2_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoDatabase"])')
           echo "cardano_transactions_enabled=$CARDANO_TRANSACTIONS_CAPABILITY" >> $GITHUB_OUTPUT
           echo "cardano_stake_distribution_enabled=$CARDANO_STAKE_DISTRIBUTION_CAPABILITY" >> $GITHUB_OUTPUT
+          echo "cardano_database_v2_enabled=$CARDANO_DATABASE_V2_CAPABILITY" >> $GITHUB_OUTPUT
 
       - name: Assessing aggregator capabilities (Windows)
         id: aggregator_capability_windows
@@ -111,8 +113,10 @@ jobs:
           aria2c -o aggregator_capabilities.json $AGGREGATOR_ENDPOINT
           CARDANO_TRANSACTIONS_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])' aggregator_capabilities.json)
           CARDANO_STAKE_DISTRIBUTION_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])' aggregator_capabilities.json)
+          CARDANO_DATABASE_V2_CAPABILITY=$(jq '.capabilities.signed_entity_types | contains(["CardanoDatabase"])' aggregator_capabilities.json)
           echo "cardano_transactions_enabled=$CARDANO_TRANSACTIONS_CAPABILITY" >> $GITHUB_OUTPUT
           echo "cardano_stake_distribution_enabled=$CARDANO_STAKE_DISTRIBUTION_CAPABILITY" >> $GITHUB_OUTPUT
+          echo "cardano_database_v2_enabled=$CARDANO_DATABASE_V2_CAPABILITY" >> $GITHUB_OUTPUT
 
       - name: Checkout binary
         uses: dawidd6/action-download-artifact@v6
@@ -200,6 +204,20 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH
 
+      - name: Cardano Database V2 Snapshot / list and get last hash
+        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: |
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable cardano-db-v2 snapshot list
+          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(./mithril-client --unstable cardano-db-v2 snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano Database V2 Snapshot / show snapshot
+        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client --unstable cardano-db-v2 snapshot show $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+
   test-docker:
     strategy:
       fail-fast: false
@@ -227,8 +245,10 @@ jobs:
         run: |
           CARDANO_TRANSACTIONS_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoTransactions"])')
           CARDANO_STAKE_DISTRIBUTION_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoStakeDistribution"])')
+          CARDANO_DATABASE_V2_CAPABILITY=$(wget -q -O - $AGGREGATOR_ENDPOINT | jq '.capabilities.signed_entity_types | contains(["CardanoDatabase"])')
           echo "cardano_transactions_enabled=$CARDANO_TRANSACTIONS_CAPABILITY" >> $GITHUB_OUTPUT
           echo "cardano_stake_distribution_enabled=$CARDANO_STAKE_DISTRIBUTION_CAPABILITY" >> $GITHUB_OUTPUT
+          echo "cardano_database_v2_enabled=$CARDANO_DATABASE_V2_CAPABILITY" >> $GITHUB_OUTPUT
 
       - name: Prepare Mithril client command
         id: command
@@ -295,6 +315,18 @@ jobs:
         if: steps.aggregator_capability.outputs.cardano_stake_distribution_enabled == 'true'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} cardano-stake-distribution download $CARDANO_STAKE_DISTRIBUTION_HASH --download-dir /app
+
+      - name: Cardano Database V2 Snapshot / list and get last digest
+        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        run: |
+          ${{ steps.command.outputs.mithril_client }} --unstable cardano-db-v2 snapshot list
+          echo "CARDANO_DATABASE_V2_SNAPSHOT_HASH=$(${{ steps.command.outputs.mithril_client }} --unstable cardano-db-v2 snapshot list --json | jq -r '.[0].hash')" >> $GITHUB_ENV
+
+      - name: Cardano Database V2 Snapshot / show snapshot
+        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} --unstable cardano-db-v2 snapshot show $CARDANO_DATABASE_V2_SNAPSHOT_HASH
 
   test-mithril-client-wasm:
     strategy:
