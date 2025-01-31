@@ -207,6 +207,9 @@ impl<'a> Spec<'a> {
 
             assertions::assert_node_producing_cardano_database_digests_map(&aggregator_endpoint)
                 .await?;
+
+            let mut client = self.infrastructure.build_client()?;
+            assertions::assert_client_can_verify_cardano_database(&mut client, &hash).await?;
         }
 
         // Verify that Cardano transactions artifacts are produced and signed correctly

@@ -41,6 +41,32 @@ impl CardanoDbCommand {
 }
 
 #[derive(Debug)]
+pub enum CardanoDbV2Command {
+    List,
+    Show { hash: String },
+}
+
+impl CardanoDbV2Command {
+    fn name(&self) -> String {
+        match self {
+            CardanoDbV2Command::List => "list".to_string(),
+            CardanoDbV2Command::Show { hash } => format!("show-{hash}"),
+        }
+    }
+
+    fn cli_arg(&self) -> Vec<String> {
+        match self {
+            CardanoDbV2Command::List => {
+                vec!["snapshot".to_string(), "list".to_string()]
+            }
+            CardanoDbV2Command::Show { hash } => {
+                vec!["snapshot".to_string(), "show".to_string(), hash.clone()]
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum MithrilStakeDistributionCommand {
     List,
     Download { hash: String },
@@ -137,6 +163,7 @@ pub enum ClientCommand {
     MithrilStakeDistribution(MithrilStakeDistributionCommand),
     CardanoTransaction(CardanoTransactionCommand),
     CardanoStakeDistribution(CardanoStakeDistributionCommand),
+    CardanoDbV2(CardanoDbV2Command),
 }
 
 impl ClientCommand {
@@ -151,6 +178,9 @@ impl ClientCommand {
             }
             ClientCommand::CardanoStakeDistribution(cmd) => {
                 format!("csd-{}", cmd.name())
+            }
+            ClientCommand::CardanoDbV2(cmd) => {
+                format!("cdbv2-{}", cmd.name())
             }
         }
     }
@@ -170,6 +200,11 @@ impl ClientCommand {
             }
             ClientCommand::CardanoStakeDistribution(cmd) => [
                 vec!["cardano-stake-distribution".to_string()],
+                cmd.cli_arg(),
+            ]
+            .concat(),
+            ClientCommand::CardanoDbV2(cmd) => [
+                vec!["--unstable".to_string(), "cardano-db-v2".to_string()],
                 cmd.cli_arg(),
             ]
             .concat(),

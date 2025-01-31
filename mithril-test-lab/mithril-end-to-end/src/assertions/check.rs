@@ -18,8 +18,9 @@ use mithril_common::{
 };
 
 use crate::{
-    attempt, utils::AttemptResult, CardanoDbCommand, CardanoStakeDistributionCommand,
-    CardanoTransactionCommand, Client, ClientCommand, MithrilStakeDistributionCommand,
+    attempt, utils::AttemptResult, CardanoDbCommand, CardanoDbV2Command,
+    CardanoStakeDistributionCommand, CardanoTransactionCommand, Client, ClientCommand,
+    MithrilStakeDistributionCommand,
 };
 
 async fn get_json_response<T: DeserializeOwned>(url: String) -> StdResult<reqwest::Result<T>> {
@@ -494,6 +495,23 @@ pub async fn assert_client_can_verify_snapshot(client: &mut Client, digest: &str
         }))
         .await?;
     info!("Client downloaded & restored the snapshot"; "digest" => &digest);
+
+    Ok(())
+}
+
+pub async fn assert_client_can_verify_cardano_database(
+    client: &mut Client,
+    hash: &str,
+) -> StdResult<()> {
+    client
+        .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::List))
+        .await?;
+    client
+        .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::Show {
+            hash: hash.to_string(),
+        }))
+        .await?;
+    info!("Client list & show the cardano database snapshot"; "hash" => &hash);
 
     Ok(())
 }
