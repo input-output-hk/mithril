@@ -87,8 +87,11 @@ pub enum DigestLocation {
 }
 
 /// Locations of the immutable files.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumDiscriminants,
+)]
 #[serde(rename_all = "snake_case", tag = "type")]
+#[strum_discriminants(derive(Hash))]
 pub enum ImmutablesLocation {
     /// Cloud storage location.
     CloudStorage {
