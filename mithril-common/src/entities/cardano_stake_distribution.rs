@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::signable_builder::Artifact;
-
 use super::{Epoch, StakeDistribution};
 
 /// Cardano Stake Distribution
@@ -41,13 +39,6 @@ impl CardanoStakeDistribution {
         });
 
         hex::encode(hasher.finalize())
-    }
-}
-
-#[typetag::serde]
-impl Artifact for CardanoStakeDistribution {
-    fn get_id(&self) -> String {
-        self.hash.clone()
     }
 }
 

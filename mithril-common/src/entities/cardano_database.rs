@@ -2,10 +2,7 @@ use semver::Version;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    entities::{CardanoDbBeacon, CompressionAlgorithm},
-    signable_builder::Artifact,
-};
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
 use super::MultiFilesUri;
 
@@ -118,13 +115,6 @@ pub struct ArtifactsLocations {
 
     /// Locations of the ancillary files.
     pub ancillary: Vec<AncillaryLocation>,
-}
-
-#[typetag::serde]
-impl Artifact for CardanoDatabaseSnapshot {
-    fn get_id(&self) -> String {
-        self.hash.clone()
-    }
 }
 
 #[cfg(test)]

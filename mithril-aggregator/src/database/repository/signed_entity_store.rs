@@ -165,7 +165,8 @@ impl SignedEntityStorer for SignedEntityStore {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        entities::{Epoch, MithrilStakeDistribution, SignedEntity, Snapshot},
+        entities::{Epoch, MithrilStakeDistribution, Snapshot},
+        signable_builder::SignedEntity,
         test_utils::fake_data,
     };
 

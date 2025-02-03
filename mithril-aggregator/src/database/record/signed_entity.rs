@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use mithril_common::crypto_helper::ProtocolParameters;
 use mithril_common::entities::{
-    BlockNumber, CardanoDatabaseSnapshot, Epoch, SignedEntity, SignedEntityType, Snapshot,
-    StakeDistribution,
+    BlockNumber, CardanoDatabaseSnapshot, Epoch, SignedEntityType, Snapshot, StakeDistribution,
 };
 #[cfg(test)]
 use mithril_common::entities::{CardanoStakeDistribution, MithrilStakeDistribution};
@@ -15,7 +14,7 @@ use mithril_common::messages::{
     MithrilStakeDistributionListItemMessage, MithrilStakeDistributionMessage,
     SignerWithStakeMessagePart, SnapshotListItemMessage, SnapshotMessage,
 };
-use mithril_common::signable_builder::Artifact;
+use mithril_common::signable_builder::{Artifact, SignedEntity};
 use mithril_common::StdError;
 use mithril_persistence::database::Hydrator;
 use mithril_persistence::sqlite::{HydrationError, Projection, SqLiteEntity};

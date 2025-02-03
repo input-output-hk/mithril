@@ -1,8 +1,7 @@
-use mithril_common::entities::{CardanoTransactionsSnapshot, SignedEntity};
-use mithril_common::messages::CardanoTransactionsSetProofMessagePart;
 use mithril_common::{
-    entities::{CardanoTransactionsSetProof, TransactionHash},
-    messages::CardanoTransactionsProofsMessage,
+    entities::{CardanoTransactionsSetProof, CardanoTransactionsSnapshot, TransactionHash},
+    messages::{CardanoTransactionsProofsMessage, CardanoTransactionsSetProofMessagePart},
+    signable_builder::SignedEntity,
     StdResult,
 };
 

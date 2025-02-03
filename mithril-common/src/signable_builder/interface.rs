@@ -2,7 +2,11 @@ use async_trait::async_trait;
 use std::fmt::Debug;
 
 use crate::{
-    entities::{ProtocolMessage, ProtocolMessagePartValue},
+    entities::{
+        BlockNumber, CardanoDatabaseSnapshot, CardanoDbBeacon, CardanoStakeDistribution,
+        CardanoTransactionsSnapshot, Epoch, MithrilStakeDistribution, ProtocolMessage,
+        ProtocolMessagePartValue, Snapshot,
+    },
     StdResult,
 };
 
@@ -42,4 +46,45 @@ pub trait SignableSeedBuilder: Send + Sync {
 
     /// Compute current epoch protocol message part value
     async fn compute_current_epoch(&self) -> StdResult<ProtocolMessagePartValue>;
+}
+
+impl Beacon for BlockNumber {}
+
+impl Beacon for CardanoDbBeacon {}
+
+impl Beacon for Epoch {}
+
+#[typetag::serde]
+impl Artifact for CardanoDatabaseSnapshot {
+    fn get_id(&self) -> String {
+        self.hash.clone()
+    }
+}
+
+#[typetag::serde]
+impl Artifact for CardanoStakeDistribution {
+    fn get_id(&self) -> String {
+        self.hash.clone()
+    }
+}
+
+#[typetag::serde]
+impl Artifact for CardanoTransactionsSnapshot {
+    fn get_id(&self) -> String {
+        self.hash.clone()
+    }
+}
+
+#[typetag::serde]
+impl Artifact for MithrilStakeDistribution {
+    fn get_id(&self) -> String {
+        self.hash.clone()
+    }
+}
+
+#[typetag::serde]
+impl Artifact for Snapshot {
+    fn get_id(&self) -> String {
+        self.digest.clone()
+    }
 }

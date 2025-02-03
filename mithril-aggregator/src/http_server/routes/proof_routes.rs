@@ -48,9 +48,8 @@ fn proof_cardano_transaction(
 
 mod handlers {
     use mithril_common::{
-        entities::{CardanoTransactionsSnapshot, SignedEntity},
-        messages::CardanoTransactionsProofsMessage,
-        StdResult,
+        entities::CardanoTransactionsSnapshot, messages::CardanoTransactionsProofsMessage,
+        signable_builder::SignedEntity, StdResult,
     };
     use slog::{debug, warn, Logger};
     use std::{convert::Infallible, sync::Arc};
@@ -148,9 +147,8 @@ mod tests {
     };
 
     use mithril_common::{
-        entities::{
-            BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot, SignedEntity,
-        },
+        entities::{BlockNumber, CardanoTransactionsSetProof, CardanoTransactionsSnapshot},
+        signable_builder::SignedEntity,
         test_utils::{apispec::APISpec, assert_equivalent, fake_data},
     };
 
