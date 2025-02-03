@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.44
+  version: 0.1.45
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -741,6 +741,69 @@ paths:
           description: API version mismatch
         default:
           description: Record event error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/immutable-files-restored:
+    post:
+      summary: Records Cardano database immutable files restored event
+      description: Records Cardano database immutable files restored event
+      requestBody:
+        description: Immutable files restored message
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CardanoDatabaseImmutableFilesRestoredMessage"
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/ancillary-files-restored:
+    post:
+      summary: Records Cardano database ancillary files restored event
+      description: Records Cardano database ancillary files restored event
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/complete-restoration:
+    post:
+      summary: Records Cardano database complete restoration event
+      description: Records Cardano database complete restoration event
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /statistics/cardano-database/partial-restoration:
+    post:
+      summary: Records Cardano database partial restoration event
+      description: Records Cardano database partial restoration event
+      responses:
+        "201":
+          description: Event successfully recorded
+        default:
+          description: Record event bad request
           content:
             application/json:
               schema:
@@ -1879,6 +1942,19 @@ components:
             "compression_algorithm": "zstandard",
             "cardano_node_version": "1.0.0"
           }
+
+    CardanoDatabaseImmutableFilesRestoredMessage:
+      description: CardanoDatabaseImmutableFilesRestoredMessage represents a Cardano database immutable files restored event
+      type: object
+      additionalProperties: false
+      required:
+        - nb_immutable_files
+      properties:
+        nb_immutable_files:
+          description: Number of immutable files restored
+          type: integer
+      examples:
+        - { "nb_immutable_files": 15 }
 
     CardanoDatabaseArtifactsLocationsMessagePart:
       description: CardanoDatabaseArtifactsLocationsMessagePart represents the locations of the Cardano database artifacts
