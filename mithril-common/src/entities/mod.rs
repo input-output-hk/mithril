@@ -35,9 +35,8 @@ pub use block_number::BlockNumber;
 pub use block_range::{BlockRange, BlockRangeLength, BlockRangesSequence};
 pub use cardano_chain_point::{BlockHash, ChainPoint};
 pub use cardano_database::{
-    AncillaryLocation, AncillaryLocationDiscriminants, ArtifactsLocations, CardanoDatabaseSnapshot,
-    DigestLocation, DigestLocationDiscriminants, ImmutablesLocation,
-    ImmutablesLocationDiscriminants,
+    AncillaryLocation, ArtifactsLocations, CardanoDatabaseSnapshot, DigestLocation,
+    ImmutablesLocation,
 };
 pub use cardano_db_beacon::CardanoDbBeacon;
 pub use cardano_network::CardanoNetwork;
