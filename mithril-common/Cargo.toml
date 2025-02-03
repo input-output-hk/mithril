@@ -56,7 +56,7 @@ pallas-network = { version = "0.32.0", optional = true }
 pallas-primitives = { version = "0.32.0", optional = true }
 pallas-traverse = { version = "0.32.0", optional = true }
 rand_chacha = "0.3.1"
-rand_core = "0.6.4"
+rand_core = { version = "0.6.4", features = ["getrandom"] }
 rayon = "1.10.0"
 reqwest = { version = "0.12.12", optional = true }
 semver = "1.0.24"
@@ -81,7 +81,6 @@ wasm-bindgen = "0.2.99"
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 mockall = "0.13.1"
 pallas-crypto = "0.32.0"
-rand_core = { version = "0.6.4", features = ["getrandom"] }
 reqwest = { version = "0.12.12", features = ["json"] }
 slog-async = "2.8.0"
 slog-term = "2.9.1"
@@ -94,8 +93,7 @@ mithril-build-script = { path = "../internal/mithril-build-script", version = "=
 default = ["rug-backend"]
 
 # Full feature set
-full = ["random", "fs", "test_tools"]
-random = ["rand_core/getrandom"]
+full = ["fs", "test_tools"]
 fs = [
     "tokio/fs",
     "tokio/process",
@@ -116,7 +114,7 @@ num-integer-backend = ["mithril-stm/num-integer-backend"]
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []
 # Enable all tests tools
-test_tools = ["apispec", "test_http_server", "random"]
+test_tools = ["apispec", "test_http_server"]
 # Enable tools to helps validate conformity to an OpenAPI specification
 apispec = ["dep:glob", "dep:jsonschema", "dep:warp", "dep:reqwest"]
 test_http_server = ["dep:warp"]

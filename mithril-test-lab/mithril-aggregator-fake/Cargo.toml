@@ -27,7 +27,6 @@ tracing-subscriber = "0.3.19"
 [dev-dependencies]
 mithril-common = { "path" = "../../mithril-common", features = [
     "test_tools",
-    "random",
 ] }
 reqwest = "0.12.12"
 warp = "0.3.7"
