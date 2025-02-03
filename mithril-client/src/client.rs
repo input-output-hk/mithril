@@ -18,6 +18,7 @@ use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
+use crate::file_downloader::AncillaryFileDownloaderResolver;
 #[cfg(all(feature = "fs", feature = "unstable"))]
 use crate::file_downloader::{DigestFileDownloaderResolver, ImmutablesFileDownloaderResolver};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
@@ -265,6 +266,9 @@ impl ClientBuilder {
         let immutable_file_downloader_resolver =
             Arc::new(ImmutablesFileDownloaderResolver::new(Vec::new()));
         #[cfg(all(feature = "fs", feature = "unstable"))]
+        let ancillary_file_downloader_resolver =
+            Arc::new(AncillaryFileDownloaderResolver::new(Vec::new()));
+        #[cfg(all(feature = "fs", feature = "unstable"))]
         let digest_file_downloader_resolver =
             Arc::new(DigestFileDownloaderResolver::new(Vec::new()));
         #[cfg(feature = "unstable")]
@@ -272,6 +276,8 @@ impl ClientBuilder {
             aggregator_client.clone(),
             #[cfg(feature = "fs")]
             immutable_file_downloader_resolver,
+            #[cfg(feature = "fs")]
+            ancillary_file_downloader_resolver,
             #[cfg(feature = "fs")]
             digest_file_downloader_resolver,
             #[cfg(feature = "fs")]
