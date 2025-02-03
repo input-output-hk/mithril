@@ -18,9 +18,10 @@ use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
-use crate::file_downloader::AncillaryFileDownloaderResolver;
 #[cfg(all(feature = "fs", feature = "unstable"))]
-use crate::file_downloader::{DigestFileDownloaderResolver, ImmutablesFileDownloaderResolver};
+use crate::file_downloader::{
+    AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, ImmutablesFileDownloaderResolver,
+};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
