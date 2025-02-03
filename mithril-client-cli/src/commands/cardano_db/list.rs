@@ -3,6 +3,7 @@ use cli_table::{format::Justify, print_stdout, Cell, Table};
 
 use crate::{
     commands::{client_builder_with_fallback_genesis_key, SharedArgs},
+    utils::CardanoDbUtils,
     CommandContext,
 };
 use mithril_client::MithrilResult;
@@ -39,7 +40,7 @@ impl CardanoDbListCommand {
                         format!("{}", item.beacon.immutable_file_number).cell(),
                         item.network.cell(),
                         item.digest.cell(),
-                        item.size.cell(),
+                        CardanoDbUtils::format_bytes_to_gigabytes(item.size).cell(),
                         format!("{}", item.locations.len()).cell(),
                         item.created_at.to_string().cell(),
                     ]

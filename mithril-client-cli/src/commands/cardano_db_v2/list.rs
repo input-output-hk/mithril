@@ -5,6 +5,7 @@ use mithril_client::MithrilResult;
 
 use crate::{
     commands::{client_builder_with_fallback_genesis_key, SharedArgs},
+    utils::CardanoDbUtils,
     CommandContext,
 };
 
@@ -40,7 +41,8 @@ impl CardanoDbListCommand {
                         format!("{}", item.beacon.immutable_file_number).cell(),
                         item.hash.cell(),
                         item.merkle_root.cell(),
-                        item.total_db_size_uncompressed.cell(),
+                        CardanoDbUtils::format_bytes_to_gigabytes(item.total_db_size_uncompressed)
+                            .cell(),
                         format!("{}", item.compression_algorithm).cell(),
                         item.cardano_node_version.cell(),
                         item.created_at.to_string().cell(),

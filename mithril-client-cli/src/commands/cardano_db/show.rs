@@ -4,7 +4,7 @@ use cli_table::{print_stdout, Cell, Table};
 
 use crate::{
     commands::{client_builder_with_fallback_genesis_key, SharedArgs},
-    utils::ExpanderUtils,
+    utils::{CardanoDbUtils, ExpanderUtils},
     CommandContext,
 };
 use mithril_client::MithrilResult;
@@ -70,7 +70,7 @@ impl CardanoDbShowCommand {
                 vec!["Digest".cell(), cardano_db_message.digest.cell()],
                 vec![
                     "Size".cell(),
-                    format!("{}", &cardano_db_message.size).cell(),
+                    CardanoDbUtils::format_bytes_to_gigabytes(cardano_db_message.size).cell(),
                 ],
                 vec![
                     "Cardano node version".cell(),

@@ -4,7 +4,7 @@ use cli_table::{print_stdout, Cell, CellStruct, Table};
 
 use crate::{
     commands::{client_builder_with_fallback_genesis_key, SharedArgs},
-    utils::ExpanderUtils,
+    utils::{CardanoDbUtils, ExpanderUtils},
     CommandContext,
 };
 
@@ -78,7 +78,10 @@ impl CardanoDbShowCommand {
                 vec!["Merkle root".cell(), cardano_db_message.merkle_root.cell()],
                 vec![
                     "Database size".cell(),
-                    format!("{}", &cardano_db_message.total_db_size_uncompressed).cell(),
+                    CardanoDbUtils::format_bytes_to_gigabytes(
+                        cardano_db_message.total_db_size_uncompressed,
+                    )
+                    .cell(),
                 ],
                 vec![
                     "Cardano node version".cell(),
