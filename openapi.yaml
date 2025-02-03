@@ -748,8 +748,8 @@ paths:
 
   /statistics/cardano-database/immutable-files-restored:
     post:
-      summary: Records immutable files restored event
-      description: Records immutable files restored event
+      summary: Records Cardano database immutable files restored event
+      description: Records Cardano database immutable files restored event
       requestBody:
         description: Immutable files restored message
         required: true
@@ -769,8 +769,8 @@ paths:
 
   /statistics/cardano-database/ancillary-files-restored:
     post:
-      summary: Records ancillary files restored event
-      description: Records ancillary files restored event
+      summary: Records Cardano database ancillary files restored event
+      description: Records Cardano database ancillary files restored event
       responses:
         "201":
           description: Event successfully recorded
@@ -783,8 +783,8 @@ paths:
 
   /statistics/cardano-database/complete-restoration:
     post:
-      summary: Records complete restoration event
-      description: Records complete restoration event
+      summary: Records Cardano database complete restoration event
+      description: Records Cardano database complete restoration event
       responses:
         "201":
           description: Event successfully recorded
@@ -797,8 +797,8 @@ paths:
 
   /statistics/cardano-database/partial-restoration:
     post:
-      summary: Records partial restoration event
-      description: Records partial restoration event
+      summary: Records Cardano database partial restoration event
+      description: Records Cardano database partial restoration event
       responses:
         "201":
           description: Event successfully recorded
