@@ -1,14 +1,15 @@
 use clap::Parser;
 use cli_table::{format::Justify, print_stdout, Cell, Table};
 
+use mithril_client::MithrilResult;
+
 use crate::{
     commands::{client_builder_with_fallback_genesis_key, SharedArgs},
     utils::CardanoDbUtils,
     CommandContext,
 };
-use mithril_client::MithrilResult;
 
-/// Clap command to list existing cardano dbs
+/// Clap command to list existing cardano db snapshots
 #[derive(Parser, Debug, Clone)]
 pub struct CardanoDbListCommand {
     #[clap(flatten)]
@@ -27,7 +28,7 @@ impl CardanoDbListCommand {
         let client = client_builder_with_fallback_genesis_key(&params)?
             .with_logger(context.logger().clone())
             .build()?;
-        let items = client.snapshot().list().await?;
+        let items = client.cardano_database().list().await?;
 
         if self.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&items)?);
@@ -38,10 +39,12 @@ impl CardanoDbListCommand {
                     vec![
                         format!("{}", item.beacon.epoch).cell(),
                         format!("{}", item.beacon.immutable_file_number).cell(),
-                        item.network.cell(),
-                        item.digest.cell(),
-                        CardanoDbUtils::format_bytes_to_gigabytes(item.size).cell(),
-                        format!("{}", item.locations.len()).cell(),
+                        item.hash.cell(),
+                        item.merkle_root.cell(),
+                        CardanoDbUtils::format_bytes_to_gigabytes(item.total_db_size_uncompressed)
+                            .cell(),
+                        format!("{}", item.compression_algorithm).cell(),
+                        item.cardano_node_version.cell(),
                         item.created_at.to_string().cell(),
                     ]
                 })
@@ -50,10 +53,11 @@ impl CardanoDbListCommand {
                 .title(vec![
                     "Epoch".cell(),
                     "Immutable".cell(),
-                    "Network".cell(),
-                    "Digest".cell(),
-                    "Size".cell().justify(Justify::Right),
-                    "Locations".cell().justify(Justify::Right),
+                    "Hash".cell(),
+                    "Merkle root".cell(),
+                    "Database size".cell().justify(Justify::Right),
+                    "Compression".cell(),
+                    "Cardano node".cell(),
                     "Created".cell().justify(Justify::Right),
                 ]);
             print_stdout(items)?;

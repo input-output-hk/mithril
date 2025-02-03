@@ -42,6 +42,12 @@ impl CardanoDbUtils {
             res = future => res,
         }
     }
+
+    pub fn format_bytes_to_gigabytes(bytes: u64) -> String {
+        let size_in_giga = bytes as f64 / (1024.0 * 1024.0 * 1024.0);
+
+        format!("{:.2} GiB", size_in_giga)
+    }
 }
 
 #[cfg(test)]
@@ -78,6 +84,28 @@ mod test {
             ),
             "Unexpected error: {:?}",
             error
+        );
+    }
+
+    #[test]
+    fn format_bytes_to_gigabytes_zero() {
+        let one_gigabyte = 1024 * 1024 * 1024;
+
+        assert_eq!(CardanoDbUtils::format_bytes_to_gigabytes(0), "0.00 GiB");
+
+        assert_eq!(
+            CardanoDbUtils::format_bytes_to_gigabytes(one_gigabyte),
+            "1.00 GiB"
+        );
+
+        assert_eq!(
+            CardanoDbUtils::format_bytes_to_gigabytes(one_gigabyte / 2),
+            "0.50 GiB"
+        );
+
+        assert_eq!(
+            CardanoDbUtils::format_bytes_to_gigabytes(one_gigabyte * 10),
+            "10.00 GiB"
         );
     }
 }
