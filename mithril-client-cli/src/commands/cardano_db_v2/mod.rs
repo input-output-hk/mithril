@@ -1,7 +1,9 @@
 //! Commands for the cardano db v2 artifact
+mod download;
 mod list;
 mod show;
 
+pub use download::*;
 pub use list::*;
 pub use show::*;
 
@@ -15,6 +17,10 @@ pub enum CardanoDbV2Commands {
     /// Cardano db snapshot v2 commands
     #[clap(subcommand)]
     Snapshot(CardanoDbV2SnapshotCommands),
+
+    /// Download a Cardano db v2 snapshot to restore a partial Cardano database.
+    #[clap(arg_required_else_help = true)]
+    Download(CardanoDbV2DownloadCommand),
 }
 
 /// Cardano db v2 snapshots
@@ -34,6 +40,7 @@ impl CardanoDbV2Commands {
     pub async fn execute(&self, config_builder: CommandContext) -> MithrilResult<()> {
         match self {
             Self::Snapshot(cmd) => cmd.execute(config_builder).await,
+            Self::Download(cmd) => cmd.execute(config_builder).await,
         }
     }
 }
