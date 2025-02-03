@@ -64,6 +64,7 @@ use mithril_common::{
         AncillaryLocation, CompressionAlgorithm, DigestLocation, HexEncodedDigest,
         ImmutableFileNumber, ImmutablesLocation,
     },
+    messages::CardanoDatabaseDigestListItemMessage,
     StdResult,
 };
 
@@ -214,7 +215,7 @@ impl CardanoDatabaseClient {
     }
 
     cfg_fs! {
-        /// Download and unpack the given Cardano database part data by hash.
+        /// Download and unpack the given Cardano database parts data by hash.
         // TODO: Add example in module documentation
         pub async fn download_unpack(
             &self,
@@ -248,27 +249,24 @@ impl CardanoDatabaseClient {
             .await?;
 
             let digest_locations = cardano_database_snapshot.locations.digests;
-            self.download_unpack_digest_file(&digest_locations, &Self::digest_target_dir())
+            self.download_unpack_digest_file(&digest_locations, &Self::digest_target_dir(target_dir))
                 .await?;
 
-        if download_unpack_options.include_ancillary {
-            let ancillary_locations = cardano_database_snapshot.locations.ancillary;
-            self.download_unpack_ancillary_file(
-                &ancillary_locations,
-                &compression_algorithm,
-                target_dir,
-            )
-            .await?;
+            if download_unpack_options.include_ancillary {
+                let ancillary_locations = cardano_database_snapshot.locations.ancillary;
+                self.download_unpack_ancillary_file(
+                    &ancillary_locations,
+                    &compression_algorithm,
+                    target_dir,
+                )
+                .await?;
+            }
+
+            Ok(())
         }
 
-        Ok(())
-    }
-
-        fn digest_target_dir() -> PathBuf {
-            std::env::temp_dir()
-                .join("mithril")
-                .join("cardano_database_client")
-                .join("digest")
+        fn digest_target_dir(target_dir: &Path) -> PathBuf {
+            target_dir.join("digest")
         }
 
         fn immutable_files_target_dir(target_dir: &Path) -> PathBuf {
@@ -289,6 +287,19 @@ impl CardanoDatabaseClient {
             }
 
             fs::create_dir_all(dir).map_err(|e| anyhow!("Failed creating directory: {e}"))
+        }
+
+        fn read_files_in_directory(dir: &Path) -> StdResult<Vec<PathBuf>> {
+            let mut files = vec![];
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if path.is_file() {
+                    files.push(path);
+                }
+            }
+
+            Ok(files)
         }
 
         /// Verify if the target directory is writable.
@@ -332,6 +343,8 @@ impl CardanoDatabaseClient {
         ) -> StdResult<()> {
             let immutable_files_target_dir = Self::immutable_files_target_dir(target_dir);
             Self::create_directory_if_not_exists(&immutable_files_target_dir)?;
+            let digest_target_dir = Self::digest_target_dir(target_dir);
+            Self::create_directory_if_not_exists(&digest_target_dir)?;
             if download_unpack_options.include_ancillary {
                 let volatile_target_dir = Self::volatile_target_dir(target_dir);
                 let ledger_target_dir = Self::ledger_target_dir(target_dir);
@@ -401,53 +414,53 @@ impl CardanoDatabaseClient {
                 }
             }
 
-        Err(anyhow!(
-            "Failed downloading and unpacking immutable files for locations: {locations:?}"
-        ))
-    }
-
-    /// Download and unpack the ancillary files.
-    // TODO: Add feedback receivers
-    async fn download_unpack_ancillary_file(
-        &self,
-        locations: &[AncillaryLocation],
-        compression_algorithm: &CompressionAlgorithm,
-        ancillary_file_target_dir: &Path,
-    ) -> StdResult<()> {
-        let mut locations_sorted = locations.to_owned();
-        locations_sorted.sort();
-        for location in locations_sorted {
-            let download_id = format!("{location:?}"); //TODO: check if this is the correct way to format the download_id
-            let file_downloader = self
-                .ancillary_file_downloader_resolver
-                .resolve(&location)
-                .ok_or_else(|| {
-                    anyhow!("Failed resolving a file downloader for location: {location:?}")
-                })?;
-            let file_downloader_uri: FileDownloaderUri = location.into();
-            let downloaded = file_downloader
-                .download_unpack(
-                    &file_downloader_uri,
-                    ancillary_file_target_dir,
-                    Some(compression_algorithm.to_owned()),
-                    &download_id,
-                )
-                .await;
-            match downloaded {
-                Ok(_) => return Ok(()),
-                Err(e) => {
-                    slog::error!(
-                        self.logger,
-                        "Failed downloading and unpacking ancillaries for location {file_downloader_uri:?}"; "error" => e.to_string()
-                    );
-                }
-            }
+            Err(anyhow!(
+                "Failed downloading and unpacking immutable files for locations: {locations:?}"
+            ))
         }
 
-        Err(anyhow!(
-            "Failed downloading and unpacking ancillaries for all locations"
-        ))
-    }
+        /// Download and unpack the ancillary files.
+        // TODO: Add feedback receivers
+        async fn download_unpack_ancillary_file(
+            &self,
+            locations: &[AncillaryLocation],
+            compression_algorithm: &CompressionAlgorithm,
+            ancillary_file_target_dir: &Path,
+        ) -> StdResult<()> {
+            let mut locations_sorted = locations.to_owned();
+            locations_sorted.sort();
+            for location in locations_sorted {
+                let download_id = format!("{location:?}"); //TODO: check if this is the correct way to format the download_id
+                let file_downloader = self
+                    .ancillary_file_downloader_resolver
+                    .resolve(&location)
+                    .ok_or_else(|| {
+                        anyhow!("Failed resolving a file downloader for location: {location:?}")
+                    })?;
+                let file_downloader_uri: FileDownloaderUri = location.into();
+                let downloaded = file_downloader
+                    .download_unpack(
+                        &file_downloader_uri,
+                        ancillary_file_target_dir,
+                        Some(compression_algorithm.to_owned()),
+                        &download_id,
+                    )
+                    .await;
+                match downloaded {
+                    Ok(_) => return Ok(()),
+                    Err(e) => {
+                        slog::error!(
+                            self.logger,
+                            "Failed downloading and unpacking ancillaries for location {file_downloader_uri:?}"; "error" => e.to_string()
+                        );
+                    }
+                }
+            }
+
+            Err(anyhow!(
+                "Failed downloading and unpacking ancillaries for all locations"
+            ))
+        }
 
         async fn download_unpack_digest_file(
             &self,
@@ -501,15 +514,15 @@ mod tests {
         use chrono::{DateTime, Utc};
         use mithril_common::entities::{
             AncillaryLocationDiscriminants, CardanoDbBeacon, CompressionAlgorithm,
-            DigestLocationDiscriminants, Epoch, ImmutablesLocationDiscriminants,
+            DigestLocationDiscriminants, Epoch, FileUri, ImmutablesLocationDiscriminants,
         };
-        use mockall::predicate::eq;
+        use mockall::predicate::{self, eq};
 
         use crate::{
             aggregator_client::MockAggregatorHTTPClient,
             file_downloader::{
                 AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloader,
-                ImmutablesFileDownloaderResolver,
+                ImmutablesFileDownloaderResolver, MockFileDownloader,
             },
             test_utils,
         };
@@ -628,6 +641,134 @@ mod tests {
                     Arc::new(self.digest_file_downloader_resolver),
                     test_utils::test_logger(),
                 )
+            }
+        }
+
+        type MockFileDownloaderBuilderReturningFunc = Box<
+            dyn FnMut(
+                    &FileDownloaderUri,
+                    &Path,
+                    Option<CompressionAlgorithm>,
+                    &str,
+                ) -> StdResult<()>
+                + Send
+                + 'static,
+        >;
+
+        struct MockFileDownloaderBuilder {
+            mock_file_downloader: Option<MockFileDownloader>,
+            times: usize,
+            param_file_downloader_uri: Option<FileDownloaderUri>,
+            param_target_dir: Option<PathBuf>,
+            param_compression_algorithm: Option<Option<CompressionAlgorithm>>,
+            returning_func: Option<MockFileDownloaderBuilderReturningFunc>,
+        }
+
+        impl Default for MockFileDownloaderBuilder {
+            fn default() -> Self {
+                Self {
+                    mock_file_downloader: None,
+                    times: 1,
+                    param_file_downloader_uri: None,
+                    param_target_dir: None,
+                    param_compression_algorithm: Some(Some(CompressionAlgorithm::default())),
+                    returning_func: None,
+                }
+            }
+        }
+
+        impl MockFileDownloaderBuilder {
+            fn from_mock(mock: MockFileDownloader) -> Self {
+                Self {
+                    mock_file_downloader: Some(mock),
+                    ..Self::default()
+                }
+            }
+
+            fn with_success(self) -> Self {
+                self.with_returning(Box::new(|_, _, _, _| Ok(())))
+            }
+
+            fn with_failure(self) -> Self {
+                self.with_returning(Box::new(|_, _, _, _| {
+                    Err(anyhow!("Download unpack failed"))
+                }))
+            }
+
+            fn with_times(self, times: usize) -> Self {
+                let mut self_mut = self;
+                self_mut.times = times;
+
+                self_mut
+            }
+
+            fn with_file_uri<T: AsRef<str>>(self, file_uri: T) -> Self {
+                let mut self_mut = self;
+                self_mut.param_file_downloader_uri = Some(FileDownloaderUri::FileUri(FileUri(
+                    file_uri.as_ref().to_string(),
+                )));
+
+                self_mut
+            }
+
+            fn with_target_dir(self, target_dir: PathBuf) -> Self {
+                let mut self_mut = self;
+                self_mut.param_target_dir = Some(target_dir);
+
+                self_mut
+            }
+
+            fn with_compression(self, compression: Option<CompressionAlgorithm>) -> Self {
+                let mut self_mut = self;
+                self_mut.param_compression_algorithm = Some(compression);
+
+                self_mut
+            }
+
+            fn with_returning(
+                self,
+                returning_func: MockFileDownloaderBuilderReturningFunc,
+            ) -> Self {
+                let mut self_mut = self;
+                self_mut.returning_func = Some(returning_func);
+
+                self_mut
+            }
+
+            fn build(self) -> MockFileDownloader {
+                let predicate_file_downloader_uri = predicate::function(move |u| {
+                    self.param_file_downloader_uri
+                        .as_ref()
+                        .map(|x| x == u)
+                        .unwrap_or(true)
+                });
+                let predicate_target_dir = predicate::function(move |u| {
+                    self.param_target_dir
+                        .as_ref()
+                        .map(|x| x == u)
+                        .unwrap_or(true)
+                });
+                let predicate_compression_algorithm = predicate::function(move |u| {
+                    self.param_compression_algorithm
+                        .as_ref()
+                        .map(|x| x == u)
+                        .unwrap_or(true)
+                });
+                let predicate_download_id = predicate::always();
+
+                let mut mock_file_downloader = self.mock_file_downloader.unwrap_or_default();
+                mock_file_downloader
+                    .expect_download_unpack()
+                    .with(
+                        predicate_file_downloader_uri,
+                        predicate_target_dir,
+                        predicate_compression_algorithm,
+                        predicate_download_id,
+                    )
+                    .times(self.times)
+                    .returning(self.returning_func.unwrap());
+
+                mock_file_downloader
             }
         }
 
@@ -758,14 +899,11 @@ mod tests {
                 use std::fs;
                 use std::path::Path;
 
-            use mithril_common::{
-                entities::{FileUri, ImmutablesLocationDiscriminants, MultiFilesUri, TemplateUri},
-                messages::ArtifactsLocationsMessagePart,
-                test_utils::TempDir,
-            };
-            use mockall::predicate;
-
-                use crate::file_downloader::MockFileDownloader;
+                use mithril_common::{
+                    entities::{ImmutablesLocationDiscriminants, MultiFilesUri, TemplateUri},
+                    messages::ArtifactsLocationsMessagePart,
+                    test_utils::TempDir,
+                };
 
                 use super::*;
 
@@ -860,13 +998,10 @@ mod tests {
                         .with_immutable_file_downloaders(vec![(
                             ImmutablesLocationDiscriminants::CloudStorage,
                             Arc::new({
-                                let mut mock_file_downloader = MockFileDownloader::new();
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .times(total_immutable_files as usize)
-                                    .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-
-                                mock_file_downloader
+                                MockFileDownloaderBuilder::default()
+                                    .with_times(total_immutable_files as usize)
+                                    .with_failure()
+                                    .build()
                             }),
                         )])
                         .build_cardano_database_client();
@@ -920,115 +1055,81 @@ mod tests {
                         .expect_err("download_unpack should fail");
                 }
 
-            #[tokio::test]
-            async fn download_unpack_succeeds_with_valid_range() {
-                let immutable_file_range = ImmutableFileRange::Range(1, 2);
-                let download_unpack_options = DownloadUnpackOptions {
-                    include_ancillary: true,
-                    ..DownloadUnpackOptions::default()
-                };
-                let cardano_db_snapshot_hash = &"hash-123";
-                let target_dir = TempDir::new(
-                    "cardano_database_client",
-                    "download_unpack_succeeds_with_valid_range",
-                )
-                .build();
-                let message = CardanoDatabaseSnapshot {
-                    hash: "hash-123".to_string(),
-                    locations: ArtifactsLocationsMessagePart {
-                        immutables: vec![ImmutablesLocation::CloudStorage {
-                            uri: MultiFilesUri::Template(TemplateUri(
-                                "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-                            )),
-                        }],
-                        ancillary: vec![AncillaryLocation::CloudStorage {
-                            uri: "http://whatever/ancillary.tar.gz".to_string(),
-                        }],
-                        digests: vec![DigestLocation::CloudStorage {
-                            uri: "http://whatever/digests.json".to_string(),
-                        }],
-                    },
-                    ..CardanoDatabaseSnapshot::dummy()
-                };
-                let client = CardanoDatabaseClientDependencyInjector::new()
-                    .with_http_client_mock_config(|http_client| {
-                        http_client
-                            .expect_get_content()
-                            .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                hash: "hash-123".to_string(),
-                            }))
-                            .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                    })
-                    .with_immutable_file_downloaders(vec![(
-                        ImmutablesLocationDiscriminants::CloudStorage,
-                        Arc::new({
-                            let mut mock_file_downloader = MockFileDownloader::new();
-                            mock_file_downloader
-                                .expect_download_unpack()
-                                .with(
-                                    eq(FileDownloaderUri::FileUri(FileUri(
-                                        "http://whatever/00001.tar.gz".to_string(),
-                                    ))),
-                                    eq(target_dir.join("immutable")),
-                                    eq(Some(CompressionAlgorithm::default())),
-                                    predicate::always(),
-                                )
-                                .times(1)
-                                .returning(|_, _, _, _| Ok(()));
-                            mock_file_downloader
-                                .expect_download_unpack()
-                                .with(
-                                    eq(FileDownloaderUri::FileUri(FileUri(
-                                        "http://whatever/00002.tar.gz".to_string(),
-                                    ))),
-                                    eq(target_dir.join("immutable")),
-                                    eq(Some(CompressionAlgorithm::default())),
-                                    predicate::always(),
-                                )
-                                .times(1)
-                                .returning(|_, _, _, _| Ok(()));
+                #[tokio::test]
+                async fn download_unpack_succeeds_with_valid_range() {
+                    let immutable_file_range = ImmutableFileRange::Range(1, 2);
+                    let download_unpack_options = DownloadUnpackOptions {
+                        include_ancillary: true,
+                        ..DownloadUnpackOptions::default()
+                    };
+                    let cardano_db_snapshot_hash = &"hash-123";
+                    let target_dir = TempDir::new(
+                        "cardano_database_client",
+                        "download_unpack_succeeds_with_valid_range",
+                    )
+                    .build();
+                    let message = CardanoDatabaseSnapshot {
+                        hash: "hash-123".to_string(),
+                        locations: ArtifactsLocationsMessagePart {
+                            immutables: vec![ImmutablesLocation::CloudStorage {
+                                uri: MultiFilesUri::Template(TemplateUri(
+                                    "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                                )),
+                            }],
+                            ancillary: vec![AncillaryLocation::CloudStorage {
+                                uri: "http://whatever/ancillary.tar.gz".to_string(),
+                            }],
+                            digests: vec![DigestLocation::CloudStorage {
+                                uri: "http://whatever/digests.json".to_string(),
+                            }],
+                        },
+                        ..CardanoDatabaseSnapshot::dummy()
+                    };
+                    let client = CardanoDatabaseClientDependencyInjector::new()
+                        .with_http_client_mock_config(|http_client| {
+                            http_client
+                                .expect_get_content()
+                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
+                                    hash: "hash-123".to_string(),
+                                }))
+                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                        })
+                        .with_immutable_file_downloaders(vec![(
+                            ImmutablesLocationDiscriminants::CloudStorage,
+                            Arc::new({
+                                let mock_file_downloader = MockFileDownloaderBuilder::default()
+                                    .with_file_uri("http://whatever/00001.tar.gz")
+                                    .with_target_dir(target_dir.join("immutable"))
+                                    .with_success()
+                                    .build();
 
-                            mock_file_downloader
-                        }),
-                    )])
-                    .with_ancillary_file_downloaders(vec![(
-                        AncillaryLocationDiscriminants::CloudStorage,
-                        Arc::new({
-                            let mut mock_file_downloader = MockFileDownloader::new();
-                            mock_file_downloader
-                                .expect_download_unpack()
-                                .with(
-                                    eq(FileDownloaderUri::FileUri(FileUri(
-                                        "http://whatever/ancillary.tar.gz".to_string(),
-                                    ))),
-                                    eq(target_dir.clone()),
-                                    eq(Some(CompressionAlgorithm::default())),
-                                    predicate::always(),
-                                )
-                                .times(1)
-                                .returning(|_, _, _, _| Ok(()));
-
-                            mock_file_downloader
-                        }),
-                    )])
-                    .with_digest_file_downloaders(vec![(
-                        DigestLocationDiscriminants::CloudStorage,
-                        Arc::new({
-                            let mut mock_file_downloader = MockFileDownloader::new();
-                            mock_file_downloader
-                                .expect_download_unpack()
-                                .with(
-                                    eq(FileDownloaderUri::FileUri(FileUri(
-                                        "http://whatever/digests.json".to_string(),
-                                    ))),
-                                    eq(target_dir.join("digest")),
-                                    eq(None),
-                                    predicate::always(),
-                                )
-                                .times(1)
-                                .returning(|_, _, _, _| Ok(()));
-
-                                mock_file_downloader
+                                MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                                    .with_file_uri("http://whatever/00002.tar.gz")
+                                    .with_target_dir(target_dir.join("immutable"))
+                                    .with_success()
+                                    .build()
+                            }),
+                        )])
+                        .with_ancillary_file_downloaders(vec![(
+                            AncillaryLocationDiscriminants::CloudStorage,
+                            Arc::new(
+                                MockFileDownloaderBuilder::default()
+                                    .with_file_uri("http://whatever/ancillary.tar.gz")
+                                    .with_target_dir(target_dir.clone())
+                                    .with_compression(Some(CompressionAlgorithm::default()))
+                                    .with_success()
+                                    .build(),
+                            ),
+                        )])
+                        .with_digest_file_downloaders(vec![(
+                            DigestLocationDiscriminants::CloudStorage,
+                            Arc::new({
+                                MockFileDownloaderBuilder::default()
+                                    .with_file_uri("http://whatever/digests.json")
+                                    .with_target_dir(target_dir.join("digest"))
+                                    .with_compression(None)
+                                    .with_success()
+                                    .build()
                             }),
                         )])
                         .build_cardano_database_client();
@@ -1205,6 +1306,7 @@ mod tests {
                     .build();
                     let client =
                         CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+                    assert!(!target_dir.join("digest").exists());
                     assert!(!target_dir.join("immutable").exists());
                     assert!(!target_dir.join("volatile").exists());
                     assert!(!target_dir.join("ledger").exists());
@@ -1219,6 +1321,7 @@ mod tests {
                         )
                         .unwrap();
 
+                    assert!(target_dir.join("digest").exists());
                     assert!(target_dir.join("immutable").exists());
                     assert!(!target_dir.join("volatile").exists());
                     assert!(!target_dir.join("ledger").exists());
@@ -1233,6 +1336,7 @@ mod tests {
                     .build();
                     let client =
                         CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+                    assert!(!target_dir.join("digest").exists());
                     assert!(!target_dir.join("immutable").exists());
                     assert!(!target_dir.join("volatile").exists());
                     assert!(!target_dir.join("ledger").exists());
@@ -1247,6 +1351,7 @@ mod tests {
                         )
                         .unwrap();
 
+                    assert!(target_dir.join("digest").exists());
                     assert!(target_dir.join("immutable").exists());
                     assert!(target_dir.join("volatile").exists());
                     assert!(target_dir.join("ledger").exists());
@@ -1255,12 +1360,9 @@ mod tests {
 
             mod download_unpack_immutable_files {
                 use mithril_common::{
-                    entities::{FileUri, MultiFilesUri, TemplateUri},
+                    entities::{MultiFilesUri, TemplateUri},
                     test_utils::TempDir,
                 };
-                use mockall::predicate;
-
-                use crate::file_downloader::MockFileDownloader;
 
                 use super::*;
 
@@ -1277,17 +1379,12 @@ mod tests {
                         .with_immutable_file_downloaders(vec![(
                             ImmutablesLocationDiscriminants::CloudStorage,
                             Arc::new({
-                                let mut mock_file_downloader = MockFileDownloader::new();
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .times(1)
-                                    .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
+                                let mock_file_downloader =
+                                    MockFileDownloaderBuilder::default().with_failure().build();
 
-                                mock_file_downloader
+                                MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                                    .with_success()
+                                    .build()
                             }),
                         )])
                         .build_cardano_database_client();
@@ -1322,15 +1419,12 @@ mod tests {
                     let client = CardanoDatabaseClientDependencyInjector::new()
                         .with_immutable_file_downloaders(vec![(
                             ImmutablesLocationDiscriminants::CloudStorage,
-                            Arc::new({
-                                let mut mock_file_downloader = MockFileDownloader::new();
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .times(2)
-                                    .returning(|_, _, _, _| Ok(()));
-
-                                mock_file_downloader
-                            }),
+                            Arc::new(
+                                MockFileDownloaderBuilder::default()
+                                    .with_times(2)
+                                    .with_success()
+                                    .build(),
+                            ),
                         )])
                         .build_cardano_database_client();
 
@@ -1365,212 +1459,151 @@ mod tests {
                         .with_immutable_file_downloaders(vec![(
                             ImmutablesLocationDiscriminants::CloudStorage,
                             Arc::new({
-                                let mut mock_file_downloader = MockFileDownloader::new();
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever-1/00001.tar.gz".to_string(),
-                                        ))),
-                                        eq(target_dir.clone()),
-                                        eq(Some(CompressionAlgorithm::default())),
-                                        predicate::always(),
-                                    )
-                                    .times(1)
-                                    .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever-1/00002.tar.gz".to_string(),
-                                        ))),
-                                        eq(target_dir.clone()),
-                                        eq(Some(CompressionAlgorithm::default())),
-                                        predicate::always(),
-                                    )
-                                    .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
-                                mock_file_downloader
-                                    .expect_download_unpack()
-                                    .with(
-                                        eq(FileDownloaderUri::FileUri(FileUri(
-                                            "http://whatever-2/00001.tar.gz".to_string(),
-                                        ))),
-                                        eq(target_dir.clone()),
-                                        eq(Some(CompressionAlgorithm::default())),
-                                        predicate::always(),
-                                    )
-                                    .times(1)
-                                    .returning(|_, _, _, _| Ok(()));
+                                let mock_file_downloader = MockFileDownloaderBuilder::default()
+                                    .with_file_uri("http://whatever-1/00001.tar.gz")
+                                    .with_target_dir(target_dir.clone())
+                                    .with_failure()
+                                    .build();
+                                let mock_file_downloader =
+                                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                                        .with_file_uri("http://whatever-1/00002.tar.gz")
+                                        .with_target_dir(target_dir.clone())
+                                        .with_success()
+                                        .build();
 
-                                mock_file_downloader
+                                MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                                    .with_file_uri("http://whatever-2/00001.tar.gz")
+                                    .with_target_dir(target_dir.clone())
+                                    .with_success()
+                                    .build()
                             }),
                         )])
                         .build_cardano_database_client();
 
-                client
-                    .download_unpack_immutable_files(
-                        &[
-                            ImmutablesLocation::CloudStorage {
-                                uri: MultiFilesUri::Template(TemplateUri(
-                                    "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
-                                )),
-                            },
-                            ImmutablesLocation::CloudStorage {
-                                uri: MultiFilesUri::Template(TemplateUri(
-                                    "http://whatever-2/{immutable_file_number}.tar.gz".to_string(),
-                                )),
-                            },
-                        ],
-                        immutable_file_range
-                            .to_range_inclusive(total_immutable_files)
-                            .unwrap(),
-                        &CompressionAlgorithm::default(),
-                        &target_dir,
-                    )
-                    .await
-                    .unwrap();
-            }
-        }
-
-        mod download_unpack_ancillary_file {
-
-            use mithril_common::entities::FileUri;
-            use mockall::predicate;
-
-            use crate::file_downloader::MockFileDownloader;
-
-            use super::*;
-
-            #[tokio::test]
-            async fn download_unpack_ancillary_file_fails_if_no_location_is_retrieved() {
-                let target_dir = Path::new(".");
-                let client = CardanoDatabaseClientDependencyInjector::new()
-                    .with_ancillary_file_downloaders(vec![(
-                        AncillaryLocationDiscriminants::CloudStorage,
-                        Arc::new({
-                            let mut mock_file_downloader = MockFileDownloader::new();
-                            mock_file_downloader
-                                .expect_download_unpack()
-                                .times(1)
-                                .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-
-                            mock_file_downloader
-                        }),
-                    )])
-                    .build_cardano_database_client();
-
-                client
-                    .download_unpack_ancillary_file(
-                        &[AncillaryLocation::CloudStorage {
-                            uri: "http://whatever-1/ancillary.tar.gz".to_string(),
-                        }],
-                        &CompressionAlgorithm::default(),
-                        target_dir,
-                    )
-                    .await
-                    .expect_err("download_unpack_ancillary_file should fail");
+                    client
+                        .download_unpack_immutable_files(
+                            &[
+                                ImmutablesLocation::CloudStorage {
+                                    uri: MultiFilesUri::Template(TemplateUri(
+                                        "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
+                                    )),
+                                },
+                                ImmutablesLocation::CloudStorage {
+                                    uri: MultiFilesUri::Template(TemplateUri(
+                                        "http://whatever-2/{immutable_file_number}.tar.gz".to_string(),
+                                    )),
+                                },
+                            ],
+                            immutable_file_range
+                                .to_range_inclusive(total_immutable_files)
+                                .unwrap(),
+                            &CompressionAlgorithm::default(),
+                            &target_dir,
+                        )
+                        .await
+                        .unwrap();
+                }
             }
 
-            #[tokio::test]
-            async fn download_unpack_ancillary_file_succeeds_if_at_least_one_location_is_retrieved()
-            {
-                let target_dir = Path::new(".");
-                let client = CardanoDatabaseClientDependencyInjector::new()
-                    .with_ancillary_file_downloaders(vec![(
-                        AncillaryLocationDiscriminants::CloudStorage,
-                        Arc::new({
-                            let mut mock_file_downloader = MockFileDownloader::new();
-                            mock_file_downloader
-                                .expect_download_unpack()
-                                .with(
-                                    eq(FileDownloaderUri::FileUri(FileUri(
-                                        "http://whatever-1/ancillary.tar.gz".to_string(),
-                                    ))),
-                                    eq(target_dir),
-                                    eq(Some(CompressionAlgorithm::default())),
-                                    predicate::always(),
-                                )
-                                .times(1)
-                                .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-                            mock_file_downloader
-                                .expect_download_unpack()
-                                .with(
-                                    eq(FileDownloaderUri::FileUri(FileUri(
-                                        "http://whatever-2/ancillary.tar.gz".to_string(),
-                                    ))),
-                                    eq(target_dir),
-                                    eq(Some(CompressionAlgorithm::default())),
-                                    predicate::always(),
-                                )
-                                .times(1)
-                                .returning(|_, _, _, _| Ok(()));
+            mod download_unpack_ancillary_file {
 
-                            mock_file_downloader
-                        }),
-                    )])
-                    .build_cardano_database_client();
+                use super::*;
 
-                client
-                    .download_unpack_ancillary_file(
-                        &[
-                            AncillaryLocation::CloudStorage {
+                #[tokio::test]
+                async fn download_unpack_ancillary_file_fails_if_no_location_is_retrieved() {
+                    let target_dir = Path::new(".");
+                    let client = CardanoDatabaseClientDependencyInjector::new()
+                        .with_ancillary_file_downloaders(vec![(
+                            AncillaryLocationDiscriminants::CloudStorage,
+                            Arc::new(MockFileDownloaderBuilder::default().with_failure().build()),
+                        )])
+                        .build_cardano_database_client();
+
+                    client
+                        .download_unpack_ancillary_file(
+                            &[AncillaryLocation::CloudStorage {
                                 uri: "http://whatever-1/ancillary.tar.gz".to_string(),
-                            },
-                            AncillaryLocation::CloudStorage {
-                                uri: "http://whatever-2/ancillary.tar.gz".to_string(),
-                            },
-                        ],
-                        &CompressionAlgorithm::default(),
-                        target_dir,
-                    )
-                    .await
-                    .unwrap();
+                            }],
+                            &CompressionAlgorithm::default(),
+                            target_dir,
+                        )
+                        .await
+                        .expect_err("download_unpack_ancillary_file should fail");
+                }
+
+                #[tokio::test]
+                async fn download_unpack_ancillary_file_succeeds_if_at_least_one_location_is_retrieved()
+                {
+                    let target_dir = Path::new(".");
+                    let client = CardanoDatabaseClientDependencyInjector::new()
+                        .with_ancillary_file_downloaders(vec![(
+                            AncillaryLocationDiscriminants::CloudStorage,
+                            Arc::new({
+                                let mock_file_downloader = MockFileDownloaderBuilder::default()
+                                    .with_file_uri("http://whatever-1/ancillary.tar.gz")
+                                    .with_target_dir(target_dir.to_path_buf())
+                                    .with_failure()
+                                    .build();
+
+                                MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                                    .with_file_uri("http://whatever-2/ancillary.tar.gz")
+                                    .with_target_dir(target_dir.to_path_buf())
+                                    .with_success()
+                                    .build()
+                            }),
+                        )])
+                        .build_cardano_database_client();
+
+                    client
+                        .download_unpack_ancillary_file(
+                            &[
+                                AncillaryLocation::CloudStorage {
+                                    uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                                },
+                                AncillaryLocation::CloudStorage {
+                                    uri: "http://whatever-2/ancillary.tar.gz".to_string(),
+                                },
+                            ],
+                            &CompressionAlgorithm::default(),
+                            target_dir,
+                        )
+                        .await
+                        .unwrap();
+                }
+
+                #[tokio::test]
+                async fn download_unpack_ancillary_file_succeeds_when_first_location_is_retrieved() {
+                    let target_dir = Path::new(".");
+                    let client = CardanoDatabaseClientDependencyInjector::new()
+                        .with_ancillary_file_downloaders(vec![(
+                            AncillaryLocationDiscriminants::CloudStorage,
+                            Arc::new(
+                                MockFileDownloaderBuilder::default()
+                                    .with_file_uri("http://whatever-1/ancillary.tar.gz")
+                                    .with_target_dir(target_dir.to_path_buf())
+                                    .with_success()
+                                    .build(),
+                            ),
+                        )])
+                        .build_cardano_database_client();
+
+                    client
+                        .download_unpack_ancillary_file(
+                            &[
+                                AncillaryLocation::CloudStorage {
+                                    uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                                },
+                                AncillaryLocation::CloudStorage {
+                                    uri: "http://whatever-2/ancillary.tar.gz".to_string(),
+                                },
+                            ],
+                            &CompressionAlgorithm::default(),
+                            target_dir,
+                        )
+                        .await
+                        .unwrap();
+                }
             }
-
-            #[tokio::test]
-            async fn download_unpack_ancillary_file_succeeds_when_first_location_is_retrieved() {
-                let target_dir = Path::new(".");
-                let client = CardanoDatabaseClientDependencyInjector::new()
-                    .with_ancillary_file_downloaders(vec![(
-                        AncillaryLocationDiscriminants::CloudStorage,
-                        Arc::new({
-                            let mut mock_file_downloader = MockFileDownloader::new();
-                            mock_file_downloader
-                                .expect_download_unpack()
-                                .with(
-                                    eq(FileDownloaderUri::FileUri(FileUri(
-                                        "http://whatever-1/ancillary.tar.gz".to_string(),
-                                    ))),
-                                    eq(target_dir),
-                                    eq(Some(CompressionAlgorithm::default())),
-                                    predicate::always(),
-                                )
-                                .times(1)
-                                .returning(|_, _, _, _| Ok(()));
-
-                            mock_file_downloader
-                        }),
-                    )])
-                    .build_cardano_database_client();
-
-                client
-                    .download_unpack_ancillary_file(
-                        &[
-                            AncillaryLocation::CloudStorage {
-                                uri: "http://whatever-1/ancillary.tar.gz".to_string(),
-                            },
-                            AncillaryLocation::CloudStorage {
-                                uri: "http://whatever-2/ancillary.tar.gz".to_string(),
-                            },
-                        ],
-                        &CompressionAlgorithm::default(),
-                        target_dir,
-                    )
-                    .await
-                    .unwrap();
-            }
-        }
 
             mod download_unpack_digest_file {
 
@@ -1585,27 +1618,21 @@ mod tests {
                         .with_digest_file_downloaders(vec![
                             (
                                 DigestLocationDiscriminants::CloudStorage,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-
-                                    mock_file_downloader
-                                }),
+                                Arc::new(
+                                    MockFileDownloaderBuilder::default()
+                                        .with_compression(None)
+                                        .with_failure()
+                                        .build(),
+                                ),
                             ),
                             (
                                 DigestLocationDiscriminants::Aggregator,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-
-                                    mock_file_downloader
-                                }),
+                                Arc::new(
+                                    MockFileDownloaderBuilder::default()
+                                        .with_compression(None)
+                                        .with_failure()
+                                        .build(),
+                                ),
                             ),
                         ])
                         .build_cardano_database_client();
@@ -1614,13 +1641,13 @@ mod tests {
                         .download_unpack_digest_file(
                             &[
                                 DigestLocation::CloudStorage {
-                                    uri: "http://whatever-1/digest.txt".to_string(),
+                                    uri: "http://whatever-1/digests.json".to_string(),
                                 },
                                 DigestLocation::Aggregator {
                                     uri: "http://whatever-2/digest".to_string(),
                                 },
                             ],
-                            &target_dir,
+                            target_dir,
                         )
                         .await
                         .expect_err("download_unpack_digest_file should fail");
@@ -1633,27 +1660,21 @@ mod tests {
                         .with_digest_file_downloaders(vec![
                             (
                                 DigestLocationDiscriminants::CloudStorage,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Err(anyhow!("Download failed")));
-
-                                    mock_file_downloader
-                                }),
+                                Arc::new(
+                                    MockFileDownloaderBuilder::default()
+                                        .with_compression(None)
+                                        .with_failure()
+                                        .build(),
+                                ),
                             ),
                             (
                                 DigestLocationDiscriminants::Aggregator,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Ok(()));
-
-                                    mock_file_downloader
-                                }),
+                                Arc::new(
+                                    MockFileDownloaderBuilder::default()
+                                        .with_compression(None)
+                                        .with_success()
+                                        .build(),
+                                ),
                             ),
                         ])
                         .build_cardano_database_client();
@@ -1662,13 +1683,13 @@ mod tests {
                         .download_unpack_digest_file(
                             &[
                                 DigestLocation::CloudStorage {
-                                    uri: "http://whatever-1/digest.txt".to_string(),
+                                    uri: "http://whatever-1/digests.json".to_string(),
                                 },
                                 DigestLocation::Aggregator {
                                     uri: "http://whatever-2/digest".to_string(),
                                 },
                             ],
-                            &target_dir,
+                            target_dir,
                         )
                         .await
                         .unwrap();
@@ -1681,15 +1702,12 @@ mod tests {
                         .with_digest_file_downloaders(vec![
                             (
                                 DigestLocationDiscriminants::CloudStorage,
-                                Arc::new({
-                                    let mut mock_file_downloader = MockFileDownloader::new();
-                                    mock_file_downloader
-                                        .expect_download_unpack()
-                                        .times(1)
-                                        .returning(|_, _, _, _| Ok(()));
-
-                                    mock_file_downloader
-                                }),
+                                Arc::new(
+                                    MockFileDownloaderBuilder::default()
+                                        .with_compression(None)
+                                        .with_success()
+                                        .build(),
+                                ),
                             ),
                             (
                                 DigestLocationDiscriminants::Aggregator,
@@ -1702,13 +1720,13 @@ mod tests {
                         .download_unpack_digest_file(
                             &[
                                 DigestLocation::CloudStorage {
-                                    uri: "http://whatever-1/digest.txt".to_string(),
+                                    uri: "http://whatever-1/digests.json".to_string(),
                                 },
                                 DigestLocation::Aggregator {
                                     uri: "http://whatever-2/digest".to_string(),
                                 },
                             ],
-                            &target_dir,
+                            target_dir,
                         )
                         .await
                         .unwrap();
