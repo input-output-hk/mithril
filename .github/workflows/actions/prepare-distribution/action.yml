@@ -101,6 +101,13 @@ runs:
         ## Linux Requirements
         The Linux binaries target \`glibc\`: to run them or install the \`.deb\` packages you must have \`glibc\` version \`2.31+\` installed.
         Compatible systems include, but are not limited to, \`Ubuntu 20.04+\` or \`Debian 11+\` (Bullseye)).
+
+        > [!WARNING]
+        > After the release of distribution `2506`, the minimum required  \`glibc\` version for Linux binaries
+        > will be raised to \`2.35\`.
+        > Compatible systems include, but are not limited to, \`Ubuntu 22.04+\` or \`Debian 12+\` (Bookworm)).
+        >
+        > If you using a system with an older version of \`glibc\`, you will need to compile the binaries from source.
         EOF
 
     - name: Fetch the latest version of the unstable tag
