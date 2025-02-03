@@ -4,7 +4,8 @@ use async_trait::async_trait;
 
 use mithril_common::{
     entities::{
-        CompressionAlgorithm, DigestLocation, FileUri, ImmutableFileNumber, ImmutablesLocation,
+        AncillaryLocation, CompressionAlgorithm, DigestLocation, FileUri, ImmutableFileNumber,
+        ImmutablesLocation,
     },
     StdResult,
 };
@@ -55,6 +56,14 @@ impl FileDownloaderUri {
 impl From<FileUri> for FileDownloaderUri {
     fn from(file_uri: FileUri) -> Self {
         Self::FileUri(file_uri)
+    }
+}
+
+impl From<AncillaryLocation> for FileDownloaderUri {
+    fn from(digest_location: AncillaryLocation) -> Self {
+        match digest_location {
+            AncillaryLocation::CloudStorage { uri } => Self::FileUri(FileUri(uri)),
+        }
     }
 }
 
