@@ -65,12 +65,10 @@ upgrade: clean install
 		react-chartjs-2@latest \
 		react-dom@latest \
 		react-redux@latest \
-		@fast-check/jest@latest \
 		@testing-library/jest-dom@latest \
 		@testing-library/react@latest \
 		eslint@latest \
 		eslint-config-next@latest \
-		@fast-check/jest@latest \
 		fantasticon@latest \
 		jest@latest \
 		jest-environment-jsdom@latest \

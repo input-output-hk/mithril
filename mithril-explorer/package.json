@@ -27,13 +27,11 @@
     "react-redux": "^9.2.0"
   },
   "devDependencies": {
-    "@fast-check/jest": "^2.0.3",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "eslint": "^9.18.0",
     "eslint-config-next": "^15.1.5",
     "fantasticon": "^3.0.0",
-    "fast-check": "^3.23.2",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "next-router-mock": "^0.9.13",

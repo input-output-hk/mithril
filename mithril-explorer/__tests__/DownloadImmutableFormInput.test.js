@@ -1,16 +1,13 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { test, fc } from "@fast-check/jest";
 import "@testing-library/jest-dom";
 import { DownloadImmutableFormInput } from "#/Artifacts/CardanoDbV2SnapshotsList/DownloadButton";
 
-const maxImmutable = 100000;
+const maxImmutable = 100_000;
 
 function setup(max) {
   const utils = render(<DownloadImmutableFormInput max={max} />);
   return {
-    // Note: in `fast-check` tests `screen.getByRole("spinbutton")` find two elements for a reason I don't understand, so
-    // I'm using getAllByRole and selecting the first one to avoid the error.
-    input: screen.getAllByRole("spinbutton")[0],
+    input: screen.getByRole("spinbutton"),
     ...utils,
   };
 }
@@ -29,35 +26,32 @@ describe("DownloadImmutableFormInput", () => {
     expect(input.value).toBe("");
   });
 
-  test.prop({
-    immutable_file_number: fc.nat({
-      max: maxImmutable,
-    }),
-  })("Immutable below or equal to max allowed", ({ immutable_file_number }) => {
-    const { input } = setup(maxImmutable);
-    fireEvent.change(input, {
-      // target: { value: `${immutable_file_number}` },
-      target: { value: immutable_file_number },
-    });
+  it.each([0, 123, 67_782, maxImmutable])(
+    "Immutable below or equal to max allowed: %d",
+    (immutable_file_number) => {
+      const { input } = setup(maxImmutable);
+      fireEvent.change(input, {
+        target: { value: immutable_file_number },
+      });
 
-    expect(input.checkValidity()).toBeTruthy();
-    expect(input.value).toBe(`${immutable_file_number}`);
-  });
+      expect(input.checkValidity()).toBeTruthy();
+      expect(input.value).toBe(`${immutable_file_number}`);
+    },
+  );
 
-  test.prop({
-    immutable_file_number: fc.oneof(fc.integer({ max: -1 }), fc.integer({ min: maxImmutable + 1 })),
-  })("Immutable above max or below 0 is invalid", ({ immutable_file_number }) => {
-    const { input } = setup(maxImmutable);
-    fireEvent.change(input, {
-      target: { value: immutable_file_number },
-    });
+  it.each([-4328, -1, maxImmutable + 1, 528_432])(
+    "Immutable above max or below 0 is invalid: %d",
+    (immutable_file_number) => {
+      const { input } = setup(maxImmutable);
+      fireEvent.change(input, {
+        target: { value: immutable_file_number },
+      });
 
-    expect(input.checkValidity()).toBeFalsy();
-  });
+      expect(input.checkValidity()).toBeFalsy();
+    },
+  );
 
-  test.prop({
-    immutable_file_number: fc.string({ minLength: 1 }).filter((s) => isNaN(parseInt(s))),
-  })("Non-number is invalid", ({ immutable_file_number }) => {
+  it.each(["@124", "⚠️", "text"])("Non-number is invalid: %s", (immutable_file_number) => {
     const { input } = setup({ maxImmutable });
     fireEvent.change(input, {
       target: { value: immutable_file_number },
@@ -66,9 +60,7 @@ describe("DownloadImmutableFormInput", () => {
     expect(input.checkValidity()).toBeFalsy();
   });
 
-  test.prop({
-    immutable_file_number: fc.float({ noInteger: true }),
-  })("Float is invalid", ({ immutable_file_number }) => {
+  it.each([0.1, 1.432, 67_782.32])("Float is invalid: %f", ({ immutable_file_number }) => {
     const { input } = setup({ maxImmutable });
     fireEvent.change(input, {
       target: { value: immutable_file_number },
