@@ -7,7 +7,10 @@ use std::{
 use anyhow::Context;
 use clap::Parser;
 
-use mithril_client::{CardanoDatabaseSnapshot, Client, MithrilCertificate, MithrilResult};
+use mithril_client::{
+    cardano_database_client::ImmutableFileRange, common::ImmutableFileNumber,
+    CardanoDatabaseSnapshot, Client, MithrilCertificate, MithrilResult,
+};
 
 use crate::{
     commands::{client_builder, SharedArgs},
@@ -39,12 +42,47 @@ pub struct CardanoDbV2DownloadCommand {
     /// Genesis Verification Key to check the certificate chain.
     #[clap(long, env = "GENESIS_VERIFICATION_KEY")]
     genesis_verification_key: Option<String>,
+
+    /// The first immutable file number to download.
+    ///
+    /// If not set, the download process will start from the first immutable file.
+    #[clap(long)]
+    start: Option<ImmutableFileNumber>,
+
+    /// The last immutable file number to download.
+    ///
+    /// If not set, the download will continue until the last certified immutable file.
+    #[clap(long)]
+    end: Option<ImmutableFileNumber>,
+
+    /// Include ancillary files in the download.
+    ///
+    /// By default, only immutable files are downloaded.
+    /// The ledger files, volatile files, and the latest unfinished immutable files are not taken into account.
+    #[clap(long)]
+    include_ancillary: bool,
+
+    /// Allow existing files in the download directory to be overridden.
+    #[clap(long)]
+    allow_override: bool,
 }
 
 impl CardanoDbV2DownloadCommand {
     /// Is JSON output enabled
     pub fn is_json_output_enabled(&self) -> bool {
         self.shared_args.json
+    }
+
+    fn immutable_file_range(
+        start: Option<ImmutableFileNumber>,
+        end: Option<ImmutableFileNumber>,
+    ) -> ImmutableFileRange {
+        match (start, end) {
+            (None, None) => ImmutableFileRange::Full,
+            (Some(start), None) => ImmutableFileRange::From(start),
+            (Some(start), Some(end)) => ImmutableFileRange::Range(start, end),
+            (None, Some(end)) => ImmutableFileRange::UpTo(end),
+        }
     }
 
     /// Command execution
@@ -89,7 +127,13 @@ impl CardanoDbV2DownloadCommand {
             .await?
             .with_context(|| format!("Can not get the cardano db for hash: '{}'", self.hash))?;
 
-        Self::check_local_disk_info(1, &progress_printer, &db_dir, &cardano_db_message)?;
+        Self::check_local_disk_info(
+            1,
+            &progress_printer,
+            &db_dir,
+            &cardano_db_message,
+            self.allow_override,
+        )?;
 
         let _certificate = Self::fetch_certificate_and_verifying_chain(
             2,
@@ -99,6 +143,9 @@ impl CardanoDbV2DownloadCommand {
         )
         .await?;
 
+        // TODO: call `mithril-client` to download & unpack the partial Cardano database.
+        let _range = Self::immutable_file_range(self.start, self.end);
+
         Ok(())
     }
 
@@ -107,6 +154,7 @@ impl CardanoDbV2DownloadCommand {
         progress_printer: &ProgressPrinter,
         db_dir: &Path,
         cardano_db: &CardanoDatabaseSnapshot,
+        allow_override: bool,
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
 
@@ -114,6 +162,7 @@ impl CardanoDbV2DownloadCommand {
         if let Err(e) = CardanoDbDownloadChecker::check_prerequisites_for_uncompressed_data(
             db_dir,
             cardano_db.total_db_size_uncompressed,
+            allow_override,
         ) {
             progress_printer
                 .report_step(step_number, &CardanoDbUtils::check_disk_space_error(e)?)?;
@@ -174,5 +223,46 @@ impl ConfigSource for CardanoDbV2DownloadCommand {
         }
 
         Ok(map)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn immutable_file_range_without_start_without_end_returns_variant_full() {
+        let range = CardanoDbV2DownloadCommand::immutable_file_range(None, None);
+
+        assert_eq!(range, ImmutableFileRange::Full);
+    }
+
+    #[test]
+    fn immutable_file_range_with_start_without_end_returns_variant_from() {
+        let start = Some(12);
+
+        let range = CardanoDbV2DownloadCommand::immutable_file_range(start, None);
+
+        assert_eq!(range, ImmutableFileRange::From(12));
+    }
+
+    #[test]
+    fn immutable_file_range_with_start_with_end_returns_variant_range() {
+        let start = Some(12);
+        let end = Some(345);
+
+        let range = CardanoDbV2DownloadCommand::immutable_file_range(start, end);
+
+        assert_eq!(range, ImmutableFileRange::Range(12, 345));
+    }
+
+    #[test]
+    fn immutable_file_range_without_start_with_end_returns_variant_up_to() {
+        let end = Some(345);
+
+        let range = CardanoDbV2DownloadCommand::immutable_file_range(None, end);
+
+        assert_eq!(range, ImmutableFileRange::UpTo(345));
     }
 }

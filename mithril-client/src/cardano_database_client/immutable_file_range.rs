@@ -5,7 +5,7 @@ use anyhow::anyhow;
 use mithril_common::{entities::ImmutableFileNumber, StdResult};
 
 /// Immutable file range representation
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum ImmutableFileRange {
     /// From the first (included) to the last immutable file number (included)
     Full,

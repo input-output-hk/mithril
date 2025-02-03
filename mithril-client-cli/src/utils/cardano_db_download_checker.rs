@@ -86,8 +86,11 @@ impl CardanoDbDownloadChecker {
     pub fn check_prerequisites_for_uncompressed_data(
         pathdir: &Path,
         total_size_uncompressed: u64,
+        allow_override: bool,
     ) -> MithrilResult<()> {
-        Self::check_path_is_an_empty_dir(pathdir)?;
+        if !allow_override {
+            Self::check_path_is_an_empty_dir(pathdir)?;
+        }
         Self::check_dir_writable(pathdir)?;
         Self::check_disk_space_for_uncompressed_data(pathdir, total_size_uncompressed)
     }
@@ -315,6 +318,42 @@ mod test {
             uncompressed_data_size,
         )
         .expect("check_disk_space_for_uncompressed_data should not fail");
+    }
+
+    #[test]
+    fn check_prerequisites_for_uncompressed_data_return_error_without_allow_override_and_directory_not_empty(
+    ) {
+        let pathdir = create_temporary_empty_directory(
+            "return_error_without_allow_override_and_directory_not_empty",
+        );
+        fs::create_dir_all(&pathdir).unwrap();
+        fs::File::create(pathdir.join("file.txt")).unwrap();
+
+        let error =
+            CardanoDbDownloadChecker::check_prerequisites_for_uncompressed_data(&pathdir, 0, false)
+                .expect_err("check_prerequisites_for_uncompressed_data should fail");
+
+        assert!(
+            matches!(
+                error.downcast_ref::<CardanoDbDownloadCheckerError>(),
+                Some(CardanoDbDownloadCheckerError::UnpackDirectoryNotEmpty(_))
+            ),
+            "Unexpected error: {:?}",
+            error
+        );
+    }
+
+    #[test]
+    fn check_prerequisites_for_uncompressed_data_do_not_return_error_without_allow_override_and_directory_not_empty(
+    ) {
+        let pathdir = create_temporary_empty_directory(
+            "do_not_return_error_without_allow_override_and_directory_not_empty",
+        );
+        fs::create_dir_all(&pathdir).unwrap();
+        fs::File::create(pathdir.join("file.txt")).unwrap();
+
+        CardanoDbDownloadChecker::check_prerequisites_for_uncompressed_data(&pathdir, 0, true)
+            .expect("check_prerequisites_for_uncompressed_data should not fail");
     }
 
     // Those test are not on Windows because `set_readonly` is ignored for directories on Windows 7+
