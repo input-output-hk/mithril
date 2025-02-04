@@ -12,15 +12,12 @@ pub struct CardanoDbUtils;
 impl CardanoDbUtils {
     /// Handle the error return by `check_prerequisites`
     pub fn check_disk_space_error(error: MithrilError) -> MithrilResult<String> {
-        if let Some(CardanoDbDownloadCheckerError::NotEnoughSpace {
-            left_space: _,
-            pathdir: _,
-            archive_size: _,
-        }) = error.downcast_ref::<CardanoDbDownloadCheckerError>()
-        {
-            Ok(format!("Warning: {}", error))
-        } else {
-            Err(error)
+        match error.downcast_ref::<CardanoDbDownloadCheckerError>() {
+            Some(CardanoDbDownloadCheckerError::NotEnoughSpaceForArchive { .. })
+            | Some(CardanoDbDownloadCheckerError::NotEnoughSpaceForUncompressedData { .. }) => {
+                Ok(format!("Warning: {}", error))
+            }
+            _ => Err(error),
         }
     }
 
@@ -56,12 +53,30 @@ mod test {
     use std::path::PathBuf;
 
     #[test]
-    fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space() {
-        let not_enough_space_error = CardanoDbDownloadCheckerError::NotEnoughSpace {
+    fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_archive(
+    ) {
+        let not_enough_space_error = CardanoDbDownloadCheckerError::NotEnoughSpaceForArchive {
             left_space: 1_f64,
             pathdir: PathBuf::new(),
             archive_size: 2_f64,
         };
+        let expected = format!("Warning: {}", not_enough_space_error);
+
+        let result = CardanoDbUtils::check_disk_space_error(anyhow!(not_enough_space_error))
+            .expect("check_disk_space_error should not error");
+
+        assert!(result.contains(&expected));
+    }
+
+    #[test]
+    fn check_disk_space_error_should_return_warning_message_if_error_is_not_enough_space_for_uncompressed_data(
+    ) {
+        let not_enough_space_error =
+            CardanoDbDownloadCheckerError::NotEnoughSpaceForUncompressedData {
+                left_space: 1_f64,
+                pathdir: PathBuf::new(),
+                db_size: 2_f64,
+            };
         let expected = format!("Warning: {}", not_enough_space_error);
 
         let result = CardanoDbUtils::check_disk_space_error(anyhow!(not_enough_space_error))
