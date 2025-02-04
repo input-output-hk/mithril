@@ -46,7 +46,7 @@ on:
         type: string
       docker_image_id:
         type: string
-        default: latest
+        default: unstable
       network:
         type: string
         default: preview
