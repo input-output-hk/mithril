@@ -14,10 +14,10 @@ cfg_test_tools! {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CardanoTransactionsSetProof {
     /// Hashes of the certified transactions
-    pub transactions_hashes: Vec<TransactionHash>,
+    pub(crate) transactions_hashes: Vec<TransactionHash>,
 
     /// Proof of the transactions
-    pub transactions_proof: ProtocolMkProof,
+    pub(crate) transactions_proof: ProtocolMkProof,
 }
 
 impl CardanoTransactionsSetProof {
