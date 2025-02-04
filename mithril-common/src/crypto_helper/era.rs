@@ -54,6 +54,16 @@ impl EraMarkersSigner {
         Self::create_test_signer(rng)
     }
 
+    /// Get the [EraMarkersVerifierSecretKey]
+    pub fn secret_key(&self) -> EraMarkersVerifierSecretKey {
+        self.secret_key.clone()
+    }
+
+    /// Get the [EraMarkersVerifierVerificationKey]
+    pub fn verification_key(&self) -> EraMarkersVerifierVerificationKey {
+        self.secret_key.verifying_key().into()
+    }
+
     /// [EraMarkersSigner] from [EraMarkersVerifierSecretKey]
     pub fn from_secret_key(secret_key: EraMarkersVerifierSecretKey) -> Self {
         Self { secret_key }

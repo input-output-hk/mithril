@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 use anyhow::anyhow;
 use mithril_common::{
     chain_observer::{TxDatumBuilder, TxDatumFieldValue},
@@ -56,14 +58,39 @@ impl EraTools {
             .build()?;
         Ok(tx_datum.0)
     }
+
+    /// Export the era keypair to a folder and returns the paths to the files (secret key, verification_key)
+    pub fn create_and_save_era_keypair(keypair_path: &Path) -> StdResult<(PathBuf, PathBuf)> {
+        let era_signer = EraMarkersSigner::create_non_deterministic_signer();
+        let era_secret_key_path = keypair_path.join("era.sk");
+        era_signer
+            .secret_key()
+            .write_json_hex_to_file(&era_secret_key_path)?;
+        let era_verification_key_path = keypair_path.join("era.vk");
+        era_signer
+            .verification_key()
+            .write_json_hex_to_file(&era_verification_key_path)?;
+
+        Ok((era_secret_key_path, era_verification_key_path))
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::{
+        crypto_helper::{EraMarkersVerifierSecretKey, EraMarkersVerifierVerificationKey},
+        test_utils::TempDir,
+    };
+    use std::fs::read_to_string;
+
     use super::*;
 
     fn build_tools() -> EraTools {
         EraTools {}
+    }
+
+    fn get_temp_dir(dir_name: &str) -> PathBuf {
+        TempDir::create("era", dir_name)
     }
 
     #[test]
@@ -91,5 +118,26 @@ mod tests {
         let _ = era_tools
             .generate_tx_datum(Epoch(3), Some(Epoch(2)), &era_markers_signer)
             .expect_err("generate_tx_datum should have failed");
+    }
+
+    #[test]
+    fn test_create_and_save_era_keypair() {
+        let temp_dir = get_temp_dir("test_create_and_save_era_keypair");
+        let (era_secret_key_path, era_verification_key_path) =
+            EraTools::create_and_save_era_keypair(&temp_dir)
+                .expect("Failed to create and save era keypair");
+        let era_secret_key = EraMarkersVerifierSecretKey::from_json_hex(
+            &read_to_string(&era_secret_key_path).expect("Failed to read era secret key file"),
+        )
+        .expect("Failed to parse era secret key");
+        let era_verification_key = EraMarkersVerifierVerificationKey::from_json_hex(
+            &read_to_string(&era_verification_key_path)
+                .expect("Failed to read era verification key file"),
+        )
+        .expect("Failed to parse era verification key");
+        let era_verifier = EraMarkersSigner::from_secret_key(era_secret_key).create_verifier();
+
+        let expected_era_verification_key = era_verifier.to_verification_key();
+        assert_eq!(expected_era_verification_key, era_verification_key);
     }
 }
