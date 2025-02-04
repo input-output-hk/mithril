@@ -3689,7 +3689,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-cli"
-version = "0.10.9"
+version = "0.10.10"
 dependencies = [
  "anyhow",
  "async-trait",
