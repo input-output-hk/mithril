@@ -5,23 +5,45 @@ set -e
 # Function to display usage
 usage() {
   echo "Install or upgrade a Mithril node"
-  echo "Usage: $0 [-n node] [-v version] [-d distribution] [-p path]"
+  echo "Usage: $0 [-c node] [-v version] [-d distribution] [-p path]"
   echo "  -c node          : Mithril node to install or upgrade (mithril-signer, mithril-aggregator, mithril-client)"
   echo "  -d distribution  : Distribution to upgrade to (latest, unstable or distribution version e.g '2445.0')"
   echo "  -p path          : Path to install the component"
   exit 1
 }
 
-# Default values
-DISTRIBUTION="latest"
-GITHUB_ORGANIZATION="input-output-hk"
-GITHUB_REPOSITORY="mithril"
-
 # Function to display an error message and exit
 error_exit() {
   echo "$1" 1>&2
   exit 1
 }
+
+# Function to check that required tools are installed
+check_requirements() {
+    which curl >/dev/null ||
+        error_exit "It seems 'curl' is not installed or not in the path.";
+    which jq >/dev/null ||
+        error_exit "It seems 'jq' is not installed or not in the path.";
+}
+
+check_glibc_min_version() {
+  glibc_version=$(ldd --version | awk 'NR==1{print $NF}')
+
+  if [ "$(echo "$glibc_version" | grep -cE "2\.3[1-4]")" -gt 0 ]; then
+    echo "Warning: Mithril support for your GLIBC version $glibc_version is deprecated. The minimum required version will be bumped to 2.35 for distributions released from March 2025 onwards."
+  elif [ "$(echo "$glibc_version" | grep -cE -e "2\.[0-2][0-9]" -e "2\.30")" -gt 0 ]; then
+    error_exit "Error: Your GLIBC version is $glibc_version, but the minimum required version is 2.31."
+  fi
+}
+
+# --- MAIN execution ---
+
+# Default values
+DISTRIBUTION="latest"
+GITHUB_ORGANIZATION="input-output-hk"
+GITHUB_REPOSITORY="mithril"
+
+check_requirements
 
 # Parse command line arguments
 while getopts "c:v:d:p:" opt; do
@@ -47,6 +69,7 @@ OS_CODE=$(echo "$OS" | awk '{print tolower($0)}')
 
 case "$OS" in
   Linux)
+    check_glibc_min_version
     ;;
   Darwin)
     OS_CODE="macos"
