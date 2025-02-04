@@ -85,6 +85,11 @@ pub struct Args {
 
 impl Args {
     pub async fn execute(&self, root_logger: Logger) -> MithrilResult<()> {
+        debug!(
+            root_logger,
+            "Mithril client CLI version: {}",
+            env!("CARGO_PKG_VERSION")
+        );
         debug!(root_logger, "Run Mode: {}", self.run_mode);
         let filename = format!("{}/{}.json", self.config_directory.display(), self.run_mode);
         debug!(root_logger, "Reading configuration file '{filename}'.");
