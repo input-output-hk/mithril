@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::signable_builder::Artifact;
-
 use super::BlockNumber;
 
 /// Snapshot of a set of Cardano transactions
@@ -37,13 +35,6 @@ impl CardanoTransactionsSnapshot {
         hasher.update(self.block_number.to_be_bytes());
 
         hex::encode(hasher.finalize())
-    }
-}
-
-#[typetag::serde]
-impl Artifact for CardanoTransactionsSnapshot {
-    fn get_id(&self) -> String {
-        self.hash.clone()
     }
 }
 

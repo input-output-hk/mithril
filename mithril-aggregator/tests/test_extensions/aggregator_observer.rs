@@ -4,9 +4,12 @@ use mithril_aggregator::{
     entities::OpenMessage,
     services::{CertifierService, SignedEntityService},
 };
-use mithril_common::entities::{CardanoTransactionsSnapshot, Certificate, SignedEntity};
 use mithril_common::{
-    entities::{Epoch, SignedEntityType, SignedEntityTypeDiscriminants, TimePoint},
+    entities::{
+        CardanoTransactionsSnapshot, Certificate, Epoch, SignedEntityType,
+        SignedEntityTypeDiscriminants, TimePoint,
+    },
+    signable_builder::SignedEntity,
     StdResult, TickerService,
 };
 use std::sync::Arc;

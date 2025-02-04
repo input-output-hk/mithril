@@ -13,9 +13,7 @@ cfg_test_tools! {
     pub mod tests_setup;
 }
 
-cfg_random! {
-    pub use cardano::ColdKeyGenerator;
-}
+pub use cardano::ColdKeyGenerator;
 
 pub use cardano::{
     KESPeriod, OpCert, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,

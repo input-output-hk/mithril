@@ -8,7 +8,6 @@ use crate::entities::arithmetic_operation_wrapper::{
     impl_add_to_wrapper, impl_div_to_wrapper, impl_mul_to_wrapper, impl_partial_eq_to_wrapper,
     impl_rem_to_wrapper, impl_sub_to_wrapper,
 };
-use crate::signable_builder::Beacon;
 
 #[cfg(target_family = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -19,8 +18,6 @@ use wasm_bindgen::prelude::*;
 )]
 #[cfg_attr(target_family = "wasm", wasm_bindgen)]
 pub struct BlockNumber(pub u64);
-
-impl Beacon for BlockNumber {}
 
 impl Display for BlockNumber {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

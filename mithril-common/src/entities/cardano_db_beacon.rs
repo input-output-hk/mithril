@@ -3,7 +3,6 @@ use sha2::{Digest, Sha256};
 use std::fmt::{Display, Formatter};
 
 use crate::entities::{Epoch, ImmutableFileNumber};
-use crate::signable_builder::Beacon;
 
 /// A point in the Cardano chain at which a Mithril certificate of the Cardano Database should be
 /// produced.
@@ -15,8 +14,6 @@ pub struct CardanoDbBeacon {
     /// Number of the last included immutable files for the digest computation
     pub immutable_file_number: ImmutableFileNumber,
 }
-
-impl Beacon for CardanoDbBeacon {}
 
 impl Display for CardanoDbBeacon {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

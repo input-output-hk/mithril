@@ -1,10 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{
-    entities::{Epoch, SignerWithStake},
-    signable_builder::Artifact,
-};
+use crate::entities::{Epoch, SignerWithStake};
 
 use super::ProtocolParameters;
 
@@ -54,13 +51,6 @@ impl MithrilStakeDistribution {
         }
 
         hex::encode(hasher.finalize())
-    }
-}
-
-#[typetag::serde]
-impl Artifact for MithrilStakeDistribution {
-    fn get_id(&self) -> String {
-        self.hash.clone()
     }
 }
 

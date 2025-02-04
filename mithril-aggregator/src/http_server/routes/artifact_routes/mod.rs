@@ -7,8 +7,8 @@ pub mod snapshot;
 #[cfg(test)]
 pub mod test_utils {
     use chrono::{DateTime, Utc};
-    use mithril_common::entities::{SignedEntity, SignedEntityType};
-    use mithril_common::signable_builder::Artifact;
+    use mithril_common::entities::SignedEntityType;
+    use mithril_common::signable_builder::{Artifact, SignedEntity};
 
     pub fn create_signed_entity<T>(
         signed_entity_type: SignedEntityType,

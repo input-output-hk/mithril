@@ -123,19 +123,17 @@ impl SignerBuilder {
         ))
     }
 
-    cfg_random! {
-        /// Build non deterministic [SingleSigner] and [ProtocolInitializer] based on the registered parties.
-        pub fn build_single_signer(
-            &self,
-            signer_with_stake: SignerWithStake,
-            kes_secret_key_path: Option<&Path>,
-        ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
-            self.build_single_signer_with_rng(
-                signer_with_stake,
-                kes_secret_key_path,
-                &mut rand_core::OsRng,
-            )
-        }
+    /// Build non deterministic [SingleSigner] and [ProtocolInitializer] based on the registered parties.
+    pub fn build_single_signer(
+        &self,
+        signer_with_stake: SignerWithStake,
+        kes_secret_key_path: Option<&Path>,
+    ) -> StdResult<(SingleSigner, ProtocolInitializer)> {
+        self.build_single_signer_with_rng(
+            signer_with_stake,
+            kes_secret_key_path,
+            &mut rand_core::OsRng,
+        )
     }
 
     /// Build deterministic [SingleSigner] and [ProtocolInitializer] based on the registered parties.

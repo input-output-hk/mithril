@@ -12,11 +12,11 @@ use tokio::task::JoinHandle;
 use mithril_common::{
     entities::{
         BlockNumber, CardanoDatabaseSnapshot, CardanoDbBeacon, CardanoStakeDistribution,
-        CardanoTransactionsSnapshot, Certificate, Epoch, MithrilStakeDistribution, SignedEntity,
+        CardanoTransactionsSnapshot, Certificate, Epoch, MithrilStakeDistribution,
         SignedEntityType, SignedEntityTypeDiscriminants, Snapshot,
     },
     logging::LoggerExtensions,
-    signable_builder::Artifact,
+    signable_builder::{Artifact, SignedEntity},
     signed_entity_type_lock::SignedEntityTypeLock,
     StdResult,
 };

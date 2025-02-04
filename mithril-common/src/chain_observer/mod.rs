@@ -10,7 +10,7 @@ pub use model::{
     ChainAddress, TxDatum, TxDatumBuilder, TxDatumError, TxDatumFieldTypeName, TxDatumFieldValue,
 };
 
-cfg_fs_random! {
+cfg_fs! {
     mod builder;
     mod cli_observer;
     mod pallas_observer;

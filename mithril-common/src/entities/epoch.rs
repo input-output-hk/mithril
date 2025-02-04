@@ -8,7 +8,6 @@ use thiserror::Error;
 use crate::entities::arithmetic_operation_wrapper::{
     impl_add_to_wrapper, impl_partial_eq_to_wrapper, impl_sub_to_wrapper,
 };
-use crate::signable_builder::Beacon as SignableBeacon;
 
 /// Epoch represents a Cardano epoch
 #[derive(
@@ -118,8 +117,6 @@ impl Display for Epoch {
         write!(f, "{}", self.0)
     }
 }
-
-impl SignableBeacon for Epoch {}
 
 impl TryInto<i64> for Epoch {
     type Error = TryFromIntError;

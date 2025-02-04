@@ -1,7 +1,4 @@
-use crate::{
-    entities::{CardanoDbBeacon, CompressionAlgorithm},
-    signable_builder::Artifact,
-};
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
@@ -52,12 +49,5 @@ impl Snapshot {
             compression_algorithm,
             cardano_node_version,
         }
-    }
-}
-
-#[typetag::serde]
-impl Artifact for Snapshot {
-    fn get_id(&self) -> String {
-        self.digest.clone()
     }
 }

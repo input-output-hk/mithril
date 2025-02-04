@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::{StdError, StdResult};
 
-cfg_fs_random! {
+cfg_fs! {
     use serde::Deserialize;
     use anyhow::Context;
     use pallas_codec::minicbor::{Decode, Decoder, decode};
