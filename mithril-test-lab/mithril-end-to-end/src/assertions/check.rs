@@ -513,6 +513,13 @@ pub async fn assert_client_can_verify_cardano_database(
         .await?;
     info!("Client list & show the cardano database snapshot"; "hash" => &hash);
 
+    client
+        .run(ClientCommand::CardanoDbV2(CardanoDbV2Command::Download {
+            hash: hash.to_string(),
+        }))
+        .await?;
+    info!("Client downloaded & restored the cardano database snapshot"; "hash" => &hash);
+
     Ok(())
 }
 
