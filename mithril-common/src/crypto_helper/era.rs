@@ -47,7 +47,6 @@ impl EraMarkersSigner {
         Self::create_test_signer(rng)
     }
 
-    #[cfg(test)]
     /// [EraMarkersSigner] non deterministic
     pub fn create_non_deterministic_signer() -> Self {
         let rng = rand_core::OsRng;
