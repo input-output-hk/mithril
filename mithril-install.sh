@@ -5,23 +5,35 @@ set -e
 # Function to display usage
 usage() {
   echo "Install or upgrade a Mithril node"
-  echo "Usage: $0 [-n node] [-v version] [-d distribution] [-p path]"
+  echo "Usage: $0 [-c node] [-v version] [-d distribution] [-p path]"
   echo "  -c node          : Mithril node to install or upgrade (mithril-signer, mithril-aggregator, mithril-client)"
   echo "  -d distribution  : Distribution to upgrade to (latest, unstable or distribution version e.g '2445.0')"
   echo "  -p path          : Path to install the component"
   exit 1
 }
 
-# Default values
-DISTRIBUTION="latest"
-GITHUB_ORGANIZATION="input-output-hk"
-GITHUB_REPOSITORY="mithril"
-
 # Function to display an error message and exit
 error_exit() {
   echo "$1" 1>&2
   exit 1
 }
+
+# Function to check that required tools are installed
+check_requirements() {
+    which curl >/dev/null ||
+        error_exit "It seems 'curl' is not installed or not in the path.";
+    which jq >/dev/null ||
+        error_exit "It seems 'jq' is not installed or not in the path.";
+}
+
+# --- MAIN execution ---
+
+# Default values
+DISTRIBUTION="latest"
+GITHUB_ORGANIZATION="input-output-hk"
+GITHUB_REPOSITORY="mithril"
+
+check_requirements
 
 # Parse command line arguments
 while getopts "c:v:d:p:" opt; do
