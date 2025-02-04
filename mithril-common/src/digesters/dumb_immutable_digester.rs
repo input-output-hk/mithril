@@ -1,12 +1,14 @@
-use std::path::Path;
+use std::{collections::BTreeMap, ops::RangeInclusive, path::Path};
 
 use crate::{
     crypto_helper::{MKTree, MKTreeStoreInMemory},
     digesters::{ImmutableDigester, ImmutableDigesterError},
-    entities::CardanoDbBeacon,
+    entities::{CardanoDbBeacon, ImmutableFileNumber},
 };
 use async_trait::async_trait;
 use tokio::sync::RwLock;
+
+use super::{immutable_digester::ComputedImmutablesDigests, ImmutableFile};
 
 /// A [ImmutableDigester] returning configurable result for testing purpose.
 pub struct DumbImmutableDigester {
@@ -63,6 +65,42 @@ impl ImmutableDigester for DumbImmutableDigester {
         } else {
             Err(ImmutableDigesterError::NotEnoughImmutable {
                 expected_number: beacon.immutable_file_number,
+                found_number: None,
+                db_dir: dirpath.to_owned(),
+            })
+        }
+    }
+
+    async fn compute_digests_for_range(
+        &self,
+        dirpath: &Path,
+        range: &RangeInclusive<ImmutableFileNumber>,
+    ) -> Result<ComputedImmutablesDigests, ImmutableDigesterError> {
+        if self.is_success {
+            let immutable_file_paths = range
+                .clone()
+                .flat_map(|immutable_file_number| {
+                    vec![
+                        Path::new(&format!("{immutable_file_number:0>5}.chunk")).to_path_buf(),
+                        Path::new(&format!("{immutable_file_number:0>5}.primary")).to_path_buf(),
+                        Path::new(&format!("{immutable_file_number:0>5}.secondary")).to_path_buf(),
+                    ]
+                })
+                .collect::<Vec<_>>();
+            let digest = self.digest.read().await.clone();
+
+            Ok(ComputedImmutablesDigests::compute_immutables_digests(
+                BTreeMap::from_iter(immutable_file_paths.into_iter().map(|immutable_file_path| {
+                    (
+                        ImmutableFile::new(immutable_file_path).unwrap(),
+                        Some(digest.clone()),
+                    )
+                })),
+                slog::Logger::root(slog::Discard, slog::o!()),
+            )?)
+        } else {
+            Err(ImmutableDigesterError::NotEnoughImmutable {
+                expected_number: *range.end(),
                 found_number: None,
                 db_dir: dirpath.to_owned(),
             })
