@@ -1,11 +1,11 @@
 ---
-title: Minimum Required glibc Version Bump
+title: Minimum required glibc version bump
 authors:
   - name: Mithril Team
-tags: [mithril client, cli, breaking-change]
+tags: [ci, glibc, breaking-change]
 ---
 
-# Upcoming Change: Minimum Required glibc Version Bump
+# Upcoming Change: Minimum required glibc version bump
 
 :::info
 This only affects users who rely on the **precompiled Linux binaries** provided by the Mithril team.
@@ -29,27 +29,27 @@ the last two LTS versions.
 
 As a result, we need to update our CI environment to use a more recent version of Ubuntu.
 
-## Upcoming Change
+## Upcoming change
 
 Distribution `2506` will be the last distribution with a minimum required glibc version of `2.31`.
 
 After the release of distribution `2506`, our CI builders will be updated to use `Ubuntu 22.04`. Raising the minimum
 required glibc version for our Linux binaries to `2.35`.
 
-## Impact on Users
+## Impact for users
 
 The new glibc version `2.35` is compatible with systems such as `Ubuntu 22.04` and `Debian 12 (Bookworm)`.
 
 If you are using a system with an older version of glibc, you can either:
 
-- Upgrade your system to a newer version that supports glibc `2.35` to continue using our compiled binaries.
+- Upgrade your system to a newer version that supports glibc `2.35` to keep using our compiled binaries.
 - Compile the binaries from source to avoid upgrading your system.
 
 ## Summary
 
 - **Current minimum glibc version**: `2.31`
   - Examples of compatible systems: `Ubuntu 20.04`, `Debian 11 (Bullseye)`
-- **New minimum glibc version**: `2.35` (effective **after** distribution `2506` release)
+- **New minimum glibc version**: `2.35` (effective for distributions released from **March 2025** )
   - Examples of compatible systems: `Ubuntu 22.04`, `Debian 12 (Bookworm)`
 
 For any inquiries or assistance, don't hesitate to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
