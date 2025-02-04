@@ -26,6 +26,16 @@ check_requirements() {
         error_exit "It seems 'jq' is not installed or not in the path.";
 }
 
+check_glibc_min_version() {
+  glibc_version=$(ldd --version | awk 'NR==1{print $NF}')
+
+  if [ "$(echo "$glibc_version" | grep -cE "2\.3[1-4]")" -gt 0 ]; then
+    echo "Warning: Mithril support for your GLIBC version $glibc_version is deprecated. The minimum required version will be bumped to 2.35 after the 2506 distribution."
+  elif [ "$(echo "$glibc_version" | grep -cE -e "2\.[0-2][0-9]" -e "2\.30")" -gt 0 ]; then
+    error_exit "Error: Your GLIBC version is $glibc_version, but the minimum required version is 2.31."
+  fi
+}
+
 # --- MAIN execution ---
 
 # Default values
@@ -59,6 +69,7 @@ OS_CODE=$(echo "$OS" | awk '{print tolower($0)}')
 
 case "$OS" in
   Linux)
+    check_glibc_min_version
     ;;
   Darwin)
     OS_CODE="macos"
