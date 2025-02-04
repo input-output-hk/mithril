@@ -60,6 +60,14 @@ impl From<String> for MKTreeNode {
     }
 }
 
+impl From<&String> for MKTreeNode {
+    fn from(other: &String) -> Self {
+        Self {
+            hash: other.as_str().into(),
+        }
+    }
+}
+
 impl From<&str> for MKTreeNode {
     fn from(other: &str) -> Self {
         Self {
