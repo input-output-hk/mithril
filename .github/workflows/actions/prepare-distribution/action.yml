@@ -29,15 +29,6 @@ runs:
         --version "${{ inputs.version-name }}" \
         --target "linux-x64"
 
-    - name: Package distribution (macOS-X64)
-      shell: bash
-      run: |
-        python3 ./.github/workflows/scripts/package-distribution.py \
-        --input package-macOS-X64/ \
-        --dest package/ \
-        --version "${{ inputs.version-name }}" \
-        --target "macos-x64"
-
     - name: Package distribution (macOS-ARM64)
       shell: bash
       run: |
