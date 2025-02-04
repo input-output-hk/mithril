@@ -1,3 +1,5 @@
+import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
+
 function checkUrl(url) {
   try {
     // Use the url constructor to check if the value is an url
@@ -173,6 +175,50 @@ function compareRegistrations(left, right) {
   };
 }
 
+async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
+  const isCacheEnabled = process.env.UNSTABLE === true;
+  const client_options = process.env.UNSTABLE
+    ? {
+        // The following option activates the unstable features of the client.
+        // Unstable features will trigger an error if this option is not set.
+        unstable: true,
+        enable_certificate_chain_verification_cache: isCacheEnabled,
+      }
+    : {};
+
+  return new MithrilClient(aggregator, genesisVerificationKey, client_options);
+}
+
+function getImmutableUrlFromTemplate(urlTemplate, immutableFileNumber) {
+  return urlTemplate.replace(
+    "{immutable_file_number}",
+    String(immutableFileNumber).padStart(5, "0"),
+  );
+}
+
+function parseSignedEntity(signedEntityType) {
+  let type_name = Object.keys(signedEntityType).at(0);
+  const result = {
+    name: type_name,
+    fields: {},
+  };
+
+  if (type_name === "MithrilStakeDistribution" || type_name === "CardanoStakeDistribution") {
+    result.fields = {
+      epoch: signedEntityType[type_name],
+    };
+  } else if (type_name === "CardanoTransactions") {
+    result.fields = {
+      epoch: signedEntityType[type_name][0],
+      block_number: signedEntityType[type_name][1],
+    };
+  } else {
+    result.fields = signedEntityType[type_name] ?? {};
+  }
+
+  return result;
+}
+
 module.exports = {
   checkUrl,
   formatStake,
@@ -188,4 +234,7 @@ module.exports = {
   computeInOutRegistrations,
   dedupInOutRegistrations,
   compareRegistrations,
+  newMithrilWasmClient,
+  getImmutableUrlFromTemplate,
+  parseSignedEntity,
 };

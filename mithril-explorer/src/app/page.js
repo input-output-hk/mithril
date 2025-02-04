@@ -17,6 +17,7 @@ import {
 import initMithrilClient from "@mithril-dev/mithril-client-wasm";
 import ControlPanel from "#/ControlPanel";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
+import CardanoDbV2SnapshotsList from "#/Artifacts/CardanoDbV2SnapshotsList";
 import CardanoStakeDistributionsList from "#/Artifacts/CardanoStakeDistributionsList";
 import CardanoTransactionsSnapshotsList from "#/Artifacts/CardanoTransactionsSnapshotsList";
 import CertificatesList from "#/Artifacts/CertificatesList";
@@ -43,6 +44,7 @@ export default function Explorer() {
   const [isUpdatingAggregatorInUrl, setIsUpdatingAggregatorInUrl] = useState(false);
   const [enableCardanoTransactionTab, setEnableCardanoTransactionTab] = useState(false);
   const [enableCardanoStakeDistributionTab, setEnableCardanoStakeDistributionTab] = useState(false);
+  const [enableCardanoDbV2Tab, setEnableCardanoDbV2Tab] = useState(false);
   const [currentTab, setCurrentTab] = useState(defaultTab);
   const selectedAggregator = useSelector(currentlySelectedAggregator);
   const selectedAggregatorSignedEntities = useSelector((state) =>
@@ -56,6 +58,7 @@ export default function Explorer() {
     setEnableCardanoStakeDistributionTab(
       selectedAggregatorSignedEntities.includes(signedEntityType.CardanoStakeDistribution),
     );
+    setEnableCardanoDbV2Tab(selectedAggregatorSignedEntities.includes(signedEntityType.CardanoDb));
   }, [selectedAggregatorSignedEntities]);
 
   useEffect(() => {
@@ -106,6 +109,11 @@ export default function Explorer() {
         <Tab title="Cardano Db" eventKey={signedEntityType.CardanoImmutableFilesFull}>
           <CardanoDbSnapshotsList />
         </Tab>
+        {enableCardanoDbV2Tab && (
+          <Tab title="Cardano Db v2" eventKey={signedEntityType.CardanoDb}>
+            <CardanoDbV2SnapshotsList />
+          </Tab>
+        )}
         {enableCardanoTransactionTab && (
           <Tab title="Cardano Transactions" eventKey={signedEntityType.CardanoTransactions}>
             <CardanoTransactionsSnapshotsList />

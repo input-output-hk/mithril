@@ -1,5 +1,11 @@
 .container {
-  padding: 0 2rem;
+  padding: 0 1.2rem;
+}
+
+@media (min-width: 576px) {
+  .container {
+    padding: 0 2rem;
+  }
 }
 
 .main {

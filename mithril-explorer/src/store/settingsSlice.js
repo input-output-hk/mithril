@@ -5,7 +5,7 @@ import { checkUrl } from "@/utils";
 import { defaultAggregatorCapabilities } from "@/constants";
 
 export const initialState = {
-  updateInterval: 10000,
+  updateInterval: undefined,
   refreshSeed: 0,
   selectedAggregator: default_available_aggregators[0],
   availableAggregators: default_available_aggregators,
