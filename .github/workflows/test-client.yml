@@ -218,6 +218,12 @@ jobs:
         working-directory: ./bin
         run: ./mithril-client --unstable cardano-db-v2 snapshot show $CARDANO_DATABASE_V2_SNAPSHOT_HASH
 
+      - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
+        if: steps.aggregator_capability_unix.outputs.cardano_database_v2_enabled == 'true' || steps.aggregator_capability_windows.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --unstable cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+
   test-docker:
     strategy:
       fail-fast: false
@@ -327,6 +333,11 @@ jobs:
         if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
         shell: bash
         run: ${{ steps.command.outputs.mithril_client }} --unstable cardano-db-v2 snapshot show $CARDANO_DATABASE_V2_SNAPSHOT_HASH
+
+      - name: Cardano Database V2 Snapshot / download & restore latest (Full restoration)
+        if: steps.aggregator_capability.outputs.cardano_database_v2_enabled == 'true'
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --unstable cardano-db-v2 download $CARDANO_DATABASE_V2_SNAPSHOT_HASH --download-dir /app
 
   test-mithril-client-wasm:
     strategy:
