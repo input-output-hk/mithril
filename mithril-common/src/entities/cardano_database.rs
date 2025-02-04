@@ -101,8 +101,11 @@ pub enum ImmutablesLocation {
 }
 
 /// Locations of the ancillary files.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumDiscriminants,
+)]
 #[serde(rename_all = "snake_case", tag = "type")]
+#[strum_discriminants(derive(Hash))]
 pub enum AncillaryLocation {
     /// Cloud storage location.
     CloudStorage {
