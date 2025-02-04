@@ -45,6 +45,8 @@
 
 // TODO: reorganize the imports
 #[cfg(feature = "fs")]
+use std::collections::BTreeMap;
+#[cfg(feature = "fs")]
 use std::fs;
 #[cfg(feature = "fs")]
 use std::ops::RangeInclusive;
@@ -56,15 +58,21 @@ use std::{collections::HashSet, sync::Arc};
 use anyhow::anyhow;
 use anyhow::Context;
 #[cfg(feature = "fs")]
+use serde::de::DeserializeOwned;
+#[cfg(feature = "fs")]
 use slog::Logger;
 
 #[cfg(feature = "fs")]
 use mithril_common::{
+    crypto_helper::{MKProof, MKTree, MKTreeNode, MKTreeStoreInMemory},
+    digesters::{CardanoImmutableDigester, ImmutableDigester},
     entities::{
         AncillaryLocation, CompressionAlgorithm, DigestLocation, HexEncodedDigest,
-        ImmutableFileNumber, ImmutablesLocation,
+        ImmutableFileName, ImmutableFileNumber, ImmutablesLocation,
     },
-    messages::CardanoDatabaseDigestListItemMessage,
+    messages::{
+        CardanoDatabaseDigestListItemMessage, CertificateMessage, SignedEntityTypeMessagePart,
+    },
     StdResult,
 };
 
@@ -198,16 +206,16 @@ impl CardanoDatabaseClient {
 
     /// Fetch the given Cardano database data with an aggregator request.
     /// If it cannot be found, a None is returned.
-    async fn fetch_with_aggregator_request(
+    async fn fetch_with_aggregator_request<T: DeserializeOwned>(
         &self,
         request: AggregatorRequest,
-    ) -> MithrilResult<Option<CardanoDatabaseSnapshot>> {
+    ) -> MithrilResult<Option<T>> {
         match self.aggregator_client.get_content(request).await {
             Ok(content) => {
-                let cardano_database: CardanoDatabaseSnapshot = serde_json::from_str(&content)
+                let result: T = serde_json::from_str(&content)
                     .with_context(|| "CardanoDatabase client can not deserialize artifact")?;
 
-                Ok(Some(cardano_database))
+                Ok(Some(result))
             }
             Err(AggregatorClientError::RemoteServerLogical(_)) => Ok(None),
             Err(e) => Err(e.into()),
@@ -287,6 +295,14 @@ impl CardanoDatabaseClient {
             }
 
             fs::create_dir_all(dir).map_err(|e| anyhow!("Failed creating directory: {e}"))
+        }
+
+        fn delete_directory(dir: &Path) -> StdResult<()> {
+            if dir.exists() {
+                fs::remove_dir_all(dir).map_err(|e| anyhow!("Failed deleting directory: {e}"))?;
+            }
+
+            Ok(())
         }
 
         fn read_files_in_directory(dir: &Path) -> StdResult<Vec<PathBuf>> {
@@ -501,6 +517,67 @@ impl CardanoDatabaseClient {
                 "Failed downloading and unpacking digests for all locations"
             ))
         }
+
+        fn read_digest_file(
+            &self,
+            digest_file_target_dir: &Path,
+        ) -> StdResult<BTreeMap<ImmutableFileName, HexEncodedDigest>> {
+            let digest_files = Self::read_files_in_directory(digest_file_target_dir)?;
+            if digest_files.len() > 1 {
+                return Err(anyhow!(
+                    "Multiple digest files found in directory: {digest_file_target_dir:?}"
+                ));
+            }
+            if digest_files.is_empty() {
+                return Err(anyhow!(
+                    "No digest file found in directory: {digest_file_target_dir:?}"
+                ));
+            }
+
+            let digest_file = &digest_files[0];
+            let content = fs::read_to_string(digest_file)
+                .with_context(|| format!("Failed reading digest file: {digest_file:?}"))?;
+            let digest_messages: Vec<CardanoDatabaseDigestListItemMessage> =
+                serde_json::from_str(&content)
+                    .with_context(|| format!("Failed deserializing digest file: {digest_file:?}"))?;
+            let digest_map = digest_messages
+                .into_iter()
+                .map(|message| (message.immutable_file_name, message.digest))
+                .collect::<BTreeMap<_, _>>();
+
+            Ok(digest_map)
+        }
+
+        /// Compute the Merkle proof of membership for the given immutable file range.
+        // TODO: Add example in module documentation
+        pub async fn compute_merkle_proof(
+            &self,
+            certificate: &CertificateMessage,
+            immutable_file_range: &ImmutableFileRange,
+            database_dir: &Path,
+        ) -> StdResult<MKProof> {
+            let network = certificate.metadata.network.clone();
+            let last_immutable_file_number = match &certificate.signed_entity_type {
+                SignedEntityTypeMessagePart::CardanoDatabase(beacon) => beacon.immutable_file_number,
+                _ => return Err(anyhow!("Invalid signed entity type: {:?}",certificate.signed_entity_type)),
+            };
+            let immutable_file_number_range =
+                immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
+
+            let downloaded_digests = self.read_digest_file(&Self::digest_target_dir(database_dir))?;
+            let merkle_tree: MKTree<MKTreeStoreInMemory> =
+                MKTree::new(&downloaded_digests.values().cloned().collect::<Vec<_>>())?;
+            let immutable_digester = CardanoImmutableDigester::new(network, None, self.logger.clone());
+            let computed_digests = immutable_digester
+                .compute_digests_for_range(database_dir, &immutable_file_number_range)
+                .await?.entries
+                .values()
+                .map(MKTreeNode::from)
+                .collect::<Vec<_>>();
+            Self::delete_directory(&Self::digest_target_dir(database_dir))?;
+
+            merkle_tree.compute_proof(&computed_digests)
+        }
     }
 }
 
@@ -512,9 +589,12 @@ mod tests {
     mod cardano_database_client {
         use anyhow::anyhow;
         use chrono::{DateTime, Utc};
-        use mithril_common::entities::{
-            AncillaryLocationDiscriminants, CardanoDbBeacon, CompressionAlgorithm,
-            DigestLocationDiscriminants, Epoch, FileUri, ImmutablesLocationDiscriminants,
+        use mithril_common::{
+            digesters::CardanoImmutableDigester,
+            entities::{
+                AncillaryLocationDiscriminants, CardanoDbBeacon, CompressionAlgorithm,
+                DigestLocationDiscriminants, Epoch, FileUri, ImmutablesLocationDiscriminants,
+            },
         };
         use mockall::predicate::{self, eq};
 
@@ -1731,6 +1811,228 @@ mod tests {
                         .await
                         .unwrap();
                 }
+            }
+
+            mod read_digest_file {
+                use std::io::Write;
+
+                use mithril_common::test_utils::TempDir;
+
+                use super::*;
+
+                fn create_valid_fake_digest_file(
+                    file_path: &Path,
+                    digest_messages: &[CardanoDatabaseDigestListItemMessage],
+                ) {
+                    let mut file = fs::File::create(file_path).unwrap();
+                    let digest_json = serde_json::to_string(&digest_messages).unwrap();
+                    file.write_all(digest_json.as_bytes()).unwrap();
+                }
+
+                fn create_invalid_fake_digest_file(file_path: &Path) {
+                    let mut file = fs::File::create(file_path).unwrap();
+                    file.write_all(b"incorrect-digest").unwrap();
+                }
+
+                #[test]
+                fn read_digest_file_fails_when_no_digest_file() {
+                    let target_dir = TempDir::new(
+                        "cardano_database_client",
+                        "read_digest_file_fails_when_no_digest_file",
+                    )
+                    .build();
+                    let client =
+                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                    client
+                        .read_digest_file(&target_dir)
+                        .expect_err("read_digest_file should fail");
+                }
+
+                #[test]
+                fn read_digest_file_fails_when_multiple_digest_files() {
+                    let target_dir = TempDir::new(
+                        "cardano_database_client",
+                        "read_digest_file_fails_when_multiple_digest_files",
+                    )
+                    .build();
+                    create_valid_fake_digest_file(&target_dir.join("digests.json"), &[]);
+                    create_valid_fake_digest_file(&target_dir.join("digests-2.json"), &[]);
+                    let client =
+                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                    client
+                        .read_digest_file(&target_dir)
+                        .expect_err("read_digest_file should fail");
+                }
+
+                #[test]
+                fn read_digest_file_fails_when_invalid_unique_digest_file() {
+                    let target_dir = TempDir::new(
+                        "cardano_database_client",
+                        "read_digest_file_fails_when_invalid_unique_digest_file",
+                    )
+                    .build();
+                    create_invalid_fake_digest_file(&target_dir.join("digests.json"));
+                    let client =
+                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                    client
+                        .read_digest_file(&target_dir)
+                        .expect_err("read_digest_file should fail");
+                }
+
+                #[test]
+                fn read_digest_file_succeeds_when_valid_unique_digest_file() {
+                    let target_dir = TempDir::new(
+                        "cardano_database_client",
+                        "read_digest_file_succeeds_when_valid_unique_digest_file",
+                    )
+                    .build();
+                    let digest_messages = vec![
+                        CardanoDatabaseDigestListItemMessage {
+                            immutable_file_name: "00001.chunk".to_string(),
+                            digest: "digest-1".to_string(),
+                        },
+                        CardanoDatabaseDigestListItemMessage {
+                            immutable_file_name: "00002.chunk".to_string(),
+                            digest: "digest-2".to_string(),
+                        },
+                    ];
+                    create_valid_fake_digest_file(&target_dir.join("digests.json"), &digest_messages);
+                    let client =
+                        CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                    let digests = client.read_digest_file(&target_dir).unwrap();
+                    assert_eq!(
+                        BTreeMap::from([
+                            ("00001.chunk".to_string(), "digest-1".to_string()),
+                            ("00002.chunk".to_string(), "digest-2".to_string())
+                        ]),
+                        digests
+                    )
+                }
+            }
+        }
+
+        mod compute_merkle_proof {
+            use mithril_common::{
+                digesters::{DummyCardanoDbBuilder, ImmutableDigester, ImmutableFile},
+                messages::SignedEntityTypeMessagePart,
+            };
+
+            use crate::test_utils::test_logger;
+
+            use super::*;
+
+            async fn write_digest_file(
+                digest_dir: &Path,
+                digests: BTreeMap<ImmutableFile, HexEncodedDigest>,
+            ) {
+                let digest_file_path = digest_dir.join("digests.json");
+                if !digest_dir.exists() {
+                    fs::create_dir_all(digest_dir).unwrap();
+                }
+
+                let immutable_digest_messages = digests
+                    .into_iter()
+                    .map(
+                        |(immutable_file, digest)| CardanoDatabaseDigestListItemMessage {
+                            immutable_file_name: immutable_file.filename,
+                            digest,
+                        },
+                    )
+                    .collect::<Vec<_>>();
+                serde_json::to_writer(
+                    fs::File::create(digest_file_path).unwrap(),
+                    &immutable_digest_messages,
+                )
+                .unwrap();
+            }
+
+            #[tokio::test]
+            async fn compute_merkle_proof_fails_if_mismatching_certificate() {
+                let immutable_file_range = 1..=5;
+                let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
+                let certificate = CertificateMessage {
+                    hash: "cert-hash-123".to_string(),
+                    signed_entity_type: SignedEntityTypeMessagePart::MithrilStakeDistribution(
+                        Epoch(123),
+                    ),
+                    ..CertificateMessage::dummy()
+                };
+                let cardano_db = DummyCardanoDbBuilder::new(
+                    "compute_merkle_proof_fails_if_mismatching_certificate",
+                )
+                .with_immutables(&immutable_file_range.clone().collect::<Vec<_>>())
+                .append_immutable_trio()
+                .build();
+                let database_dir = cardano_db.get_dir();
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+
+                client
+                    .compute_merkle_proof(
+                        &certificate,
+                        &immutable_file_range_to_prove,
+                        database_dir,
+                    )
+                    .await
+                    .expect_err("compute_merkle_proof should fail");
+            }
+
+            #[tokio::test]
+            async fn compute_merkle_proof_succeeds() {
+                let beacon = CardanoDbBeacon {
+                    epoch: Epoch(123),
+                    immutable_file_number: 5,
+                };
+                let immutable_file_range = 1..=5;
+                let immutable_file_range_to_prove = ImmutableFileRange::Range(2, 4);
+                let certificate = CertificateMessage {
+                    hash: "cert-hash-123".to_string(),
+                    signed_entity_type: SignedEntityTypeMessagePart::CardanoDatabase(
+                        beacon.clone(),
+                    ),
+                    ..CertificateMessage::dummy()
+                };
+                let cardano_db = DummyCardanoDbBuilder::new("compute_merkle_proof_succeeds")
+                    .with_immutables(&immutable_file_range.clone().collect::<Vec<_>>())
+                    .append_immutable_trio()
+                    .build();
+                let database_dir = cardano_db.get_dir();
+                let immutable_digester = CardanoImmutableDigester::new(
+                    certificate.metadata.network.clone(),
+                    None,
+                    test_logger(),
+                );
+                let client =
+                    CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+                let computed_digests = immutable_digester
+                    .compute_digests_for_range(database_dir, &immutable_file_range)
+                    .await
+                    .unwrap();
+                write_digest_file(&database_dir.join("digest"), computed_digests.entries).await;
+                let merkle_tree = immutable_digester
+                    .compute_merkle_tree(database_dir, &beacon)
+                    .await
+                    .unwrap();
+                let expected_merkle_root = merkle_tree.compute_root().unwrap();
+
+                let merkle_proof = client
+                    .compute_merkle_proof(
+                        &certificate,
+                        &immutable_file_range_to_prove,
+                        database_dir,
+                    )
+                    .await
+                    .unwrap();
+                let merkle_proof_root = merkle_proof.root().to_owned();
+
+                merkle_proof.verify().unwrap();
+                assert_eq!(expected_merkle_root, merkle_proof_root);
+
+                assert!(!database_dir.join("digest").exists());
             }
         }
 
