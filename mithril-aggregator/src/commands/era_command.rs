@@ -40,6 +40,9 @@ pub enum EraSubCommand {
 
     /// Era tx datum generate command.
     GenerateTxDatum(GenerateTxDatumEraSubCommand),
+
+    /// Era keypair generation command.
+    GenerateKeypair(GenerateKeypairEraSubCommand),
 }
 
 impl EraSubCommand {
@@ -51,6 +54,7 @@ impl EraSubCommand {
         match self {
             Self::List(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::GenerateTxDatum(cmd) => cmd.execute(root_logger, config_builder).await,
+            Self::GenerateKeypair(cmd) => cmd.execute(root_logger, config_builder).await,
         }
     }
 }
@@ -125,6 +129,33 @@ impl GenerateTxDatumEraSubCommand {
 
         let mut target_file = File::create(&self.target_path)?;
         target_file.write_all(tx_datum.as_bytes())?;
+
+        Ok(())
+    }
+}
+
+/// Era keypair generation command.
+#[derive(Parser, Debug, Clone)]
+pub struct GenerateKeypairEraSubCommand {
+    /// Target path for the generated keypair
+    #[clap(long)]
+    target_path: PathBuf,
+}
+
+impl GenerateKeypairEraSubCommand {
+    pub async fn execute(
+        &self,
+        root_logger: Logger,
+        _config_builder: ConfigBuilder<DefaultState>,
+    ) -> StdResult<()> {
+        debug!(root_logger, "GENERATE KEYPAIR ERA command");
+        println!(
+            "Era generate keypair to {}",
+            self.target_path.to_string_lossy()
+        );
+
+        EraTools::create_and_save_era_keypair(&self.target_path)
+            .with_context(|| "era-tools: keypair generation error")?;
 
         Ok(())
     }

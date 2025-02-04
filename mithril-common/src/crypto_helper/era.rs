@@ -47,11 +47,20 @@ impl EraMarkersSigner {
         Self::create_test_signer(rng)
     }
 
-    #[cfg(test)]
     /// [EraMarkersSigner] non deterministic
     pub fn create_non_deterministic_signer() -> Self {
         let rng = rand_core::OsRng;
         Self::create_test_signer(rng)
+    }
+
+    /// Get the [EraMarkersVerifierSecretKey]
+    pub fn secret_key(&self) -> EraMarkersVerifierSecretKey {
+        self.secret_key.clone()
+    }
+
+    /// Get the [EraMarkersVerifierVerificationKey]
+    pub fn verification_key(&self) -> EraMarkersVerifierVerificationKey {
+        self.secret_key.verifying_key().into()
     }
 
     /// [EraMarkersSigner] from [EraMarkersVerifierSecretKey]
