@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
-use slog::Logger;
+use slog::{warn, Logger};
 use std::fmt::Write;
 use tokio::sync::RwLock;
 
@@ -110,6 +110,10 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     progress_bar.finish_with_message("Certificate chain validated");
                 }
                 *certificate_validation_pb = None;
+            }
+            _ => {
+                // TODO: Handle other events from Cardano database client and remove this catchall
+                warn!(self.logger, "Unhandled event"; "event" => ?event);
             }
         }
     }
