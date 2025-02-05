@@ -383,8 +383,12 @@ impl CardanoDatabaseClient {
             })
         }
 
-        fn feedback_event_builder_ancillary_download(_download_id: String, _downloaded_bytes: u64, _size: u64) -> Option<MithrilEvent> {
-            None
+        fn feedback_event_builder_ancillary_download(download_id: String, downloaded_bytes: u64, size: u64) -> Option<MithrilEvent> {
+            Some(MithrilEvent::AncillaryDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            })
         }
 
         fn feedback_event_builder_digest_download(_download_id: String, _downloaded_bytes: u64, _size: u64) -> Option<MithrilEvent> {
@@ -462,7 +466,6 @@ impl CardanoDatabaseClient {
         }
 
         /// Download and unpack the ancillary files.
-        // TODO: Add feedback receivers
         async fn download_unpack_ancillary_file(
             &self,
             locations: &[AncillaryLocation],
@@ -472,7 +475,10 @@ impl CardanoDatabaseClient {
             let mut locations_sorted = locations.to_owned();
             locations_sorted.sort();
             for location in locations_sorted {
-                let download_id = format!("{location:?}"); //TODO: check if this is the correct way to format the download_id
+                let download_id = MithrilEvent::new_ancillary_download_id();
+                self.feedback_sender
+                        .send_event(MithrilEvent::AncillaryDownloadStarted { download_id: download_id.clone()})
+                        .await;
                 let file_downloader = self
                     .ancillary_file_downloader_resolver
                     .resolve(&location)
@@ -490,7 +496,12 @@ impl CardanoDatabaseClient {
                     )
                     .await;
                 match downloaded {
-                    Ok(_) => return Ok(()),
+                    Ok(_) => {
+                        self.feedback_sender
+                                .send_event(MithrilEvent::AncillaryDownloadCompleted { download_id })
+                                .await;
+                        return Ok(())
+                    },
                     Err(e) => {
                         slog::error!(
                             self.logger,
@@ -1574,11 +1585,7 @@ mod tests {
                 async fn download_unpack_immutable_files_sends_feedbacks() {
                     let total_immutable_files = 1;
                     let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "download_unpack_immutable_files_sends_feedbacks",
-                    )
-                    .build();
+                    let target_dir = Path::new(".");
                     let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
                     let client = CardanoDatabaseClientDependencyInjector::new()
                         .with_immutable_file_downloaders(vec![(
@@ -1603,7 +1610,7 @@ mod tests {
                                 .to_range_inclusive(total_immutable_files)
                                 .unwrap(),
                             &CompressionAlgorithm::default(),
-                            &target_dir,
+                            target_dir,
                         )
                         .await
                         .unwrap();
@@ -1721,6 +1728,49 @@ mod tests {
                         )
                         .await
                         .unwrap();
+                }
+
+                #[tokio::test]
+                async fn download_unpack_ancillary_files_sends_feedbacks() {
+                    let target_dir = Path::new(".");
+                    let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+                    let client = CardanoDatabaseClientDependencyInjector::new()
+                        .with_ancillary_file_downloaders(vec![(
+                            AncillaryLocationDiscriminants::CloudStorage,
+                            Arc::new(
+                                MockFileDownloaderBuilder::default()
+                                    .with_success()
+                                    .build(),
+                            ),
+                        )])
+                        .with_feedback_receivers(&[feedback_receiver.clone()])
+                        .build_cardano_database_client();
+
+                    client
+                        .download_unpack_ancillary_file(
+                            &[
+                                AncillaryLocation::CloudStorage {
+                                    uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                                },
+                            ],
+                            &CompressionAlgorithm::default(),
+                            target_dir,
+                        )
+                        .await
+                        .unwrap();
+
+                    let sent_events = feedback_receiver.stacked_events();
+                    let id = sent_events[0].event_id();
+                    let expected_events = vec![
+                        MithrilEvent::AncillaryDownloadStarted {
+                            download_id: id.to_string(),
+
+                        },
+                        MithrilEvent::AncillaryDownloadCompleted {
+                            download_id: id.to_string(),
+                        },
+                    ];
+                    assert_eq!(expected_events, sent_events);
                 }
             }
 
