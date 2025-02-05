@@ -1,7 +1,7 @@
 [package]
 name = "client-cardano-stake-distribution"
 description = "Mithril client cardano stake distribution example"
-version = "0.1.8"
+version = "0.1.9"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
 documentation = "https://mithril.network/doc"
 edition = "2021"
