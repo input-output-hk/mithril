@@ -258,7 +258,7 @@ impl ClientBuilder {
             #[cfg(feature = "fs")]
             snapshot_downloader,
             #[cfg(feature = "fs")]
-            feedback_sender,
+            feedback_sender.clone(),
             #[cfg(feature = "fs")]
             logger.clone(),
         ));
@@ -281,6 +281,8 @@ impl ClientBuilder {
             ancillary_file_downloader_resolver,
             #[cfg(feature = "fs")]
             digest_file_downloader_resolver,
+            #[cfg(feature = "fs")]
+            feedback_sender,
             #[cfg(feature = "fs")]
             logger,
         ));
