@@ -79,7 +79,11 @@ pub mod handlers {
             .get_mithril_stake_distribution_message(&signed_entity_id)
             .await
         {
-            Ok(Some(message)) => Ok(reply::json(&message, StatusCode::OK)),
+            Ok(Some(message)) => {
+                debug!(logger, "[FLAKINESS] get_artifact_by_signed_entity_id"; "response" => ?message);
+
+                Ok(reply::json(&message, StatusCode::OK))
+            }
             Ok(None) => {
                 warn!(logger, "get_mithril_stake_distribution_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
