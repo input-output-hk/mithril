@@ -77,11 +77,13 @@ use mithril_common::{
     StdResult,
 };
 
+#[cfg(feature = "fs")]
+use crate::feedback::{FeedbackSender, MithrilEvent};
 use crate::{
     aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest},
     file_downloader::{FileDownloaderResolver, FileDownloaderUri},
+    CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult,
 };
-use crate::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult};
 
 cfg_fs! {
     /// Immutable file range representation
@@ -151,6 +153,8 @@ pub struct CardanoDatabaseClient {
     #[cfg(feature = "fs")]
     digest_file_downloader_resolver: Arc<dyn FileDownloaderResolver<DigestLocation>>,
     #[cfg(feature = "fs")]
+    feedback_sender: FeedbackSender,
+    #[cfg(feature = "fs")]
     logger: Logger,
 }
 
@@ -167,6 +171,7 @@ impl CardanoDatabaseClient {
         #[cfg(feature = "fs")] digest_file_downloader_resolver: Arc<
             dyn FileDownloaderResolver<DigestLocation>,
         >,
+        #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
         #[cfg(feature = "fs")] logger: Logger,
     ) -> Self {
         Self {
@@ -177,6 +182,8 @@ impl CardanoDatabaseClient {
             ancillary_file_downloader_resolver,
             #[cfg(feature = "fs")]
             digest_file_downloader_resolver,
+            #[cfg(feature = "fs")]
+            feedback_sender,
             #[cfg(feature = "fs")]
             logger: mithril_common::logging::LoggerExtensions::new_with_component_name::<Self>(
                 &logger,
@@ -372,7 +379,6 @@ impl CardanoDatabaseClient {
         ///
         /// The download is attempted for each location until the full range is downloaded.
         /// An error is returned if not all the files are downloaded.
-        // TODO: Add feedback receivers
         async fn download_unpack_immutable_files(
             &self,
             locations: &[ImmutablesLocation],
@@ -401,7 +407,10 @@ impl CardanoDatabaseClient {
                             .as_slice(),
                     )?;
                 for (immutable_file_number, file_downloader_uri) in file_downloader_uris {
-                    let download_id = format!("{location:?}"); //TODO: check if this is the correct way to format the download_id
+                    let download_id = MithrilEvent::new_snapshot_download_id();
+                    self.feedback_sender
+                        .send_event(MithrilEvent::ImmutableDownloadStarted { immutable_file_number, download_id: download_id.clone()})
+                        .await;
                     let downloaded = file_downloader
                         .download_unpack(
                             &file_downloader_uri,
@@ -413,6 +422,9 @@ impl CardanoDatabaseClient {
                     match downloaded {
                         Ok(_) => {
                             immutable_file_numbers_to_download.remove(&immutable_file_number);
+                            self.feedback_sender
+                                .send_event(MithrilEvent::ImmutableDownloadCompleted { download_id })
+                                .await;
                         }
                         Err(e) => {
                             slog::error!(
@@ -597,6 +609,7 @@ mod tests {
 
         use crate::{
             aggregator_client::MockAggregatorHTTPClient,
+            feedback::{FeedbackReceiver, MithrilEvent, StackFeedbackReceiver},
             file_downloader::{
                 AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloader,
                 ImmutablesFileDownloaderResolver, MockFileDownloader,
@@ -646,6 +659,7 @@ mod tests {
             immutable_file_downloader_resolver: ImmutablesFileDownloaderResolver,
             ancillary_file_downloader_resolver: AncillaryFileDownloaderResolver,
             digest_file_downloader_resolver: DigestFileDownloaderResolver,
+            feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
         }
 
         impl CardanoDatabaseClientDependencyInjector {
@@ -659,6 +673,7 @@ mod tests {
                         vec![],
                     ),
                     digest_file_downloader_resolver: DigestFileDownloaderResolver::new(vec![]),
+                    feedback_receivers: vec![],
                 }
             }
 
@@ -710,12 +725,23 @@ mod tests {
                 }
             }
 
+            fn with_feedback_receivers(
+                self,
+                feedback_receivers: &[Arc<dyn FeedbackReceiver>],
+            ) -> Self {
+                Self {
+                    feedback_receivers: feedback_receivers.to_vec(),
+                    ..self
+                }
+            }
+
             fn build_cardano_database_client(self) -> CardanoDatabaseClient {
                 CardanoDatabaseClient::new(
                     Arc::new(self.http_client),
                     Arc::new(self.immutable_file_downloader_resolver),
                     Arc::new(self.ancillary_file_downloader_resolver),
                     Arc::new(self.digest_file_downloader_resolver),
+                    FeedbackSender::new(&self.feedback_receivers),
                     test_utils::test_logger(),
                 )
             }
@@ -1519,6 +1545,59 @@ mod tests {
                         )
                         .await
                         .unwrap();
+                }
+
+                #[tokio::test]
+                async fn download_unpack_immutable_files_sends_feedbacks() {
+                    let total_immutable_files = 1;
+                    let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+                    let target_dir = TempDir::new(
+                        "cardano_database_client",
+                        "download_unpack_immutable_files_sends_feedbacks",
+                    )
+                    .build();
+                    let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+                    let client = CardanoDatabaseClientDependencyInjector::new()
+                        .with_immutable_file_downloaders(vec![(
+                            ImmutablesLocationDiscriminants::CloudStorage,
+                            Arc::new({
+                                MockFileDownloaderBuilder::default()
+                                    .with_success()
+                                    .build()
+                            }),
+                        )])
+                        .with_feedback_receivers(&[feedback_receiver.clone()])
+                        .build_cardano_database_client();
+
+                    client
+                        .download_unpack_immutable_files(
+                            &[ImmutablesLocation::CloudStorage {
+                                uri: MultiFilesUri::Template(TemplateUri(
+                                    "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                                )),
+                            }],
+                            immutable_file_range
+                                .to_range_inclusive(total_immutable_files)
+                                .unwrap(),
+                            &CompressionAlgorithm::default(),
+                            &target_dir,
+                        )
+                        .await
+                        .unwrap();
+
+                    let sent_events = feedback_receiver.stacked_events();
+                    let id = sent_events[0].event_id();
+                    let expected_events = vec![
+                        MithrilEvent::ImmutableDownloadStarted {
+                            immutable_file_number: 1,
+                            download_id: id.to_string(),
+
+                        },
+                        MithrilEvent::ImmutableDownloadCompleted {
+                            download_id: id.to_string(),
+                        },
+                    ];
+                    assert_eq!(expected_events, sent_events);
                 }
             }
 
