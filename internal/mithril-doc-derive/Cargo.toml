@@ -1,6 +1,6 @@
 [package]
 name = "mithril-doc-derive"
-version = "0.1.14"
+version = "0.1.15"
 description = "An internal macro to support documentation generation."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -13,7 +13,7 @@ proc-macro = true
 
 [dependencies]
 quote = "1.0.38"
-syn = { version = "2.0.94", features = ["full"] }
+syn = { version = "2.0.98", features = ["full"] }
 
 [features]
 default = []

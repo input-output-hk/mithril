@@ -1,6 +1,6 @@
 [package]
 name = "mithril-metric"
-version = "0.1.6"
+version = "0.1.7"
 description = "Common tools to expose metrics."
 authors = { workspace = true }
 edition = { workspace = true }
@@ -22,7 +22,7 @@ slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_debug",
 ] }
-tokio = { version = "1.42.0" }
+tokio = { version = "1.43.0" }
 
 [dev-dependencies]
 prometheus-parse = "0.2.5"

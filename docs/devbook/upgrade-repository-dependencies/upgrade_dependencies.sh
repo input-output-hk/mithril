@@ -64,8 +64,8 @@ for package_json_file in $(find . -name package.json | grep -v "/node_modules/" 
 done
 
 make -C mithril-client-wasm ci-test-install
-make -C examples/client-wasm-nodejs ci-test-install
-make -C examples/client-wasm-web ci-test-install
+make -C examples/client-wasm-nodejs install
+make -C examples/client-wasm-web install
 make -C mithril-explorer install
 make -C docs/website install
 
