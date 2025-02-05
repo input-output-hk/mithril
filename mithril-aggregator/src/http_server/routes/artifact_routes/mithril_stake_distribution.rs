@@ -37,11 +37,10 @@ pub mod handlers {
     use crate::services::MessageService;
     use crate::MetricsService;
 
-    use slog::{warn, Logger};
+    use slog::{debug, warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
-
     pub const LIST_MAX_ITEMS: usize = 20;
 
     /// List MithrilStakeDistribution artifacts
@@ -53,7 +52,11 @@ pub mod handlers {
             .get_mithril_stake_distribution_list_message(LIST_MAX_ITEMS)
             .await
         {
-            Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
+            Ok(message) => {
+                let json_response = reply::json(&message, StatusCode::OK);
+                debug!(logger, "[FLAKINESS] get_mithril_stake_distribution_list_message"; "response" => ?message);
+                Ok(json_response)
+            }
             Err(err) => {
                 warn!(logger,"list_artifacts_mithril_stake_distribution"; "error" => ?err);
                 Ok(reply::server_error(err))
