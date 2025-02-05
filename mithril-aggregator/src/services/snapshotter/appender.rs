@@ -70,6 +70,8 @@ impl TarAppender for AppenderEntries {
 mod tests {
     use std::path::Path;
 
+    use uuid::Uuid;
+
     use crate::services::snapshotter::test_tools::*;
     use crate::services::{
         CompressedArchiveSnapshotter, Snapshotter, SnapshotterCompressionAlgorithm,
@@ -89,13 +91,14 @@ mod tests {
         let directory_not_to_archive_path = create_dir(&source, "directory_not_to_archive");
         let file_not_to_archive_path = create_file(&source, "file_not_to_archive.txt");
 
-        let snapshotter = CompressedArchiveSnapshotter::new(
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
             source,
             destination,
             SnapshotterCompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let snapshot = snapshotter
             .snapshot_subset(
@@ -165,13 +168,14 @@ mod tests {
         let directory_to_archive_path = create_dir(&source, "directory_to_archive");
         let file_to_archive_path = create_file(&source, "directory_to_archive/file_to_archive.txt");
 
-        let snapshotter = CompressedArchiveSnapshotter::new(
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
             source,
             destination,
             SnapshotterCompressionAlgorithm::Gzip,
             TestLogger::stdout(),
         )
         .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let snapshot = snapshotter
             .snapshot_subset(
