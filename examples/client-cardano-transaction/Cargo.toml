@@ -11,9 +11,9 @@ repository = "https://github.com/input-output-hk/mithril/"
 
 [dependencies]
 anyhow = "1.0.95"
-clap = { version = "4.5.23", features = ["derive", "env"] }
+clap = { version = "4.5.28", features = ["derive", "env"] }
 mithril-client = { path = "../../mithril-client" }
 slog = "2.7.0"
 slog-async = "2.8.0"
 slog-term = "2.9.1"
-tokio = { version = "1.42.0", features = ["full"] }
+tokio = { version = "1.43.0", features = ["full"] }

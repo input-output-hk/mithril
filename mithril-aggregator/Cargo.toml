@@ -19,11 +19,11 @@ harness = false
 
 [dependencies]
 anyhow = "1.0.95"
-async-trait = "0.1.83"
+async-trait = "0.1.86"
 chrono = { version = "0.4.39", features = ["serde"] }
-clap = { version = "4.5.23", features = ["derive", "env", "cargo"] }
+clap = { version = "4.5.28", features = ["derive", "env", "cargo"] }
 cloud-storage = "0.11.1"
-config = "0.15.4"
+config = "0.15.7"
 flate2 = "1.0.35"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common", features = ["full"] }
@@ -35,9 +35,9 @@ prometheus = "0.13.4"
 rayon = "1.10.0"
 regex = "1.11.1"
 reqwest = { version = "0.12.12", features = ["json"] }
-semver = "1.0.24"
+semver = "1.0.25"
 serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.134"
+serde_json = "1.0.138"
 serde_yaml = "0.9.34"
 sha2 = "0.10.8"
 slog = { version = "2.7.0", features = [
@@ -48,11 +48,11 @@ slog-async = "2.8.0"
 slog-bunyan = "2.5.0"
 sqlite = { version = "0.36.1", features = ["bundled"] }
 tar = "0.4.43"
-thiserror = "2.0.9"
-tokio = { version = "1.42.0", features = ["full"] }
+thiserror = "2.0.11"
+tokio = { version = "1.43.0", features = ["full"] }
 tokio-util = { version = "0.7.13", features = ["codec"] }
 typetag = "0.2.19"
-uuid = { version = "1.11.0", features = [
+uuid = { version = "1.13.1", features = [
     "v4",
     "fast-rng",
     "macro-diagnostics",
@@ -73,7 +73,7 @@ mithril-common = { path = "../mithril-common", features = [
 mockall = "0.13.1"
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
-tempfile = "3.14.0"
+tempfile = "3.16.0"
 
 [features]
 default = ["jemallocator"]

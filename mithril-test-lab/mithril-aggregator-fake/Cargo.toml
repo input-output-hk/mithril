@@ -12,14 +12,14 @@ repository = { workspace = true }
 [dependencies]
 anyhow = "1.0.95"
 axum = { version = "0.8.1", features = ["tokio", "http1"] }
-clap = { version = "4.5.23", features = ["derive"] }
-clap_derive = "4.5.18"
+clap = { version = "4.5.28", features = ["derive"] }
+clap_derive = "4.5.28"
 futures = "0.3.31"
 serde = { version = "1.0.217", features = ["derive"] }
-serde_json = "1.0.134"
+serde_json = "1.0.138"
 signal-hook = "0.3.17"
 signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }
-tokio = { version = "1.42.0", features = ["full"] }
+tokio = { version = "1.43.0", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["trace", "cors"] }
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
