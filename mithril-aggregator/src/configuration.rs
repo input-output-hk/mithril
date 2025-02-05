@@ -16,6 +16,7 @@ use mithril_common::entities::{
 };
 use mithril_common::{CardanoNetwork, StdResult};
 
+use crate::entities::AggregatorEpochSettings;
 use crate::http_server::SERVER_BASE_PATH;
 use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 
@@ -364,6 +365,14 @@ impl Configuration {
         match self.snapshot_uploader_type {
             SnapshotUploaderType::Local => true,
             SnapshotUploaderType::Gcp => false,
+        }
+    }
+
+    /// Infer the [AggregatorEpochSettings] from the configuration.
+    pub fn get_epoch_settings_configuration(&mut self) -> AggregatorEpochSettings {
+        AggregatorEpochSettings {
+            protocol_parameters: self.protocol_parameters.clone(),
+            cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
         }
     }
 }
