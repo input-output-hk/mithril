@@ -1093,4 +1093,34 @@ mod tests {
             "Expected error message should not contain additional information \ngot '{root_cause:?}'"
         );
     }
+
+    #[tokio::test]
+    async fn test_sends_accept_encoding_header() {
+        let (server, client) = setup_server_and_client();
+        server.mock(|when, then| {
+            when.matches(|req| {
+                let headers = req.headers.clone().expect("HTTP headers not found");
+                let accept_encoding_header = headers
+                    .iter()
+                    .find(|(name, _values)| name.to_lowercase() == "accept-encoding")
+                    .expect("Accept-Encoding header not found");
+
+                let header_value = accept_encoding_header.clone().1;
+                ["gzip", "br", "deflate", "zstd"]
+                    .iter()
+                    .all(|&value| header_value.contains(value))
+            });
+
+            then.status(201);
+        });
+
+        client
+            .register_signatures(
+                &SignedEntityType::dummy(),
+                &fake_data::single_signatures((1..5).collect()),
+                &ProtocolMessage::default(),
+            )
+            .await
+            .expect("Should succeed with Accept-Encoding header");
+    }
 }
