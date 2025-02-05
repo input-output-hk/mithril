@@ -368,6 +368,22 @@ impl CardanoDatabaseClient {
             Ok(())
         }
 
+        fn feedback_event_builder_immutable_download(download_id: String, downloaded_bytes: u64, size: u64) -> Option<MithrilEvent> {
+            Some(MithrilEvent::ImmutableDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            })
+        }
+
+        fn feedback_event_builder_ancillary_download(_download_id: String, _downloaded_bytes: u64, _size: u64) -> Option<MithrilEvent> {
+            None
+        }
+
+        fn feedback_event_builder_digest_download(_download_id: String, _downloaded_bytes: u64, _size: u64) -> Option<MithrilEvent> {
+            None
+        }
+
         /// Download and unpack the immutable files of the given range.
         ///
         /// The download is attempted for each location until the full range is downloaded.
@@ -410,6 +426,7 @@ impl CardanoDatabaseClient {
                             immutable_files_target_dir,
                             Some(compression_algorithm.to_owned()),
                             &download_id,
+                            Self::feedback_event_builder_immutable_download,
                         )
                         .await;
                     match downloaded {
@@ -462,6 +479,7 @@ impl CardanoDatabaseClient {
                         ancillary_file_target_dir,
                         Some(compression_algorithm.to_owned()),
                         &download_id,
+                        Self::feedback_event_builder_ancillary_download
                     )
                     .await;
                 match downloaded {
@@ -502,6 +520,7 @@ impl CardanoDatabaseClient {
                         digest_file_target_dir,
                         None,
                         &download_id,
+                        Self::feedback_event_builder_digest_download
                     )
                     .await;
                 match downloaded {
@@ -603,8 +622,9 @@ mod tests {
             aggregator_client::MockAggregatorHTTPClient,
             feedback::{FeedbackReceiver, MithrilEvent, StackFeedbackReceiver},
             file_downloader::{
-                AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloader,
-                ImmutablesFileDownloaderResolver, MockFileDownloader,
+                AncillaryFileDownloaderResolver, DigestFileDownloaderResolver,
+                FeedbackEventBuilder, FileDownloader, ImmutablesFileDownloaderResolver,
+                MockFileDownloader,
             },
             test_utils,
         };
@@ -745,6 +765,7 @@ mod tests {
                     &Path,
                     Option<CompressionAlgorithm>,
                     &str,
+                    FeedbackEventBuilder,
                 ) -> StdResult<()>
                 + Send
                 + 'static,
@@ -781,11 +802,11 @@ mod tests {
             }
 
             fn with_success(self) -> Self {
-                self.with_returning(Box::new(|_, _, _, _| Ok(())))
+                self.with_returning(Box::new(|_, _, _, _, _| Ok(())))
             }
 
             fn with_failure(self) -> Self {
-                self.with_returning(Box::new(|_, _, _, _| {
+                self.with_returning(Box::new(|_, _, _, _, _| {
                     Err(anyhow!("Download unpack failed"))
                 }))
             }
@@ -850,6 +871,7 @@ mod tests {
                         .unwrap_or(true)
                 });
                 let predicate_download_id = predicate::always();
+                let predicate_feedback_event_builder = predicate::always();
 
                 let mut mock_file_downloader = self.mock_file_downloader.unwrap_or_default();
                 mock_file_downloader
@@ -859,6 +881,7 @@ mod tests {
                         predicate_target_dir,
                         predicate_compression_algorithm,
                         predicate_download_id,
+                        predicate_feedback_event_builder,
                     )
                     .times(self.times)
                     .returning(self.returning_func.unwrap());

@@ -7,7 +7,7 @@ mod resolver;
 
 #[cfg(test)]
 pub use interface::MockFileDownloader;
-pub use interface::{FileDownloader, FileDownloaderUri};
+pub use interface::{FeedbackEventBuilder, FileDownloader, FileDownloaderUri};
 #[cfg(test)]
 pub use resolver::MockFileDownloaderResolver;
 pub use resolver::{
