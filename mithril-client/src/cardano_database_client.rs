@@ -46,14 +46,14 @@
 
 // TODO: reorganize the imports
 #[cfg(feature = "fs")]
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 #[cfg(feature = "fs")]
 use std::fs;
 #[cfg(feature = "fs")]
 use std::ops::RangeInclusive;
 #[cfg(feature = "fs")]
 use std::path::{Path, PathBuf};
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 #[cfg(feature = "fs")]
 use anyhow::anyhow;
@@ -72,7 +72,8 @@ use mithril_common::{
         ImmutableFileName, ImmutableFileNumber, ImmutablesLocation,
     },
     messages::{
-        CardanoDatabaseDigestListItemMessage, CertificateMessage, SignedEntityTypeMessagePart,
+        CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotMessage, CertificateMessage,
+        SignedEntityTypeMessagePart,
     },
     StdResult,
 };
@@ -413,51 +414,16 @@ impl CardanoDatabaseClient {
             let mut locations_sorted = locations.to_owned();
             locations_sorted.sort();
             let mut immutable_file_numbers_to_download =
-                range.clone().map(|n| n.to_owned()).collect::<HashSet<_>>();
+                range.clone().map(|n| n.to_owned()).collect::<BTreeSet<_>>();
             for location in locations_sorted {
-                let file_downloader = self
-                    .immutable_file_downloader_resolver
-                    .resolve(&location)
-                    .ok_or_else(|| {
-                        anyhow!("Failed resolving a file downloader for location: {location:?}")
-                    })?;
-                let file_downloader_uris =
-                    FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
-                        &location,
-                        immutable_file_numbers_to_download
-                            .clone()
-                            .into_iter()
-                            .collect::<Vec<_>>()
-                            .as_slice(),
-                    )?;
-                for (immutable_file_number, file_downloader_uri) in file_downloader_uris {
-                    let download_id = MithrilEvent::new_snapshot_download_id();
-                    self.feedback_sender
-                        .send_event(MithrilEvent::ImmutableDownloadStarted { immutable_file_number, download_id: download_id.clone()})
-                        .await;
-                    let downloaded = file_downloader
-                        .download_unpack(
-                            &file_downloader_uri,
-                            immutable_files_target_dir,
-                            Some(compression_algorithm.to_owned()),
-                            &download_id,
-                            Self::feedback_event_builder_immutable_download,
-                        )
-                        .await;
-                    match downloaded {
-                        Ok(_) => {
-                            immutable_file_numbers_to_download.remove(&immutable_file_number);
-                            self.feedback_sender
-                                .send_event(MithrilEvent::ImmutableDownloadCompleted { download_id })
-                                .await;
-                        }
-                        Err(e) => {
-                            slog::error!(
-                                self.logger,
-                                "Failed downloading and unpacking immutable files for location {file_downloader_uri:?}"; "error" => e.to_string()
-                            );
-                        }
-                    }
+                let immutable_files_numbers_downloaded = self.download_unpack_immutable_files_for_location(
+                    &location,
+                    &immutable_file_numbers_to_download,
+                    compression_algorithm,
+                    immutable_files_target_dir,
+                ).await?;
+                for immutable_file_number in immutable_files_numbers_downloaded {
+                    immutable_file_numbers_to_download.remove(&immutable_file_number);
                 }
                 if immutable_file_numbers_to_download.is_empty() {
                     return Ok(());
@@ -467,6 +433,56 @@ impl CardanoDatabaseClient {
             Err(anyhow!(
                 "Failed downloading and unpacking immutable files for locations: {locations:?}"
             ))
+        }
+
+        async fn download_unpack_immutable_files_for_location(&self, location: &ImmutablesLocation, immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>, compression_algorithm: &CompressionAlgorithm, immutable_files_target_dir: &Path,) -> StdResult<BTreeSet<ImmutableFileNumber>> {
+            let mut immutable_file_numbers_downloaded = BTreeSet::new();
+            let file_downloader = self
+                .immutable_file_downloader_resolver
+                .resolve(location)
+                .ok_or_else(|| {
+                    anyhow!("Failed resolving a file downloader for location: {location:?}")
+                })?;
+            let file_downloader_uris =
+                FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
+                    location,
+                    immutable_file_numbers_to_download
+                    .clone()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+                )?;
+            for (immutable_file_number, file_downloader_uri) in file_downloader_uris {
+                let download_id = MithrilEvent::new_snapshot_download_id();
+                self.feedback_sender
+                    .send_event(MithrilEvent::ImmutableDownloadStarted { immutable_file_number, download_id: download_id.clone()})
+                    .await;
+                let downloaded = file_downloader
+                    .download_unpack(
+                        &file_downloader_uri,
+                        immutable_files_target_dir,
+                        Some(compression_algorithm.to_owned()),
+                        &download_id,
+                        Self::feedback_event_builder_immutable_download,
+                    )
+                    .await;
+                match downloaded {
+                    Ok(_) => {
+                        immutable_file_numbers_downloaded.insert(immutable_file_number);
+                        self.feedback_sender
+                            .send_event(MithrilEvent::ImmutableDownloadCompleted { download_id })
+                            .await;
+                    }
+                    Err(e) => {
+                        slog::error!(
+                            self.logger,
+                            "Failed downloading and unpacking immutable files for location {file_downloader_uri:?}"; "error" => e.to_string()
+                        );
+                    }
+                }
+            }
+
+            Ok(immutable_file_numbers_downloaded)
         }
 
         /// Download and unpack the ancillary files.
