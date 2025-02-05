@@ -9,8 +9,8 @@ use std::{
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     crypto_helper::{
-        ProtocolAggregateVerificationKey, ProtocolGenesisSigner, ProtocolInitializer,
-        ProtocolOpCert, ProtocolSigner, ProtocolSignerVerificationKey,
+        ProtocolAggregateVerificationKey, ProtocolClosedKeyRegistration, ProtocolGenesisSigner,
+        ProtocolInitializer, ProtocolOpCert, ProtocolSigner, ProtocolSignerVerificationKey,
         ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
     },
     entities::{
@@ -19,6 +19,7 @@ use crate::{
         StakeDistributionParty,
     },
     protocol::{SignerBuilder, ToMessage},
+    StdResult,
 };
 
 /// A fixture of Mithril data types.
@@ -40,8 +41,28 @@ pub struct SignerFixture {
     pub protocol_signer: ProtocolSigner,
     /// A [ProtocolSigner].
     pub protocol_initializer: ProtocolInitializer,
+    /// A [ProtocolClosedKeyRegistration].
+    pub protocol_closed_key_registration: ProtocolClosedKeyRegistration,
     /// The path to this signer kes secret key file
     pub kes_secret_key_path: Option<PathBuf>,
+}
+
+impl SignerFixture {
+    /// Create a new SignerFixture with specific protocol parameters.
+    /// This is useful to simulate some adversarial behaviors.
+    pub fn try_new_with_protocol_parameters(
+        self,
+        protocol_parameters: ProtocolParameters,
+    ) -> StdResult<Self> {
+        let mut protocol_initializer = self.protocol_initializer.clone();
+        protocol_initializer.override_protocol_parameters(&protocol_parameters.into());
+        let protocol_signer =
+            protocol_initializer.new_signer(self.protocol_closed_key_registration.clone())?;
+        Ok(Self {
+            protocol_signer,
+            ..self
+        })
+    }
 }
 
 impl From<SignerFixture> for SignerWithStake {

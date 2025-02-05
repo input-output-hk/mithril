@@ -8,7 +8,6 @@ use crate::{
         BlockNumber, CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey,
         SignedEntityType,
     },
-    era::{EraChecker, SupportedEra},
     logging::LoggerExtensions,
     signable_builder::{SignableBuilder, SignableSeedBuilder},
     StdResult,
@@ -27,7 +26,6 @@ pub trait SignableBuilderService: Send + Sync {
 
 /// Mithril Signable Builder Service
 pub struct MithrilSignableBuilderService {
-    era_checker: Arc<EraChecker>,
     seed_signable_builder: Arc<dyn SignableSeedBuilder>,
     mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
     immutable_signable_builder: Arc<dyn SignableBuilder<CardanoDbBeacon>>,
@@ -68,13 +66,11 @@ impl SignableBuilderServiceDependencies {
 impl MithrilSignableBuilderService {
     /// MithrilSignableBuilderService factory
     pub fn new(
-        era_checker: Arc<EraChecker>,
         seed_signable_builder: Arc<dyn SignableSeedBuilder>,
         dependencies: SignableBuilderServiceDependencies,
         logger: Logger,
     ) -> Self {
         Self {
-            era_checker,
             seed_signable_builder,
             mithril_stake_distribution_builder: dependencies.mithril_stake_distribution_builder,
             immutable_signable_builder: dependencies.immutable_signable_builder,
@@ -149,18 +145,16 @@ impl MithrilSignableBuilderService {
             next_aggregate_verification_key,
         );
 
-        if matches!(self.era_checker.current_era(), SupportedEra::Pythagoras) {
-            let next_protocol_parameters = self
-                .seed_signable_builder
-                .compute_next_protocol_parameters()
-                .await?;
-            protocol_message.set_message_part(
-                ProtocolMessagePartKey::NextProtocolParameters,
-                next_protocol_parameters,
-            );
-            let current_epoch = self.seed_signable_builder.compute_current_epoch().await?;
-            protocol_message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, current_epoch);
-        }
+        let next_protocol_parameters = self
+            .seed_signable_builder
+            .compute_next_protocol_parameters()
+            .await?;
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            next_protocol_parameters,
+        );
+        let current_epoch = self.seed_signable_builder.compute_current_epoch().await?;
+        protocol_message.set_message_part(ProtocolMessagePartKey::CurrentEpoch, current_epoch);
 
         Ok(protocol_message)
     }
@@ -189,7 +183,6 @@ mod tests {
 
     use crate::{
         entities::{BlockNumber, Epoch, ProtocolMessage},
-        era::SupportedEra,
         signable_builder::{Beacon as Beaconnable, MockSignableSeedBuilder, SignableBuilder},
         test_utils::TestLogger,
         StdResult,
@@ -209,7 +202,6 @@ mod tests {
     }
 
     struct MockDependencyInjector {
-        era_checker: EraChecker,
         mock_signable_seed_builder: MockSignableSeedBuilder,
         mock_mithril_stake_distribution_signable_builder: MockSignableBuilderImpl<Epoch>,
         mock_cardano_immutable_files_full_signable_builder:
@@ -220,9 +212,8 @@ mod tests {
     }
 
     impl MockDependencyInjector {
-        fn new(current_era: SupportedEra) -> MockDependencyInjector {
+        fn new() -> MockDependencyInjector {
             MockDependencyInjector {
-                era_checker: EraChecker::new(current_era, Epoch(1)),
                 mock_signable_seed_builder: MockSignableSeedBuilder::new(),
                 mock_mithril_stake_distribution_signable_builder: MockSignableBuilderImpl::new(),
                 mock_cardano_immutable_files_full_signable_builder: MockSignableBuilderImpl::new(),
@@ -242,7 +233,6 @@ mod tests {
             );
 
             MithrilSignableBuilderService::new(
-                Arc::new(self.era_checker),
                 Arc::new(self.mock_signable_seed_builder),
                 dependencies,
                 TestLogger::stdout(),
@@ -250,231 +240,112 @@ mod tests {
         }
     }
 
-    mod pythagoras_era {
-        use super::*;
+    fn build_mock_container() -> MockDependencyInjector {
+        let mut mock_container = MockDependencyInjector::new();
+        mock_container
+            .mock_signable_seed_builder
+            .expect_compute_next_aggregate_verification_key()
+            .once()
+            .return_once(move || Ok("next-avk-123".to_string()));
+        mock_container
+            .mock_signable_seed_builder
+            .expect_compute_next_protocol_parameters()
+            .once()
+            .return_once(move || Ok("protocol-params-hash-123".to_string()));
+        mock_container
+            .mock_signable_seed_builder
+            .expect_compute_current_epoch()
+            .once()
+            .return_once(move || Ok("epoch-123".to_string()));
 
-        fn build_mock_container(current_era: SupportedEra) -> MockDependencyInjector {
-            let mut mock_container = MockDependencyInjector::new(current_era);
-            mock_container
-                .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key()
-                .once()
-                .return_once(move || Ok("next-avk-123".to_string()));
-            mock_container
-                .mock_signable_seed_builder
-                .expect_compute_next_protocol_parameters()
-                .once()
-                .return_once(move || Ok("protocol-params-hash-123".to_string()));
-            mock_container
-                .mock_signable_seed_builder
-                .expect_compute_current_epoch()
-                .once()
-                .return_once(move || Ok("epoch-123".to_string()));
-
-            mock_container
-        }
-
-        #[tokio::test]
-        async fn build_mithril_stake_distribution_signable_when_given_mithril_stake_distribution_entity_type(
-        ) {
-            let current_era = SupportedEra::Pythagoras;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_mithril_stake_distribution_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
-
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
-
-        #[tokio::test]
-        async fn build_snapshot_signable_when_given_cardano_immutable_files_full_entity_type() {
-            let current_era = SupportedEra::Pythagoras;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_cardano_immutable_files_full_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type =
-                SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
-
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
-
-        #[tokio::test]
-        async fn build_transactions_signable_when_given_cardano_transactions_entity_type() {
-            let current_era = SupportedEra::Pythagoras;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_cardano_transactions_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type =
-                SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(1000));
-
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
-
-        #[tokio::test]
-        async fn build_cardano_stake_distribution_signable_when_given_cardano_stake_distribution_entity_type(
-        ) {
-            let current_era = SupportedEra::Pythagoras;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_cardano_stake_distribution_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(5));
-
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
-
-        #[tokio::test]
-        async fn build_cardano_database_signable_when_given_cardano_database_entity_type() {
-            let current_era = SupportedEra::Pythagoras;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_cardano_database_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::default());
-
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
+        mock_container
     }
 
-    mod thales_era {
-        use super::*;
+    #[tokio::test]
+    async fn build_mithril_stake_distribution_signable_when_given_mithril_stake_distribution_entity_type(
+    ) {
+        let mut mock_container = build_mock_container();
+        mock_container
+            .mock_mithril_stake_distribution_signable_builder
+            .expect_compute_protocol_message()
+            .once()
+            .return_once(|_| Ok(ProtocolMessage::new()));
+        let signable_builder_service = mock_container.build_signable_builder_service();
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
 
-        fn build_mock_container(current_era: SupportedEra) -> MockDependencyInjector {
-            let mut mock_container = MockDependencyInjector::new(current_era);
-            mock_container
-                .mock_signable_seed_builder
-                .expect_compute_next_aggregate_verification_key()
-                .once()
-                .return_once(move || Ok("next-avk-123".to_string()));
+        signable_builder_service
+            .compute_protocol_message(signed_entity_type)
+            .await
+            .unwrap();
+    }
 
-            mock_container
-        }
+    #[tokio::test]
+    async fn build_snapshot_signable_when_given_cardano_immutable_files_full_entity_type() {
+        let mut mock_container = build_mock_container();
+        mock_container
+            .mock_cardano_immutable_files_full_signable_builder
+            .expect_compute_protocol_message()
+            .once()
+            .return_once(|_| Ok(ProtocolMessage::new()));
+        let signable_builder_service = mock_container.build_signable_builder_service();
+        let signed_entity_type =
+            SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
 
-        #[tokio::test]
-        async fn build_mithril_stake_distribution_signable_when_given_mithril_stake_distribution_entity_type(
-        ) {
-            let current_era = SupportedEra::Thales;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_mithril_stake_distribution_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
+        signable_builder_service
+            .compute_protocol_message(signed_entity_type)
+            .await
+            .unwrap();
+    }
 
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
+    #[tokio::test]
+    async fn build_transactions_signable_when_given_cardano_transactions_entity_type() {
+        let mut mock_container = build_mock_container();
+        mock_container
+            .mock_cardano_transactions_signable_builder
+            .expect_compute_protocol_message()
+            .once()
+            .return_once(|_| Ok(ProtocolMessage::new()));
+        let signable_builder_service = mock_container.build_signable_builder_service();
+        let signed_entity_type = SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(1000));
 
-        #[tokio::test]
-        async fn build_snapshot_signable_when_given_cardano_immutable_files_full_entity_type() {
-            let current_era = SupportedEra::Thales;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_cardano_immutable_files_full_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type =
-                SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::default());
+        signable_builder_service
+            .compute_protocol_message(signed_entity_type)
+            .await
+            .unwrap();
+    }
 
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
+    #[tokio::test]
+    async fn build_cardano_stake_distribution_signable_when_given_cardano_stake_distribution_entity_type(
+    ) {
+        let mut mock_container = build_mock_container();
+        mock_container
+            .mock_cardano_stake_distribution_signable_builder
+            .expect_compute_protocol_message()
+            .once()
+            .return_once(|_| Ok(ProtocolMessage::new()));
+        let signable_builder_service = mock_container.build_signable_builder_service();
+        let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(5));
 
-        #[tokio::test]
-        async fn build_transactions_signable_when_given_cardano_transactions_entity_type() {
-            let current_era = SupportedEra::Thales;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_cardano_transactions_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type =
-                SignedEntityType::CardanoTransactions(Epoch(5), BlockNumber(1000));
+        signable_builder_service
+            .compute_protocol_message(signed_entity_type)
+            .await
+            .unwrap();
+    }
 
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
+    #[tokio::test]
+    async fn build_cardano_database_signable_when_given_cardano_database_entity_type() {
+        let mut mock_container = build_mock_container();
+        mock_container
+            .mock_cardano_database_signable_builder
+            .expect_compute_protocol_message()
+            .once()
+            .return_once(|_| Ok(ProtocolMessage::new()));
+        let signable_builder_service = mock_container.build_signable_builder_service();
+        let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::default());
 
-        #[tokio::test]
-        async fn build_cardano_stake_distribution_signable_when_given_cardano_stake_distribution_entity_type(
-        ) {
-            let current_era = SupportedEra::Thales;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_cardano_stake_distribution_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type = SignedEntityType::CardanoStakeDistribution(Epoch(5));
-
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
-
-        #[tokio::test]
-        async fn build_cardano_database_signable_when_given_cardano_database_entity_type() {
-            let current_era = SupportedEra::Thales;
-            let mut mock_container = build_mock_container(current_era);
-            mock_container
-                .mock_cardano_database_signable_builder
-                .expect_compute_protocol_message()
-                .once()
-                .return_once(|_| Ok(ProtocolMessage::new()));
-            let signable_builder_service = mock_container.build_signable_builder_service();
-            let signed_entity_type = SignedEntityType::CardanoDatabase(CardanoDbBeacon::default());
-
-            signable_builder_service
-                .compute_protocol_message(signed_entity_type)
-                .await
-                .unwrap();
-        }
+        signable_builder_service
+            .compute_protocol_message(signed_entity_type)
+            .await
+            .unwrap();
     }
 }

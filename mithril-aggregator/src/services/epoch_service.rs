@@ -1056,7 +1056,7 @@ mod tests {
             },
             allowed_discriminants: SignedEntityConfig::dummy().allowed_discriminants,
             cardano_era: "CardanoEra".to_string(),
-            mithril_era: SupportedEra::eras()[1],
+            mithril_era: SupportedEra::eras()[0],
             total_spo: 10,
             total_stake: 20_000_000,
             ..EpochServiceBuilder::new(epoch, current_epoch_fixture.clone())
@@ -1077,7 +1077,7 @@ mod tests {
             data.clone(),
             ExpectedEpochData {
                 cardano_era: "CardanoEra".to_string(),
-                mithril_era: SupportedEra::eras()[1],
+                mithril_era: SupportedEra::eras()[0],
                 epoch,
                 protocol_parameters: current_epoch_fixture.protocol_parameters(),
                 next_protocol_parameters: next_epoch_fixture.protocol_parameters(),

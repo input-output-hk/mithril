@@ -53,6 +53,23 @@ pub enum CertificateVerifierError {
     #[error("certificate chain AVK unmatch error")]
     CertificateChainAVKUnmatch,
 
+    /// Error raised when validating the certificate chain if the current [Certificate]
+    /// `protocol_parameters` don't match the signed `next_protocol_parameters` of the previous certificate
+    /// (if the certificates are on different epoch) or the `protocol_parameters` of the previous certificate
+    /// (if the certificates are on the same epoch).
+    #[error("certificate chain protocol parameters unmatch error")]
+    CertificateChainProtocolParametersUnmatch,
+
+    /// Error raised when validating the certificate chain if the current [Certificate]
+    /// `epoch` doesn't match the signed `current_epoch` of the current certificate
+    #[error("certificate epoch unmatch error")]
+    CertificateEpochUnmatch,
+
+    /// Error raised when validating the certificate chain if the current [Certificate]
+    /// `epoch` is neither equal to the previous certificate `epoch` nor to the previous certificate `epoch - 1`
+    #[error("certificate chain missing epoch error")]
+    CertificateChainMissingEpoch,
+
     /// Error raised when validating the certificate chain if the chain loops.
     #[error("certificate chain infinite loop error")]
     CertificateChainInfiniteLoop,
@@ -206,6 +223,34 @@ impl MithrilCertificateVerifier {
 
         Ok(())
     }
+
+    fn verify_epoch_matches_protocol_message(&self, certificate: &Certificate) -> StdResult<()> {
+        if let Some(signed_epoch) = &certificate
+            .protocol_message
+            .get_message_part(&ProtocolMessagePartKey::CurrentEpoch)
+        {
+            if **signed_epoch == certificate.epoch.to_string() {
+                return Ok(());
+            }
+        }
+
+        Err(anyhow!(CertificateVerifierError::CertificateEpochUnmatch))
+    }
+
+    fn verify_epoch_chaining(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
+        if certificate.epoch.has_gap_with(&previous_certificate.epoch) {
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateChainMissingEpoch
+            ));
+        }
+
+        Ok(())
+    }
+
     fn verify_aggregate_verification_key_chaining(
         &self,
         certificate: &Certificate,
@@ -248,6 +293,40 @@ impl MithrilCertificateVerifier {
 
         Ok(())
     }
+
+    fn verify_protocol_parameters_chaining(
+        &self,
+        certificate: &Certificate,
+        previous_certificate: &Certificate,
+    ) -> StdResult<()> {
+        let previous_certificate_has_same_epoch = previous_certificate.epoch == certificate.epoch;
+        let certificate_has_valid_protocol_parameters = if previous_certificate_has_same_epoch {
+            previous_certificate.metadata.protocol_parameters
+                == certificate.metadata.protocol_parameters
+        } else {
+            match &previous_certificate
+                .protocol_message
+                .get_message_part(&ProtocolMessagePartKey::NextProtocolParameters)
+            {
+                Some(previous_certificate_next_protocol_parameters) => {
+                    **previous_certificate_next_protocol_parameters
+                        == certificate.metadata.protocol_parameters.compute_hash()
+                }
+                None => false,
+            }
+        };
+        if !certificate_has_valid_protocol_parameters {
+            debug!(
+                self.logger,
+                "Previous certificate {:#?}", previous_certificate
+            );
+            return Err(anyhow!(
+                CertificateVerifierError::CertificateChainProtocolParametersUnmatch
+            ));
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
@@ -270,6 +349,8 @@ impl CertificateVerifier for MithrilCertificateVerifier {
                 genesis_signature,
             )
             .with_context(|| "Certificate verifier failed verifying a genesis certificate")?;
+        self.verify_epoch_matches_protocol_message(genesis_certificate)?;
+
         Ok(())
     }
 
@@ -291,11 +372,14 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             &certificate.aggregate_verification_key,
             &certificate.metadata.protocol_parameters,
         )?;
+        self.verify_epoch_matches_protocol_message(certificate)?;
+        self.verify_epoch_chaining(certificate, previous_certificate)?;
         self.verify_previous_hash_matches_previous_certificate_hash(
             certificate,
             previous_certificate,
         )?;
         self.verify_aggregate_verification_key_chaining(certificate, previous_certificate)?;
+        self.verify_protocol_parameters_chaining(certificate, previous_certificate)?;
 
         Ok(())
     }
@@ -345,7 +429,9 @@ mod tests {
 
     use crate::certificate_chain::{CertificateRetrieverError, FakeCertificaterRetriever};
     use crate::crypto_helper::{tests_setup::*, ProtocolClerk};
-    use crate::test_utils::{MithrilFixtureBuilder, TestLogger};
+    use crate::test_utils::{
+        CertificateChainBuilder, CertificateChainBuilderContext, MithrilFixtureBuilder, TestLogger,
+    };
 
     macro_rules! assert_error_matches {
         ( $expected_error:path, $error:expr ) => {{
@@ -533,6 +619,27 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn verify_genesis_certificate_fails_if_epoch_unmatch() {
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let (fake_certificates, genesis_verifier) =
+            setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let mut genesis_certificate = fake_certificates.last().unwrap().clone();
+        genesis_certificate.epoch -= 1;
+        genesis_certificate.hash = genesis_certificate.compute_hash();
+
+        let error = verifier
+            .verify_genesis_certificate(
+                &genesis_certificate,
+                &genesis_verifier.to_verification_key(),
+            )
+            .await
+            .expect_err("verify_genesis_certificate should fail");
+
+        assert_error_matches!(CertificateVerifierError::CertificateEpochUnmatch, error)
+    }
+
+    #[tokio::test]
     async fn verify_standard_certificate_success_with_different_epochs_as_previous() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let (fake_certificates, _) =
@@ -652,6 +759,87 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn verify_standard_certificate_fails_if_epoch_unmatch() {
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let (fake_certificates, _) =
+            setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let mut certificate = fake_certificates[0].clone();
+        certificate.epoch -= 1;
+        certificate.hash = certificate.compute_hash();
+        let previous_certificate = fake_certificates[1].clone();
+
+        let error = verifier
+            .verify_standard_certificate(&certificate, &previous_certificate)
+            .await
+            .expect_err("verify_standard_certificate should fail");
+
+        assert_error_matches!(CertificateVerifierError::CertificateEpochUnmatch, error)
+    }
+
+    #[tokio::test]
+    async fn verify_standard_certificate_fails_if_has_missing_epoch() {
+        fn create_epoch_gap_certificate(
+            certificate: Certificate,
+            context: &CertificateChainBuilderContext,
+        ) -> Certificate {
+            let fixture = context.fixture;
+            let modified_epoch = certificate.epoch + 1;
+            let mut protocol_message = certificate.protocol_message.to_owned();
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::CurrentEpoch,
+                modified_epoch.to_string(),
+            );
+            let signed_message = protocol_message.compute_hash();
+            let mut modified_certificate = certificate;
+            modified_certificate.epoch = modified_epoch;
+            modified_certificate.protocol_message = protocol_message;
+            modified_certificate.signed_message = signed_message.clone();
+            let single_signatures = fixture
+                .signers_fixture()
+                .iter()
+                .filter_map(|s| s.protocol_signer.sign(signed_message.as_bytes()))
+                .collect::<Vec<_>>();
+            let clerk = ProtocolClerk::from_signer(&fixture.signers_fixture()[0].protocol_signer);
+            let modified_multi_signature = clerk
+                .aggregate(&single_signatures, signed_message.as_bytes())
+                .unwrap();
+            modified_certificate.signature = CertificateSignature::MultiSignature(
+                modified_certificate.signed_entity_type(),
+                modified_multi_signature.into(),
+            );
+
+            modified_certificate
+        }
+
+        let (total_certificates, certificates_per_epoch) = (5, 1);
+        let (fake_certificates, _) = CertificateChainBuilder::new()
+            .with_total_certificates(total_certificates)
+            .with_certificates_per_epoch(certificates_per_epoch)
+            .with_standard_certificate_processor(&|certificate, context| {
+                if context.is_last_certificate() {
+                    create_epoch_gap_certificate(certificate, context)
+                } else {
+                    certificate
+                }
+            })
+            .build();
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
+        let certificate = fake_certificates[0].clone();
+        let previous_certificate = fake_certificates[1].clone();
+
+        let error = verifier
+            .verify_standard_certificate(&certificate, &previous_certificate)
+            .await
+            .expect_err("verify_standard_certificate should fail");
+
+        assert_error_matches!(
+            CertificateVerifierError::CertificateChainMissingEpoch,
+            error
+        )
+    }
+
+    #[tokio::test]
     async fn verify_standard_certificate_fails_if_certificate_previous_hash_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let (fake_certificates, _) =
@@ -700,22 +888,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn verify_certificate_ko_certificate_hash_not_matching() {
+    async fn verify_standard_certificate_fails_if_certificate_chain_protocol_parameters_unmatch() {
         let (total_certificates, certificates_per_epoch) = (5, 1);
         let (fake_certificates, _) =
             setup_certificate_chain(total_certificates, certificates_per_epoch);
+        let verifier = MockDependencyInjector::new().build_certificate_verifier();
         let mut certificate = fake_certificates[0].clone();
-        certificate.hash = "another-hash".to_string();
-        let previous_certificate = fake_certificates[1].clone();
-        let mock_container = MockDependencyInjector::new();
-        let verifier = mock_container.build_certificate_verifier();
+        let mut previous_certificate = fake_certificates[1].clone();
+        previous_certificate.protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextProtocolParameters,
+            "protocol-params-hash-123".to_string(),
+        );
+        previous_certificate.hash = previous_certificate.compute_hash();
+        certificate
+            .previous_hash
+            .clone_from(&previous_certificate.hash);
+        certificate.hash = certificate.compute_hash();
 
         let error = verifier
             .verify_standard_certificate(&certificate, &previous_certificate)
             .await
             .expect_err("verify_standard_certificate should fail");
 
-        assert_error_matches!(CertificateVerifierError::CertificateHashUnmatch, error)
+        assert_error_matches!(
+            CertificateVerifierError::CertificateChainProtocolParametersUnmatch,
+            error
+        )
     }
 
     #[tokio::test]
@@ -874,5 +1072,89 @@ mod tests {
             .expect_err("verify_certificate_chain should fail");
 
         assert_error_matches!(CertificateVerifierError::CertificateHashUnmatch, error)
+    }
+
+    #[tokio::test]
+    async fn verify_certificate_chain_fails_when_adversarial_with_registered_signer_forgery_through_protocol_parameters(
+    ) {
+        // Create an adversarial certificate with a forged multi signature:
+        // - with the valid signed message
+        // - with the valid aggregate verification key (valid stake distribution)
+        // - by a legit adversarial registered signer in the signing stake distribution
+        // - with adversarial protocol parameters (phi_f = 1.0, i.e. all lotteries are won by the adversarial signer and quorum is reached)
+        fn forge_certificate(
+            certificate: Certificate,
+            context: &CertificateChainBuilderContext,
+        ) -> Certificate {
+            assert_ne!(
+                1.0, certificate.metadata.protocol_parameters.phi_f,
+                "Adversarial protocol parameters phi_f should be different from 1.0"
+            );
+            let fixture = context.fixture;
+            let signed_message = certificate.signed_message.to_owned();
+            let mut forged_certificate = certificate;
+            let mut forged_protocol_parameters = fixture.protocol_parameters();
+            forged_protocol_parameters.phi_f = 1.0;
+            let forged_single_signatures = fixture
+                .signers_fixture()
+                .iter()
+                .take(1)
+                .filter_map(|s| {
+                    let s_adversary = s
+                        .to_owned()
+                        .try_new_with_protocol_parameters(forged_protocol_parameters.clone())
+                        .unwrap();
+                    let signature = s_adversary.protocol_signer.sign(signed_message.as_bytes());
+
+                    signature
+                })
+                .collect::<Vec<_>>();
+            let forged_clerk = ProtocolClerk::from_registration(
+                &forged_protocol_parameters.clone().into(),
+                &fixture.signers_fixture()[0].protocol_closed_key_registration,
+            );
+            let forged_multi_signature = forged_clerk
+                .aggregate(&forged_single_signatures, signed_message.as_bytes())
+                .unwrap();
+            forged_certificate.signature = CertificateSignature::MultiSignature(
+                forged_certificate.signed_entity_type(),
+                forged_multi_signature.into(),
+            );
+            forged_certificate.metadata.protocol_parameters = forged_protocol_parameters;
+
+            forged_certificate
+        }
+
+        let (total_certificates, certificates_per_epoch) = (7, 2);
+        let (fake_certificates, genesis_verifier) = CertificateChainBuilder::new()
+            .with_total_certificates(total_certificates)
+            .with_certificates_per_epoch(certificates_per_epoch)
+            .with_standard_certificate_processor(&|certificate, context| {
+                if context.is_last_certificate() {
+                    forge_certificate(certificate, context)
+                } else {
+                    certificate
+                }
+            })
+            .build();
+        let certificate_to_verify = fake_certificates[0].clone();
+        let mock_container = MockDependencyInjector::new();
+        let mut verifier = mock_container.build_certificate_verifier();
+        verifier.certificate_retriever = Arc::new(FakeCertificaterRetriever::from_certificates(
+            &fake_certificates,
+        ));
+
+        let error = verifier
+            .verify_certificate(
+                &certificate_to_verify,
+                &genesis_verifier.to_verification_key(),
+            )
+            .await
+            .expect_err("verify_certificate_chain should fail");
+
+        assert_error_matches!(
+            CertificateVerifierError::CertificateChainProtocolParametersUnmatch,
+            error
+        )
     }
 }

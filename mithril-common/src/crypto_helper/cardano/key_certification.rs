@@ -244,6 +244,13 @@ impl StmInitializerWrapper {
             kes_signature,
         })
     }
+
+    cfg_test_tools! {
+        /// Override the protocol parameters of the `StmInitializer` for testing purposes only.
+        pub fn override_protocol_parameters(&mut self, protocol_parameters: &ProtocolParameters) {
+            self.stm_initializer.params = protocol_parameters.to_owned();
+        }
+    }
 }
 
 impl KeyRegWrapper {

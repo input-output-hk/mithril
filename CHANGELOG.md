@@ -15,6 +15,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Activate aggregator HTTP responses compression by the reverse proxy in the infrastructure.
 
+- Support certification of the protocol parameters and epoch in the certificate chain.
+
 - **UNSTABLE** Cardano database incremental certification:
 
   - Implement the artifact routes of the aggregator for the signed entity type `CardanoDatabase`.
