@@ -850,4 +850,58 @@ mod tests {
             .await
             .expect("GET request should succeed");
     }
+
+    #[tokio::test]
+    async fn test_client_sends_accept_encoding_header_with_correct_values() {
+        let (aggregator, client) = setup_server_and_client();
+        aggregator.mock(|when, then| {
+            when.matches(|req| {
+                let headers = req.headers.clone().expect("HTTP headers not found");
+                let accept_encoding_header = headers
+                    .iter()
+                    .find(|(name, _values)| name.to_lowercase() == "accept-encoding")
+                    .expect("Accept-Encoding header not found");
+
+                let header_value = accept_encoding_header.clone().1;
+                ["gzip", "br", "deflate", "zstd"]
+                    .iter()
+                    .all(|&value| header_value.contains(value))
+            });
+
+            then.status(200).body("ok");
+        });
+
+        client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect("GET request should succeed with Accept-Encoding header");
+    }
+
+    #[tokio::test]
+    async fn test_client_with_custom_headers_sends_accept_encoding_header_with_correct_values() {
+        let mut http_headers = HashMap::new();
+        http_headers.insert("Custom-Header".to_string(), "CustomValue".to_string());
+        let (aggregator, client) = setup_server_and_client_with_custom_headers(http_headers);
+        aggregator.mock(|when, then| {
+            when.matches(|req| {
+                let headers = req.headers.clone().expect("HTTP headers not found");
+                let accept_encoding_header = headers
+                    .iter()
+                    .find(|(name, _values)| name.to_lowercase() == "accept-encoding")
+                    .expect("Accept-Encoding header not found");
+
+                let header_value = accept_encoding_header.clone().1;
+                ["gzip", "br", "deflate", "zstd"]
+                    .iter()
+                    .all(|&value| header_value.contains(value))
+            });
+
+            then.status(200).body("ok");
+        });
+
+        client
+            .get_content(AggregatorRequest::ListCertificates)
+            .await
+            .expect("GET request should succeed with Accept-Encoding header");
+    }
 }
