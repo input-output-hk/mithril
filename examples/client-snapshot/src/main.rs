@@ -190,6 +190,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 }
                 *certificate_validation_pb = None;
             }
+            _ => panic!("Unexpected event: {:?}", event),
         }
     }
 }
