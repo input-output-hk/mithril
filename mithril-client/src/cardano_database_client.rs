@@ -391,8 +391,12 @@ impl CardanoDatabaseClient {
             })
         }
 
-        fn feedback_event_builder_digest_download(_download_id: String, _downloaded_bytes: u64, _size: u64) -> Option<MithrilEvent> {
-            None
+        fn feedback_event_builder_digest_download(download_id: String, downloaded_bytes: u64, size: u64) -> Option<MithrilEvent> {
+            Some(MithrilEvent::DigestDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            })
         }
 
         /// Download and unpack the immutable files of the given range.
@@ -524,7 +528,10 @@ impl CardanoDatabaseClient {
             let mut locations_sorted = locations.to_owned();
             locations_sorted.sort();
             for location in locations_sorted {
-                let download_id = format!("{location:?}"); //TODO: check if this is the correct way to format the download_id
+                let download_id = MithrilEvent::new_digest_download_id();
+                self.feedback_sender
+                        .send_event(MithrilEvent::DigestDownloadStarted { download_id: download_id.clone()})
+                        .await;
                 let file_downloader = self
                     .digest_file_downloader_resolver
                     .resolve(&location)
@@ -542,7 +549,12 @@ impl CardanoDatabaseClient {
                     )
                     .await;
                 match downloaded {
-                    Ok(_) => return Ok(()),
+                    Ok(_) => {
+                        self.feedback_sender
+                                .send_event(MithrilEvent::DigestDownloadCompleted { download_id })
+                                .await;
+                        return Ok(())
+                    },
                     Err(e) => {
                         slog::error!(
                             self.logger,
@@ -1899,6 +1911,51 @@ mod tests {
                         )
                         .await
                         .unwrap();
+                }
+
+                #[tokio::test]
+                async fn download_unpack_digest_file_sends_feedbacks() {
+                    let target_dir = Path::new(".");
+                    let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+                    let client = CardanoDatabaseClientDependencyInjector::new()
+                        .with_digest_file_downloaders(vec![
+                            (
+                                DigestLocationDiscriminants::CloudStorage,
+                                Arc::new(
+                                    MockFileDownloaderBuilder::default()
+                                        .with_compression(None)
+                                        .with_success()
+                                        .build(),
+                                ),
+                            ),
+                        ])
+                        .with_feedback_receivers(&[feedback_receiver.clone()])
+                        .build_cardano_database_client();
+
+                    client
+                        .download_unpack_digest_file(
+                            &[
+                                DigestLocation::CloudStorage {
+                                    uri: "http://whatever-1/digests.json".to_string(),
+                                },
+                            ],
+                            target_dir,
+                        )
+                        .await
+                        .unwrap();
+
+                    let sent_events = feedback_receiver.stacked_events();
+                    let id = sent_events[0].event_id();
+                    let expected_events = vec![
+                        MithrilEvent::DigestDownloadStarted {
+                            download_id: id.to_string(),
+
+                        },
+                        MithrilEvent::DigestDownloadCompleted {
+                            download_id: id.to_string(),
+                        },
+                    ];
+                    assert_eq!(expected_events, sent_events);
                 }
             }
 
