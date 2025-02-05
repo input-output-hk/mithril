@@ -10,7 +10,7 @@ CARGO = cargo
 all: test build
 
 build:
-	${CARGO} build
+	${CARGO} build --release
 	cp ../target/release/mithril-client .
 
 run: build
