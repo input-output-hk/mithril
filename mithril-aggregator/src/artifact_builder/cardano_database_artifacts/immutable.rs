@@ -549,7 +549,7 @@ mod tests {
 
         #[test]
         fn test_retrieve_existing_snapshot_archive() {
-            let work_dir = get_builder_work_dir("return_all_archives_but_not_rebuild_archives");
+            let work_dir = get_builder_work_dir("retrieve_existing_snapshot_archive(");
             let file_name = "whatever.txt";
 
             let builder = ImmutableArtifactBuilder::new(
