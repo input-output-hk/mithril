@@ -287,7 +287,7 @@ impl App {
 
     async fn tail_logs(&self) {
         if let Some(infrastructure) = self.infrastructure.lock().await.as_ref() {
-            let _ = infrastructure.tail_logs(40).await.inspect_err(|e| {
+            let _ = infrastructure.tail_logs(200).await.inspect_err(|e| {
                 error!("Failed to tail logs: {}", e);
             });
         }

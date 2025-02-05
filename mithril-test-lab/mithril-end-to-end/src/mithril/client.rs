@@ -244,7 +244,7 @@ impl Client {
             Ok(output_path)
         } else {
             self.command
-                .tail_logs(Some(format!("mithril-client {args:?}").as_str()), 40)
+                .tail_logs(Some(format!("mithril-client {args:?}").as_str()), 200)
                 .await?;
 
             Err(match exit_status.code() {

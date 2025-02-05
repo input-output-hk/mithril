@@ -162,7 +162,7 @@ impl Aggregator {
         if exit_status.success() {
             Ok(())
         } else {
-            self.command.tail_logs(Some(process_name), 40).await?;
+            self.command.tail_logs(Some(process_name), 200).await?;
 
             Err(match exit_status.code() {
                 Some(c) => {
