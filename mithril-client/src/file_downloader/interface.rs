@@ -10,6 +10,8 @@ use mithril_common::{
     StdResult,
 };
 
+use crate::feedback::MithrilEvent;
+
 /// A file downloader URI
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum FileDownloaderUri {
@@ -77,6 +79,9 @@ impl From<DigestLocation> for FileDownloaderUri {
     }
 }
 
+/// A feedback event builder
+pub type FeedbackEventBuilder = fn(String, u64, u64) -> Option<MithrilEvent>;
+
 /// A file downloader
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
@@ -91,6 +96,7 @@ pub trait FileDownloader: Sync + Send {
         target_dir: &Path,
         compression_algorithm: Option<CompressionAlgorithm>,
         download_id: &str,
+        feedback_event_builder: FeedbackEventBuilder,
     ) -> StdResult<()>;
 }
 

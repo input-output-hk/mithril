@@ -86,9 +86,20 @@ mod tests {
 
     use mithril_common::entities::{FileUri, MultiFilesUri, TemplateUri};
 
-    use crate::file_downloader::{FileDownloaderUri, MockFileDownloader};
+    use crate::{
+        feedback::MithrilEvent,
+        file_downloader::{FileDownloaderUri, MockFileDownloader},
+    };
 
     use super::*;
+
+    fn fake_feedback_event(
+        _download_id: String,
+        _downloaded_bytes: u64,
+        _size: u64,
+    ) -> Option<MithrilEvent> {
+        None
+    }
 
     #[tokio::test]
     async fn immutables_file_downloader_resolver() {
@@ -96,7 +107,7 @@ mod tests {
         mock_file_downloader
             .expect_download_unpack()
             .times(1)
-            .returning(|_, _, _, _| Ok(()));
+            .returning(|_, _, _, _, _| Ok(()));
         let resolver = ImmutablesFileDownloaderResolver::new(vec![(
             ImmutablesLocationDiscriminants::CloudStorage,
             Arc::new(mock_file_downloader),
@@ -115,6 +126,7 @@ mod tests {
                 Path::new("."),
                 None,
                 "download_id",
+                fake_feedback_event,
             )
             .await
             .unwrap();
@@ -126,7 +138,7 @@ mod tests {
         mock_file_downloader_cloud_storage
             .expect_download_unpack()
             .times(1)
-            .returning(|_, _, _, _| Ok(()));
+            .returning(|_, _, _, _, _| Ok(()));
         let resolver = AncillaryFileDownloaderResolver::new(vec![(
             AncillaryLocationDiscriminants::CloudStorage,
             Arc::new(mock_file_downloader_cloud_storage),
@@ -143,6 +155,7 @@ mod tests {
                 Path::new("."),
                 None,
                 "download_id",
+                fake_feedback_event,
             )
             .await
             .unwrap();
@@ -155,7 +168,7 @@ mod tests {
         mock_file_downloader_cloud_storage
             .expect_download_unpack()
             .times(1)
-            .returning(|_, _, _, _| Ok(()));
+            .returning(|_, _, _, _, _| Ok(()));
         let resolver = DigestFileDownloaderResolver::new(vec![
             (
                 DigestLocationDiscriminants::Aggregator,
@@ -178,6 +191,7 @@ mod tests {
                 Path::new("."),
                 None,
                 "download_id",
+                fake_feedback_event,
             )
             .await
             .unwrap();
