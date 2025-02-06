@@ -41,6 +41,7 @@
 //! }
 //! #    Ok(())
 //! # }
+
 //! ```
 
 // TODO: reorganize the imports
@@ -227,15 +228,11 @@ impl CardanoDatabaseClient {
         // TODO: Add example in module documentation
         pub async fn download_unpack(
             &self,
-            hash: &str,
-            immutable_file_range: ImmutableFileRange,
+            cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
+            immutable_file_range: &ImmutableFileRange,
             target_dir: &Path,
             download_unpack_options: DownloadUnpackOptions,
         ) -> StdResult<()> {
-            let cardano_database_snapshot = self
-                .get(hash)
-                .await?
-                .ok_or_else(|| anyhow!("Cardano database snapshot not found"))?;
             let compression_algorithm = cardano_database_snapshot.compression_algorithm;
             let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
             let immutable_file_number_range =
@@ -247,23 +244,23 @@ impl CardanoDatabaseClient {
                 &download_unpack_options,
             )?;
 
-            let immutable_locations = cardano_database_snapshot.locations.immutables;
+            let immutable_locations = &cardano_database_snapshot.locations.immutables;
             self.download_unpack_immutable_files(
-                &immutable_locations,
+                immutable_locations,
                 immutable_file_number_range,
                 &compression_algorithm,
-                &Self::immutable_files_target_dir(target_dir),
+                target_dir,
             )
             .await?;
 
-            let digest_locations = cardano_database_snapshot.locations.digests;
-            self.download_unpack_digest_file(&digest_locations, &Self::digest_target_dir(target_dir))
+            let digest_locations = &cardano_database_snapshot.locations.digests;
+            self.download_unpack_digest_file(digest_locations, &Self::digest_target_dir(target_dir))
                 .await?;
 
             if download_unpack_options.include_ancillary {
-                let ancillary_locations = cardano_database_snapshot.locations.ancillary;
+                let ancillary_locations = &cardano_database_snapshot.locations.ancillary;
                 self.download_unpack_ancillary_file(
-                    &ancillary_locations,
+                    ancillary_locations,
                     &compression_algorithm,
                     target_dir,
                 )
@@ -988,57 +985,21 @@ mod tests {
                 use super::*;
 
                 #[tokio::test]
-                async fn download_unpack_fails_with_invalid_snapshot() {
-                    let immutable_file_range = ImmutableFileRange::Range(1, 10);
-                    let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
-                    let target_dir = Path::new(".");
-                    let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            http_client.expect_get_content().return_once(move |_| {
-                                Err(AggregatorClientError::RemoteServerLogical(anyhow!(
-                                    "not found"
-                                )))
-                            });
-                        })
-                        .build_cardano_database_client();
-
-                    client
-                        .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
-                            target_dir,
-                            download_unpack_options,
-                        )
-                        .await
-                        .expect_err("download_unpack should fail");
-                }
-
-                #[tokio::test]
                 async fn download_unpack_fails_with_invalid_immutable_file_range() {
                     let immutable_file_range = ImmutableFileRange::Range(1, 0);
                     let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
+                    let cardano_db_snapshot = CardanoDatabaseSnapshot {
+                        hash: "hash-123".to_string(),
+                        ..CardanoDatabaseSnapshot::dummy()
+                    };
                     let target_dir = Path::new(".");
                     let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            let message = CardanoDatabaseSnapshot {
-                                hash: "hash-123".to_string(),
-                                ..CardanoDatabaseSnapshot::dummy()
-                            };
-                            http_client
-                                .expect_get_content()
-                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                    hash: "hash-123".to_string(),
-                                }))
-                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                        })
                         .build_cardano_database_client();
 
                     client
                         .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
+                            &cardano_db_snapshot,
+                            &immutable_file_range,
                             target_dir,
                             download_unpack_options,
                         )
@@ -1051,30 +1012,24 @@ mod tests {
                     let total_immutable_files = 10;
                     let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
                     let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
+                    let cardano_db_snapshot = CardanoDatabaseSnapshot {
+                        hash: "hash-123".to_string(),
+                        locations: ArtifactsLocationsMessagePart {
+                            immutables: vec![ImmutablesLocation::CloudStorage {
+                                uri: MultiFilesUri::Template(TemplateUri(
+                                    "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                                )),
+                            }],
+                            ..ArtifactsLocationsMessagePart::default()
+                        },
+                        ..CardanoDatabaseSnapshot::dummy()
+                    };
                     let target_dir = TempDir::new(
                         "cardano_database_client",
                         "download_unpack_fails_when_immutable_files_download_fail",
                     )
                     .build();
                     let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            let mut message = CardanoDatabaseSnapshot {
-                                hash: "hash-123".to_string(),
-                                ..CardanoDatabaseSnapshot::dummy()
-                            };
-                            message.locations.immutables = vec![ImmutablesLocation::CloudStorage {
-                                uri: MultiFilesUri::Template(TemplateUri(
-                                    "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-                                )),
-                            }];
-                            http_client
-                                .expect_get_content()
-                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                    hash: "hash-123".to_string(),
-                                }))
-                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                        })
                         .with_immutable_file_downloaders(vec![(
                             ImmutablesLocationDiscriminants::CloudStorage,
                             Arc::new({
@@ -1088,8 +1043,8 @@ mod tests {
 
                     client
                         .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
+                            &cardano_db_snapshot,
+                            &immutable_file_range,
                             &target_dir,
                             download_unpack_options,
                         )
@@ -1102,7 +1057,10 @@ mod tests {
                 ) {
                     let immutable_file_range = ImmutableFileRange::Range(1, 10);
                     let download_unpack_options = DownloadUnpackOptions::default();
-                    let cardano_db_snapshot_hash = &"hash-123";
+                    let cardano_db_snapshot = CardanoDatabaseSnapshot {
+                        hash: "hash-123".to_string(),
+                        ..CardanoDatabaseSnapshot::dummy()
+                    };
                     let target_dir = &TempDir::new(
                                         "cardano_database_client",
                                         "download_unpack_fails_when_target_target_dir_would_be_overwritten_without_allow_override",
@@ -1110,24 +1068,12 @@ mod tests {
                                     .build();
                     fs::create_dir_all(target_dir.join("immutable")).unwrap();
                     let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            let message = CardanoDatabaseSnapshot {
-                                hash: "hash-123".to_string(),
-                                ..CardanoDatabaseSnapshot::dummy()
-                            };
-                            http_client
-                                .expect_get_content()
-                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                    hash: "hash-123".to_string(),
-                                }))
-                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                        })
                         .build_cardano_database_client();
 
                     client
                         .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
+                            &cardano_db_snapshot,
+                            &immutable_file_range,
                             target_dir,
                             download_unpack_options,
                         )
@@ -1142,13 +1088,7 @@ mod tests {
                         include_ancillary: true,
                         ..DownloadUnpackOptions::default()
                     };
-                    let cardano_db_snapshot_hash = &"hash-123";
-                    let target_dir = TempDir::new(
-                        "cardano_database_client",
-                        "download_unpack_succeeds_with_valid_range",
-                    )
-                    .build();
-                    let message = CardanoDatabaseSnapshot {
+                    let cardano_db_snapshot = CardanoDatabaseSnapshot {
                         hash: "hash-123".to_string(),
                         locations: ArtifactsLocationsMessagePart {
                             immutables: vec![ImmutablesLocation::CloudStorage {
@@ -1165,27 +1105,24 @@ mod tests {
                         },
                         ..CardanoDatabaseSnapshot::dummy()
                     };
+                    let target_dir = TempDir::new(
+                        "cardano_database_client",
+                        "download_unpack_succeeds_with_valid_range",
+                    )
+                    .build();
                     let client = CardanoDatabaseClientDependencyInjector::new()
-                        .with_http_client_mock_config(|http_client| {
-                            http_client
-                                .expect_get_content()
-                                .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
-                                    hash: "hash-123".to_string(),
-                                }))
-                                .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
-                        })
                         .with_immutable_file_downloaders(vec![(
                             ImmutablesLocationDiscriminants::CloudStorage,
                             Arc::new({
                                 let mock_file_downloader = MockFileDownloaderBuilder::default()
                                     .with_file_uri("http://whatever/00001.tar.gz")
-                                    .with_target_dir(target_dir.join("immutable"))
+                                    .with_target_dir(target_dir.clone())
                                     .with_success()
                                     .build();
 
                                 MockFileDownloaderBuilder::from_mock(mock_file_downloader)
                                     .with_file_uri("http://whatever/00002.tar.gz")
-                                    .with_target_dir(target_dir.join("immutable"))
+                                    .with_target_dir(target_dir.clone())
                                     .with_success()
                                     .build()
                             }),
@@ -1216,8 +1153,8 @@ mod tests {
 
                     client
                         .download_unpack(
-                            cardano_db_snapshot_hash,
-                            immutable_file_range,
+                            &cardano_db_snapshot,
+                            &immutable_file_range,
                             &target_dir,
                             download_unpack_options,
                         )
