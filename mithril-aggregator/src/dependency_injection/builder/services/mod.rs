@@ -4,40 +4,30 @@
 //!
 
 mod artifacts;
+mod certification;
 mod era;
+mod signables;
 
-use anyhow::Context;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::certificate_chain::{CertificateVerifier, MithrilCertificateVerifier};
-use mithril_common::crypto_helper::{
-    MKTreeStoreInMemory, ProtocolGenesisSigner, ProtocolGenesisVerificationKey,
-    ProtocolGenesisVerifier,
-};
-use mithril_common::signable_builder::{SignableSeedBuilder, TransactionsImporter};
+use mithril_common::crypto_helper::MKTreeStoreInMemory;
 use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::{MithrilTickerService, TickerService};
 
-use crate::database::repository::{
-    BufferedSingleSignatureRepository, CertificateRepository, SingleSignatureRepository,
-};
-use crate::dependency_injection::{
-    DependenciesBuilder, DependenciesBuilderError, EpochServiceWrapper, Result,
-};
+use crate::database::repository::CertificateRepository;
+use crate::dependency_injection::{DependenciesBuilder, EpochServiceWrapper, Result};
 use crate::event_store::{EventMessage, TransmitterService};
 use crate::services::{
-    AggregatorSignableSeedBuilder, AggregatorUpkeepService, BufferedCertifierService,
-    CardanoTransactionsImporter, CertifierService, EpochServiceDependencies, MessageService,
-    MithrilCertifierService, MithrilEpochService, MithrilMessageService, MithrilProverService,
-    MithrilStakeDistributionService, ProverService, StakeDistributionService, UpkeepService,
-    UsageReporter,
+    AggregatorUpkeepService, EpochServiceDependencies, MessageService, MithrilEpochService,
+    MithrilMessageService, MithrilProverService, MithrilStakeDistributionService, ProverService,
+    StakeDistributionService, UpkeepService, UsageReporter,
 };
 use crate::{
-    CExplorerSignerRetriever, ExecutionEnvironment, MetricsService, MithrilSignerRegisterer,
-    MultiSigner, MultiSignerImpl, SignersImporter, SingleSignatureAuthenticator,
+    CExplorerSignerRetriever, MetricsService, MithrilSignerRegisterer, SignersImporter,
+    SingleSignatureAuthenticator,
 };
 
 impl DependenciesBuilder {
@@ -54,50 +44,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.api_version_provider.as_ref().cloned().unwrap())
-    }
-
-    /// Create [CertifierService] service
-    pub async fn build_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
-        let cardano_network = self.configuration.get_network().with_context(|| {
-            "Dependencies Builder can not get Cardano network while building the chain observer"
-        })?;
-        let sqlite_connection = self.get_sqlite_connection().await?;
-        let open_message_repository = self.get_open_message_repository().await?;
-        let single_signature_repository =
-            Arc::new(SingleSignatureRepository::new(sqlite_connection.clone()));
-        let certificate_repository = self.get_certificate_repository().await?;
-        let certificate_verifier = self.get_certificate_verifier().await?;
-        let genesis_verifier = self.get_genesis_verifier().await?;
-        let multi_signer = self.get_multi_signer().await?;
-        let epoch_service = self.get_epoch_service().await?;
-        let logger = self.root_logger();
-
-        let certifier = Arc::new(MithrilCertifierService::new(
-            cardano_network,
-            open_message_repository,
-            single_signature_repository,
-            certificate_repository,
-            certificate_verifier,
-            genesis_verifier,
-            multi_signer,
-            epoch_service,
-            logger,
-        ));
-
-        Ok(Arc::new(BufferedCertifierService::new(
-            certifier,
-            Arc::new(BufferedSingleSignatureRepository::new(sqlite_connection)),
-            self.root_logger(),
-        )))
-    }
-
-    /// [CertifierService] service
-    pub async fn get_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
-        if self.certifier_service.is_none() {
-            self.certifier_service = Some(self.build_certifier_service().await?);
-        }
-
-        Ok(self.certifier_service.as_ref().cloned().unwrap())
     }
 
     async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
@@ -191,22 +137,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.metrics_service.as_ref().cloned().unwrap())
-    }
-
-    async fn build_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
-        let multi_signer =
-            MultiSignerImpl::new(self.get_epoch_service().await?, self.root_logger());
-
-        Ok(Arc::new(multi_signer))
-    }
-
-    /// Get the [MultiSigner] instance
-    pub async fn get_multi_signer(&mut self) -> Result<Arc<dyn MultiSigner>> {
-        if self.multi_signer.is_none() {
-            self.multi_signer = Some(self.build_multi_signer().await?);
-        }
-
-        Ok(self.multi_signer.as_ref().cloned().unwrap())
     }
 
     /// Build Prover service
@@ -320,54 +250,6 @@ impl DependenciesBuilder {
         Ok(self.upkeep_service.as_ref().cloned().unwrap())
     }
 
-    async fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
-        let verifier = Arc::new(MithrilCertificateVerifier::new(
-            self.root_logger(),
-            self.get_certificate_repository().await?,
-        ));
-
-        Ok(verifier)
-    }
-
-    /// Get the [CertificateVerifier] instance
-    pub async fn get_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
-        if self.certificate_verifier.is_none() {
-            self.certificate_verifier = Some(self.build_certificate_verifier().await?);
-        }
-
-        Ok(self.certificate_verifier.as_ref().cloned().unwrap())
-    }
-
-    async fn build_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
-        let genesis_verifier: ProtocolGenesisVerifier = match self.configuration.environment {
-            ExecutionEnvironment::Production => ProtocolGenesisVerifier::from_verification_key(
-                ProtocolGenesisVerificationKey::from_json_hex(
-                    &self.configuration.genesis_verification_key,
-                )
-                .map_err(|e| DependenciesBuilderError::Initialization {
-                    message: format!(
-                        "Could not decode hex key to build genesis verifier: '{}'",
-                        self.configuration.genesis_verification_key
-                    ),
-                    error: Some(e),
-                })?,
-            ),
-            _ => ProtocolGenesisSigner::create_deterministic_genesis_signer()
-                .create_genesis_verifier(),
-        };
-
-        Ok(Arc::new(genesis_verifier))
-    }
-
-    /// Get the [ProtocolGenesisVerifier] instance
-    pub async fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
-        if self.genesis_verifier.is_none() {
-            self.genesis_verifier = Some(self.build_genesis_verifier().await?);
-        }
-
-        Ok(self.genesis_verifier.as_ref().cloned().unwrap())
-    }
-
     async fn build_mithril_registerer(&mut self) -> Result<Arc<MithrilSignerRegisterer>> {
         let registerer = MithrilSignerRegisterer::new(
             self.get_chain_observer().await?,
@@ -388,23 +270,6 @@ impl DependenciesBuilder {
         Ok(self.mithril_registerer.as_ref().cloned().unwrap())
     }
 
-    async fn build_signable_seed_builder(&mut self) -> Result<Arc<dyn SignableSeedBuilder>> {
-        let signable_seed_builder_service = Arc::new(AggregatorSignableSeedBuilder::new(
-            self.get_epoch_service().await?,
-        ));
-
-        Ok(signable_seed_builder_service)
-    }
-
-    /// Get the [SignableSeedBuilder] instance
-    pub async fn get_signable_seed_builder(&mut self) -> Result<Arc<dyn SignableSeedBuilder>> {
-        if self.signable_seed_builder.is_none() {
-            self.signable_seed_builder = Some(self.build_signable_seed_builder().await?);
-        }
-
-        Ok(self.signable_seed_builder.as_ref().cloned().unwrap())
-    }
-
     async fn build_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
         let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
         Ok(signed_entity_type_lock)
@@ -417,25 +282,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.signed_entity_type_lock.as_ref().cloned().unwrap())
-    }
-
-    async fn build_transactions_importer(&mut self) -> Result<Arc<dyn TransactionsImporter>> {
-        let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
-            self.get_block_scanner().await?,
-            self.get_transaction_repository().await?,
-            self.root_logger(),
-        ));
-
-        Ok(transactions_importer)
-    }
-
-    /// Get the [TransactionsImporter] instance
-    pub async fn get_transactions_importer(&mut self) -> Result<Arc<dyn TransactionsImporter>> {
-        if self.transactions_importer.is_none() {
-            self.transactions_importer = Some(self.build_transactions_importer().await?);
-        }
-
-        Ok(self.transactions_importer.as_ref().cloned().unwrap())
     }
 
     async fn build_single_signature_authenticator(
