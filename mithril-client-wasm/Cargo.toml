@@ -17,7 +17,7 @@ anyhow = "1.0.95"
 async-trait = "0.1.86"
 chrono = { version = "0.4.39", features = ["serde"] }
 futures = "0.3.31"
-mithril-client = { path = "../mithril-client", features = ["unstable"] }
+mithril-client = { path = "../mithril-client", default-features = false, features = ["unstable", "num-integer-backend"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde-wasm-bindgen = "0.6.5"
 serde_json = "1.0.138"
