@@ -13,7 +13,10 @@ use crate::database::repository::{
     SignerRegistrationStore, SignerStore, StakePoolStore,
 };
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
-use crate::{CertificatePendingStorer, EpochSettingsStorer, VerificationKeyStorer};
+use crate::event_store::EventStore;
+use crate::{
+    CertificatePendingStorer, EpochSettingsStorer, ImmutableFileDigestMapper, VerificationKeyStorer,
+};
 
 impl DependenciesBuilder {
     async fn build_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
@@ -235,5 +238,36 @@ impl DependenciesBuilder {
         }
 
         Ok(self.signed_entity_storer.as_ref().cloned().unwrap())
+    }
+
+    /// Create dependencies for the [EventStore] task.
+    pub async fn create_event_store(&mut self) -> Result<EventStore> {
+        let event_store = EventStore::new(
+            self.get_event_transmitter_receiver().await?,
+            self.get_event_store_sqlite_connection().await?,
+            self.root_logger(),
+        );
+
+        Ok(event_store)
+    }
+
+    async fn build_immutable_file_digest_mapper(
+        &mut self,
+    ) -> Result<Arc<dyn ImmutableFileDigestMapper>> {
+        let mapper = ImmutableFileDigestRepository::new(self.get_sqlite_connection().await?);
+
+        Ok(Arc::new(mapper))
+    }
+
+    /// Get the [ImmutableFileDigestMapper] instance
+    pub async fn get_immutable_file_digest_mapper(
+        &mut self,
+    ) -> Result<Arc<dyn ImmutableFileDigestMapper>> {
+        if self.immutable_file_digest_mapper.is_none() {
+            self.immutable_file_digest_mapper =
+                Some(self.build_immutable_file_digest_mapper().await?);
+        }
+
+        Ok(self.immutable_file_digest_mapper.as_ref().cloned().unwrap())
     }
 }
