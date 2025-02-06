@@ -9,9 +9,17 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 ## Mithril Distribution [XXXX] - UNRELEASED
 
-- Build and publish both a `stable` version (for release networks) and an `unstable` version (for testing networks) of the explorer.
+- Crates versions:
+
+| Crate | Version |
+| ----- | ------- |
+| N/A   | `-`     |
+
+## Mithril Distribution [2506.0] - UNRELEASED
 
 - Support for `Cardano node` `10.1.4` in the signer and the aggregator.
+
+- Build and publish both a `stable` version (for release networks) and an `unstable` version (for testing networks) of the explorer.
 
 - Activate aggregator HTTP responses compression by the reverse proxy in the infrastructure.
 
