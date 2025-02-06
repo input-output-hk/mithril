@@ -1,3 +1,13 @@
+//! Builders related to infrastructure components.
+//!
+//! An infrastructure components is responsible for interacting with the external world, such as
+//! logging, network, databases, etc.
+
+mod cardano_node;
+mod certificates;
+mod sqlite;
+mod stores;
+
 use anyhow::Context;
 use slog::Logger;
 use std::sync::Arc;

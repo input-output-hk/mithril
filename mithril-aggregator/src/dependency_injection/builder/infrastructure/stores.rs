@@ -1,3 +1,5 @@
+//! Infrastructure builders of the stores used in the application
+
 use anyhow::Context;
 use slog::debug;
 use std::sync::Arc;

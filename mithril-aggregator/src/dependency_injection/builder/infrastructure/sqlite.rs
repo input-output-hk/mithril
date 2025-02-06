@@ -1,3 +1,5 @@
+//! Builder methods for SQLite connections
+
 use anyhow::Context;
 use std::sync::Arc;
 

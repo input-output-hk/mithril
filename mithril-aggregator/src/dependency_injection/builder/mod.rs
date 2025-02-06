@@ -1,8 +1,6 @@
 mod artifact_builder;
 mod infrastructure;
 mod services;
-mod sqlite;
-mod stores;
 
 use anyhow::Context;
 use slog::Logger;
