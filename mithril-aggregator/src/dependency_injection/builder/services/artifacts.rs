@@ -1,9 +1,22 @@
+//! Services related to artifacts creation
+
 use semver::Version;
 use std::sync::Arc;
 
+use mithril_common::crypto_helper::MKTreeStoreInMemory;
+use mithril_common::entities::CompressionAlgorithm;
+use mithril_common::signable_builder::{
+    CardanoDatabaseSignableBuilder, CardanoImmutableFilesFullSignableBuilder,
+    CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
+    MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder, SignableBuilderService,
+    SignableBuilderServiceDependencies,
+};
+
 use crate::artifact_builder::{
     AncillaryArtifactBuilder, AncillaryFileUploader, CardanoDatabaseArtifactBuilder,
-    DigestArtifactBuilder, DigestFileUploader, ImmutableArtifactBuilder, ImmutableFilesUploader,
+    CardanoImmutableFilesFullArtifactBuilder, CardanoStakeDistributionArtifactBuilder,
+    CardanoTransactionsArtifactBuilder, DigestArtifactBuilder, DigestFileUploader,
+    ImmutableArtifactBuilder, ImmutableFilesUploader, MithrilStakeDistributionArtifactBuilder,
 };
 use crate::dependency_injection::builder::SNAPSHOT_ARTIFACTS_DIR;
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
@@ -11,11 +24,176 @@ use crate::file_uploaders::{
     CloudRemotePath, FileUploadRetryPolicy, GcpBackendUploader, GcpUploader, LocalUploader,
 };
 use crate::http_server::CARDANO_DATABASE_DOWNLOAD_PATH;
+use crate::services::{
+    CompressedArchiveSnapshotter, DumbSnapshotter, MithrilSignedEntityService, SignedEntityService,
+    SignedEntityServiceArtifactsDependencies, Snapshotter, SnapshotterCompressionAlgorithm,
+};
 use crate::{
     DumbUploader, ExecutionEnvironment, FileUploader, LocalSnapshotUploader, SnapshotUploaderType,
 };
 
 impl DependenciesBuilder {
+    async fn build_signable_builder_service(&mut self) -> Result<Arc<dyn SignableBuilderService>> {
+        let seed_signable_builder = self.get_signable_seed_builder().await?;
+        let mithril_stake_distribution_builder =
+            Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let immutable_signable_builder = Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
+            self.get_immutable_digester().await?,
+            &self.configuration.db_directory,
+            self.root_logger(),
+        ));
+        let transactions_importer = self.get_transactions_importer().await?;
+        let block_range_root_retriever = self.get_transaction_repository().await?;
+        let cardano_transactions_builder = Arc::new(CardanoTransactionsSignableBuilder::<
+            MKTreeStoreInMemory,
+        >::new(
+            transactions_importer,
+            block_range_root_retriever,
+        ));
+        let cardano_stake_distribution_builder = Arc::new(
+            CardanoStakeDistributionSignableBuilder::new(self.get_stake_store().await?),
+        );
+        let cardano_database_signable_builder = Arc::new(CardanoDatabaseSignableBuilder::new(
+            self.get_immutable_digester().await?,
+            &self.configuration.db_directory,
+            self.root_logger(),
+        ));
+        let signable_builders_dependencies = SignableBuilderServiceDependencies::new(
+            mithril_stake_distribution_builder,
+            immutable_signable_builder,
+            cardano_transactions_builder,
+            cardano_stake_distribution_builder,
+            cardano_database_signable_builder,
+        );
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
+            seed_signable_builder,
+            signable_builders_dependencies,
+            self.root_logger(),
+        ));
+
+        Ok(signable_builder_service)
+    }
+
+    /// [SignableBuilderService] service
+    pub async fn get_signable_builder_service(
+        &mut self,
+    ) -> Result<Arc<dyn SignableBuilderService>> {
+        if self.signable_builder_service.is_none() {
+            self.signable_builder_service = Some(self.build_signable_builder_service().await?);
+        }
+
+        Ok(self.signable_builder_service.as_ref().cloned().unwrap())
+    }
+
+    async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
+        let logger = self.root_logger();
+        let signed_entity_storer = self.get_signed_entity_storer().await?;
+        let epoch_service = self.get_epoch_service().await?;
+        let mithril_stake_distribution_artifact_builder = Arc::new(
+            MithrilStakeDistributionArtifactBuilder::new(epoch_service.clone()),
+        );
+        let snapshotter = self.get_snapshotter().await?;
+        let snapshot_uploader = self.get_snapshot_uploader().await?;
+        let cardano_node_version = Version::parse(&self.configuration.cardano_node_version)
+            .map_err(|e| DependenciesBuilderError::Initialization { message: format!("Could not parse configuration setting 'cardano_node_version' value '{}' as Semver.", self.configuration.cardano_node_version), error: Some(e.into()) })?;
+        let cardano_immutable_files_full_artifact_builder =
+            Arc::new(CardanoImmutableFilesFullArtifactBuilder::new(
+                self.configuration.get_network()?,
+                &cardano_node_version,
+                snapshotter.clone(),
+                snapshot_uploader,
+                self.configuration.snapshot_compression_algorithm,
+                logger.clone(),
+            ));
+        let prover_service = self.get_prover_service().await?;
+        let cardano_transactions_artifact_builder = Arc::new(
+            CardanoTransactionsArtifactBuilder::new(prover_service.clone()),
+        );
+        let stake_store = self.get_stake_store().await?;
+        let cardano_stake_distribution_artifact_builder =
+            Arc::new(CardanoStakeDistributionArtifactBuilder::new(stake_store));
+        let cardano_database_artifact_builder = Arc::new(
+            self.build_cardano_database_artifact_builder(cardano_node_version)
+                .await?,
+        );
+        let dependencies = SignedEntityServiceArtifactsDependencies::new(
+            mithril_stake_distribution_artifact_builder,
+            cardano_immutable_files_full_artifact_builder,
+            cardano_transactions_artifact_builder,
+            cardano_stake_distribution_artifact_builder,
+            cardano_database_artifact_builder,
+        );
+        let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
+            signed_entity_storer,
+            dependencies,
+            self.get_signed_entity_lock().await?,
+            self.get_metrics_service().await?,
+            logger,
+        ));
+
+        // Compute the cache pool for prover service
+        // This is done here to avoid circular dependencies between the prover service and the signed entity service
+        // TODO: Make this part of a warmup phase of the aggregator?
+        if let Some(signed_entity) = signed_entity_service
+            .get_last_cardano_transaction_snapshot()
+            .await?
+        {
+            prover_service
+                .compute_cache(signed_entity.artifact.block_number)
+                .await?;
+        }
+
+        Ok(signed_entity_service)
+    }
+
+    /// [SignedEntityService] service
+    pub async fn get_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
+        if self.signed_entity_service.is_none() {
+            self.signed_entity_service = Some(self.build_signed_entity_service().await?);
+        }
+
+        Ok(self.signed_entity_service.as_ref().cloned().unwrap())
+    }
+
+    async fn build_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
+        let snapshotter: Arc<dyn Snapshotter> = match self.configuration.environment {
+            ExecutionEnvironment::Production => {
+                let ongoing_snapshot_directory = self
+                    .configuration
+                    .get_snapshot_dir()?
+                    .join("pending_snapshot");
+
+                let algorithm = match self.configuration.snapshot_compression_algorithm {
+                    CompressionAlgorithm::Gzip => SnapshotterCompressionAlgorithm::Gzip,
+                    CompressionAlgorithm::Zstandard => self
+                        .configuration
+                        .zstandard_parameters
+                        .unwrap_or_default()
+                        .into(),
+                };
+
+                Arc::new(CompressedArchiveSnapshotter::new(
+                    self.configuration.db_directory.clone(),
+                    ongoing_snapshot_directory,
+                    algorithm,
+                    self.root_logger(),
+                )?)
+            }
+            _ => Arc::new(DumbSnapshotter::new()),
+        };
+
+        Ok(snapshotter)
+    }
+
+    /// [Snapshotter] service.
+    pub async fn get_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
+        if self.snapshotter.is_none() {
+            self.snapshotter = Some(self.build_snapshotter().await?);
+        }
+
+        Ok(self.snapshotter.as_ref().cloned().unwrap())
+    }
+
     async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn FileUploader>> {
         let logger = self.root_logger();
         if self.configuration.environment == ExecutionEnvironment::Production {

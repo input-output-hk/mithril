@@ -1,4 +1,3 @@
-mod artifact_builder;
 mod infrastructure;
 mod services;
 
