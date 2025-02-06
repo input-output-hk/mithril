@@ -37,7 +37,9 @@ Where the following notations have been used:
 - `VK(n)`: Verification key at epoch `n`
 - `AVK(n)`: Aggregrate verification key at epoch `n` such as `AVK(n) = MKT_ROOT(SD(n) || VK(n))`
 - `MKT_ROOT()`: Merkle-tree root
-- `BEACON(p,n)`: Beacon at trigger `p` and epoch `n`
+- `PPARAMS(n)`: Protocol parameters at epoch `n`
+- `EPOCH(n)`: Epoch `n`
+- `BEACON(p,n)`: Beacon at trigger `p` and epoch `n` (includes `EPOCH(n)`)
 - `METADATA(p,n)`: Metadata of the certificate at trigger `p` and epoch `n`
 - `MSG(p,n)`: Message of the certificate at trigger `p` and epoch `n`
 - `MULTI_SIG(p,n)`: Multi-signature created to the message `H(MSG(p,n) || AVK(n-1))`
@@ -92,18 +94,23 @@ An implementation of the algorithm would work as follows for a certificate:
 - **Step 2**: Verify (or fail) that the `current_hash` of the `current_certificate` is valid by computing it and comparing it with the `hash` field of the certificate
 - **Step 3**: Get the `previous_hash` of the `previous_certificate` by reading its value in the `current_certificate`
 - **Step 4**: Verify (or fail) that the `multi_signature` of the `current_certificate` is valid
-- **Step 5**: Retrieve the `previous_certificate` that has the hash `previous_hash`:
-  - **Step 5.1**: If it is not a `genesis_certificate`:
-    - **Step 5.1.1**: Verify (or fail) that the `previous_hash` of the `previous_certificate` is valid by computing it and comparing it with the `hash` field of the certificate:
-    - **Step 5.1.2**: Verify the `current_avk`:
-      - **Step 5.1.2.1**: If the `current_certificate` is the `first_certificate` of the epoch, verify (or fail) that the `current_avk` of the `current_certificate` is part of the message signed by the multi-signature of the `previous_certificate`
-      - **Step 5.1.2.2**: Else verify (or fail) that the `current_avk` of the `current_certificate` is the same as the `current_avk` of the `previous_certificate`
-    - **Step 5.1.3**: Verify (or fail) that the `multi_signature` of the `previous_certificate` is valid
-    - **Step 5.1.4**: Use the `previous_certificate` as `current_certificate` and start again at **Step 2**
-  - **Step 5.2**: If it is a `genesis_certificate`:
-    - **Step 5.2.1**: Verify (or fail) that the `previous_hash` of the `previous_certificate` is valid by computing it and comparing it with the `hash` field of the certificate
-    - **Step 5.2.2**: Verify (or fail) that the `current_avk` of the `current_certificate` is part of the message signed by the genesis signature of the `previous_certificate`
-    - **Step 5.2.3**: The certificate is valid (success).
+- **Step 5**: Verify (or fail) that the `current_epoch` of the `current_certificate` is part of the message signed by the multi-signature of the `current_certificate`
+- **Step 6**: Retrieve the `previous_certificate` that has the hash `previous_hash`:
+  - **Step 6.1**: If it is not a `genesis_certificate`:
+    - **Step 6.1.1**: Verify (or fail) that the `previous_hash` of the `previous_certificate` is valid by computing it and comparing it with the `hash` field of the certificate:
+    - **Step 6.1.2**: Verify the `current_avk`:
+      - **Step 6.1.2.1**: If the `current_certificate` is the `first_certificate` of the epoch
+        - **Step 6.1.2.1.1**: Verify (or fail) that the `current_avk` of the `current_certificate` is part of the message signed by the multi-signature of the `previous_certificate`
+        - **Step 6.1.2.1.2**: Verify (or fail) that the `current_protocol_parameters` of the `current_certificate` is part of the message signed by the multi-signature of the `previous_certificate`
+      - **Step 6.1.2.2**: Else verify (or fail) that the `current_avk` of the `current_certificate` is the same as the `current_avk` of the `previous_certificate`
+    - **Step 6.1.3**: Verify (or fail) that the `multi_signature` of the `previous_certificate` is valid
+    - **Step 6.1.4**: Use the `previous_certificate` as `current_certificate` and start again at **Step 2**
+  - **Step 6.2**: If it is a `genesis_certificate`:
+    - **Step 6.2.1**: Verify (or fail) that the `previous_hash` of the `previous_certificate` is valid by computing it and comparing it with the `hash` field of the certificate
+    - **Step 6.2.2**: Verify (or fail) that the `current_epoch` of the `previous_certificate` is part of the message signed by the genesis_certificate of the `previous_certificate`
+    - **Step 6.2.3**: Verify (or fail) that the `current_avk` of the `current_certificate` is part of the message signed by the genesis signature of the `previous_certificate`
+    - **Step 6.2.4**: Verify (or fail) that the `current_protocol_parameters` of the `current_certificate` is part of the message signed by the genesis signature of the `previous_certificate`
+    - **Step 6.2.5**: The certificate is valid (success).
 
 ## The coexistence of multiple certificate chains
 
