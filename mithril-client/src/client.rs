@@ -6,6 +6,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
+#[cfg(all(feature = "fs", feature = "unstable"))]
+use mithril_common::entities::{
+    AncillaryLocationDiscriminants, DigestLocationDiscriminants, ImmutablesLocationDiscriminants,
+};
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
@@ -20,7 +24,8 @@ use crate::certificate_client::{
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(all(feature = "fs", feature = "unstable"))]
 use crate::file_downloader::{
-    AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, ImmutablesFileDownloaderResolver,
+    AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloadRetryPolicy,
+    HttpFileDownloader, ImmutablesFileDownloaderResolver, RetryDownloader,
 };
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
@@ -264,14 +269,36 @@ impl ClientBuilder {
         ));
 
         #[cfg(all(feature = "fs", feature = "unstable"))]
+        let http_file_downloader = Arc::new(RetryDownloader::new(
+            Arc::new(
+                HttpFileDownloader::new(feedback_sender.clone(), logger.clone())
+                    .with_context(|| "Building http file downloader failed")?,
+            ),
+            FileDownloadRetryPolicy::default(),
+        ));
+        #[cfg(all(feature = "fs", feature = "unstable"))]
         let immutable_file_downloader_resolver =
-            Arc::new(ImmutablesFileDownloaderResolver::new(Vec::new()));
+            Arc::new(ImmutablesFileDownloaderResolver::new(vec![(
+                ImmutablesLocationDiscriminants::CloudStorage,
+                http_file_downloader.clone(),
+            )]));
         #[cfg(all(feature = "fs", feature = "unstable"))]
         let ancillary_file_downloader_resolver =
-            Arc::new(AncillaryFileDownloaderResolver::new(Vec::new()));
+            Arc::new(AncillaryFileDownloaderResolver::new(vec![(
+                AncillaryLocationDiscriminants::CloudStorage,
+                http_file_downloader.clone(),
+            )]));
         #[cfg(all(feature = "fs", feature = "unstable"))]
-        let digest_file_downloader_resolver =
-            Arc::new(DigestFileDownloaderResolver::new(Vec::new()));
+        let digest_file_downloader_resolver = Arc::new(DigestFileDownloaderResolver::new(vec![
+            (
+                DigestLocationDiscriminants::CloudStorage,
+                http_file_downloader.clone(),
+            ),
+            (
+                DigestLocationDiscriminants::Aggregator,
+                http_file_downloader.clone(),
+            ),
+        ]));
         #[cfg(feature = "unstable")]
         let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
             aggregator_client.clone(),
