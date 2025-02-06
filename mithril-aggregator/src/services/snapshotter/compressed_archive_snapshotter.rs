@@ -348,6 +348,8 @@ impl CompressedArchiveSnapshotter {
 mod tests {
     use std::sync::Arc;
 
+    use uuid::Uuid;
+
     use mithril_common::digesters::DummyCardanoDbBuilder;
 
     use mithril_common::test_utils::assert_equivalent;
@@ -486,15 +488,14 @@ mod tests {
             .append_immutable_trio()
             .build();
 
-        let snapshotter = Arc::new(
-            CompressedArchiveSnapshotter::new(
-                db_directory.clone(),
-                pending_snapshot_directory.clone(),
-                SnapshotterCompressionAlgorithm::Gzip,
-                TestLogger::stdout(),
-            )
-            .unwrap(),
-        );
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory.clone(),
+            pending_snapshot_directory.clone(),
+            SnapshotterCompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let appender = AppenderDirAll { db_directory };
         snapshotter
@@ -527,15 +528,14 @@ mod tests {
             .append_immutable_trio()
             .build();
 
-        let snapshotter = Arc::new(
-            CompressedArchiveSnapshotter::new(
-                db_directory.clone(),
-                pending_snapshot_directory.clone(),
-                ZstandardCompressionParameters::default().into(),
-                TestLogger::stdout(),
-            )
-            .unwrap(),
-        );
+        let mut snapshotter = CompressedArchiveSnapshotter::new(
+            db_directory.clone(),
+            pending_snapshot_directory.clone(),
+            ZstandardCompressionParameters::default().into(),
+            TestLogger::stdout(),
+        )
+        .unwrap();
+        snapshotter.set_sub_temp_dir(Uuid::new_v4().to_string());
 
         let appender = AppenderDirAll { db_directory };
         snapshotter
