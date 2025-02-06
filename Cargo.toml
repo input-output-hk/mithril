@@ -8,6 +8,7 @@ members = [
   "examples/client-cardano-transaction",
   "examples/client-mithril-stake-distribution",
   "examples/client-snapshot",
+  "examples/client-cardano-database",
   "internal/mithril-build-script",
   "internal/mithril-doc",
   "internal/mithril-doc-derive",
