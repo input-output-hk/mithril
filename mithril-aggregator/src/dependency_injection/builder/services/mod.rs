@@ -6,6 +6,7 @@
 mod artifacts;
 mod certification;
 mod era;
+mod reporting;
 mod signables;
 
 use std::sync::Arc;
@@ -19,14 +20,13 @@ use mithril_common::{MithrilTickerService, TickerService};
 
 use crate::database::repository::CertificateRepository;
 use crate::dependency_injection::{DependenciesBuilder, EpochServiceWrapper, Result};
-use crate::event_store::{EventMessage, TransmitterService};
 use crate::services::{
     AggregatorUpkeepService, EpochServiceDependencies, MessageService, MithrilEpochService,
     MithrilMessageService, MithrilProverService, MithrilStakeDistributionService, ProverService,
-    StakeDistributionService, UpkeepService, UsageReporter,
+    StakeDistributionService, UpkeepService,
 };
 use crate::{
-    CExplorerSignerRetriever, MetricsService, MithrilSignerRegisterer, SignersImporter,
+    CExplorerSignerRetriever, MithrilSignerRegisterer, SignersImporter,
     SingleSignatureAuthenticator,
 };
 
@@ -82,22 +82,6 @@ impl DependenciesBuilder {
         Ok(self.epoch_service.as_ref().cloned().unwrap())
     }
 
-    async fn build_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
-        let sender = self.get_event_transmitter_sender().await?;
-        let event_transmitter = Arc::new(TransmitterService::new(sender, self.root_logger()));
-
-        Ok(event_transmitter)
-    }
-
-    /// [TransmitterService] service
-    pub async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
-        if self.event_transmitter.is_none() {
-            self.event_transmitter = Some(self.build_event_transmitter().await?);
-        }
-
-        Ok(self.event_transmitter.as_ref().cloned().unwrap())
-    }
-
     /// build HTTP message service
     pub async fn build_message_service(&mut self) -> Result<Arc<dyn MessageService>> {
         let certificate_repository = Arc::new(CertificateRepository::new(
@@ -121,22 +105,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.message_service.as_ref().cloned().unwrap())
-    }
-
-    /// Create a [MetricsService] instance.
-    async fn build_metrics_service(&self) -> Result<Arc<MetricsService>> {
-        let metrics_service = MetricsService::new(self.root_logger())?;
-
-        Ok(Arc::new(metrics_service))
-    }
-
-    /// [MetricsService] service
-    pub async fn get_metrics_service(&mut self) -> Result<Arc<MetricsService>> {
-        if self.metrics_service.is_none() {
-            self.metrics_service = Some(self.build_metrics_service().await?);
-        }
-
-        Ok(self.metrics_service.as_ref().cloned().unwrap())
     }
 
     /// Build Prover service
@@ -206,17 +174,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.ticker_service.as_ref().cloned().unwrap())
-    }
-
-    /// Create a [UsageReporter] instance.
-    pub async fn create_usage_reporter(&mut self) -> Result<UsageReporter> {
-        let usage_reporter = UsageReporter::new(
-            self.get_event_transmitter().await?,
-            self.get_metrics_service().await?,
-            self.root_logger(),
-        );
-
-        Ok(usage_reporter)
     }
 
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
