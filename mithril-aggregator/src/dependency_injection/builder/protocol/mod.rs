@@ -1,4 +1,4 @@
-//! Builders for services that operate the core protocol of the Mithril Aggregator.
+//! Builders for services that operate the core protocol in the Mithril Aggregator.
 //!
 //! It includes modules for aggregating signatures, producing certificates and artifacts.
 
