@@ -132,6 +132,8 @@ use anyhow::Context;
 use serde::de::DeserializeOwned;
 #[cfg(feature = "fs")]
 use slog::Logger;
+#[cfg(feature = "fs")]
+use tokio::task::JoinSet;
 
 #[cfg(feature = "fs")]
 use mithril_common::{
@@ -521,31 +523,49 @@ impl CardanoDatabaseClient {
                     .collect::<Vec<_>>()
                     .as_slice(),
                 )?;
+            let mut join_set: JoinSet<StdResult<ImmutableFileNumber>> = JoinSet::new();
             for (immutable_file_number, file_downloader_uri) in file_downloader_uris {
-                let download_id = MithrilEvent::new_snapshot_download_id();
-                self.feedback_sender
-                    .send_event(MithrilEvent::ImmutableDownloadStarted { immutable_file_number, download_id: download_id.clone()})
-                    .await;
-                let downloaded = file_downloader
-                    .download_unpack(
-                        &file_downloader_uri,
-                        immutable_files_target_dir,
-                        Some(compression_algorithm.to_owned()),
-                        &download_id,
-                        Self::feedback_event_builder_immutable_download,
-                    )
-                    .await;
-                match downloaded {
-                    Ok(_) => {
+                let compression_algorithm_clone = compression_algorithm.to_owned();
+                let immutable_files_target_dir_clone = immutable_files_target_dir.to_owned();
+                let file_downloader_clone = file_downloader.clone();
+                let feedback_receiver_clone = self.feedback_sender.clone();
+                join_set.spawn(async move {
+                    let download_id = MithrilEvent::new_snapshot_download_id();
+                    feedback_receiver_clone
+                        .send_event(MithrilEvent::ImmutableDownloadStarted { immutable_file_number, download_id: download_id.clone()})
+                        .await;
+                    let downloaded = file_downloader_clone
+                        .download_unpack(
+                            &file_downloader_uri,
+                            &immutable_files_target_dir_clone,
+                            Some(compression_algorithm_clone),
+                            &download_id,
+                            Self::feedback_event_builder_immutable_download,
+                        )
+                        .await;
+                    match downloaded {
+                        Ok(_) => {
+                            feedback_receiver_clone
+                                .send_event(MithrilEvent::ImmutableDownloadCompleted { download_id })
+                                .await;
+
+                            Ok(immutable_file_number)
+                        }
+                        Err(e) => {
+                            Err(e.context(format!("Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}")))
+                        }
+                    }
+                });
+            }
+            while let Some(result) = join_set.join_next().await {
+                match result? {
+                    Ok(immutable_file_number) => {
                         immutable_file_numbers_downloaded.insert(immutable_file_number);
-                        self.feedback_sender
-                            .send_event(MithrilEvent::ImmutableDownloadCompleted { download_id })
-                            .await;
                     }
                     Err(e) => {
                         slog::error!(
                             self.logger,
-                            "Failed downloading and unpacking immutable files for location {file_downloader_uri:?}"; "error" => e.to_string()
+                            "Failed downloading and unpacking immutable files"; "error" => e.to_string()
                         );
                     }
                 }
