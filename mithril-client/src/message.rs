@@ -10,6 +10,7 @@ use mithril_common::protocol::SignerBuilder;
 use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 #[cfg(feature = "fs")]
 use mithril_common::{
+    crypto_helper::MKProof,
     digesters::{CardanoImmutableDigester, ImmutableDigester},
     messages::SignedEntityTypeMessagePart,
 };
@@ -96,6 +97,21 @@ impl MessageBuilder {
                     )
                 })?;
             message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+
+            Ok(message)
+        }
+
+        /// Compute message for a Cardano database.
+        pub async fn compute_cardano_database_message(
+            &self,
+            certificate: &MithrilCertificate,
+            merkle_proof: &MKProof,
+        ) -> MithrilResult<ProtocolMessage> {
+            let mut message = certificate.protocol_message.clone();
+            message.set_message_part(
+                ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+                merkle_proof.root().to_hex(),
+            );
 
             Ok(message)
         }
