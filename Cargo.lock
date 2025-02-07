@@ -3938,6 +3938,7 @@ dependencies = [
  "anyhow",
  "clap",
  "config",
+ "httpmock",
  "libp2p",
  "mithril-common",
  "mithril-doc",

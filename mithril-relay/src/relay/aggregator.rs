@@ -142,3 +142,42 @@ impl AggregatorRelay {
         self.peer.addr_peer.to_owned()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use httpmock::MockServer;
+
+    use crate::test_tools::TestLogger;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn sends_accept_encoding_header_with_correct_values() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.matches(|req| {
+                let headers = req.headers.clone().expect("HTTP headers not found");
+                let accept_encoding_header = headers
+                    .iter()
+                    .find(|(name, _values)| name.to_lowercase() == "accept-encoding")
+                    .expect("Accept-Encoding header not found");
+
+                let header_value = accept_encoding_header.clone().1;
+                ["gzip", "br", "deflate", "zstd"]
+                    .iter()
+                    .all(|&value| header_value.contains(value))
+            });
+
+            then.status(201).body("ok");
+        });
+        let addr: Multiaddr = "/ip4/0.0.0.0/tcp/0".parse().unwrap();
+        let relay = AggregatorRelay::start(&addr, &server.url(""), &TestLogger::stdout())
+            .await
+            .unwrap();
+
+        relay
+            .notify_signature_to_aggregator(&RegisterSignatureMessage::dummy())
+            .await
+            .expect("Should succeed with Accept-Encoding header");
+    }
+}
