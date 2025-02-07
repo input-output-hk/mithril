@@ -41,10 +41,80 @@
 //! }
 //! #    Ok(())
 //! # }
-
+//! ```
+//!
+//! # Download a Cardano database snapshot
+//!
+//! To download a partial or a full Cardano database folder the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # #[cfg(feature = "fs")]
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let cardano_database_snapshot = client.cardano_database().get("CARDANO_DATABASE_HASH").await?.unwrap();
+//!
+//! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
+//! let target_directory = Path::new("/home/user/download/");
+//! let immutable_file_range = ImmutableFileRange::Range(3, 6);
+//! let download_unpack_options = DownloadUnpackOptions {
+//!     allow_override: true,
+//!     include_ancillary: true,
+//! };
+//! client
+//!     .cardano_database()
+//!     .download_unpack(
+//!         &cardano_database_snapshot,
+//!         &immutable_file_range,
+//!         &target_directory,
+//!         download_unpack_options,
+//!     )
+//!     .await?;
+//! #
+//! #    Ok(())
+//! # }
+//! ```
+//!
+//! # Compute a Merkle proof for a Cardano database snapshot
+//!
+//! To compute proof of membership of downloaded immutable files in a Cardano database folder the [ClientBuilder][crate::client::ClientBuilder].
+//!
+//! ```no_run
+//! # #[cfg(feature = "fs")]
+//! # async fn run() -> mithril_client::MithrilResult<()> {
+//! use mithril_client::ClientBuilder;
+//!
+//! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
+//! let cardano_database_snapshot = client.cardano_database().get("CARDANO_DATABASE_HASH").await?.unwrap();
+//! let certificate = client.certificate().verify_chain(&cardano_database_snapshot.certificate_hash).await?;
+//!
+//! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
+//! let target_directory = Path::new("/home/user/download/");
+//! let immutable_file_range = ImmutableFileRange::Full;
+//! let download_unpack_options = DownloadUnpackOptions {
+//!     allow_override: true,
+//!     include_ancillary: true,
+//! };
+//! client
+//!     .cardano_database()
+//!     .download_unpack(
+//!         &cardano_database_snapshot,
+//!         &immutable_file_range,
+//!         &target_directory,
+//!         download_unpack_options,
+//!     )
+//!     .await?;
+//!
+//! let merkle_proof = client
+//!     .cardano_database()
+//!     .compute_merkle_proof(&certificate, &immutable_file_range, &unpacked_dir)
+//!     .await?;
+//! #
+//! #    Ok(())
+//! # }
 //! ```
 
-// TODO: reorganize the imports
 #[cfg(feature = "fs")]
 use std::collections::{BTreeMap, BTreeSet};
 #[cfg(feature = "fs")]
@@ -233,7 +303,6 @@ impl CardanoDatabaseClient {
 
     cfg_fs! {
         /// Download and unpack the given Cardano database parts data by hash.
-        // TODO: Add example in module documentation
         pub async fn download_unpack(
             &self,
             cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
@@ -616,7 +685,6 @@ impl CardanoDatabaseClient {
         }
 
         /// Compute the Merkle proof of membership for the given immutable file range.
-        // TODO: Add example in module documentation
         pub async fn compute_merkle_proof(
             &self,
             certificate: &CertificateMessage,
