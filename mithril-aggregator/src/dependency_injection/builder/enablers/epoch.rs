@@ -11,8 +11,10 @@ impl DependenciesBuilder {
         let chain_observer = self.get_chain_observer().await?;
         let era_checker = self.get_era_checker().await?;
         let stake_distribution_service = self.get_stake_distribution_service().await?;
-        let epoch_settings = self.get_epoch_settings_configuration()?;
-        let allowed_discriminants = self.get_allowed_signed_entity_types_discriminants()?;
+        let epoch_settings = self.configuration.get_epoch_settings_configuration();
+        let allowed_discriminants = self
+            .configuration
+            .compute_allowed_signed_entity_types_discriminants()?;
 
         let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
             epoch_settings,

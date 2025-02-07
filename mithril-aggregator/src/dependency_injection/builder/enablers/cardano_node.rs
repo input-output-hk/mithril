@@ -142,7 +142,8 @@ impl DependenciesBuilder {
         &mut self,
     ) -> Result<Arc<CardanoTransactionsPreloader>> {
         let activation = self
-            .get_allowed_signed_entity_types_discriminants()?
+            .configuration
+            .compute_allowed_signed_entity_types_discriminants()?
             .contains(&SignedEntityTypeDiscriminants::CardanoTransactions);
         let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
             self.get_signed_entity_lock().await?,

@@ -133,7 +133,7 @@ impl DependenciesBuilder {
                 .replace_cardano_signing_config_empty_values(cardano_signing_config)?;
         }
 
-        let epoch_settings_configuration = self.get_epoch_settings_configuration()?;
+        let epoch_settings_configuration = self.configuration.get_epoch_settings_configuration();
         debug!(
             logger,
             "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {current_epoch}";

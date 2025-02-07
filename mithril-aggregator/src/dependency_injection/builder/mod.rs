@@ -4,7 +4,7 @@ mod support;
 
 use anyhow::Context;
 use slog::Logger;
-use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
@@ -24,7 +24,6 @@ use mithril_common::{
     digesters::{
         cache::ImmutableFileDigestCacheProvider, ImmutableDigester, ImmutableFileObserver,
     },
-    entities::SignedEntityTypeDiscriminants,
     era::{EraChecker, EraReader, EraReaderAdapter},
     signable_builder::{SignableBuilderService, SignableSeedBuilder, TransactionsImporter},
     signed_entity_type_lock::SignedEntityTypeLock,
@@ -41,7 +40,6 @@ use crate::{
         CertificateRepository, EpochSettingsStore, OpenMessageRepository, SignedEntityStorer,
         SignerStore, StakePoolStore,
     },
-    entities::AggregatorEpochSettings,
     event_store::{EventMessage, TransmitterService},
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
@@ -282,17 +280,6 @@ impl DependenciesBuilder {
         }
     }
 
-    /// Get the allowed signed entity types discriminants
-    fn get_allowed_signed_entity_types_discriminants(
-        &self,
-    ) -> Result<BTreeSet<SignedEntityTypeDiscriminants>> {
-        let allowed_discriminants = self
-            .configuration
-            .compute_allowed_signed_entity_types_discriminants()?;
-
-        Ok(allowed_discriminants)
-    }
-
     fn get_cardano_db_artifacts_dir(&self) -> Result<PathBuf> {
         let cardano_db_artifacts_dir = self
             .configuration
@@ -309,17 +296,6 @@ impl DependenciesBuilder {
         }
 
         Ok(cardano_db_artifacts_dir)
-    }
-
-    fn get_epoch_settings_configuration(&mut self) -> Result<AggregatorEpochSettings> {
-        let epoch_settings = AggregatorEpochSettings {
-            protocol_parameters: self.configuration.protocol_parameters.clone(),
-            cardano_transactions_signing_config: self
-                .configuration
-                .cardano_transactions_signing_config
-                .clone(),
-        };
-        Ok(epoch_settings)
     }
 
     /// Return an unconfigured [DependencyContainer]
@@ -405,7 +381,9 @@ impl DependenciesBuilder {
             RouterConfig {
                 network: self.configuration.get_network()?,
                 server_url: self.configuration.get_server_url()?,
-                allowed_discriminants: self.get_allowed_signed_entity_types_discriminants()?,
+                allowed_discriminants: self
+                    .configuration
+                    .compute_allowed_signed_entity_types_discriminants()?,
                 cardano_transactions_prover_max_hashes_allowed_by_request: self
                     .configuration
                     .cardano_transactions_prover_max_hashes_allowed_by_request,
