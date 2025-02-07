@@ -8,7 +8,7 @@ use std::{collections::BTreeSet, path::PathBuf, sync::Arc};
 use tokio::{
     sync::{
         mpsc::{UnboundedReceiver, UnboundedSender},
-        Mutex, RwLock,
+        Mutex,
     },
     time::Duration,
 };
@@ -16,18 +16,13 @@ use warp::Filter;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    cardano_block_scanner::{BlockScanner, CardanoBlockScanner},
-    cardano_transactions_preloader::{
-        CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
-    },
+    cardano_block_scanner::BlockScanner,
     certificate_chain::CertificateVerifier,
-    chain_observer::{CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver},
-    chain_reader::{ChainBlockReader, PallasChainReader},
+    chain_observer::{CardanoCliRunner, ChainObserver},
+    chain_reader::ChainBlockReader,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{
-        cache::ImmutableFileDigestCacheProvider, CardanoImmutableDigester,
-        DumbImmutableFileObserver, ImmutableDigester, ImmutableFileObserver,
-        ImmutableFileSystemObserver,
+        cache::ImmutableFileDigestCacheProvider, ImmutableDigester, ImmutableFileObserver,
     },
     entities::{Epoch, SignedEntityTypeDiscriminants},
     era::{
@@ -36,7 +31,7 @@ use mithril_common::{
     },
     signable_builder::{SignableBuilderService, SignableSeedBuilder, TransactionsImporter},
     signed_entity_type_lock::SignedEntityTypeLock,
-    MithrilTickerService, TickerService,
+    TickerService,
 };
 use mithril_persistence::{
     database::{repository::CardanoTransactionRepository, ApplicationNodeType, SqlMigration},
@@ -56,8 +51,7 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        AggregatorUpkeepService, CertifierService, EpochServiceDependencies, MessageService,
-        MithrilEpochService, MithrilMessageService, MithrilStakeDistributionService, ProverService,
+        AggregatorUpkeepService, CertifierService, MessageService, ProverService,
         SignedEntityService, Snapshotter, StakeDistributionService, UpkeepService, UsageReporter,
     },
     store::CertificatePendingStorer,
@@ -560,84 +554,6 @@ impl DependenciesBuilder {
         Ok(self.epoch_settings_store.as_ref().cloned().unwrap())
     }
 
-    async fn build_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
-        let chain_observer: Arc<dyn ChainObserver> = match self.configuration.environment {
-            ExecutionEnvironment::Production => {
-                let cardano_cli_runner = &self.get_cardano_cli_runner().await?;
-                let chain_observer_type = &self.configuration.chain_observer_type;
-                let cardano_node_socket_path = &self.configuration.cardano_node_socket_path;
-                let cardano_network = &self
-                    .configuration
-                    .get_network()
-                    .with_context(|| "Dependencies Builder can not get Cardano network while building the chain observer")?;
-                let chain_observer_builder = ChainObserverBuilder::new(
-                    chain_observer_type,
-                    cardano_node_socket_path,
-                    cardano_network,
-                    Some(cardano_cli_runner),
-                );
-
-                chain_observer_builder
-                    .build()
-                    .with_context(|| "Dependencies Builder can not build chain observer")?
-            }
-            _ => Arc::new(FakeObserver::default()),
-        };
-
-        Ok(chain_observer)
-    }
-
-    /// Return a [ChainObserver]
-    pub async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
-        if self.chain_observer.is_none() {
-            self.chain_observer = Some(self.build_chain_observer().await?);
-        }
-
-        Ok(self.chain_observer.as_ref().cloned().unwrap())
-    }
-
-    async fn build_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
-        let cli_runner = CardanoCliRunner::new(
-            self.configuration.cardano_cli_path.clone(),
-            self.configuration.cardano_node_socket_path.clone(),
-            self.configuration.get_network().with_context(|| {
-                "Dependencies Builder can not get Cardano network while building cardano cli runner"
-            })?,
-        );
-
-        Ok(Box::new(cli_runner))
-    }
-
-    /// Return a [CardanoCliRunner]
-    pub async fn get_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
-        if self.cardano_cli_runner.is_none() {
-            self.cardano_cli_runner = Some(self.build_cardano_cli_runner().await?);
-        }
-
-        Ok(self.cardano_cli_runner.as_ref().cloned().unwrap())
-    }
-
-    async fn build_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
-        let immutable_file_observer: Arc<dyn ImmutableFileObserver> =
-            match self.configuration.environment {
-                ExecutionEnvironment::Production => Arc::new(ImmutableFileSystemObserver::new(
-                    &self.configuration.db_directory,
-                )),
-                _ => Arc::new(DumbImmutableFileObserver::default()),
-            };
-
-        Ok(immutable_file_observer)
-    }
-
-    /// Return a [ImmutableFileObserver] instance.
-    pub async fn get_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
-        if self.immutable_file_observer.is_none() {
-            self.immutable_file_observer = Some(self.build_immutable_file_observer().await?);
-        }
-
-        Ok(self.immutable_file_observer.as_ref().cloned().unwrap())
-    }
-
     async fn build_immutable_cache_provider(
         &mut self,
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
@@ -687,68 +603,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.transaction_repository.as_ref().cloned().unwrap())
-    }
-
-    async fn build_chain_block_reader(&mut self) -> Result<Arc<Mutex<dyn ChainBlockReader>>> {
-        let chain_block_reader = PallasChainReader::new(
-            &self.configuration.cardano_node_socket_path,
-            self.configuration.get_network()?,
-            self.root_logger(),
-        );
-
-        Ok(Arc::new(Mutex::new(chain_block_reader)))
-    }
-
-    /// Chain reader
-    pub async fn get_chain_block_reader(&mut self) -> Result<Arc<Mutex<dyn ChainBlockReader>>> {
-        if self.chain_block_reader.is_none() {
-            self.chain_block_reader = Some(self.build_chain_block_reader().await?);
-        }
-
-        Ok(self.chain_block_reader.as_ref().cloned().unwrap())
-    }
-
-    async fn build_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
-        let block_scanner = CardanoBlockScanner::new(
-            self.get_chain_block_reader().await?,
-            self.configuration
-                .cardano_transactions_block_streamer_max_roll_forwards_per_poll,
-            self.root_logger(),
-        );
-
-        Ok(Arc::new(block_scanner))
-    }
-
-    /// Block scanner
-    pub async fn get_block_scanner(&mut self) -> Result<Arc<dyn BlockScanner>> {
-        if self.block_scanner.is_none() {
-            self.block_scanner = Some(self.build_block_scanner().await?);
-        }
-
-        Ok(self.block_scanner.as_ref().cloned().unwrap())
-    }
-
-    async fn build_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
-        let immutable_digester_cache = match self.configuration.environment {
-            ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
-            _ => None,
-        };
-        let digester = CardanoImmutableDigester::new(
-            self.configuration.get_network()?.to_string(),
-            immutable_digester_cache,
-            self.root_logger(),
-        );
-
-        Ok(Arc::new(digester))
-    }
-
-    /// Immutable digester.
-    pub async fn get_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
-        if self.immutable_digester.is_none() {
-            self.immutable_digester = Some(self.build_immutable_digester().await?);
-        }
-
-        Ok(self.immutable_digester.as_ref().cloned().unwrap())
     }
 
     async fn build_immutable_file_digest_mapper(
@@ -917,28 +771,6 @@ impl DependenciesBuilder {
         Ok(self.api_version_provider.as_ref().cloned().unwrap())
     }
 
-    async fn build_stake_distribution_service(
-        &mut self,
-    ) -> Result<Arc<dyn StakeDistributionService>> {
-        let stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
-            self.get_stake_store().await?,
-            self.get_chain_observer().await?,
-        ));
-
-        Ok(stake_distribution_service)
-    }
-
-    /// [StakeDistributionService] service
-    pub async fn get_stake_distribution_service(
-        &mut self,
-    ) -> Result<Arc<dyn StakeDistributionService>> {
-        if self.stake_distribution_service.is_none() {
-            self.stake_distribution_service = Some(self.build_stake_distribution_service().await?);
-        }
-
-        Ok(self.stake_distribution_service.as_ref().cloned().unwrap())
-    }
-
     async fn build_signer_store(&mut self) -> Result<Arc<SignerStore>> {
         let signer_store = Arc::new(SignerStore::new(self.get_sqlite_connection().await?));
 
@@ -975,40 +807,6 @@ impl DependenciesBuilder {
         Ok(cardano_db_artifacts_dir)
     }
 
-    async fn build_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
-        let verification_key_store = self.get_verification_key_store().await?;
-        let epoch_settings_storer = self.get_epoch_settings_store().await?;
-        let chain_observer = self.get_chain_observer().await?;
-        let era_checker = self.get_era_checker().await?;
-        let stake_distribution_service = self.get_stake_distribution_service().await?;
-        let epoch_settings = self.get_epoch_settings_configuration()?;
-        let allowed_discriminants = self.get_allowed_signed_entity_types_discriminants()?;
-
-        let epoch_service = Arc::new(RwLock::new(MithrilEpochService::new(
-            epoch_settings,
-            EpochServiceDependencies::new(
-                epoch_settings_storer,
-                verification_key_store,
-                chain_observer,
-                era_checker,
-                stake_distribution_service,
-            ),
-            allowed_discriminants,
-            self.root_logger(),
-        )));
-
-        Ok(epoch_service)
-    }
-
-    /// [EpochService][crate::services::EpochService] service
-    pub async fn get_epoch_service(&mut self) -> Result<EpochServiceWrapper> {
-        if self.epoch_service.is_none() {
-            self.epoch_service = Some(self.build_epoch_service().await?);
-        }
-
-        Ok(self.epoch_service.as_ref().cloned().unwrap())
-    }
-
     async fn build_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
         let signed_entity_storer =
             Arc::new(SignedEntityStore::new(self.get_sqlite_connection().await?));
@@ -1023,19 +821,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.signed_entity_storer.as_ref().cloned().unwrap())
-    }
-
-    async fn build_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
-        let signed_entity_type_lock = Arc::new(SignedEntityTypeLock::default());
-        Ok(signed_entity_type_lock)
-    }
-
-    async fn get_signed_entity_lock(&mut self) -> Result<Arc<SignedEntityTypeLock>> {
-        if self.signed_entity_type_lock.is_none() {
-            self.signed_entity_type_lock = Some(self.build_signed_entity_lock().await?);
-        }
-
-        Ok(self.signed_entity_type_lock.as_ref().cloned().unwrap())
     }
 
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
@@ -1218,27 +1003,6 @@ impl DependenciesBuilder {
         Ok(router::routes(Arc::new(router_state)))
     }
 
-    /// Create a [CardanoTransactionsPreloader] instance.
-    pub async fn create_cardano_transactions_preloader(
-        &mut self,
-    ) -> Result<Arc<CardanoTransactionsPreloader>> {
-        let activation = self
-            .get_allowed_signed_entity_types_discriminants()?
-            .contains(&SignedEntityTypeDiscriminants::CardanoTransactions);
-        let cardano_transactions_preloader = CardanoTransactionsPreloader::new(
-            self.get_signed_entity_lock().await?,
-            self.get_transactions_importer().await?,
-            self.configuration
-                .cardano_transactions_signing_config
-                .security_parameter,
-            self.get_chain_observer().await?,
-            self.root_logger(),
-            Arc::new(CardanoTransactionsPreloaderActivation::new(activation)),
-        );
-
-        Ok(Arc::new(cardano_transactions_preloader))
-    }
-
     /// Create dependencies for genesis commands
     pub async fn create_genesis_container(&mut self) -> Result<GenesisToolsDependency> {
         let network = self.configuration.get_network().with_context(|| {
@@ -1280,51 +1044,6 @@ impl DependenciesBuilder {
         ))
     }
 
-    /// Create [TickerService] instance.
-    pub async fn build_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
-        let chain_observer = self.get_chain_observer().await?;
-        let immutable_observer = self.get_immutable_file_observer().await?;
-
-        Ok(Arc::new(MithrilTickerService::new(
-            chain_observer,
-            immutable_observer,
-        )))
-    }
-
-    /// [StakeDistributionService] service
-    pub async fn get_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
-        if self.ticker_service.is_none() {
-            self.ticker_service = Some(self.build_ticker_service().await?);
-        }
-
-        Ok(self.ticker_service.as_ref().cloned().unwrap())
-    }
-
-    /// build HTTP message service
-    pub async fn build_message_service(&mut self) -> Result<Arc<dyn MessageService>> {
-        let certificate_repository = Arc::new(CertificateRepository::new(
-            self.get_sqlite_connection().await?,
-        ));
-        let signed_entity_storer = self.get_signed_entity_storer().await?;
-        let immutable_file_digest_mapper = self.get_immutable_file_digest_mapper().await?;
-        let service = MithrilMessageService::new(
-            certificate_repository,
-            signed_entity_storer,
-            immutable_file_digest_mapper,
-        );
-
-        Ok(Arc::new(service))
-    }
-
-    /// [MessageService] service
-    pub async fn get_message_service(&mut self) -> Result<Arc<dyn MessageService>> {
-        if self.message_service.is_none() {
-            self.message_service = Some(self.build_message_service().await?);
-        }
-
-        Ok(self.message_service.as_ref().cloned().unwrap())
-    }
-
     /// Remove the dependencies builder from memory to release Arc instances.
     pub async fn vanish(self) {
         self.drop_sqlite_connections().await;
@@ -1335,50 +1054,5 @@ impl DependenciesBuilder {
 impl DependenciesBuilder {
     pub(crate) fn new_with_stdout_logger(configuration: Configuration) -> Self {
         Self::new(crate::test_tools::TestLogger::stdout(), configuration)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use mithril_common::entities::SignedEntityTypeDiscriminants;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn cardano_transactions_preloader_activated_with_cardano_transactions_signed_entity_type_in_configuration(
-    ) {
-        assert_cardano_transactions_preloader_activation(
-            SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
-            true,
-        )
-        .await;
-        assert_cardano_transactions_preloader_activation(
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution.to_string(),
-            false,
-        )
-        .await;
-    }
-
-    async fn assert_cardano_transactions_preloader_activation(
-        signed_entity_types: String,
-        expected_activation: bool,
-    ) {
-        let configuration = Configuration {
-            signed_entity_types: Some(signed_entity_types),
-            ..Configuration::new_sample()
-        };
-        let mut dep_builder = DependenciesBuilder::new_with_stdout_logger(configuration);
-
-        let cardano_transactions_preloader = dep_builder
-            .create_cardano_transactions_preloader()
-            .await
-            .unwrap();
-
-        let is_activated = cardano_transactions_preloader.is_activated().await.unwrap();
-        assert_eq!(
-            expected_activation, is_activated,
-            "'is_activated' expected {}, but was {}",
-            expected_activation, is_activated
-        );
     }
 }
