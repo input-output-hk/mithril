@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.7.0"
+version = "0.7.1"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -34,7 +34,13 @@ paste = "1.0.15"
 prometheus = "0.13.4"
 rayon = "1.10.0"
 regex = "1.11.1"
-reqwest = { version = "0.12.12", features = ["json"] }
+reqwest = { version = "0.12.12", features = [
+    "json",
+    "gzip",
+    "zstd",
+    "deflate",
+    "brotli"
+    ] }
 semver = "1.0.25"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"

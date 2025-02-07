@@ -329,3 +329,39 @@ mod handlers {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use httpmock::MockServer;
+
+    use crate::test_tools::TestLogger;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn sends_accept_encoding_header_with_correct_values() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.matches(|req| {
+                let headers = req.headers.clone().expect("HTTP headers not found");
+                let accept_encoding_header = headers
+                    .iter()
+                    .find(|(name, _values)| name.to_lowercase() == "accept-encoding")
+                    .expect("Accept-Encoding header not found");
+
+                let header_value = accept_encoding_header.clone().1;
+                ["gzip", "br", "deflate", "zstd"]
+                    .iter()
+                    .all(|&value| header_value.contains(value))
+            });
+
+            then.status(200).body("ok");
+        });
+
+        handlers::aggregator_features_handler(TestLogger::stdout(), server.url(""))
+            .await
+            .unwrap();
+
+        mock.assert();
+    }
+}

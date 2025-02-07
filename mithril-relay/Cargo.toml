@@ -1,6 +1,6 @@
 [package]
 name = "mithril-relay"
-version = "0.1.33"
+version = "0.1.34"
 description = "A Mithril relay"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -33,7 +33,13 @@ libp2p = { version = "0.54.1", features = [
 ] }
 mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
-reqwest = { version = "0.12.12", features = ["json"] }
+reqwest = { version = "0.12.12", features = [
+    "json",
+    "gzip",
+    "zstd",
+    "deflate",
+    "brotli"
+    ] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
 serde_yaml = "0.9.34"
@@ -48,6 +54,7 @@ tokio = { version = "1.43.0", features = ["full"] }
 warp = "0.3.7"
 
 [dev-dependencies]
+httpmock = "0.7.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.1"
 
