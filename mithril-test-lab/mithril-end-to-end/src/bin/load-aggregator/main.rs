@@ -5,7 +5,7 @@ use tokio::sync::oneshot;
 
 use mithril_common::{
     digesters::{DummyCardanoDb, DummyCardanoDbBuilder},
-    entities::{CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType, SingleSignatures},
+    entities::{CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType},
     test_utils::MithrilFixture,
     StdResult,
 };
@@ -51,13 +51,6 @@ async fn main() -> StdResult<()> {
     let signers_fixture =
         payload_builder::generate_signer_data(opts.num_signers, protocol_parameters);
 
-    let mithril_stake_distribution_signatures =
-        payload_builder::precompute_mithril_stake_distribution_signatures(
-            &signers_fixture,
-            Duration::from_secs(180),
-        )
-        .await?;
-
     let aggregator = aggregator_helpers::bootstrap_aggregator(
         &aggregator_parameters,
         &signers_fixture,
@@ -73,7 +66,6 @@ async fn main() -> StdResult<()> {
         signers_fixture,
         cardano_db,
         reporter,
-        precomputed_mithril_stake_distribution_signatures: mithril_stake_distribution_signatures,
     };
 
     let scenario_counters = ScenarioCounters {
@@ -122,7 +114,6 @@ struct ScenarioParameters {
     aggregator_parameters: AggregatorParameters,
     signers_fixture: MithrilFixture,
     cardano_db: DummyCardanoDb,
-    precomputed_mithril_stake_distribution_signatures: Vec<SingleSignatures>,
     reporter: Reporter,
 }
 
@@ -189,6 +180,16 @@ async fn main_scenario(
     )
     .await?;
 
+    info!(">> Compute the mithril stake distribution signature");
+    let mithril_stake_distribution_signatures =
+        payload_builder::compute_mithril_stake_distribution_signatures(
+            current_epoch,
+            &parameters.signers_fixture,
+            Duration::from_secs(180),
+        )
+        .await
+        .unwrap();
+
     info!(
         ">> Send the Signer Signatures payloads for MithrilStakeDistribution({:?})",
         current_epoch
@@ -196,7 +197,7 @@ async fn main_scenario(
     parameters.reporter.start("signatures registration");
     let errors = fake_signer::register_signatures_to_aggregator(
         &parameters.aggregator,
-        &parameters.precomputed_mithril_stake_distribution_signatures,
+        &mithril_stake_distribution_signatures,
         SignedEntityType::MithrilStakeDistribution(current_epoch),
     )
     .await?;
@@ -238,7 +239,7 @@ async fn main_scenario(
             &parameters.cardano_db,
             current_epoch,
             &parameters.signers_fixture,
-            Duration::from_secs(60),
+            Duration::from_secs(180),
         )
         .await
         .unwrap();
