@@ -297,7 +297,7 @@ jobs:
         mode: ["std"]
         era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
         next_era: [""]
-        cardano_node_version: ["10.1.4"]
+        cardano_node_version: ["10.1.3", "10.1.4"]
         hard_fork_latest_era_at_epoch: [0]
         run_id: ["#1", "#2", "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#10"]
         extra_args: [""]
