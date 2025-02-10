@@ -542,6 +542,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
             &msgp,
             &sig_reg_list,
         )?;
+        println!("[FLAKINESS] aggregate {} signature(s)", unique_sigs.len());
 
         unique_sigs.sort_unstable();
 
@@ -1010,6 +1011,7 @@ impl CoreVerifier {
         let mut dedup_sigs: HashSet<StmSigRegParty> = HashSet::new();
         let mut count: u64 = 0;
 
+        println!("[FLAKINESS] Count indexes");
         for (_, &sig_reg) in sig_by_index.iter() {
             if dedup_sigs.contains(sig_reg) {
                 continue;
@@ -1032,13 +1034,26 @@ impl CoreVerifier {
                 }
                 dedup_sigs.insert(deduped_sig);
                 count += size;
+                println!(
+                    "[FLAKINESS] Add size({}): {size} => Count: {count} k: {}",
+                    dedup_sigs.len(),
+                    params.k
+                );
 
                 if count >= params.k {
+                    println!(
+                        "[FLAKINESS] Final count: {count} signatures: {}",
+                        dedup_sigs.len()
+                    );
                     return Ok(dedup_sigs.into_iter().collect());
                 }
             }
         }
-
+        println!(
+            "[FLAKINESS] NotEnoughSignatures with {} sigs: {count} expected {}",
+            dedup_sigs.len(),
+            params.k
+        );
         Err(AggregationError::NotEnoughSignatures(count, params.k))
     }
 

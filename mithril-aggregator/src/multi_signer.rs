@@ -121,10 +121,13 @@ impl MultiSigner for MultiSignerImpl {
             "Multi Signer could not get protocol multi-signer from epoch service"
         })?;
 
-        match protocol_multi_signer.aggregate_single_signatures(
+        println!("[FLAKINESS] >>> MultiSignerImpl::create_multi_signature");
+        let value = protocol_multi_signer.aggregate_single_signatures(
             &open_message.single_signatures,
             &open_message.protocol_message,
-        ) {
+        );
+        println!("[FLAKINESS] <<< MultiSignerImpl::create_multi_signature");
+        match value {
             Ok(multi_signature) => Ok(Some(multi_signature)),
             Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
                 warn!(
