@@ -63,8 +63,9 @@ pub fn generate_register_signature_message(
         .collect::<Vec<_>>()
 }
 
-/// Precompute all signers single signatures for the given fixture
-pub async fn precompute_mithril_stake_distribution_signatures(
+/// Compute all signers single signatures for mithril stake distribution for the given fixture
+pub async fn compute_mithril_stake_distribution_signatures(
+    epoch: Epoch,
     signers_fixture: &MithrilFixture,
     timeout: Duration,
 ) -> StdResult<Vec<SingleSignatures>> {
@@ -75,9 +76,17 @@ pub async fn precompute_mithril_stake_distribution_signatures(
                 let mithril_stake_distribution_message = {
                     let mut message = ProtocolMessage::new();
                     message.set_message_part(
-                    mithril_common::entities::ProtocolMessagePartKey::NextAggregateVerificationKey,
-                    signers_fixture.compute_and_encode_avk(),
-                );
+                        mithril_common::entities::ProtocolMessagePartKey::NextAggregateVerificationKey,
+                        signers_fixture.compute_and_encode_avk(),
+                    );
+                    message.set_message_part(
+                        mithril_common::entities::ProtocolMessagePartKey::NextProtocolParameters,
+                        signers_fixture.protocol_parameters().compute_hash(),
+                    );
+                    message.set_message_part(
+                        mithril_common::entities::ProtocolMessagePartKey::CurrentEpoch,
+                        epoch.to_string(),
+                    );
 
                     message
                 };
@@ -89,12 +98,12 @@ pub async fn precompute_mithril_stake_distribution_signatures(
             Ok(signatures)
         },
         timeout,
-        format!("Precompute signatures for MithrilStakeDistribution signed entity"),
-        format!("Precomputing signatures timeout after {timeout:?}")
+        format!("Compute signatures for MithrilStakeDistribution signed entity"),
+        format!("Computing signatures timeout after {timeout:?}")
     )
 }
 
-/// Compute all signers single signatures for the given fixture
+/// Compute all signers single signatures for immutable files full for the given fixture
 pub async fn compute_immutable_files_signatures(
     cardano_db: &DummyCardanoDb,
     epoch: Epoch,
@@ -122,25 +131,33 @@ pub async fn compute_immutable_files_signatures(
             let signers_fixture = signers_fixture.clone();
 
             let signatures = tokio::task::spawn_blocking(move || -> Vec<SingleSignatures> {
-                let mithril_stake_distribution_message = {
+                let cardano_immutable_files_full_message = {
                     let mut message = ProtocolMessage::new();
                     message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
                     message.set_message_part(
                         ProtocolMessagePartKey::NextAggregateVerificationKey,
                         signers_fixture.compute_and_encode_avk(),
                     );
+                    message.set_message_part(
+                        mithril_common::entities::ProtocolMessagePartKey::NextProtocolParameters,
+                        signers_fixture.protocol_parameters().compute_hash(),
+                    );
+                    message.set_message_part(
+                        mithril_common::entities::ProtocolMessagePartKey::CurrentEpoch,
+                        epoch.to_string(),
+                    );
 
                     message
                 };
 
-                signers_fixture.sign_all(&mithril_stake_distribution_message)
+                signers_fixture.sign_all(&cardano_immutable_files_full_message)
             })
             .await?;
 
             Ok((beacon, signatures))
         },
         timeout,
-        format!("Precompute signatures for CardanoImmutableFiles signed entity"),
-        format!("Precomputing signatures timeout after {timeout:?}")
+        format!("Compute signatures for CardanoImmutableFiles signed entity"),
+        format!("Computing signatures timeout after {timeout:?}")
     )
 }

@@ -76,7 +76,7 @@ pub struct Args {
     mithril_run_interval: u32,
 
     /// Mithril era to run
-    #[clap(long, default_value = "thales")]
+    #[clap(long, default_value = "pythagoras")]
     mithril_era: String,
 
     /// Mithril next era to run

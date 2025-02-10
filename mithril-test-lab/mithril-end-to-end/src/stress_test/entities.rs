@@ -34,7 +34,7 @@ pub struct MainOpts {
     pub num_clients: usize,
 
     /// Mithril technical Era
-    #[arg(long, default_value = "thales")]
+    #[arg(long, default_value = "pythagoras")]
     pub mithril_era: String,
 
     /// Aggregator HTTP port
