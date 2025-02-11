@@ -148,6 +148,43 @@ impl MithrilCommand {
             ));
         }
 
+        self.print_header(name, &format!("LAST {} LINES", number_of_line));
+
+        println!(
+            "{}",
+            file_utils::tail(&self.log_path, number_of_line).await?
+        );
+
+        Ok(())
+    }
+
+    /// Grep error in log log
+    ///
+    /// You can override the title with the name parameter.
+    pub(crate) async fn last_error_in_logs(
+        &self,
+        name: Option<&str>,
+        number_of_error: u64,
+    ) -> StdResult<()> {
+        if !self.log_path.exists() {
+            return Err(anyhow!(
+                "No log for {}, did you run the command at least once ? expected path: {}",
+                self.name,
+                self.log_path.display()
+            ));
+        }
+
+        self.print_header(name, &format!("LAST {} ERROR(S)", number_of_error));
+
+        println!(
+            "{}",
+            file_utils::last_errors(&self.log_path, number_of_error).await?
+        );
+
+        Ok(())
+    }
+
+    fn print_header(&self, name: Option<&str>, title: &str) {
         let name = match name {
             Some(n) => n,
             None => &self.name,
@@ -156,19 +193,8 @@ impl MithrilCommand {
         println!("{:-^100}", "");
         println!(
             "{:^30}",
-            format!(
-                "{} LOGS - LAST {} LINES:",
-                name.to_uppercase(),
-                number_of_line
-            )
+            format!("{} LOGS - {}:", name.to_uppercase(), title)
         );
         println!("{:-^100}", "");
-
-        println!(
-            "{}",
-            file_utils::tail(&self.log_path, number_of_line).await?
-        );
-
-        Ok(())
     }
 }

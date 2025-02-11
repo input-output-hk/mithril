@@ -373,4 +373,12 @@ impl MithrilInfrastructure {
 
         Ok(())
     }
+
+    pub async fn last_error_in_logs(&self, number_of_error: u64) -> StdResult<()> {
+        self.aggregator()
+            .last_error_in_logs(number_of_error)
+            .await?;
+
+        Ok(())
+    }
 }
