@@ -744,22 +744,22 @@ mod tests {
     mod cardano_database_client {
         use anyhow::anyhow;
         use chrono::{DateTime, Utc};
+        use mockall::predicate::eq;
+
         use mithril_common::{
             digesters::CardanoImmutableDigester,
             entities::{
                 AncillaryLocationDiscriminants, CardanoDbBeacon, CompressionAlgorithm,
-                DigestLocationDiscriminants, Epoch, FileUri, ImmutablesLocationDiscriminants,
+                DigestLocationDiscriminants, Epoch, ImmutablesLocationDiscriminants,
             },
         };
-        use mockall::predicate::{self, eq};
 
         use crate::{
             aggregator_client::MockAggregatorHTTPClient,
             feedback::{FeedbackReceiver, MithrilEvent, StackFeedbackReceiver},
             file_downloader::{
-                AncillaryFileDownloaderResolver, DigestFileDownloaderResolver,
-                FeedbackEventBuilder, FileDownloader, ImmutablesFileDownloaderResolver,
-                MockFileDownloader,
+                AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloader,
+                ImmutablesFileDownloaderResolver, MockFileDownloaderBuilder,
             },
             test_utils,
         };
@@ -891,137 +891,6 @@ mod tests {
                     FeedbackSender::new(&self.feedback_receivers),
                     test_utils::test_logger(),
                 )
-            }
-        }
-
-        type MockFileDownloaderBuilderReturningFunc = Box<
-            dyn FnMut(
-                    &FileDownloaderUri,
-                    &Path,
-                    Option<CompressionAlgorithm>,
-                    &str,
-                    FeedbackEventBuilder,
-                ) -> StdResult<()>
-                + Send
-                + 'static,
-        >;
-
-        struct MockFileDownloaderBuilder {
-            mock_file_downloader: Option<MockFileDownloader>,
-            times: usize,
-            param_file_downloader_uri: Option<FileDownloaderUri>,
-            param_target_dir: Option<PathBuf>,
-            param_compression_algorithm: Option<Option<CompressionAlgorithm>>,
-            returning_func: Option<MockFileDownloaderBuilderReturningFunc>,
-        }
-
-        impl Default for MockFileDownloaderBuilder {
-            fn default() -> Self {
-                Self {
-                    mock_file_downloader: None,
-                    times: 1,
-                    param_file_downloader_uri: None,
-                    param_target_dir: None,
-                    param_compression_algorithm: Some(Some(CompressionAlgorithm::default())),
-                    returning_func: None,
-                }
-            }
-        }
-
-        impl MockFileDownloaderBuilder {
-            fn from_mock(mock: MockFileDownloader) -> Self {
-                Self {
-                    mock_file_downloader: Some(mock),
-                    ..Self::default()
-                }
-            }
-
-            fn with_success(self) -> Self {
-                self.with_returning(Box::new(|_, _, _, _, _| Ok(())))
-            }
-
-            fn with_failure(self) -> Self {
-                self.with_returning(Box::new(|_, _, _, _, _| {
-                    Err(anyhow!("Download unpack failed"))
-                }))
-            }
-
-            fn with_times(self, times: usize) -> Self {
-                let mut self_mut = self;
-                self_mut.times = times;
-
-                self_mut
-            }
-
-            fn with_file_uri<T: AsRef<str>>(self, file_uri: T) -> Self {
-                let mut self_mut = self;
-                self_mut.param_file_downloader_uri = Some(FileDownloaderUri::FileUri(FileUri(
-                    file_uri.as_ref().to_string(),
-                )));
-
-                self_mut
-            }
-
-            fn with_target_dir(self, target_dir: PathBuf) -> Self {
-                let mut self_mut = self;
-                self_mut.param_target_dir = Some(target_dir);
-
-                self_mut
-            }
-
-            fn with_compression(self, compression: Option<CompressionAlgorithm>) -> Self {
-                let mut self_mut = self;
-                self_mut.param_compression_algorithm = Some(compression);
-
-                self_mut
-            }
-
-            fn with_returning(
-                self,
-                returning_func: MockFileDownloaderBuilderReturningFunc,
-            ) -> Self {
-                let mut self_mut = self;
-                self_mut.returning_func = Some(returning_func);
-
-                self_mut
-            }
-
-            fn build(self) -> MockFileDownloader {
-                let predicate_file_downloader_uri = predicate::function(move |u| {
-                    self.param_file_downloader_uri
-                        .as_ref()
-                        .map(|x| x == u)
-                        .unwrap_or(true)
-                });
-                let predicate_target_dir = predicate::function(move |u| {
-                    self.param_target_dir
-                        .as_ref()
-                        .map(|x| x == u)
-                        .unwrap_or(true)
-                });
-                let predicate_compression_algorithm = predicate::function(move |u| {
-                    self.param_compression_algorithm
-                        .as_ref()
-                        .map(|x| x == u)
-                        .unwrap_or(true)
-                });
-                let predicate_download_id = predicate::always();
-                let predicate_feedback_event_builder = predicate::always();
-
-                let mut mock_file_downloader = self.mock_file_downloader.unwrap_or_default();
-                mock_file_downloader
-                    .expect_download_unpack()
-                    .with(
-                        predicate_file_downloader_uri,
-                        predicate_target_dir,
-                        predicate_compression_algorithm,
-                        predicate_download_id,
-                        predicate_feedback_event_builder,
-                    )
-                    .times(self.times)
-                    .returning(self.returning_func.unwrap());
-
-                mock_file_downloader
             }
         }
 
