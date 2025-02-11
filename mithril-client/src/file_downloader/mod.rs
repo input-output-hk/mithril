@@ -4,6 +4,7 @@
 
 mod interface;
 mod resolver;
+mod retry;
 
 #[cfg(test)]
 pub use interface::MockFileDownloader;
@@ -14,3 +15,4 @@ pub use resolver::{
     AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloaderResolver,
     ImmutablesFileDownloaderResolver,
 };
+pub use retry::{FileDownloadRetryPolicy, RetryDownloader};
