@@ -111,35 +111,5 @@
         }
       }
     ]
-  },
-  "sanchonet": {
-    "cardano-minimum-version": {
-      "mithril-signer": "10.1.1"
-    },
-    "mithril-networks": [
-      {
-        "testing-sanchonet": {
-          "aggregators": [
-            {
-              "url": "https://aggregator.testing-sanchonet.api.mithril.network/aggregator"
-            }
-          ],
-          "genesis": {
-            "verification-key": {
-              "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey"
-            }
-          },
-          "era-reader": {
-            "adapter-type": "cardano-chain",
-            "address": {
-              "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.addr"
-            },
-            "verification-key": {
-              "url": "https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.vkey"
-            }
-          }
-        }
-      }
-    ]
   }
 }
