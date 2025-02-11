@@ -73,9 +73,6 @@ function getCExplorerUrl(network) {
     case "preview":
       url = `https://preview.${urlWithoutNetwork}`;
       break;
-    case "sanchonet":
-      url = `https://sancho.${urlWithoutNetwork}`;
-      break;
     default:
       break;
   }
