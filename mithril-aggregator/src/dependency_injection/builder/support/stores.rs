@@ -120,6 +120,12 @@ impl DependenciesBuilder {
                 message: "cannot build aggregator runner: no epoch returned.".to_string(),
                 error: None,
             })?;
+        let retrieval_epoch = current_epoch
+            .offset_to_signer_retrieval_epoch()
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: format!("cannot create aggregator runner: failed to offset current epoch '{current_epoch}' to signer retrieval epoch."),
+                error: Some(e.into()),
+            })?;
 
         {
             // Temporary fix, should be removed
@@ -136,11 +142,11 @@ impl DependenciesBuilder {
         let epoch_settings_configuration = self.configuration.get_epoch_settings_configuration();
         debug!(
             logger,
-            "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {current_epoch}";
+            "Handle discrepancies at startup of epoch settings store, will record epoch settings from the configuration for epoch {retrieval_epoch}";
             "epoch_settings_configuration" => ?epoch_settings_configuration,
         );
         epoch_settings_store
-            .handle_discrepancies_at_startup(current_epoch, &epoch_settings_configuration)
+            .handle_discrepancies_at_startup(retrieval_epoch, &epoch_settings_configuration)
             .await
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "can not create aggregator runner".to_string(),
