@@ -8,7 +8,7 @@ import ProtocolParameters from "#/ProtocolParameters";
 import QuestionTooltip from "#/QuestionTooltip";
 import Stake from "#/Stake";
 import { selectedAggregator } from "@/store/settingsSlice";
-import { checkUrl, formatStake } from "@/utils";
+import { checkUrl, formatStake, percent } from "@/utils";
 
 function InfoGroupCard({ children, title, ...props }) {
   return (
@@ -100,11 +100,6 @@ export default function AggregatorStatus({ showContent = true }) {
       setRegistrationPageUrl(`/registrations?${params.toString()}`);
     }
   }, [currentAggregator, aggregatorStatus]);
-
-  // Calculate percentage without decimal
-  function percent(value, total) {
-    return ((value / total) * 100).toFixed(0);
-  }
 
   return fallbackToEpochSetting ? (
     <Stack direction="horizontal">
