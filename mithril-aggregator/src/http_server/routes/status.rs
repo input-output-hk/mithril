@@ -47,8 +47,8 @@ async fn get_aggregator_status_message(
     let total_next_signers = epoch_service.next_signers()?.len();
     let total_stakes_signers = epoch_service.total_stakes_signers()?;
     let total_next_stakes_signers = epoch_service.total_next_stakes_signers()?;
-    let total_cardano_spo = epoch_service.total_spo()?;
-    let total_cardano_stake = epoch_service.total_stake()?;
+    let total_cardano_spo = epoch_service.total_spo()?.unwrap_or_default();
+    let total_cardano_stake = epoch_service.total_stake()?.unwrap_or_default();
 
     let message = AggregatorStatusMessage {
         epoch,
@@ -230,6 +230,24 @@ mod tests {
             message.next_protocol_parameters,
             next_epoch_settings.protocol_parameters
         );
+    }
+
+    #[tokio::test]
+    async fn total_cardano_stakes_and_spo_are_0_if_none_in_epoch_service() {
+        let epoch_service = FakeEpochServiceBuilder {
+            total_spo: None,
+            total_stake: None,
+            ..FakeEpochServiceBuilder::dummy(Epoch(3))
+        }
+        .build();
+        let epoch_service = Arc::new(RwLock::new(epoch_service));
+
+        let message = get_aggregator_status_message(epoch_service, String::new(), String::new())
+            .await
+            .unwrap();
+
+        assert_eq!(message.total_cardano_spo, 0);
+        assert_eq!(message.total_cardano_stake, 0);
     }
 
     #[tokio::test]

@@ -10,7 +10,7 @@ impl DependenciesBuilder {
         let epoch_settings_storer = self.get_epoch_settings_store().await?;
         let chain_observer = self.get_chain_observer().await?;
         let era_checker = self.get_era_checker().await?;
-        let stake_distribution_service = self.get_stake_distribution_service().await?;
+        let stake_store = self.get_stake_store().await?;
         let epoch_settings = self.configuration.get_epoch_settings_configuration();
         let allowed_discriminants = self
             .configuration
@@ -23,7 +23,7 @@ impl DependenciesBuilder {
                 verification_key_store,
                 chain_observer,
                 era_checker,
-                stake_distribution_service,
+                stake_store,
             ),
             allowed_discriminants,
             self.root_logger(),
