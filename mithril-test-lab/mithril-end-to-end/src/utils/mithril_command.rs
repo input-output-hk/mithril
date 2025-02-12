@@ -178,7 +178,9 @@ impl MithrilCommand {
 
         println!(
             "{}",
-            file_utils::last_errors(&self.log_path, number_of_error).await?
+            file_utils::last_errors(&self.log_path, number_of_error)
+                .await
+                .unwrap_or("Failed to get last error in logs".to_string())
         );
 
         Ok(())
