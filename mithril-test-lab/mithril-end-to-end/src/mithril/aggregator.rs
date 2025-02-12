@@ -279,4 +279,8 @@ impl Aggregator {
     pub async fn tail_logs(&self, number_of_line: u64) -> StdResult<()> {
         self.command.tail_logs(None, number_of_line).await
     }
+
+    pub async fn last_error_in_logs(&self, number_of_error: u64) -> StdResult<()> {
+        self.command.last_error_in_logs(None, number_of_error).await
+    }
 }

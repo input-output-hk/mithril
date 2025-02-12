@@ -293,6 +293,14 @@ impl App {
         }
     }
 
+    async fn last_error_in_logs(&self) {
+        if let Some(infrastructure) = self.infrastructure.lock().await.as_ref() {
+            let _ = infrastructure.last_error_in_logs(1).await.inspect_err(|e| {
+                error!("Failed to grep error in logs: {}", e);
+            });
+        }
+    }
+
     pub async fn run(
         &mut self,
         args: Args,
@@ -360,6 +368,7 @@ impl App {
             Ok(()) => Ok(()),
             Err(error) => {
                 self.tail_logs().await;
+                self.last_error_in_logs().await;
                 Err(error)
             }
         }

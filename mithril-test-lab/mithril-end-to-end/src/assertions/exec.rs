@@ -62,7 +62,7 @@ pub async fn update_protocol_parameters(aggregator: &mut Aggregator) -> StdResul
     info!("> stopping aggregator");
     aggregator.stop().await?;
     let protocol_parameters_new = ProtocolParameters {
-        k: 150,
+        k: 145,
         m: 210,
         phi_f: 0.80,
     };
