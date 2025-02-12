@@ -38,14 +38,14 @@ pub async fn last_errors(file_path: &Path, number_of_error: u64) -> StdResult<St
         ])
         .stdout(Stdio::piped())
         .spawn()
-        .expect("failed to spawn grep");
+        .with_context(|| format!("Failed to spawn grep file `{}`", file_path.display()))?;
 
     let tail_stdin: Stdio = grep
         .stdout
         .take()
         .unwrap()
         .try_into()
-        .expect("failed to convert to Stdio");
+        .with_context(|| "Failed to convert to Stdio.".to_string())?;
 
     let result = Command::new("tail")
         .args(vec![
