@@ -13,10 +13,10 @@ use mithril_common::{
         BlockNumber, BlockRange, CardanoTransaction, CardanoTransactionsSetProof, TransactionHash,
     },
     logging::LoggerExtensions,
-    resource_pool::ResourcePool,
     signable_builder::BlockRangeRootRetriever,
     StdResult,
 };
+use mithril_resource_pool::ResourcePool;
 
 /// Prover service is the cryptographic engine in charge of producing cryptographic proofs for transactions
 #[cfg_attr(test, mockall::automock)]

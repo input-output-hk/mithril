@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{resource_pool::Reset, StdError, StdResult};
+use crate::{Reset, StdError, StdResult};
 
 use super::{MKProof, MKTree, MKTreeNode, MKTreeStorer};
 

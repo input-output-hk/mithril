@@ -30,6 +30,7 @@ mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
+mithril-resource-pool = { path = "../internal/mithril-resource-pool" }
 rayon = "1.10.0"
 regex = "1.11.1"
 reqwest = { version = "0.12.12", features = [

@@ -1,9 +1,7 @@
 use std::{ops::Deref, time::Duration};
 
-use mithril_common::{
-    resource_pool::{Reset, ResourcePool, ResourcePoolItem},
-    StdResult,
-};
+use mithril_common::{Reset, StdResult};
+use mithril_resource_pool::{ResourcePool, ResourcePoolItem};
 
 use crate::sqlite::SqliteConnection;
 
