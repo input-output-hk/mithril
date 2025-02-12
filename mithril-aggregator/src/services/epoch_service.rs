@@ -348,7 +348,9 @@ impl EpochService for MithrilEpochService {
                 .clone(),
         };
 
-        let (total_spo, total_stake) = self.get_total_spo_and_total_stake(epoch).await?;
+        let (total_spo, total_stake) = self
+            .get_total_spo_and_total_stake(signer_retrieval_epoch)
+            .await?;
 
         self.epoch_data = Some(EpochData {
             cardano_era,
