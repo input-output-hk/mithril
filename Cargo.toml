@@ -13,6 +13,7 @@ members = [
   "internal/mithril-doc-derive",
   "internal/mithril-metric",
   "internal/mithril-persistence",
+  "internal/mithril-resource-pool",
   "mithril-aggregator",
   "mithril-client",
   "mithril-client-cli",

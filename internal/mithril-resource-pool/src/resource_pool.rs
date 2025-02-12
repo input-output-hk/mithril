@@ -9,7 +9,7 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::StdResult;
+use mithril_common::{Reset, StdResult};
 
 /// [ResourcePool] related errors.
 #[derive(Error, Debug)]
@@ -205,20 +205,6 @@ impl<T: Reset + Send + Sync> Drop for ResourcePoolItem<'_, T> {
                 .give_back_resource(resource, self.discriminant)
         });
     }
-}
-
-/// Reset trait which is implemented by pooled resource items.
-/// As pool resource items are mutable, this will guarantee that the pool stays  consistent
-/// and that acquired resource items do not depend from previous computations.
-pub trait Reset {
-    /// Reset the resource
-    fn reset(&mut self) -> StdResult<()> {
-        Ok(())
-    }
-}
-
-cfg_test_tools! {
-    impl Reset for String {}
 }
 
 #[cfg(test)]

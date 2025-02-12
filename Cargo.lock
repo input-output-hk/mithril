@@ -3658,6 +3658,7 @@ dependencies = [
  "mithril-doc",
  "mithril-metric",
  "mithril-persistence",
+ "mithril-resource-pool",
  "mockall",
  "paste",
  "prometheus",
@@ -3920,6 +3921,7 @@ dependencies = [
  "chrono",
  "hex",
  "mithril-common",
+ "mithril-resource-pool",
  "mockall",
  "semver",
  "serde",
@@ -3954,6 +3956,17 @@ dependencies = [
  "thiserror 2.0.11",
  "tokio",
  "warp",
+]
+
+[[package]]
+name = "mithril-resource-pool"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "mithril-common",
+ "mockall",
+ "thiserror 2.0.11",
+ "tokio",
 ]
 
 [[package]]
