@@ -10,11 +10,13 @@ use async_trait::async_trait;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
 use slog::{debug, info, Logger};
 
-use mithril_common::chain_observer::ChainObserver;
-use mithril_common::entities::{BlockNumber, SignedEntityTypeDiscriminants};
-use mithril_common::logging::LoggerExtensions;
-use mithril_common::signable_builder::TransactionsImporter;
-use mithril_common::StdResult;
+use mithril_common::{
+    chain_observer::ChainObserver,
+    entities::{BlockNumber, SignedEntityTypeDiscriminants},
+    logging::LoggerExtensions,
+    signable_builder::TransactionsImporter,
+    StdResult,
+};
 
 #[cfg(test)]
 use mockall::automock;
