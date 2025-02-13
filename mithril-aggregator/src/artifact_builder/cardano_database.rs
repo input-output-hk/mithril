@@ -74,7 +74,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             .immutable_builder
             .upload(beacon.immutable_file_number)
             .await?;
-        let digest_locations = self.digest_builder.upload().await?;
+        let digest_locations = self.digest_builder.upload(&beacon).await?;
 
         let locations = ArtifactsLocations {
             ancillary: ancillary_locations,
@@ -176,6 +176,7 @@ mod tests {
         let test_dir = get_test_directory("should_compute_valid_artifact");
 
         let beacon = CardanoDbBeacon::new(123, 3);
+        let network = CardanoNetwork::DevNet(123);
         let immutable_trio_file_size = 777;
         let ledger_file_size = 6666;
         let volatile_file_size = 99;
@@ -204,7 +205,7 @@ mod tests {
             AncillaryArtifactBuilder::new(
                 vec![Arc::new(ancillary_uploader)],
                 snapshotter.clone(),
-                CardanoNetwork::DevNet(123),
+                network,
                 CompressionAlgorithm::Gzip,
                 TestLogger::stdout(),
             )
@@ -245,6 +246,7 @@ mod tests {
             DigestArtifactBuilder::new(
                 SanitizedUrlWithTrailingSlash::parse("http://aggregator_uri").unwrap(),
                 vec![],
+                network,
                 test_dir.join("digests"),
                 Arc::new(immutable_file_digest_mapper),
                 TestLogger::stdout(),

@@ -353,6 +353,7 @@ impl DependenciesBuilder {
         let digest_builder = Arc::new(DigestArtifactBuilder::new(
             self.configuration.get_server_url()?,
             self.build_cardano_database_digests_uploaders()?,
+            self.configuration.get_network()?,
             snapshot_dir.join("pending_cardano_database_digests"),
             self.get_immutable_file_digest_mapper().await?,
             self.root_logger(),
