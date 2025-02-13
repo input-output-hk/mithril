@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use tokio::task::JoinSet;
 
 use anyhow::anyhow;
@@ -12,7 +13,7 @@ use mithril_common::{
 };
 
 use crate::feedback::MithrilEvent;
-use crate::file_downloader::FileDownloaderUri;
+use crate::file_downloader::{FileDownloader, FileDownloaderUri};
 
 use super::api::CardanoDatabaseClient;
 use super::immutable_file_range::ImmutableFileRange;
@@ -28,6 +29,10 @@ pub struct DownloadUnpackOptions {
 }
 
 impl CardanoDatabaseClient {
+    /// The maximum number of parallel downloads and unpacks for immutable files.
+    /// This could be a customizable parameter depending on level of concurrency wanted by the user.
+    const MAX_PARALLEL_DOWNLOAD_UNPACK: usize = 100;
+
     /// Download and unpack the given Cardano database parts data by hash.
     pub async fn download_unpack(
         &self,
@@ -170,31 +175,21 @@ impl CardanoDatabaseClient {
             ))
     }
 
-    async fn download_unpack_immutable_files_for_location(
+    /// Download and unpack the immutable files of the given range.
+    ///
+    /// The download is attempted for each location until the full range is downloaded.
+    /// An error is returned if not all the files are downloaded.
+    async fn batch_download_unpack_immutable_files(
         &self,
-        location: &ImmutablesLocation,
-        immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>,
+        file_downloader: Arc<dyn FileDownloader>,
+        file_downloader_uris_chunk: Vec<(ImmutableFileNumber, FileDownloaderUri)>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
     ) -> StdResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
-        let file_downloader = self
-            .immutable_file_downloader_resolver
-            .resolve(location)
-            .ok_or_else(|| {
-                anyhow!("Failed resolving a file downloader for location: {location:?}")
-            })?;
-        let file_downloader_uris =
-            FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
-                location,
-                immutable_file_numbers_to_download
-                    .clone()
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            )?;
         let mut join_set: JoinSet<StdResult<ImmutableFileNumber>> = JoinSet::new();
-        for (immutable_file_number, file_downloader_uri) in file_downloader_uris {
+        for (immutable_file_number, file_downloader_uri) in file_downloader_uris_chunk.into_iter() {
+            let file_downloader_uri_clone = file_downloader_uri.to_owned();
             let compression_algorithm_clone = compression_algorithm.to_owned();
             let immutable_files_target_dir_clone = immutable_files_target_dir.to_owned();
             let file_downloader_clone = file_downloader.clone();
@@ -207,7 +202,7 @@ impl CardanoDatabaseClient {
                         .await;
                     let downloaded = file_downloader_clone
                         .download_unpack(
-                            &file_downloader_uri,
+                            &file_downloader_uri_clone,
                             &immutable_files_target_dir_clone,
                             Some(compression_algorithm_clone),
                             &download_id,
@@ -244,6 +239,48 @@ impl CardanoDatabaseClient {
                     );
                 }
             }
+        }
+
+        Ok(immutable_file_numbers_downloaded)
+    }
+
+    async fn download_unpack_immutable_files_for_location(
+        &self,
+        location: &ImmutablesLocation,
+        immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>,
+        compression_algorithm: &CompressionAlgorithm,
+        immutable_files_target_dir: &Path,
+    ) -> StdResult<BTreeSet<ImmutableFileNumber>> {
+        let mut immutable_file_numbers_downloaded = BTreeSet::new();
+        let file_downloader = self
+            .immutable_file_downloader_resolver
+            .resolve(location)
+            .ok_or_else(|| {
+                anyhow!("Failed resolving a file downloader for location: {location:?}")
+            })?;
+        let file_downloader_uris =
+            FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
+                location,
+                immutable_file_numbers_to_download
+                    .clone()
+                    .into_iter()
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            )?;
+        let file_downloader_uri_chunks = file_downloader_uris
+            .chunks(Self::MAX_PARALLEL_DOWNLOAD_UNPACK)
+            .map(|x| x.to_vec())
+            .collect::<Vec<_>>();
+        for file_downloader_uris_chunk in file_downloader_uri_chunks {
+            let immutable_file_numbers_downloaded_chunk = self
+                .batch_download_unpack_immutable_files(
+                    file_downloader.clone(),
+                    file_downloader_uris_chunk,
+                    compression_algorithm,
+                    immutable_files_target_dir,
+                )
+                .await?;
+            immutable_file_numbers_downloaded.extend(immutable_file_numbers_downloaded_chunk);
         }
 
         Ok(immutable_file_numbers_downloaded)
