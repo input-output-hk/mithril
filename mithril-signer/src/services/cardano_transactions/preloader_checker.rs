@@ -3,10 +3,8 @@ use std::sync::Arc;
 use anyhow::Context;
 use async_trait::async_trait;
 
-use mithril_common::{
-    cardano_transactions_preloader::CardanoTransactionsPreloaderChecker,
-    entities::SignedEntityTypeDiscriminants, StdResult,
-};
+use mithril_common::{entities::SignedEntityTypeDiscriminants, StdResult};
+use mithril_transaction_preloader::CardanoTransactionsPreloaderChecker;
 
 use crate::services::AggregatorClient;
 

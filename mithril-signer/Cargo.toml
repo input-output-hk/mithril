@@ -25,6 +25,8 @@ mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
+mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
+mithril-transaction-preloader = { path = "../internal/signed-entity/mithril-transaction-preloader" }
 paste = "1.0.15"
 prometheus = "0.13.4"
 rand_chacha = "0.3.1"

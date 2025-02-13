@@ -7,14 +7,15 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use async_trait::async_trait;
+use mithril_signed_entity_lock::SignedEntityTypeLock;
 use slog::{debug, info, Logger};
 
-use crate::chain_observer::ChainObserver;
-use crate::entities::{BlockNumber, SignedEntityTypeDiscriminants};
-use crate::logging::LoggerExtensions;
-use crate::signable_builder::TransactionsImporter;
-use crate::signed_entity_type_lock::SignedEntityTypeLock;
-use crate::StdResult;
+use mithril_common::chain_observer::ChainObserver;
+use mithril_common::entities::{BlockNumber, SignedEntityTypeDiscriminants};
+use mithril_common::logging::LoggerExtensions;
+use mithril_common::signable_builder::TransactionsImporter;
+use mithril_common::StdResult;
+
 #[cfg(test)]
 use mockall::automock;
 
@@ -124,14 +125,23 @@ impl CardanoTransactionsPreloader {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use mockall::mock;
     use mockall::predicate::eq;
 
-    use crate::chain_observer::{FakeObserver, MockChainObserver};
-    use crate::entities::{BlockNumber, ChainPoint, TimePoint};
-    use crate::signable_builder::MockTransactionsImporter;
-    use crate::test_utils::TestLogger;
+    use crate::test_tools::TestLogger;
+    use mithril_common::chain_observer::FakeObserver;
+    use mithril_common::entities::{BlockNumber, ChainPoint, TimePoint};
 
     use super::*;
+
+    mock! {
+        pub TransactionsImporterImpl { }
+
+        #[async_trait]
+        impl TransactionsImporter for TransactionsImporterImpl {
+            async fn import(&self, up_to_beacon: BlockNumber) -> StdResult<()>;
+        }
+    }
 
     struct ImporterWithSignedEntityTypeLockCheck {
         signed_entity_type_lock: Arc<SignedEntityTypeLock>,
@@ -148,8 +158,7 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn call_its_inner_importer_when_is_activated() {
+    fn build_chain_observer() -> (FakeObserver, BlockNumber, BlockNumber) {
         let chain_block_number = BlockNumber(5000);
         let security_parameter = BlockNumber(542);
         let chain_observer = FakeObserver::new(Some(TimePoint {
@@ -159,9 +168,15 @@ mod tests {
             },
             ..TimePoint::dummy()
         }));
+        (chain_observer, chain_block_number, security_parameter)
+    }
+
+    #[tokio::test]
+    async fn call_its_inner_importer_when_is_activated() {
+        let (chain_observer, chain_block_number, security_parameter) = build_chain_observer();
         let expected_parsed_block_number = chain_block_number - security_parameter;
 
-        let mut importer = MockTransactionsImporter::new();
+        let mut importer = MockTransactionsImporterImpl::new();
         importer
             .expect_import()
             .times(1)
@@ -182,9 +197,8 @@ mod tests {
 
     #[tokio::test]
     async fn do_not_call_its_inner_importer_when_is_not_activated() {
-        let mut chain_observer = MockChainObserver::new();
-        chain_observer.expect_get_current_chain_point().never();
-        let mut importer = MockTransactionsImporter::new();
+        let (chain_observer, _, _) = build_chain_observer();
+        let mut importer = MockTransactionsImporterImpl::new();
         importer.expect_import().never();
 
         let preloader = CardanoTransactionsPreloader::new(
@@ -201,9 +215,8 @@ mod tests {
 
     #[tokio::test]
     async fn return_error_when_is_activated_return_error() {
-        let mut chain_observer = MockChainObserver::new();
-        chain_observer.expect_get_current_chain_point().never();
-        let mut importer = MockTransactionsImporter::new();
+        let (chain_observer, _, _) = build_chain_observer();
+        let mut importer = MockTransactionsImporterImpl::new();
         importer.expect_import().never();
 
         let mut preloader_checker = MockCardanoTransactionsPreloaderChecker::new();
@@ -229,7 +242,7 @@ mod tests {
     #[tokio::test]
     async fn fail_if_chain_point_is_not_available() {
         let chain_observer = FakeObserver::new(None);
-        let mut importer = MockTransactionsImporter::new();
+        let mut importer = MockTransactionsImporterImpl::new();
         importer.expect_import().never();
 
         let preloader = CardanoTransactionsPreloader::new(

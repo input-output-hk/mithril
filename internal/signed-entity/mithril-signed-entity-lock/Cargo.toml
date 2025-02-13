@@ -1,0 +1,19 @@
+[package]
+name = "mithril-signed-entity-lock"
+version = "0.0.1"
+description = "A non-blocking lock mechanism for signed entity type."
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+mithril-common = { path = "../../../mithril-common" }
+tokio = { version = "1.43.0" }
+
+[dev-dependencies]
+tokio = { version = "1.43.0", features = ["macros"] }
