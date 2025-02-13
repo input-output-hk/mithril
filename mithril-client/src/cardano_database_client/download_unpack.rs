@@ -19,7 +19,7 @@ use super::api::CardanoDatabaseClient;
 use super::immutable_file_range::ImmutableFileRange;
 
 /// Options for downloading and unpacking a Cardano database
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct DownloadUnpackOptions {
     /// Allow overriding the destination directory
     pub allow_override: bool,
