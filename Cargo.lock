@@ -3658,6 +3658,9 @@ dependencies = [
  "mithril-doc",
  "mithril-metric",
  "mithril-persistence",
+ "mithril-resource-pool",
+ "mithril-signed-entity-lock",
+ "mithril-transaction-preloader",
  "mockall",
  "paste",
  "prometheus",
@@ -3920,6 +3923,7 @@ dependencies = [
  "chrono",
  "hex",
  "mithril-common",
+ "mithril-resource-pool",
  "mockall",
  "semver",
  "serde",
@@ -3957,6 +3961,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-resource-pool"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "mithril-common",
+ "mockall",
+ "thiserror 2.0.11",
+ "tokio",
+]
+
+[[package]]
+name = "mithril-signed-entity-lock"
+version = "0.0.1"
+dependencies = [
+ "mithril-common",
+ "tokio",
+]
+
+[[package]]
 name = "mithril-signer"
 version = "0.2.228"
 dependencies = [
@@ -3974,6 +3997,8 @@ dependencies = [
  "mithril-doc",
  "mithril-metric",
  "mithril-persistence",
+ "mithril-signed-entity-lock",
+ "mithril-transaction-preloader",
  "mockall",
  "paste",
  "prometheus",
@@ -4015,6 +4040,21 @@ dependencies = [
  "rug",
  "serde",
  "thiserror 2.0.11",
+]
+
+[[package]]
+name = "mithril-transaction-preloader"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "mithril-common",
+ "mithril-signed-entity-lock",
+ "mockall",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
 ]
 
 [[package]]

@@ -13,11 +13,11 @@ use slog::{info, Logger};
 
 use mithril_common::entities::Epoch;
 use mithril_common::logging::LoggerExtensions;
-use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
 use mithril_common::StdResult;
 use mithril_persistence::sqlite::{
     SqliteCleaner, SqliteCleaningTask, SqliteConnection, SqliteConnectionPool,
 };
+use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 /// Define the service responsible for the upkeep of the application.
 #[cfg_attr(test, mockall::automock)]

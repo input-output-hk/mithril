@@ -9,7 +9,10 @@ use std::{
 };
 use thiserror::Error;
 
-use crate::StdResult;
+use mithril_common::{
+    crypto_helper::{MKMap, MKMapKey, MKMapValue, MKTreeStorer},
+    StdResult,
+};
 
 /// [ResourcePool] related errors.
 #[derive(Error, Debug)]
@@ -184,6 +187,12 @@ impl<'a, T: Reset + Send + Sync> ResourcePoolItem<'a, T> {
     }
 }
 
+impl<K: MKMapKey, V: MKMapValue<K>, S: MKTreeStorer> Reset for MKMap<K, V, S> {
+    fn reset(&mut self) -> StdResult<()> {
+        self.compress()
+    }
+}
+
 impl<T: Reset + Send + Sync> Deref for ResourcePoolItem<'_, T> {
     type Target = T;
 
@@ -217,9 +226,8 @@ pub trait Reset {
     }
 }
 
-cfg_test_tools! {
-    impl Reset for String {}
-}
+#[cfg(test)]
+impl Reset for String {}
 
 #[cfg(test)]
 mod tests {
