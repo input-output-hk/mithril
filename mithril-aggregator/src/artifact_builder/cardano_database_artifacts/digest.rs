@@ -7,8 +7,10 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::{
-    entities::DigestLocation, logging::LoggerExtensions,
-    messages::CardanoDatabaseDigestListItemMessage, StdResult,
+    entities::{CardanoDbBeacon, DigestLocation},
+    logging::LoggerExtensions,
+    messages::CardanoDatabaseDigestListItemMessage,
+    CardanoNetwork, StdResult,
 };
 use slog::{error, Logger};
 
@@ -60,6 +62,8 @@ pub struct DigestArtifactBuilder {
     /// Uploaders
     uploaders: Vec<Arc<dyn DigestFileUploader>>,
 
+    network: CardanoNetwork,
+
     digests_dir: PathBuf,
 
     immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
@@ -72,6 +76,7 @@ impl DigestArtifactBuilder {
     pub fn new(
         aggregator_url_prefix: SanitizedUrlWithTrailingSlash,
         uploaders: Vec<Arc<dyn DigestFileUploader>>,
+        network: CardanoNetwork,
         digests_dir: PathBuf,
         immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
         logger: Logger,
@@ -79,14 +84,15 @@ impl DigestArtifactBuilder {
         Ok(Self {
             aggregator_url_prefix,
             uploaders,
+            network,
             digests_dir,
             immutable_file_digest_mapper,
             logger: logger.new_with_component_name::<Self>(),
         })
     }
 
-    pub async fn upload(&self) -> StdResult<Vec<DigestLocation>> {
-        let digest_path = self.create_digest_file().await?;
+    pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<DigestLocation>> {
+        let digest_path = self.create_digest_file(beacon).await?;
 
         let locations = self.upload_digest_file(&digest_path).await;
         fs::remove_file(&digest_path).with_context(|| {
@@ -96,7 +102,7 @@ impl DigestArtifactBuilder {
         locations
     }
 
-    async fn create_digest_file(&self) -> StdResult<PathBuf> {
+    async fn create_digest_file(&self, beacon: &CardanoDbBeacon) -> StdResult<PathBuf> {
         let immutable_file_digest_map = self
             .immutable_file_digest_mapper
             .get_immutable_file_digest_map()
@@ -110,7 +116,8 @@ impl DigestArtifactBuilder {
             )
             .collect::<Vec<_>>();
 
-        let digests_file_path = DigestArtifactBuilder::get_digests_file_path(&self.digests_dir);
+        let digests_file_path =
+            DigestArtifactBuilder::get_digests_file_path(&self.digests_dir, &self.network, beacon);
 
         if let Some(digests_dir) = digests_file_path.parent() {
             fs::create_dir_all(digests_dir).with_context(|| {
@@ -160,8 +167,16 @@ impl DigestArtifactBuilder {
         })
     }
 
-    fn get_digests_file_path<P: AsRef<Path>>(digests_dir: P) -> PathBuf {
-        digests_dir.as_ref().join("digests.json")
+    fn get_digests_file_path<P: AsRef<Path>>(
+        digests_dir: P,
+        network: &CardanoNetwork,
+        beacon: &CardanoDbBeacon,
+    ) -> PathBuf {
+        let filename = format!(
+            "{}-e{}-i{}.digests.json",
+            network, *beacon.epoch, beacon.immutable_file_number
+        );
+        digests_dir.as_ref().join(filename)
     }
 }
 
@@ -174,6 +189,7 @@ mod tests {
     };
     use anyhow::anyhow;
     use mithril_common::{
+        entities::CardanoDbBeacon,
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
         test_utils::{assert_equivalent, TempDir},
     };
@@ -214,13 +230,14 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![],
+            CardanoNetwork::DevNet(123),
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
         )
         .unwrap();
 
-        let locations = builder.upload().await.unwrap();
+        let locations = builder.upload(&CardanoDbBeacon::new(4, 123)).await.unwrap();
         assert_eq!(
             vec!(DigestLocation::Aggregator {
                 uri: "https://aggregator/artifact/cardano-database/digests".to_string()
@@ -243,6 +260,7 @@ mod tests {
             let builder = DigestArtifactBuilder::new(
                 SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
                 vec![Arc::new(uploader)],
+                CardanoNetwork::DevNet(123),
                 PathBuf::from("/tmp/whatever"),
                 Arc::new(MockImmutableFileDigestMapper::new()),
                 TestLogger::file(&log_path),
@@ -263,6 +281,7 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![Arc::new(uploader)],
+            CardanoNetwork::DevNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
@@ -292,6 +311,7 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             uploaders,
+            CardanoNetwork::DevNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
@@ -327,6 +347,7 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             uploaders,
+            CardanoNetwork::DevNet(123),
             PathBuf::from("/tmp/whatever"),
             Arc::new(MockImmutableFileDigestMapper::new()),
             TestLogger::stdout(),
@@ -373,13 +394,17 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![],
+            CardanoNetwork::DevNet(123),
             temp_dir,
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
         )
         .unwrap();
 
-        let digest_file = builder.create_digest_file().await.unwrap();
+        let digest_file = builder
+            .create_digest_file(&CardanoDbBeacon::new(4, 123))
+            .await
+            .unwrap();
 
         let file_content = read_to_string(digest_file).unwrap();
         let digest_content: CardanoDatabaseDigestListMessage =
@@ -408,7 +433,10 @@ mod tests {
 
         let mut digest_file_uploader = MockDigestFileUploader::new();
 
-        let digest_file = DigestArtifactBuilder::get_digests_file_path(&digests_dir);
+        let beacon = CardanoDbBeacon::new(3, 456);
+        let network = CardanoNetwork::DevNet(24);
+        let digest_file =
+            DigestArtifactBuilder::get_digests_file_path(&digests_dir, &network, &beacon);
 
         let digest_file_clone = digest_file.clone();
         digest_file_uploader
@@ -424,14 +452,31 @@ mod tests {
         let builder = DigestArtifactBuilder::new(
             SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
             vec![Arc::new(digest_file_uploader)],
+            network,
             digests_dir,
             Arc::new(immutable_file_digest_mapper),
             TestLogger::stdout(),
         )
         .unwrap();
 
-        let _locations = builder.upload().await.unwrap();
+        let _locations = builder.upload(&beacon).await.unwrap();
 
         assert!(!digest_file.exists());
+    }
+
+    #[tokio::test]
+    async fn get_digest_file_path_include_beacon_information() {
+        let digests_dir =
+            TempDir::create("digests", "get_digest_file_path_include_beacon_information");
+
+        let beacon = CardanoDbBeacon::new(5, 456);
+        let network = CardanoNetwork::MainNet;
+        let digest_file =
+            DigestArtifactBuilder::get_digests_file_path(&digests_dir, &network, &beacon);
+
+        assert_eq!(
+            digest_file,
+            digests_dir.join("mainnet-e5-i456.digests.json")
+        );
     }
 }
