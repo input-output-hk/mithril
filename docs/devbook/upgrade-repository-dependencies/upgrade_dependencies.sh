@@ -22,9 +22,6 @@ git commit -am "chore: upgrade Rust dependencies"
 cargo set-version --bump patch
 git commit -am "chore: bump crates versions"
 
-# Build mithril-client wasm (to have latest version used in the explorer)
-make -C mithril-client-wasm build
-
 # Upgrade the documentation website dependencies
 make -C docs/website upgrade
 git commit -am "chore: upgrade doc dependencies
