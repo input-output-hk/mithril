@@ -1,7 +1,6 @@
 import { Modal } from "react-bootstrap";
 import { useEffect, useState } from "react";
 import CertificateVerifier, { certificateValidationSteps } from "./CertificateVerifier";
-import { fetchGenesisVerificationKey, newMithrilWasmClient } from "@/utils";
 import { useSelector } from "react-redux";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
@@ -10,15 +9,25 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
   const [showLoadingWarning, setShowLoadingWarning] = useState(false);
   const [client, setClient] = useState(undefined);
   const [certificate, setCertificate] = useState(undefined);
-  const [isCacheEnabled, setIsCacheEnabled] = useState(false);
 
   useEffect(() => {
     if (show) {
+      const {
+        fetchGenesisVerificationKey,
+        newMithrilWasmClient,
+      } = require("@/wasm-client-helpers");
+
       // Reset existing warning when shown
       setShowLoadingWarning(false);
-      init(currentAggregator, certificateHash).catch((err) =>
-        console.error("VerifyCertificateModal init error:", err),
-      );
+
+      fetchGenesisVerificationKey(currentAggregator)
+        .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
+        .then((client) => {
+          setClient(client);
+          return client.get_mithril_certificate(certificateHash);
+        })
+        .then((certificate) => setCertificate(certificate))
+        .catch((err) => console.error("VerifyCertificateModal init error:", err));
     }
   }, [show, currentAggregator, certificateHash]);
 
@@ -27,16 +36,6 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
       setShowLoadingWarning(false);
     }
   }, [loading]);
-
-  async function init(aggregator, certificateHash) {
-    const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
-    const client = await newMithrilWasmClient(aggregator, genesisVerificationKey);
-    const certificate = await client.get_mithril_certificate(certificateHash);
-
-    setClient(client);
-    setCertificate(certificate);
-    setIsCacheEnabled(isCacheEnabled);
-  }
 
   function handleModalClose() {
     // Only allow closing if not loading
@@ -70,7 +69,6 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
               <CertificateVerifier
                 client={client}
                 certificate={certificate}
-                isCacheEnabled={isCacheEnabled}
                 onStepChange={(step) =>
                   setLoading(step === certificateValidationSteps.validationInProgress)
                 }

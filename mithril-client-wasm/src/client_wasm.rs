@@ -404,18 +404,6 @@ impl MithrilClient {
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
-
-    /// `unstable` Reset the certificate verifier cache if enabled
-    #[wasm_bindgen]
-    pub async fn reset_certificate_verifier_cache(&self) -> Result<(), JsValue> {
-        self.guard_unstable()?;
-
-        if let Some(cache) = self.certificate_verifier_cache.as_ref() {
-            cache.reset().await.map_err(|err| format!("{err:?}"))?;
-        }
-
-        Ok(())
-    }
 }
 
 // Unstable functions are only available when the unstable flag is set
@@ -464,6 +452,26 @@ impl MithrilClient {
             .map_err(|err| format!("{err:?}"))?;
 
         Ok(serde_wasm_bindgen::to_value(&result)?)
+    }
+
+    /// `unstable` Reset the certificate verifier cache if enabled
+    #[wasm_bindgen]
+    pub async fn reset_certificate_verifier_cache(&self) -> Result<(), JsValue> {
+        self.guard_unstable()?;
+
+        if let Some(cache) = self.certificate_verifier_cache.as_ref() {
+            cache.reset().await.map_err(|err| format!("{err:?}"))?;
+        }
+
+        Ok(())
+    }
+
+    /// `unstable` Check if the certificate verifier cache is enabled
+    #[wasm_bindgen]
+    pub async fn is_certificate_verifier_cache_enabled(&self) -> Result<bool, JsValue> {
+        self.guard_unstable()?;
+
+        Ok(self.certificate_verifier_cache.is_some())
     }
 }
 

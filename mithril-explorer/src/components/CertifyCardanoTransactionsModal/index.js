@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Col, Modal, Row, Tab } from "react-bootstrap";
 import { useSelector } from "react-redux";
-import { fetchGenesisVerificationKey, newMithrilWasmClient } from "@/utils";
 import CertificateModal from "#/CertificateModal";
 import CertificateVerifier, {
   certificateValidationSteps,
@@ -47,6 +46,11 @@ export default function CertifyCardanoTransactionsModal({
     setCurrentError(undefined);
 
     if (transactionHashes?.length > 0) {
+      const {
+        fetchGenesisVerificationKey,
+        newMithrilWasmClient,
+      } = require("@/wasm-client-helpers");
+
       fetchGenesisVerificationKey(currentAggregator)
         .then((genesisKey) => newMithrilWasmClient(currentAggregator, genesisKey))
         .then((client) => setClient(client))
