@@ -26,7 +26,7 @@ pub struct Args {
     #[clap(
         long,
         env = "GENESIS_VERIFICATION_KEY",
-        default_value = "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d"
+        default_value = "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d"
     )]
     genesis_verification_key: String,
 
@@ -34,7 +34,7 @@ pub struct Args {
     #[clap(
         long,
         env = "AGGREGATOR_ENDPOINT",
-        default_value = "https://aggregator.testing-preview.api.mithril.network/aggregator"
+        default_value = "http://localhost:8080/aggregator"
     )]
     aggregator_endpoint: String,
 }
@@ -77,7 +77,7 @@ async fn main() -> MithrilResult<()> {
         .verify_chain(&cardano_database_snapshot.certificate_hash)
         .await?;
 
-    let immutable_file_range = ImmutableFileRange::Full;
+    let immutable_file_range = ImmutableFileRange::Range(10, 11);
     let download_unpack_options = DownloadUnpackOptions {
         allow_override: true,
         include_ancillary: true,
