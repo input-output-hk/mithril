@@ -17,7 +17,6 @@ use mithril_common::{
     },
     logging::LoggerExtensions,
     signable_builder::{Artifact, SignedEntity},
-    signed_entity_type_lock::SignedEntityTypeLock,
     StdResult,
 };
 
@@ -26,6 +25,7 @@ use crate::{
     database::{record::SignedEntityRecord, repository::SignedEntityStorer},
     MetricsService,
 };
+use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 /// ArtifactBuilder Service trait
 #[cfg_attr(test, mockall::automock)]

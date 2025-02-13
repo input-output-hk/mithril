@@ -1,0 +1,27 @@
+[package]
+name = "mithril-transaction-preloader"
+version = "0.0.1"
+description = "A preload mechanism for Cardano Transaction signed entity."
+authors = { workspace = true }
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[dependencies]
+anyhow = "1.0.95"
+async-trait = "0.1.86"
+mithril-common = { path = "../../../mithril-common", features = ["fs"] }
+mithril-signed-entity-lock = { path = "../mithril-signed-entity-lock" }
+slog = "2.7.0"
+tokio = { version = "1.43.0", features = ["sync"] }
+
+[dev-dependencies]
+mithril-common = { path = "../../../mithril-common", features = ["test_tools"] }
+mockall = "0.13.1"
+slog-async = "2.8.0"
+slog-term = "2.9.1"
+tokio = { version = "1.43.0", features = ["macros"] }

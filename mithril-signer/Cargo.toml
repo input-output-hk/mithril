@@ -24,6 +24,8 @@ mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
+mithril-signed-entity-lock = { path = "../internal/signed-entity/mithril-signed-entity-lock" }
+mithril-transaction-preloader = { path = "../internal/signed-entity/mithril-transaction-preloader" }
 rand_core = "0.6.4"
 reqwest = { version = "0.12.12", features = [
     "json",

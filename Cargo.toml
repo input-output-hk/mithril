@@ -14,6 +14,8 @@ members = [
   "internal/mithril-metric",
   "internal/mithril-persistence",
   "internal/mithril-resource-pool",
+  "internal/signed-entity/mithril-signed-entity-lock",
+  "internal/signed-entity/mithril-transaction-preloader",
   "mithril-aggregator",
   "mithril-client",
   "mithril-client-cli",
