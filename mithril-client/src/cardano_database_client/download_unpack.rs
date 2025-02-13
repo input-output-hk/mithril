@@ -35,7 +35,7 @@ struct DownloadImmutableFutureBuilderArgs {
 }
 
 /// Options for downloading and unpacking a Cardano database
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct DownloadUnpackOptions {
     /// Allow overriding the destination directory
     pub allow_override: bool,
