@@ -1,7 +1,6 @@
 import { Modal } from "react-bootstrap";
 import { useEffect, useState } from "react";
 import CertificateVerifier, { certificateValidationSteps } from "./CertificateVerifier";
-import { fetchGenesisVerificationKey, newMithrilWasmClient } from "@/utils";
 import { useSelector } from "react-redux";
 
 export default function VerifyCertificateModal({ show, onClose, certificateHash }) {
@@ -29,6 +28,8 @@ export default function VerifyCertificateModal({ show, onClose, certificateHash 
   }, [loading]);
 
   async function init(aggregator, certificateHash) {
+    const { fetchGenesisVerificationKey, newMithrilWasmClient } = require("@/wasm-client-helpers");
+
     const genesisVerificationKey = await fetchGenesisVerificationKey(aggregator);
     const client = await newMithrilWasmClient(aggregator, genesisVerificationKey);
     const certificate = await client.get_mithril_certificate(certificateHash);

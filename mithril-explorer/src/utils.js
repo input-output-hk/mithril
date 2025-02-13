@@ -1,5 +1,3 @@
-import { MithrilClient } from "@mithril-dev/mithril-client-wasm";
-
 function checkUrl(url) {
   try {
     // Use the url constructor to check if the value is an url
@@ -105,15 +103,6 @@ function computeAggregatorNetworkFromUrl(aggregatorUrl) {
   return network && network[1] ? network[1] : null;
 }
 
-async function fetchGenesisVerificationKey(aggregator) {
-  const network = computeAggregatorNetworkFromUrl(aggregator);
-  return fetch(
-    `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/${network}/genesis.vkey`,
-  )
-    .then((res) => res.text())
-    .catch((err) => console.error("Error fetching genesis verification key:", err));
-}
-
 /**
  * Compute the in and out registrations for given epochs.
  *
@@ -180,20 +169,6 @@ function compareRegistrations(left, right) {
   };
 }
 
-async function newMithrilWasmClient(aggregator, genesisVerificationKey) {
-  const isCacheEnabled = process.env.UNSTABLE === true;
-  const client_options = process.env.UNSTABLE
-    ? {
-        // The following option activates the unstable features of the client.
-        // Unstable features will trigger an error if this option is not set.
-        unstable: true,
-        enable_certificate_chain_verification_cache: isCacheEnabled,
-      }
-    : {};
-
-  return new MithrilClient(aggregator, genesisVerificationKey, client_options);
-}
-
 function getImmutableUrlFromTemplate(urlTemplate, immutableFileNumber) {
   return urlTemplate.replace(
     "{immutable_file_number}",
@@ -236,11 +211,9 @@ module.exports = {
   poolTickerCExplorerUrl,
   formatProcessDuration,
   computeAggregatorNetworkFromUrl,
-  fetchGenesisVerificationKey,
   computeInOutRegistrations,
   dedupInOutRegistrations,
   compareRegistrations,
-  newMithrilWasmClient,
   getImmutableUrlFromTemplate,
   parseSignedEntity,
 };
