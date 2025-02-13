@@ -69,19 +69,6 @@ pub const MITHRIL_API_VERSION_HEADER: &str = "mithril-api-version";
 /// Mithril Signer node version header name
 pub const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
 
-/// Reset trait which is implemented by pooled resource items.
-/// As pool resource items are mutable, this will guarantee that the pool stays  consistent
-/// and that acquired resource items do not depend from previous computations.
-pub trait Reset {
-    /// Reset the resource
-    fn reset(&mut self) -> StdResult<()> {
-        Ok(())
-    }
-}
-
-cfg_test_tools! {
-    impl Reset for String {}
-}
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "apispec")]
