@@ -6,6 +6,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
+#[cfg(all(feature = "fs", feature = "unstable"))]
+use mithril_common::entities::{
+    AncillaryLocationDiscriminants, DigestLocationDiscriminants, ImmutablesLocationDiscriminants,
+};
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
@@ -18,6 +22,11 @@ use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
+#[cfg(all(feature = "fs", feature = "unstable"))]
+use crate::file_downloader::{
+    AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloadRetryPolicy,
+    HttpFileDownloader, ImmutablesFileDownloaderResolver, RetryDownloader,
+};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
@@ -254,14 +263,56 @@ impl ClientBuilder {
             #[cfg(feature = "fs")]
             snapshot_downloader,
             #[cfg(feature = "fs")]
+            feedback_sender.clone(),
+            #[cfg(feature = "fs")]
+            logger.clone(),
+        ));
+
+        #[cfg(all(feature = "fs", feature = "unstable"))]
+        let http_file_downloader = Arc::new(RetryDownloader::new(
+            Arc::new(
+                HttpFileDownloader::new(feedback_sender.clone(), logger.clone())
+                    .with_context(|| "Building http file downloader failed")?,
+            ),
+            FileDownloadRetryPolicy::default(),
+        ));
+        #[cfg(all(feature = "fs", feature = "unstable"))]
+        let immutable_file_downloader_resolver =
+            Arc::new(ImmutablesFileDownloaderResolver::new(vec![(
+                ImmutablesLocationDiscriminants::CloudStorage,
+                http_file_downloader.clone(),
+            )]));
+        #[cfg(all(feature = "fs", feature = "unstable"))]
+        let ancillary_file_downloader_resolver =
+            Arc::new(AncillaryFileDownloaderResolver::new(vec![(
+                AncillaryLocationDiscriminants::CloudStorage,
+                http_file_downloader.clone(),
+            )]));
+        #[cfg(all(feature = "fs", feature = "unstable"))]
+        let digest_file_downloader_resolver = Arc::new(DigestFileDownloaderResolver::new(vec![
+            (
+                DigestLocationDiscriminants::CloudStorage,
+                http_file_downloader.clone(),
+            ),
+            (
+                DigestLocationDiscriminants::Aggregator,
+                http_file_downloader.clone(),
+            ),
+        ]));
+        #[cfg(feature = "unstable")]
+        let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
+            aggregator_client.clone(),
+            #[cfg(feature = "fs")]
+            immutable_file_downloader_resolver,
+            #[cfg(feature = "fs")]
+            ancillary_file_downloader_resolver,
+            #[cfg(feature = "fs")]
+            digest_file_downloader_resolver,
+            #[cfg(feature = "fs")]
             feedback_sender,
             #[cfg(feature = "fs")]
             logger,
         ));
-
-        #[cfg(feature = "unstable")]
-        let cardano_database_client =
-            Arc::new(CardanoDatabaseClient::new(aggregator_client.clone()));
 
         let cardano_transaction_client =
             Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
@@ -299,27 +350,27 @@ impl ClientBuilder {
     }
 
     cfg_unstable! {
-    /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
-    ///
-    /// Passing a `None` value will disable the cache if any was previously set.
-    pub fn with_certificate_verifier_cache(
-        mut self,
-        certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
-    ) -> ClientBuilder {
-        self.certificate_verifier_cache = certificate_verifier_cache;
-        self
-    }
+        /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
+        ///
+        /// Passing a `None` value will disable the cache if any was previously set.
+        pub fn with_certificate_verifier_cache(
+            mut self,
+            certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
+        ) -> ClientBuilder {
+            self.certificate_verifier_cache = certificate_verifier_cache;
+            self
+        }
     }
 
     cfg_fs! {
-    /// Set the [SnapshotDownloader] that will be used to download snapshots.
-    pub fn with_snapshot_downloader(
-        mut self,
-        snapshot_downloader: Arc<dyn SnapshotDownloader>,
-    ) -> ClientBuilder {
-        self.snapshot_downloader = Some(snapshot_downloader);
-        self
-    }
+        /// Set the [SnapshotDownloader] that will be used to download snapshots.
+        pub fn with_snapshot_downloader(
+            mut self,
+            snapshot_downloader: Arc<dyn SnapshotDownloader>,
+        ) -> ClientBuilder {
+            self.snapshot_downloader = Some(snapshot_downloader);
+            self
+        }
     }
 
     /// Set the [Logger] to use.

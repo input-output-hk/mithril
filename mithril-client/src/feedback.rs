@@ -52,6 +52,7 @@
 //! ```
 
 use async_trait::async_trait;
+use mithril_common::entities::ImmutableFileNumber;
 use serde::Serialize;
 use slog::{info, Logger};
 use std::sync::{Arc, RwLock};
@@ -86,6 +87,65 @@ pub enum MithrilEvent {
         /// Unique identifier used to track this specific snapshot download
         download_id: String,
     },
+    /// An immutable archive file download has started
+    ImmutableDownloadStarted {
+        /// Immutable file number downloaded
+        immutable_file_number: ImmutableFileNumber,
+        /// Unique identifier used to track this specific immutable archive file download
+        download_id: String,
+    },
+    /// An immutable archive file download is in progress
+    ImmutableDownloadProgress {
+        /// Unique identifier used to track this specific download
+        download_id: String,
+        /// Number of bytes that have been downloaded
+        downloaded_bytes: u64,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// An immutable archive file download has completed
+    ImmutableDownloadCompleted {
+        /// Unique identifier used to track this specific immutable archive file download
+        download_id: String,
+    },
+    /// An ancillary archive file download has started
+    AncillaryDownloadStarted {
+        /// Unique identifier used to track this specific ancillary archive file download
+        download_id: String,
+    },
+    /// An ancillary archive file download is in progress
+    AncillaryDownloadProgress {
+        /// Unique identifier used to track this specific download
+        download_id: String,
+        /// Number of bytes that have been downloaded
+        downloaded_bytes: u64,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// An ancillary archive file download has completed
+    AncillaryDownloadCompleted {
+        /// Unique identifier used to track this specific ancillary archive file download
+        download_id: String,
+    },
+    /// A digest file download has started
+    DigestDownloadStarted {
+        /// Unique identifier used to track this specific digest file download
+        download_id: String,
+    },
+    /// A digest file download is in progress
+    DigestDownloadProgress {
+        /// Unique identifier used to track this specific download
+        download_id: String,
+        /// Number of bytes that have been downloaded
+        downloaded_bytes: u64,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// A digest file download has completed
+    DigestDownloadCompleted {
+        /// Unique identifier used to track this specific digest file download
+        download_id: String,
+    },
     /// A certificate chain validation has started
     CertificateChainValidationStarted {
         /// Unique identifier used to track this specific certificate chain validation
@@ -118,6 +178,21 @@ impl MithrilEvent {
         Uuid::new_v4().to_string()
     }
 
+    /// Generate a random unique identifier to identify an immutable download
+    pub fn new_immutable_download_id() -> String {
+        Uuid::new_v4().to_string()
+    }
+
+    /// Generate a random unique identifier to identify an ancillary download
+    pub fn new_ancillary_download_id() -> String {
+        Uuid::new_v4().to_string()
+    }
+
+    /// Generate a random unique identifier to identify a digest download
+    pub fn new_digest_download_id() -> String {
+        Uuid::new_v4().to_string()
+    }
+
     /// Generate a random unique identifier to identify a certificate chain validation
     pub fn new_certificate_chain_validation_id() -> String {
         Uuid::new_v4().to_string()
@@ -129,6 +204,15 @@ impl MithrilEvent {
             MithrilEvent::SnapshotDownloadStarted { download_id, .. } => download_id,
             MithrilEvent::SnapshotDownloadProgress { download_id, .. } => download_id,
             MithrilEvent::SnapshotDownloadCompleted { download_id } => download_id,
+            MithrilEvent::ImmutableDownloadStarted { download_id, .. } => download_id,
+            MithrilEvent::ImmutableDownloadProgress { download_id, .. } => download_id,
+            MithrilEvent::ImmutableDownloadCompleted { download_id, .. } => download_id,
+            MithrilEvent::AncillaryDownloadStarted { download_id, .. } => download_id,
+            MithrilEvent::AncillaryDownloadProgress { download_id, .. } => download_id,
+            MithrilEvent::AncillaryDownloadCompleted { download_id, .. } => download_id,
+            MithrilEvent::DigestDownloadStarted { download_id, .. } => download_id,
+            MithrilEvent::DigestDownloadProgress { download_id, .. } => download_id,
+            MithrilEvent::DigestDownloadCompleted { download_id, .. } => download_id,
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id,
             } => certificate_chain_validation_id,
@@ -218,6 +302,66 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
             }
             MithrilEvent::SnapshotDownloadCompleted { download_id } => {
                 info!(self.logger, "Snapshot download completed"; "download_id" => download_id);
+            }
+            MithrilEvent::ImmutableDownloadStarted {
+                immutable_file_number,
+                download_id,
+            } => {
+                info!(
+                    self.logger, "Immutable download started";
+                    "immutable_file_number" => immutable_file_number, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::ImmutableDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            } => {
+                info!(
+                    self.logger, "Immutable download in progress ...";
+                    "downloaded_bytes" => downloaded_bytes, "size" => size, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::ImmutableDownloadCompleted { download_id } => {
+                info!(self.logger, "Immutable download completed"; "download_id" => download_id);
+            }
+            MithrilEvent::AncillaryDownloadStarted { download_id } => {
+                info!(
+                    self.logger, "Ancillary download started";
+                    "download_id" => download_id,
+                );
+            }
+            MithrilEvent::AncillaryDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            } => {
+                info!(
+                    self.logger, "Ancillary download in progress ...";
+                    "downloaded_bytes" => downloaded_bytes, "size" => size, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::AncillaryDownloadCompleted { download_id } => {
+                info!(self.logger, "Ancillary download completed"; "download_id" => download_id);
+            }
+            MithrilEvent::DigestDownloadStarted { download_id } => {
+                info!(
+                    self.logger, "Digest download started";
+                    "download_id" => download_id,
+                );
+            }
+            MithrilEvent::DigestDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            } => {
+                info!(
+                    self.logger, "Digest download in progress ...";
+                    "downloaded_bytes" => downloaded_bytes, "size" => size, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::DigestDownloadCompleted { download_id } => {
+                info!(self.logger, "Digest download completed"; "download_id" => download_id);
             }
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id,
