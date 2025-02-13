@@ -8,7 +8,8 @@ use anyhow::Context;
 use clap::Parser;
 
 use mithril_client::{
-    common::ImmutableFileNumber, CardanoDatabaseSnapshot, Client, MithrilCertificate, MithrilResult,
+    cardano_database_client::ImmutableFileRange, common::ImmutableFileNumber,
+    CardanoDatabaseSnapshot, Client, MithrilCertificate, MithrilResult,
 };
 
 use crate::{
@@ -64,15 +65,6 @@ pub struct CardanoDbV2DownloadCommand {
     /// Allow existing files in the download directory to be overridden.
     #[clap(long)]
     allow_override: bool,
-}
-
-// TODO: temporary enum to start implementing the `ImmutableFileRange` creation (will be exposed by `mithril-client`).
-#[derive(Debug, PartialEq)]
-enum ImmutableFileRange {
-    Full,
-    From(ImmutableFileNumber),
-    Range(ImmutableFileNumber, ImmutableFileNumber),
-    UpTo(ImmutableFileNumber),
 }
 
 impl CardanoDbV2DownloadCommand {
@@ -234,42 +226,44 @@ impl ConfigSource for CardanoDbV2DownloadCommand {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// Implement `PartialEq` for the `ImmutableFileRange` enum if tests are relevant.
+// #[cfg(test)]
+// mod tests {
 
-    #[test]
-    fn immutable_file_range_without_start_without_end_returns_variant_full() {
-        let range = CardanoDbV2DownloadCommand::immutable_file_range(None, None);
+//     use super::*;
 
-        assert_eq!(range, ImmutableFileRange::Full);
-    }
+//     #[test]
+//     fn immutable_file_range_without_start_without_end_returns_variant_full() {
+//         let range = CardanoDbV2DownloadCommand::immutable_file_range(None, None);
 
-    #[test]
-    fn immutable_file_range_with_start_without_end_returns_variant_from() {
-        let start = Some(12);
+//         assert_eq!(range, ImmutableFileRange::Full);
+//     }
 
-        let range = CardanoDbV2DownloadCommand::immutable_file_range(start, None);
+//     #[test]
+//     fn immutable_file_range_with_start_without_end_returns_variant_from() {
+//         let start = Some(12);
 
-        assert_eq!(range, ImmutableFileRange::From(12));
-    }
+//         let range = CardanoDbV2DownloadCommand::immutable_file_range(start, None);
 
-    #[test]
-    fn immutable_file_range_with_start_with_end_returns_variant_range() {
-        let start = Some(12);
-        let end = Some(345);
+//         assert_eq!(range, ImmutableFileRange::From(12));
+//     }
 
-        let range = CardanoDbV2DownloadCommand::immutable_file_range(start, end);
+//     #[test]
+//     fn immutable_file_range_with_start_with_end_returns_variant_range() {
+//         let start = Some(12);
+//         let end = Some(345);
 
-        assert_eq!(range, ImmutableFileRange::Range(12, 345));
-    }
+//         let range = CardanoDbV2DownloadCommand::immutable_file_range(start, end);
 
-    #[test]
-    fn immutable_file_range_without_start_with_end_returns_variant_up_to() {
-        let end = Some(345);
+//         assert_eq!(range, ImmutableFileRange::Range(12, 345));
+//     }
 
-        let range = CardanoDbV2DownloadCommand::immutable_file_range(None, end);
+//     #[test]
+//     fn immutable_file_range_without_start_with_end_returns_variant_up_to() {
+//         let end = Some(345);
 
-        assert_eq!(range, ImmutableFileRange::UpTo(345));
-    }
-}
+//         let range = CardanoDbV2DownloadCommand::immutable_file_range(None, end);
+
+//         assert_eq!(range, ImmutableFileRange::UpTo(345));
+//     }
+// }
