@@ -25,15 +25,20 @@ pub trait EpochSettingsStorer: EpochPruningTask + Sync + Send {
     async fn get_epoch_settings(&self, epoch: Epoch) -> StdResult<Option<AggregatorEpochSettings>>;
 
     /// Handle discrepancies at startup in the epoch settings store.
+    ///
     /// In case an aggregator has been launched after some epochs of not being up or at initial startup,
     /// the discrepancies in the epoch settings store needs to be fixed.
-    /// The epoch settings needs to be recorded for the working epoch and the next 2 epochs.
+    ///
+    /// The epoch settings needs to be recorded for the working epoch and the next 3 epochs.
+    /// We need data over four epochs because the epoch service use epoch settings over a window of
+    /// three epochs, and there may be an epoch change between this `handle_discrepancies_at_startup`
+    /// call and the epoch service call.
     async fn handle_discrepancies_at_startup(
         &self,
         current_epoch: Epoch,
         epoch_settings_configuration: &AggregatorEpochSettings,
     ) -> StdResult<()> {
-        for epoch_offset in 0..=2 {
+        for epoch_offset in 0..=3 {
             let epoch = current_epoch + epoch_offset;
             if self.get_epoch_settings(epoch).await?.is_none() {
                 self.save_epoch_settings(epoch, epoch_settings_configuration.clone())
@@ -158,7 +163,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_handle_discrepancies_at_startup_should_complete_at_least_two_epochs() {
+    async fn test_handle_discrepancies_at_startup_should_complete_at_least_four_epochs() {
         let epoch_settings = AggregatorEpochSettings::dummy();
         let epoch_settings_new = AggregatorEpochSettings {
             protocol_parameters: ProtocolParameters {
@@ -191,6 +196,9 @@ mod tests {
         assert_eq!(Some(epoch_settings_new.clone()), epoch_settings_stored);
 
         let epoch_settings_stored = store.get_epoch_settings(epoch + 3).await.unwrap();
+        assert_eq!(Some(epoch_settings_new.clone()), epoch_settings_stored);
+
+        let epoch_settings_stored = store.get_epoch_settings(epoch + 4).await.unwrap();
         assert!(epoch_settings_stored.is_none());
     }
 }

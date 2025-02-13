@@ -15,11 +15,9 @@ use mithril_common::entities::{
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::protocol::{MultiSigner as ProtocolMultiSigner, SignerBuilder};
 use mithril_common::StdResult;
+use mithril_persistence::store::StakeStorer;
 
-use crate::{
-    entities::AggregatorEpochSettings, services::StakeDistributionService, EpochSettingsStorer,
-    VerificationKeyStorer,
-};
+use crate::{entities::AggregatorEpochSettings, EpochSettingsStorer, VerificationKeyStorer};
 
 /// Errors dedicated to the CertifierService.
 #[derive(Debug, Error)]
@@ -118,10 +116,14 @@ pub trait EpochService: Sync + Send {
     fn signed_entity_config(&self) -> StdResult<&SignedEntityConfig>;
 
     /// Get the total number of SPOs for the current epoch in the Cardano stake distribution.
-    fn total_spo(&self) -> StdResult<TotalSPOs>;
+    ///
+    /// Optional as the stake distribution is not available at Aggregator first startup.
+    fn total_spo(&self) -> StdResult<Option<TotalSPOs>>;
 
     /// Get the total stake for the current epoch in the Cardano stake distribution.
-    fn total_stake(&self) -> StdResult<Stake>;
+    ///
+    /// Optional as the stake distribution is not available at Aggregator first startup.
+    fn total_stake(&self) -> StdResult<Option<Stake>>;
 }
 
 struct EpochData {
@@ -138,8 +140,8 @@ struct EpochData {
     total_stakes_signers: Stake,
     total_next_stakes_signers: Stake,
     signed_entity_config: SignedEntityConfig,
-    total_spo: TotalSPOs,
-    total_stake: Stake,
+    total_spo: Option<TotalSPOs>,
+    total_stake: Option<Stake>,
 }
 
 struct ComputedEpochData {
@@ -155,7 +157,7 @@ pub struct EpochServiceDependencies {
     verification_key_store: Arc<dyn VerificationKeyStorer>,
     chain_observer: Arc<dyn ChainObserver>,
     era_checker: Arc<EraChecker>,
-    stake_distribution_service: Arc<dyn StakeDistributionService>,
+    stake_store: Arc<dyn StakeStorer>,
 }
 
 impl EpochServiceDependencies {
@@ -165,14 +167,14 @@ impl EpochServiceDependencies {
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         chain_observer: Arc<dyn ChainObserver>,
         era_checker: Arc<EraChecker>,
-        stake_distribution_service: Arc<dyn StakeDistributionService>,
+        stake_store: Arc<dyn StakeStorer>,
     ) -> Self {
         Self {
             epoch_settings_storer,
             verification_key_store,
             chain_observer,
             era_checker,
-            stake_distribution_service,
+            stake_store,
         }
     }
 }
@@ -187,7 +189,7 @@ pub struct MithrilEpochService {
     verification_key_store: Arc<dyn VerificationKeyStorer>,
     chain_observer: Arc<dyn ChainObserver>,
     era_checker: Arc<EraChecker>,
-    stake_distribution_service: Arc<dyn StakeDistributionService>,
+    stake_store: Arc<dyn StakeStorer>,
     allowed_signed_entity_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     logger: Logger,
 }
@@ -208,7 +210,7 @@ impl MithrilEpochService {
             verification_key_store: dependencies.verification_key_store,
             chain_observer: dependencies.chain_observer,
             era_checker: dependencies.era_checker,
-            stake_distribution_service: dependencies.stake_distribution_service,
+            stake_store: dependencies.stake_store,
             allowed_signed_entity_discriminants: allowed_discriminants,
             logger: logger.new_with_component_name::<Self>(),
         }
@@ -224,19 +226,16 @@ impl MithrilEpochService {
         Ok(cardano_era)
     }
 
-    async fn get_total_spo_and_total_stake(&self, epoch: Epoch) -> StdResult<(TotalSPOs, Stake)> {
-        let stake_distribution = self
-            .stake_distribution_service
-            .get_stake_distribution(epoch)
-            .await
-            .with_context(|| {
-                format!("Epoch service failed to obtain the stake distribution for epoch: {epoch}")
-            })?;
-
-        Ok((
-            stake_distribution.len() as TotalSPOs,
-            stake_distribution.values().sum(),
-        ))
+    async fn get_total_spo_and_total_stake(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<(Option<TotalSPOs>, Option<Stake>)> {
+        match self.stake_store.get_stakes(epoch).await.with_context(|| {
+            format!("Epoch service failed to obtain the stake distribution for epoch: {epoch}")
+        })? {
+            None => Ok((None, None)),
+            Some(sd) => Ok((Some(sd.len() as TotalSPOs), Some(sd.values().sum()))),
+        }
     }
 
     async fn get_signers_with_stake_at_epoch(
@@ -348,7 +347,9 @@ impl EpochService for MithrilEpochService {
                 .clone(),
         };
 
-        let (total_spo, total_stake) = self.get_total_spo_and_total_stake(epoch).await?;
+        let (total_spo, total_stake) = self
+            .get_total_spo_and_total_stake(signer_retrieval_epoch)
+            .await?;
 
         self.epoch_data = Some(EpochData {
             cardano_era,
@@ -506,11 +507,11 @@ impl EpochService for MithrilEpochService {
         Ok(&self.unwrap_data()?.signed_entity_config)
     }
 
-    fn total_spo(&self) -> StdResult<TotalSPOs> {
+    fn total_spo(&self) -> StdResult<Option<TotalSPOs>> {
         Ok(self.unwrap_data()?.total_spo)
     }
 
-    fn total_stake(&self) -> StdResult<Stake> {
+    fn total_stake(&self) -> StdResult<Option<Stake>> {
         Ok(self.unwrap_data()?.total_stake)
     }
 }
@@ -535,8 +536,8 @@ pub(crate) struct FakeEpochServiceBuilder {
     pub current_signers_with_stake: Vec<SignerWithStake>,
     pub next_signers_with_stake: Vec<SignerWithStake>,
     pub signed_entity_config: SignedEntityConfig,
-    pub total_spo: TotalSPOs,
-    pub total_stake: Stake,
+    pub total_spo: Option<TotalSPOs>,
+    pub total_stake: Option<Stake>,
 }
 
 #[cfg(test)]
@@ -555,8 +556,8 @@ impl FakeEpochServiceBuilder {
             current_signers_with_stake: signers.clone(),
             next_signers_with_stake: signers,
             signed_entity_config: SignedEntityConfig::dummy(),
-            total_spo: 0,
-            total_stake: 0,
+            total_spo: None,
+            total_stake: None,
         }
     }
 
@@ -805,11 +806,11 @@ impl EpochService for FakeEpochService {
         Ok(&self.unwrap_data()?.signed_entity_config)
     }
 
-    fn total_spo(&self) -> StdResult<u32> {
+    fn total_spo(&self) -> StdResult<Option<u32>> {
         Ok(self.unwrap_data()?.total_spo)
     }
 
-    fn total_stake(&self) -> StdResult<u64> {
+    fn total_stake(&self) -> StdResult<Option<u64>> {
         Ok(self.unwrap_data()?.total_stake)
     }
 }
@@ -826,9 +827,9 @@ mod tests {
     };
     use mockall::predicate::eq;
 
-    use crate::services::MockStakeDistributionService;
     use crate::store::{FakeEpochSettingsStorer, MockVerificationKeyStorer};
     use crate::test_tools::TestLogger;
+    use crate::tools::mocks::MockStakeStore;
 
     use super::*;
 
@@ -859,8 +860,8 @@ mod tests {
         current_signers: BTreeSet<Signer>,
         next_signers: BTreeSet<Signer>,
         signed_entity_config: SignedEntityConfig,
-        total_spo: TotalSPOs,
-        total_stake: Stake,
+        total_spo: Option<TotalSPOs>,
+        total_stake: Option<Stake>,
     }
 
     #[derive(Debug, Clone, PartialEq)]
@@ -998,22 +999,23 @@ mod tests {
             chain_observer.set_current_era(self.cardano_era).await;
             let era_checker = EraChecker::new(self.mithril_era, Epoch::default());
 
-            let stake_distribution_service = {
+            let stake_store = {
                 assert!(
-                self.total_stake % self.total_spo as u64 == 0,
-                "'total_stake' must be a multiple of 'total_spo' to create a uniform stake distribution"
-            );
+                    self.total_stake % self.total_spo as u64 == 0,
+                    "'total_stake' must be a multiple of 'total_spo' to create a uniform stake distribution"
+                );
                 let stake_per_spo = self.total_stake / self.total_spo as u64;
 
                 let stake_distribution =
                     build_uniform_stake_distribution(self.total_spo, stake_per_spo);
 
-                let mut stake_distribution_service = MockStakeDistributionService::new();
-                stake_distribution_service
-                    .expect_get_stake_distribution()
-                    .returning(move |_| Ok(stake_distribution.clone()));
+                let mut stake_store = MockStakeStore::new();
+                stake_store
+                    .expect_get_stakes()
+                    .with(eq(signer_retrieval_epoch))
+                    .returning(move |_| Ok(Some(stake_distribution.clone())));
 
-                stake_distribution_service
+                stake_store
             };
 
             MithrilEpochService::new(
@@ -1026,7 +1028,7 @@ mod tests {
                     Arc::new(verification_key_store),
                     Arc::new(chain_observer),
                     Arc::new(era_checker),
-                    Arc::new(stake_distribution_service),
+                    Arc::new(stake_store),
                 ),
                 self.allowed_discriminants,
                 TestLogger::stdout(),
@@ -1095,8 +1097,8 @@ mod tests {
                 current_signers: current_epoch_fixture.signers().into_iter().collect(),
                 next_signers: next_epoch_fixture.signers().into_iter().collect(),
                 signed_entity_config: SignedEntityConfig::dummy(),
-                total_spo: 10,
-                total_stake: 20_000_000,
+                total_spo: Some(10),
+                total_stake: Some(20_000_000),
             }
         );
     }

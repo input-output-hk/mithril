@@ -9,6 +9,11 @@ function checkUrl(url) {
   }
 }
 
+// Calculate percentage
+function percent(value, total, number_of_digits = 0) {
+  return total === 0 ? "0" : ((value / total) * 100).toFixed(number_of_digits);
+}
+
 const toAda = (lovelace) => lovelace / 1000000;
 
 const formatCurrency = (number, maximumFractionDigits = 2) =>
@@ -221,6 +226,7 @@ function parseSignedEntity(signedEntityType) {
 
 module.exports = {
   checkUrl,
+  percent,
   formatStake,
   toAda,
   formatCurrency,
