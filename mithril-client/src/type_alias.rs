@@ -77,5 +77,6 @@ pub mod common {
             AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri, TemplateUri,
         };
         pub use mithril_common::messages::ArtifactsLocationsMessagePart;
+        pub use mithril_common::crypto_helper::MKProof;
     }
 }
