@@ -7,15 +7,16 @@ tags: [ci, glibc, breaking-change]
 
 # Upcoming change: minimum required `glibc` version bump
 
-> **Note:**  
-> This change **only affects users who rely on the precompiled Linux binaries** provided by the Mithril team.  
-> If you compile the binaries from source or use a different operating system, you are **not affected**.
+:::info
+- This change **only affects users who rely on the precompiled Linux binaries** provided by the Mithril team.  
+- If you compile the binaries from source or use a different operating system, you are **not affected**.
+:::
 
 ## Background
 
 Our **continuous integration (CI)** system uses GitHub Actions to build and test Mithril binaries across different platforms.  
 
-Currently, our CI targets `Ubuntu 20.04`, which results in a minimum required `glibc version 2.31`. This version is compatible with:  
+Currently, our CI targets `Ubuntu 20.04`, which results in a minimum required `glibc` version `2.31`. This version is compatible with:  
 - `Ubuntu 20.04`  
 - `Debian 11 (Bullseye)`.  
 
@@ -41,7 +42,7 @@ If your system uses an **older `glibc` version**, you have two options:
 
 - **Current minimum `glibc` version**: `2.31`  
   - Compatible with `Ubuntu 20.04`, `Debian 11 (Bullseye)`  
-- **New minimum `glibc` version**: **2.35** (effective for distributions released from **March 2025**)  
+- **New minimum `glibc` version**: **`2.35`** (effective for distributions released from **March 2025**)  
   - Compatible with `Ubuntu 22.04`, `Debian 12 (Bookworm)`.  
 
 For any inquiries or assistance, contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
