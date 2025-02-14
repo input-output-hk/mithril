@@ -9,7 +9,7 @@ import TabItem from '@theme/TabItem';
 
 Here is an updated list of all **Mithril networks**, including their configurations and current statuses:
 
-> Last update: 07/21/2023
+> Last update: 02/11/2025
 
 <Tabs>
   <TabItem value="mainnet" label="Mainnet" default>
@@ -87,25 +87,6 @@ Here is an updated list of all **Mithril networks**, including their configurati
 | **Era reader address**          | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.addr)         |
 | **Era reader verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey)         |
 | **Build from**                  | **Main branch** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main)                                                                                                                                                                              |
-
-  </TabItem>
-  <TabItem value="sanchonet" label="Sanchonet">
-## `testing-sanchonet`
-> :warning: For developers only
-
-| Information                     | -                                                                                                                                                                                                                                                                            |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Mithril network**             | `testing-sanchonet` [:mag_right:](https://mithril.network/explorer?aggregator=https%3A%2F%2Faggregator.testing-sanchonet.api.mithril.network%2Faggregator)                                                                                                                   |
-| **Cardano network**             | `sanchonet`                                                                                                                                                                                                                                                                  |
-| **Cardano magic Id**            | `4`                                                                                                                                                                                                                                                                          |
-| **Supported**                   | Yes :heavy_check_mark:                                                                                                                                                                                                                                                       |
-| **Status**                      | Unstable 🔴                                                                                                                                                                                                                                                                  |
-| **Aggregator endpoint**         | `https://aggregator.testing-sanchonet.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.testing-sanchonet.api.mithril.network/aggregator)                                                                                                             |
-| **Genesis verification key**    | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/genesis.vkey) |
-| **Era reader adapter type**     | `cardano-chain`                                                                                                                                                                                                                                                              |
-| **Era reader address**          | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.addr)         |
-| **Era reader verification key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-sanchonet/era.vkey)         |
-| **Build from**                  | **Main branch** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main)                                                                                                                                                                                  |
 
   </TabItem>
 </Tabs>
