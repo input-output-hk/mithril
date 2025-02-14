@@ -93,6 +93,25 @@ pub enum AggregatorRequest {
     #[cfg(feature = "unstable")]
     ListCardanoDatabaseSnapshots,
 
+    /// Increments the aggregator Cardano database snapshot immutable files restored statistics
+    #[cfg(feature = "unstable")]
+    IncrementCardanoDatabaseSnapshotImmutableFilesRestoredStatistic {
+        /// Message structure of an immutable files restoration as HTTP request body
+        number_of_immutables: String,
+    },
+
+    /// Increments the aggregator Cardano database snapshot ancillary files restored statistics
+    #[cfg(feature = "unstable")]
+    IncrementCardanoDatabaseSnapshotAncillaryFilesRestoredStatistic,
+
+    /// Increments the aggregator Cardano database snapshot complete restoration statistics
+    #[cfg(feature = "unstable")]
+    IncrementCardanoDatabaseSnapshotCompleteRestorationStatistic,
+
+    /// Increments the aggregator Cardano database snapshot partial restoration statistics
+    #[cfg(feature = "unstable")]
+    IncrementCardanoDatabaseSnapshotPartialRestorationStatistic,
+
     /// Get proofs that the given set of Cardano transactions is included in the global Cardano transactions set
     GetTransactionsProofs {
         /// Hashes of the transactions to get proofs for.
@@ -153,6 +172,16 @@ impl AggregatorRequest {
             AggregatorRequest::ListCardanoDatabaseSnapshots => {
                 "artifact/cardano-database".to_string()
             }
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::IncrementCardanoDatabaseSnapshotImmutableFilesRestoredStatistic {
+                number_of_immutables: _,
+            } => "statistics/cardano-database/immutable-files-restored".to_string(),
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::IncrementCardanoDatabaseSnapshotAncillaryFilesRestoredStatistic => "statistics/cardano-database/ancillary-files-restored".to_string(),
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::IncrementCardanoDatabaseSnapshotCompleteRestorationStatistic => "statistics/cardano-database/complete-restoration".to_string(),
+            #[cfg(feature = "unstable")]
+            AggregatorRequest::IncrementCardanoDatabaseSnapshotPartialRestorationStatistic  => "statistics/cardano-database/partial-restoration".to_string(),
             AggregatorRequest::GetTransactionsProofs {
                 transactions_hashes,
             } => format!(
@@ -608,6 +637,34 @@ mod tests {
         assert_eq!(
             "artifact/cardano-database".to_string(),
             AggregatorRequest::ListCardanoDatabaseSnapshots.route()
+        );
+
+        #[cfg(feature = "unstable")]
+        assert_eq!(
+            "statistics/cardano-database/immutable-files-restored".to_string(),
+            AggregatorRequest::IncrementCardanoDatabaseSnapshotImmutableFilesRestoredStatistic {
+                number_of_immutables: "abc".to_string()
+            }
+            .route()
+        );
+
+        #[cfg(feature = "unstable")]
+        assert_eq!(
+            "statistics/cardano-database/ancillary-files-restored".to_string(),
+            AggregatorRequest::IncrementCardanoDatabaseSnapshotAncillaryFilesRestoredStatistic
+                .route()
+        );
+
+        #[cfg(feature = "unstable")]
+        assert_eq!(
+            "statistics/cardano-database/complete-restoration".to_string(),
+            AggregatorRequest::IncrementCardanoDatabaseSnapshotCompleteRestorationStatistic.route()
+        );
+
+        #[cfg(feature = "unstable")]
+        assert_eq!(
+            "statistics/cardano-database/partial-restoration".to_string(),
+            AggregatorRequest::IncrementCardanoDatabaseSnapshotPartialRestorationStatistic.route()
         );
 
         assert_eq!(
