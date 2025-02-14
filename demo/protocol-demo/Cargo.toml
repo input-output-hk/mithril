@@ -9,11 +9,9 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
-base64 = "0.22.1"
 blake2 = "0.10.6"
 clap = { version = "4.5.28", features = ["derive"] }
 hex = "0.4.3"
-log = "0.4.25"
 mithril-common = { path = "../../mithril-common", features = ["fs"] }
 mithril-doc = { path = "../../internal/mithril-doc" }
 rand_chacha = "0.3.1"
