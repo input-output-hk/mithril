@@ -486,8 +486,7 @@ jobs:
       max-parallel: 1
       matrix:
         package:
-          [mithril-stm, mithril-build-script, mithril-common]
-          #[mithril-stm, mithril-build-script, mithril-common, mithril-client] Will be reactivated after release of the `2506` distribution.
+          [mithril-stm, mithril-build-script, mithril-common, mithril-client]
 
     runs-on: ubuntu-24.04
     needs:
