@@ -45,9 +45,12 @@ impl CardanoDatabaseClient {
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
             immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
-
+        self.verify_download_options_compatibility(
+            &download_unpack_options,
+            &immutable_file_number_range,
+            last_immutable_file_number,
+        )?;
         self.verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
-
         let immutable_locations = &cardano_database_snapshot.locations.immutables;
         self.download_unpack_immutable_files(
             immutable_locations,
@@ -56,7 +59,6 @@ impl CardanoDatabaseClient {
             target_dir,
         )
         .await?;
-
         if download_unpack_options.include_ancillary {
             let ancillary_locations = &cardano_database_snapshot.locations.ancillary;
             self.download_unpack_ancillary_file(
@@ -109,6 +111,24 @@ impl CardanoDatabaseClient {
                     ));
                 }
             }
+        }
+
+        Ok(())
+    }
+
+    /// Verify if the download options are compatible with the immutable file range.
+    fn verify_download_options_compatibility(
+        &self,
+        download_options: &DownloadUnpackOptions,
+        immutable_file_range: &RangeInclusive<ImmutableFileNumber>,
+        last_immutable_file_number: ImmutableFileNumber,
+    ) -> MithrilResult<()> {
+        if download_options.include_ancillary
+            && !immutable_file_range.contains(&last_immutable_file_number)
+        {
+            return Err(anyhow!(
+                "The last immutable file number {last_immutable_file_number} is outside the range: {immutable_file_range:?}"
+            ));
         }
 
         Ok(())
@@ -347,8 +367,8 @@ mod tests {
 
     use mithril_common::{
         entities::{
-            AncillaryLocationDiscriminants, ImmutablesLocationDiscriminants, MultiFilesUri,
-            TemplateUri,
+            AncillaryLocationDiscriminants, CardanoDbBeacon, Epoch,
+            ImmutablesLocationDiscriminants, MultiFilesUri, TemplateUri,
         },
         messages::{
             ArtifactsLocationsMessagePart,
@@ -473,6 +493,10 @@ mod tests {
             };
             let cardano_db_snapshot = CardanoDatabaseSnapshot {
                 hash: "hash-123".to_string(),
+                beacon: CardanoDbBeacon {
+                    immutable_file_number: 2,
+                    epoch: Epoch(123),
+                },
                 locations: ArtifactsLocationsMessagePart {
                     immutables: vec![ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
@@ -530,6 +554,79 @@ mod tests {
                 )
                 .await
                 .unwrap();
+        }
+    }
+
+    mod verify_download_options_compatibility {
+
+        use super::*;
+
+        #[test]
+        fn verify_download_options_compatibility_succeeds_if_without_ancillary_download() {
+            let client =
+                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+            let download_options = DownloadUnpackOptions {
+                include_ancillary: false,
+                ..DownloadUnpackOptions::default()
+            };
+            let immutable_file_range = ImmutableFileRange::Range(1, 10);
+            let last_immutable_file_number = 10;
+
+            client
+                .verify_download_options_compatibility(
+                    &download_options,
+                    &immutable_file_range
+                        .to_range_inclusive(last_immutable_file_number)
+                        .unwrap(),
+                    last_immutable_file_number,
+                )
+                .unwrap();
+        }
+
+        #[test]
+        fn verify_download_options_compatibility_succeeds_if_with_ancillary_download_and_compatible_range(
+        ) {
+            let client =
+                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+            let download_options = DownloadUnpackOptions {
+                include_ancillary: true,
+                ..DownloadUnpackOptions::default()
+            };
+            let immutable_file_range = ImmutableFileRange::Range(7, 10);
+            let last_immutable_file_number = 10;
+
+            client
+                .verify_download_options_compatibility(
+                    &download_options,
+                    &immutable_file_range
+                        .to_range_inclusive(last_immutable_file_number)
+                        .unwrap(),
+                    last_immutable_file_number,
+                )
+                .unwrap();
+        }
+
+        #[test]
+        fn verify_download_options_compatibility_fails_if_with_ancillary_download_and_incompatible_range(
+        ) {
+            let client =
+                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+            let download_options = DownloadUnpackOptions {
+                include_ancillary: true,
+                ..DownloadUnpackOptions::default()
+            };
+            let immutable_file_range = ImmutableFileRange::Range(7, 10);
+            let last_immutable_file_number = 123;
+
+            client
+                .verify_download_options_compatibility(
+                    &download_options,
+                    &immutable_file_range
+                        .to_range_inclusive(last_immutable_file_number)
+                        .unwrap(),
+                    last_immutable_file_number,
+                )
+                .expect_err("verify_download_options_compatibility should fail as the last immutable file number is outside the range");
         }
     }
 
