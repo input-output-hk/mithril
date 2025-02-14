@@ -9,11 +9,11 @@ use anyhow::anyhow;
 use mithril_common::{
     entities::{AncillaryLocation, CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation},
     messages::CardanoDatabaseSnapshotMessage,
-    StdResult,
 };
 
 use crate::feedback::MithrilEvent;
 use crate::file_downloader::{FileDownloader, FileDownloaderUri};
+use crate::MithrilResult;
 
 use super::api::CardanoDatabaseClient;
 use super::immutable_file_range::ImmutableFileRange;
@@ -40,7 +40,7 @@ impl CardanoDatabaseClient {
         immutable_file_range: &ImmutableFileRange,
         target_dir: &Path,
         download_unpack_options: DownloadUnpackOptions,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         let compression_algorithm = cardano_database_snapshot.compression_algorithm;
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
@@ -87,7 +87,7 @@ impl CardanoDatabaseClient {
         &self,
         target_dir: &Path,
         download_unpack_options: &DownloadUnpackOptions,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         let immutable_files_target_dir = Self::immutable_files_target_dir(target_dir);
         let volatile_target_dir = Self::volatile_target_dir(target_dir);
         let ledger_target_dir = Self::ledger_target_dir(target_dir);
@@ -148,7 +148,7 @@ impl CardanoDatabaseClient {
         range: RangeInclusive<ImmutableFileNumber>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
         let mut immutable_file_numbers_to_download =
@@ -185,9 +185,9 @@ impl CardanoDatabaseClient {
         file_downloader_uris_chunk: Vec<(ImmutableFileNumber, FileDownloaderUri)>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
-    ) -> StdResult<BTreeSet<ImmutableFileNumber>> {
+    ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
-        let mut join_set: JoinSet<StdResult<ImmutableFileNumber>> = JoinSet::new();
+        let mut join_set: JoinSet<MithrilResult<ImmutableFileNumber>> = JoinSet::new();
         for (immutable_file_number, file_downloader_uri) in file_downloader_uris_chunk.into_iter() {
             let file_downloader_uri_clone = file_downloader_uri.to_owned();
             let compression_algorithm_clone = compression_algorithm.to_owned();
@@ -250,7 +250,7 @@ impl CardanoDatabaseClient {
         immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
-    ) -> StdResult<BTreeSet<ImmutableFileNumber>> {
+    ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
         let file_downloader = self
             .immutable_file_downloader_resolver
@@ -292,7 +292,7 @@ impl CardanoDatabaseClient {
         locations: &[AncillaryLocation],
         compression_algorithm: &CompressionAlgorithm,
         ancillary_file_target_dir: &Path,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
         for location in locations_sorted {
