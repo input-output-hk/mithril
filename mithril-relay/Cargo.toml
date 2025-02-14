@@ -39,10 +39,9 @@ reqwest = { version = "0.12.12", features = [
     "zstd",
     "deflate",
     "brotli"
-    ] }
+] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
-serde_yaml = "0.9.34"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_trace",
