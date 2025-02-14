@@ -121,3 +121,7 @@ test_http_server = ["dep:warp"]
 all-features = true
 # enable unstable features in the documentation
 rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo-machete]
+# `serde_bytes` is used for OpCert serialization
+ignored = ["serde_bytes"]
