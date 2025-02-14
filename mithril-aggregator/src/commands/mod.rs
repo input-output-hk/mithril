@@ -45,6 +45,7 @@ impl MainCommand {
             Self::Serve(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::Tools(cmd) => cmd.execute(root_logger, config_builder).await,
             Self::GenerateDoc(cmd) => {
+                println!("Please note: the documentation generated is not able to indicate the environment variables used by the commands.");
                 let config_infos = vec![Configuration::extract(), DefaultConfiguration::extract()];
                 cmd.execute_with_configurations(&mut MainOpts::command(), &config_infos)
                     .map_err(|message| anyhow!(message))
