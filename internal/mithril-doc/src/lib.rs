@@ -1,6 +1,6 @@
 //! Commands to generate a markdown documentation for the command line.
 
-// LIMITATIONS: Some `Configuration` cannot be generated as precisely as we would like because there is a lack of information in code.
+// LIMITATIONS: Some `Configuration` cannot be generated as precisely as we would like because there is a lack of information in the code.
 // - We don't know which parameter is required or not.
 // - In aggregator, Configuration struct contains all parameters but it's not possible to know which sub command use one parameter.
 
