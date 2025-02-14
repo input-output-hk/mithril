@@ -135,7 +135,7 @@ variable "google_storage_bucket_max_age" {
 variable "google_storage_bucket_prefix_with_lifecyle_rule" {
   type        = list(any)
   description = "The prefix of the object in the storage bucket to apply the lifecycle rule"
-  default     = ["cardano-immutable-files-full", "cardano-database/ancillary"]
+  default     = ["cardano-immutable-files-full", "cardano-database/ancillary", "cardano-database/digests"]
 }
 
 locals {
