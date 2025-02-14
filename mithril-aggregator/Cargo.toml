@@ -30,8 +30,6 @@ mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
-paste = "1.0.15"
-prometheus = "0.13.4"
 rayon = "1.10.0"
 regex = "1.11.1"
 reqwest = { version = "0.12.12", features = [
@@ -40,12 +38,10 @@ reqwest = { version = "0.12.12", features = [
     "zstd",
     "deflate",
     "brotli"
-    ] }
+] }
 semver = "1.0.25"
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
-serde_yaml = "0.9.34"
-sha2 = "0.10.8"
 slog = { version = "2.7.0", features = [
     "max_level_trace",
     "release_max_level_debug",
@@ -57,7 +53,6 @@ tar = "0.4.43"
 thiserror = "2.0.11"
 tokio = { version = "1.43.0", features = ["full"] }
 tokio-util = { version = "0.7.13", features = ["codec"] }
-typetag = "0.2.19"
 uuid = { version = "1.13.1", features = [
     "v4",
     "fast-rng",
@@ -71,7 +66,6 @@ tikv-jemallocator = { version = "0.6.0", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
-httpmock = "0.7.0"
 mithril-common = { path = "../mithril-common", features = [
     "allow_skip_signer_certification",
     "test_tools",
