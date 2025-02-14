@@ -118,6 +118,7 @@
 //! ```
 mod api;
 mod fetch;
+mod statistics;
 
 #[cfg(test)]
 pub(crate) use api::test_dependency_injector::CardanoDatabaseClientDependencyInjector;
