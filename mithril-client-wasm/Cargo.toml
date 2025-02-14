@@ -39,3 +39,7 @@ test-node = []
 all-features = true
 # enable unstable features in the documentation
 rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.cargo-machete]
+# wasm-bindgen-futures is required to build the project, but it's not used in the code
+ignored = ["wasm-bindgen-futures"]
