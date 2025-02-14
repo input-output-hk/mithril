@@ -13,10 +13,9 @@ use mithril_common::{
     messages::{
         CardanoDatabaseDigestListItemMessage, CardanoDatabaseSnapshotMessage, CertificateMessage,
     },
-    StdResult,
 };
 
-use crate::{feedback::MithrilEvent, file_downloader::FileDownloaderUri};
+use crate::{feedback::MithrilEvent, file_downloader::FileDownloaderUri, MithrilResult};
 
 use super::api::CardanoDatabaseClient;
 use super::immutable_file_range::ImmutableFileRange;
@@ -29,7 +28,7 @@ impl CardanoDatabaseClient {
         cardano_database_snapshot: &CardanoDatabaseSnapshotMessage,
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
-    ) -> StdResult<MKProof> {
+    ) -> MithrilResult<MKProof> {
         let digest_locations = &cardano_database_snapshot.locations.digests;
         self.download_unpack_digest_file(digest_locations, &Self::digest_target_dir(database_dir))
             .await?;
@@ -66,7 +65,7 @@ impl CardanoDatabaseClient {
         &self,
         locations: &[DigestLocation],
         digest_file_target_dir: &Path,
-    ) -> StdResult<()> {
+    ) -> MithrilResult<()> {
         Self::create_directory_if_not_exists(digest_file_target_dir)?;
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
@@ -117,7 +116,7 @@ impl CardanoDatabaseClient {
     fn read_digest_file(
         &self,
         digest_file_target_dir: &Path,
-    ) -> StdResult<BTreeMap<ImmutableFileName, HexEncodedDigest>> {
+    ) -> MithrilResult<BTreeMap<ImmutableFileName, HexEncodedDigest>> {
         let digest_files = Self::read_files_in_directory(digest_file_target_dir)?;
         if digest_files.len() > 1 {
             return Err(anyhow!(
@@ -160,7 +159,7 @@ impl CardanoDatabaseClient {
         target_dir.join("digest")
     }
 
-    fn create_directory_if_not_exists(dir: &Path) -> StdResult<()> {
+    fn create_directory_if_not_exists(dir: &Path) -> MithrilResult<()> {
         if dir.exists() {
             return Ok(());
         }
@@ -168,7 +167,7 @@ impl CardanoDatabaseClient {
         fs::create_dir_all(dir).map_err(|e| anyhow!("Failed creating directory: {e}"))
     }
 
-    fn delete_directory(dir: &Path) -> StdResult<()> {
+    fn delete_directory(dir: &Path) -> MithrilResult<()> {
         if dir.exists() {
             fs::remove_dir_all(dir).map_err(|e| anyhow!("Failed deleting directory: {e}"))?;
         }
@@ -176,7 +175,7 @@ impl CardanoDatabaseClient {
         Ok(())
     }
 
-    fn read_files_in_directory(dir: &Path) -> StdResult<Vec<PathBuf>> {
+    fn read_files_in_directory(dir: &Path) -> MithrilResult<Vec<PathBuf>> {
         let mut files = vec![];
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
