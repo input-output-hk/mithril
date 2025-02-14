@@ -577,7 +577,6 @@ pub mod tests {
         CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
         SignedEntityTypeDiscriminants,
     };
-    use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
@@ -590,6 +589,7 @@ pub mod tests {
         MithrilTickerService, StdResult,
     };
     use mithril_persistence::store::StakeStorer;
+    use mithril_signed_entity_lock::SignedEntityTypeLock;
     use mockall::predicate::eq;
     use mockall::{mock, Sequence};
     use std::sync::Arc;

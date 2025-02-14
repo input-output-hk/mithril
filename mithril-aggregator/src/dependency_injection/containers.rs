@@ -15,14 +15,15 @@ use mithril_common::{
     },
     era::{EraChecker, EraReader},
     signable_builder::SignableBuilderService,
-    signed_entity_type_lock::SignedEntityTypeLock,
     test_utils::MithrilFixture,
     TickerService,
 };
+
 use mithril_persistence::{
     sqlite::{SqliteConnection, SqliteConnectionPool},
     store::StakeStorer,
 };
+use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::{
     configuration::*,
