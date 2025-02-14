@@ -15,7 +15,9 @@ As a minor extension, we have adopted a slightly different versioning convention
 | ----- | ------- |
 | N/A   | `-`     |
 
-## Mithril Distribution [2506.0] - UNRELEASED
+## Mithril Distribution [2506.0] - 2025-02-14
+
+- :warning: **SECURITY**: This distribution embeds a fix for the **Mithril certificate chain could be manipulated by an adversarial signer** security advisory [GHSA-724h-fpm5-4qvr](https://github.com/input-output-hk/mithril/security/advisories/GHSA-724h-fpm5-4qvr). All users running a **client library, client CLI or client WASM** are strongly encouraged to update them to the latest version.
 
 - Support for `Cardano node` `10.1.4` in the signer and the aggregator.
 
