@@ -9,7 +9,7 @@ const nextConfig = {
     unoptimized: true,
   },
   webpack: (config) => {
-    config.experiments = { layers: true, asyncWebAssembly: true };
+    config.experiments = { ...config.experiments, layers: true, asyncWebAssembly: true };
     config.plugins.push(
       new webpack.DefinePlugin({
         "process.env.UNSTABLE": process.env.UNSTABLE === "1",

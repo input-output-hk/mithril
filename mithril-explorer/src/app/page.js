@@ -14,7 +14,6 @@ import {
   Title,
   Tooltip,
 } from "chart.js";
-import initMithrilClient from "@mithril-dev/mithril-client-wasm";
 import ControlPanel from "#/ControlPanel";
 import CardanoDbSnapshotsList from "#/Artifacts/CardanoDbSnapshotsList";
 import CardanoDbV2SnapshotsList from "#/Artifacts/CardanoDbV2SnapshotsList";
@@ -69,6 +68,11 @@ export default function Explorer() {
 
   // Global mithril client wasm init
   useEffect(() => {
+    const initMithrilClient = async () => {
+      const wasmClient = await import("@mithril-dev/mithril-client-wasm");
+      await wasmClient.default();
+    };
+
     initMithrilClient().catch((err) => console.error("Mithril-client-wasm init error:", err));
   }, []);
 

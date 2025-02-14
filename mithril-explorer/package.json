@@ -1,6 +1,6 @@
 {
   "name": "mithril-explorer",
-  "version": "0.7.29",
+  "version": "0.7.30",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -13,13 +13,13 @@
     "test:ci": "jest --ci"
   },
   "dependencies": {
-    "@mithril-dev/mithril-client-wasm": "file:../mithril-client-wasm/dist/web",
+    "@mithril-dev/mithril-client-wasm": "file:../mithril-client-wasm",
     "@popperjs/core": "^2.11.8",
     "@reduxjs/toolkit": "^2.5.1",
     "bootstrap": "^5.3.3",
     "bootstrap-icons": "^1.11.3",
     "chart.js": "^4.4.7",
-    "next": "^15.1.6",
+    "next": "^15.1.7",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.9",
     "react-chartjs-2": "^5.3.0",
@@ -29,13 +29,13 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
-    "eslint": "^9.19.0",
-    "eslint-config-next": "^15.1.6",
+    "eslint": "^9.20.1",
+    "eslint-config-next": "^15.1.7",
     "fantasticon": "^3.0.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "next-router-mock": "^0.9.13",
-    "prettier": "^3.4.2",
+    "prettier": "^3.5.1",
     "prettier-eslint": "^16.3.0"
   }
 }
