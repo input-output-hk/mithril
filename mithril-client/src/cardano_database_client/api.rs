@@ -4,13 +4,13 @@ use std::sync::Arc;
 use slog::Logger;
 
 #[cfg(feature = "fs")]
-use mithril_common::entities::{AncillaryLocation, DigestLocation, ImmutablesLocation};
+use mithril_common::entities::{AncillaryLocation, ImmutablesLocation};
 
 use crate::aggregator_client::AggregatorClient;
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
-use crate::file_downloader::FileDownloaderResolver;
+use crate::file_downloader::{FileDownloader, FileDownloaderResolver};
 
 /// HTTP client for CardanoDatabase API from the Aggregator
 pub struct CardanoDatabaseClient {
@@ -22,7 +22,7 @@ pub struct CardanoDatabaseClient {
     pub(super) ancillary_file_downloader_resolver:
         Arc<dyn FileDownloaderResolver<AncillaryLocation>>,
     #[cfg(feature = "fs")]
-    pub(super) digest_file_downloader_resolver: Arc<dyn FileDownloaderResolver<DigestLocation>>,
+    pub(super) http_file_downloader: Arc<dyn FileDownloader>,
     #[cfg(feature = "fs")]
     pub(super) feedback_sender: FeedbackSender,
     #[cfg(feature = "fs")]
@@ -39,9 +39,7 @@ impl CardanoDatabaseClient {
         #[cfg(feature = "fs")] ancillary_file_downloader_resolver: Arc<
             dyn FileDownloaderResolver<AncillaryLocation>,
         >,
-        #[cfg(feature = "fs")] digest_file_downloader_resolver: Arc<
-            dyn FileDownloaderResolver<DigestLocation>,
-        >,
+        #[cfg(feature = "fs")] http_file_downloader: Arc<dyn FileDownloader>,
         #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
         #[cfg(feature = "fs")] logger: Logger,
     ) -> Self {
@@ -52,7 +50,7 @@ impl CardanoDatabaseClient {
             #[cfg(feature = "fs")]
             ancillary_file_downloader_resolver,
             #[cfg(feature = "fs")]
-            digest_file_downloader_resolver,
+            http_file_downloader,
             #[cfg(feature = "fs")]
             feedback_sender,
             #[cfg(feature = "fs")]
@@ -68,16 +66,15 @@ pub(crate) mod test_dependency_injector {
     use super::*;
 
     use mithril_common::entities::{
-        AncillaryLocationDiscriminants, DigestLocationDiscriminants,
-        ImmutablesLocationDiscriminants,
+        AncillaryLocationDiscriminants, ImmutablesLocationDiscriminants,
     };
 
     use crate::{
         aggregator_client::MockAggregatorHTTPClient,
         feedback::FeedbackReceiver,
         file_downloader::{
-            AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloader,
-            ImmutablesFileDownloaderResolver,
+            AncillaryFileDownloaderResolver, FileDownloader, ImmutablesFileDownloaderResolver,
+            MockFileDownloaderBuilder,
         },
         test_utils,
     };
@@ -87,7 +84,7 @@ pub(crate) mod test_dependency_injector {
         http_client: MockAggregatorHTTPClient,
         immutable_file_downloader_resolver: ImmutablesFileDownloaderResolver,
         ancillary_file_downloader_resolver: AncillaryFileDownloaderResolver,
-        digest_file_downloader_resolver: DigestFileDownloaderResolver,
+        http_file_downloader: Arc<dyn FileDownloader>,
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     }
 
@@ -97,7 +94,13 @@ pub(crate) mod test_dependency_injector {
                 http_client: MockAggregatorHTTPClient::new(),
                 immutable_file_downloader_resolver: ImmutablesFileDownloaderResolver::new(vec![]),
                 ancillary_file_downloader_resolver: AncillaryFileDownloaderResolver::new(vec![]),
-                digest_file_downloader_resolver: DigestFileDownloaderResolver::new(vec![]),
+                http_file_downloader: Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_compression(None)
+                        .with_success()
+                        .with_times(0)
+                        .build(),
+                ),
                 feedback_receivers: vec![],
             }
         }
@@ -137,15 +140,12 @@ pub(crate) mod test_dependency_injector {
             }
         }
 
-        pub(crate) fn with_digest_file_downloaders(
+        pub(crate) fn with_http_file_downloader(
             self,
-            file_downloaders: Vec<(DigestLocationDiscriminants, Arc<dyn FileDownloader>)>,
+            http_file_downloader: Arc<dyn FileDownloader>,
         ) -> Self {
-            let digest_file_downloader_resolver =
-                DigestFileDownloaderResolver::new(file_downloaders);
-
             Self {
-                digest_file_downloader_resolver,
+                http_file_downloader,
                 ..self
             }
         }
@@ -165,7 +165,7 @@ pub(crate) mod test_dependency_injector {
                 Arc::new(self.http_client),
                 Arc::new(self.immutable_file_downloader_resolver),
                 Arc::new(self.ancillary_file_downloader_resolver),
-                Arc::new(self.digest_file_downloader_resolver),
+                self.http_file_downloader,
                 FeedbackSender::new(&self.feedback_receivers),
                 test_utils::test_logger(),
             )

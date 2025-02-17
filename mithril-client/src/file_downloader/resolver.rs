@@ -1,8 +1,8 @@
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::entities::{
-    AncillaryLocation, AncillaryLocationDiscriminants, DigestLocation, DigestLocationDiscriminants,
-    ImmutablesLocation, ImmutablesLocationDiscriminants,
+    AncillaryLocation, AncillaryLocationDiscriminants, ImmutablesLocation,
+    ImmutablesLocationDiscriminants,
 };
 
 use super::FileDownloader;
@@ -54,28 +54,6 @@ impl AncillaryFileDownloaderResolver {
 
 impl FileDownloaderResolver<AncillaryLocation> for AncillaryFileDownloaderResolver {
     fn resolve(&self, location: &AncillaryLocation) -> Option<Arc<dyn FileDownloader>> {
-        self.file_downloaders.get(&location.into()).cloned()
-    }
-}
-
-/// A file downloader resolver for digests file locations
-pub struct DigestFileDownloaderResolver {
-    file_downloaders: HashMap<DigestLocationDiscriminants, Arc<dyn FileDownloader>>,
-}
-
-impl DigestFileDownloaderResolver {
-    /// Constructs a new `DigestFileDownloaderResolver`.
-    pub fn new(
-        file_downloaders: Vec<(DigestLocationDiscriminants, Arc<dyn FileDownloader>)>,
-    ) -> Self {
-        let file_downloaders = file_downloaders.into_iter().collect();
-
-        Self { file_downloaders }
-    }
-}
-
-impl FileDownloaderResolver<DigestLocation> for DigestFileDownloaderResolver {
-    fn resolve(&self, location: &DigestLocation) -> Option<Arc<dyn FileDownloader>> {
         self.file_downloaders.get(&location.into()).cloned()
     }
 }
@@ -137,44 +115,6 @@ mod tests {
 
         let file_downloader = resolver
             .resolve(&AncillaryLocation::CloudStorage {
-                uri: "http://whatever/00001.tar.gz".to_string(),
-            })
-            .unwrap();
-        file_downloader
-            .download_unpack(
-                &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
-                Path::new("."),
-                None,
-                DownloadEvent::Immutable {
-                    download_id: "id".to_string(),
-                    immutable_file_number: 1,
-                },
-            )
-            .await
-            .unwrap();
-    }
-
-    #[tokio::test]
-    async fn digest_file_downloader_resolver() {
-        let mock_file_downloader_aggregator = MockFileDownloader::new();
-        let mut mock_file_downloader_cloud_storage = MockFileDownloader::new();
-        mock_file_downloader_cloud_storage
-            .expect_download_unpack()
-            .times(1)
-            .returning(|_, _, _, _| Ok(()));
-        let resolver = DigestFileDownloaderResolver::new(vec![
-            (
-                DigestLocationDiscriminants::Aggregator,
-                Arc::new(mock_file_downloader_aggregator),
-            ),
-            (
-                DigestLocationDiscriminants::CloudStorage,
-                Arc::new(mock_file_downloader_cloud_storage),
-            ),
-        ]);
-
-        let file_downloader = resolver
-            .resolve(&DigestLocation::CloudStorage {
                 uri: "http://whatever/00001.tar.gz".to_string(),
             })
             .unwrap();

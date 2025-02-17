@@ -18,7 +18,6 @@ pub use mock_builder::MockFileDownloaderBuilder;
 #[cfg(test)]
 pub use resolver::MockFileDownloaderResolver;
 pub use resolver::{
-    AncillaryFileDownloaderResolver, DigestFileDownloaderResolver, FileDownloaderResolver,
-    ImmutablesFileDownloaderResolver,
+    AncillaryFileDownloaderResolver, FileDownloaderResolver, ImmutablesFileDownloaderResolver,
 };
 pub use retry::{FileDownloadRetryPolicy, RetryDownloader};

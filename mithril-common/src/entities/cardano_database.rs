@@ -68,11 +68,8 @@ impl CardanoDatabaseSnapshot {
 }
 
 /// Locations of the immutable file digests.
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumDiscriminants,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
-#[strum_discriminants(derive(Hash))]
 pub enum DigestLocation {
     /// Cloud storage location.
     CloudStorage {
