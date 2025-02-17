@@ -41,6 +41,14 @@ impl CardanoDatabaseClient {
         target_dir: &Path,
         download_unpack_options: DownloadUnpackOptions,
     ) -> MithrilResult<()> {
+        let download_id = MithrilEvent::new_snapshot_download_id();
+        self.feedback_sender
+            .send_event(MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::Started {
+                    download_id: download_id.clone(),
+                },
+            ))
+            .await;
         let compression_algorithm = cardano_database_snapshot.compression_algorithm;
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
@@ -57,6 +65,7 @@ impl CardanoDatabaseClient {
             immutable_file_number_range,
             &compression_algorithm,
             target_dir,
+            &download_id,
         )
         .await?;
         if download_unpack_options.include_ancillary {
@@ -68,6 +77,13 @@ impl CardanoDatabaseClient {
             )
             .await?;
         }
+        self.feedback_sender
+            .send_event(MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::Completed {
+                    download_id: download_id.clone(),
+                },
+            ))
+            .await;
 
         Ok(())
     }
@@ -144,6 +160,7 @@ impl CardanoDatabaseClient {
         range: RangeInclusive<ImmutableFileNumber>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
+        download_id: &str,
     ) -> MithrilResult<()> {
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
@@ -156,6 +173,7 @@ impl CardanoDatabaseClient {
                     &immutable_file_numbers_to_download,
                     compression_algorithm,
                     immutable_files_target_dir,
+                    download_id,
                 )
                 .await?;
             for immutable_file_number in immutable_files_numbers_downloaded {
@@ -181,6 +199,7 @@ impl CardanoDatabaseClient {
         file_downloader_uris_chunk: Vec<(ImmutableFileNumber, FileDownloaderUri)>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
+        download_id: &str,
     ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
         let mut join_set: JoinSet<MithrilResult<ImmutableFileNumber>> = JoinSet::new();
@@ -191,25 +210,25 @@ impl CardanoDatabaseClient {
             let file_downloader_clone = file_downloader.clone();
             let feedback_receiver_clone = self.feedback_sender.clone();
             let logger_clone = self.logger.clone();
+            let download_id_clone = download_id.to_string();
             join_set.spawn(async move {
-                    let download_id = MithrilEvent::new_snapshot_download_id();
                     feedback_receiver_clone
                         .send_event(MithrilEvent::CardanoDatabase(
-                            MithrilEventCardanoDatabase::ImmutableDownloadStarted { immutable_file_number, download_id: download_id.clone()}))
+                            MithrilEventCardanoDatabase::ImmutableDownloadStarted { immutable_file_number, download_id: download_id_clone.clone()}))
                         .await;
                     let downloaded = file_downloader_clone
                         .download_unpack(
                             &file_downloader_uri_clone,
                             &immutable_files_target_dir_clone,
                             Some(compression_algorithm_clone),
-                            DownloadEvent::Immutable{immutable_file_number, download_id: download_id.clone()},
+                            DownloadEvent::Immutable{immutable_file_number, download_id: download_id_clone.clone()},
                         )
                         .await;
                     match downloaded {
                         Ok(_) => {
                             feedback_receiver_clone
                                 .send_event(MithrilEvent::CardanoDatabase(
-                                    MithrilEventCardanoDatabase::ImmutableDownloadCompleted { immutable_file_number, download_id }))
+                                    MithrilEventCardanoDatabase::ImmutableDownloadCompleted { immutable_file_number, download_id: download_id_clone }))
                                 .await;
 
                             Ok(immutable_file_number)
@@ -247,6 +266,7 @@ impl CardanoDatabaseClient {
         immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
+        download_id: &str,
     ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
         let file_downloader = self
@@ -275,6 +295,7 @@ impl CardanoDatabaseClient {
                     file_downloader_uris_chunk,
                     compression_algorithm,
                     immutable_files_target_dir,
+                    download_id,
                 )
                 .await?;
             immutable_file_numbers_downloaded.extend(immutable_file_numbers_downloaded_chunk);
@@ -792,6 +813,7 @@ mod tests {
                         .unwrap(),
                     &CompressionAlgorithm::default(),
                     &target_dir,
+                    "download_id",
                 )
                 .await
                 .expect_err("download_unpack_immutable_files should fail");
@@ -831,6 +853,7 @@ mod tests {
                         .unwrap(),
                     &CompressionAlgorithm::default(),
                     &target_dir,
+                    "download_id",
                 )
                 .await
                 .unwrap();
@@ -890,6 +913,7 @@ mod tests {
                         .unwrap(),
                     &CompressionAlgorithm::default(),
                     &target_dir,
+                    "download_id",
                 )
                 .await
                 .unwrap();
@@ -921,6 +945,7 @@ mod tests {
                         .unwrap(),
                     &CompressionAlgorithm::default(),
                     target_dir,
+                    "download_id",
                 )
                 .await
                 .unwrap();
