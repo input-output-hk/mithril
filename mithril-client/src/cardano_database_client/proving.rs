@@ -15,7 +15,11 @@ use mithril_common::{
     },
 };
 
-use crate::{feedback::MithrilEvent, file_downloader::FileDownloaderUri, MithrilResult};
+use crate::{
+    feedback::{MithrilEvent, MithrilEventCardanoDatabase},
+    file_downloader::FileDownloaderUri,
+    MithrilResult,
+};
 
 use super::api::CardanoDatabaseClient;
 use super::immutable_file_range::ImmutableFileRange;
@@ -72,9 +76,11 @@ impl CardanoDatabaseClient {
         for location in locations_sorted {
             let download_id = MithrilEvent::new_digest_download_id();
             self.feedback_sender
-                .send_event(MithrilEvent::DigestDownloadStarted {
-                    download_id: download_id.clone(),
-                })
+                .send_event(MithrilEvent::CardanoDatabase(
+                    MithrilEventCardanoDatabase::DigestDownloadStarted {
+                        download_id: download_id.clone(),
+                    },
+                ))
                 .await;
             let file_downloader = self
                 .digest_file_downloader_resolver
@@ -95,7 +101,9 @@ impl CardanoDatabaseClient {
             match downloaded {
                 Ok(_) => {
                     self.feedback_sender
-                        .send_event(MithrilEvent::DigestDownloadCompleted { download_id })
+                        .send_event(MithrilEvent::CardanoDatabase(
+                            MithrilEventCardanoDatabase::DigestDownloadCompleted { download_id },
+                        ))
                         .await;
                     return Ok(());
                 }
@@ -148,11 +156,13 @@ impl CardanoDatabaseClient {
         downloaded_bytes: u64,
         size: u64,
     ) -> Option<MithrilEvent> {
-        Some(MithrilEvent::DigestDownloadProgress {
-            download_id,
-            downloaded_bytes,
-            size,
-        })
+        Some(MithrilEvent::CardanoDatabase(
+            MithrilEventCardanoDatabase::DigestDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            },
+        ))
     }
 
     fn digest_target_dir(target_dir: &Path) -> PathBuf {
@@ -521,12 +531,14 @@ mod tests {
             let sent_events = feedback_receiver.stacked_events();
             let id = sent_events[0].event_id();
             let expected_events = vec![
-                MithrilEvent::DigestDownloadStarted {
+                MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadStarted {
                     download_id: id.to_string(),
-                },
-                MithrilEvent::DigestDownloadCompleted {
-                    download_id: id.to_string(),
-                },
+                }),
+                MithrilEvent::CardanoDatabase(
+                    MithrilEventCardanoDatabase::DigestDownloadCompleted {
+                        download_id: id.to_string(),
+                    },
+                ),
             ];
             assert_eq!(expected_events, sent_events);
         }

@@ -11,7 +11,7 @@ use mithril_common::{
     messages::CardanoDatabaseSnapshotMessage,
 };
 
-use crate::feedback::MithrilEvent;
+use crate::feedback::{MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{FileDownloader, FileDownloaderUri};
 use crate::MithrilResult;
 
@@ -139,11 +139,13 @@ impl CardanoDatabaseClient {
         downloaded_bytes: u64,
         size: u64,
     ) -> Option<MithrilEvent> {
-        Some(MithrilEvent::ImmutableDownloadProgress {
-            download_id,
-            downloaded_bytes,
-            size,
-        })
+        Some(MithrilEvent::CardanoDatabase(
+            MithrilEventCardanoDatabase::ImmutableDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            },
+        ))
     }
 
     fn feedback_event_builder_ancillary_download(
@@ -151,11 +153,13 @@ impl CardanoDatabaseClient {
         downloaded_bytes: u64,
         size: u64,
     ) -> Option<MithrilEvent> {
-        Some(MithrilEvent::AncillaryDownloadProgress {
-            download_id,
-            downloaded_bytes,
-            size,
-        })
+        Some(MithrilEvent::CardanoDatabase(
+            MithrilEventCardanoDatabase::AncillaryDownloadProgress {
+                download_id,
+                downloaded_bytes,
+                size,
+            },
+        ))
     }
 
     /// Download and unpack the immutable files of the given range.
@@ -218,7 +222,8 @@ impl CardanoDatabaseClient {
             join_set.spawn(async move {
                     let download_id = MithrilEvent::new_snapshot_download_id();
                     feedback_receiver_clone
-                        .send_event(MithrilEvent::ImmutableDownloadStarted { immutable_file_number, download_id: download_id.clone()})
+                        .send_event(MithrilEvent::CardanoDatabase(
+                            MithrilEventCardanoDatabase::ImmutableDownloadStarted { immutable_file_number, download_id: download_id.clone()}))
                         .await;
                     let downloaded = file_downloader_clone
                         .download_unpack(
@@ -232,7 +237,8 @@ impl CardanoDatabaseClient {
                     match downloaded {
                         Ok(_) => {
                             feedback_receiver_clone
-                                .send_event(MithrilEvent::ImmutableDownloadCompleted { download_id })
+                                .send_event(MithrilEvent::CardanoDatabase(
+                                    MithrilEventCardanoDatabase::ImmutableDownloadCompleted { immutable_file_number, download_id }))
                                 .await;
 
                             Ok(immutable_file_number)
@@ -318,9 +324,11 @@ impl CardanoDatabaseClient {
         for location in locations_sorted {
             let download_id = MithrilEvent::new_ancillary_download_id();
             self.feedback_sender
-                .send_event(MithrilEvent::AncillaryDownloadStarted {
-                    download_id: download_id.clone(),
-                })
+                .send_event(MithrilEvent::CardanoDatabase(
+                    MithrilEventCardanoDatabase::AncillaryDownloadStarted {
+                        download_id: download_id.clone(),
+                    },
+                ))
                 .await;
             let file_downloader = self
                 .ancillary_file_downloader_resolver
@@ -341,7 +349,9 @@ impl CardanoDatabaseClient {
             match downloaded {
                 Ok(_) => {
                     self.feedback_sender
-                        .send_event(MithrilEvent::AncillaryDownloadCompleted { download_id })
+                        .send_event(MithrilEvent::CardanoDatabase(
+                            MithrilEventCardanoDatabase::AncillaryDownloadCompleted { download_id },
+                        ))
                         .await;
                     return Ok(());
                 }
@@ -946,13 +956,18 @@ mod tests {
             let sent_events = feedback_receiver.stacked_events();
             let id = sent_events[0].event_id();
             let expected_events = vec![
-                MithrilEvent::ImmutableDownloadStarted {
-                    immutable_file_number: 1,
-                    download_id: id.to_string(),
-                },
-                MithrilEvent::ImmutableDownloadCompleted {
-                    download_id: id.to_string(),
-                },
+                MithrilEvent::CardanoDatabase(
+                    MithrilEventCardanoDatabase::ImmutableDownloadStarted {
+                        immutable_file_number: 1,
+                        download_id: id.to_string(),
+                    },
+                ),
+                MithrilEvent::CardanoDatabase(
+                    MithrilEventCardanoDatabase::ImmutableDownloadCompleted {
+                        immutable_file_number: 1,
+                        download_id: id.to_string(),
+                    },
+                ),
             ];
             assert_eq!(expected_events, sent_events);
         }
@@ -1082,12 +1097,16 @@ mod tests {
             let sent_events = feedback_receiver.stacked_events();
             let id = sent_events[0].event_id();
             let expected_events = vec![
-                MithrilEvent::AncillaryDownloadStarted {
-                    download_id: id.to_string(),
-                },
-                MithrilEvent::AncillaryDownloadCompleted {
-                    download_id: id.to_string(),
-                },
+                MithrilEvent::CardanoDatabase(
+                    MithrilEventCardanoDatabase::AncillaryDownloadStarted {
+                        download_id: id.to_string(),
+                    },
+                ),
+                MithrilEvent::CardanoDatabase(
+                    MithrilEventCardanoDatabase::AncillaryDownloadCompleted {
+                        download_id: id.to_string(),
+                    },
+                ),
             ];
             assert_eq!(expected_events, sent_events);
         }
