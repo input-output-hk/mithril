@@ -641,16 +641,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
 
 [[package]]
-name = "binary-layout"
-version = "3.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5845e3504cf59b9588fff324710f27ee519515b8a8a9f1207042da9a9e64f819"
-dependencies = [
- "doc-comment",
- "paste",
-]
-
-[[package]]
 name = "bincode"
 version = "1.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1544,12 +1534,6 @@ checksum = "442039f5147480ba31067cb00ada1adae6892028e40e45fc5de7b7df6dcc1b5f"
 dependencies = [
  "const-random",
 ]
-
-[[package]]
-name = "doc-comment"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "dotenv"
@@ -3642,7 +3626,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.4"
+version = "0.7.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3653,22 +3637,17 @@ dependencies = [
  "criterion",
  "flate2",
  "hex",
- "httpmock",
  "mithril-common",
  "mithril-doc",
  "mithril-metric",
  "mithril-persistence",
  "mockall",
- "paste",
- "prometheus",
  "rayon",
  "regex",
  "reqwest 0.12.12",
  "semver",
  "serde",
  "serde_json",
- "serde_yaml",
- "sha2",
  "slog",
  "slog-async",
  "slog-bunyan",
@@ -3681,7 +3660,6 @@ dependencies = [
  "tikv-jemallocator",
  "tokio",
  "tokio-util",
- "typetag",
  "uuid",
  "warp",
  "zstd",
@@ -3689,12 +3667,11 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator-fake"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "axum",
  "clap",
- "clap_derive",
  "futures",
  "mithril-build-script",
  "mithril-common",
@@ -3721,7 +3698,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.11.1"
+version = "0.11.2"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -3732,7 +3709,6 @@ dependencies = [
  "futures",
  "getrandom 0.2.15",
  "httpmock",
- "indicatif",
  "mithril-common",
  "mockall",
  "reqwest 0.12.12",
@@ -3780,12 +3756,11 @@ dependencies = [
 
 [[package]]
 name = "mithril-client-wasm"
-version = "0.8.3"
+version = "0.8.4"
 dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
- "futures",
  "mithril-build-script",
  "mithril-client",
  "serde",
@@ -3799,7 +3774,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3823,7 +3798,6 @@ dependencies = [
  "pallas-addresses",
  "pallas-codec",
  "pallas-crypto",
- "pallas-hardano",
  "pallas-network",
  "pallas-primitives",
  "pallas-traverse",
@@ -3870,33 +3844,28 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.4.69"
+version = "0.4.70"
 dependencies = [
  "anyhow",
  "async-recursion",
- "async-trait",
  "clap",
- "glob",
- "hex",
  "indicatif",
  "mithril-common",
  "mithril-doc",
  "reqwest 0.12.12",
  "serde",
  "serde_json",
- "serde_yaml",
  "slog",
  "slog-async",
  "slog-scope",
  "slog-term",
  "thiserror 2.0.11",
  "tokio",
- "tokio-util",
 ]
 
 [[package]]
 name = "mithril-metric"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "anyhow",
  "axum",
@@ -3913,18 +3882,15 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.44"
+version = "0.2.45"
 dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
- "hex",
  "mithril-common",
- "mockall",
  "semver",
  "serde",
  "serde_json",
- "sha2",
  "slog",
  "sqlite",
  "thiserror 2.0.11",
@@ -3933,7 +3899,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-relay"
-version = "0.1.34"
+version = "0.1.35"
 dependencies = [
  "anyhow",
  "clap",
@@ -3945,7 +3911,6 @@ dependencies = [
  "reqwest 0.12.12",
  "serde",
  "serde_json",
- "serde_yaml",
  "slog",
  "slog-async",
  "slog-bunyan",
@@ -3958,11 +3923,10 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.228"
+version = "0.2.229"
 dependencies = [
  "anyhow",
  "async-trait",
- "axum",
  "chrono",
  "clap",
  "config",
@@ -3975,10 +3939,7 @@ dependencies = [
  "mithril-metric",
  "mithril-persistence",
  "mockall",
- "paste",
- "prometheus",
  "prometheus-parse",
- "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "reqwest 0.12.12",
  "serde",
@@ -3996,14 +3957,13 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.3.37"
+version = "0.3.38"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
  "blst",
  "criterion",
  "digest 0.10.7",
- "hex",
  "num-bigint 0.4.6",
  "num-rational",
  "num-traits",
@@ -4021,11 +3981,9 @@ dependencies = [
 name = "mithrildemo"
 version = "0.1.48"
 dependencies = [
- "base64 0.22.1",
  "blake2 0.10.6",
  "clap",
  "hex",
- "log",
  "mithril-common",
  "mithril-doc",
  "mithril-stm",
@@ -4540,20 +4498,6 @@ dependencies = [
  "serde",
  "thiserror 1.0.69",
  "zeroize",
-]
-
-[[package]]
-name = "pallas-hardano"
-version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "641f1ce6df44330bbf8a707aeffd04b97d7f52cc50284ffe8e73fabf1c91582a"
-dependencies = [
- "binary-layout",
- "pallas-network",
- "pallas-traverse",
- "tap",
- "thiserror 1.0.69",
- "tracing",
 ]
 
 [[package]]
@@ -6319,12 +6263,6 @@ name = "take_mut"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f764005d11ee5f36500a149ace24e00e3da98b0158b3e2d53a7495660d3f4d60"
-
-[[package]]
-name = "tap"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "tar"

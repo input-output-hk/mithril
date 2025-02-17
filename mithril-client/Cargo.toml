@@ -1,6 +1,6 @@
 [package]
 name = "mithril-client"
-version = "0.11.1"
+version = "0.11.2"
 description = "Mithril client library"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -68,7 +68,6 @@ uuid = { version = "1.13.1", features = ["v4", "js"] }
 
 [dev-dependencies]
 httpmock = "0.7.0"
-indicatif = { version = "0.17.11", features = ["tokio"] }
 mithril-common = { path = "../mithril-common", version = "=0.5", default-features = false, features = [
     "test_tools",
 ] }

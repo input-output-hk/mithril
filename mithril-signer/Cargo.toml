@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.228"
+version = "0.2.229"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -16,7 +16,6 @@ harness = false
 [dependencies]
 anyhow = "1.0.95"
 async-trait = "0.1.86"
-axum = "0.8.1"
 chrono = { version = "0.4.39", features = ["serde"] }
 clap = { version = "4.5.28", features = ["derive", "env"] }
 config = "0.15.7"
@@ -25,9 +24,6 @@ mithril-common = { path = "../mithril-common", features = ["full"] }
 mithril-doc = { path = "../internal/mithril-doc" }
 mithril-metric = { path = "../internal/mithril-metric" }
 mithril-persistence = { path = "../internal/mithril-persistence" }
-paste = "1.0.15"
-prometheus = "0.13.4"
-rand_chacha = "0.3.1"
 rand_core = "0.6.4"
 reqwest = { version = "0.12.12", features = [
     "json",

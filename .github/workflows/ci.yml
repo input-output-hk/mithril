@@ -237,7 +237,7 @@ jobs:
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
-          cargo-tools: cargo-sort clippy-sarif sarif-fmt
+          cargo-tools: cargo-machete cargo-sort clippy-sarif sarif-fmt
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install prettier
@@ -272,6 +272,11 @@ jobs:
         if: success() || failure()
         shell: bash
         run: cargo sort -w -c
+
+      - name: Cargo machete (check unused dependencies)
+        if: success() || failure()
+        shell: bash
+        run: cargo machete
 
       - name: Dependency & Vulnerabilities Review
         if: github.event_name == 'pull_request'

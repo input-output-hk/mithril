@@ -1,6 +1,6 @@
 [package]
 name = "mithril-metric"
-version = "0.1.7"
+version = "0.1.8"
 description = "Common tools to expose metrics."
 authors = { workspace = true }
 edition = { workspace = true }
