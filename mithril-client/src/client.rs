@@ -22,8 +22,6 @@ use crate::feedback::{FeedbackReceiver, FeedbackSender};
 use crate::file_downloader::{FileDownloadRetryPolicy, HttpFileDownloader, RetryDownloader};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
-#[cfg(feature = "fs")]
-use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
 
 #[cfg(target_family = "wasm")]
@@ -138,8 +136,6 @@ pub struct ClientBuilder {
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
     #[cfg(feature = "unstable")]
     certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
-    #[cfg(feature = "fs")]
-    snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
     logger: Option<Logger>,
     feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     options: ClientOptions,
@@ -156,8 +152,6 @@ impl ClientBuilder {
             certificate_verifier: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
-            #[cfg(feature = "fs")]
-            snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
@@ -176,8 +170,6 @@ impl ClientBuilder {
             certificate_verifier: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
-            #[cfg(feature = "fs")]
-            snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
@@ -242,25 +234,6 @@ impl ClientBuilder {
             aggregator_client.clone(),
         ));
 
-        #[cfg(feature = "fs")]
-        let snapshot_downloader = match self.snapshot_downloader {
-            None => Arc::new(
-                HttpSnapshotDownloader::new(feedback_sender.clone(), logger.clone())
-                    .with_context(|| "Building snapshot downloader failed")?,
-            ),
-            Some(snapshot_downloader) => snapshot_downloader,
-        };
-
-        let snapshot_client = Arc::new(SnapshotClient::new(
-            aggregator_client.clone(),
-            #[cfg(feature = "fs")]
-            snapshot_downloader,
-            #[cfg(feature = "fs")]
-            feedback_sender.clone(),
-            #[cfg(feature = "fs")]
-            logger.clone(),
-        ));
-
         #[cfg(all(feature = "fs", feature = "unstable"))]
         let http_file_downloader = Arc::new(RetryDownloader::new(
             Arc::new(
@@ -269,6 +242,17 @@ impl ClientBuilder {
             ),
             FileDownloadRetryPolicy::default(),
         ));
+
+        let snapshot_client = Arc::new(SnapshotClient::new(
+            aggregator_client.clone(),
+            #[cfg(feature = "fs")]
+            http_file_downloader.clone(),
+            #[cfg(feature = "fs")]
+            feedback_sender.clone(),
+            #[cfg(feature = "fs")]
+            logger.clone(),
+        ));
+
         #[cfg(feature = "unstable")]
         let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
             aggregator_client.clone(),
@@ -324,17 +308,6 @@ impl ClientBuilder {
             certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
         ) -> ClientBuilder {
             self.certificate_verifier_cache = certificate_verifier_cache;
-            self
-        }
-    }
-
-    cfg_fs! {
-        /// Set the [SnapshotDownloader] that will be used to download snapshots.
-        pub fn with_snapshot_downloader(
-            mut self,
-            snapshot_downloader: Arc<dyn SnapshotDownloader>,
-        ) -> ClientBuilder {
-            self.snapshot_downloader = Some(snapshot_downloader);
             self
         }
     }

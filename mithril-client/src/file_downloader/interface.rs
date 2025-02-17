@@ -55,6 +55,12 @@ impl FileDownloaderUri {
     }
 }
 
+impl From<String> for FileDownloaderUri {
+    fn from(location: String) -> Self {
+        Self::FileUri(FileUri(location))
+    }
+}
+
 impl From<FileUri> for FileDownloaderUri {
     fn from(file_uri: FileUri) -> Self {
         Self::FileUri(file_uri)
@@ -105,6 +111,11 @@ pub enum DownloadEvent {
         /// Unique download identifier
         download_id: String,
     },
+    /// Full database download
+    Full {
+        /// Unique download identifier
+        download_id: String,
+    },
 }
 
 impl DownloadEvent {
@@ -115,9 +126,9 @@ impl DownloadEvent {
                 immutable_file_number: _,
                 download_id,
             } => download_id,
-            DownloadEvent::Ancillary { download_id } | DownloadEvent::Digest { download_id } => {
-                download_id
-            }
+            DownloadEvent::Ancillary { download_id }
+            | DownloadEvent::Digest { download_id }
+            | DownloadEvent::Full { download_id } => download_id,
         }
     }
 
@@ -153,6 +164,11 @@ impl DownloadEvent {
                     size: total_bytes,
                 })
             }
+            DownloadEvent::Full { download_id } => MithrilEvent::SnapshotDownloadProgress {
+                download_id: download_id.to_string(),
+                downloaded_bytes,
+                size: total_bytes,
+            },
         }
     }
 }
@@ -253,6 +269,19 @@ mod tests {
                 downloaded_bytes: 123,
                 size: 1234,
             }),
+            event,
+        );
+
+        let download_event_type = DownloadEvent::Full {
+            download_id: "download-123".to_string(),
+        };
+        let event = download_event_type.build_download_progress_event(123, 1234);
+        assert_eq!(
+            MithrilEvent::SnapshotDownloadProgress {
+                download_id: "download-123".to_string(),
+                downloaded_bytes: 123,
+                size: 1234,
+            },
             event,
         );
     }
