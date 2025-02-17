@@ -1,6 +1,6 @@
 //! Commands to generate a markdown documentation for the command line.
 
-// TODO: Some Configuration could not be generated properly because there is a lack of information.
+// LIMITATIONS: Some `Configuration` cannot be generated as precisely as we would like because there is a lack of information in the code.
 // - We don't know which parameter is required or not.
 // - In aggregator, Configuration struct contains all parameters but it's not possible to know which sub command use one parameter.
 
@@ -175,6 +175,7 @@ impl GenerateDocCommands {
             markdown_formatter::doc_markdown_with_config(cmd_to_document, Some(&merged_struct_doc));
         let cmd_name = cmd_to_document.get_name();
 
+        println!("Please note: the documentation generated is not able to indicate the environment variables used by the commands.");
         self.save_doc(cmd_name, format!("\n{}", doc).as_str())
     }
 }
