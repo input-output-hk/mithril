@@ -8,9 +8,11 @@ use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use flume::{Receiver, Sender};
 use futures::StreamExt;
-use reqwest::{Response, StatusCode};
+use reqwest::{Response, StatusCode, Url};
 use slog::{debug, Logger};
 use tar::Archive;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
 
 use mithril_common::{logging::LoggerExtensions, StdResult};
 
@@ -55,7 +57,51 @@ impl HttpFileDownloader {
         }
     }
 
-    async fn download_file(
+    fn file_scheme_to_local_path(file_url: &str) -> Option<String> {
+        Url::parse(file_url)
+            .ok()
+            .filter(|url| url.scheme() == "file")
+            .and_then(|url| url.to_file_path().ok())
+            .map(|path| path.to_string_lossy().into_owned())
+    }
+
+    /// Stream the `location` directly from the local filesystem
+    async fn download_local_file(
+        &self,
+        local_path: &str,
+        sender: &Sender<Vec<u8>>,
+        download_event_type: DownloadEvent,
+        file_size: u64,
+    ) -> StdResult<()> {
+        let mut downloaded_bytes: u64 = 0;
+        let mut file = File::open(local_path).await?;
+
+        loop {
+            // We can either allocate here each time, or clone a shared buffer into sender.
+            // A larger read buffer is faster, less context switches:
+            let mut buffer = vec![0; 16 * 1024 * 1024];
+            let bytes_read = file.read(&mut buffer).await?;
+            if bytes_read == 0 {
+                break;
+            }
+            buffer.truncate(bytes_read);
+            sender.send_async(buffer).await.with_context(|| {
+                format!(
+                    "Local file read: could not write {} bytes to stream.",
+                    bytes_read
+                )
+            })?;
+            downloaded_bytes += bytes_read as u64;
+            let event =
+                download_event_type.build_download_progress_event(downloaded_bytes, file_size);
+            self.feedback_sender.send_event(event).await;
+        }
+
+        Ok(())
+    }
+
+    /// Stream the `location` remotely
+    async fn download_remote_file(
         &self,
         location: &str,
         sender: &Sender<Vec<u8>>,
@@ -151,8 +197,13 @@ impl FileDownloader for HttpFileDownloader {
         // The size will be completed with the uncompressed file size when available in the location
         // (see https://github.com/input-output-hk/mithril/issues/2291)
         let file_size = 0;
-        self.download_file(location.as_str(), &sender, download_event_type, file_size)
-            .await?;
+        if let Some(local_path) = Self::file_scheme_to_local_path(location.as_str()) {
+            self.download_local_file(&local_path, &sender, download_event_type, file_size)
+                .await?;
+        } else {
+            self.download_remote_file(location.as_str(), &sender, download_event_type, file_size)
+                .await?;
+        }
         drop(sender);
         unpack_thread
             .await
