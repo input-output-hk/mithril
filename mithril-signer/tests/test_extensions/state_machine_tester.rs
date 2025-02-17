@@ -37,7 +37,7 @@ use mithril_persistence::{
     store::StakeStorer,
 };
 use mithril_signed_entity_lock::SignedEntityTypeLock;
-use mithril_transaction_preloader::{
+use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
 };
 

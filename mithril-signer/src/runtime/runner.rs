@@ -354,7 +354,7 @@ mod tests {
         MithrilTickerService, TickerService,
     };
     use mithril_signed_entity_lock::SignedEntityTypeLock;
-    use mithril_transaction_preloader::{
+    use mithril_signed_entity_preloader::{
         CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
     };
 

@@ -9,7 +9,7 @@ use mithril_common::chain_observer::{
 use mithril_common::chain_reader::{ChainBlockReader, PallasChainReader};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::SignedEntityTypeDiscriminants;
-use mithril_transaction_preloader::{
+use mithril_signed_entity_preloader::{
     CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
 };
 

@@ -7,7 +7,7 @@ use mithril_common::era::{EraChecker, EraReader};
 use mithril_common::signable_builder::SignableBuilderService;
 use mithril_common::TickerService;
 use mithril_signed_entity_lock::SignedEntityTypeLock;
-use mithril_transaction_preloader::CardanoTransactionsPreloader;
+use mithril_signed_entity_preloader::CardanoTransactionsPreloader;
 
 use mithril_persistence::store::StakeStorer;
 use tokio::sync::RwLock;

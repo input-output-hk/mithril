@@ -4,7 +4,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 
 use mithril_common::{entities::SignedEntityTypeDiscriminants, StdResult};
-use mithril_transaction_preloader::CardanoTransactionsPreloaderChecker;
+use mithril_signed_entity_preloader::CardanoTransactionsPreloaderChecker;
 
 use crate::services::AggregatorClient;
 
