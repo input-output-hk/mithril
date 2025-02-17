@@ -40,9 +40,7 @@ pub mod era;
 pub mod logging;
 pub mod messages;
 pub mod protocol;
-pub mod resource_pool;
 pub mod signable_builder;
-pub mod signed_entity_type_lock;
 
 cfg_test_tools! {
     pub mod test_utils;
@@ -53,7 +51,6 @@ cfg_fs! {
     pub mod digesters;
     pub mod cardano_block_scanner;
     pub mod chain_reader;
-    pub mod cardano_transactions_preloader;
 
     pub use ticker_service::{TickerService, MithrilTickerService};
 }

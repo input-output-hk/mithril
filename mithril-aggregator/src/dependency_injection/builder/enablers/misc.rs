@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use mithril_common::signed_entity_type_lock::SignedEntityTypeLock;
+use mithril_signed_entity_lock::SignedEntityTypeLock;
 
 use crate::database::repository::CertificateRepository;
 use crate::dependency_injection::{DependenciesBuilder, Result};

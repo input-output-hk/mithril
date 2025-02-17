@@ -3626,7 +3626,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.7.5"
+version = "0.7.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3641,6 +3641,9 @@ dependencies = [
  "mithril-doc",
  "mithril-metric",
  "mithril-persistence",
+ "mithril-resource-pool",
+ "mithril-signed-entity-lock",
+ "mithril-signed-entity-preloader",
  "mockall",
  "rayon",
  "regex",
@@ -3774,7 +3777,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3882,12 +3885,13 @@ dependencies = [
 
 [[package]]
 name = "mithril-persistence"
-version = "0.2.45"
+version = "0.2.46"
 dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
  "mithril-common",
+ "mithril-resource-pool",
  "semver",
  "serde",
  "serde_json",
@@ -3922,8 +3926,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-resource-pool"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "mithril-common",
+ "mockall",
+ "thiserror 2.0.11",
+ "tokio",
+]
+
+[[package]]
+name = "mithril-signed-entity-lock"
+version = "0.0.1"
+dependencies = [
+ "mithril-common",
+ "tokio",
+]
+
+[[package]]
+name = "mithril-signed-entity-preloader"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "mithril-common",
+ "mithril-signed-entity-lock",
+ "mockall",
+ "slog",
+ "slog-async",
+ "slog-term",
+ "tokio",
+]
+
+[[package]]
 name = "mithril-signer"
-version = "0.2.229"
+version = "0.2.230"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3938,6 +3976,8 @@ dependencies = [
  "mithril-doc",
  "mithril-metric",
  "mithril-persistence",
+ "mithril-signed-entity-lock",
+ "mithril-signed-entity-preloader",
  "mockall",
  "prometheus-parse",
  "rand_core 0.6.4",

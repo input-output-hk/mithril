@@ -17,9 +17,6 @@ use tokio::sync::RwLock;
 use mithril_common::{
     api_version::APIVersionProvider,
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
-    cardano_transactions_preloader::{
-        CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
-    },
     chain_observer::{ChainObserver, FakeObserver},
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver, ImmutableFileObserver},
     entities::{
@@ -33,12 +30,15 @@ use mithril_common::{
         MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         SignableBuilderServiceDependencies,
     },
-    signed_entity_type_lock::SignedEntityTypeLock,
     MithrilTickerService, StdError, TickerService,
 };
 use mithril_persistence::{
     database::repository::CardanoTransactionRepository, sqlite::SqliteConnectionPool,
     store::StakeStorer,
+};
+use mithril_signed_entity_lock::SignedEntityTypeLock;
+use mithril_signed_entity_preloader::{
+    CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
 };
 
 use mithril_signer::{

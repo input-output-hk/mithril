@@ -3,15 +3,15 @@ use std::sync::Arc;
 use tokio::sync::Mutex;
 
 use mithril_common::cardano_block_scanner::{BlockScanner, CardanoBlockScanner};
-use mithril_common::cardano_transactions_preloader::{
-    CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
-};
 use mithril_common::chain_observer::{
     CardanoCliRunner, ChainObserver, ChainObserverBuilder, FakeObserver,
 };
 use mithril_common::chain_reader::{ChainBlockReader, PallasChainReader};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableDigester};
 use mithril_common::entities::SignedEntityTypeDiscriminants;
+use mithril_signed_entity_preloader::{
+    CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
+};
 
 use crate::dependency_injection::{DependenciesBuilder, Result};
 use crate::services::{MithrilStakeDistributionService, StakeDistributionService};

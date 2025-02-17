@@ -1,16 +1,16 @@
 //! # Signed Entity Type Lock
 //!
 //! This module provides a non-blocking lock mechanism for signed entity types to prevent multiple
-//! modification on a same entity type at the same time.
+//! modifications on a same entity type at the same time.
 
 use std::collections::BTreeSet;
 
 use tokio::sync::RwLock;
 
-use crate::entities::SignedEntityTypeDiscriminants;
+use mithril_common::entities::SignedEntityTypeDiscriminants;
 
 /// Non-blocking lock mechanism for signed entity types to prevent multiple
-/// modification on a same entity type at the same time.
+/// modifications on a same entity type at the same time.
 pub struct SignedEntityTypeLock {
     locked_entities: RwLock<BTreeSet<SignedEntityTypeDiscriminants>>,
 }

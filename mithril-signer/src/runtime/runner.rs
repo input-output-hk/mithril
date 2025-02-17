@@ -339,9 +339,6 @@ mod tests {
     use mithril_common::{
         api_version::APIVersionProvider,
         cardano_block_scanner::DumbBlockScanner,
-        cardano_transactions_preloader::{
-            CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
-        },
         chain_observer::FakeObserver,
         crypto_helper::{MKMap, MKMapNode, MKTreeNode, MKTreeStoreInMemory, MKTreeStorer},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -353,9 +350,12 @@ mod tests {
             CardanoStakeDistributionSignableBuilder, CardanoTransactionsSignableBuilder,
             MithrilSignableBuilderService, MithrilStakeDistributionSignableBuilder,
         },
-        signed_entity_type_lock::SignedEntityTypeLock,
         test_utils::{fake_data, MithrilFixtureBuilder},
         MithrilTickerService, TickerService,
+    };
+    use mithril_signed_entity_lock::SignedEntityTypeLock;
+    use mithril_signed_entity_preloader::{
+        CardanoTransactionsPreloader, CardanoTransactionsPreloaderActivation,
     };
 
     use crate::database::repository::{
