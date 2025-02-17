@@ -41,9 +41,15 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - Crates versions:
 
-| Crate | Version |
-| ----- | ------- |
-| N/A   | `-`     |
+| Crate               | Version   |
+| ------------------- | --------- |
+| mithril-aggregator  | `0.7.1`   |
+| mithril-client      | `0.11.1`  |
+| mithril-client-cli  | `0.11.0`  |
+| mithril-client-wasm | `0.8.1`   |
+| mithril-common      | `0.5.0`   |
+| mithril-signer      | `0.2.228` |
+| mithril-stm         | `0.3.37`  |
 
 ## Mithril Distribution [2450.0] - 2024-12-17
 
