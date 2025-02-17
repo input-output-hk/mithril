@@ -95,6 +95,20 @@ impl CardanoDbV2DownloadCommand {
         }
     }
 
+    fn number_of_immutable_files_restored(
+        cardano_database_snapshot: &CardanoDatabaseSnapshot,
+        immutable_file_range: &ImmutableFileRange,
+    ) -> u64 {
+        match immutable_file_range {
+            ImmutableFileRange::Full => cardano_database_snapshot.beacon.immutable_file_number,
+            ImmutableFileRange::From(from) => {
+                cardano_database_snapshot.beacon.immutable_file_number - from + 1
+            }
+            ImmutableFileRange::Range(from, to) => to - from + 1,
+            ImmutableFileRange::UpTo(to) => *to,
+        }
+    }
+
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?.add_source(self)?;
@@ -285,18 +299,30 @@ impl CardanoDbV2DownloadCommand {
             )
             .await?;
 
-        // // The cardano db download does not fail if the statistic call fails.
-        // // It would be nice to implement tests to verify the behavior of `add_statistics`
-        // if let Err(e) = client
-        //     .snapshot()
-        //     .add_statistics(cardano_database_snapshot)
-        //     .await
-        // {
-        //     warn!(
-        //         logger, "Could not increment cardano db download statistics";
-        //         "error" => ?e
-        //     );
-        // }
+        // The cardano db snapshot download does not fail if the statistic call fails.
+        // It would be nice to implement tests to verify the behavior of `add_statistics`
+        let full_restoration = restoration_options.immutable_file_range == ImmutableFileRange::Full;
+        let include_ancillary = restoration_options
+            .download_unpack_options
+            .include_ancillary;
+        let number_of_immutable_files_restored = Self::number_of_immutable_files_restored(
+            cardano_database_snapshot,
+            &restoration_options.immutable_file_range,
+        );
+        if let Err(e) = client
+            .cardano_database()
+            .add_statistics(
+                full_restoration,
+                include_ancillary,
+                number_of_immutable_files_restored,
+            )
+            .await
+        {
+            warn!(
+                logger, "Could not increment cardano db snapshot download statistics";
+                "error" => ?e
+            );
+        }
 
         // Append 'clean' file to speedup node bootstrap
         if let Err(error) = File::create(restoration_options.db_dir.join("clean")) {
@@ -566,5 +592,81 @@ mod tests {
         let range = CardanoDbV2DownloadCommand::immutable_file_range(None, end);
 
         assert_eq!(range, ImmutableFileRange::UpTo(345));
+    }
+
+    #[test]
+    fn number_of_immutable_files_restored_with_full_restoration() {
+        let cardano_database_snapshot = CardanoDatabaseSnapshot {
+            beacon: CardanoDbBeacon::new(999, 20),
+            ..CardanoDatabaseSnapshot::dummy()
+        };
+        let immutable_file_range = ImmutableFileRange::Full;
+
+        let number_of_immutable_files_restored =
+            CardanoDbV2DownloadCommand::number_of_immutable_files_restored(
+                &cardano_database_snapshot,
+                &immutable_file_range,
+            );
+
+        assert_eq!(number_of_immutable_files_restored, 20);
+    }
+
+    #[test]
+    fn number_of_immutable_files_restored_with_from() {
+        let cardano_database_snapshot = CardanoDatabaseSnapshot {
+            beacon: CardanoDbBeacon::new(999, 20),
+            ..CardanoDatabaseSnapshot::dummy()
+        };
+        let immutable_file_range = ImmutableFileRange::From(12);
+
+        let number_of_immutable_files_restored =
+            CardanoDbV2DownloadCommand::number_of_immutable_files_restored(
+                &cardano_database_snapshot,
+                &immutable_file_range,
+            );
+
+        let expected_number_of_immutable_files_restored = 20 - 12 + 1;
+        assert_eq!(
+            number_of_immutable_files_restored,
+            expected_number_of_immutable_files_restored
+        );
+    }
+
+    #[test]
+    fn number_of_immutable_files_restored_with_up_to() {
+        let cardano_database_snapshot = CardanoDatabaseSnapshot {
+            beacon: CardanoDbBeacon::new(999, 20),
+            ..CardanoDatabaseSnapshot::dummy()
+        };
+        let immutable_file_range = ImmutableFileRange::UpTo(14);
+
+        let number_of_immutable_files_restored =
+            CardanoDbV2DownloadCommand::number_of_immutable_files_restored(
+                &cardano_database_snapshot,
+                &immutable_file_range,
+            );
+
+        assert_eq!(number_of_immutable_files_restored, 14);
+    }
+
+    #[test]
+    fn number_of_immutable_files_restored_with_range() {
+        let cardano_database_snapshot = CardanoDatabaseSnapshot {
+            beacon: CardanoDbBeacon::new(999, 20),
+            ..CardanoDatabaseSnapshot::dummy()
+        };
+        let immutable_file_range = ImmutableFileRange::Range(12, 14);
+
+        let number_of_immutable_files_restored =
+            CardanoDbV2DownloadCommand::number_of_immutable_files_restored(
+                &cardano_database_snapshot,
+                &immutable_file_range,
+            );
+
+        let expected_number_of_immutable_files_restored = 14 - 12 + 1;
+        assert_eq!(
+            number_of_immutable_files_restored,
+            expected_number_of_immutable_files_restored
+        );
     }
 }
