@@ -12,7 +12,7 @@ use mithril_common::{
 };
 
 use crate::feedback::{MithrilEvent, MithrilEventCardanoDatabase};
-use crate::file_downloader::{FileDownloader, FileDownloaderUri};
+use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
 use crate::MithrilResult;
 
 use super::api::CardanoDatabaseClient;
@@ -134,34 +134,6 @@ impl CardanoDatabaseClient {
         Ok(())
     }
 
-    fn feedback_event_builder_immutable_download(
-        download_id: String,
-        downloaded_bytes: u64,
-        size: u64,
-    ) -> Option<MithrilEvent> {
-        Some(MithrilEvent::CardanoDatabase(
-            MithrilEventCardanoDatabase::ImmutableDownloadProgress {
-                download_id,
-                downloaded_bytes,
-                size,
-            },
-        ))
-    }
-
-    fn feedback_event_builder_ancillary_download(
-        download_id: String,
-        downloaded_bytes: u64,
-        size: u64,
-    ) -> Option<MithrilEvent> {
-        Some(MithrilEvent::CardanoDatabase(
-            MithrilEventCardanoDatabase::AncillaryDownloadProgress {
-                download_id,
-                downloaded_bytes,
-                size,
-            },
-        ))
-    }
-
     /// Download and unpack the immutable files of the given range.
     ///
     /// The download is attempted for each location until the full range is downloaded.
@@ -230,8 +202,7 @@ impl CardanoDatabaseClient {
                             &file_downloader_uri_clone,
                             &immutable_files_target_dir_clone,
                             Some(compression_algorithm_clone),
-                            &download_id,
-                            Self::feedback_event_builder_immutable_download,
+                            DownloadEvent::Immutable{immutable_file_number, download_id: download_id.clone()},
                         )
                         .await;
                     match downloaded {
@@ -342,8 +313,9 @@ impl CardanoDatabaseClient {
                     &file_downloader_uri,
                     ancillary_file_target_dir,
                     Some(compression_algorithm.to_owned()),
-                    &download_id,
-                    Self::feedback_event_builder_ancillary_download,
+                    DownloadEvent::Ancillary {
+                        download_id: download_id.clone(),
+                    },
                 )
                 .await;
             match downloaded {

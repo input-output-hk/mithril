@@ -1,4 +1,3 @@
-
 use anyhow::anyhow;
 use mockall::predicate;
 use std::path::{Path, PathBuf};
@@ -8,15 +7,14 @@ use mithril_common::{
     StdResult,
 };
 
-use super::{FeedbackEventBuilder, FileDownloaderUri, MockFileDownloader};
+use super::{DownloadEvent, FileDownloaderUri, MockFileDownloader};
 
 type MockFileDownloaderBuilderReturningFunc = Box<
     dyn FnMut(
             &FileDownloaderUri,
             &Path,
             Option<CompressionAlgorithm>,
-            &str,
-            FeedbackEventBuilder,
+            DownloadEvent,
         ) -> StdResult<()>
         + Send
         + 'static,
@@ -56,12 +54,12 @@ impl MockFileDownloaderBuilder {
 
     /// The MockFileDownloader will succeed
     pub fn with_success(self) -> Self {
-        self.with_returning(Box::new(|_, _, _, _, _| Ok(())))
+        self.with_returning(Box::new(|_, _, _, _| Ok(())))
     }
 
     /// The MockFileDownloader will fail
     pub fn with_failure(self) -> Self {
-        self.with_returning(Box::new(|_, _, _, _, _| {
+        self.with_returning(Box::new(|_, _, _, _| {
             Err(anyhow!("Download unpack failed"))
         }))
     }
@@ -128,8 +126,7 @@ impl MockFileDownloaderBuilder {
                 .map(|x| x == u)
                 .unwrap_or(true)
         });
-        let predicate_download_id = predicate::always();
-        let predicate_feedback_event_builder = predicate::always();
+        let predicate_download_event_type = predicate::always();
 
         let mut mock_file_downloader = self.mock_file_downloader.unwrap_or_default();
         mock_file_downloader
@@ -138,8 +135,7 @@ impl MockFileDownloaderBuilder {
                 predicate_file_downloader_uri,
                 predicate_target_dir,
                 predicate_compression_algorithm,
-                predicate_download_id,
-                predicate_feedback_event_builder,
+                predicate_download_event_type,
             )
             .times(self.times)
             .returning(self.returning_func.unwrap());

@@ -86,20 +86,9 @@ mod tests {
 
     use mithril_common::entities::{FileUri, MultiFilesUri, TemplateUri};
 
-    use crate::{
-        feedback::MithrilEvent,
-        file_downloader::{FileDownloaderUri, MockFileDownloader},
-    };
+    use crate::file_downloader::{DownloadEvent, FileDownloaderUri, MockFileDownloader};
 
     use super::*;
-
-    fn fake_feedback_event(
-        _download_id: String,
-        _downloaded_bytes: u64,
-        _size: u64,
-    ) -> Option<MithrilEvent> {
-        None
-    }
 
     #[tokio::test]
     async fn immutables_file_downloader_resolver() {
@@ -107,7 +96,7 @@ mod tests {
         mock_file_downloader
             .expect_download_unpack()
             .times(1)
-            .returning(|_, _, _, _, _| Ok(()));
+            .returning(|_, _, _, _| Ok(()));
         let resolver = ImmutablesFileDownloaderResolver::new(vec![(
             ImmutablesLocationDiscriminants::CloudStorage,
             Arc::new(mock_file_downloader),
@@ -125,8 +114,10 @@ mod tests {
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/1.tar.gz".to_string())),
                 Path::new("."),
                 None,
-                "download_id",
-                fake_feedback_event,
+                DownloadEvent::Immutable {
+                    download_id: "id".to_string(),
+                    immutable_file_number: 1,
+                },
             )
             .await
             .unwrap();
@@ -138,7 +129,7 @@ mod tests {
         mock_file_downloader_cloud_storage
             .expect_download_unpack()
             .times(1)
-            .returning(|_, _, _, _, _| Ok(()));
+            .returning(|_, _, _, _| Ok(()));
         let resolver = AncillaryFileDownloaderResolver::new(vec![(
             AncillaryLocationDiscriminants::CloudStorage,
             Arc::new(mock_file_downloader_cloud_storage),
@@ -154,8 +145,10 @@ mod tests {
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
                 Path::new("."),
                 None,
-                "download_id",
-                fake_feedback_event,
+                DownloadEvent::Immutable {
+                    download_id: "id".to_string(),
+                    immutable_file_number: 1,
+                },
             )
             .await
             .unwrap();
@@ -168,7 +161,7 @@ mod tests {
         mock_file_downloader_cloud_storage
             .expect_download_unpack()
             .times(1)
-            .returning(|_, _, _, _, _| Ok(()));
+            .returning(|_, _, _, _| Ok(()));
         let resolver = DigestFileDownloaderResolver::new(vec![
             (
                 DigestLocationDiscriminants::Aggregator,
@@ -190,8 +183,10 @@ mod tests {
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
                 Path::new("."),
                 None,
-                "download_id",
-                fake_feedback_event,
+                DownloadEvent::Immutable {
+                    download_id: "id".to_string(),
+                    immutable_file_number: 1,
+                },
             )
             .await
             .unwrap();

@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc, time::Duration};
 use async_trait::async_trait;
 use mithril_common::{entities::CompressionAlgorithm, StdResult};
 
-use super::{FeedbackEventBuilder, FileDownloader, FileDownloaderUri};
+use super::{DownloadEvent, FileDownloader, FileDownloaderUri};
 
 /// Policy for retrying file downloads.
 #[derive(Debug, PartialEq, Clone)]
@@ -62,8 +62,7 @@ impl FileDownloader for RetryDownloader {
         location: &FileDownloaderUri,
         target_dir: &Path,
         compression_algorithm: Option<CompressionAlgorithm>,
-        download_id: &str,
-        feedback_event_builder: FeedbackEventBuilder,
+        download_event_type: DownloadEvent,
     ) -> StdResult<()> {
         let retry_policy = &self.retry_policy;
         let mut nb_attempts = 0;
@@ -75,8 +74,7 @@ impl FileDownloader for RetryDownloader {
                     location,
                     target_dir,
                     compression_algorithm,
-                    download_id,
-                    feedback_event_builder,
+                    download_event_type.clone(),
                 )
                 .await
             {
@@ -101,17 +99,9 @@ mod tests {
 
     use mithril_common::entities::FileUri;
 
-    use crate::{feedback::MithrilEvent, file_downloader::MockFileDownloaderBuilder};
+    use crate::file_downloader::MockFileDownloaderBuilder;
 
     use super::*;
-
-    fn fake_feedback_event(
-        _download_id: String,
-        _downloaded_bytes: u64,
-        _size: u64,
-    ) -> Option<MithrilEvent> {
-        None
-    }
 
     #[tokio::test]
     async fn download_return_the_result_of_download_without_retry() {
@@ -130,8 +120,10 @@ mod tests {
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
                 Path::new("."),
                 None,
-                "download_id",
-                fake_feedback_event,
+                DownloadEvent::Immutable {
+                    immutable_file_number: 1,
+                    download_id: "download_id".to_string(),
+                },
             )
             .await
             .unwrap();
@@ -154,8 +146,10 @@ mod tests {
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
                 Path::new("."),
                 None,
-                "download_id",
-                fake_feedback_event,
+                DownloadEvent::Immutable {
+                    immutable_file_number: 1,
+                    download_id: "download_id".to_string(),
+                },
             )
             .await
             .expect_err("An error should be returned when download fails");
@@ -188,8 +182,9 @@ mod tests {
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
                 Path::new("."),
                 None,
-                "download_id",
-                fake_feedback_event,
+                DownloadEvent::Ancillary {
+                    download_id: "download_id".to_string(),
+                },
             )
             .await
             .unwrap();
@@ -216,8 +211,10 @@ mod tests {
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
                 Path::new("."),
                 None,
-                "download_id",
-                fake_feedback_event,
+                DownloadEvent::Immutable {
+                    immutable_file_number: 1,
+                    download_id: "download_id".to_string(),
+                },
             )
             .await
             .expect_err("An error should be returned when all download attempts fail");
@@ -246,8 +243,10 @@ mod tests {
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
                 Path::new("."),
                 None,
-                "download_id",
-                fake_feedback_event,
+                DownloadEvent::Immutable {
+                    immutable_file_number: 1,
+                    download_id: "download_id".to_string(),
+                },
             )
             .await
             .expect_err("An error should be returned when all download attempts fail");

@@ -17,7 +17,7 @@ use mithril_common::{
 
 use crate::{
     feedback::{MithrilEvent, MithrilEventCardanoDatabase},
-    file_downloader::FileDownloaderUri,
+    file_downloader::{DownloadEvent, FileDownloaderUri},
     MithrilResult,
 };
 
@@ -94,8 +94,9 @@ impl CardanoDatabaseClient {
                     &file_downloader_uri,
                     digest_file_target_dir,
                     None,
-                    &download_id,
-                    Self::feedback_event_builder_digest_download,
+                    DownloadEvent::Digest {
+                        download_id: download_id.clone(),
+                    },
                 )
                 .await;
             match downloaded {
@@ -149,20 +150,6 @@ impl CardanoDatabaseClient {
             .collect::<BTreeMap<_, _>>();
 
         Ok(digest_map)
-    }
-
-    fn feedback_event_builder_digest_download(
-        download_id: String,
-        downloaded_bytes: u64,
-        size: u64,
-    ) -> Option<MithrilEvent> {
-        Some(MithrilEvent::CardanoDatabase(
-            MithrilEventCardanoDatabase::DigestDownloadProgress {
-                download_id,
-                downloaded_bytes,
-                size,
-            },
-        ))
     }
 
     fn digest_target_dir(target_dir: &Path) -> PathBuf {

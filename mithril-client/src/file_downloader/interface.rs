@@ -10,7 +10,7 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::feedback::MithrilEvent;
+use crate::feedback::{MithrilEvent, MithrilEventCardanoDatabase};
 
 /// A file downloader URI
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -163,15 +163,12 @@ impl DownloadEvent {
 pub trait FileDownloader: Sync + Send {
     /// Download and unpack (if necessary) a file on the disk.
     ///
-    /// The `download_id` is a unique identifier that allow
-    /// [feedback receivers][crate::feedback::FeedbackReceiver] to track concurrent downloads.
     async fn download_unpack(
         &self,
         location: &FileDownloaderUri,
         target_dir: &Path,
         compression_algorithm: Option<CompressionAlgorithm>,
-        download_id: &str,
-        feedback_event_builder: FeedbackEventBuilder,
+        download_event_type: DownloadEvent,
     ) -> StdResult<()>;
 }
 

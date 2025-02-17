@@ -18,7 +18,7 @@ use crate::common::CompressionAlgorithm;
 use crate::feedback::FeedbackSender;
 use crate::utils::StreamReader;
 
-use super::{FeedbackEventBuilder, FileDownloader, FileDownloaderUri};
+use super::{interface::DownloadEvent, FileDownloader, FileDownloaderUri};
 
 /// A file downloader that only handles download through HTTP.
 pub struct HttpFileDownloader {
@@ -55,25 +55,25 @@ impl HttpFileDownloader {
         }
     }
 
-    async fn download_file<F, Fut>(
+    async fn download_file(
         &self,
         location: &str,
         sender: &Sender<Vec<u8>>,
-        report_progress: F,
-    ) -> StdResult<()>
-    where
-        F: Fn(u64) -> Fut,
-        Fut: std::future::Future<Output = ()>,
-    {
+        download_event_type: DownloadEvent,
+        file_size: u64,
+    ) -> StdResult<()> {
         let mut downloaded_bytes: u64 = 0;
         let mut remote_stream = self.get(location).await?.bytes_stream();
+
         while let Some(item) = remote_stream.next().await {
             let chunk = item.with_context(|| "Download: Could not read from byte stream")?;
             sender.send_async(chunk.to_vec()).await.with_context(|| {
                 format!("Download: could not write {} bytes to stream.", chunk.len())
             })?;
             downloaded_bytes += chunk.len() as u64;
-            report_progress(downloaded_bytes).await
+            let event =
+                download_event_type.build_download_progress_event(downloaded_bytes, file_size);
+            self.feedback_sender.send_event(event).await;
         }
 
         Ok(())
@@ -83,7 +83,7 @@ impl HttpFileDownloader {
         stream: Receiver<Vec<u8>>,
         compression_algorithm: Option<CompressionAlgorithm>,
         unpack_dir: &Path,
-        download_id: &str,
+        download_id: String,
     ) -> StdResult<()> {
         let input = StreamReader::new(stream);
         match compression_algorithm {
@@ -133,8 +133,7 @@ impl FileDownloader for HttpFileDownloader {
         location: &FileDownloaderUri,
         target_dir: &Path,
         compression_algorithm: Option<CompressionAlgorithm>,
-        download_id: &str,
-        feedback_event: FeedbackEventBuilder,
+        download_event_type: DownloadEvent,
     ) -> StdResult<()> {
         if !target_dir.is_dir() {
             Err(
@@ -145,25 +144,14 @@ impl FileDownloader for HttpFileDownloader {
 
         let (sender, receiver) = flume::bounded(32);
         let dest_dir = target_dir.to_path_buf();
-        let download_id_clone = download_id.to_owned();
+        let download_id = download_event_type.download_id().to_owned();
         let unpack_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
-            Self::unpack_file(
-                receiver,
-                compression_algorithm,
-                &dest_dir,
-                &download_id_clone,
-            )
+            Self::unpack_file(receiver, compression_algorithm, &dest_dir, download_id)
         });
         // The size will be completed with the uncompressed file size when available in the location
         // (see https://github.com/input-output-hk/mithril/issues/2291)
         let file_size = 0;
-        let report_progress = |downloaded_bytes: u64| async move {
-            if let Some(event) = feedback_event(download_id.to_owned(), downloaded_bytes, file_size)
-            {
-                self.feedback_sender.send_event(event).await
-            }
-        };
-        self.download_file(location.as_str(), &sender, report_progress)
+        self.download_file(location.as_str(), &sender, download_event_type, file_size)
             .await?;
         drop(sender);
         unpack_thread
