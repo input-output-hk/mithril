@@ -175,6 +175,7 @@ impl GenerateDocCommands {
             markdown_formatter::doc_markdown_with_config(cmd_to_document, Some(&merged_struct_doc));
         let cmd_name = cmd_to_document.get_name();
 
+        println!("Please note: the documentation generated is not able to indicate the environment variables used by the commands.");
         self.save_doc(cmd_name, format!("\n{}", doc).as_str())
     }
 }
