@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build-ubuntu-X64:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     outputs:
       eras: ${{ steps.eras-test-lab.outputs.eras }}
     steps:
@@ -26,7 +26,7 @@ jobs:
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: 20.04-${{ secrets.CACHE_VERSION }}
+          cache-version: 22.04-${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-deb
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
