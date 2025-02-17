@@ -6,7 +6,6 @@ mod http;
 mod interface;
 #[cfg(test)]
 mod mock_builder;
-mod resolver;
 mod retry;
 
 pub use http::HttpFileDownloader;
@@ -15,9 +14,4 @@ pub use interface::MockFileDownloader;
 pub use interface::{DownloadEvent, FeedbackEventBuilder, FileDownloader, FileDownloaderUri};
 #[cfg(test)]
 pub use mock_builder::MockFileDownloaderBuilder;
-#[cfg(test)]
-pub use resolver::MockFileDownloaderResolver;
-pub use resolver::{
-    AncillaryFileDownloaderResolver, FileDownloaderResolver, ImmutablesFileDownloaderResolver,
-};
 pub use retry::{FileDownloadRetryPolicy, RetryDownloader};

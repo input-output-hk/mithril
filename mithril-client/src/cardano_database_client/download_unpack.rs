@@ -269,12 +269,9 @@ impl CardanoDatabaseClient {
         download_id: &str,
     ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
-        let file_downloader = self
-            .immutable_file_downloader_resolver
-            .resolve(location)
-            .ok_or_else(|| {
-                anyhow!("Failed resolving a file downloader for location: {location:?}")
-            })?;
+        let file_downloader = match &location {
+            ImmutablesLocation::CloudStorage { uri: _ } => self.http_file_downloader.clone(),
+        };
         let file_downloader_uris =
             FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
                 location,
@@ -322,12 +319,9 @@ impl CardanoDatabaseClient {
                     },
                 ))
                 .await;
-            let file_downloader = self
-                .ancillary_file_downloader_resolver
-                .resolve(&location)
-                .ok_or_else(|| {
-                    anyhow!("Failed resolving a file downloader for location: {location:?}")
-                })?;
+            let file_downloader = match &location {
+                AncillaryLocation::CloudStorage { uri: _ } => self.http_file_downloader.clone(),
+            };
             let file_downloader_uri: FileDownloaderUri = location.into();
             let downloaded = file_downloader
                 .download_unpack(
@@ -369,10 +363,7 @@ mod tests {
     use std::{fs, sync::Arc};
 
     use mithril_common::{
-        entities::{
-            AncillaryLocationDiscriminants, CardanoDbBeacon, Epoch,
-            ImmutablesLocationDiscriminants, MultiFilesUri, TemplateUri,
-        },
+        entities::{CardanoDbBeacon, Epoch, MultiFilesUri, TemplateUri},
         messages::{
             ArtifactsLocationsMessagePart,
             CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot,
@@ -436,15 +427,12 @@ mod tests {
             )
             .build();
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_immutable_file_downloaders(vec![(
-                    ImmutablesLocationDiscriminants::CloudStorage,
-                    Arc::new({
-                        MockFileDownloaderBuilder::default()
-                            .with_times(total_immutable_files as usize)
-                            .with_failure()
-                            .build()
-                    }),
-                )])
+                .with_http_file_downloader(Arc::new({
+                    MockFileDownloaderBuilder::default()
+                        .with_times(total_immutable_files as usize)
+                        .with_failure()
+                        .build()
+                }))
                 .build_cardano_database_client();
 
             client
@@ -519,33 +507,26 @@ mod tests {
             )
             .build();
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_immutable_file_downloaders(vec![(
-                    ImmutablesLocationDiscriminants::CloudStorage,
-                    Arc::new({
-                        let mock_file_downloader = MockFileDownloaderBuilder::default()
-                            .with_file_uri("http://whatever/00001.tar.gz")
-                            .with_target_dir(target_dir.clone())
-                            .with_success()
-                            .build();
-
+                .with_http_file_downloader(Arc::new({
+                    let mock_file_downloader = MockFileDownloaderBuilder::default()
+                        .with_file_uri("http://whatever/00001.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_success()
+                        .build();
+                    let mock_file_downloader =
                         MockFileDownloaderBuilder::from_mock(mock_file_downloader)
                             .with_file_uri("http://whatever/00002.tar.gz")
                             .with_target_dir(target_dir.clone())
                             .with_success()
-                            .build()
-                    }),
-                )])
-                .with_ancillary_file_downloaders(vec![(
-                    AncillaryLocationDiscriminants::CloudStorage,
-                    Arc::new(
-                        MockFileDownloaderBuilder::default()
-                            .with_file_uri("http://whatever/ancillary.tar.gz")
-                            .with_target_dir(target_dir.clone())
-                            .with_compression(Some(CompressionAlgorithm::default()))
-                            .with_success()
-                            .build(),
-                    ),
-                )])
+                            .build();
+
+                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                        .with_file_uri("http://whatever/ancillary.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_compression(Some(CompressionAlgorithm::default()))
+                        .with_success()
+                        .build()
+                }))
                 .build_cardano_database_client();
 
             client
@@ -788,17 +769,14 @@ mod tests {
             )
             .build();
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_immutable_file_downloaders(vec![(
-                    ImmutablesLocationDiscriminants::CloudStorage,
-                    Arc::new({
-                        let mock_file_downloader =
-                            MockFileDownloaderBuilder::default().with_failure().build();
+                .with_http_file_downloader(Arc::new({
+                    let mock_file_downloader =
+                        MockFileDownloaderBuilder::default().with_failure().build();
 
-                        MockFileDownloaderBuilder::from_mock(mock_file_downloader)
-                            .with_success()
-                            .build()
-                    }),
-                )])
+                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                        .with_success()
+                        .build()
+                }))
                 .build_cardano_database_client();
 
             client
@@ -830,15 +808,12 @@ mod tests {
             )
             .build();
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_immutable_file_downloaders(vec![(
-                    ImmutablesLocationDiscriminants::CloudStorage,
-                    Arc::new(
-                        MockFileDownloaderBuilder::default()
-                            .with_times(2)
-                            .with_success()
-                            .build(),
-                    ),
-                )])
+                .with_http_file_downloader(Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_times(2)
+                        .with_success()
+                        .build(),
+                ))
                 .build_cardano_database_client();
 
             client
@@ -870,28 +845,25 @@ mod tests {
             )
             .build();
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_immutable_file_downloaders(vec![(
-                    ImmutablesLocationDiscriminants::CloudStorage,
-                    Arc::new({
-                        let mock_file_downloader = MockFileDownloaderBuilder::default()
-                            .with_file_uri("http://whatever-1/00001.tar.gz")
-                            .with_target_dir(target_dir.clone())
-                            .with_failure()
-                            .build();
-                        let mock_file_downloader =
-                            MockFileDownloaderBuilder::from_mock(mock_file_downloader)
-                                .with_file_uri("http://whatever-1/00002.tar.gz")
-                                .with_target_dir(target_dir.clone())
-                                .with_success()
-                                .build();
-
+                .with_http_file_downloader(Arc::new({
+                    let mock_file_downloader = MockFileDownloaderBuilder::default()
+                        .with_file_uri("http://whatever-1/00001.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_failure()
+                        .build();
+                    let mock_file_downloader =
                         MockFileDownloaderBuilder::from_mock(mock_file_downloader)
-                            .with_file_uri("http://whatever-2/00001.tar.gz")
+                            .with_file_uri("http://whatever-1/00002.tar.gz")
                             .with_target_dir(target_dir.clone())
                             .with_success()
-                            .build()
-                    }),
-                )])
+                            .build();
+
+                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                        .with_file_uri("http://whatever-2/00001.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_success()
+                        .build()
+                }))
                 .build_cardano_database_client();
 
             client
@@ -926,10 +898,9 @@ mod tests {
             let target_dir = Path::new(".");
             let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_immutable_file_downloaders(vec![(
-                    ImmutablesLocationDiscriminants::CloudStorage,
-                    Arc::new(MockFileDownloaderBuilder::default().with_success().build()),
-                )])
+                .with_http_file_downloader(Arc::new(
+                    MockFileDownloaderBuilder::default().with_success().build(),
+                ))
                 .with_feedback_receivers(&[feedback_receiver.clone()])
                 .build_cardano_database_client();
 
@@ -978,10 +949,9 @@ mod tests {
         async fn download_unpack_ancillary_file_fails_if_no_location_is_retrieved() {
             let target_dir = Path::new(".");
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_ancillary_file_downloaders(vec![(
-                    AncillaryLocationDiscriminants::CloudStorage,
-                    Arc::new(MockFileDownloaderBuilder::default().with_failure().build()),
-                )])
+                .with_http_file_downloader(Arc::new(
+                    MockFileDownloaderBuilder::default().with_failure().build(),
+                ))
                 .build_cardano_database_client();
 
             client
@@ -1000,22 +970,19 @@ mod tests {
         async fn download_unpack_ancillary_file_succeeds_if_at_least_one_location_is_retrieved() {
             let target_dir = Path::new(".");
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_ancillary_file_downloaders(vec![(
-                    AncillaryLocationDiscriminants::CloudStorage,
-                    Arc::new({
-                        let mock_file_downloader = MockFileDownloaderBuilder::default()
-                            .with_file_uri("http://whatever-1/ancillary.tar.gz")
-                            .with_target_dir(target_dir.to_path_buf())
-                            .with_failure()
-                            .build();
+                .with_http_file_downloader(Arc::new({
+                    let mock_file_downloader = MockFileDownloaderBuilder::default()
+                        .with_file_uri("http://whatever-1/ancillary.tar.gz")
+                        .with_target_dir(target_dir.to_path_buf())
+                        .with_failure()
+                        .build();
 
-                        MockFileDownloaderBuilder::from_mock(mock_file_downloader)
-                            .with_file_uri("http://whatever-2/ancillary.tar.gz")
-                            .with_target_dir(target_dir.to_path_buf())
-                            .with_success()
-                            .build()
-                    }),
-                )])
+                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                        .with_file_uri("http://whatever-2/ancillary.tar.gz")
+                        .with_target_dir(target_dir.to_path_buf())
+                        .with_success()
+                        .build()
+                }))
                 .build_cardano_database_client();
 
             client
@@ -1039,16 +1006,13 @@ mod tests {
         async fn download_unpack_ancillary_file_succeeds_when_first_location_is_retrieved() {
             let target_dir = Path::new(".");
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_ancillary_file_downloaders(vec![(
-                    AncillaryLocationDiscriminants::CloudStorage,
-                    Arc::new(
-                        MockFileDownloaderBuilder::default()
-                            .with_file_uri("http://whatever-1/ancillary.tar.gz")
-                            .with_target_dir(target_dir.to_path_buf())
-                            .with_success()
-                            .build(),
-                    ),
-                )])
+                .with_http_file_downloader(Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_file_uri("http://whatever-1/ancillary.tar.gz")
+                        .with_target_dir(target_dir.to_path_buf())
+                        .with_success()
+                        .build(),
+                ))
                 .build_cardano_database_client();
 
             client
@@ -1073,10 +1037,9 @@ mod tests {
             let target_dir = Path::new(".");
             let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_ancillary_file_downloaders(vec![(
-                    AncillaryLocationDiscriminants::CloudStorage,
-                    Arc::new(MockFileDownloaderBuilder::default().with_success().build()),
-                )])
+                .with_http_file_downloader(Arc::new(
+                    MockFileDownloaderBuilder::default().with_success().build(),
+                ))
                 .with_feedback_receivers(&[feedback_receiver.clone()])
                 .build_cardano_database_client();
 

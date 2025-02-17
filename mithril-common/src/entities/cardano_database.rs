@@ -1,7 +1,6 @@
 use semver::Version;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use strum::EnumDiscriminants;
 
 use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
@@ -84,11 +83,8 @@ pub enum DigestLocation {
 }
 
 /// Locations of the immutable files.
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumDiscriminants,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
-#[strum_discriminants(derive(Hash))]
 pub enum ImmutablesLocation {
     /// Cloud storage location.
     CloudStorage {
@@ -98,11 +94,8 @@ pub enum ImmutablesLocation {
 }
 
 /// Locations of the ancillary files.
-#[derive(
-    Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, EnumDiscriminants,
-)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
-#[strum_discriminants(derive(Hash))]
 pub enum AncillaryLocation {
     /// Cloud storage location.
     CloudStorage {

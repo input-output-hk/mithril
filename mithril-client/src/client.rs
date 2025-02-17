@@ -6,8 +6,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use mithril_common::api_version::APIVersionProvider;
-#[cfg(all(feature = "fs", feature = "unstable"))]
-use mithril_common::entities::{AncillaryLocationDiscriminants, ImmutablesLocationDiscriminants};
 
 use crate::aggregator_client::{AggregatorClient, AggregatorHTTPClient};
 #[cfg(feature = "unstable")]
@@ -21,10 +19,7 @@ use crate::certificate_client::{
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(all(feature = "fs", feature = "unstable"))]
-use crate::file_downloader::{
-    AncillaryFileDownloaderResolver, FileDownloadRetryPolicy, HttpFileDownloader,
-    ImmutablesFileDownloaderResolver, RetryDownloader,
-};
+use crate::file_downloader::{FileDownloadRetryPolicy, HttpFileDownloader, RetryDownloader};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 #[cfg(feature = "fs")]
@@ -274,25 +269,9 @@ impl ClientBuilder {
             ),
             FileDownloadRetryPolicy::default(),
         ));
-        #[cfg(all(feature = "fs", feature = "unstable"))]
-        let immutable_file_downloader_resolver =
-            Arc::new(ImmutablesFileDownloaderResolver::new(vec![(
-                ImmutablesLocationDiscriminants::CloudStorage,
-                http_file_downloader.clone(),
-            )]));
-        #[cfg(all(feature = "fs", feature = "unstable"))]
-        let ancillary_file_downloader_resolver =
-            Arc::new(AncillaryFileDownloaderResolver::new(vec![(
-                AncillaryLocationDiscriminants::CloudStorage,
-                http_file_downloader.clone(),
-            )]));
         #[cfg(feature = "unstable")]
         let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
             aggregator_client.clone(),
-            #[cfg(feature = "fs")]
-            immutable_file_downloader_resolver,
-            #[cfg(feature = "fs")]
-            ancillary_file_downloader_resolver,
             #[cfg(feature = "fs")]
             http_file_downloader,
             #[cfg(feature = "fs")]
