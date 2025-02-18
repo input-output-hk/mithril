@@ -75,7 +75,7 @@ impl CardanoDatabaseClient {
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
         for location in locations_sorted {
-            let download_id = MithrilEvent::new_digest_download_id();
+            let download_id = MithrilEvent::new_cardano_database_download_id();
             self.feedback_sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::DigestDownloadStarted {

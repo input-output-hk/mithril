@@ -105,6 +105,7 @@ impl CardanoDatabaseClient {
                 ancillary_locations,
                 &compression_algorithm,
                 target_dir,
+                &download_id,
             )
             .await?;
         }
@@ -377,18 +378,18 @@ impl CardanoDatabaseClient {
         locations: &[AncillaryLocation],
         compression_algorithm: &CompressionAlgorithm,
         ancillary_file_target_dir: &Path,
+        download_id: &str,
     ) -> MithrilResult<()> {
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
         for location in locations_sorted {
-            let download_id = MithrilEvent::new_ancillary_download_id();
             // The size will be completed with the uncompressed file size when available in the location
             // (see https://github.com/input-output-hk/mithril/issues/2291)
             let file_size = 0;
             self.feedback_sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::AncillaryDownloadStarted {
-                        download_id: download_id.clone(),
+                        download_id: download_id.to_string(),
                         size: file_size,
                     },
                 ))
@@ -403,7 +404,7 @@ impl CardanoDatabaseClient {
                     ancillary_file_target_dir,
                     Some(compression_algorithm.to_owned()),
                     DownloadEvent::Ancillary {
-                        download_id: download_id.clone(),
+                        download_id: download_id.to_string(),
                     },
                 )
                 .await;
@@ -411,7 +412,9 @@ impl CardanoDatabaseClient {
                 Ok(_) => {
                     self.feedback_sender
                         .send_event(MithrilEvent::CardanoDatabase(
-                            MithrilEventCardanoDatabase::AncillaryDownloadCompleted { download_id },
+                            MithrilEventCardanoDatabase::AncillaryDownloadCompleted {
+                                download_id: download_id.to_string(),
+                            },
                         ))
                         .await;
                     return Ok(());
@@ -1057,6 +1060,7 @@ mod tests {
                     }],
                     &CompressionAlgorithm::default(),
                     target_dir,
+                    "download_id",
                 )
                 .await
                 .expect_err("download_unpack_ancillary_file should fail");
@@ -1091,6 +1095,7 @@ mod tests {
                     ],
                     &CompressionAlgorithm::default(),
                     target_dir,
+                    "download_id",
                 )
                 .await
                 .unwrap();
@@ -1121,6 +1126,7 @@ mod tests {
                     ],
                     &CompressionAlgorithm::default(),
                     target_dir,
+                    "download_id",
                 )
                 .await
                 .unwrap();
@@ -1144,6 +1150,7 @@ mod tests {
                     }],
                     &CompressionAlgorithm::default(),
                     target_dir,
+                    "download_id",
                 )
                 .await
                 .unwrap();

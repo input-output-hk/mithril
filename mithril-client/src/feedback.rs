@@ -211,18 +211,8 @@ impl MithrilEvent {
         Uuid::new_v4().to_string()
     }
 
-    /// Generate a random unique identifier to identify an immutable download
-    pub fn new_immutable_download_id() -> String {
-        Uuid::new_v4().to_string()
-    }
-
-    /// Generate a random unique identifier to identify an ancillary download
-    pub fn new_ancillary_download_id() -> String {
-        Uuid::new_v4().to_string()
-    }
-
-    /// Generate a random unique identifier to identify a digest download
-    pub fn new_digest_download_id() -> String {
+    /// Generate a random unique identifier to identify a Cardano download
+    pub fn new_cardano_database_download_id() -> String {
         Uuid::new_v4().to_string()
     }
 
