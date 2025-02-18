@@ -105,7 +105,7 @@ mod tests {
         async fn list_cardano_database_snapshots_returns_messages() {
             let message = fake_messages();
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_client_mock_config(|http_client| {
+                .with_aggregator_client_mock_config(|http_client| {
                     http_client
                         .expect_get_content()
                         .with(eq(AggregatorRequest::ListCardanoDatabaseSnapshots))
@@ -124,7 +124,7 @@ mod tests {
         async fn list_cardano_database_snapshots_returns_error_when_invalid_json_structure_in_response(
         ) {
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_client_mock_config(|http_client| {
+                .with_aggregator_client_mock_config(|http_client| {
                     http_client
                         .expect_get_content()
                         .return_once(move |_| Ok("invalid json structure".to_string()));
@@ -149,7 +149,7 @@ mod tests {
             };
             let message = expected_cardano_database_snapshot.clone();
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_client_mock_config(|http_client| {
+                .with_aggregator_client_mock_config(|http_client| {
                     http_client
                         .expect_get_content()
                         .with(eq(AggregatorRequest::GetCardanoDatabaseSnapshot {
@@ -172,7 +172,7 @@ mod tests {
         async fn get_cardano_database_snapshot_returns_error_when_invalid_json_structure_in_response(
         ) {
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_client_mock_config(|http_client| {
+                .with_aggregator_client_mock_config(|http_client| {
                     http_client
                         .expect_get_content()
                         .return_once(move |_| Ok("invalid json structure".to_string()));
@@ -189,7 +189,7 @@ mod tests {
         async fn get_cardano_database_snapshot_returns_none_when_not_found_or_remote_server_logical_error(
         ) {
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_client_mock_config(|http_client| {
+                .with_aggregator_client_mock_config(|http_client| {
                     http_client.expect_get_content().return_once(move |_| {
                         Err(AggregatorClientError::RemoteServerLogical(anyhow!(
                             "not found"
@@ -206,7 +206,7 @@ mod tests {
         #[tokio::test]
         async fn get_cardano_database_snapshot_returns_error() {
             let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_client_mock_config(|http_client| {
+                .with_aggregator_client_mock_config(|http_client| {
                     http_client.expect_get_content().return_once(move |_| {
                         Err(AggregatorClientError::SubsystemError(anyhow!("error")))
                     });

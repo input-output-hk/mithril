@@ -55,7 +55,7 @@ pub(crate) mod test_dependency_injector {
 
     /// Dependency injector for `CardanoDatabaseClient` for testing purposes.
     pub(crate) struct CardanoDatabaseClientDependencyInjector {
-        http_client: MockAggregatorClient,
+        aggregator_client: MockAggregatorClient,
         http_file_downloader: Arc<dyn FileDownloader>,
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     }
@@ -63,7 +63,7 @@ pub(crate) mod test_dependency_injector {
     impl CardanoDatabaseClientDependencyInjector {
         pub(crate) fn new() -> Self {
             Self {
-                http_client: MockAggregatorClient::new(),
+                aggregator_client: MockAggregatorClient::new(),
                 http_file_downloader: Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_compression(None)
@@ -75,11 +75,11 @@ pub(crate) mod test_dependency_injector {
             }
         }
 
-        pub(crate) fn with_http_client_mock_config<F>(mut self, config: F) -> Self
+        pub(crate) fn with_aggregator_client_mock_config<F>(mut self, config: F) -> Self
         where
             F: FnOnce(&mut MockAggregatorClient),
         {
-            config(&mut self.http_client);
+            config(&mut self.aggregator_client);
 
             self
         }
@@ -106,7 +106,7 @@ pub(crate) mod test_dependency_injector {
 
         pub(crate) fn build_cardano_database_client(self) -> CardanoDatabaseClient {
             CardanoDatabaseClient::new(
-                Arc::new(self.http_client),
+                Arc::new(self.aggregator_client),
                 self.http_file_downloader,
                 FeedbackSender::new(&self.feedback_receivers),
                 test_utils::test_logger(),
