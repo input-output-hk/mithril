@@ -197,4 +197,54 @@ mod tests {
 
         assert_eq!(golden_current_message(), message);
     }
+
+    #[test]
+    fn test_a_future_json_deserialized_with_unknown_location_types() {
+        let json = r#"
+        {
+            "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
+            "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+            "beacon": {
+                "epoch": 123,
+                "immutable_file_number": 2345
+            },
+            "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
+            "total_db_size_uncompressed": 800796318,
+            "locations": {
+                "digests": [
+                    {
+                        "type": "whatever",
+                        "new_field": "digest-1"
+                    }
+                ],
+                "immutables": [
+                    {
+                        "type": "whatever",
+                        "new_field": [123, 125]
+                    }
+                ],
+                "ancillary": [
+                    {
+                        "type": "whatever",
+                        "new_field": "ancillary-3"
+                    }
+                ]
+            },
+            "compression_algorithm": "gzip",
+            "cardano_node_version": "0.0.1",
+            "created_at": "2023-01-19T13:43:05.618857482Z"
+        }"#;
+        let message: CardanoDatabaseSnapshotMessage = serde_json::from_str(json).expect(
+            "This JSON is expected to be successfully parsed into a CardanoDatabaseSnapshotMessage instance.",
+        );
+
+        assert_eq!(message.locations.digests.len(), 1);
+        assert_eq!(DigestLocation::Unknown, message.locations.digests[0]);
+
+        assert_eq!(message.locations.immutables.len(), 1);
+        assert_eq!(ImmutablesLocation::Unknown, message.locations.immutables[0]);
+
+        assert_eq!(message.locations.ancillary.len(), 1);
+        assert_eq!(AncillaryLocation::Unknown, message.locations.ancillary[0]);
+    }
 }
