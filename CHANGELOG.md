@@ -15,6 +15,10 @@ As a minor extension, we have adopted a slightly different versioning convention
 
 - End support for **macOS x64 pre-built binaries** for the client CLI.
 
+- **UNSTABLE** Cardano database incremental certification:
+
+  - Implement the client library for the the signed entity type `CardanoDatabase` (download and prove snapshot).
+
 - Crates versions:
 
 | Crate | Version |
