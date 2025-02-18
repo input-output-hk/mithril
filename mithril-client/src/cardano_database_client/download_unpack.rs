@@ -24,6 +24,17 @@ use super::immutable_file_range::ImmutableFileRange;
 /// The future type for downloading an immutable file
 type DownloadImmutableFuture = dyn Future<Output = MithrilResult<ImmutableFileNumber>> + Send;
 
+/// Arguments for the immutable file download future builder
+struct DownloadImmutableFutureBuilderArgs {
+    file_downloader: Arc<dyn FileDownloader>,
+    immutable_file_number: ImmutableFileNumber,
+    file_downloader_uri: FileDownloaderUri,
+    compression_algorithm: CompressionAlgorithm,
+    immutable_files_target_dir: PathBuf,
+    download_id: String,
+    file_size: u64,
+}
+
 /// Options for downloading and unpacking a Cardano database
 #[derive(Debug)]
 pub struct DownloadUnpackOptions {
@@ -57,17 +68,21 @@ impl CardanoDatabaseClient {
         download_unpack_options: DownloadUnpackOptions,
     ) -> MithrilResult<()> {
         let download_id = MithrilEvent::new_snapshot_download_id();
-        self.feedback_sender
-            .send_event(MithrilEvent::CardanoDatabase(
-                MithrilEventCardanoDatabase::Started {
-                    download_id: download_id.clone(),
-                },
-            ))
-            .await;
         let compression_algorithm = cardano_database_snapshot.compression_algorithm;
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
             immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
+        let immutable_file_range_length =
+            immutable_file_number_range.end() - immutable_file_number_range.start() + 1;
+        self.feedback_sender
+            .send_event(MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::Started {
+                    download_id: download_id.clone(),
+                    total_immutable_files: immutable_file_range_length,
+                    include_ancillary: download_unpack_options.include_ancillary,
+                },
+            ))
+            .await;
         Self::verify_download_options_compatibility(
             &download_unpack_options,
             &immutable_file_number_range,
@@ -216,17 +231,21 @@ impl CardanoDatabaseClient {
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
         download_id: &str,
+        file_size: u64,
     ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
         let mut join_set: JoinSet<MithrilResult<ImmutableFileNumber>> = JoinSet::new();
         for (immutable_file_number, file_downloader_uri) in file_downloader_uris_chunk.into_iter() {
             join_set.spawn(self.spawn_immutable_download_future(
-                file_downloader.clone(),
-                immutable_file_number,
-                file_downloader_uri,
-                compression_algorithm.to_owned(),
-                immutable_files_target_dir.to_path_buf(),
-                download_id,
+                DownloadImmutableFutureBuilderArgs {
+                    file_downloader: file_downloader.clone(),
+                    immutable_file_number,
+                    file_downloader_uri,
+                    compression_algorithm: compression_algorithm.to_owned(),
+                    immutable_files_target_dir: immutable_files_target_dir.to_path_buf(),
+                    download_id: download_id.to_string(),
+                    file_size,
+                },
             )?);
         }
         while let Some(result) = join_set.join_next().await {
@@ -248,22 +267,24 @@ impl CardanoDatabaseClient {
 
     fn spawn_immutable_download_future(
         &self,
-        file_downloader: Arc<dyn FileDownloader>,
-        immutable_file_number: ImmutableFileNumber,
-        file_downloader_uri: FileDownloaderUri,
-        compression_algorithm: CompressionAlgorithm,
-        immutable_files_target_dir: PathBuf,
-        download_id: &str,
+        args: DownloadImmutableFutureBuilderArgs,
     ) -> MithrilResult<Pin<Box<DownloadImmutableFuture>>> {
         let feedback_receiver_clone = self.feedback_sender.clone();
         let logger_clone = self.logger.clone();
-        let download_id_clone = download_id.to_string();
+        let download_id_clone = args.download_id.to_string();
+        let file_downloader = args.file_downloader;
+        let file_downloader_uri = args.file_downloader_uri;
+        let compression_algorithm = args.compression_algorithm;
+        let immutable_files_target_dir = args.immutable_files_target_dir;
+        let immutable_file_number = args.immutable_file_number;
+        let file_size = args.file_size;
         let download_future = async move {
             feedback_receiver_clone
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::ImmutableDownloadStarted {
                         immutable_file_number,
                         download_id: download_id_clone.clone(),
+                        size: file_size,
                     },
                 ))
                 .await;
@@ -314,6 +335,9 @@ impl CardanoDatabaseClient {
         download_id: &str,
     ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
+        // The size will be completed with the uncompressed file size when available in the location
+        // (see https://github.com/input-output-hk/mithril/issues/2291)
+        let file_size = 0;
         let file_downloader = match &location {
             ImmutablesLocation::CloudStorage { .. } => self.http_file_downloader.clone(),
         };
@@ -338,6 +362,7 @@ impl CardanoDatabaseClient {
                     compression_algorithm,
                     immutable_files_target_dir,
                     download_id,
+                    file_size,
                 )
                 .await?;
             immutable_file_numbers_downloaded.extend(immutable_file_numbers_downloaded_chunk);
@@ -357,10 +382,14 @@ impl CardanoDatabaseClient {
         locations_sorted.sort();
         for location in locations_sorted {
             let download_id = MithrilEvent::new_ancillary_download_id();
+            // The size will be completed with the uncompressed file size when available in the location
+            // (see https://github.com/input-output-hk/mithril/issues/2291)
+            let file_size = 0;
             self.feedback_sender
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::AncillaryDownloadStarted {
                         download_id: download_id.clone(),
+                        size: file_size,
                     },
                 ))
                 .await;
@@ -951,6 +980,7 @@ mod tests {
                     MithrilEventCardanoDatabase::ImmutableDownloadStarted {
                         immutable_file_number: 1,
                         download_id: id.to_string(),
+                        size: 0,
                     },
                 ),
                 MithrilEvent::CardanoDatabase(
@@ -1000,6 +1030,7 @@ mod tests {
                 MithrilEventCardanoDatabase::ImmutableDownloadStarted {
                     immutable_file_number: 1,
                     download_id: id.to_string(),
+                    size: 0,
                 },
             )];
             assert_eq!(expected_events, sent_events);
@@ -1123,6 +1154,7 @@ mod tests {
                 MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::AncillaryDownloadStarted {
                         download_id: id.to_string(),
+                        size: 0,
                     },
                 ),
                 MithrilEvent::CardanoDatabase(
