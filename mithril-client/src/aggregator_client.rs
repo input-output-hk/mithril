@@ -189,6 +189,7 @@ impl AggregatorRequest {
 }
 
 /// API that defines a client for the Aggregator
+#[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 pub trait AggregatorClient: Sync + Send {
@@ -423,7 +424,6 @@ impl AggregatorHTTPClient {
     }
 }
 
-#[cfg_attr(test, mockall::automock)]
 #[cfg_attr(target_family = "wasm", async_trait(?Send))]
 #[cfg_attr(not(target_family = "wasm"), async_trait)]
 impl AggregatorClient for AggregatorHTTPClient {

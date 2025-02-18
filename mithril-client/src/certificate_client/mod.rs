@@ -74,7 +74,7 @@ pub(crate) mod tests_utils {
     use mockall::predicate::eq;
     use std::sync::Arc;
 
-    use crate::aggregator_client::{AggregatorRequest, MockAggregatorHTTPClient};
+    use crate::aggregator_client::{AggregatorRequest, MockAggregatorClient};
     use crate::feedback::{FeedbackReceiver, FeedbackSender};
     use crate::test_utils;
 
@@ -82,7 +82,7 @@ pub(crate) mod tests_utils {
 
     #[derive(Default)]
     pub(crate) struct CertificateClientTestBuilder {
-        aggregator_client: MockAggregatorHTTPClient,
+        aggregator_client: MockAggregatorClient,
         genesis_verification_key: Option<String>,
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
         #[cfg(feature = "unstable")]
@@ -92,7 +92,7 @@ pub(crate) mod tests_utils {
     impl CertificateClientTestBuilder {
         pub fn config_aggregator_client_mock(
             mut self,
-            config: impl FnOnce(&mut MockAggregatorHTTPClient),
+            config: impl FnOnce(&mut MockAggregatorClient),
         ) -> Self {
             config(&mut self.aggregator_client);
             self
@@ -151,7 +151,7 @@ pub(crate) mod tests_utils {
         }
     }
 
-    impl MockAggregatorHTTPClient {
+    impl MockAggregatorClient {
         pub(crate) fn expect_certificate_chain(&mut self, certificate_chain: Vec<Certificate>) {
             for certificate in certificate_chain {
                 let hash = certificate.hash.clone();

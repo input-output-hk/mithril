@@ -97,7 +97,7 @@ mod tests {
     use chrono::{DateTime, Utc};
     use mithril_common::test_utils::fake_data;
 
-    use crate::aggregator_client::MockAggregatorHTTPClient;
+    use crate::aggregator_client::MockAggregatorClient;
     use crate::common::Epoch;
     use crate::MithrilSigner;
 
@@ -127,7 +127,7 @@ mod tests {
     #[tokio::test]
     async fn get_mithril_stake_distribution_list() {
         let message = fake_messages();
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
@@ -141,7 +141,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_mithril_stake_distribution() {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         let message = MithrilStakeDistribution {
             certificate_hash: "certificate-hash-123".to_string(),
             epoch: Epoch(1),

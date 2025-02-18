@@ -264,7 +264,7 @@ impl SnapshotClient {
 #[cfg(all(test, feature = "fs"))]
 mod tests_download {
     use crate::{
-        aggregator_client::MockAggregatorHTTPClient,
+        aggregator_client::MockAggregatorClient,
         feedback::{MithrilEvent, StackFeedbackReceiver},
         file_downloader::MockFileDownloaderBuilder,
         test_utils,
@@ -277,7 +277,7 @@ mod tests_download {
     async fn download_unpack_send_feedbacks() {
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
         let client = SnapshotClient::new(
-            Arc::new(MockAggregatorHTTPClient::new()),
+            Arc::new(MockAggregatorClient::new()),
             Arc::new(MockFileDownloaderBuilder::default().with_success().build()),
             FeedbackSender::new(&[feedback_receiver.clone()]),
             test_utils::test_logger(),

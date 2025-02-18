@@ -329,7 +329,7 @@ mod tests {
         use mithril_common::test_utils::CertificateChainingMethod;
         use mockall::predicate::eq;
 
-        use crate::aggregator_client::MockAggregatorHTTPClient;
+        use crate::aggregator_client::MockAggregatorClient;
         use crate::certificate_client::verify_cache::MemoryCertificateVerifierCache;
         use crate::certificate_client::MockCertificateVerifierCache;
         use crate::test_utils;
@@ -337,11 +337,11 @@ mod tests {
         use super::*;
 
         fn build_verifier_with_cache(
-            aggregator_client_mock_config: impl FnOnce(&mut MockAggregatorHTTPClient),
+            aggregator_client_mock_config: impl FnOnce(&mut MockAggregatorClient),
             genesis_verification_key: ProtocolGenesisVerificationKey,
             cache: Arc<dyn CertificateVerifierCache>,
         ) -> MithrilCertificateVerifier {
-            let mut aggregator_client = MockAggregatorHTTPClient::new();
+            let mut aggregator_client = MockAggregatorClient::new();
             aggregator_client_mock_config(&mut aggregator_client);
             let genesis_verification_key: String = genesis_verification_key.try_into().unwrap();
 

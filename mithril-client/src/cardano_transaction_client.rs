@@ -164,7 +164,7 @@ mod tests {
     use chrono::{DateTime, Utc};
     use mockall::predicate::eq;
 
-    use crate::aggregator_client::{AggregatorClientError, MockAggregatorHTTPClient};
+    use crate::aggregator_client::{AggregatorClientError, MockAggregatorClient};
     use crate::common::{BlockNumber, Epoch};
     use crate::{
         CardanoTransactionSnapshot, CardanoTransactionSnapshotListItem, CardanoTransactionsProofs,
@@ -201,7 +201,7 @@ mod tests {
     #[tokio::test]
     async fn get_cardano_transactions_snapshot_list() {
         let message = fake_messages();
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
@@ -215,7 +215,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_cardano_transactions_snapshot() {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         let message = CardanoTransactionSnapshot {
             merkle_root: "mk-123".to_string(),
             epoch: Epoch(1),
@@ -245,7 +245,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_proof_ok() {
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        let mut aggregator_client = MockAggregatorClient::new();
         let certificate_hash = "cert-hash-123".to_string();
         let set_proof = CardanoTransactionsSetProof::dummy();
         let transactions_proofs = CardanoTransactionsProofs::new(
@@ -277,7 +277,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_proof_ko() {
-        let mut aggregator_client = MockAggregatorHTTPClient::new();
+        let mut aggregator_client = MockAggregatorClient::new();
         aggregator_client
             .expect_get_content()
             .return_once(move |_| {

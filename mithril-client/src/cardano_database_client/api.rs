@@ -47,7 +47,7 @@ pub(crate) mod test_dependency_injector {
     use super::*;
 
     use crate::{
-        aggregator_client::MockAggregatorHTTPClient,
+        aggregator_client::MockAggregatorClient,
         feedback::FeedbackReceiver,
         file_downloader::{FileDownloader, MockFileDownloaderBuilder},
         test_utils,
@@ -55,7 +55,7 @@ pub(crate) mod test_dependency_injector {
 
     /// Dependency injector for `CardanoDatabaseClient` for testing purposes.
     pub(crate) struct CardanoDatabaseClientDependencyInjector {
-        http_client: MockAggregatorHTTPClient,
+        http_client: MockAggregatorClient,
         http_file_downloader: Arc<dyn FileDownloader>,
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     }
@@ -63,7 +63,7 @@ pub(crate) mod test_dependency_injector {
     impl CardanoDatabaseClientDependencyInjector {
         pub(crate) fn new() -> Self {
             Self {
-                http_client: MockAggregatorHTTPClient::new(),
+                http_client: MockAggregatorClient::new(),
                 http_file_downloader: Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_compression(None)
@@ -77,7 +77,7 @@ pub(crate) mod test_dependency_injector {
 
         pub(crate) fn with_http_client_mock_config<F>(mut self, config: F) -> Self
         where
-            F: FnOnce(&mut MockAggregatorHTTPClient),
+            F: FnOnce(&mut MockAggregatorClient),
         {
             config(&mut self.http_client);
 
