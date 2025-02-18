@@ -80,7 +80,7 @@ mod tests {
         let last_immutable_file_number = 3;
         immutable_file_range
             .to_range_inclusive(last_immutable_file_number)
-            .expect_err("conversion to range inlusive should fail");
+            .expect_err("should fail: given last immutable should be greater than range start");
     }
 
     #[test]
@@ -96,12 +96,14 @@ mod tests {
         let last_immutable_file_number = 7;
         immutable_file_range
             .to_range_inclusive(last_immutable_file_number)
-            .expect_err("conversion to range inlusive should fail");
+            .expect_err(
+                "should fail: given last immutable should be greater or equal range max bound",
+            );
 
         let immutable_file_range = ImmutableFileRange::Range(10, 8);
         immutable_file_range
             .to_range_inclusive(last_immutable_file_number)
-            .expect_err("conversion to range inlusive should fail");
+            .expect_err("should fail: range start should be lower than range end");
     }
 
     #[test]
@@ -117,6 +119,8 @@ mod tests {
         let last_immutable_file_number = 7;
         immutable_file_range
             .to_range_inclusive(last_immutable_file_number)
-            .expect_err("conversion to range inlusive should fail");
+            .expect_err(
+                "should fail: given last immutable should be greater or equal range max bound",
+            );
     }
 }

@@ -83,7 +83,7 @@ impl CardanoDatabaseClient {
                 ))
                 .await;
             let file_downloader = match &location {
-                DigestLocation::CloudStorage { uri: _ } | DigestLocation::Aggregator { uri: _ } => {
+                DigestLocation::CloudStorage { .. } | DigestLocation::Aggregator { .. } => {
                     self.http_file_downloader.clone()
                 }
             };
@@ -363,7 +363,7 @@ mod tests {
         use super::*;
 
         #[tokio::test]
-        async fn download_unpack_digest_file_fails_if_no_location_is_retrieved() {
+        async fn fails_if_no_location_is_retrieved() {
             let target_dir = Path::new(".");
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new(
@@ -392,7 +392,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn download_unpack_digest_file_succeeds_if_at_least_one_location_is_retrieved() {
+        async fn succeeds_if_at_least_one_location_is_retrieved() {
             let target_dir = Path::new(".");
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new({
@@ -425,12 +425,13 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn download_unpack_digest_file_succeeds_when_first_location_is_retrieved() {
+        async fn succeeds_when_first_location_is_retrieved() {
             let target_dir = Path::new(".");
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_compression(None)
+                        .with_times(1)
                         .with_success()
                         .build(),
                 ))
@@ -453,7 +454,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn download_unpack_digest_file_sends_feedbacks() {
+        async fn sends_feedbacks() {
             let target_dir = Path::new(".");
             let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
             let client = CardanoDatabaseClientDependencyInjector::new()

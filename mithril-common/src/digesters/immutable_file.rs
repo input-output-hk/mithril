@@ -256,9 +256,10 @@ mod tests {
             .expect("ImmutableFile::list_in_dir Failed");
 
         assert_eq!(result.last().unwrap().number, 424);
+        let expected_entries_length = 21;
         assert_eq!(
+            expected_entries_length,
             result.len(),
-            entries.len(),
             "Expected to find {} files but found {}",
             entries.len(),
             result.len(),

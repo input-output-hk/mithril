@@ -7,6 +7,7 @@ use tokio::task::JoinSet;
 use anyhow::anyhow;
 
 use mithril_common::{
+    digesters::{IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
     entities::{AncillaryLocation, CompressionAlgorithm, ImmutableFileNumber, ImmutablesLocation},
     messages::CardanoDatabaseSnapshotMessage,
 };
@@ -53,12 +54,12 @@ impl CardanoDatabaseClient {
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
             immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
-        self.verify_download_options_compatibility(
+        Self::verify_download_options_compatibility(
             &download_unpack_options,
             &immutable_file_number_range,
             last_immutable_file_number,
         )?;
-        self.verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
+        Self::verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
         let immutable_locations = &cardano_database_snapshot.locations.immutables;
         self.download_unpack_immutable_files(
             immutable_locations,
@@ -89,20 +90,19 @@ impl CardanoDatabaseClient {
     }
 
     fn immutable_files_target_dir(target_dir: &Path) -> PathBuf {
-        target_dir.join("immutable")
+        target_dir.join(IMMUTABLE_DIR)
     }
 
     fn volatile_target_dir(target_dir: &Path) -> PathBuf {
-        target_dir.join("volatile")
+        target_dir.join(VOLATILE_DIR)
     }
 
     fn ledger_target_dir(target_dir: &Path) -> PathBuf {
-        target_dir.join("ledger")
+        target_dir.join(LEDGER_DIR)
     }
 
     /// Verify if the target directory is writable.
     fn verify_can_write_to_target_directory(
-        &self,
         target_dir: &Path,
         download_unpack_options: &DownloadUnpackOptions,
     ) -> MithrilResult<()> {
@@ -134,7 +134,6 @@ impl CardanoDatabaseClient {
 
     /// Verify if the download options are compatible with the immutable file range.
     fn verify_download_options_compatibility(
-        &self,
         download_options: &DownloadUnpackOptions,
         immutable_file_range: &RangeInclusive<ImmutableFileNumber>,
         last_immutable_file_number: ImmutableFileNumber,
@@ -165,7 +164,7 @@ impl CardanoDatabaseClient {
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
         let mut immutable_file_numbers_to_download =
-            range.clone().map(|n| n.to_owned()).collect::<BTreeSet<_>>();
+            range.map(|n| n.to_owned()).collect::<BTreeSet<_>>();
         for location in locations_sorted {
             let immutable_files_numbers_downloaded = self
                 .download_unpack_immutable_files_for_location(
@@ -251,7 +250,7 @@ impl CardanoDatabaseClient {
                 Err(e) => {
                     slog::error!(
                         self.logger,
-                        "Failed downloading and unpacking immutable files"; "error" => e.to_string()
+                        "Failed downloading and unpacking immutable files"; "error" => e.to_string(), "target_dir" => immutable_files_target_dir.display()
                     );
                 }
             }
@@ -270,7 +269,7 @@ impl CardanoDatabaseClient {
     ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
         let file_downloader = match &location {
-            ImmutablesLocation::CloudStorage { uri: _ } => self.http_file_downloader.clone(),
+            ImmutablesLocation::CloudStorage { .. } => self.http_file_downloader.clone(),
         };
         let file_downloader_uris =
             FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
@@ -320,9 +319,9 @@ impl CardanoDatabaseClient {
                 ))
                 .await;
             let file_downloader = match &location {
-                AncillaryLocation::CloudStorage { uri: _ } => self.http_file_downloader.clone(),
+                AncillaryLocation::CloudStorage { .. } => self.http_file_downloader.clone(),
             };
-            let file_downloader_uri: FileDownloaderUri = location.into();
+            let file_downloader_uri = location.into();
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
@@ -447,8 +446,8 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn download_unpack_fails_when_target_target_dir_would_be_overwritten_without_allow_override(
-        ) {
+        async fn download_unpack_fails_when_target_dir_would_be_overwritten_without_allow_override()
+        {
             let immutable_file_range = ImmutableFileRange::Range(1, 10);
             let download_unpack_options = DownloadUnpackOptions::default();
             let cardano_db_snapshot = CardanoDatabaseSnapshot {
@@ -456,10 +455,10 @@ mod tests {
                 ..CardanoDatabaseSnapshot::dummy()
             };
             let target_dir = &TempDir::new(
-                                "cardano_database_client",
-                                "download_unpack_fails_when_target_target_dir_would_be_overwritten_without_allow_override",
-                            )
-                            .build();
+                "cardano_database_client",
+                "download_unpack_fails_when_target_dir_would_be_overwritten_without_allow_override",
+            )
+            .build();
             fs::create_dir_all(target_dir.join("immutable")).unwrap();
             let client =
                 CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
@@ -547,8 +546,6 @@ mod tests {
 
         #[test]
         fn verify_download_options_compatibility_succeeds_if_without_ancillary_download() {
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
             let download_options = DownloadUnpackOptions {
                 include_ancillary: false,
                 ..DownloadUnpackOptions::default()
@@ -556,22 +553,19 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(1, 10);
             let last_immutable_file_number = 10;
 
-            client
-                .verify_download_options_compatibility(
-                    &download_options,
-                    &immutable_file_range
-                        .to_range_inclusive(last_immutable_file_number)
-                        .unwrap(),
-                    last_immutable_file_number,
-                )
-                .unwrap();
+            CardanoDatabaseClient::verify_download_options_compatibility(
+                &download_options,
+                &immutable_file_range
+                    .to_range_inclusive(last_immutable_file_number)
+                    .unwrap(),
+                last_immutable_file_number,
+            )
+            .unwrap();
         }
 
         #[test]
         fn verify_download_options_compatibility_succeeds_if_with_ancillary_download_and_compatible_range(
         ) {
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
             let download_options = DownloadUnpackOptions {
                 include_ancillary: true,
                 ..DownloadUnpackOptions::default()
@@ -579,22 +573,19 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(7, 10);
             let last_immutable_file_number = 10;
 
-            client
-                .verify_download_options_compatibility(
-                    &download_options,
-                    &immutable_file_range
-                        .to_range_inclusive(last_immutable_file_number)
-                        .unwrap(),
-                    last_immutable_file_number,
-                )
-                .unwrap();
+            CardanoDatabaseClient::verify_download_options_compatibility(
+                &download_options,
+                &immutable_file_range
+                    .to_range_inclusive(last_immutable_file_number)
+                    .unwrap(),
+                last_immutable_file_number,
+            )
+            .unwrap();
         }
 
         #[test]
         fn verify_download_options_compatibility_fails_if_with_ancillary_download_and_incompatible_range(
         ) {
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
             let download_options = DownloadUnpackOptions {
                 include_ancillary: true,
                 ..DownloadUnpackOptions::default()
@@ -602,8 +593,7 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(7, 10);
             let last_immutable_file_number = 123;
 
-            client
-                .verify_download_options_compatibility(
+            CardanoDatabaseClient::verify_download_options_compatibility(
                     &download_options,
                     &immutable_file_range
                         .to_range_inclusive(last_immutable_file_number)
@@ -625,18 +615,15 @@ mod tests {
                 "verify_can_write_to_target_dir_always_succeeds_with_allow_overwrite",
             )
             .build();
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
 
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: true,
-                        include_ancillary: false,
-                    },
-                )
-                .unwrap();
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: true,
+                    include_ancillary: false,
+                },
+            )
+            .unwrap();
 
             fs::create_dir_all(CardanoDatabaseClient::immutable_files_target_dir(
                 &target_dir,
@@ -644,24 +631,22 @@ mod tests {
             .unwrap();
             fs::create_dir_all(CardanoDatabaseClient::volatile_target_dir(&target_dir)).unwrap();
             fs::create_dir_all(CardanoDatabaseClient::ledger_target_dir(&target_dir)).unwrap();
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: true,
-                        include_ancillary: false,
-                    },
-                )
-                .unwrap();
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: true,
-                        include_ancillary: true,
-                    },
-                )
-                .unwrap();
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: true,
+                    include_ancillary: false,
+                },
+            )
+            .unwrap();
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: true,
+                    include_ancillary: true,
+                },
+            )
+            .unwrap();
         }
 
         #[test]
@@ -672,28 +657,24 @@ mod tests {
                 &target_dir,
             ))
             .unwrap();
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
 
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: false,
-                        include_ancillary: false,
-                    },
-                )
-                .expect_err("verify_can_write_to_target_dir should fail");
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: false,
+                    include_ancillary: false,
+                },
+            )
+            .expect_err("verify_can_write_to_target_dir should fail");
 
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: false,
-                        include_ancillary: true,
-                    },
-                )
-                .expect_err("verify_can_write_to_target_dir should fail");
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: false,
+                    include_ancillary: true,
+                },
+            )
+            .expect_err("verify_can_write_to_target_dir should fail");
         }
 
         #[test]
@@ -701,28 +682,24 @@ mod tests {
         ) {
             let target_dir = TempDir::new("cardano_database_client", "verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_ledger_target_dir").build();
             fs::create_dir_all(CardanoDatabaseClient::ledger_target_dir(&target_dir)).unwrap();
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
 
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: false,
-                        include_ancillary: true,
-                    },
-                )
-                .expect_err("verify_can_write_to_target_dir should fail");
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: false,
+                    include_ancillary: true,
+                },
+            )
+            .expect_err("verify_can_write_to_target_dir should fail");
 
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: false,
-                        include_ancillary: false,
-                    },
-                )
-                .unwrap();
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: false,
+                    include_ancillary: false,
+                },
+            )
+            .unwrap();
         }
 
         #[test]
@@ -730,28 +707,24 @@ mod tests {
         ) {
             let target_dir = TempDir::new("cardano_database_client", "verify_can_write_to_target_dir_fails_without_allow_overwrite_and_non_empty_volatile_target_dir").build();
             fs::create_dir_all(CardanoDatabaseClient::volatile_target_dir(&target_dir)).unwrap();
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
 
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: false,
-                        include_ancillary: true,
-                    },
-                )
-                .expect_err("verify_can_write_to_target_dir should fail");
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: false,
+                    include_ancillary: true,
+                },
+            )
+            .expect_err("verify_can_write_to_target_dir should fail");
 
-            client
-                .verify_can_write_to_target_directory(
-                    &target_dir,
-                    &DownloadUnpackOptions {
-                        allow_override: false,
-                        include_ancillary: false,
-                    },
-                )
-                .unwrap();
+            CardanoDatabaseClient::verify_can_write_to_target_directory(
+                &target_dir,
+                &DownloadUnpackOptions {
+                    allow_override: false,
+                    include_ancillary: false,
+                },
+            )
+            .unwrap();
         }
     }
 
@@ -892,7 +865,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn download_unpack_immutable_files_sends_feedbacks() {
+        async fn download_unpack_immutable_files_sends_feedbacks_when_succeeds() {
             let total_immutable_files = 1;
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = Path::new(".");
@@ -937,6 +910,48 @@ mod tests {
                     },
                 ),
             ];
+            assert_eq!(expected_events, sent_events);
+        }
+
+        #[tokio::test]
+        async fn download_unpack_immutable_files_sends_feedbacks_when_fails() {
+            let total_immutable_files = 1;
+            let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+            let target_dir = Path::new(".");
+            let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_http_file_downloader(Arc::new(
+                    MockFileDownloaderBuilder::default().with_failure().build(),
+                ))
+                .with_feedback_receivers(&[feedback_receiver.clone()])
+                .build_cardano_database_client();
+
+            client
+                .download_unpack_immutable_files(
+                    &[ImmutablesLocation::CloudStorage {
+                        uri: MultiFilesUri::Template(TemplateUri(
+                            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+                        )),
+                    }],
+                    immutable_file_range
+                        .to_range_inclusive(total_immutable_files)
+                        .unwrap(),
+                    &CompressionAlgorithm::default(),
+                    target_dir,
+                    1,
+                    "download_id",
+                )
+                .await
+                .expect_err("download_unpack_immutable_files should fail");
+
+            let sent_events = feedback_receiver.stacked_events();
+            let id = sent_events[0].event_id();
+            let expected_events = vec![MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::ImmutableDownloadStarted {
+                    immutable_file_number: 1,
+                    download_id: id.to_string(),
+                },
+            )];
             assert_eq!(expected_events, sent_events);
         }
     }

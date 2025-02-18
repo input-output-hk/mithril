@@ -11,7 +11,7 @@ mod retry;
 pub use http::HttpFileDownloader;
 #[cfg(test)]
 pub use interface::MockFileDownloader;
-pub use interface::{DownloadEvent, FeedbackEventBuilder, FileDownloader, FileDownloaderUri};
+pub use interface::{DownloadEvent, FileDownloader, FileDownloaderUri};
 #[cfg(test)]
 pub use mock_builder::MockFileDownloaderBuilder;
 pub use retry::{FileDownloadRetryPolicy, RetryDownloader};

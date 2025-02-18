@@ -101,9 +101,9 @@ use crate::aggregator_client::{AggregatorClient, AggregatorClientError, Aggregat
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
-use crate::file_downloader::FileDownloader;
+use crate::file_downloader::DownloadEvent;
 #[cfg(feature = "fs")]
-use crate::file_downloader::{DownloadEvent, FileDownloaderUri};
+use crate::file_downloader::FileDownloader;
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
 /// Error for the Snapshot client
@@ -124,7 +124,7 @@ pub enum SnapshotClientError {
 pub struct SnapshotClient {
     aggregator_client: Arc<dyn AggregatorClient>,
     #[cfg(feature = "fs")]
-    pub(super) http_file_downloader: Arc<dyn FileDownloader>,
+    http_file_downloader: Arc<dyn FileDownloader>,
     #[cfg(feature = "fs")]
     feedback_sender: FeedbackSender,
     #[cfg(feature = "fs")]
@@ -206,7 +206,7 @@ impl SnapshotClient {
                         size: snapshot.size,
                     })
                     .await;
-                let file_downloader_uri: FileDownloaderUri = location.to_owned().into();
+                let file_downloader_uri = location.to_owned().into();
                 let file_download_outcome = match self
                     .http_file_downloader
                     .download_unpack(

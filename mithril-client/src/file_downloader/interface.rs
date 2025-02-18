@@ -85,9 +85,6 @@ impl From<DigestLocation> for FileDownloaderUri {
     }
 }
 
-/// A feedback event builder
-pub type FeedbackEventBuilder = fn(String, u64, u64) -> Option<MithrilEvent>;
-
 /// A download event
 ///
 /// The `download_id` is a unique identifier that allow

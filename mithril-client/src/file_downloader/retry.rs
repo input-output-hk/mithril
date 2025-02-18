@@ -39,7 +39,7 @@ pub struct RetryDownloader {
     /// File downloader to use.
     file_downloader: Arc<dyn FileDownloader>,
     /// Number of attempts to download a file.
-    pub retry_policy: FileDownloadRetryPolicy,
+    retry_policy: FileDownloadRetryPolicy,
 }
 
 impl RetryDownloader {

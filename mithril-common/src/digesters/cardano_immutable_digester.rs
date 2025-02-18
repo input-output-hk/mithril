@@ -423,6 +423,60 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn can_compute_consistent_digests_for_range() {
+        let immutable_range = 1..=1;
+        let cardano_db = db_builder("can_compute_digests_for_range_consistently")
+            .with_immutables(
+                &immutable_range
+                    .clone()
+                    .collect::<Vec<ImmutableFileNumber>>(),
+            )
+            .append_immutable_trio()
+            .build();
+        let logger = TestLogger::stdout();
+        let digester = CardanoImmutableDigester::new(
+            "devnet".to_string(),
+            Some(Arc::new(MemoryImmutableFileDigestCacheProvider::default())),
+            logger.clone(),
+        );
+
+        let result = digester
+            .compute_digests_for_range(cardano_db.get_immutable_dir(), &immutable_range)
+            .await
+            .expect("compute_digests_for_range must not fail");
+
+        assert_eq!(
+            BTreeMap::from([
+                (
+                    ImmutableFile {
+                        path: cardano_db.get_immutable_dir().join("00001.chunk"),
+                        number: 1,
+                        filename: "00001.chunk".to_string()
+                    },
+                    "faebbf47077f68ef57219396ff69edc738978a3eca946ac7df1983dbf11364ec".to_string()
+                ),
+                (
+                    ImmutableFile {
+                        path: cardano_db.get_immutable_dir().join("00001.primary"),
+                        number: 1,
+                        filename: "00001.primary".to_string()
+                    },
+                    "f11bdb991fc7e72970be7d7f666e10333f92c14326d796fed8c2c041675fa826".to_string()
+                ),
+                (
+                    ImmutableFile {
+                        path: cardano_db.get_immutable_dir().join("00001.secondary"),
+                        number: 1,
+                        filename: "00001.secondary".to_string()
+                    },
+                    "b139684b968fa12ce324cce464d000de0e2c2ded0fd3e473a666410821d3fde3".to_string()
+                )
+            ]),
+            result.entries
+        );
+    }
+
+    #[tokio::test]
     async fn compute_digest_store_digests_into_cache_provider() {
         let cardano_db = db_builder("compute_digest_store_digests_into_cache_provider")
             .with_immutables(&[1, 2])

@@ -46,6 +46,7 @@
 //! ```
 //!
 //! # Download a Cardano database snapshot
+//! **Note:** _Available on crate feature_ **fs** _only._
 //!
 //! To download a partial or a full Cardano database folder the [ClientBuilder][crate::client::ClientBuilder].
 //!
@@ -78,8 +79,8 @@
 //! #    Ok(())
 //! # }
 //! ```
-//!
 //! # Compute a Merkle proof for a Cardano database snapshot
+//! **Note:** _Available on crate feature_ **fs** _only._
 //!
 //! To compute proof of membership of downloaded immutable files in a Cardano database folder the [ClientBuilder][crate::client::ClientBuilder].
 //!
