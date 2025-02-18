@@ -18,7 +18,7 @@ use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
-#[cfg(all(feature = "fs", feature = "unstable"))]
+#[cfg(feature = "fs")]
 use crate::file_downloader::{
     FileDownloadRetryPolicy, FileDownloader, HttpFileDownloader, RetryDownloader,
 };
@@ -136,6 +136,7 @@ pub struct ClientBuilder {
     genesis_verification_key: String,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
+    #[cfg(feature = "fs")]
     http_file_downloader: Option<Arc<dyn FileDownloader>>,
     #[cfg(feature = "unstable")]
     certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
@@ -153,9 +154,10 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "fs")]
+            http_file_downloader: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
-            http_file_downloader: None,
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
@@ -172,6 +174,7 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "fs")]
             http_file_downloader: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,

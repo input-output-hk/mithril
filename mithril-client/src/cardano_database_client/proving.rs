@@ -2,6 +2,7 @@ use std::{
     collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use anyhow::{anyhow, Context};
@@ -16,16 +17,34 @@ use mithril_common::{
 };
 
 use crate::{
-    feedback::{MithrilEvent, MithrilEventCardanoDatabase},
-    file_downloader::{DownloadEvent, FileDownloaderUri},
+    feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase},
+    file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri},
     utils::{create_directory_if_not_exists, delete_directory, read_files_in_directory},
     MithrilResult,
 };
 
-use super::api::CardanoDatabaseClient;
 use super::immutable_file_range::ImmutableFileRange;
 
-impl CardanoDatabaseClient {
+pub struct InternalArtifactProver {
+    http_file_downloader: Arc<dyn FileDownloader>,
+    feedback_sender: FeedbackSender,
+    logger: slog::Logger,
+}
+
+impl InternalArtifactProver {
+    /// Constructs a new `InternalArtifactProver`.
+    pub fn new(
+        http_file_downloader: Arc<dyn FileDownloader>,
+        feedback_sender: FeedbackSender,
+        logger: slog::Logger,
+    ) -> Self {
+        Self {
+            http_file_downloader,
+            feedback_sender,
+            logger,
+        }
+    }
+
     /// Compute the Merkle proof of membership for the given immutable file range.
     pub async fn compute_merkle_proof(
         &self,
@@ -174,8 +193,7 @@ mod tests {
 
     use crate::{
         cardano_database_client::CardanoDatabaseClientDependencyInjector,
-        feedback::StackFeedbackReceiver, file_downloader::MockFileDownloaderBuilder,
-        test_utils::test_logger,
+        feedback::StackFeedbackReceiver, file_downloader::MockFileDownloaderBuilder, test_utils,
     };
 
     use super::*;
@@ -222,7 +240,7 @@ mod tests {
             let immutable_digester = CardanoImmutableDigester::new(
                 certificate.metadata.network.to_string(),
                 None,
-                test_logger(),
+                test_utils::test_logger(),
             );
             let computed_digests = immutable_digester
                 .compute_digests_for_range(database_dir, immutable_file_range)
@@ -337,17 +355,19 @@ mod tests {
         #[tokio::test]
         async fn fails_if_no_location_is_retrieved() {
             let target_dir = Path::new(".");
-            let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_file_downloader(Arc::new(
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_compression(None)
                         .with_failure()
                         .with_times(2)
                         .build(),
-                ))
-                .build_cardano_database_client();
+                ),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
 
-            client
+            artifact_prover
                 .download_unpack_digest_file(
                     &[
                         DigestLocation::CloudStorage {
@@ -366,19 +386,21 @@ mod tests {
         #[tokio::test]
         async fn succeeds_if_at_least_one_location_is_retrieved() {
             let target_dir = Path::new(".");
-            let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_file_downloader(Arc::new({
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_compression(None)
                         .with_failure()
                         .next_call()
                         .with_compression(None)
                         .with_success()
-                        .build()
-                }))
-                .build_cardano_database_client();
+                        .build(),
+                ),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
 
-            client
+            artifact_prover
                 .download_unpack_digest_file(
                     &[
                         DigestLocation::CloudStorage {
@@ -397,17 +419,19 @@ mod tests {
         #[tokio::test]
         async fn succeeds_when_first_location_is_retrieved() {
             let target_dir = Path::new(".");
-            let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_file_downloader(Arc::new(
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_compression(None)
                         .with_times(1)
                         .with_success()
                         .build(),
-                ))
-                .build_cardano_database_client();
+                ),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
 
-            client
+            artifact_prover
                 .download_unpack_digest_file(
                     &[
                         DigestLocation::CloudStorage {
@@ -427,17 +451,18 @@ mod tests {
         async fn sends_feedbacks() {
             let target_dir = Path::new(".");
             let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
-            let client = CardanoDatabaseClientDependencyInjector::new()
-                .with_http_file_downloader(Arc::new(
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_compression(None)
                         .with_success()
                         .build(),
-                ))
-                .with_feedback_receivers(&[feedback_receiver.clone()])
-                .build_cardano_database_client();
+                ),
+                FeedbackSender::new(&[feedback_receiver.clone()]),
+                test_utils::test_logger(),
+            );
 
-            client
+            artifact_prover
                 .download_unpack_digest_file(
                     &[DigestLocation::CloudStorage {
                         uri: "http://whatever-1/digests.json".to_string(),
@@ -488,10 +513,17 @@ mod tests {
                 "read_digest_file_fails_when_no_digest_file",
             )
             .build();
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-
-            client
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_times(0)
+                        .with_success()
+                        .build(),
+                ),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
+            artifact_prover
                 .read_digest_file(&target_dir)
                 .expect_err("read_digest_file should fail");
         }
@@ -505,10 +537,17 @@ mod tests {
             .build();
             create_valid_fake_digest_file(&target_dir.join("digests.json"), &[]);
             create_valid_fake_digest_file(&target_dir.join("digests-2.json"), &[]);
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-
-            client
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_times(0)
+                        .with_success()
+                        .build(),
+                ),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
+            artifact_prover
                 .read_digest_file(&target_dir)
                 .expect_err("read_digest_file should fail");
         }
@@ -521,10 +560,17 @@ mod tests {
             )
             .build();
             create_invalid_fake_digest_file(&target_dir.join("digests.json"));
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
-
-            client
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_times(0)
+                        .with_success()
+                        .build(),
+                ),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
+            artifact_prover
                 .read_digest_file(&target_dir)
                 .expect_err("read_digest_file should fail");
         }
@@ -547,10 +593,18 @@ mod tests {
                 },
             ];
             create_valid_fake_digest_file(&target_dir.join("digests.json"), &digest_messages);
-            let client =
-                CardanoDatabaseClientDependencyInjector::new().build_cardano_database_client();
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(
+                    MockFileDownloaderBuilder::default()
+                        .with_times(0)
+                        .with_success()
+                        .build(),
+                ),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
 
-            let digests = client.read_digest_file(&target_dir).unwrap();
+            let digests = artifact_prover.read_digest_file(&target_dir).unwrap();
             assert_eq!(
                 BTreeMap::from([
                     ("00001.chunk".to_string(), "digest-1".to_string()),

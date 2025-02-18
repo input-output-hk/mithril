@@ -1,14 +1,23 @@
+use std::sync::Arc;
+
 use anyhow::Context;
 use serde::de::DeserializeOwned;
 
 use crate::{
-    aggregator_client::{AggregatorClientError, AggregatorRequest},
+    aggregator_client::{AggregatorClient, AggregatorClientError, AggregatorRequest},
     CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult,
 };
 
-use super::api::CardanoDatabaseClient;
+pub struct InternalArtifactRetriever {
+    pub(super) aggregator_client: Arc<dyn AggregatorClient>,
+}
 
-impl CardanoDatabaseClient {
+impl InternalArtifactRetriever {
+    /// Constructs a new `InternalArtifactRetriever`
+    pub fn new(aggregator_client: Arc<dyn AggregatorClient>) -> Self {
+        Self { aggregator_client }
+    }
+
     /// Fetch a list of signed CardanoDatabase
     pub async fn list(&self) -> MithrilResult<Vec<CardanoDatabaseSnapshotListItem>> {
         let response = self
