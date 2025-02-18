@@ -25,20 +25,29 @@ use super::immutable_file_range::ImmutableFileRange;
 type DownloadImmutableFuture = dyn Future<Output = MithrilResult<ImmutableFileNumber>> + Send;
 
 /// Options for downloading and unpacking a Cardano database
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct DownloadUnpackOptions {
     /// Allow overriding the destination directory
     pub allow_override: bool,
 
     /// Include ancillary files in the download
     pub include_ancillary: bool,
+
+    /// Maximum number of parallel downloads
+    pub max_parallel_downloads: usize,
+}
+
+impl Default for DownloadUnpackOptions {
+    fn default() -> Self {
+        Self {
+            allow_override: false,
+            include_ancillary: false,
+            max_parallel_downloads: 100,
+        }
+    }
 }
 
 impl CardanoDatabaseClient {
-    /// The maximum number of parallel downloads and unpacks for immutable files.
-    /// This could be a customizable parameter depending on level of concurrency wanted by the user.
-    const MAX_PARALLEL_DOWNLOAD_UNPACK: usize = 100;
-
     /// Download and unpack the given Cardano database parts data by hash.
     pub async fn download_unpack(
         &self,
@@ -71,6 +80,7 @@ impl CardanoDatabaseClient {
             immutable_file_number_range,
             &compression_algorithm,
             target_dir,
+            download_unpack_options.max_parallel_downloads,
             &download_id,
         )
         .await?;
@@ -164,6 +174,7 @@ impl CardanoDatabaseClient {
         range: RangeInclusive<ImmutableFileNumber>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
+        max_parallel_downloads: usize,
         download_id: &str,
     ) -> MithrilResult<()> {
         let mut locations_sorted = locations.to_owned();
@@ -177,6 +188,7 @@ impl CardanoDatabaseClient {
                     &immutable_file_numbers_to_download,
                     compression_algorithm,
                     immutable_files_target_dir,
+                    max_parallel_downloads,
                     download_id,
                 )
                 .await?;
@@ -298,6 +310,7 @@ impl CardanoDatabaseClient {
         immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>,
         compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
+        max_parallel_downloads: usize,
         download_id: &str,
     ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
@@ -314,7 +327,7 @@ impl CardanoDatabaseClient {
                     .as_slice(),
             )?;
         let file_downloader_uri_chunks = file_downloader_uris
-            .chunks(Self::MAX_PARALLEL_DOWNLOAD_UNPACK)
+            .chunks(max_parallel_downloads)
             .map(|x| x.to_vec())
             .collect::<Vec<_>>();
         for file_downloader_uris_chunk in file_downloader_uri_chunks {
@@ -654,6 +667,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: true,
                     include_ancillary: false,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .unwrap();
@@ -669,6 +683,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: true,
                     include_ancillary: false,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .unwrap();
@@ -677,6 +692,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: true,
                     include_ancillary: true,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .unwrap();
@@ -696,6 +712,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: false,
                     include_ancillary: false,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .expect_err("verify_can_write_to_target_dir should fail");
@@ -705,6 +722,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: false,
                     include_ancillary: true,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .expect_err("verify_can_write_to_target_dir should fail");
@@ -721,6 +739,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: false,
                     include_ancillary: true,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .expect_err("verify_can_write_to_target_dir should fail");
@@ -730,6 +749,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: false,
                     include_ancillary: false,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .unwrap();
@@ -746,6 +766,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: false,
                     include_ancillary: true,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .expect_err("verify_can_write_to_target_dir should fail");
@@ -755,6 +776,7 @@ mod tests {
                 &DownloadUnpackOptions {
                     allow_override: false,
                     include_ancillary: false,
+                    ..DownloadUnpackOptions::default()
                 },
             )
             .unwrap();
@@ -797,6 +819,7 @@ mod tests {
                         .unwrap(),
                     &CompressionAlgorithm::default(),
                     &target_dir,
+                    1,
                     "download_id",
                 )
                 .await
@@ -834,6 +857,7 @@ mod tests {
                         .unwrap(),
                     &CompressionAlgorithm::default(),
                     &target_dir,
+                    1,
                     "download_id",
                 )
                 .await
@@ -891,6 +915,7 @@ mod tests {
                         .unwrap(),
                     &CompressionAlgorithm::default(),
                     &target_dir,
+                    1,
                     "download_id",
                 )
                 .await
@@ -922,6 +947,7 @@ mod tests {
                         .unwrap(),
                     &CompressionAlgorithm::default(),
                     target_dir,
+                    1,
                     "download_id",
                 )
                 .await

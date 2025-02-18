@@ -65,6 +65,7 @@
 //! let download_unpack_options = DownloadUnpackOptions {
 //!     allow_override: true,
 //!     include_ancillary: true,
+//!     ..DownloadUnpackOptions::default()
 //! };
 //! client
 //!     .cardano_database()
@@ -100,6 +101,7 @@
 //! let download_unpack_options = DownloadUnpackOptions {
 //!     allow_override: true,
 //!     include_ancillary: true,
+//!     ..DownloadUnpackOptions::default()
 //! };
 //! client
 //!     .cardano_database()
