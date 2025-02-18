@@ -1,7 +1,7 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM rust:bullseye AS rustbuilder
+FROM rust:bookworm AS rustbuilder
 
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
@@ -30,7 +30,7 @@ RUN /app/target/release/mithril-relay --version
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM debian:11-slim
+FROM debian:12-slim
 
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
