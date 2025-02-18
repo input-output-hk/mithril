@@ -76,14 +76,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-14-large, windows-latest]
+        os: [macos-14, windows-latest]
 
         include:
           # Only build client on windows & mac
           - os: macos-14
-            binaries-build-args: --bin mithril-client --features bundle_tls
-            libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
-          - os: macos-14-large
             binaries-build-args: --bin mithril-client --features bundle_tls
             libraries-build-args: --package mithril-stm --package mithril-client --features full,unstable
           - os: windows-latest
@@ -176,15 +173,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, macos-14, macos-14-large, windows-latest]
+        os: [ubuntu-24.04, macos-14, windows-latest]
 
         include:
           - os: ubuntu-24.04
             test-args: --features full,unstable --workspace
           # Only test client on windows & mac (since its the only binaries supported for those os for now)
           - os: macos-14
-            test-args: --package mithril-client --package mithril-client-cli --features full,unstable
-          - os: macos-14-large
             test-args: --package mithril-client --package mithril-client-cli --features full,unstable
           - os: windows-latest
             test-args: --package mithril-client --package mithril-client-cli --features full,unstable
@@ -582,12 +577,6 @@ jobs:
         with:
           name: mithril-deb-packages-Linux-X64
           path: ./package
-
-      - name: Download built artifacts (macOS-X64)
-        uses: actions/download-artifact@v4
-        with:
-          name: mithril-distribution-macOS-X64
-          path: ./package-macOS-X64
 
       - name: Download built artifacts (macOS-ARM64)
         uses: actions/download-artifact@v4

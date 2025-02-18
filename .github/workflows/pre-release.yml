@@ -36,15 +36,6 @@ jobs:
           workflow: ci.yml
           workflow_conclusion: success
 
-      - name: Download built artifacts (macOS-x64)
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          name: mithril-distribution-macOS-X64
-          path: ./package-macOS-X64
-          commit: ${{ github.sha }}
-          workflow: ci.yml
-          workflow_conclusion: success
-
       - name: Download built artifacts (macOS-ARM64)
         uses: dawidd6/action-download-artifact@v6
         with:

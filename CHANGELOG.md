@@ -13,6 +13,8 @@ As a minor extension, we have adopted a slightly different versioning convention
 
   - Upgraded the minimum required `glibc` version from `2.31` to `2.35` for the pre-built Linux binaries.
 
+- End support for **macOS x64 pre-built binaries** for the client CLI.
+
 - Crates versions:
 
 | Crate | Version |
