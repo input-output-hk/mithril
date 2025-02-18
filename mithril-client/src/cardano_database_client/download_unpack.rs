@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
+use std::future::Future;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
+use std::pin::Pin;
 use std::sync::Arc;
 use tokio::task::JoinSet;
 
@@ -18,6 +20,9 @@ use crate::MithrilResult;
 
 use super::api::CardanoDatabaseClient;
 use super::immutable_file_range::ImmutableFileRange;
+
+/// The future type for downloading an immutable file
+type DownloadImmutableFuture = dyn Future<Output = MithrilResult<ImmutableFileNumber>> + Send;
 
 /// Options for downloading and unpacking a Cardano database
 #[derive(Debug, Default)]
@@ -203,44 +208,14 @@ impl CardanoDatabaseClient {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
         let mut join_set: JoinSet<MithrilResult<ImmutableFileNumber>> = JoinSet::new();
         for (immutable_file_number, file_downloader_uri) in file_downloader_uris_chunk.into_iter() {
-            let file_downloader_uri_clone = file_downloader_uri.to_owned();
-            let compression_algorithm_clone = compression_algorithm.to_owned();
-            let immutable_files_target_dir_clone = immutable_files_target_dir.to_owned();
-            let file_downloader_clone = file_downloader.clone();
-            let feedback_receiver_clone = self.feedback_sender.clone();
-            let logger_clone = self.logger.clone();
-            let download_id_clone = download_id.to_string();
-            join_set.spawn(async move {
-                    feedback_receiver_clone
-                        .send_event(MithrilEvent::CardanoDatabase(
-                            MithrilEventCardanoDatabase::ImmutableDownloadStarted { immutable_file_number, download_id: download_id_clone.clone()}))
-                        .await;
-                    let downloaded = file_downloader_clone
-                        .download_unpack(
-                            &file_downloader_uri_clone,
-                            &immutable_files_target_dir_clone,
-                            Some(compression_algorithm_clone),
-                            DownloadEvent::Immutable{immutable_file_number, download_id: download_id_clone.clone()},
-                        )
-                        .await;
-                    match downloaded {
-                        Ok(_) => {
-                            feedback_receiver_clone
-                                .send_event(MithrilEvent::CardanoDatabase(
-                                    MithrilEventCardanoDatabase::ImmutableDownloadCompleted { immutable_file_number, download_id: download_id_clone }))
-                                .await;
-
-                            Ok(immutable_file_number)
-                        }
-                        Err(e) => {
-                            slog::error!(
-                                logger_clone,
-                                "Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}"; "error" => e.to_string()
-                            );
-                            Err(e.context(format!("Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}")))
-                        }
-                    }
-                });
+            join_set.spawn(self.spawn_immutable_download_future(
+                file_downloader.clone(),
+                immutable_file_number,
+                file_downloader_uri,
+                compression_algorithm.to_owned(),
+                immutable_files_target_dir.to_path_buf(),
+                download_id,
+            )?);
         }
         while let Some(result) = join_set.join_next().await {
             match result? {
@@ -257,6 +232,64 @@ impl CardanoDatabaseClient {
         }
 
         Ok(immutable_file_numbers_downloaded)
+    }
+
+    fn spawn_immutable_download_future(
+        &self,
+        file_downloader: Arc<dyn FileDownloader>,
+        immutable_file_number: ImmutableFileNumber,
+        file_downloader_uri: FileDownloaderUri,
+        compression_algorithm: CompressionAlgorithm,
+        immutable_files_target_dir: PathBuf,
+        download_id: &str,
+    ) -> MithrilResult<Pin<Box<DownloadImmutableFuture>>> {
+        let feedback_receiver_clone = self.feedback_sender.clone();
+        let logger_clone = self.logger.clone();
+        let download_id_clone = download_id.to_string();
+        let download_future = async move {
+            feedback_receiver_clone
+                .send_event(MithrilEvent::CardanoDatabase(
+                    MithrilEventCardanoDatabase::ImmutableDownloadStarted {
+                        immutable_file_number,
+                        download_id: download_id_clone.clone(),
+                    },
+                ))
+                .await;
+            let downloaded = file_downloader
+                .download_unpack(
+                    &file_downloader_uri,
+                    &immutable_files_target_dir,
+                    Some(compression_algorithm),
+                    DownloadEvent::Immutable {
+                        immutable_file_number,
+                        download_id: download_id_clone.clone(),
+                    },
+                )
+                .await;
+            match downloaded {
+                Ok(_) => {
+                    feedback_receiver_clone
+                        .send_event(MithrilEvent::CardanoDatabase(
+                            MithrilEventCardanoDatabase::ImmutableDownloadCompleted {
+                                immutable_file_number,
+                                download_id: download_id_clone,
+                            },
+                        ))
+                        .await;
+
+                    Ok(immutable_file_number)
+                }
+                Err(e) => {
+                    slog::error!(
+                        logger_clone,
+                        "Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}"; "error" => e.to_string()
+                    );
+                    Err(e.context(format!("Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}")))
+                }
+            }
+        };
+
+        Ok(Box::pin(download_future))
     }
 
     async fn download_unpack_immutable_files_for_location(
