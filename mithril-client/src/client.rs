@@ -19,7 +19,9 @@ use crate::certificate_client::{
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
 #[cfg(all(feature = "fs", feature = "unstable"))]
-use crate::file_downloader::{FileDownloadRetryPolicy, HttpFileDownloader, RetryDownloader};
+use crate::file_downloader::{
+    FileDownloadRetryPolicy, FileDownloader, HttpFileDownloader, RetryDownloader,
+};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
 use crate::MithrilResult;
@@ -134,6 +136,7 @@ pub struct ClientBuilder {
     genesis_verification_key: String,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
+    http_file_downloader: Option<Arc<dyn FileDownloader>>,
     #[cfg(feature = "unstable")]
     certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
     logger: Option<Logger>,
@@ -152,6 +155,7 @@ impl ClientBuilder {
             certificate_verifier: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
+            http_file_downloader: None,
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
@@ -168,6 +172,7 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            http_file_downloader: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
             logger: None,
@@ -234,14 +239,17 @@ impl ClientBuilder {
             aggregator_client.clone(),
         ));
 
-        #[cfg(all(feature = "fs", feature = "unstable"))]
-        let http_file_downloader = Arc::new(RetryDownloader::new(
-            Arc::new(
-                HttpFileDownloader::new(feedback_sender.clone(), logger.clone())
-                    .with_context(|| "Building http file downloader failed")?,
-            ),
-            FileDownloadRetryPolicy::default(),
-        ));
+        #[cfg(feature = "fs")]
+        let http_file_downloader = match self.http_file_downloader {
+            None => Arc::new(RetryDownloader::new(
+                Arc::new(
+                    HttpFileDownloader::new(feedback_sender.clone(), logger.clone())
+                        .with_context(|| "Building http file downloader failed")?,
+                ),
+                FileDownloadRetryPolicy::default(),
+            )),
+            Some(http_file_downloader) => http_file_downloader,
+        };
 
         let snapshot_client = Arc::new(SnapshotClient::new(
             aggregator_client.clone(),
@@ -308,6 +316,17 @@ impl ClientBuilder {
             certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
         ) -> ClientBuilder {
             self.certificate_verifier_cache = certificate_verifier_cache;
+            self
+        }
+    }
+
+    cfg_fs! {
+        /// Set the [FileDownloader] that will be used to download artifacts with HTTP.
+        pub fn with_http_file_downloader(
+            mut self,
+            http_file_downloader: Arc<dyn FileDownloader>,
+        ) -> ClientBuilder {
+            self.http_file_downloader = Some(http_file_downloader);
             self
         }
     }
