@@ -1,5 +1,5 @@
 ---
-title: End of support for MacOS x64 pre-built binaries
+title: Ending support for macOS x64 pre-built binaries
 authors:
   - name: Mithril Team
 tags:
@@ -16,15 +16,14 @@ tags:
   ]
 ---
 
-### End of support for MacOS x64 pre-built binaries
+## Ending support for macOS x64 pre-built binaries
 
-Since 2020, MacOS has transitioned from **Intel** (x64 architecture) to **Apple Silicon** (arm64 architecture) processors.
+Since 2020, macOS has transitioned from **Intel** (x64 architecture) to **Apple Silicon** (arm64 architecture) processors.
 
-Moreover, the **Cardano node** version `10+` currently only supports **Apple Silicon** for MacOSX.
+Additionally, Cardano node version `10+` now supports only Apple Silicon on macOSX.
 
-Therefore, the Mithril team has decided to end the support for **MacOS x64 pre-built binaries** for the client CLI from **March 2025**.
+As a result, the Mithril team will end support for **macOS x64 pre-built binaries** for the client CLI starting **March 2025**.
 
-This means that the **CI will no longer build these binaries** for the GitHub releases from this date.
-In case you are still using MacOS x64, you will need to build the binaries from source.
+From this date, **CI will no longer build these binaries** for GitHub releases. If you are still using macOS x64, you will need to build the binaries from source.
 
-For any inquiries or assistance, don't hesitate to contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For any inquiries or assistance, contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
