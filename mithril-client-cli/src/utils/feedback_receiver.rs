@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 use indicatif::{ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
-use slog::{warn, Logger};
+use slog::Logger;
 use std::fmt::Write;
 use tokio::sync::RwLock;
 
 use super::{DownloadProgressReporter, ProgressOutputType};
 
-use mithril_client::feedback::{FeedbackReceiver, MithrilEvent};
+use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
 
 /// Custom [FeedbackReceiver] for Cardano DB to handle events sent
 /// by the `mithril-client` library
@@ -71,6 +71,60 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 }
                 *download_progress_reporter = None;
             }
+            MithrilEvent::CardanoDatabase(cardano_database_event) => match cardano_database_event {
+                MithrilEventCardanoDatabase::Started { download_id: _ } => {
+                    println!("MithrilEventCardanoDatabase::Started")
+                }
+                MithrilEventCardanoDatabase::Completed { download_id: _ } => {
+                    println!("MithrilEventCardanoDatabase::Completed")
+                }
+                MithrilEventCardanoDatabase::ImmutableDownloadStarted {
+                    immutable_file_number: _,
+                    download_id: _,
+                } => {
+                    println!("MithrilEventCardanoDatabase::ImmutableDownloadStarted")
+                }
+                MithrilEventCardanoDatabase::ImmutableDownloadProgress {
+                    immutable_file_number: _,
+                    download_id: _,
+                    downloaded_bytes: _,
+                    size: _,
+                } => {
+                    println!("MithrilEventCardanoDatabase::ImmutableDownloadProgress")
+                }
+                MithrilEventCardanoDatabase::ImmutableDownloadCompleted {
+                    immutable_file_number: _,
+                    download_id: _,
+                } => {
+                    println!("MithrilEventCardanoDatabase::ImmutableDownloadCompleted")
+                }
+                MithrilEventCardanoDatabase::AncillaryDownloadStarted { download_id: _ } => {
+                    println!("MithrilEventCardanoDatabase::AncillaryDownloadStarted")
+                }
+                MithrilEventCardanoDatabase::AncillaryDownloadProgress {
+                    download_id: _,
+                    downloaded_bytes: _,
+                    size: _,
+                } => {
+                    println!("MithrilEventCardanoDatabase::AncillaryDownloadProgress")
+                }
+                MithrilEventCardanoDatabase::AncillaryDownloadCompleted { download_id: _ } => {
+                    println!("MithrilEventCardanoDatabase::AncillaryDownloadCompleted")
+                }
+                MithrilEventCardanoDatabase::DigestDownloadStarted { download_id: _ } => {
+                    println!("MithrilEventCardanoDatabase::DigestDownloadStarted")
+                }
+                MithrilEventCardanoDatabase::DigestDownloadProgress {
+                    download_id: _,
+                    downloaded_bytes: _,
+                    size: _,
+                } => {
+                    println!("MithrilEventCardanoDatabase::DigestDownloadProgress")
+                }
+                MithrilEventCardanoDatabase::DigestDownloadCompleted { download_id: _ } => {
+                    println!("MithrilEventCardanoDatabase::DigestDownloadCompleted")
+                }
+            },
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id: _,
             } => {
@@ -110,10 +164,6 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     progress_bar.finish_with_message("Certificate chain validated");
                 }
                 *certificate_validation_pb = None;
-            }
-            _ => {
-                // TODO: Handle other events from Cardano database client and remove this catchall
-                warn!(self.logger, "Unhandled event"; "event" => ?event);
             }
         }
     }
