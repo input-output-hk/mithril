@@ -5,22 +5,22 @@ authors:
 tags: [cardano, sanchonet, spo, testing, network]
 ---
 
-## Announcing the decommission of the `testing‑sanchonet` network
+## Announcing the decommissioning of the `testing‑sanchonet` network
 
-The `testing-sanchonet` Mithril network has been introduced a year ago to allow the community to test some experimental features and provide feedback to the Mithril team. In particular, the network has been a valuable tool for the team to test the switch to the **Conway** era.
+The `testing-sanchonet` Mithril network was introduced a year ago to allow the community to test experimental features and provide feedback to the Mithril team. In particular, it has been a valuable tool for testing the transition to the **Conway** era.
 
-**The Mithril team is very grateful for the Mithril pioneer SPOs' participation in testing the network and providing valuable feedback**!
+**The Mithril team sincerely appreciates the Mithril pioneer stake pool operators for participating in testing and providing valuable feedback!**
 
-The Cardano **Sanchonet** network is now being sunset as it has fulfilled its purpose of being an environment to introducing the Cardano community to governance features from **CIP-1694** in a controlled testnet environment.
+The Cardano SanchoNet network is now being sunset, having served its purpose of introducing governance features from CIP-1694 in a controlled testnet environment.
 
-In that context, the Mithril team has decided to **decommission the `testing-sanchonet` network**:
+In this context, the Mithril team has decided to decommission the `testing-sanchonet` network:
 
-- the aggregator will be terminated by **February 21st, 2025**
+- the aggregator will be terminated by **February 21, 2025**
 - the network will be removed from the [Mithril explorer](https://mithril.network/explorer/?aggregator=https%3A%2F%2Faggregator.testing-sanchonet.api.mithril.network%2Faggregator)
-- the code of the repository will be cleaned up.
+- the repository code will be cleaned up.
 
-If you are currently **running a Mithril signer in that network, you can now safely terminate your node** and remove the `testing-sanchonet` network configuration from your setup.
+If you are running a **Mithril signer on this network, you can safely terminate your node** and remove the `testing-sanchonet` configuration from your setup.
 
-The list of available Mithril networks is listed on the [Network configurations](https://mithril.network/doc/manual/getting-started/network-configurations) page of the documentation website.
+Available Mithril networks are listed on the [Network configurations](https://mithril.network/doc/manual/getting-started/network-configurations) page of the documentation website.
 
-For any inquiries or assistance, don't hesitate to reach out to the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
+For any inquiries or assistance, contact the team on the [Discord channel](https://discord.gg/5kaErDKDRq).
