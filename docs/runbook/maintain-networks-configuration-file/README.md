@@ -22,4 +22,3 @@ Here are the recommended update policies by Cardano network:
 `preview` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version.
 `preprod` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version.
 `mainnet` | **stable** | the minimum supported Cardano node version should be updated to be two stable releases behind the current release version.
-`sanchonet` | **unstable** | given the unstable status of the network, the minimum supported Cardano node version may vary from the stable one.
