@@ -553,19 +553,15 @@ mod tests {
             .build();
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new({
-                    let mock_file_downloader = MockFileDownloaderBuilder::default()
+                    MockFileDownloaderBuilder::default()
                         .with_file_uri("http://whatever/00001.tar.gz")
                         .with_target_dir(target_dir.clone())
                         .with_success()
-                        .build();
-                    let mock_file_downloader =
-                        MockFileDownloaderBuilder::from_mock(mock_file_downloader)
-                            .with_file_uri("http://whatever/00002.tar.gz")
-                            .with_target_dir(target_dir.clone())
-                            .with_success()
-                            .build();
-
-                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                        .next_call()
+                        .with_file_uri("http://whatever/00002.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_success()
+                        .next_call()
                         .with_file_uri("http://whatever/ancillary.tar.gz")
                         .with_target_dir(target_dir.clone())
                         .with_compression(Some(CompressionAlgorithm::default()))
@@ -798,10 +794,9 @@ mod tests {
             .build();
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new({
-                    let mock_file_downloader =
-                        MockFileDownloaderBuilder::default().with_failure().build();
-
-                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                    MockFileDownloaderBuilder::default()
+                        .with_failure()
+                        .next_call()
                         .with_success()
                         .build()
                 }))
@@ -876,19 +871,15 @@ mod tests {
             .build();
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new({
-                    let mock_file_downloader = MockFileDownloaderBuilder::default()
+                    MockFileDownloaderBuilder::default()
                         .with_file_uri("http://whatever-1/00001.tar.gz")
                         .with_target_dir(target_dir.clone())
                         .with_failure()
-                        .build();
-                    let mock_file_downloader =
-                        MockFileDownloaderBuilder::from_mock(mock_file_downloader)
-                            .with_file_uri("http://whatever-1/00002.tar.gz")
-                            .with_target_dir(target_dir.clone())
-                            .with_success()
-                            .build();
-
-                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                        .next_call()
+                        .with_file_uri("http://whatever-1/00002.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_success()
+                        .next_call()
                         .with_file_uri("http://whatever-2/00001.tar.gz")
                         .with_target_dir(target_dir.clone())
                         .with_success()
@@ -1045,13 +1036,11 @@ mod tests {
             let target_dir = Path::new(".");
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new({
-                    let mock_file_downloader = MockFileDownloaderBuilder::default()
+                    MockFileDownloaderBuilder::default()
                         .with_file_uri("http://whatever-1/ancillary.tar.gz")
                         .with_target_dir(target_dir.to_path_buf())
                         .with_failure()
-                        .build();
-
-                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                        .next_call()
                         .with_file_uri("http://whatever-2/ancillary.tar.gz")
                         .with_target_dir(target_dir.to_path_buf())
                         .with_success()

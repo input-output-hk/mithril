@@ -368,12 +368,10 @@ mod tests {
             let target_dir = Path::new(".");
             let client = CardanoDatabaseClientDependencyInjector::new()
                 .with_http_file_downloader(Arc::new({
-                    let mock_file_downloader = MockFileDownloaderBuilder::default()
+                    MockFileDownloaderBuilder::default()
                         .with_compression(None)
                         .with_failure()
-                        .build();
-
-                    MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+                        .next_call()
                         .with_compression(None)
                         .with_success()
                         .build()

@@ -162,8 +162,7 @@ mod tests {
             .with_compression(None)
             .with_failure()
             .with_times(2)
-            .build();
-        let mock_file_downloader = MockFileDownloaderBuilder::from_mock(mock_file_downloader)
+            .next_call()
             .with_file_uri("http://whatever/00001.tar.gz")
             .with_compression(None)
             .with_times(1)

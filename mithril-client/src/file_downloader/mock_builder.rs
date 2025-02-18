@@ -142,4 +142,13 @@ impl MockFileDownloaderBuilder {
 
         mock_file_downloader
     }
+
+    /// Builds the MockFileDownloader and returns a new MockFileDownloaderBuilder
+    ///
+    /// This helps building multiple expectations for the mock.
+    pub fn next_call(self) -> Self {
+        let mock_file_downloader = self.build();
+
+        Self::from_mock(mock_file_downloader)
+    }
 }
