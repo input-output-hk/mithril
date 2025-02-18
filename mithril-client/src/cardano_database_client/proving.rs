@@ -18,6 +18,7 @@ use mithril_common::{
 use crate::{
     feedback::{MithrilEvent, MithrilEventCardanoDatabase},
     file_downloader::{DownloadEvent, FileDownloaderUri},
+    utils::{create_directory_if_not_exists, delete_directory, read_files_in_directory},
     MithrilResult,
 };
 
@@ -60,7 +61,7 @@ impl CardanoDatabaseClient {
             .values()
             .map(MKTreeNode::from)
             .collect::<Vec<_>>();
-        Self::delete_directory(&Self::digest_target_dir(database_dir))?;
+        delete_directory(&Self::digest_target_dir(database_dir))?;
 
         merkle_tree.compute_proof(&computed_digests)
     }
@@ -70,7 +71,7 @@ impl CardanoDatabaseClient {
         locations: &[DigestLocation],
         digest_file_target_dir: &Path,
     ) -> MithrilResult<()> {
-        Self::create_directory_if_not_exists(digest_file_target_dir)?;
+        create_directory_if_not_exists(digest_file_target_dir)?;
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
         for location in locations_sorted {
@@ -125,7 +126,7 @@ impl CardanoDatabaseClient {
         &self,
         digest_file_target_dir: &Path,
     ) -> MithrilResult<BTreeMap<ImmutableFileName, HexEncodedDigest>> {
-        let digest_files = Self::read_files_in_directory(digest_file_target_dir)?;
+        let digest_files = read_files_in_directory(digest_file_target_dir)?;
         if digest_files.len() > 1 {
             return Err(anyhow!(
                 "Multiple digest files found in directory: {digest_file_target_dir:?}"
@@ -153,35 +154,6 @@ impl CardanoDatabaseClient {
 
     fn digest_target_dir(target_dir: &Path) -> PathBuf {
         target_dir.join("digest")
-    }
-
-    fn create_directory_if_not_exists(dir: &Path) -> MithrilResult<()> {
-        if dir.exists() {
-            return Ok(());
-        }
-
-        fs::create_dir_all(dir).map_err(|e| anyhow!("Failed creating directory: {e}"))
-    }
-
-    fn delete_directory(dir: &Path) -> MithrilResult<()> {
-        if dir.exists() {
-            fs::remove_dir_all(dir).map_err(|e| anyhow!("Failed deleting directory: {e}"))?;
-        }
-
-        Ok(())
-    }
-
-    fn read_files_in_directory(dir: &Path) -> MithrilResult<Vec<PathBuf>> {
-        let mut files = vec![];
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                files.push(path);
-            }
-        }
-
-        Ok(files)
     }
 }
 
