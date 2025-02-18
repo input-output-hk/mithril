@@ -9,9 +9,17 @@ tags: [ci, glibc, breaking-change]
 
 :::info
 
+Distribution [`2506.0`](https://github.com/input-output-hk/mithril/releases/tag/2506.0) has been released.
+Consequently, the minimum required `glibc` version has been bumped to `2.35`.
+
+:::
+
+:::info
+
 - This change **only affects users who rely on the precompiled Linux binaries** provided by the Mithril team.
 - If you compile the binaries from source or use a different operating system, you are **not affected**.
-  :::
+
+:::
 
 ## Background
 
