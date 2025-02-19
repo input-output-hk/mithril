@@ -29,6 +29,14 @@ pub enum MultiSignatureError {
     /// At least one signature in the batch is invalid
     #[error("One signature in the batch is invalid")]
     BatchInvalid,
+
+    /// Single signature is the infinity
+    #[error("Single signature is the infinity")]
+    SignatureInfinity(Signature),
+
+    /// Verification key is the infinity
+    #[error("Verification key is the infinity")]
+    VerificationKeyInfinity,
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -159,6 +167,8 @@ impl From<MultiSignatureError> for StmSignatureError {
             MultiSignatureError::BatchInvalid => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
+            MultiSignatureError::SignatureInfinity(_) => unreachable!(),
+            MultiSignatureError::VerificationKeyInfinity => unreachable!(),
         }
     }
 }
@@ -192,6 +202,12 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_) => {
+                Self::CoreVerificationError(CoreVerifierError::from(e))
+            }
+            MultiSignatureError::SignatureInfinity(_) => {
+                Self::CoreVerificationError(CoreVerifierError::from(e))
+            }
+            MultiSignatureError::VerificationKeyInfinity => {
                 Self::CoreVerificationError(CoreVerifierError::from(e))
             }
         }
@@ -230,6 +246,8 @@ impl From<MultiSignatureError> for CoreVerifierError {
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
+            MultiSignatureError::SignatureInfinity(_) => unreachable!(),
+            MultiSignatureError::VerificationKeyInfinity => unreachable!(),
         }
     }
 }
@@ -258,6 +276,13 @@ pub(crate) fn blst_err_to_mithril(
 ) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),
+        BLST_ERROR::BLST_PK_IS_INFINITY => {
+            if let Some(s) = sig {
+                Err(MultiSignatureError::SignatureInfinity(s))
+            } else {
+                Err(MultiSignatureError::VerificationKeyInfinity)
+            }
+        }
         BLST_ERROR::BLST_VERIFY_FAIL => {
             if let Some(s) = sig {
                 Err(MultiSignatureError::SignatureInvalid(s))
