@@ -58,7 +58,6 @@ impl CardanoDatabaseClient {
             #[cfg(feature = "fs")]
             artifact_prover: InternalArtifactProver::new(
                 http_file_downloader.clone(),
-                feedback_sender.clone(),
                 logger.clone(),
             ),
             statistics_sender: InternalStaticticsSender::new(aggregator_client.clone()),
