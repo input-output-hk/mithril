@@ -182,7 +182,9 @@ impl TryFrom<SignedEntityRecord> for CardanoDatabaseSnapshotMessage {
             certificate_hash: value.certificate_id,
             total_db_size_uncompressed: artifact.total_db_size_uncompressed,
             created_at: value.created_at,
-            locations: artifact.locations.into(),
+            digests: artifact.digests.into(),
+            immutables: artifact.immutables.into(),
+            ancillary: artifact.ancillary.into(),
             compression_algorithm: artifact.compression_algorithm,
             cardano_node_version: artifact.cardano_node_version,
         };

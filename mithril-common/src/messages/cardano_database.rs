@@ -2,27 +2,49 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::entities::{
-    AncillaryLocation, ArtifactsLocations, CardanoDbBeacon, CompressionAlgorithm, DigestLocation,
-    Epoch, ImmutablesLocation, MultiFilesUri, TemplateUri,
+    AncillaryLocation, AncillaryLocations, CardanoDbBeacon, CompressionAlgorithm, DigestLocation,
+    DigestsLocations, Epoch, ImmutablesLocation, ImmutablesLocations, MultiFilesUri, TemplateUri,
 };
 
-/// Locations of the Cardano database related files.
+/// The message part that represents the locations of the Cardano database digests.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ArtifactsLocationsMessagePart {
-    /// Locations of the the immutable file digests.
-    pub digests: Vec<DigestLocation>,
+pub struct DigestsMessagePart {
+    /// Locations of the digests.
+    pub locations: Vec<DigestLocation>,
+}
+/// The message part that represents the locations of the Cardano database immutables.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImmutablesMessagePart {
     /// Locations of the immutable files.
-    pub immutables: Vec<ImmutablesLocation>,
+    pub locations: Vec<ImmutablesLocation>,
+}
+/// The message part that represents the locations of the Cardano database ancillary.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AncillaryMessagePart {
     /// Locations of the ancillary files.
-    pub ancillary: Vec<AncillaryLocation>,
+    pub locations: Vec<AncillaryLocation>,
 }
 
-impl From<ArtifactsLocations> for ArtifactsLocationsMessagePart {
-    fn from(part: ArtifactsLocations) -> Self {
+impl From<DigestsLocations> for DigestsMessagePart {
+    fn from(part: DigestsLocations) -> Self {
         Self {
-            digests: part.digests,
-            immutables: part.immutables,
-            ancillary: part.ancillary,
+            locations: part.locations,
+        }
+    }
+}
+
+impl From<ImmutablesLocations> for ImmutablesMessagePart {
+    fn from(part: ImmutablesLocations) -> Self {
+        Self {
+            locations: part.locations,
+        }
+    }
+}
+
+impl From<AncillaryLocations> for AncillaryMessagePart {
+    fn from(part: AncillaryLocations) -> Self {
+        Self {
+            locations: part.locations,
         }
     }
 }
@@ -45,8 +67,14 @@ pub struct CardanoDatabaseSnapshotMessage {
     /// Size of the uncompressed Cardano database files.
     pub total_db_size_uncompressed: u64,
 
-    /// Locations of the Cardano database artifacts.
-    pub locations: ArtifactsLocationsMessagePart,
+    /// Locations of the the immutable file digests.
+    pub digests: DigestsMessagePart,
+
+    /// Locations of the immutable files.
+    pub immutables: ImmutablesMessagePart,
+
+    /// Locations of the ancillary files.
+    pub ancillary: AncillaryMessagePart,
 
     /// Compression algorithm of the Cardano database artifacts.
     pub compression_algorithm: CompressionAlgorithm,
@@ -75,11 +103,13 @@ impl CardanoDatabaseSnapshotMessage {
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                 .unwrap()
                 .with_timezone(&Utc),
-            locations: ArtifactsLocationsMessagePart {
-                digests: vec![DigestLocation::Aggregator {
+            digests: DigestsMessagePart {
+                locations: vec![DigestLocation::Aggregator {
                     uri: "https://host-1/digest-1".to_string(),
                 }],
-                immutables: vec![
+            },
+            immutables: ImmutablesMessagePart {
+                locations: vec![
                     ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "https://host-1/immutables-2".to_string(),
@@ -91,7 +121,9 @@ impl CardanoDatabaseSnapshotMessage {
                         )),
                     },
                 ],
-                ancillary: vec![AncillaryLocation::CloudStorage {
+            },
+            ancillary: AncillaryMessagePart {
+                locations: vec![AncillaryLocation::CloudStorage {
                     uri: "https://host-1/ancillary-3".to_string(),
                 }],
             },
@@ -115,32 +147,36 @@ mod tests {
         },
         "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
         "total_db_size_uncompressed": 800796318,
-        "locations": {
-            "digests": [
-            {
-                "type": "aggregator",
-                "uri": "https://host-1/digest-1"
-            }
-            ],
-            "immutables": [
-            {
-                "type": "cloud_storage",
-                "uri": {
-                    "Template": "https://host-1/immutables-{immutable_file_number}"
+        "digests": {
+            "locations": [
+                {
+                    "type": "aggregator",
+                    "uri": "https://host-1/digest-1"
                 }
-            },
-            {
-                "type": "cloud_storage",
-                "uri": {
-                    "Template": "https://host-2/immutables-{immutable_file_number}"
+            ]
+        },
+        "immutables": {
+            "locations": [
+                {
+                    "type": "cloud_storage",
+                    "uri": {
+                        "Template": "https://host-1/immutables-{immutable_file_number}"
+                    }
+                },
+                {
+                    "type": "cloud_storage",
+                    "uri": {
+                        "Template": "https://host-2/immutables-{immutable_file_number}"
+                    }
                 }
-            }
-            ],
-            "ancillary": [
-            {
-                "type": "cloud_storage",
-                "uri": "https://host-1/ancillary-3"
-            }
+            ]
+        },
+        "ancillary": {
+            "locations": [
+                {
+                    "type": "cloud_storage",
+                    "uri": "https://host-1/ancillary-3"
+                }
             ]
         },
         "compression_algorithm": "gzip",
@@ -163,11 +199,13 @@ mod tests {
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                 .unwrap()
                 .with_timezone(&Utc),
-            locations: ArtifactsLocationsMessagePart {
-                digests: vec![DigestLocation::Aggregator {
+            digests: DigestsMessagePart {
+                locations: vec![DigestLocation::Aggregator {
                     uri: "https://host-1/digest-1".to_string(),
                 }],
-                immutables: vec![
+            },
+            immutables: ImmutablesMessagePart {
+                locations: vec![
                     ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "https://host-1/immutables-{immutable_file_number}".to_string(),
@@ -179,7 +217,9 @@ mod tests {
                         )),
                     },
                 ],
-                ancillary: vec![AncillaryLocation::CloudStorage {
+            },
+            ancillary: AncillaryMessagePart {
+                locations: vec![AncillaryLocation::CloudStorage {
                     uri: "https://host-1/ancillary-3".to_string(),
                 }],
             },
@@ -210,20 +250,24 @@ mod tests {
             },
             "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
             "total_db_size_uncompressed": 800796318,
-            "locations": {
-                "digests": [
+            "digests": {
+                "locations": [
                     {
                         "type": "whatever",
                         "new_field": "digest-1"
                     }
-                ],
-                "immutables": [
+                ]
+            },
+            "immutables": { 
+                "locations": [
                     {
                         "type": "whatever",
                         "new_field": [123, 125]
                     }
-                ],
-                "ancillary": [
+                ]
+            },
+            "ancillary": {
+                "locations": [
                     {
                         "type": "whatever",
                         "new_field": "ancillary-3"
@@ -238,13 +282,13 @@ mod tests {
             "This JSON is expected to be successfully parsed into a CardanoDatabaseSnapshotMessage instance.",
         );
 
-        assert_eq!(message.locations.digests.len(), 1);
-        assert_eq!(DigestLocation::Unknown, message.locations.digests[0]);
+        assert_eq!(message.digests.locations.len(), 1);
+        assert_eq!(DigestLocation::Unknown, message.digests.locations[0]);
 
-        assert_eq!(message.locations.immutables.len(), 1);
-        assert_eq!(ImmutablesLocation::Unknown, message.locations.immutables[0]);
+        assert_eq!(message.immutables.locations.len(), 1);
+        assert_eq!(ImmutablesLocation::Unknown, message.immutables.locations[0]);
 
-        assert_eq!(message.locations.ancillary.len(), 1);
-        assert_eq!(AncillaryLocation::Unknown, message.locations.ancillary[0]);
+        assert_eq!(message.ancillary.locations.len(), 1);
+        assert_eq!(AncillaryLocation::Unknown, message.ancillary.locations[0]);
     }
 }

@@ -47,7 +47,7 @@ impl InternalArtifactProver {
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
-        let digest_locations = &cardano_database_snapshot.locations.digests;
+        let digest_locations = &cardano_database_snapshot.digests.locations;
         self.download_unpack_digest_file(digest_locations, &Self::digest_target_dir(database_dir))
             .await?;
         let network = certificate.metadata.network.clone();
@@ -172,7 +172,7 @@ mod tests {
     use mithril_common::{
         digesters::{DummyCardanoDbBuilder, ImmutableDigester, ImmutableFile},
         entities::{CardanoDbBeacon, Epoch, HexEncodedDigest},
-        messages::{ArtifactsLocationsMessagePart, CardanoDatabaseDigestListItemMessage},
+        messages::CardanoDatabaseDigestListItemMessage,
         test_utils::TempDir,
     };
 
@@ -187,7 +187,7 @@ mod tests {
 
         use std::ops::RangeInclusive;
 
-        use mithril_common::entities::ImmutableFileNumber;
+        use mithril_common::{entities::ImmutableFileNumber, messages::DigestsMessagePart};
 
         use super::*;
 
@@ -205,11 +205,10 @@ mod tests {
             let cardano_database_snapshot = CardanoDatabaseSnapshotMessage {
                 hash: "hash-123".to_string(),
                 beacon: beacon.clone(),
-                locations: ArtifactsLocationsMessagePart {
-                    digests: vec![DigestLocation::CloudStorage {
+                digests: DigestsMessagePart {
+                    locations: vec![DigestLocation::CloudStorage {
                         uri: "http://whatever/digests.json".to_string(),
                     }],
-                    ..ArtifactsLocationsMessagePart::default()
                 },
                 ..CardanoDatabaseSnapshotMessage::dummy()
             };

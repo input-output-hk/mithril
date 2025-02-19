@@ -107,7 +107,7 @@ impl InternalArtifactDownloader {
             last_immutable_file_number,
         )?;
         Self::verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
-        let immutable_locations = &cardano_database_snapshot.locations.immutables;
+        let immutable_locations = &cardano_database_snapshot.immutables.locations;
         self.download_unpack_immutable_files(
             immutable_locations,
             immutable_file_number_range,
@@ -118,7 +118,7 @@ impl InternalArtifactDownloader {
         )
         .await?;
         if download_unpack_options.include_ancillary {
-            let ancillary_locations = &cardano_database_snapshot.locations.ancillary;
+            let ancillary_locations = &cardano_database_snapshot.ancillary.locations;
             self.download_unpack_ancillary_file(
                 ancillary_locations,
                 &compression_algorithm,
@@ -428,10 +428,7 @@ mod tests {
 
     use mithril_common::{
         entities::{CardanoDbBeacon, Epoch, MultiFilesUri, TemplateUri},
-        messages::{
-            ArtifactsLocationsMessagePart,
-            CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot,
-        },
+        messages::CardanoDatabaseSnapshotMessage as CardanoDatabaseSnapshot,
         test_utils::TempDir,
     };
 
@@ -442,6 +439,10 @@ mod tests {
     use super::*;
 
     mod download_unpack {
+
+        use mithril_common::messages::{
+            AncillaryMessagePart, DigestsMessagePart, ImmutablesMessagePart,
+        };
 
         use super::*;
 
@@ -475,14 +476,14 @@ mod tests {
             let download_unpack_options = DownloadUnpackOptions::default();
             let cardano_db_snapshot = CardanoDatabaseSnapshot {
                 hash: "hash-123".to_string(),
-                locations: ArtifactsLocationsMessagePart {
-                    immutables: vec![ImmutablesLocation::CloudStorage {
+                immutables: ImmutablesMessagePart {
+                    locations: vec![ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
                         )),
                     }],
-                    ..ArtifactsLocationsMessagePart::default()
                 },
+
                 ..CardanoDatabaseSnapshot::dummy()
             };
             let target_dir = TempDir::new(
@@ -552,17 +553,19 @@ mod tests {
                     immutable_file_number: 2,
                     epoch: Epoch(123),
                 },
-                locations: ArtifactsLocationsMessagePart {
-                    immutables: vec![ImmutablesLocation::CloudStorage {
+                immutables: ImmutablesMessagePart {
+                    locations: vec![ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
                         )),
                     }],
-                    ancillary: vec![AncillaryLocation::CloudStorage {
+                },
+                ancillary: AncillaryMessagePart {
+                    locations: vec![AncillaryLocation::CloudStorage {
                         uri: "http://whatever/ancillary.tar.gz".to_string(),
                     }],
-                    digests: vec![],
                 },
+                digests: DigestsMessagePart { locations: vec![] },
                 ..CardanoDatabaseSnapshot::dummy()
             };
             let target_dir = TempDir::new(

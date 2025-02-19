@@ -1808,32 +1808,36 @@ components:
       examples:
         - { "nb_immutable_files": 15 }
 
-    CardanoDatabaseArtifactsLocationsMessagePart:
-      description: CardanoDatabaseArtifactsLocationsMessagePart represents the locations of the Cardano database artifacts
+    CardanoDatabaseDigestsLocationsMessagePart:
+      description: CardanoDatabaseDigestsLocationsMessagePart represents the locations of the Cardano database digests
       type: object
       properties:
-        digests:
-          type: array
-          items:
-            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
-        immutables:
-          type: array
-          items:
-            $ref: "#/components/schemas/CardanoDatabaseImmutableLocationMessagePart"
-        ancillary:
+        locations:
           type: array
           items:
             $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
       examples:
         - {
-            "digests":
+            "locations":
               [
                 {
                   "type": "cloud_storage",
                   "uri": "https://aggregator-endpoint/artifact/cardano-database/digests"
                 }
-              ],
-            "immutables":
+              ]
+          }
+
+    CardanoDatabaseImmutablesLocationsMessagePart:
+      description: CardanoDatabaseImmutablesLocationsMessagePart represents the locations of the Cardano database immutables
+      type: object
+      properties:
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardanoDatabaseImmutableLocationMessagePart"
+      examples:
+        - {
+            "locations":
               [
                 {
                   "type": "cloud_storage",
@@ -1849,8 +1853,20 @@ components:
                       "Template": "https://mithril-cdn-eu.iohk.io/snapshot/{immutable-file_number}.tar.zst"
                     }
                 }
-              ],
-            "ancillary":
+              ]
+          }
+
+    CardanoDatabaseAncillaryLocationsMessagePart:
+      description: CardanoDatabaseAncillaryLocationsMessagePart represents the locations of the Cardano database ancillary
+      type: object
+      properties:
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
+      examples:
+        - {
+            "locations":
               [
                 {
                   "type": "cloud_storage",
@@ -2001,7 +2017,9 @@ components:
         - certificate_hash
         - total_db_size_uncompressed
         - created_at
-        - locations
+        - digests
+        - immutables
+        - ancillary
       properties:
         hash:
           description: Hash of the Cardano database snapshot
@@ -2025,8 +2043,12 @@ components:
           description: Date and time at which the snapshot was created
           type: string
           format: date-time
-        locations:
-          $ref: "#/components/schemas/CardanoDatabaseArtifactsLocationsMessagePart"
+        digests:
+          $ref: "#/components/schemas/CardanoDatabaseDigestsLocationsMessagePart"
+        immutables:
+          $ref: "#/components/schemas/CardanoDatabaseImmutablesLocationsMessagePart"
+        ancillary:
+          $ref: "#/components/schemas/CardanoDatabaseAncillaryLocationsMessagePart"
         compression_algorithm:
           description: Compression algorithm of the Cardano database artifacts
           type: string
@@ -2040,16 +2062,19 @@ components:
             "beacon": { "epoch": 123, "immutable_file_number": 2345 },
             "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
             "total_db_size_uncompressed": 800796318,
-            "locations":
+            "digests":
               {
-                "digests":
+                "locations":
                   [
                     {
                       "type": "cloud_storage",
                       "uri": "https://aggregator-endpoint/artifact/cardano-database/digests"
                     }
-                  ],
-                "immutables":
+                  ]
+              },
+            "immutables":
+              {
+                "locations":
                   [
                     {
                       "type": "cloud_storage",
@@ -2065,8 +2090,11 @@ components:
                           "Template": "https://mithril-cdn-eu.iohk.io/snapshot/{immutable-file_number}.tar.zst"
                         }
                     }
-                  ],
-                "ancillary":
+                  ]
+              },
+            "ancillary":
+              {
+                "locations":
                   [
                     {
                       "type": "cloud_storage",

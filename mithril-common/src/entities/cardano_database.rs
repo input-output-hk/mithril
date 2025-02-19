@@ -21,8 +21,14 @@ pub struct CardanoDatabaseSnapshot {
     /// Size of the uncompressed Cardano database files.
     pub total_db_size_uncompressed: u64,
 
-    /// Locations of the Cardano database artifacts.
-    pub locations: ArtifactsLocations,
+    /// Locations of the Cardano database digests.
+    pub digests: DigestsLocations,
+
+    /// Locations of the Cardano database immutables.
+    pub immutables: ImmutablesLocations,
+
+    /// Locations of the Cardano database ancillary.
+    pub ancillary: AncillaryLocations,
 
     /// Compression algorithm of the Cardano database artifacts.
     pub compression_algorithm: CompressionAlgorithm,
@@ -37,7 +43,9 @@ impl CardanoDatabaseSnapshot {
         merkle_root: String,
         beacon: CardanoDbBeacon,
         total_db_size_uncompressed: u64,
-        locations: ArtifactsLocations,
+        digests: DigestsLocations,
+        immutables: ImmutablesLocations,
+        ancillary: AncillaryLocations,
         compression_algorithm: CompressionAlgorithm,
         cardano_node_version: &Version,
     ) -> Self {
@@ -46,7 +54,9 @@ impl CardanoDatabaseSnapshot {
             hash: "".to_string(),
             merkle_root,
             beacon,
-            locations,
+            digests,
+            immutables,
+            ancillary,
             total_db_size_uncompressed,
             compression_algorithm,
             cardano_node_version,
@@ -113,17 +123,25 @@ pub enum AncillaryLocation {
     Unknown,
 }
 
-/// Locations of the Cardano database related files.
+/// Digests locations of the Cardano database related files.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ArtifactsLocations {
+pub struct DigestsLocations {
     /// Locations of the immutable files digests.
-    pub digests: Vec<DigestLocation>,
+    pub locations: Vec<DigestLocation>,
+}
 
+/// Immutables locations of the Cardano database related files.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImmutablesLocations {
     /// Locations of the immutable files.
-    pub immutables: Vec<ImmutablesLocation>,
+    pub locations: Vec<ImmutablesLocation>,
+}
 
+/// Ancillary locations of the Cardano database related files.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AncillaryLocations {
     /// Locations of the ancillary files.
-    pub ancillary: Vec<AncillaryLocation>,
+    pub locations: Vec<AncillaryLocation>,
 }
 
 #[cfg(test)]
@@ -135,11 +153,9 @@ mod tests {
             "mk-root-1111111111".to_string(),
             CardanoDbBeacon::new(2222, 55555),
             0,
-            ArtifactsLocations {
-                digests: vec![],
-                immutables: vec![],
-                ancillary: vec![],
-            },
+            DigestsLocations { locations: vec![] },
+            ImmutablesLocations { locations: vec![] },
+            AncillaryLocations { locations: vec![] },
             CompressionAlgorithm::Gzip,
             &Version::new(1, 0, 0),
         )
