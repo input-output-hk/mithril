@@ -130,6 +130,8 @@ pub enum MithrilEventCardanoDatabase {
     DigestDownloadStarted {
         /// Unique identifier used to track a cardano database download
         download_id: String,
+        /// Size of the downloaded archive
+        size: u64,
     },
     /// A digest file download is in progress
     DigestDownloadProgress {
@@ -430,10 +432,12 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
             }
             MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadStarted {
                 download_id,
+                size,
             }) => {
                 info!(
                     self.logger, "Digest download started";
                     "download_id" => download_id,
+                    "size" => size,
                 );
             }
             MithrilEvent::CardanoDatabase(

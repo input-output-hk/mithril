@@ -99,6 +99,7 @@ impl InternalArtifactProver {
                 .send_event(MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::DigestDownloadStarted {
                         download_id: download_id.clone(),
+                        size: 0, // todo
                     },
                 ))
                 .await;
@@ -497,6 +498,7 @@ mod tests {
             let expected_events = vec![
                 MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadStarted {
                     download_id: id.to_string(),
+                    size: 0, // todo
                 }),
                 MithrilEvent::CardanoDatabase(
                     MithrilEventCardanoDatabase::DigestDownloadCompleted {
