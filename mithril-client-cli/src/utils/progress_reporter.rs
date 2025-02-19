@@ -4,7 +4,7 @@ use mithril_client::MithrilResult;
 use slog::{warn, Logger};
 use std::{
     ops::Deref,
-    sync::RwLock,
+    sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
 
@@ -108,10 +108,11 @@ impl ProgressBarJsonFormatter {
 }
 
 /// Wrapper of a indicatif [ProgressBar] to allow reporting to json.
+#[derive(Clone)]
 pub struct DownloadProgressReporter {
     progress_bar: ProgressBar,
     output_type: ProgressOutputType,
-    last_json_report_instant: RwLock<Option<Instant>>,
+    last_json_report_instant: Arc<RwLock<Option<Instant>>>,
     logger: Logger,
 }
 
@@ -121,7 +122,7 @@ impl DownloadProgressReporter {
         Self {
             progress_bar,
             output_type,
-            last_json_report_instant: RwLock::new(None),
+            last_json_report_instant: Arc::new(RwLock::new(None)),
             logger,
         }
     }
