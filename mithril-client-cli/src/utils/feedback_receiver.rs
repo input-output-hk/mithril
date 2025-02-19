@@ -126,7 +126,10 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 MithrilEventCardanoDatabase::AncillaryDownloadCompleted { download_id: _ } => {
                     println!("MithrilEventCardanoDatabase::AncillaryDownloadCompleted")
                 }
-                MithrilEventCardanoDatabase::DigestDownloadStarted { download_id: _ } => {
+                MithrilEventCardanoDatabase::DigestDownloadStarted {
+                    download_id: _,
+                    size: _,
+                } => {
                     println!("MithrilEventCardanoDatabase::DigestDownloadStarted")
                 }
                 MithrilEventCardanoDatabase::DigestDownloadProgress {
@@ -308,32 +311,55 @@ mod tests {
         };
     }
 
-    #[tokio::test]
-    async fn starting_a_cardano_database_should_add_multi_progress_bar() {
-        let receiver = Arc::new(IndicatifFeedbackReceiver::new(
-            ProgressOutputType::Hidden,
+    fn build_feedback_receiver(output_type: ProgressOutputType) -> Arc<IndicatifFeedbackReceiver> {
+        Arc::new(IndicatifFeedbackReceiver::new(
+            output_type,
             slog::Logger::root(slog::Discard, o!()),
-        ));
-        let sender = FeedbackSender::new(&[receiver.clone()]);
-
-        send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
-        send_event!(cardano_db, immutable_dl, progress => sender, immutable:2, bytes:12, size:43);
-
-        assert!(receiver.cardano_database_multi_pb.read().await.is_some());
+        ))
     }
 
-    #[tokio::test]
-    async fn completing_a_cardano_database_when_started_event_before_should_remove_multi_progress_bar(
-    ) {
-        let receiver = Arc::new(IndicatifFeedbackReceiver::new(
-            ProgressOutputType::Hidden,
-            slog::Logger::root(slog::Discard, o!()),
-        ));
-        let sender = FeedbackSender::new(&[receiver.clone()]);
+    mod cardano_database {
+        use super::*;
 
-        send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
-        send_event!(cardano_db, dl_completed => sender);
+        #[tokio::test]
+        async fn starting_should_add_multi_progress_bar() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
 
-        assert!(receiver.cardano_database_multi_pb.read().await.is_none());
+            send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
+
+            assert!(receiver.cardano_database_multi_pb.read().await.is_some());
+        }
+
+        #[tokio::test]
+        async fn start_then_complete_should_remove_multi_progress_bar() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
+            send_event!(cardano_db, dl_completed => sender);
+
+            assert!(receiver.cardano_database_multi_pb.read().await.is_none());
+        }
+
+        #[tokio::test]
+        async fn starting_twice_should_supersede_first_multi_progress_bar() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
+            send_event!(cardano_db, dl_started => sender, total:99, ancillary:false);
+            //send_event!(cardano_db, immutable_dl, progress => sender, immutable:2, bytes:12, size:43);
+
+            // todo
+        }
+
+        #[tokio::test]
+        async fn complete_without_start_should_not_panic() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db, dl_completed => sender);
+        }
     }
 }
