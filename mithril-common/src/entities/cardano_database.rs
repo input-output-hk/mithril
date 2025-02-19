@@ -80,7 +80,7 @@ pub enum DigestLocation {
         /// URI of the aggregator digests route location.
         uri: String,
     },
-    /// Other location not known.
+    /// Catchall for unknown location variants.
     #[serde(other)]
     Unknown,
 }
@@ -94,7 +94,7 @@ pub enum ImmutablesLocation {
         /// URI of the cloud storage location.
         uri: MultiFilesUri,
     },
-    /// Other location not known.
+    /// Catchall for unknown location variants.
     #[serde(other)]
     Unknown,
 }
@@ -108,7 +108,7 @@ pub enum AncillaryLocation {
         /// URI of the cloud storage location.
         uri: String,
     },
-    /// Other location not known.
+    /// Catchall for unknown location variants.
     #[serde(other)]
     Unknown,
 }
