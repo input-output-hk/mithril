@@ -215,6 +215,7 @@ impl SnapshotClient {
                         Some(snapshot.compression_algorithm),
                         DownloadEvent::Full {
                             download_id: download_id.clone(),
+                            digest: snapshot.digest.clone(),
                         },
                     )
                     .await
