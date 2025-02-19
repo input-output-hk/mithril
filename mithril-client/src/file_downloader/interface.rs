@@ -1,5 +1,6 @@
 use std::{collections::HashMap, path::Path};
 
+use anyhow::anyhow;
 use async_trait::async_trait;
 
 use mithril_common::{
@@ -7,7 +8,7 @@ use mithril_common::{
         AncillaryLocation, CompressionAlgorithm, DigestLocation, FileUri, ImmutableFileNumber,
         ImmutablesLocation,
     },
-    StdResult,
+    StdError, StdResult,
 };
 
 use crate::feedback::{MithrilEvent, MithrilEventCardanoDatabase};
@@ -44,6 +45,9 @@ impl FileDownloaderUri {
 
                 Ok(immutable_files_range.zip(file_downloader_uris).collect())
             }
+            ImmutablesLocation::Unknown => {
+                Err(anyhow!("Unknown location type to download immutable"))
+            }
         }
     }
 
@@ -67,20 +71,28 @@ impl From<FileUri> for FileDownloaderUri {
     }
 }
 
-impl From<AncillaryLocation> for FileDownloaderUri {
-    fn from(digest_location: AncillaryLocation) -> Self {
-        match digest_location {
-            AncillaryLocation::CloudStorage { uri } => Self::FileUri(FileUri(uri)),
+impl TryFrom<AncillaryLocation> for FileDownloaderUri {
+    type Error = StdError;
+
+    fn try_from(location: AncillaryLocation) -> Result<Self, Self::Error> {
+        match location {
+            AncillaryLocation::CloudStorage { uri } => Ok(Self::FileUri(FileUri(uri))),
+            AncillaryLocation::Unknown => {
+                Err(anyhow!("Unknown location type to download ancillary"))
+            }
         }
     }
 }
 
-impl From<DigestLocation> for FileDownloaderUri {
-    fn from(digest_location: DigestLocation) -> Self {
-        match digest_location {
+impl TryFrom<DigestLocation> for FileDownloaderUri {
+    type Error = StdError;
+
+    fn try_from(location: DigestLocation) -> Result<Self, Self::Error> {
+        match location {
             DigestLocation::CloudStorage { uri } | DigestLocation::Aggregator { uri } => {
-                Self::FileUri(FileUri(uri))
+                Ok(Self::FileUri(FileUri(uri)))
             }
+            DigestLocation::Unknown => Err(anyhow!("Unknown location type to download digest")),
         }
     }
 }
@@ -227,6 +239,18 @@ mod tests {
     }
 
     #[test]
+    fn immutable_files_location_to_file_downloader_uris_return_error_when_location_is_unknown() {
+        let immutable_files_location = ImmutablesLocation::Unknown;
+        let immutable_files_range: Vec<ImmutableFileNumber> = (1..=1).collect();
+
+        FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
+            &immutable_files_location,
+            &immutable_files_range,
+        )
+        .expect_err("expand_immutable_files_location_to_file_downloader_uris should fail");
+    }
+
+    #[test]
     fn download_event_type_builds_correct_event() {
         let download_event_type = DownloadEvent::Immutable {
             download_id: "download-123".to_string(),
@@ -281,5 +305,45 @@ mod tests {
             },
             event,
         );
+    }
+
+    #[test]
+    fn file_downloader_uri_from_ancillary_location() {
+        let location = AncillaryLocation::CloudStorage {
+            uri: "http://whatever/ancillary-1".to_string(),
+        };
+        let file_downloader_uri: FileDownloaderUri = location.try_into().unwrap();
+
+        assert_eq!(
+            FileDownloaderUri::FileUri(FileUri("http://whatever/ancillary-1".to_string())),
+            file_downloader_uri
+        );
+    }
+    #[test]
+    fn file_downloader_uri_from_unknown_ancillary_location() {
+        let location = AncillaryLocation::Unknown;
+        let file_downloader_uri: StdResult<FileDownloaderUri> = location.try_into();
+
+        file_downloader_uri.expect_err("try_into should fail on Unknown ancillary location");
+    }
+
+    #[test]
+    fn file_downloader_uri_from_digest_location() {
+        let location = DigestLocation::CloudStorage {
+            uri: "http://whatever/digest-1".to_string(),
+        };
+        let file_downloader_uri: FileDownloaderUri = location.try_into().unwrap();
+
+        assert_eq!(
+            FileDownloaderUri::FileUri(FileUri("http://whatever/digest-1".to_string())),
+            file_downloader_uri
+        );
+    }
+    #[test]
+    fn file_downloader_uri_from_unknown_digest_location() {
+        let location = DigestLocation::Unknown;
+        let file_downloader_uri: StdResult<FileDownloaderUri> = location.try_into();
+
+        file_downloader_uri.expect_err("try_into should fail on Unknown digest location");
     }
 }
