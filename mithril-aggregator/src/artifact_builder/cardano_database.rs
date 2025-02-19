@@ -9,8 +9,9 @@ use semver::Version;
 
 use mithril_common::{
     entities::{
-        ArtifactsLocations, CardanoDatabaseSnapshot, CardanoDbBeacon, Certificate,
-        CompressionAlgorithm, ProtocolMessagePartKey, SignedEntityType,
+        AncillaryLocations, CardanoDatabaseSnapshot, CardanoDbBeacon, Certificate,
+        CompressionAlgorithm, DigestsLocations, ImmutablesLocations, ProtocolMessagePartKey,
+        SignedEntityType,
     },
     StdResult,
 };
@@ -76,17 +77,19 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             .await?;
         let digest_locations = self.digest_builder.upload(&beacon).await?;
 
-        let locations = ArtifactsLocations {
-            ancillary: ancillary_locations,
-            digests: digest_locations,
-            immutables: immutables_locations,
-        };
-
         let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
             beacon,
             total_db_size_uncompressed,
-            locations,
+            DigestsLocations {
+                locations: digest_locations,
+            },
+            ImmutablesLocations {
+                locations: immutables_locations,
+            },
+            AncillaryLocations {
+                locations: ancillary_locations,
+            },
             self.compression_algorithm,
             &self.cardano_node_version,
         );
@@ -296,10 +299,14 @@ mod tests {
             "merkleroot".to_string(),
             beacon,
             expected_total_size,
-            ArtifactsLocations {
-                ancillary: expected_ancillary_locations,
-                digests: expected_digest_locations,
-                immutables: expected_immutables_locations,
+            DigestsLocations {
+                locations: expected_digest_locations,
+            },
+            ImmutablesLocations {
+                locations: expected_immutables_locations,
+            },
+            AncillaryLocations {
+                locations: expected_ancillary_locations,
             },
             CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),

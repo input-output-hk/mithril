@@ -107,7 +107,7 @@ impl InternalArtifactDownloader {
             last_immutable_file_number,
         )?;
         Self::verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
-        let immutable_locations = &cardano_database_snapshot.locations.immutables;
+        let immutable_locations = &cardano_database_snapshot.immutables.locations;
         self.download_unpack_immutable_files(
             immutable_locations,
             immutable_file_number_range,
@@ -118,7 +118,7 @@ impl InternalArtifactDownloader {
         )
         .await?;
         if download_unpack_options.include_ancillary {
-            let ancillary_locations = &cardano_database_snapshot.locations.ancillary;
+            let ancillary_locations = &cardano_database_snapshot.ancillary.locations;
             self.download_unpack_ancillary_file(
                 ancillary_locations,
                 &compression_algorithm,

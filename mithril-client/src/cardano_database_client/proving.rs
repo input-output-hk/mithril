@@ -53,7 +53,7 @@ impl InternalArtifactProver {
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
-        let digest_locations = &cardano_database_snapshot.locations.digests;
+        let digest_locations = &cardano_database_snapshot.digests.locations;
         self.download_unpack_digest_file(digest_locations, &Self::digest_target_dir(database_dir))
             .await?;
         let network = certificate.metadata.network.clone();

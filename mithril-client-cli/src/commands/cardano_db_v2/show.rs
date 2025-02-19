@@ -86,15 +86,15 @@ impl CardanoDbShowCommand {
             ];
 
             cardano_db_table.append(&mut digest_location_rows(
-                &cardano_db_message.locations.digests,
+                &cardano_db_message.digests.locations,
             ));
 
             cardano_db_table.append(&mut immutables_location_rows(
-                &cardano_db_message.locations.immutables,
+                &cardano_db_message.immutables.locations,
             ));
 
             cardano_db_table.append(&mut ancillary_location_rows(
-                &cardano_db_message.locations.ancillary,
+                &cardano_db_message.ancillary.locations,
             ));
 
             cardano_db_table.push(vec![
