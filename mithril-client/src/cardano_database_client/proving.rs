@@ -130,7 +130,7 @@ impl InternalArtifactProver {
                 Err(e) => {
                     slog::error!(
                         self.logger,
-                        "Failed downloading and unpacking digest for location {file_downloader_uri:?}"; "error" => e.to_string()
+                        "Failed downloading and unpacking digest for location {file_downloader_uri:?}"; "error" => ?e
                     );
                 }
             }

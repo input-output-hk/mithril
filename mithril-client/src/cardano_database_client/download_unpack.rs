@@ -275,7 +275,7 @@ impl InternalArtifactDownloader {
                 Err(e) => {
                     slog::error!(
                         self.logger,
-                        "Failed downloading and unpacking immutable files"; "error" => e.to_string(), "target_dir" => immutable_files_target_dir.display()
+                        "Failed downloading and unpacking immutable files"; "error" => ?e, "target_dir" => immutable_files_target_dir.display()
                     );
                 }
             }
@@ -334,7 +334,7 @@ impl InternalArtifactDownloader {
                 Err(e) => {
                     slog::error!(
                         logger_clone,
-                        "Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}"; "error" => e.to_string()
+                        "Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}"; "error" => ?e
                     );
                     Err(e.context(format!("Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}")))
                 }
@@ -440,7 +440,7 @@ impl InternalArtifactDownloader {
                 Err(e) => {
                     slog::error!(
                         self.logger,
-                        "Failed downloading and unpacking ancillaries for location {file_downloader_uri:?}"; "error" => e.to_string()
+                        "Failed downloading and unpacking ancillaries for location {file_downloader_uri:?}"; "error" => ?e
                     );
                 }
             }
