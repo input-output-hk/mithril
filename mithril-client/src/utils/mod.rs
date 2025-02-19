@@ -3,8 +3,8 @@
 
 cfg_fs! {
     mod stream_reader;
-    mod unpacker;
+    mod fs;
 
     pub use stream_reader::*;
-    pub use unpacker::*;
+    pub use fs::*;
 }

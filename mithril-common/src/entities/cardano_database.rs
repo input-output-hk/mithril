@@ -70,14 +70,14 @@ impl CardanoDatabaseSnapshot {
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum DigestLocation {
-    /// Aggregator digest route location.
-    Aggregator {
-        /// URI of the aggregator digests route location.
-        uri: String,
-    },
     /// Cloud storage location.
     CloudStorage {
         /// URI of the cloud storage location.
+        uri: String,
+    },
+    /// Aggregator digest route location.
+    Aggregator {
+        /// URI of the aggregator digests route location.
         uri: String,
     },
 }

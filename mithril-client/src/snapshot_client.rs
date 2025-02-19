@@ -101,7 +101,9 @@ use crate::aggregator_client::{AggregatorClient, AggregatorClientError, Aggregat
 #[cfg(feature = "fs")]
 use crate::feedback::FeedbackSender;
 #[cfg(feature = "fs")]
-use crate::snapshot_downloader::SnapshotDownloader;
+use crate::file_downloader::DownloadEvent;
+#[cfg(feature = "fs")]
+use crate::file_downloader::FileDownloader;
 use crate::{MithrilResult, Snapshot, SnapshotListItem};
 
 /// Error for the Snapshot client
@@ -122,7 +124,7 @@ pub enum SnapshotClientError {
 pub struct SnapshotClient {
     aggregator_client: Arc<dyn AggregatorClient>,
     #[cfg(feature = "fs")]
-    snapshot_downloader: Arc<dyn SnapshotDownloader>,
+    http_file_downloader: Arc<dyn FileDownloader>,
     #[cfg(feature = "fs")]
     feedback_sender: FeedbackSender,
     #[cfg(feature = "fs")]
@@ -133,14 +135,14 @@ impl SnapshotClient {
     /// Constructs a new `SnapshotClient`.
     pub fn new(
         aggregator_client: Arc<dyn AggregatorClient>,
-        #[cfg(feature = "fs")] snapshot_downloader: Arc<dyn SnapshotDownloader>,
+        #[cfg(feature = "fs")] http_file_downloader: Arc<dyn FileDownloader>,
         #[cfg(feature = "fs")] feedback_sender: FeedbackSender,
         #[cfg(feature = "fs")] logger: Logger,
     ) -> Self {
         Self {
             aggregator_client,
             #[cfg(feature = "fs")]
-            snapshot_downloader,
+            http_file_downloader,
             #[cfg(feature = "fs")]
             feedback_sender,
             #[cfg(feature = "fs")]
@@ -196,40 +198,43 @@ impl SnapshotClient {
             use crate::feedback::MithrilEvent;
 
             for location in snapshot.locations.as_slice() {
-                if self.snapshot_downloader.probe(location).await.is_ok() {
-                    let download_id = MithrilEvent::new_snapshot_download_id();
-                    self.feedback_sender
-                        .send_event(MithrilEvent::SnapshotDownloadStarted {
-                            digest: snapshot.digest.clone(),
+                let download_id = MithrilEvent::new_snapshot_download_id();
+                self.feedback_sender
+                    .send_event(MithrilEvent::SnapshotDownloadStarted {
+                        digest: snapshot.digest.clone(),
+                        download_id: download_id.clone(),
+                        size: snapshot.size,
+                    })
+                    .await;
+                let file_downloader_uri = location.to_owned().into();
+                let file_download_outcome = match self
+                    .http_file_downloader
+                    .download_unpack(
+                        &file_downloader_uri,
+                        target_dir,
+                        Some(snapshot.compression_algorithm),
+                        DownloadEvent::Full {
                             download_id: download_id.clone(),
-                            size: snapshot.size,
-                        })
-                        .await;
-                    return match self
-                        .snapshot_downloader
-                        .download_unpack(
-                            location,
-                            target_dir,
-                            snapshot.compression_algorithm,
-                            &download_id,
-                            snapshot.size,
-                        )
-                        .await
-                    {
-                        Ok(()) => {
-                            self.feedback_sender
-                                .send_event(MithrilEvent::SnapshotDownloadCompleted { download_id })
-                                .await;
-                            Ok(())
-                        }
-                        Err(e) => {
-                            slog::warn!(
-                                self.logger, "Failed downloading snapshot from '{location}'";
-                                "error" => ?e
-                            );
-                            Err(e)
-                        }
-                    };
+                        },
+                    )
+                    .await
+                {
+                    Ok(()) => {
+                        self.feedback_sender
+                            .send_event(MithrilEvent::SnapshotDownloadCompleted { download_id })
+                            .await;
+                        Ok(())
+                    }
+                    Err(e) => {
+                        slog::warn!(
+                            self.logger, "Failed downloading snapshot from '{location}'";
+                            "error" => ?e
+                        );
+                        Err(e)
+                    }
+                };
+                if file_download_outcome.is_ok() {
+                    return Ok(());
                 }
             }
 
@@ -259,9 +264,9 @@ impl SnapshotClient {
 #[cfg(all(test, feature = "fs"))]
 mod tests_download {
     use crate::{
-        aggregator_client::MockAggregatorHTTPClient,
+        aggregator_client::MockAggregatorClient,
         feedback::{MithrilEvent, StackFeedbackReceiver},
-        snapshot_downloader::MockHttpSnapshotDownloader,
+        file_downloader::MockFileDownloaderBuilder,
         test_utils,
     };
     use std::path::Path;
@@ -270,15 +275,10 @@ mod tests_download {
 
     #[tokio::test]
     async fn download_unpack_send_feedbacks() {
-        let mut snapshot_downloader = MockHttpSnapshotDownloader::new();
-        snapshot_downloader.expect_probe().returning(|_| Ok(()));
-        snapshot_downloader
-            .expect_download_unpack()
-            .returning(|_, _, _, _, _| Ok(()));
         let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
         let client = SnapshotClient::new(
-            Arc::new(MockAggregatorHTTPClient::new()),
-            Arc::new(snapshot_downloader),
+            Arc::new(MockAggregatorClient::new()),
+            Arc::new(MockFileDownloaderBuilder::default().with_success().build()),
             FeedbackSender::new(&[feedback_receiver.clone()]),
             test_utils::test_logger(),
         );

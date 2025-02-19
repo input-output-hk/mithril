@@ -144,7 +144,7 @@ mod tests {
     use chrono::{DateTime, Utc};
     use mockall::predicate::eq;
 
-    use crate::aggregator_client::MockAggregatorHTTPClient;
+    use crate::aggregator_client::MockAggregatorClient;
     use crate::common::StakeDistribution;
 
     use super::*;
@@ -173,7 +173,7 @@ mod tests {
     #[tokio::test]
     async fn list_cardano_stake_distributions_returns_messages() {
         let message = fake_messages();
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .with(eq(AggregatorRequest::ListCardanoStakeDistributions))
@@ -190,7 +190,7 @@ mod tests {
     #[tokio::test]
     async fn list_cardano_stake_distributions_returns_error_when_invalid_json_structure_in_response(
     ) {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .return_once(move |_| Ok("invalid json structure".to_string()));
@@ -212,7 +212,7 @@ mod tests {
             stake_distribution: expected_stake_distribution.clone(),
             created_at: DateTime::<Utc>::default(),
         };
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .with(eq(AggregatorRequest::GetCardanoStakeDistribution {
@@ -238,7 +238,7 @@ mod tests {
     #[tokio::test]
     async fn get_cardano_stake_distribution_returns_error_when_invalid_json_structure_in_response()
     {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .return_once(move |_| Ok("invalid json structure".to_string()));
@@ -253,7 +253,7 @@ mod tests {
     #[tokio::test]
     async fn get_cardano_stake_distribution_returns_none_when_not_found_or_remote_server_logical_error(
     ) {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client.expect_get_content().return_once(move |_| {
             Err(AggregatorClientError::RemoteServerLogical(anyhow!(
                 "not found"
@@ -268,7 +268,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_cardano_stake_distribution_returns_error() {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .return_once(move |_| Err(AggregatorClientError::SubsystemError(anyhow!("error"))));
@@ -290,7 +290,7 @@ mod tests {
             stake_distribution: expected_stake_distribution.clone(),
             created_at: DateTime::<Utc>::default(),
         };
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .with(eq(AggregatorRequest::GetCardanoStakeDistributionByEpoch {
@@ -316,7 +316,7 @@ mod tests {
     #[tokio::test]
     async fn get_cardano_stake_distribution_by_epoch_returns_error_when_invalid_json_structure_in_response(
     ) {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .return_once(move |_| Ok("invalid json structure".to_string()));
@@ -331,7 +331,7 @@ mod tests {
     #[tokio::test]
     async fn get_cardano_stake_distribution_by_epoch_returns_none_when_not_found_or_remote_server_logical_error(
     ) {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client.expect_get_content().return_once(move |_| {
             Err(AggregatorClientError::RemoteServerLogical(anyhow!(
                 "not found"
@@ -346,7 +346,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_cardano_stake_distribution_by_epoch_returns_error() {
-        let mut http_client = MockAggregatorHTTPClient::new();
+        let mut http_client = MockAggregatorClient::new();
         http_client
             .expect_get_content()
             .return_once(move |_| Err(AggregatorClientError::SubsystemError(anyhow!("error"))));

@@ -129,12 +129,7 @@ impl ImmutableFile {
     }
 
     /// List all [`ImmutableFile`] in a given directory.
-    ///
-    /// Important Note: It will skip the last chunk / primary / secondary trio since they're not yet
-    /// complete.
-    pub fn list_completed_in_dir(
-        dir: &Path,
-    ) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
+    pub fn list_all_in_dir(dir: &Path) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
         let immutable_dir =
             find_immutables_dir(dir).ok_or(MissingImmutableFolder(dir.to_path_buf()))?;
         let mut files: Vec<ImmutableFile> = vec![];
@@ -150,6 +145,18 @@ impl ImmutableFile {
             files.push(immutable_file);
         }
         files.sort();
+
+        Ok(files)
+    }
+
+    /// List all complete [`ImmutableFile`] in a given directory.
+    ///
+    /// Important Note: It will skip the last chunk / primary / secondary trio since they're not yet
+    /// complete.
+    pub fn list_completed_in_dir(
+        dir: &Path,
+    ) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
+        let files = Self::list_all_in_dir(dir)?;
 
         match files.last() {
             // empty list
@@ -208,7 +215,7 @@ mod tests {
     }
 
     #[test]
-    fn list_immutable_file_fail_if_not_in_immutable_dir() {
+    fn list_completed_immutable_file_fail_if_not_in_immutable_dir() {
         let target_dir = get_test_dir("list_immutable_file_fail_if_not_in_immutable_dir/invalid");
         let entries = vec![];
         create_fake_files(&target_dir, &entries);
@@ -218,7 +225,49 @@ mod tests {
     }
 
     #[test]
-    fn list_immutable_file_should_skip_last_number() {
+    fn list_all_immutable_file_should_not_skip_last_number() {
+        let target_dir =
+            get_test_dir("list_all_immutable_file_should_not_skip_last_number/immutable");
+        let entries = vec![
+            "123.chunk",
+            "123.primary",
+            "123.secondary",
+            "125.chunk",
+            "125.primary",
+            "125.secondary",
+            "0124.chunk",
+            "0124.primary",
+            "0124.secondary",
+            "223.chunk",
+            "223.primary",
+            "223.secondary",
+            "0423.chunk",
+            "0423.primary",
+            "0423.secondary",
+            "0424.chunk",
+            "0424.primary",
+            "0424.secondary",
+            "21.chunk",
+            "21.primary",
+            "21.secondary",
+        ];
+        create_fake_files(&target_dir, &entries);
+        let result = ImmutableFile::list_all_in_dir(target_dir.parent().unwrap())
+            .expect("ImmutableFile::list_in_dir Failed");
+
+        assert_eq!(result.last().unwrap().number, 424);
+        let expected_entries_length = 21;
+        assert_eq!(
+            expected_entries_length,
+            result.len(),
+            "Expected to find {} files but found {}",
+            entries.len(),
+            result.len(),
+        );
+    }
+
+    #[test]
+    fn list_completed_immutable_file_should_skip_last_number() {
         let target_dir = get_test_dir("list_immutable_file_should_skip_last_number/immutable");
         let entries = vec![
             "123.chunk",
@@ -251,14 +300,14 @@ mod tests {
         assert_eq!(
             result.len(),
             entries.len() - 3,
-            "Expected to find {} files since The last (chunk, primary, secondary) trio is skipped, but found {}",
+            "Expected to find {} files since the last (chunk, primary, secondary) trio is skipped, but found {}",
             entries.len() - 3,
             result.len(),
         );
     }
 
     #[test]
-    fn list_immutable_file_should_works_in_a_empty_folder() {
+    fn list_completed_immutable_file_should_works_in_a_empty_folder() {
         let target_dir =
             get_test_dir("list_immutable_file_should_works_even_in_a_empty_folder/immutable");
         let entries = vec![];
@@ -270,8 +319,9 @@ mod tests {
     }
 
     #[test]
-    fn immutable_order_should_be_deterministic() {
-        let target_dir = get_test_dir("immutable_order_should_be_deterministic/immutable");
+    fn list_completed_immutable_file_order_should_be_deterministic() {
+        let target_dir =
+            get_test_dir("list_completed_immutable_file_order_should_be_deterministic/immutable");
         let entries = vec![
             "21.chunk",
             "21.primary",
@@ -305,7 +355,7 @@ mod tests {
     }
 
     #[test]
-    fn list_immutable_file_should_work_with_non_immutable_files() {
+    fn list_completed_immutable_file_should_work_with_non_immutable_files() {
         let target_dir =
             get_test_dir("list_immutable_file_should_work_with_non_immutable_files/immutable");
         let entries = vec![
@@ -328,7 +378,7 @@ mod tests {
     }
 
     #[test]
-    fn list_immutable_file_can_list_incomplete_trio() {
+    fn list_completed_immutable_file_can_list_incomplete_trio() {
         let target_dir = get_test_dir("list_immutable_file_can_list_incomplete_trio/immutable");
         let entries = vec![
             "21.chunk",

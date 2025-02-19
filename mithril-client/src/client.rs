@@ -18,10 +18,12 @@ use crate::certificate_client::{
     CertificateClient, CertificateVerifier, MithrilCertificateVerifier,
 };
 use crate::feedback::{FeedbackReceiver, FeedbackSender};
+#[cfg(feature = "fs")]
+use crate::file_downloader::{
+    FileDownloadRetryPolicy, FileDownloader, HttpFileDownloader, RetryDownloader,
+};
 use crate::mithril_stake_distribution_client::MithrilStakeDistributionClient;
 use crate::snapshot_client::SnapshotClient;
-#[cfg(feature = "fs")]
-use crate::snapshot_downloader::{HttpSnapshotDownloader, SnapshotDownloader};
 use crate::MithrilResult;
 
 #[cfg(target_family = "wasm")]
@@ -134,10 +136,10 @@ pub struct ClientBuilder {
     genesis_verification_key: String,
     aggregator_client: Option<Arc<dyn AggregatorClient>>,
     certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
+    #[cfg(feature = "fs")]
+    http_file_downloader: Option<Arc<dyn FileDownloader>>,
     #[cfg(feature = "unstable")]
     certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
-    #[cfg(feature = "fs")]
-    snapshot_downloader: Option<Arc<dyn SnapshotDownloader>>,
     logger: Option<Logger>,
     feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     options: ClientOptions,
@@ -152,10 +154,10 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "fs")]
+            http_file_downloader: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
-            #[cfg(feature = "fs")]
-            snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
@@ -172,10 +174,10 @@ impl ClientBuilder {
             genesis_verification_key: genesis_verification_key.to_string(),
             aggregator_client: None,
             certificate_verifier: None,
+            #[cfg(feature = "fs")]
+            http_file_downloader: None,
             #[cfg(feature = "unstable")]
             certificate_verifier_cache: None,
-            #[cfg(feature = "fs")]
-            snapshot_downloader: None,
             logger: None,
             feedback_receivers: vec![],
             options: ClientOptions::default(),
@@ -241,27 +243,37 @@ impl ClientBuilder {
         ));
 
         #[cfg(feature = "fs")]
-        let snapshot_downloader = match self.snapshot_downloader {
-            None => Arc::new(
-                HttpSnapshotDownloader::new(feedback_sender.clone(), logger.clone())
-                    .with_context(|| "Building snapshot downloader failed")?,
-            ),
-            Some(snapshot_downloader) => snapshot_downloader,
+        let http_file_downloader = match self.http_file_downloader {
+            None => Arc::new(RetryDownloader::new(
+                Arc::new(
+                    HttpFileDownloader::new(feedback_sender.clone(), logger.clone())
+                        .with_context(|| "Building http file downloader failed")?,
+                ),
+                FileDownloadRetryPolicy::default(),
+            )),
+            Some(http_file_downloader) => http_file_downloader,
         };
 
         let snapshot_client = Arc::new(SnapshotClient::new(
             aggregator_client.clone(),
             #[cfg(feature = "fs")]
-            snapshot_downloader,
+            http_file_downloader.clone(),
+            #[cfg(feature = "fs")]
+            feedback_sender.clone(),
+            #[cfg(feature = "fs")]
+            logger.clone(),
+        ));
+
+        #[cfg(feature = "unstable")]
+        let cardano_database_client = Arc::new(CardanoDatabaseClient::new(
+            aggregator_client.clone(),
+            #[cfg(feature = "fs")]
+            http_file_downloader,
             #[cfg(feature = "fs")]
             feedback_sender,
             #[cfg(feature = "fs")]
             logger,
         ));
-
-        #[cfg(feature = "unstable")]
-        let cardano_database_client =
-            Arc::new(CardanoDatabaseClient::new(aggregator_client.clone()));
 
         let cardano_transaction_client =
             Arc::new(CardanoTransactionClient::new(aggregator_client.clone()));
@@ -299,27 +311,27 @@ impl ClientBuilder {
     }
 
     cfg_unstable! {
-    /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
-    ///
-    /// Passing a `None` value will disable the cache if any was previously set.
-    pub fn with_certificate_verifier_cache(
-        mut self,
-        certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
-    ) -> ClientBuilder {
-        self.certificate_verifier_cache = certificate_verifier_cache;
-        self
-    }
+        /// Set the [CertificateVerifierCache] that will be used to cache certificate validation results.
+        ///
+        /// Passing a `None` value will disable the cache if any was previously set.
+        pub fn with_certificate_verifier_cache(
+            mut self,
+            certificate_verifier_cache: Option<Arc<dyn CertificateVerifierCache>>,
+        ) -> ClientBuilder {
+            self.certificate_verifier_cache = certificate_verifier_cache;
+            self
+        }
     }
 
     cfg_fs! {
-    /// Set the [SnapshotDownloader] that will be used to download snapshots.
-    pub fn with_snapshot_downloader(
-        mut self,
-        snapshot_downloader: Arc<dyn SnapshotDownloader>,
-    ) -> ClientBuilder {
-        self.snapshot_downloader = Some(snapshot_downloader);
-        self
-    }
+        /// Set the [FileDownloader] that will be used to download artifacts with HTTP.
+        pub fn with_http_file_downloader(
+            mut self,
+            http_file_downloader: Arc<dyn FileDownloader>,
+        ) -> ClientBuilder {
+            self.http_file_downloader = Some(http_file_downloader);
+            self
+        }
     }
 
     /// Set the [Logger] to use.

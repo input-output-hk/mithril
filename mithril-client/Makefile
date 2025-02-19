@@ -10,10 +10,10 @@ CARGO = cargo
 all: test build
 
 build:
-	${CARGO} build --release --features full
+	${CARGO} build --release --features full,unstable
 
 test:
-	${CARGO} test --features full
+	${CARGO} test --features full,unstable
 
 check:
 	${CARGO} check --release --all-features --all-targets

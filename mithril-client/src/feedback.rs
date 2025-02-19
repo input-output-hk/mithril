@@ -52,11 +52,100 @@
 //! ```
 
 use async_trait::async_trait;
+use mithril_common::entities::ImmutableFileNumber;
 use serde::Serialize;
 use slog::{info, Logger};
 use std::sync::{Arc, RwLock};
 use strum::Display;
 use uuid::Uuid;
+
+/// Event that can be reported by a [FeedbackReceiver] for Cardano database related events.
+#[derive(Debug, Clone, Eq, PartialEq, Display, Serialize)]
+#[strum(serialize_all = "PascalCase")]
+#[serde(untagged)]
+pub enum MithrilEventCardanoDatabase {
+    /// Cardano Database download sequence started
+    Started {
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+        /// Total number of immutable files
+        total_immutable_files: u64,
+        /// Total number of ancillary files
+        include_ancillary: bool,
+    },
+    /// Cardano Database download sequence completed
+    Completed {
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+    },
+    /// An immutable archive file download has started
+    ImmutableDownloadStarted {
+        /// Immutable file number downloaded
+        immutable_file_number: ImmutableFileNumber,
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// An immutable archive file download is in progress
+    ImmutableDownloadProgress {
+        /// Immutable file number downloaded
+        immutable_file_number: ImmutableFileNumber,
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+        /// Number of bytes that have been downloaded
+        downloaded_bytes: u64,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// An immutable archive file download has completed
+    ImmutableDownloadCompleted {
+        /// Immutable file number downloaded
+        immutable_file_number: ImmutableFileNumber,
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+    },
+    /// An ancillary archive file download has started
+    AncillaryDownloadStarted {
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// An ancillary archive file download is in progress
+    AncillaryDownloadProgress {
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+        /// Number of bytes that have been downloaded
+        downloaded_bytes: u64,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// An ancillary archive file download has completed
+    AncillaryDownloadCompleted {
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+    },
+    /// A digest file download has started
+    DigestDownloadStarted {
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+    },
+    /// A digest file download is in progress
+    DigestDownloadProgress {
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+        /// Number of bytes that have been downloaded
+        downloaded_bytes: u64,
+        /// Size of the downloaded archive
+        size: u64,
+    },
+    /// A digest file download has completed
+    DigestDownloadCompleted {
+        /// Unique identifier used to track a cardano database download
+        download_id: String,
+    },
+}
 
 /// Event that can be reported by a [FeedbackReceiver].
 #[derive(Debug, Clone, Eq, PartialEq, Display, Serialize)]
@@ -86,6 +175,10 @@ pub enum MithrilEvent {
         /// Unique identifier used to track this specific snapshot download
         download_id: String,
     },
+
+    /// Cardano database related events
+    CardanoDatabase(MithrilEventCardanoDatabase),
+
     /// A certificate chain validation has started
     CertificateChainValidationStarted {
         /// Unique identifier used to track this specific certificate chain validation
@@ -118,6 +211,11 @@ impl MithrilEvent {
         Uuid::new_v4().to_string()
     }
 
+    /// Generate a random unique identifier to identify a Cardano download
+    pub fn new_cardano_database_download_id() -> String {
+        Uuid::new_v4().to_string()
+    }
+
     /// Generate a random unique identifier to identify a certificate chain validation
     pub fn new_certificate_chain_validation_id() -> String {
         Uuid::new_v4().to_string()
@@ -129,6 +227,42 @@ impl MithrilEvent {
             MithrilEvent::SnapshotDownloadStarted { download_id, .. } => download_id,
             MithrilEvent::SnapshotDownloadProgress { download_id, .. } => download_id,
             MithrilEvent::SnapshotDownloadCompleted { download_id } => download_id,
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::Started {
+                download_id,
+                ..
+            }) => download_id,
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::Completed {
+                download_id,
+                ..
+            }) => download_id,
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::ImmutableDownloadStarted { download_id, .. },
+            ) => download_id,
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::ImmutableDownloadProgress { download_id, .. },
+            ) => download_id,
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::ImmutableDownloadCompleted { download_id, .. },
+            ) => download_id,
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::AncillaryDownloadStarted { download_id, .. },
+            ) => download_id,
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::AncillaryDownloadProgress { download_id, .. },
+            ) => download_id,
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::AncillaryDownloadCompleted { download_id, .. },
+            ) => download_id,
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadStarted {
+                download_id,
+                ..
+            }) => download_id,
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::DigestDownloadProgress { download_id, .. },
+            ) => download_id,
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::DigestDownloadCompleted { download_id, .. },
+            ) => download_id,
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id,
             } => certificate_chain_validation_id,
@@ -218,6 +352,106 @@ impl FeedbackReceiver for SlogFeedbackReceiver {
             }
             MithrilEvent::SnapshotDownloadCompleted { download_id } => {
                 info!(self.logger, "Snapshot download completed"; "download_id" => download_id);
+            }
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::Started {
+                download_id,
+                total_immutable_files,
+                include_ancillary,
+            }) => {
+                info!(
+                    self.logger, "Cardano database download started"; "download_id" => download_id, "total_immutable_files" => total_immutable_files, "include_ancillary" => include_ancillary,
+                );
+            }
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::Completed {
+                download_id,
+            }) => {
+                info!(
+                    self.logger, "Cardano database download completed"; "download_id" => download_id,
+                );
+            }
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::ImmutableDownloadStarted {
+                    immutable_file_number,
+                    download_id,
+                    size,
+                },
+            ) => {
+                info!(
+                    self.logger, "Immutable download started";
+                    "immutable_file_number" => immutable_file_number, "download_id" => download_id, "size" => size
+                );
+            }
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::ImmutableDownloadProgress {
+                    immutable_file_number,
+                    download_id,
+                    downloaded_bytes,
+                    size,
+                },
+            ) => {
+                info!(
+                    self.logger, "Immutable download in progress ...";
+                    "immutable_file_number" => immutable_file_number, "downloaded_bytes" => downloaded_bytes, "size" => size, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::ImmutableDownloadCompleted {
+                    immutable_file_number,
+                    download_id,
+                },
+            ) => {
+                info!(self.logger, "Immutable download completed"; "immutable_file_number" => immutable_file_number, "download_id" => download_id);
+            }
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::AncillaryDownloadStarted { download_id, size },
+            ) => {
+                info!(
+                    self.logger, "Ancillary download started";
+                    "download_id" => download_id,
+                    "size" => size,
+                );
+            }
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::AncillaryDownloadProgress {
+                    download_id,
+                    downloaded_bytes,
+                    size,
+                },
+            ) => {
+                info!(
+                    self.logger, "Ancillary download in progress ...";
+                    "downloaded_bytes" => downloaded_bytes, "size" => size, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::AncillaryDownloadCompleted { download_id },
+            ) => {
+                info!(self.logger, "Ancillary download completed"; "download_id" => download_id);
+            }
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadStarted {
+                download_id,
+            }) => {
+                info!(
+                    self.logger, "Digest download started";
+                    "download_id" => download_id,
+                );
+            }
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::DigestDownloadProgress {
+                    download_id,
+                    downloaded_bytes,
+                    size,
+                },
+            ) => {
+                info!(
+                    self.logger, "Digest download in progress ...";
+                    "downloaded_bytes" => downloaded_bytes, "size" => size, "download_id" => download_id,
+                );
+            }
+            MithrilEvent::CardanoDatabase(
+                MithrilEventCardanoDatabase::DigestDownloadCompleted { download_id },
+            ) => {
+                info!(self.logger, "Digest download completed"; "download_id" => download_id);
             }
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id,
