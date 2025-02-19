@@ -196,15 +196,19 @@ impl VerificationKeyPoP {
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
-        let result = verify_pairing(&self.vk, &self.pop);
-
-        if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
-            == BLST_ERROR::BLST_SUCCESS
-            && result)
-        {
-            return Err(MultiSignatureError::KeyInvalid(Box::new(*self)));
+        match self.vk.0.validate() {
+            Ok(_) => {
+                let result = verify_pairing(&self.vk, &self.pop);
+                if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
+                    == BLST_ERROR::BLST_SUCCESS
+                    && result)
+                {
+                    return Err(MultiSignatureError::KeyInvalid(Box::new(*self)));
+                }
+                Ok(())
+            }
+            Err(e) => blst_err_to_mithril(e, None),
         }
-        Ok(())
     }
 
     /// Convert to a 144 byte string.
@@ -287,10 +291,13 @@ impl From<&SigningKey> for ProofOfPossession {
 impl Signature {
     /// Verify a signature against a verification key.
     pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
-        blst_err_to_mithril(
-            self.0.verify(false, msg, &[], &[], &mvk.0, false),
-            Some(*self),
-        )
+        match self.0.validate(true) {
+            Ok(_) => blst_err_to_mithril(
+                self.0.verify(false, msg, &[], &[], &mvk.0, false),
+                Some(*self),
+            ),
+            Err(e) => blst_err_to_mithril(e, Some(*self)),
+        }
     }
 
     /// Dense mapping function indexed by the index to be evaluated.
