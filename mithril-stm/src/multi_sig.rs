@@ -196,15 +196,19 @@ impl VerificationKeyPoP {
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
-        let result = verify_pairing(&self.vk, &self.pop);
-
-        if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
-            == BLST_ERROR::BLST_SUCCESS
-            && result)
-        {
-            return Err(MultiSignatureError::KeyInvalid(Box::new(*self)));
+        match self.vk.0.validate() {
+            Ok(_) => {
+                let result = verify_pairing(&self.vk, &self.pop);
+                if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
+                    == BLST_ERROR::BLST_SUCCESS
+                    && result)
+                {
+                    return Err(MultiSignatureError::KeyInvalid(Box::new(*self)));
+                }
+                Ok(())
+            }
+            Err(e) => blst_err_to_mithril(e, None),
         }
-        Ok(())
     }
 
     /// Convert to a 144 byte string.
@@ -287,10 +291,13 @@ impl From<&SigningKey> for ProofOfPossession {
 impl Signature {
     /// Verify a signature against a verification key.
     pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
-        blst_err_to_mithril(
-            self.0.verify(false, msg, &[], &[], &mvk.0, false),
-            Some(*self),
-        )
+        match self.0.validate(true) {
+            Ok(_) => blst_err_to_mithril(
+                self.0.verify(false, msg, &[], &[], &mvk.0, false),
+                Some(*self),
+            ),
+            Err(e) => blst_err_to_mithril(e, Some(*self)),
+        }
     }
 
     /// Dense mapping function indexed by the index to be evaluated.
@@ -376,7 +383,6 @@ impl Signature {
         }
 
         let transmuted_vks: Vec<blst_p2> = vks.iter().map(vk_from_p2_affine).collect();
-
         let transmuted_sigs: Vec<blst_p1> = signatures.iter().map(sig_to_p1).collect();
 
         let grouped_vks = p2_affines::from(transmuted_vks.as_slice());
@@ -628,6 +634,7 @@ mod unsafe_helpers {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::key_reg::KeyReg;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{OsRng, SeedableRng};
@@ -647,15 +654,58 @@ mod tests {
         }
 
         #[test]
-        fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
-                            seed in any::<[u8;32]>(),
-        ) {
+        fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let sk1 = SigningKey::gen(&mut rng);
             let vk1 = VerificationKey::from(&sk1);
             let sk2 = SigningKey::gen(&mut rng);
             let fake_sig = sk2.sign(&msg);
             assert!(fake_sig.verify(&msg, &vk1).is_err());
+        }
+
+        #[test]
+        fn test_infinity_sig(msg in prop::collection::vec(any::<u8>(), 1..128), seed in any::<[u8;32]>()) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let sk = SigningKey::gen(&mut rng);
+            let vk = VerificationKey::from(&sk);
+
+            let p1 = blst_p1::default();
+            let sig_infinity = Signature(p1_affine_to_sig(&p1));
+
+            assert!(sig_infinity.verify(&msg, &vk).is_err());
+        }
+
+        #[test]
+        fn test_infinity_vk(seed in any::<[u8;32]>()) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let sk = SigningKey::gen(&mut rng);
+            let pop = ProofOfPossession::from(&sk);
+
+            let p2 = blst_p2::default();
+            let vk_infinity = VerificationKey(p2_affine_to_vk(&p2));
+            let vkpop_infinity = VerificationKeyPoP { vk: vk_infinity, pop };
+
+            assert!(vkpop_infinity.check().is_err());
+        }
+
+        #[test]
+        fn test_keyreg_with_infinity_vk(num_sigs in 2..16usize, seed in any::<[u8;32]>()) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let mut kr = KeyReg::init();
+
+            let sk = SigningKey::gen(&mut rng);
+            let pop = ProofOfPossession::from(&sk);
+            let p2 = blst_p2::default();
+            let vk_infinity = VerificationKey(p2_affine_to_vk(&p2));
+            let vkpop_infinity = VerificationKeyPoP { vk: vk_infinity, pop };
+
+            for _ in 0..num_sigs {
+                let sk = SigningKey::gen(&mut rng);
+                let vkpop = VerificationKeyPoP::from(&sk);
+                let _ = kr.register(1, vkpop);
+            }
+
+            assert!(kr.register(1, vkpop_infinity).is_err());
         }
 
         #[test]
