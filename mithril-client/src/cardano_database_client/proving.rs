@@ -206,6 +206,7 @@ mod tests {
                 hash: "hash-123".to_string(),
                 beacon: beacon.clone(),
                 digests: DigestsMessagePart {
+                    size_uncompressed: Some(1024),
                     locations: vec![DigestLocation::CloudStorage {
                         uri: "http://whatever/digests.json".to_string(),
                     }],

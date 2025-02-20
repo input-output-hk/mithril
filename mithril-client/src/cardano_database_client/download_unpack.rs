@@ -477,6 +477,7 @@ mod tests {
             let cardano_db_snapshot = CardanoDatabaseSnapshot {
                 hash: "hash-123".to_string(),
                 immutables: ImmutablesMessagePart {
+                    average_size_uncompressed: Some(512),
                     locations: vec![ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
@@ -554,6 +555,7 @@ mod tests {
                     epoch: Epoch(123),
                 },
                 immutables: ImmutablesMessagePart {
+                    average_size_uncompressed: Some(512),
                     locations: vec![ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
@@ -561,11 +563,15 @@ mod tests {
                     }],
                 },
                 ancillary: AncillaryMessagePart {
+                    size_uncompressed: Some(2048),
                     locations: vec![AncillaryLocation::CloudStorage {
                         uri: "http://whatever/ancillary.tar.gz".to_string(),
                     }],
                 },
-                digests: DigestsMessagePart { locations: vec![] },
+                digests: DigestsMessagePart {
+                    size_uncompressed: None,
+                    locations: vec![],
+                },
                 ..CardanoDatabaseSnapshot::dummy()
             };
             let target_dir = TempDir::new(

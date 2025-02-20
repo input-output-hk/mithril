@@ -1811,13 +1811,20 @@ components:
     CardanoDatabaseDigestsLocationsMessagePart:
       description: CardanoDatabaseDigestsLocationsMessagePart represents the locations of the Cardano database digests
       type: object
+      required:
+        - locations
       properties:
+        size_uncompressed:
+          description: Size of the uncompressed digests file in Bytes
+          type: integer
+          format: int64
         locations:
           type: array
           items:
             $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
       examples:
         - {
+            "size_uncompressed": 1024,
             "locations":
               [
                 {
@@ -1830,13 +1837,20 @@ components:
     CardanoDatabaseImmutablesLocationsMessagePart:
       description: CardanoDatabaseImmutablesLocationsMessagePart represents the locations of the Cardano database immutables
       type: object
+      required:
+        - locations
       properties:
+        average_size_uncompressed:
+          description: Average size of the uncompressed immutable file in Bytes
+          type: integer
+          format: int64
         locations:
           type: array
           items:
             $ref: "#/components/schemas/CardanoDatabaseImmutableLocationMessagePart"
       examples:
         - {
+            "average_size_uncompressed": 1024,
             "locations":
               [
                 {
@@ -1859,13 +1873,20 @@ components:
     CardanoDatabaseAncillaryLocationsMessagePart:
       description: CardanoDatabaseAncillaryLocationsMessagePart represents the locations of the Cardano database ancillary
       type: object
+      required:
+        - locations
       properties:
+        size_uncompressed:
+          description: Size of the uncompressed ancillary file in Bytes
+          type: integer
+          format: int64
         locations:
           type: array
           items:
             $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
       examples:
         - {
+            "size_uncompressed": 1024,
             "locations":
               [
                 {
@@ -2064,6 +2085,7 @@ components:
             "total_db_size_uncompressed": 800796318,
             "digests":
               {
+                "size_uncompressed": 1024,
                 "locations":
                   [
                     {
@@ -2074,6 +2096,7 @@ components:
               },
             "immutables":
               {
+                "average_size_uncompressed": 1024,
                 "locations":
                   [
                     {
@@ -2094,6 +2117,7 @@ components:
               },
             "ancillary":
               {
+                "size_uncompressed": 1024,
                 "locations":
                   [
                     {
