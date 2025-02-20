@@ -56,7 +56,7 @@ jobs:
         if: inputs.package == matrix.package || inputs.package == 'all'
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+          cache-version: ${{ vars.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
