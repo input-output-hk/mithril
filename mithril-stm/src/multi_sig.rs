@@ -88,7 +88,7 @@ impl SigningKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstSk::from_bytes(&bytes[..32]) {
             Ok(sk) => Ok(Self(sk)),
-            Err(e) => Err(blst_err_to_mithril(e, None)
+            Err(e) => Err(blst_err_to_mithril(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -108,7 +108,7 @@ impl VerificationKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstVk::key_validate(&bytes[..96]) {
             Ok(vk) => Ok(Self(vk)),
-            Err(e) => Err(blst_err_to_mithril(e, None)
+            Err(e) => Err(blst_err_to_mithril(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -207,7 +207,7 @@ impl VerificationKeyPoP {
                 }
                 Ok(())
             }
-            Err(e) => blst_err_to_mithril(e, None),
+            Err(e) => blst_err_to_mithril(e, None, Some(self.vk)),
         }
     }
 
@@ -265,7 +265,7 @@ impl ProofOfPossession {
         let k1 = match BlstSig::from_bytes(&bytes[..48]) {
             Ok(key) => key,
             Err(e) => {
-                return Err(blst_err_to_mithril(e, None)
+                return Err(blst_err_to_mithril(e, None, None)
                     .expect_err("If it passed, blst returns and error different to SUCCESS."))
             }
         };
@@ -295,8 +295,9 @@ impl Signature {
             Ok(_) => blst_err_to_mithril(
                 self.0.verify(false, msg, &[], &[], &mvk.0, false),
                 Some(*self),
+                None,
             ),
-            Err(e) => blst_err_to_mithril(e, Some(*self)),
+            Err(e) => blst_err_to_mithril(e, Some(*self), None),
         }
     }
 
@@ -330,7 +331,7 @@ impl Signature {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstSig::sig_validate(&bytes[..48], true) {
             Ok(sig) => Ok(Self(sig)),
-            Err(e) => Err(blst_err_to_mithril(e, None)
+            Err(e) => Err(blst_err_to_mithril(e, None, None)
                 .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -405,7 +406,7 @@ impl Signature {
 
         blst_err_to_mithril(
             aggr_sig.0.verify(false, msg, &[], &[], &aggr_vk.0, false),
-            Some(aggr_sig),
+            Some(aggr_sig), None,
         )
     }
 
@@ -421,7 +422,7 @@ impl Signature {
             false,
         ) {
             Ok(sig) => BlstSig::from_aggregate(&sig),
-            Err(e) => return blst_err_to_mithril(e, None),
+            Err(e) => return blst_err_to_mithril(e, None, None),
         };
 
         let p2_vks: Vec<&BlstVk> = vks.iter().map(|vk| &vk.0).collect();
@@ -433,6 +434,7 @@ impl Signature {
         blst_err_to_mithril(
             batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks, false),
             None,
+            None
         )
         .map_err(|_| MultiSignatureError::BatchInvalid)
     }
