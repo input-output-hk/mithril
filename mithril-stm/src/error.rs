@@ -36,7 +36,7 @@ pub enum MultiSignatureError {
 
     /// Verification key is the infinity
     #[error("Verification key is the infinity")]
-    VerificationKeyInfinity(VerificationKey),
+    VerificationKeyInfinity(Box<VerificationKey>),
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -145,6 +145,10 @@ pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
     KeyRegistered(Box<VerificationKey>),
+
+    /// Verification key is the infinity
+    #[error("Verification key is the infinity")]
+    VerificationKeyInfinity(Box<VerificationKey>),
 
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
@@ -263,6 +267,7 @@ impl From<MultiSignatureError> for RegisterError {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
+            MultiSignatureError::VerificationKeyInfinity(e) => Self::VerificationKeyInfinity(e),
             _ => unreachable!(),
         }
     }
@@ -273,7 +278,7 @@ impl From<MultiSignatureError> for RegisterError {
 pub(crate) fn blst_err_to_mithril(
     e: BLST_ERROR,
     sig: Option<Signature>,
-    key: Option<VerificationKey>
+    key: Option<VerificationKey>,
 ) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),
@@ -282,7 +287,7 @@ pub(crate) fn blst_err_to_mithril(
                 return Err(MultiSignatureError::SignatureInfinity(s));
             }
             if let Some(vk) = key {
-                return Err(MultiSignatureError::VerificationKeyInfinity(vk));
+                return Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vk)));
             }
             Err(MultiSignatureError::SerializationError)
         }
