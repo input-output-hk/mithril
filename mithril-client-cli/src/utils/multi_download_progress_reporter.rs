@@ -46,6 +46,21 @@ impl MultiDownloadProgressReporter {
         }
     }
 
+    #[cfg(test)]
+    /// Get the total number of downloads.
+    pub fn total_downloads(&self) -> u64 {
+        self.main_reporter
+            .inner_progress_bar()
+            .length()
+            .unwrap_or(0)
+    }
+
+    #[cfg(test)]
+    /// Get the number of active downloads.
+    pub async fn number_of_active_downloads(&self) -> usize {
+        self.dl_reporters.read().await.len()
+    }
+
     /// Add a new download to the progress reporter.
     pub async fn add_download<T: Into<String>>(&self, name: T, total_bytes: u64) {
         let dl_progress_bar = self.multi_pb.add(ProgressBar::new(total_bytes));
