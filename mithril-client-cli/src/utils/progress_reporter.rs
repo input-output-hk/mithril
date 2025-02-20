@@ -158,6 +158,7 @@ impl DownloadProgressReporter {
         }
     }
 
+    #[cfg(test)]
     /// Get the kind of the download progress bar
     pub fn kind(&self) -> ProgressBarKind {
         self.json_reporter.kind

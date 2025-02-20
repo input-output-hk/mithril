@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::fmt::Write;
 
-use indicatif::{MultiProgress, ProgressBar};
+use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
 use slog::Logger;
 use tokio::sync::RwLock;
 
@@ -10,7 +11,6 @@ use super::{DownloadProgressReporter, ProgressBarKind, ProgressOutputType};
 ///
 /// It shows a global progress bar for all downloads and individual progress bars for each download.
 pub struct MultiDownloadProgressReporter {
-    title: String,
     output_type: ProgressOutputType,
     multi_pb: MultiProgress,
     main_reporter: DownloadProgressReporter,
@@ -20,15 +20,20 @@ pub struct MultiDownloadProgressReporter {
 
 impl MultiDownloadProgressReporter {
     /// Initialize a new `MultiDownloadProgressReporter`.
-    pub fn new(
-        title: String,
-        total_files: u64,
-        output_type: ProgressOutputType,
-        logger: Logger,
-    ) -> Self {
+    pub fn new(total_files: u64, output_type: ProgressOutputType, logger: Logger) -> Self {
         let multi_pb = MultiProgress::new();
         multi_pb.set_draw_target(output_type.into());
         let main_pb = multi_pb.add(ProgressBar::new(total_files));
+        main_pb.set_style(
+            ProgressStyle::with_template(
+                "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] Files: {human_pos}/{human_len} ({eta})",
+            )
+            .unwrap()
+            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| {
+                write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
+            })
+            .progress_chars("#>-"),
+        );
         let main_reporter = DownloadProgressReporter::new(
             main_pb,
             output_type,
@@ -37,13 +42,27 @@ impl MultiDownloadProgressReporter {
         );
 
         Self {
-            title,
             output_type,
             multi_pb,
             main_reporter,
             dl_reporters: RwLock::new(HashMap::new()),
             logger,
         }
+    }
+
+    #[cfg(test)]
+    /// Get the total number of downloads.
+    pub fn total_downloads(&self) -> u64 {
+        self.main_reporter
+            .inner_progress_bar()
+            .length()
+            .unwrap_or(0)
+    }
+
+    #[cfg(test)]
+    /// Get the number of active downloads.
+    pub async fn number_of_active_downloads(&self) -> usize {
+        self.dl_reporters.read().await.len()
     }
 
     /// Add a new download to the progress reporter.
@@ -110,7 +129,6 @@ mod tests {
     #[test]
     fn main_progress_bar_is_of_kind() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
-            "Title".to_string(),
             1,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
@@ -125,7 +143,6 @@ mod tests {
     #[tokio::test]
     async fn adding_new_progress_bar() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
-            "Title".to_string(),
             1,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
@@ -142,7 +159,6 @@ mod tests {
     #[tokio::test]
     async fn finishing_progress_bar() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
-            "Title".to_string(),
             1,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
@@ -173,7 +189,6 @@ mod tests {
     #[tokio::test]
     async fn finishing_progress_bar_that_does_not_exist() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
-            "Title".to_string(),
             1,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
@@ -196,7 +211,6 @@ mod tests {
     async fn finishing_all_remove_all_progress_bars() {
         let total_files = 132;
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
-            "Title".to_string(),
             total_files,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
@@ -225,7 +239,6 @@ mod tests {
     #[tokio::test]
     async fn progress_download_to_the_given_bytes() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
-            "Title".to_string(),
             4,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
@@ -255,7 +268,6 @@ mod tests {
     #[tokio::test]
     async fn progress_download_a_progress_bar_that_does_not_exist() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
-            "Title".to_string(),
             2,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
