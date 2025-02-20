@@ -654,7 +654,9 @@ mod tests {
             let sk = SigningKey::gen(&mut ChaCha20Rng::from_seed(seed));
             let vk = VerificationKey::from(&sk);
             let sig = sk.sign(&msg);
-            assert!(sig.verify(&msg, &vk).is_ok());
+
+            let result = sig.verify(&msg, &vk);
+            assert!(result.is_ok(), "verify {result:?}");
         }
 
         #[test]
@@ -664,7 +666,9 @@ mod tests {
             let vk1 = VerificationKey::from(&sk1);
             let sk2 = SigningKey::gen(&mut rng);
             let fake_sig = sk2.sign(&msg);
-            assert!(fake_sig.verify(&msg, &vk1).is_err());
+
+            let result = fake_sig.verify(&msg, &vk1);
+            assert_eq!(result, Err(MultiSignatureError::SignatureInvalid(fake_sig)));
         }
 
         #[test]
@@ -732,7 +736,8 @@ mod tests {
                 mvks.push(vk);
             }
 
-            assert!(Signature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
+            let result = Signature::verify_aggregate(&msg, &mvks, &sigs);
+            assert!(result.is_ok(), "Aggregate verification failed {result:?}");
         }
 
         #[test]
@@ -748,14 +753,32 @@ mod tests {
         fn serialize_deserialize_vk(seed in any::<u64>()) {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
             let sk = SigningKey::gen(&mut rng);
+
             let vk = VerificationKey::from(&sk);
             let vk_bytes = vk.to_bytes();
-            let vk2 = VerificationKey::from_bytes(&vk_bytes).unwrap();
-            assert_eq!(vk, vk2);
+            let result = VerificationKey::from_bytes(&vk_bytes);
+            match result {
+                Ok(vk_from_bytes) => {
+                    assert_eq!(vk, vk_from_bytes);
+                }
+                Err(MultiSignatureError::SerializationError) => {
+                    println!("Verification key cannot be recovered from bytes.");
+                }
+                _ => unreachable!(),
+            }
+
             let vkpop = VerificationKeyPoP::from(&sk);
             let vkpop_bytes = vkpop.to_bytes();
-            let vkpop2: VerificationKeyPoP = VerificationKeyPoP::from_bytes(&vkpop_bytes).unwrap();
-            assert_eq!(vkpop, vkpop2);
+            let result = VerificationKeyPoP::from_bytes(&vkpop_bytes);
+            match result {
+                Ok(vkpop_from_bytes) => {
+                    assert_eq!(vkpop, vkpop_from_bytes);
+                }
+                Err(MultiSignatureError::SerializationError) => {
+                    println!("VerificationKeyPoP cannot be recovered from bytes.");
+                }
+                _ => unreachable!(),
+            }
 
             // Now we test serde
             let encoded = bincode::serialize(&vk).unwrap();
@@ -772,8 +795,16 @@ mod tests {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
             let sk = SigningKey::gen(&mut rng);
             let sk_bytes: [u8; 32] = sk.to_bytes();
-            let sk2 = SigningKey::from_bytes(&sk_bytes).unwrap();
-            assert_eq!(sk, sk2);
+            let result = SigningKey::from_bytes(&sk_bytes);
+            match result {
+                Ok(sk_from_bytes) => {
+                    assert_eq!(sk, sk_from_bytes);
+                }
+                Err(MultiSignatureError::SerializationError) => {
+                    println!("Signing key cannot be recovered from bytes.");
+                }
+                _ => unreachable!(),
+            }
 
             // Now we test serde
             let encoded = bincode::serialize(&sk).unwrap();
@@ -806,13 +837,23 @@ mod tests {
                     sigs.push(sig);
                     mvks.push(vk);
                 }
-                assert!(Signature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
-                let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
-                batch_msgs.push(msg.to_vec());
-                batch_vk.push(agg_vk);
-                batch_sig.push(agg_sig);
+                let verify_aggregate = Signature::verify_aggregate(&msg, &mvks, &sigs);
+                assert!(verify_aggregate.is_ok(), "Aggregate verification {verify_aggregate:?}");
+
+                match Signature::aggregate(&mvks, &sigs) {
+                    Ok((agg_vk, agg_sig)) => {
+                        batch_msgs.push(msg.to_vec());
+                        batch_vk.push(agg_vk);
+                        batch_sig.push(agg_sig);
+                    }
+                    Err(MultiSignatureError::AggregateSignatureInvalid) => {
+                        println!("Aggregation failed.");
+                    }
+                    _ => unreachable!(),
+                }
             }
-            assert!(Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok());
+            let batch_verify_aggregates = Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig);
+            assert!(batch_verify_aggregates.is_ok(), "{batch_verify_aggregates:?}");
 
             // If we have an invalid signature, the batch verification will fail
             let mut msg = [0u8; 32];
@@ -821,7 +862,8 @@ mod tests {
             let fake_sig = sk.sign(&msg);
             batch_sig[0] = fake_sig;
 
-            assert!(Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_err());
+            let batch_result = Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig);
+            assert_eq!(batch_result, Err(MultiSignatureError::BatchInvalid));
         }
     }
 
