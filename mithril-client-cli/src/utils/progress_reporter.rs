@@ -29,6 +29,13 @@ impl From<ProgressOutputType> for ProgressDrawTarget {
     }
 }
 
+/// Kind of progress bar
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgressBarKind {
+    Bytes,
+    Files,
+}
+
 /// Wrapper of a indicatif [MultiProgress] to allow reporting to json.
 pub struct ProgressPrinter {
     multi_progress: MultiProgress,
@@ -73,12 +80,21 @@ impl Deref for ProgressPrinter {
 }
 
 /// Utility to format a [ProgressBar] status as json
-pub struct ProgressBarJsonFormatter;
+#[derive(Clone, Copy)]
+pub struct ProgressBarJsonFormatter {
+    kind: ProgressBarKind,
+}
 
 impl ProgressBarJsonFormatter {
+    /// Instantiate a `ProgressBarJsonFormatter`
+    pub fn new(kind: ProgressBarKind) -> Self {
+        Self { kind }
+    }
+
     /// Get a json formatted string given the progress bar status
-    pub fn format(progress_bar: &ProgressBar) -> String {
+    pub fn format(&self, progress_bar: &ProgressBar) -> String {
         ProgressBarJsonFormatter::format_values(
+            self.kind,
             Utc::now().to_rfc3339(),
             progress_bar.position(),
             progress_bar.length().unwrap_or(0),
@@ -88,17 +104,25 @@ impl ProgressBarJsonFormatter {
     }
 
     fn format_values(
+        kind: ProgressBarKind,
         timestamp: String,
-        bytes_downloaded: u64,
-        bytes_total: u64,
+        amount_downloaded: u64,
+        amount_total: u64,
         duration_left: Duration,
         duration_elapsed: Duration,
     ) -> String {
+        let amount_prefix = match kind {
+            ProgressBarKind::Bytes => "bytes",
+            ProgressBarKind::Files => "files",
+        };
+
         format!(
-            r#"{{"timestamp": "{}", "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
+            r#"{{"timestamp": "{}", "{}_downloaded": {}, "{}_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
             timestamp,
-            bytes_downloaded,
-            bytes_total,
+            amount_prefix,
+            amount_downloaded,
+            amount_prefix,
+            amount_total,
             duration_left.as_secs(),
             duration_left.subsec_millis(),
             duration_elapsed.as_secs(),
@@ -112,6 +136,7 @@ impl ProgressBarJsonFormatter {
 pub struct DownloadProgressReporter {
     progress_bar: ProgressBar,
     output_type: ProgressOutputType,
+    json_reporter: ProgressBarJsonFormatter,
     last_json_report_instant: Arc<RwLock<Option<Instant>>>,
     logger: Logger,
 }
@@ -122,6 +147,7 @@ impl DownloadProgressReporter {
         Self {
             progress_bar,
             output_type,
+            json_reporter: ProgressBarJsonFormatter::new(ProgressBarKind::Bytes),
             last_json_report_instant: Arc::new(RwLock::new(None)),
             logger,
         }
@@ -164,7 +190,7 @@ impl DownloadProgressReporter {
             };
 
             if should_report {
-                eprintln!("{}", ProgressBarJsonFormatter::format(&self.progress_bar));
+                eprintln!("{}", self.json_reporter.format(&self.progress_bar));
 
                 match self.last_json_report_instant.write() {
                     Ok(mut instant) => *instant = Some(Instant::now()),
@@ -190,8 +216,35 @@ mod tests {
     use serde_json::Value;
 
     #[test]
+    fn json_reporter_change_downloaded_and_total_key_prefix_based_on_progress_bar_kind() {
+        fn run(kind: ProgressBarKind, expected_prefix: &str) {
+            let json_string = ProgressBarJsonFormatter::format_values(
+                kind,
+                "".to_string(),
+                0,
+                0,
+                Duration::from_millis(1000),
+                Duration::from_millis(2500),
+            );
+
+            assert!(
+                json_string.contains(&format!(r#""{expected_prefix}_downloaded":"#)),
+                "'{expected_prefix}_downloaded' key not found in json output: {json_string}",
+            );
+            assert!(
+                json_string.contains(&format!(r#""{expected_prefix}_total":"#)),
+                "'{expected_prefix}_total' key not found in json output: {json_string}",
+            );
+        }
+
+        run(ProgressBarKind::Bytes, "bytes");
+        run(ProgressBarKind::Files, "files");
+    }
+
+    #[test]
     fn check_seconds_formatting_in_json_report_with_more_than_100_milliseconds() {
         let json_string = ProgressBarJsonFormatter::format_values(
+            ProgressBarKind::Bytes,
             "".to_string(),
             0,
             0,
@@ -214,6 +267,7 @@ mod tests {
     #[test]
     fn check_seconds_formatting_in_json_report_with_less_than_100_milliseconds() {
         let json_string = ProgressBarJsonFormatter::format_values(
+            ProgressBarKind::Bytes,
             "".to_string(),
             0,
             0,
@@ -236,6 +290,7 @@ mod tests {
     #[test]
     fn check_seconds_formatting_in_json_report_with_milliseconds_ending_by_zeros() {
         let json_string = ProgressBarJsonFormatter::format_values(
+            ProgressBarKind::Bytes,
             "".to_string(),
             0,
             0,
@@ -273,7 +328,8 @@ mod tests {
         let duration_left_before = round_at_ms(progress_bar.eta());
         let duration_elapsed_before = round_at_ms(progress_bar.elapsed());
 
-        let json_string = ProgressBarJsonFormatter::format(&progress_bar);
+        let json_string =
+            ProgressBarJsonFormatter::new(ProgressBarKind::Bytes).format(&progress_bar);
 
         let duration_left_after = round_at_ms(progress_bar.eta());
         let duration_elapsed_after = round_at_ms(progress_bar.elapsed());
