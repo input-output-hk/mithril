@@ -5,7 +5,7 @@ use mithril_client::MithrilResult;
 use slog::Logger;
 use tokio::sync::RwLock;
 
-use super::{DownloadProgressReporter, ProgressOutputType};
+use super::{DownloadProgressReporter, ProgressBarKind, ProgressOutputType};
 
 /// A progress reporter that can handle multiple downloads at once.
 ///
@@ -30,7 +30,12 @@ impl MultiDownloadProgressReporter {
         let multi_pb = MultiProgress::new();
         multi_pb.set_draw_target(output_type.into());
         let main_pb = multi_pb.add(ProgressBar::new(total_files));
-        let main_reporter = DownloadProgressReporter::new(main_pb, output_type, logger.clone());
+        let main_reporter = DownloadProgressReporter::new(
+            main_pb,
+            output_type,
+            ProgressBarKind::Files,
+            logger.clone(),
+        );
 
         Self {
             title,
@@ -49,8 +54,12 @@ impl MultiDownloadProgressReporter {
         total_bytes: u64,
     ) -> MithrilResult<()> {
         let dl_progress_bar = self.multi_pb.add(ProgressBar::new(total_bytes));
-        let dl_reporter =
-            DownloadProgressReporter::new(dl_progress_bar, self.output_type, self.logger.clone());
+        let dl_reporter = DownloadProgressReporter::new(
+            dl_progress_bar,
+            self.output_type,
+            ProgressBarKind::Bytes,
+            self.logger.clone(),
+        );
 
         let mut reporters = self.dl_reporters.write().await;
         reporters.insert(name.into(), dl_reporter);
@@ -115,6 +124,21 @@ mod tests {
 
     use super::*;
 
+    #[test]
+    fn main_progress_bar_is_of_kind() {
+        let multi_dl_reporter = MultiDownloadProgressReporter::new(
+            "Title".to_string(),
+            1,
+            ProgressOutputType::Hidden,
+            slog::Logger::root(slog::Discard, o!()),
+        );
+
+        assert_eq!(
+            multi_dl_reporter.main_reporter.kind(),
+            ProgressBarKind::Files
+        );
+    }
+
     #[tokio::test]
     async fn adding_new_progress_bar() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
@@ -126,7 +150,10 @@ mod tests {
 
         multi_dl_reporter.add_download("name", 1000).await.unwrap();
 
-        assert!(multi_dl_reporter.get_progress_bar("name").await.is_some());
+        assert!(multi_dl_reporter
+            .get_progress_bar("name")
+            .await
+            .is_some_and(|dl_reporter| dl_reporter.kind() == ProgressBarKind::Bytes));
     }
 
     #[tokio::test]

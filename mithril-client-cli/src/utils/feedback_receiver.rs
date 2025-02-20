@@ -4,7 +4,7 @@ use slog::Logger;
 use std::fmt::Write;
 use tokio::sync::RwLock;
 
-use super::{DownloadProgressReporter, ProgressOutputType};
+use super::{DownloadProgressReporter, ProgressBarKind, ProgressOutputType};
 
 use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
 
@@ -53,6 +53,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 *download_progress_reporter = Some(DownloadProgressReporter::new(
                     pb,
                     self.output_type,
+                    ProgressBarKind::Bytes,
                     self.logger.clone(),
                 ));
             }
