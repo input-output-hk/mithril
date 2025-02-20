@@ -691,7 +691,7 @@ mod tests {
             let vkpop_infinity = VerificationKeyPoP { vk: vk_infinity, pop };
 
             let result = vkpop_infinity.check();
-            assert_eq!(result, Err(MultiSignatureError::VerificationKeyInfinity(vkpop_infinity.vk)));
+            assert_eq!(result, Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
         }
 
         #[test]
@@ -712,7 +712,7 @@ mod tests {
             }
 
             let result = kr.register(1, vkpop_infinity);
-            assert_eq!(result, Err(RegisterError::VerificationKeyInfinity(vkpop_infinity.vk)));
+            assert_eq!(result, Err(RegisterError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
         }
 
         #[test]
