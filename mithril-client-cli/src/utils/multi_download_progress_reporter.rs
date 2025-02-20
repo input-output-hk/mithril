@@ -58,6 +58,19 @@ impl MultiDownloadProgressReporter {
         Ok(())
     }
 
+    /// Report progress of a download, updating the progress bar to the given actual_position.
+    pub async fn progress_download<T: AsRef<str>>(
+        &self,
+        name: T,
+        actual_position: u64,
+    ) -> MithrilResult<()> {
+        if let Some(child_reporter) = self.get_progress_bar(name.as_ref()).await {
+            child_reporter.report(actual_position);
+        }
+
+        Ok(())
+    }
+
     /// Finish a download, removing it from the progress reporter an bumping the main progress bar.
     pub async fn finish_download<T: Into<String>>(&self, name: T) -> MithrilResult<()> {
         let name = name.into();
@@ -89,9 +102,6 @@ impl MultiDownloadProgressReporter {
 
         Ok(())
     }
-
-    // todo:
-    // progress_download
 
     async fn get_progress_bar(&self, name: &str) -> Option<DownloadProgressReporter> {
         let cdl_reporters = self.dl_reporters.read().await;
@@ -200,5 +210,61 @@ mod tests {
             .main_reporter
             .inner_progress_bar()
             .is_finished());
+    }
+
+    #[tokio::test]
+    async fn progress_download_to_the_given_bytes() {
+        let multi_dl_reporter = MultiDownloadProgressReporter::new(
+            "Title".to_string(),
+            4,
+            ProgressOutputType::Hidden,
+            slog::Logger::root(slog::Discard, o!()),
+        );
+
+        multi_dl_reporter.add_download("updated", 10).await.unwrap();
+        multi_dl_reporter.add_download("other", 20).await.unwrap();
+
+        let updated_progress_bar = multi_dl_reporter.get_progress_bar("updated").await.unwrap();
+        let other_progress_bar = multi_dl_reporter.get_progress_bar("other").await.unwrap();
+
+        assert_eq!(updated_progress_bar.inner_progress_bar().position(), 0);
+
+        multi_dl_reporter
+            .progress_download("updated", 5)
+            .await
+            .unwrap();
+        assert_eq!(updated_progress_bar.inner_progress_bar().position(), 5);
+
+        multi_dl_reporter
+            .progress_download("updated", 9)
+            .await
+            .unwrap();
+        assert_eq!(updated_progress_bar.inner_progress_bar().position(), 9);
+
+        assert_eq!(
+            other_progress_bar.inner_progress_bar().position(),
+            0,
+            "Other progress bar should not be affected by updating the 'updated' progress bar"
+        );
+    }
+
+    #[tokio::test]
+    async fn progress_download_a_progress_bar_that_does_not_exist() {
+        let multi_dl_reporter = MultiDownloadProgressReporter::new(
+            "Title".to_string(),
+            2,
+            ProgressOutputType::Hidden,
+            slog::Logger::root(slog::Discard, o!()),
+        );
+
+        multi_dl_reporter
+            .progress_download("not_exist", 5)
+            .await
+            .unwrap();
+
+        assert!(multi_dl_reporter
+            .get_progress_bar("not_exist")
+            .await
+            .is_none());
     }
 }
