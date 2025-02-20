@@ -36,7 +36,7 @@ pub enum MultiSignatureError {
 
     /// Verification key is the infinity
     #[error("Verification key is the infinity")]
-    VerificationKeyInfinity,
+    VerificationKeyInfinity(VerificationKey),
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -168,7 +168,7 @@ impl From<MultiSignatureError> for StmSignatureError {
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
             MultiSignatureError::SignatureInfinity(_) => unreachable!(),
-            MultiSignatureError::VerificationKeyInfinity => unreachable!(),
+            MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
         }
     }
 }
@@ -207,7 +207,7 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
             MultiSignatureError::SignatureInfinity(_) => {
                 Self::CoreVerificationError(CoreVerifierError::from(e))
             }
-            MultiSignatureError::VerificationKeyInfinity => {
+            MultiSignatureError::VerificationKeyInfinity(_) => {
                 Self::CoreVerificationError(CoreVerifierError::from(e))
             }
         }
@@ -247,7 +247,7 @@ impl From<MultiSignatureError> for CoreVerifierError {
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
             MultiSignatureError::SignatureInfinity(_) => unreachable!(),
-            MultiSignatureError::VerificationKeyInfinity => unreachable!(),
+            MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
         }
     }
 }
@@ -273,15 +273,18 @@ impl From<MultiSignatureError> for RegisterError {
 pub(crate) fn blst_err_to_mithril(
     e: BLST_ERROR,
     sig: Option<Signature>,
+    key: Option<VerificationKey>
 ) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),
         BLST_ERROR::BLST_PK_IS_INFINITY => {
             if let Some(s) = sig {
-                Err(MultiSignatureError::SignatureInfinity(s))
-            } else {
-                Err(MultiSignatureError::VerificationKeyInfinity)
+                return Err(MultiSignatureError::SignatureInfinity(s));
             }
+            if let Some(vk) = key {
+                return Err(MultiSignatureError::VerificationKeyInfinity(vk));
+            }
+            Err(MultiSignatureError::SerializationError)
         }
         BLST_ERROR::BLST_VERIFY_FAIL => {
             if let Some(s) = sig {
