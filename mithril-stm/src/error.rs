@@ -36,7 +36,7 @@ pub enum MultiSignatureError {
 
     /// Verification key is the infinity
     #[error("Verification key is the infinity")]
-    VerificationKeyInfinity,
+    VerificationKeyInfinity(Box<StmVerificationKeyPoP>),
 }
 
 /// Errors which can be output by Mithril single signature verification.
