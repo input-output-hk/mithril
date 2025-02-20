@@ -127,10 +127,36 @@ impl DownloadProgressReporter {
         }
     }
 
-    /// Report the current progress
+    /// Report the current progress, setting the actual position to the given value
     pub fn report(&self, actual_position: u64) {
         self.progress_bar.set_position(actual_position);
+        self.report_json_progress();
+    }
 
+    /// Report the current progress, incrementing the actual position by the given delta
+    pub fn inc(&self, delta: u64) {
+        self.progress_bar.inc(delta);
+        self.report_json_progress();
+    }
+
+    /// Report that the current download is finished and print the given message.
+    pub fn finish(&self, message: &str) {
+        self.progress_bar.finish_with_message(message.to_string());
+    }
+
+    /// Finish the progress bar and clear the line
+    pub fn finish_and_clear(&self) {
+        self.progress_bar.finish_and_clear();
+    }
+
+    fn get_remaining_time_since_last_json_report(&self) -> Option<Duration> {
+        match self.last_json_report_instant.read() {
+            Ok(instant) => (*instant).map(|instant| instant.elapsed()),
+            Err(_) => None,
+        }
+    }
+
+    fn report_json_progress(&self) {
         if let ProgressOutputType::JsonReporter = self.output_type {
             let should_report = match self.get_remaining_time_since_last_json_report() {
                 Some(remaining_time) => remaining_time > Duration::from_millis(333),
@@ -150,16 +176,8 @@ impl DownloadProgressReporter {
         };
     }
 
-    /// Report that the current download is finished and print the given message.
-    pub fn finish(&self, message: &str) {
-        self.progress_bar.finish_with_message(message.to_string());
-    }
-
-    fn get_remaining_time_since_last_json_report(&self) -> Option<Duration> {
-        match self.last_json_report_instant.read() {
-            Ok(instant) => (*instant).map(|instant| instant.elapsed()),
-            Err(_) => None,
-        }
+    pub(crate) fn inner_progress_bar(&self) -> &ProgressBar {
+        &self.progress_bar
     }
 }
 
