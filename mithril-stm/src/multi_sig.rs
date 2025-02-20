@@ -406,7 +406,8 @@ impl Signature {
 
         blst_err_to_mithril(
             aggr_sig.0.verify(false, msg, &[], &[], &aggr_vk.0, false),
-            Some(aggr_sig), None,
+            Some(aggr_sig),
+            None,
         )
     }
 
@@ -434,7 +435,7 @@ impl Signature {
         blst_err_to_mithril(
             batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks, false),
             None,
-            None
+            None,
         )
         .map_err(|_| MultiSignatureError::BatchInvalid)
     }
@@ -636,6 +637,7 @@ mod unsafe_helpers {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::RegisterError;
     use crate::key_reg::KeyReg;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
@@ -674,7 +676,8 @@ mod tests {
             let p1 = blst_p1::default();
             let sig_infinity = Signature(p1_affine_to_sig(&p1));
 
-            assert!(sig_infinity.verify(&msg, &vk).is_err());
+            let result = sig_infinity.verify(&msg, &vk);
+            assert_eq!(result, Err(MultiSignatureError::SignatureInfinity(sig_infinity)));
         }
 
         #[test]
@@ -687,7 +690,8 @@ mod tests {
             let vk_infinity = VerificationKey(p2_affine_to_vk(&p2));
             let vkpop_infinity = VerificationKeyPoP { vk: vk_infinity, pop };
 
-            assert!(vkpop_infinity.check().is_err());
+            let result = vkpop_infinity.check();
+            assert_eq!(result, Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
         }
 
         #[test]
@@ -707,7 +711,8 @@ mod tests {
                 let _ = kr.register(1, vkpop);
             }
 
-            assert!(kr.register(1, vkpop_infinity).is_err());
+            let result = kr.register(1, vkpop_infinity);
+            assert_eq!(result, Err(RegisterError::VerificationKeyInfinity(Box::new(vkpop_infinity.vk))));
         }
 
         #[test]
