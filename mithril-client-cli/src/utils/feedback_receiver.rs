@@ -4,7 +4,9 @@ use slog::Logger;
 use std::fmt::Write;
 use tokio::sync::RwLock;
 
-use super::{DownloadProgressReporter, ProgressOutputType};
+use super::{
+    DownloadProgressReporter, MultiDownloadProgressReporter, ProgressBarKind, ProgressOutputType,
+};
 
 use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
 
@@ -13,7 +15,7 @@ use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCarda
 pub struct IndicatifFeedbackReceiver {
     download_progress_reporter: RwLock<Option<DownloadProgressReporter>>,
     certificate_validation_pb: RwLock<Option<ProgressBar>>,
-    cardano_database_multi_pb: RwLock<Option<MultiProgress>>,
+    cardano_database_multi_pb: RwLock<Option<MultiDownloadProgressReporter>>,
     output_type: ProgressOutputType,
     logger: Logger,
 }
@@ -53,6 +55,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 *download_progress_reporter = Some(DownloadProgressReporter::new(
                     pb,
                     self.output_type,
+                    ProgressBarKind::Bytes,
                     self.logger.clone(),
                 ));
             }
@@ -76,10 +79,15 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
             MithrilEvent::CardanoDatabase(cardano_database_event) => match cardano_database_event {
                 MithrilEventCardanoDatabase::Started {
                     download_id: _,
-                    total_immutable_files: _,
-                    include_ancillary: _,
+                    total_immutable_files,
+                    include_ancillary,
                 } => {
-                    let multi_pb = MultiProgress::new();
+                    let multi_pb = MultiDownloadProgressReporter::new(
+                        "Miaou".to_string(),
+                        total_immutable_files + if include_ancillary { 1 } else { 0 },
+                        self.output_type,
+                        self.logger.clone(),
+                    );
                     let mut cardano_database_multi_pb =
                         self.cardano_database_multi_pb.write().await;
                     *cardano_database_multi_pb = Some(multi_pb);

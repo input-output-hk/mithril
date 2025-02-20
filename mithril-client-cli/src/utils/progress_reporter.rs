@@ -143,14 +143,24 @@ pub struct DownloadProgressReporter {
 
 impl DownloadProgressReporter {
     /// Instantiate a new progress reporter
-    pub fn new(progress_bar: ProgressBar, output_type: ProgressOutputType, logger: Logger) -> Self {
+    pub fn new(
+        progress_bar: ProgressBar,
+        output_type: ProgressOutputType,
+        progress_bar_kind: ProgressBarKind,
+        logger: Logger,
+    ) -> Self {
         Self {
             progress_bar,
             output_type,
-            json_reporter: ProgressBarJsonFormatter::new(ProgressBarKind::Bytes),
+            json_reporter: ProgressBarJsonFormatter::new(progress_bar_kind),
             last_json_report_instant: Arc::new(RwLock::new(None)),
             logger,
         }
+    }
+
+    /// Get the kind of the download progress bar
+    pub fn kind(&self) -> ProgressBarKind {
+        self.json_reporter.kind
     }
 
     /// Report the current progress, setting the actual position to the given value
