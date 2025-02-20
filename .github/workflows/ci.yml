@@ -26,7 +26,7 @@ jobs:
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: 22.04-${{ secrets.CACHE_VERSION }}
+          cache-version: 22.04-${{ vars.CACHE_VERSION }}
           cargo-tools: cargo-deb
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -97,7 +97,7 @@ jobs:
       - name: Install stable toolchain and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
+          cache-version: ${{ vars.CACHE_VERSION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Mithril workspace & publish artifacts
@@ -121,7 +121,7 @@ jobs:
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+          cache-version: ${{ vars.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -193,7 +193,7 @@ jobs:
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
+          cache-version: ${{ vars.CACHE_VERSION }}
           cargo-tools: cargo-nextest
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -231,7 +231,7 @@ jobs:
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
+          cache-version: ${{ vars.CACHE_VERSION }}
           cargo-tools: cargo-machete cargo-sort clippy-sarif sarif-fmt
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -532,7 +532,7 @@ jobs:
       - name: Install stable toolchain, tools, and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}-wasm
+          cache-version: ${{ vars.CACHE_VERSION }}-wasm
           cargo-tools: wasm-pack
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -739,7 +739,7 @@ jobs:
       - name: Install stable toolchain and restore cache
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
+          cache-version: ${{ vars.CACHE_VERSION }}
           cargo-tools: clippy-sarif sarif-fmt
           github-token: ${{ secrets.GITHUB_TOKEN }}
 

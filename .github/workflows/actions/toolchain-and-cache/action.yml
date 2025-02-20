@@ -26,7 +26,7 @@ runs:
       with:
         # only save the cache on the main branch to limit github actions total cache size
         save-if: ${{ github.ref == 'refs/heads/main' }}
-        key: ${{ runner.os }}-cache-v${{ inputs.cache-version }}
+        prefix-key: v${{ inputs.cache-version }}-rust-${{ runner.os }}
 
     - name: Install cargo tools installer
       uses: taiki-e/install-action@v2
