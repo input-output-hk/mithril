@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use indicatif::{MultiProgress, ProgressBar};
-use mithril_client::MithrilResult;
 use slog::Logger;
 use tokio::sync::RwLock;
 
@@ -48,11 +47,7 @@ impl MultiDownloadProgressReporter {
     }
 
     /// Add a new download to the progress reporter.
-    pub async fn add_download<T: Into<String>>(
-        &self,
-        name: T,
-        total_bytes: u64,
-    ) -> MithrilResult<()> {
+    pub async fn add_download<T: Into<String>>(&self, name: T, total_bytes: u64) {
         let dl_progress_bar = self.multi_pb.add(ProgressBar::new(total_bytes));
         let dl_reporter = DownloadProgressReporter::new(
             dl_progress_bar,
@@ -63,25 +58,17 @@ impl MultiDownloadProgressReporter {
 
         let mut reporters = self.dl_reporters.write().await;
         reporters.insert(name.into(), dl_reporter);
-
-        Ok(())
     }
 
     /// Report progress of a download, updating the progress bar to the given actual_position.
-    pub async fn progress_download<T: AsRef<str>>(
-        &self,
-        name: T,
-        actual_position: u64,
-    ) -> MithrilResult<()> {
+    pub async fn progress_download<T: AsRef<str>>(&self, name: T, actual_position: u64) {
         if let Some(child_reporter) = self.get_progress_bar(name.as_ref()).await {
             child_reporter.report(actual_position);
         }
-
-        Ok(())
     }
 
     /// Finish a download, removing it from the progress reporter an bumping the main progress bar.
-    pub async fn finish_download<T: Into<String>>(&self, name: T) -> MithrilResult<()> {
+    pub async fn finish_download<T: Into<String>>(&self, name: T) {
         let name = name.into();
         if let Some(child_reporter) = self.get_progress_bar(&name).await {
             child_reporter.finish_and_clear();
@@ -92,14 +79,12 @@ impl MultiDownloadProgressReporter {
 
             self.main_reporter.inc(1);
         }
-
-        Ok(())
     }
 
     /// Finish all downloads.
     ///
     /// Removes all progress bars, including the main progress bar, and prints a message.
-    pub async fn finish_all(&self, message: &str) -> MithrilResult<()> {
+    pub async fn finish_all(&self, message: &str) {
         let mut reporters = self.dl_reporters.write().await;
         for (_name, reporter) in reporters.iter() {
             reporter.finish_and_clear();
@@ -108,8 +93,6 @@ impl MultiDownloadProgressReporter {
         reporters.clear();
 
         self.main_reporter.finish(message);
-
-        Ok(())
     }
 
     async fn get_progress_bar(&self, name: &str) -> Option<DownloadProgressReporter> {
@@ -148,7 +131,7 @@ mod tests {
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.add_download("name", 1000).await.unwrap();
+        multi_dl_reporter.add_download("name", 1000).await;
 
         assert!(multi_dl_reporter
             .get_progress_bar("name")
@@ -165,7 +148,7 @@ mod tests {
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.add_download("name", 1000).await.unwrap();
+        multi_dl_reporter.add_download("name", 1000).await;
 
         assert_eq!(
             multi_dl_reporter
@@ -175,7 +158,7 @@ mod tests {
             0
         );
 
-        multi_dl_reporter.finish_download("name").await.unwrap();
+        multi_dl_reporter.finish_download("name").await;
 
         assert_eq!(
             multi_dl_reporter
@@ -198,7 +181,7 @@ mod tests {
 
         assert!(multi_dl_reporter.get_progress_bar("name").await.is_none());
 
-        multi_dl_reporter.finish_download("name").await.unwrap();
+        multi_dl_reporter.finish_download("name").await;
 
         assert_eq!(
             multi_dl_reporter
@@ -219,11 +202,11 @@ mod tests {
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.add_download("first", 10).await.unwrap();
-        multi_dl_reporter.add_download("second", 20).await.unwrap();
+        multi_dl_reporter.add_download("first", 10).await;
+        multi_dl_reporter.add_download("second", 20).await;
         assert_eq!(multi_dl_reporter.dl_reporters.read().await.len(), 2);
 
-        multi_dl_reporter.finish_all("message").await.unwrap();
+        multi_dl_reporter.finish_all("message").await;
 
         assert_eq!(multi_dl_reporter.dl_reporters.read().await.len(), 0);
         assert_eq!(
@@ -248,24 +231,18 @@ mod tests {
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.add_download("updated", 10).await.unwrap();
-        multi_dl_reporter.add_download("other", 20).await.unwrap();
+        multi_dl_reporter.add_download("updated", 10).await;
+        multi_dl_reporter.add_download("other", 20).await;
 
         let updated_progress_bar = multi_dl_reporter.get_progress_bar("updated").await.unwrap();
         let other_progress_bar = multi_dl_reporter.get_progress_bar("other").await.unwrap();
 
         assert_eq!(updated_progress_bar.inner_progress_bar().position(), 0);
 
-        multi_dl_reporter
-            .progress_download("updated", 5)
-            .await
-            .unwrap();
+        multi_dl_reporter.progress_download("updated", 5).await;
         assert_eq!(updated_progress_bar.inner_progress_bar().position(), 5);
 
-        multi_dl_reporter
-            .progress_download("updated", 9)
-            .await
-            .unwrap();
+        multi_dl_reporter.progress_download("updated", 9).await;
         assert_eq!(updated_progress_bar.inner_progress_bar().position(), 9);
 
         assert_eq!(
@@ -284,10 +261,7 @@ mod tests {
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter
-            .progress_download("not_exist", 5)
-            .await
-            .unwrap();
+        multi_dl_reporter.progress_download("not_exist", 5).await;
 
         assert!(multi_dl_reporter
             .get_progress_bar("not_exist")
