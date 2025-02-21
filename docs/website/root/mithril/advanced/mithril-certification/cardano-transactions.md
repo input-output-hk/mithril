@@ -46,12 +46,12 @@ The Mithril certification is generally done with the following steps:
 ### Message computation
 
 Unfortunately, creating a Merkle tree with `100 million` leaves is not feasible without high memory usage and long computation time, which is far beyond the operating capacity of the signer.
-However, a **Merkle forrest** where the leaves of the Merkle tree which is signed are the roots of the Merkle trees whose leaves are the transaction hashes for contiguous block number ranges is providing a good solution.
+However, a **Merkle forest** where the leaves of the Merkle tree which is signed are the roots of the Merkle trees whose leaves are the transaction hashes for contiguous block number ranges is providing a good solution.
 
 It is worth pointing out that this structure is almost append-only in the case of transactions and thus some compression can be applied to the storage when it is not used to create a membership proof: this is why the information stored on the signers and the aggregators have different volumes.
 
-The blocks are divided into **block ranges** of size `15` blocks. The leaves of the Merkle trees are the hashes of the transactions in the blocks of the range (`~150-1.5k` transactions per block range on the Cardano mainnet).
-This allows to create a Merkle forrest of on an average `100` times less leaves than the number of transactions in the Cardano blockchain (`~1M` leaves instead on the Cardano mainnet).
+The blocks are divided into **block ranges** of `15` blocks. The leaves of the Merkle trees are the hashes of the transactions in the blocks of the range (`~150-1.5k` transactions per block range on the Cardano mainnet).
+This allows to create a Merkle forest of on an average `100` times less leaves than the number of transactions in the Cardano blockchain (`~1M` leaves instead on the Cardano mainnet).
 
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/message-aggregator.jpg)](./images/cardano-transactions/message-aggregator.jpg)
 <small><center>Message creation when aggregating on the aggregator</center></small>
@@ -71,7 +71,7 @@ The Merkle tree inner nodes are computed with the `BLAKE2s-256` hash function: t
 
 The verification process operates on a subset of the Cardano set that can be certified (fully or partially):
 
-- the client calls a prover route on the aggregator which computes a **Merkle proof of membership** for the transactions signed in the latest snapshot
+- the client calls a prover route exposed by the aggregator which computes a **Merkle proof of membership** for the transactions signed in the latest snapshot
 - the client verifies the proof of membership is valid and that its Merkle root (the message) is signed by a valid Mithril certificate.
 
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/proof-client.jpg)](./images/cardano-transactions/proof-client.jpg)

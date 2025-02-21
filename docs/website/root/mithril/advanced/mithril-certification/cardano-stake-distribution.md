@@ -12,10 +12,7 @@ This is particularly useful for bridges, sidechains or other types of layer-2 pr
 
 To do so, the Mithril signers and aggregators independently compute a message which represents the **Cardano stake distribution** and apply the Mithril protocol to jointly sign it.
 
-A natural structure for the message is a **Merkle tree** which:
-
-- can be represented succinctly by its **Merkle root** (the actual message signed)
-- allows to **prove membership** of a transaction in the transactions set by providing the **Merkle path** from the transaction to the root.
+A natural structure for the message is a **Merkle tree** which can be represented succinctly by its **Merkle root** (the actual message signed).
 
 :::info
 
@@ -63,7 +60,7 @@ The Merkle tree inner nodes are computed with the `BLAKE2s-256` hash function: t
 Given the very limited size of the stake distribution, the computation of the Merkle tree is very fast and can be done on the client side:
 
 - the client downloads the serialized Cardano stake distribution from an artifact delivered by an aggregator
-- the client computes the Merkle root (the message) and that it is is signed by a valid Mithril certificate.
+- the client computes the Merkle root (the message) and that it is signed by a valid Mithril certificate.
 
 [![Design of the certification of the Cardano stake distribution](./images/stake-distribution/message.jpg)](./images/stake-distribution/message.jpg)
 <small><center>Message creation on the clients (same as on signers and aggregators)</center></small>

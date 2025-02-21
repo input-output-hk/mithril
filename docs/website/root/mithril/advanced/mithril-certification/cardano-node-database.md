@@ -50,7 +50,7 @@ The message computation is the same on the signers and the aggregators.
 
 The verification process operates on the full Cardano node internal database:
 
-- the client downloads the a compressed artifact from an untrusted source (e.g. an aggregator or a cloud service)
+- the client downloads a compressed artifact from an untrusted source (e.g. an aggregator or a cloud service)
 - the client computes the message from the downloaded artifact and verifies that it is signed by a valid Mithril certificate.
 
 [![Design of the certification of the Cardano node internal database](./images/cardano-node-database/message.jpg)](./images/cardano-node-database/message.jpg)
