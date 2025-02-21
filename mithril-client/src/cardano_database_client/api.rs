@@ -19,6 +19,7 @@ use crate::file_downloader::FileDownloader;
 use crate::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem, MithrilResult};
 
 use super::fetch::InternalArtifactRetriever;
+use super::statistics::InternalStaticticsSender;
 #[cfg(feature = "fs")]
 use super::{
     download_unpack::InternalArtifactDownloader, proving::InternalArtifactProver,
@@ -32,6 +33,7 @@ pub struct CardanoDatabaseClient {
     pub(super) artifact_downloader: InternalArtifactDownloader,
     #[cfg(feature = "fs")]
     pub(super) artifact_prover: InternalArtifactProver,
+    pub(super) statistics_sender: InternalStaticticsSender,
 }
 
 impl CardanoDatabaseClient {
@@ -56,9 +58,9 @@ impl CardanoDatabaseClient {
             #[cfg(feature = "fs")]
             artifact_prover: InternalArtifactProver::new(
                 http_file_downloader.clone(),
-                feedback_sender.clone(),
                 logger.clone(),
             ),
+            statistics_sender: InternalStaticticsSender::new(aggregator_client.clone()),
         }
     }
 
@@ -106,6 +108,22 @@ impl CardanoDatabaseClient {
                 cardano_database_snapshot,
                 immutable_file_range,
                 database_dir,
+            )
+            .await
+    }
+
+    /// Increments the aggregator Cardano database snapshot download statistics
+    pub async fn add_statistics(
+        &self,
+        full_restoration: bool,
+        include_ancillary: bool,
+        number_of_immutable_files_restored: u64,
+    ) -> MithrilResult<()> {
+        self.statistics_sender
+            .add_statistics(
+                full_restoration,
+                include_ancillary,
+                number_of_immutable_files_restored,
             )
             .await
     }

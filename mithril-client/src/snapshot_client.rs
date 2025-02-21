@@ -207,7 +207,8 @@ impl SnapshotClient {
                     })
                     .await;
                 let file_downloader_uri = location.to_owned().into();
-                let file_download_outcome = match self
+
+                if let Err(error) = self
                     .http_file_downloader
                     .download_unpack(
                         &file_downloader_uri,
@@ -215,25 +216,13 @@ impl SnapshotClient {
                         Some(snapshot.compression_algorithm),
                         DownloadEvent::Full {
                             download_id: download_id.clone(),
+                            digest: snapshot.digest.clone(),
                         },
                     )
                     .await
                 {
-                    Ok(()) => {
-                        self.feedback_sender
-                            .send_event(MithrilEvent::SnapshotDownloadCompleted { download_id })
-                            .await;
-                        Ok(())
-                    }
-                    Err(e) => {
-                        slog::warn!(
-                            self.logger, "Failed downloading snapshot from '{location}'";
-                            "error" => ?e
-                        );
-                        Err(e)
-                    }
-                };
-                if file_download_outcome.is_ok() {
+                    slog::warn!(self.logger, "Failed downloading snapshot from '{location}'"; "error" => ?error);
+                } else {
                     return Ok(());
                 }
             }
@@ -258,50 +247,5 @@ impl SnapshotClient {
             .await?;
 
         Ok(())
-    }
-}
-
-#[cfg(all(test, feature = "fs"))]
-mod tests_download {
-    use crate::{
-        aggregator_client::MockAggregatorClient,
-        feedback::{MithrilEvent, StackFeedbackReceiver},
-        file_downloader::MockFileDownloaderBuilder,
-        test_utils,
-    };
-    use std::path::Path;
-
-    use super::*;
-
-    #[tokio::test]
-    async fn download_unpack_send_feedbacks() {
-        let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
-        let client = SnapshotClient::new(
-            Arc::new(MockAggregatorClient::new()),
-            Arc::new(MockFileDownloaderBuilder::default().with_success().build()),
-            FeedbackSender::new(&[feedback_receiver.clone()]),
-            test_utils::test_logger(),
-        );
-        let snapshot = Snapshot::dummy();
-
-        client
-            .download_unpack(&snapshot, Path::new(""))
-            .await
-            .expect("download should succeed");
-
-        let actual = feedback_receiver.stacked_events();
-        let id = actual[0].event_id();
-        let expected = vec![
-            MithrilEvent::SnapshotDownloadStarted {
-                digest: snapshot.digest,
-                download_id: id.to_string(),
-                size: snapshot.size,
-            },
-            MithrilEvent::SnapshotDownloadCompleted {
-                download_id: id.to_string(),
-            },
-        ];
-
-        assert_eq!(actual, expected);
     }
 }

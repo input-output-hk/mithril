@@ -17,7 +17,7 @@ use mithril_common::{
 };
 
 use crate::{
-    feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase},
+    feedback::MithrilEvent,
     file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri},
     utils::{create_directory_if_not_exists, delete_directory, read_files_in_directory},
     MithrilResult,
@@ -27,20 +27,14 @@ use super::immutable_file_range::ImmutableFileRange;
 
 pub struct InternalArtifactProver {
     http_file_downloader: Arc<dyn FileDownloader>,
-    feedback_sender: FeedbackSender,
     logger: slog::Logger,
 }
 
 impl InternalArtifactProver {
     /// Constructs a new `InternalArtifactProver`.
-    pub fn new(
-        http_file_downloader: Arc<dyn FileDownloader>,
-        feedback_sender: FeedbackSender,
-        logger: slog::Logger,
-    ) -> Self {
+    pub fn new(http_file_downloader: Arc<dyn FileDownloader>, logger: slog::Logger) -> Self {
         Self {
             http_file_downloader,
-            feedback_sender,
             logger,
         }
     }
@@ -95,13 +89,6 @@ impl InternalArtifactProver {
         locations_sorted.sort();
         for location in locations_sorted {
             let download_id = MithrilEvent::new_cardano_database_download_id();
-            self.feedback_sender
-                .send_event(MithrilEvent::CardanoDatabase(
-                    MithrilEventCardanoDatabase::DigestDownloadStarted {
-                        download_id: download_id.clone(),
-                    },
-                ))
-                .await;
             let file_downloader = match &location {
                 DigestLocation::CloudStorage { .. } | DigestLocation::Aggregator { .. } => {
                     self.http_file_downloader.clone()
@@ -123,11 +110,6 @@ impl InternalArtifactProver {
                 .await;
             match downloaded {
                 Ok(_) => {
-                    self.feedback_sender
-                        .send_event(MithrilEvent::CardanoDatabase(
-                            MithrilEventCardanoDatabase::DigestDownloadCompleted { download_id },
-                        ))
-                        .await;
                     return Ok(());
                 }
                 Err(e) => {
@@ -196,7 +178,7 @@ mod tests {
 
     use crate::{
         cardano_database_client::CardanoDatabaseClientDependencyInjector,
-        feedback::StackFeedbackReceiver, file_downloader::MockFileDownloaderBuilder, test_utils,
+        file_downloader::MockFileDownloaderBuilder, test_utils,
     };
 
     use super::*;
@@ -368,7 +350,6 @@ mod tests {
                         .with_times(2)
                         .build(),
                 ),
-                FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
 
@@ -393,7 +374,6 @@ mod tests {
             let target_dir = Path::new(".");
             let artifact_prover = InternalArtifactProver::new(
                 Arc::new(MockFileDownloader::new()),
-                FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
 
@@ -416,7 +396,6 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
 
@@ -447,7 +426,6 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
 
@@ -465,46 +443,6 @@ mod tests {
                 )
                 .await
                 .unwrap();
-        }
-
-        #[tokio::test]
-        async fn sends_feedbacks() {
-            let target_dir = Path::new(".");
-            let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
-            let artifact_prover = InternalArtifactProver::new(
-                Arc::new(
-                    MockFileDownloaderBuilder::default()
-                        .with_compression(None)
-                        .with_success()
-                        .build(),
-                ),
-                FeedbackSender::new(&[feedback_receiver.clone()]),
-                test_utils::test_logger(),
-            );
-
-            artifact_prover
-                .download_unpack_digest_file(
-                    &[DigestLocation::CloudStorage {
-                        uri: "http://whatever-1/digests.json".to_string(),
-                    }],
-                    target_dir,
-                )
-                .await
-                .unwrap();
-
-            let sent_events = feedback_receiver.stacked_events();
-            let id = sent_events[0].event_id();
-            let expected_events = vec![
-                MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadStarted {
-                    download_id: id.to_string(),
-                }),
-                MithrilEvent::CardanoDatabase(
-                    MithrilEventCardanoDatabase::DigestDownloadCompleted {
-                        download_id: id.to_string(),
-                    },
-                ),
-            ];
-            assert_eq!(expected_events, sent_events);
         }
     }
 
@@ -540,7 +478,6 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
             artifact_prover
@@ -564,7 +501,6 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
             artifact_prover
@@ -587,7 +523,6 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
             artifact_prover
@@ -620,7 +555,6 @@ mod tests {
                         .with_success()
                         .build(),
                 ),
-                FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
 

@@ -44,6 +44,7 @@ impl CardanoDbCommand {
 pub enum CardanoDbV2Command {
     List,
     Show { hash: String },
+    Download { hash: String },
 }
 
 impl CardanoDbV2Command {
@@ -51,6 +52,7 @@ impl CardanoDbV2Command {
         match self {
             CardanoDbV2Command::List => "list".to_string(),
             CardanoDbV2Command::Show { hash } => format!("show-{hash}"),
+            CardanoDbV2Command::Download { hash } => format!("download-{hash}"),
         }
     }
 
@@ -61,6 +63,9 @@ impl CardanoDbV2Command {
             }
             CardanoDbV2Command::Show { hash } => {
                 vec!["snapshot".to_string(), "show".to_string(), hash.clone()]
+            }
+            CardanoDbV2Command::Download { hash } => {
+                vec!["download".to_string(), hash.clone()]
             }
         }
     }
