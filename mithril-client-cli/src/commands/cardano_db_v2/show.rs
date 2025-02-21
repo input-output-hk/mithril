@@ -85,21 +85,17 @@ impl CardanoDbShowCommand {
                 ],
             ];
 
-            for digest_location in digest_location_rows(&cardano_db_message.locations.digests) {
-                cardano_db_table.push(digest_location);
-            }
+            cardano_db_table.append(&mut digest_location_rows(
+                &cardano_db_message.locations.digests,
+            ));
 
-            for immutables_location in
-                immutables_location_rows(&cardano_db_message.locations.immutables)
-            {
-                cardano_db_table.push(immutables_location);
-            }
+            cardano_db_table.append(&mut immutables_location_rows(
+                &cardano_db_message.locations.immutables,
+            ));
 
-            for ancillary_location in
-                ancillary_location_rows(&cardano_db_message.locations.ancillary)
-            {
-                cardano_db_table.push(ancillary_location);
-            }
+            cardano_db_table.append(&mut ancillary_location_rows(
+                &cardano_db_message.locations.ancillary,
+            ));
 
             cardano_db_table.push(vec![
                 "Created".cell(),
@@ -117,61 +113,60 @@ impl CardanoDbShowCommand {
     }
 }
 
-fn digest_location_rows(locations: &[DigestLocation]) -> Vec<Vec<CellStruct>> {
-    let location_name = "Digest location";
+fn digest_location_iter(locations: &[DigestLocation]) -> impl Iterator<Item = String> + use<'_> {
+    locations.iter().filter_map(|location| match location {
+        DigestLocation::Aggregator { uri } => Some(format!("Aggregator, uri: \"{}\"", uri)),
+        DigestLocation::CloudStorage { uri } => Some(format!("CloudStorage, uri: \"{}\"", uri)),
+        DigestLocation::Unknown => None,
+    })
+}
 
-    locations
-        .iter()
-        .enumerate()
-        .map(|(index, location)| match location {
-            DigestLocation::Aggregator { uri } => {
-                vec![
-                    format!("{location_name} ({})", index + 1).cell(),
-                    format!("Aggregator, uri: \"{}\"", uri).cell(),
-                ]
-            }
-            DigestLocation::CloudStorage { uri } => {
-                vec![
-                    format!("{location_name} ({})", index + 1).cell(),
-                    format!("CloudStorage, uri: \"{}\"", uri).cell(),
-                ]
-            }
-        })
-        .collect()
+fn digest_location_rows(locations: &[DigestLocation]) -> Vec<Vec<CellStruct>> {
+    format_location_rows("Digest location", digest_location_iter(locations))
+}
+
+fn immutables_location_iter(
+    locations: &[ImmutablesLocation],
+) -> impl Iterator<Item = String> + use<'_> {
+    locations.iter().filter_map(|location| match location {
+        ImmutablesLocation::CloudStorage { uri } => match uri {
+            MultiFilesUri::Template(template_uri) => Some(format!(
+                "CloudStorage, template_uri: \"{}\"",
+                template_uri.0
+            )),
+        },
+        ImmutablesLocation::Unknown => None,
+    })
 }
 
 fn immutables_location_rows(locations: &[ImmutablesLocation]) -> Vec<Vec<CellStruct>> {
-    let location_name = "Immutables location";
+    format_location_rows("Immutables location", immutables_location_iter(locations))
+}
 
-    locations
-        .iter()
-        .enumerate()
-        .map(|(index, location)| match location {
-            ImmutablesLocation::CloudStorage { uri } => match uri {
-                MultiFilesUri::Template(template_uri) => {
-                    vec![
-                        format!("{location_name} ({})", index + 1).cell(),
-                        format!("CloudStorage, template_uri: \"{}\"", template_uri.0).cell(),
-                    ]
-                }
-            },
-        })
-        .collect()
+fn ancillary_location_iter(
+    locations: &[AncillaryLocation],
+) -> impl Iterator<Item = String> + use<'_> {
+    locations.iter().filter_map(|location| match location {
+        AncillaryLocation::CloudStorage { uri } => Some(format!("CloudStorage, uri: \"{uri}\"")),
+        AncillaryLocation::Unknown => None,
+    })
 }
 
 fn ancillary_location_rows(locations: &[AncillaryLocation]) -> Vec<Vec<CellStruct>> {
-    let location_name = "Ancillary location";
+    format_location_rows("Ancillary location", ancillary_location_iter(locations))
+}
 
+fn format_location_rows(
+    location_name: &str,
+    locations: impl Iterator<Item = String>,
+) -> Vec<Vec<CellStruct>> {
     locations
-        .iter()
         .enumerate()
-        .map(|(index, location)| match location {
-            AncillaryLocation::CloudStorage { uri } => {
-                vec![
-                    format!("{location_name} ({})", index + 1).cell(),
-                    format!("CloudStorage, uri: \"{}\"", uri).cell(),
-                ]
-            }
+        .map(|(index, cell_content)| {
+            vec![
+                format!("{location_name} ({})", index + 1).cell(),
+                cell_content.cell(),
+            ]
         })
         .collect()
 }
@@ -213,6 +208,22 @@ mod tests {
     }
 
     #[test]
+    fn digest_location_rows_display_and_count_only_known_location() {
+        let locations = vec![
+            DigestLocation::Unknown,
+            DigestLocation::CloudStorage {
+                uri: "http://cloudstorage.com/".to_string(),
+            },
+        ];
+
+        let rows = digest_location_rows(&locations);
+        assert_eq!(1, rows.len());
+
+        let rows_rendered = rows.table().display().unwrap().to_string();
+        assert!(rows_rendered.contains("Digest location (1)"));
+    }
+
+    #[test]
     fn immutables_location_rows_when_no_uri_found() {
         let rows = immutables_location_rows(&[]);
 
@@ -244,6 +255,22 @@ mod tests {
     }
 
     #[test]
+    fn immutables_location_row_display_and_count_only_known_location() {
+        let locations = vec![
+            ImmutablesLocation::Unknown {},
+            ImmutablesLocation::CloudStorage {
+                uri: MultiFilesUri::Template(TemplateUri("http://cloudstorage2.com/".to_string())),
+            },
+        ];
+
+        let rows = immutables_location_rows(&locations);
+        assert_eq!(1, rows.len());
+
+        let rows_rendered = rows.table().display().unwrap().to_string();
+        assert!(rows_rendered.contains("Immutables location (1)"));
+    }
+
+    #[test]
     fn ancillary_location_rows_when_no_uri_found() {
         let rows = ancillary_location_rows(&[]);
 
@@ -272,5 +299,21 @@ mod tests {
         assert!(rows_rendered.contains("CloudStorage, uri: \"http://cloudstorage1.com/\""));
         assert!(rows_rendered.contains("Ancillary location (2)"));
         assert!(rows_rendered.contains("CloudStorage, uri: \"http://cloudstorage2.com/\""));
+    }
+
+    #[test]
+    fn ancillary_location_rows_display_and_count_only_known_location() {
+        let locations = vec![
+            AncillaryLocation::Unknown {},
+            AncillaryLocation::CloudStorage {
+                uri: "http://cloudstorage2.com/".to_string(),
+            },
+        ];
+
+        let rows = ancillary_location_rows(&locations);
+        assert_eq!(1, rows.len());
+
+        let rows_rendered = rows.table().display().unwrap().to_string();
+        assert!(rows_rendered.contains("Ancillary location (1)"));
     }
 }

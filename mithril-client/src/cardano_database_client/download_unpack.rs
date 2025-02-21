@@ -359,6 +359,9 @@ impl InternalArtifactDownloader {
         let file_size = 0;
         let file_downloader = match &location {
             ImmutablesLocation::CloudStorage { .. } => self.http_file_downloader.clone(),
+            ImmutablesLocation::Unknown => {
+                return Err(anyhow!("Unknown location type to download immutable"));
+            }
         };
         let file_downloader_uris =
             FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
@@ -414,8 +417,11 @@ impl InternalArtifactDownloader {
                 .await;
             let file_downloader = match &location {
                 AncillaryLocation::CloudStorage { .. } => self.http_file_downloader.clone(),
+                AncillaryLocation::Unknown => {
+                    continue;
+                }
             };
-            let file_downloader_uri = location.into();
+            let file_downloader_uri = location.try_into()?;
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
@@ -468,7 +474,7 @@ mod tests {
 
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
     use crate::feedback::StackFeedbackReceiver;
-    use crate::file_downloader::MockFileDownloaderBuilder;
+    use crate::file_downloader::{MockFileDownloader, MockFileDownloaderBuilder};
     use crate::test_utils;
 
     use super::*;
@@ -877,6 +883,32 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn download_unpack_immutable_files_fails_if_location_is_unknown() {
+            let total_immutable_files = 2;
+            let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
+            let target_dir = TempDir::new("cardano_database_client", "download_unpack").build();
+            let artifact_downloader = InternalArtifactDownloader::new(
+                Arc::new(MockFileDownloader::new()),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
+
+            artifact_downloader
+                .download_unpack_immutable_files(
+                    &[ImmutablesLocation::Unknown {}],
+                    immutable_file_range
+                        .to_range_inclusive(total_immutable_files)
+                        .unwrap(),
+                    &CompressionAlgorithm::default(),
+                    &target_dir,
+                    1,
+                    "download_id",
+                )
+                .await
+                .expect_err("download_unpack_immutable_files should fail");
+        }
+
+        #[tokio::test]
         async fn download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_same_location()
         {
             let total_immutable_files = 2;
@@ -1083,6 +1115,26 @@ mod tests {
                     &[AncillaryLocation::CloudStorage {
                         uri: "http://whatever-1/ancillary.tar.gz".to_string(),
                     }],
+                    &CompressionAlgorithm::default(),
+                    target_dir,
+                    "download_id",
+                )
+                .await
+                .expect_err("download_unpack_ancillary_file should fail");
+        }
+
+        #[tokio::test]
+        async fn download_unpack_ancillary_files_fails_if_location_is_unknown() {
+            let target_dir = Path::new(".");
+            let artifact_downloader = InternalArtifactDownloader::new(
+                Arc::new(MockFileDownloader::new()),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
+
+            artifact_downloader
+                .download_unpack_ancillary_file(
+                    &[AncillaryLocation::Unknown {}],
                     &CompressionAlgorithm::default(),
                     target_dir,
                     "download_id",

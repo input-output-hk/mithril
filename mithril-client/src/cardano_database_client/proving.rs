@@ -106,8 +106,11 @@ impl InternalArtifactProver {
                 DigestLocation::CloudStorage { .. } | DigestLocation::Aggregator { .. } => {
                     self.http_file_downloader.clone()
                 }
+                DigestLocation::Unknown => {
+                    continue;
+                }
             };
-            let file_downloader_uri: FileDownloaderUri = location.into();
+            let file_downloader_uri: FileDownloaderUri = location.try_into()?;
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
@@ -350,6 +353,8 @@ mod tests {
 
     mod download_unpack_digest_file {
 
+        use crate::file_downloader::MockFileDownloader;
+
         use super::*;
 
         #[tokio::test]
@@ -379,6 +384,21 @@ mod tests {
                     ],
                     target_dir,
                 )
+                .await
+                .expect_err("download_unpack_digest_file should fail");
+        }
+
+        #[tokio::test]
+        async fn fails_if_location_is_unknown() {
+            let target_dir = Path::new(".");
+            let artifact_prover = InternalArtifactProver::new(
+                Arc::new(MockFileDownloader::new()),
+                FeedbackSender::new(&[]),
+                test_utils::test_logger(),
+            );
+
+            artifact_prover
+                .download_unpack_digest_file(&[DigestLocation::Unknown], target_dir)
                 .await
                 .expect_err("download_unpack_digest_file should fail");
         }

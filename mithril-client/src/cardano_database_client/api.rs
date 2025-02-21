@@ -115,17 +115,18 @@ impl CardanoDatabaseClient {
 pub(crate) mod test_dependency_injector {
     use super::*;
 
-    use crate::{
-        aggregator_client::MockAggregatorClient,
-        feedback::FeedbackReceiver,
-        file_downloader::{FileDownloader, MockFileDownloaderBuilder},
-        test_utils,
-    };
+    use crate::aggregator_client::MockAggregatorClient;
+    #[cfg(feature = "fs")]
+    use crate::file_downloader::{FileDownloader, MockFileDownloaderBuilder};
+    #[cfg(feature = "fs")]
+    use crate::{feedback::FeedbackReceiver, test_utils};
 
     /// Dependency injector for `CardanoDatabaseClient` for testing purposes.
     pub(crate) struct CardanoDatabaseClientDependencyInjector {
         aggregator_client: MockAggregatorClient,
+        #[cfg(feature = "fs")]
         http_file_downloader: Arc<dyn FileDownloader>,
+        #[cfg(feature = "fs")]
         feedback_receivers: Vec<Arc<dyn FeedbackReceiver>>,
     }
 
@@ -133,6 +134,7 @@ pub(crate) mod test_dependency_injector {
         pub(crate) fn new() -> Self {
             Self {
                 aggregator_client: MockAggregatorClient::new(),
+                #[cfg(feature = "fs")]
                 http_file_downloader: Arc::new(
                     MockFileDownloaderBuilder::default()
                         .with_compression(None)
@@ -140,6 +142,7 @@ pub(crate) mod test_dependency_injector {
                         .with_times(0)
                         .build(),
                 ),
+                #[cfg(feature = "fs")]
                 feedback_receivers: vec![],
             }
         }
@@ -153,6 +156,7 @@ pub(crate) mod test_dependency_injector {
             self
         }
 
+        #[cfg(feature = "fs")]
         pub(crate) fn with_http_file_downloader(
             self,
             http_file_downloader: Arc<dyn FileDownloader>,
@@ -163,6 +167,7 @@ pub(crate) mod test_dependency_injector {
             }
         }
 
+        #[cfg(feature = "fs")]
         pub(crate) fn with_feedback_receivers(
             self,
             feedback_receivers: &[Arc<dyn FeedbackReceiver>],
@@ -173,6 +178,7 @@ pub(crate) mod test_dependency_injector {
             }
         }
 
+        #[cfg(feature = "fs")]
         pub(crate) fn build_cardano_database_client(self) -> CardanoDatabaseClient {
             CardanoDatabaseClient::new(
                 Arc::new(self.aggregator_client),
@@ -181,15 +187,23 @@ pub(crate) mod test_dependency_injector {
                 test_utils::test_logger(),
             )
         }
+
+        #[cfg(not(feature = "fs"))]
+        pub(crate) fn build_cardano_database_client(self) -> CardanoDatabaseClient {
+            CardanoDatabaseClient::new(Arc::new(self.aggregator_client))
+        }
     }
 
     mod tests {
         use mockall::predicate;
 
-        use crate::{aggregator_client::AggregatorRequest, feedback::StackFeedbackReceiver};
+        use crate::aggregator_client::AggregatorRequest;
+        #[cfg(feature = "fs")]
+        use crate::feedback::StackFeedbackReceiver;
 
         use super::*;
 
+        #[cfg(feature = "fs")]
         #[test]
         fn test_cardano_database_client_dependency_injector_builds() {
             let _ = CardanoDatabaseClientDependencyInjector::new()
@@ -212,6 +226,25 @@ pub(crate) mod test_dependency_injector {
                         .build(),
                 ))
                 .with_feedback_receivers(&[Arc::new(StackFeedbackReceiver::new())])
+                .build_cardano_database_client();
+        }
+
+        #[cfg(not(feature = "fs"))]
+        #[test]
+        fn test_cardano_database_client_dependency_injector_builds() {
+            let _ = CardanoDatabaseClientDependencyInjector::new()
+                .with_aggregator_client_mock_config(|http_client| {
+                    let message = vec![CardanoDatabaseSnapshotListItem {
+                        hash: "hash-123".to_string(),
+                        ..CardanoDatabaseSnapshotListItem::dummy()
+                    }];
+                    http_client
+                        .expect_get_content()
+                        .with(predicate::eq(
+                            AggregatorRequest::ListCardanoDatabaseSnapshots,
+                        ))
+                        .return_once(move |_| Ok(serde_json::to_string(&message).unwrap()));
+                })
                 .build_cardano_database_client();
         }
     }

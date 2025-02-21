@@ -80,6 +80,9 @@ pub enum DigestLocation {
         /// URI of the aggregator digests route location.
         uri: String,
     },
+    /// Catchall for unknown location variants.
+    #[serde(other)]
+    Unknown,
 }
 
 /// Locations of the immutable files.
@@ -91,6 +94,9 @@ pub enum ImmutablesLocation {
         /// URI of the cloud storage location.
         uri: MultiFilesUri,
     },
+    /// Catchall for unknown location variants.
+    #[serde(other)]
+    Unknown,
 }
 
 /// Locations of the ancillary files.
@@ -102,6 +108,9 @@ pub enum AncillaryLocation {
         /// URI of the cloud storage location.
         uri: String,
     },
+    /// Catchall for unknown location variants.
+    #[serde(other)]
+    Unknown,
 }
 
 /// Locations of the Cardano database related files.
