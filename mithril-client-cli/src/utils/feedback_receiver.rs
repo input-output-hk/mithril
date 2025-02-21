@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use indicatif::{ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
+use indicatif::{ProgressBar, ProgressDrawTarget};
 use slog::Logger;
-use std::fmt::Write;
 use tokio::sync::RwLock;
 
 use super::{
@@ -31,10 +30,6 @@ impl IndicatifFeedbackReceiver {
             logger,
         }
     }
-
-    fn immutable_file_download_name(immutable_file_number: u64) -> String {
-        format!("{immutable_file_number:05}")
-    }
 }
 
 #[async_trait]
@@ -51,10 +46,6 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 } else {
                     ProgressBar::with_draw_target(Some(size), ProgressDrawTarget::hidden())
                 };
-                pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-                    .unwrap()
-                    .with_key("eta", |state : &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-                    .progress_chars("#>-"));
                 let mut download_progress_reporter = self.download_progress_reporter.write().await;
                 *download_progress_reporter = Some(DownloadProgressReporter::new(
                     pb,
@@ -104,51 +95,21 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                         *cardano_database_multi_pb = None;
                     }
                 }
-                MithrilEventCardanoDatabase::ImmutableDownloadStarted {
-                    immutable_file_number,
-                    download_id: _,
-                    size,
-                } => {
-                    if let Some(cardano_database_multi_pb) =
-                        self.cardano_database_multi_pb.read().await.as_ref()
-                    {
-                        cardano_database_multi_pb
-                            .add_download(
-                                Self::immutable_file_download_name(immutable_file_number),
-                                size,
-                            )
-                            .await;
-                    }
-                }
-                MithrilEventCardanoDatabase::ImmutableDownloadProgress {
-                    immutable_file_number,
-                    download_id: _,
-                    downloaded_bytes,
-                    size: _,
-                } => {
-                    if let Some(cardano_database_multi_pb) =
-                        self.cardano_database_multi_pb.read().await.as_ref()
-                    {
-                        cardano_database_multi_pb
-                            .progress_download(
-                                Self::immutable_file_download_name(immutable_file_number),
-                                downloaded_bytes,
-                            )
-                            .await;
-                    }
+                MithrilEventCardanoDatabase::DigestDownloadStarted { .. }
+                | MithrilEventCardanoDatabase::DigestDownloadProgress { .. }
+                | MithrilEventCardanoDatabase::DigestDownloadCompleted { .. }
+                | MithrilEventCardanoDatabase::ImmutableDownloadStarted { .. }
+                | MithrilEventCardanoDatabase::ImmutableDownloadProgress { .. } => {
+                    // Ignore those events as those downloads are fast enough that we don't need to show progress bars
                 }
                 MithrilEventCardanoDatabase::ImmutableDownloadCompleted {
-                    immutable_file_number,
+                    immutable_file_number: _,
                     download_id: _,
                 } => {
                     if let Some(cardano_database_multi_pb) =
                         self.cardano_database_multi_pb.read().await.as_ref()
                     {
-                        cardano_database_multi_pb
-                            .finish_download(Self::immutable_file_download_name(
-                                immutable_file_number,
-                            ))
-                            .await;
+                        cardano_database_multi_pb.bump_main_bar_progress();
                     }
                 }
                 MithrilEventCardanoDatabase::AncillaryDownloadStarted {
@@ -159,7 +120,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                         self.cardano_database_multi_pb.read().await.as_ref()
                     {
                         cardano_database_multi_pb
-                            .add_download("Ancillary", size)
+                            .add_child_bar("Ancillary", ProgressBarKind::Bytes, size)
                             .await;
                     }
                 }
@@ -172,7 +133,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                         self.cardano_database_multi_pb.read().await.as_ref()
                     {
                         cardano_database_multi_pb
-                            .progress_download("Ancillary", downloaded_bytes)
+                            .progress_child_bar("Ancillary", downloaded_bytes)
                             .await;
                     }
                 }
@@ -180,39 +141,9 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     if let Some(cardano_database_multi_pb) =
                         self.cardano_database_multi_pb.read().await.as_ref()
                     {
-                        cardano_database_multi_pb.finish_download("Ancillary").await;
-                    }
-                }
-                MithrilEventCardanoDatabase::DigestDownloadStarted {
-                    download_id: _,
-                    size,
-                } => {
-                    if let Some(cardano_database_multi_pb) =
-                        self.cardano_database_multi_pb.read().await.as_ref()
-                    {
                         cardano_database_multi_pb
-                            .add_download("Digests", size)
+                            .finish_child_bar("Ancillary")
                             .await;
-                    }
-                }
-                MithrilEventCardanoDatabase::DigestDownloadProgress {
-                    download_id: _,
-                    downloaded_bytes,
-                    size: _,
-                } => {
-                    if let Some(cardano_database_multi_pb) =
-                        self.cardano_database_multi_pb.read().await.as_ref()
-                    {
-                        cardano_database_multi_pb
-                            .progress_download("Digests", downloaded_bytes)
-                            .await;
-                    }
-                }
-                MithrilEventCardanoDatabase::DigestDownloadCompleted { download_id: _ } => {
-                    if let Some(cardano_database_multi_pb) =
-                        self.cardano_database_multi_pb.read().await.as_ref()
-                    {
-                        cardano_database_multi_pb.finish_download("Digests").await;
                     }
                 }
             },
@@ -464,7 +395,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn starting_downloads_should_add_new_progress_bars() {
+        async fn starting_immutable_downloads_should_not_add_progress_bars() {
             let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
             let sender = FeedbackSender::new(&[receiver.clone()]);
 
@@ -474,15 +405,53 @@ mod tests {
             let multi_pb = multi_pb_option.as_ref().unwrap();
 
             assert_eq!(multi_pb.number_of_active_downloads().await, 0);
-
             send_event!(cardano_db, immutable_dl, started => sender, immutable:1, size:123);
-            assert_eq!(multi_pb.number_of_active_downloads().await, 1);
+            assert_eq!(multi_pb.number_of_active_downloads().await, 0);
+        }
 
-            send_event!(cardano_db, ancillary_dl, started => sender, size:456);
-            assert_eq!(multi_pb.number_of_active_downloads().await, 2);
+        #[tokio::test]
+        async fn completed_immutable_downloads_bump_progress() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
 
+            send_event!(cardano_db, dl_started => sender, total:50, ancillary:false);
+
+            let multi_pb_option = receiver.cardano_database_multi_pb.read().await;
+            let multi_pb = multi_pb_option.as_ref().unwrap();
+
+            assert_eq!(multi_pb.position(), 0);
+            send_event!(cardano_db, immutable_dl, completed => sender, immutable:24);
+            assert_eq!(multi_pb.position(), 1);
+        }
+
+        #[tokio::test]
+        async fn starting_digests_downloads_should_not_add_progress_bars() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db, dl_started => sender, total:50, ancillary:false);
+
+            let multi_pb_option = receiver.cardano_database_multi_pb.read().await;
+            let multi_pb = multi_pb_option.as_ref().unwrap();
+
+            assert_eq!(multi_pb.number_of_active_downloads().await, 0);
             send_event!(cardano_db, digests_dl, started => sender, size:789);
-            assert_eq!(multi_pb.number_of_active_downloads().await, 3);
+            assert_eq!(multi_pb.number_of_active_downloads().await, 0);
+        }
+
+        #[tokio::test]
+        async fn starting_ancillary_downloads_should_add_a_progress_bar() {
+            let receiver = build_feedback_receiver(ProgressOutputType::Hidden);
+            let sender = FeedbackSender::new(&[receiver.clone()]);
+
+            send_event!(cardano_db, dl_started => sender, total:50, ancillary:false);
+
+            let multi_pb_option = receiver.cardano_database_multi_pb.read().await;
+            let multi_pb = multi_pb_option.as_ref().unwrap();
+
+            assert_eq!(multi_pb.number_of_active_downloads().await, 0);
+            send_event!(cardano_db, ancillary_dl, started => sender, size:456);
+            assert_eq!(multi_pb.number_of_active_downloads().await, 1);
         }
     }
 }

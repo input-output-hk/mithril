@@ -1,8 +1,9 @@
 use chrono::Utc;
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use mithril_client::MithrilResult;
 use slog::{warn, Logger};
 use std::{
+    fmt::Write,
     ops::Deref,
     sync::{Arc, RwLock},
     time::{Duration, Instant},
@@ -34,6 +35,25 @@ impl From<ProgressOutputType> for ProgressDrawTarget {
 pub enum ProgressBarKind {
     Bytes,
     Files,
+}
+
+impl ProgressBarKind {
+    pub fn style(&self) -> ProgressStyle {
+        match self {
+            ProgressBarKind::Bytes => {
+                ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+                .unwrap()
+                .with_key("eta", |state : &indicatif::ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+                .progress_chars("#>-")
+            },
+            ProgressBarKind::Files => {
+                ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] Files: {human_pos}/{human_len} ({eta})")
+                .unwrap()
+                .with_key("eta", |state : &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+                .progress_chars("#>-")
+            },
+        }
+    }
 }
 
 /// Wrapper of a indicatif [MultiProgress] to allow reporting to json.
@@ -149,6 +169,8 @@ impl DownloadProgressReporter {
         progress_bar_kind: ProgressBarKind,
         logger: Logger,
     ) -> Self {
+        progress_bar.set_style(progress_bar_kind.style());
+
         Self {
             progress_bar,
             output_type,

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
-use std::fmt::Write;
 
-use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
+use indicatif::{MultiProgress, ProgressBar};
 use slog::Logger;
 use tokio::sync::RwLock;
 
@@ -12,7 +11,7 @@ use super::{DownloadProgressReporter, ProgressBarKind, ProgressOutputType};
 /// It shows a global progress bar for all downloads and individual progress bars for each download.
 pub struct MultiDownloadProgressReporter {
     output_type: ProgressOutputType,
-    multi_pb: MultiProgress,
+    parent_container: MultiProgress,
     main_reporter: DownloadProgressReporter,
     dl_reporters: RwLock<HashMap<String, DownloadProgressReporter>>,
     logger: Logger,
@@ -21,19 +20,9 @@ pub struct MultiDownloadProgressReporter {
 impl MultiDownloadProgressReporter {
     /// Initialize a new `MultiDownloadProgressReporter`.
     pub fn new(total_files: u64, output_type: ProgressOutputType, logger: Logger) -> Self {
-        let multi_pb = MultiProgress::new();
-        multi_pb.set_draw_target(output_type.into());
-        let main_pb = multi_pb.add(ProgressBar::new(total_files));
-        main_pb.set_style(
-            ProgressStyle::with_template(
-                "{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] Files: {human_pos}/{human_len} ({eta})",
-            )
-            .unwrap()
-            .with_key("eta", |state: &ProgressState, w: &mut dyn Write| {
-                write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
-            })
-            .progress_chars("#>-"),
-        );
+        let parent_container = MultiProgress::new();
+        parent_container.set_draw_target(output_type.into());
+        let main_pb = parent_container.add(ProgressBar::new(total_files));
         let main_reporter = DownloadProgressReporter::new(
             main_pb,
             output_type,
@@ -43,11 +32,17 @@ impl MultiDownloadProgressReporter {
 
         Self {
             output_type,
-            multi_pb,
+            parent_container,
             main_reporter,
             dl_reporters: RwLock::new(HashMap::new()),
             logger,
         }
+    }
+
+    #[cfg(test)]
+    /// Get the position of the main progress bar.
+    pub fn position(&self) -> u64 {
+        self.main_reporter.inner_progress_bar().position()
     }
 
     #[cfg(test)]
@@ -65,13 +60,18 @@ impl MultiDownloadProgressReporter {
         self.dl_reporters.read().await.len()
     }
 
-    /// Add a new download to the progress reporter.
-    pub async fn add_download<T: Into<String>>(&self, name: T, total_bytes: u64) {
-        let dl_progress_bar = self.multi_pb.add(ProgressBar::new(total_bytes));
+    /// Bump the main progress bar by one.
+    pub fn bump_main_bar_progress(&self) {
+        self.main_reporter.inc(1);
+    }
+
+    /// Add a new child bar to the progress reporter.
+    pub async fn add_child_bar<T: Into<String>>(&self, name: T, kind: ProgressBarKind, total: u64) {
+        let dl_progress_bar = self.parent_container.add(ProgressBar::new(total));
         let dl_reporter = DownloadProgressReporter::new(
             dl_progress_bar,
             self.output_type,
-            ProgressBarKind::Bytes,
+            kind,
             self.logger.clone(),
         );
 
@@ -79,42 +79,41 @@ impl MultiDownloadProgressReporter {
         reporters.insert(name.into(), dl_reporter);
     }
 
-    /// Report progress of a download, updating the progress bar to the given actual_position.
-    pub async fn progress_download<T: AsRef<str>>(&self, name: T, actual_position: u64) {
-        if let Some(child_reporter) = self.get_progress_bar(name.as_ref()).await {
+    /// Report progress of a child bar, updating the progress bar to the given actual_position.
+    pub async fn progress_child_bar<T: AsRef<str>>(&self, name: T, actual_position: u64) {
+        if let Some(child_reporter) = self.get_child_bar(name.as_ref()).await {
             child_reporter.report(actual_position);
         }
     }
 
-    /// Finish a download, removing it from the progress reporter an bumping the main progress bar.
-    pub async fn finish_download<T: Into<String>>(&self, name: T) {
+    /// Finish a child bar, removing it from the progress reporter an bumping the main progress bar.
+    pub async fn finish_child_bar<T: Into<String>>(&self, name: T) {
         let name = name.into();
-        if let Some(child_reporter) = self.get_progress_bar(&name).await {
+        if let Some(child_reporter) = self.get_child_bar(&name).await {
             child_reporter.finish_and_clear();
-            self.multi_pb.remove(child_reporter.inner_progress_bar());
+            self.parent_container
+                .remove(child_reporter.inner_progress_bar());
 
             let mut reporters = self.dl_reporters.write().await;
             reporters.remove(&name);
 
-            self.main_reporter.inc(1);
+            self.bump_main_bar_progress();
         }
     }
 
-    /// Finish all downloads.
-    ///
-    /// Removes all progress bars, including the main progress bar, and prints a message.
+    /// Finish all child bars and the main progress bar and prints a message.
     pub async fn finish_all(&self, message: &str) {
         let mut reporters = self.dl_reporters.write().await;
         for (_name, reporter) in reporters.iter() {
             reporter.finish_and_clear();
-            self.multi_pb.remove(reporter.inner_progress_bar());
+            self.parent_container.remove(reporter.inner_progress_bar());
         }
         reporters.clear();
 
         self.main_reporter.finish(message);
     }
 
-    async fn get_progress_bar(&self, name: &str) -> Option<DownloadProgressReporter> {
+    async fn get_child_bar(&self, name: &str) -> Option<DownloadProgressReporter> {
         let cdl_reporters = self.dl_reporters.read().await;
         cdl_reporters.get(name).cloned()
     }
@@ -141,30 +140,34 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn adding_new_progress_bar() {
+    async fn adding_new_child_bar() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
             1,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.add_download("name", 1000).await;
+        multi_dl_reporter
+            .add_child_bar("name", ProgressBarKind::Bytes, 1000)
+            .await;
 
         assert!(multi_dl_reporter
-            .get_progress_bar("name")
+            .get_child_bar("name")
             .await
             .is_some_and(|dl_reporter| dl_reporter.kind() == ProgressBarKind::Bytes));
     }
 
     #[tokio::test]
-    async fn finishing_progress_bar() {
+    async fn finishing_child_bar() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
             1,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.add_download("name", 1000).await;
+        multi_dl_reporter
+            .add_child_bar("name", ProgressBarKind::Bytes, 1000)
+            .await;
 
         assert_eq!(
             multi_dl_reporter
@@ -174,7 +177,7 @@ mod tests {
             0
         );
 
-        multi_dl_reporter.finish_download("name").await;
+        multi_dl_reporter.finish_child_bar("name").await;
 
         assert_eq!(
             multi_dl_reporter
@@ -183,20 +186,20 @@ mod tests {
                 .position(),
             1
         );
-        assert!(multi_dl_reporter.get_progress_bar("name").await.is_none());
+        assert!(multi_dl_reporter.get_child_bar("name").await.is_none());
     }
 
     #[tokio::test]
-    async fn finishing_progress_bar_that_does_not_exist() {
+    async fn finishing_child_bar_that_does_not_exist() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
             1,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        assert!(multi_dl_reporter.get_progress_bar("name").await.is_none());
+        assert!(multi_dl_reporter.get_child_bar("name").await.is_none());
 
-        multi_dl_reporter.finish_download("name").await;
+        multi_dl_reporter.finish_child_bar("name").await;
 
         assert_eq!(
             multi_dl_reporter
@@ -208,7 +211,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn finishing_all_remove_all_progress_bars() {
+    async fn finishing_all_remove_all_child_bars() {
         let total_files = 132;
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
             total_files,
@@ -216,8 +219,12 @@ mod tests {
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.add_download("first", 10).await;
-        multi_dl_reporter.add_download("second", 20).await;
+        multi_dl_reporter
+            .add_child_bar("first", ProgressBarKind::Bytes, 10)
+            .await;
+        multi_dl_reporter
+            .add_child_bar("second", ProgressBarKind::Bytes, 20)
+            .await;
         assert_eq!(multi_dl_reporter.dl_reporters.read().await.len(), 2);
 
         multi_dl_reporter.finish_all("message").await;
@@ -237,25 +244,29 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn progress_download_to_the_given_bytes() {
+    async fn progress_child_bar_to_the_given_bytes() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
             4,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.add_download("updated", 10).await;
-        multi_dl_reporter.add_download("other", 20).await;
+        multi_dl_reporter
+            .add_child_bar("updated", ProgressBarKind::Bytes, 10)
+            .await;
+        multi_dl_reporter
+            .add_child_bar("other", ProgressBarKind::Bytes, 20)
+            .await;
 
-        let updated_progress_bar = multi_dl_reporter.get_progress_bar("updated").await.unwrap();
-        let other_progress_bar = multi_dl_reporter.get_progress_bar("other").await.unwrap();
+        let updated_progress_bar = multi_dl_reporter.get_child_bar("updated").await.unwrap();
+        let other_progress_bar = multi_dl_reporter.get_child_bar("other").await.unwrap();
 
         assert_eq!(updated_progress_bar.inner_progress_bar().position(), 0);
 
-        multi_dl_reporter.progress_download("updated", 5).await;
+        multi_dl_reporter.progress_child_bar("updated", 5).await;
         assert_eq!(updated_progress_bar.inner_progress_bar().position(), 5);
 
-        multi_dl_reporter.progress_download("updated", 9).await;
+        multi_dl_reporter.progress_child_bar("updated", 9).await;
         assert_eq!(updated_progress_bar.inner_progress_bar().position(), 9);
 
         assert_eq!(
@@ -266,18 +277,42 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn progress_download_a_progress_bar_that_does_not_exist() {
+    async fn progress_child_bar_that_does_not_exist_do_nothing() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
             2,
             ProgressOutputType::Hidden,
             slog::Logger::root(slog::Discard, o!()),
         );
 
-        multi_dl_reporter.progress_download("not_exist", 5).await;
+        multi_dl_reporter.progress_child_bar("not_exist", 5).await;
 
-        assert!(multi_dl_reporter
-            .get_progress_bar("not_exist")
-            .await
-            .is_none());
+        assert!(multi_dl_reporter.get_child_bar("not_exist").await.is_none());
+    }
+
+    #[test]
+    fn bump_main_bar_progress_increase_its_value_by_one() {
+        let multi_dl_reporter = MultiDownloadProgressReporter::new(
+            2,
+            ProgressOutputType::Hidden,
+            slog::Logger::root(slog::Discard, o!()),
+        );
+
+        assert_eq!(
+            0,
+            multi_dl_reporter
+                .main_reporter
+                .inner_progress_bar()
+                .position()
+        );
+
+        multi_dl_reporter.bump_main_bar_progress();
+
+        assert_eq!(
+            1,
+            multi_dl_reporter
+                .main_reporter
+                .inner_progress_bar()
+                .position()
+        );
     }
 }
