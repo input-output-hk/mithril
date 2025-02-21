@@ -4,7 +4,9 @@ use indicatif::{MultiProgress, ProgressBar};
 use slog::Logger;
 use tokio::sync::RwLock;
 
-use super::{DownloadProgressReporter, ProgressBarKind, ProgressOutputType};
+use super::{
+    DownloadProgressReporter, DownloadProgressReporterParams, ProgressBarKind, ProgressOutputType,
+};
 
 /// A progress reporter that can handle multiple downloads at once.
 ///
@@ -25,8 +27,12 @@ impl MultiDownloadProgressReporter {
         let main_pb = parent_container.add(ProgressBar::new(total_files));
         let main_reporter = DownloadProgressReporter::new(
             main_pb,
-            output_type,
-            ProgressBarKind::Files,
+            DownloadProgressReporterParams {
+                label: "Files".to_string(),
+                output_type,
+                progress_bar_kind: ProgressBarKind::Files,
+                include_label_in_tty: false,
+            },
             logger.clone(),
         );
 
@@ -67,16 +73,21 @@ impl MultiDownloadProgressReporter {
 
     /// Add a new child bar to the progress reporter.
     pub async fn add_child_bar<T: Into<String>>(&self, name: T, kind: ProgressBarKind, total: u64) {
+        let name = name.into();
         let dl_progress_bar = self.parent_container.add(ProgressBar::new(total));
         let dl_reporter = DownloadProgressReporter::new(
             dl_progress_bar,
-            self.output_type,
-            kind,
+            DownloadProgressReporterParams {
+                label: name.to_owned(),
+                output_type: self.output_type,
+                progress_bar_kind: kind,
+                include_label_in_tty: true,
+            },
             self.logger.clone(),
         );
 
         let mut reporters = self.dl_reporters.write().await;
-        reporters.insert(name.into(), dl_reporter);
+        reporters.insert(name, dl_reporter);
     }
 
     /// Report progress of a child bar, updating the progress bar to the given actual_position.

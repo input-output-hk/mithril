@@ -4,7 +4,8 @@ use slog::Logger;
 use tokio::sync::RwLock;
 
 use super::{
-    DownloadProgressReporter, MultiDownloadProgressReporter, ProgressBarKind, ProgressOutputType,
+    DownloadProgressReporter, DownloadProgressReporterParams, MultiDownloadProgressReporter,
+    ProgressBarKind, ProgressOutputType,
 };
 
 use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
@@ -49,8 +50,12 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 let mut download_progress_reporter = self.download_progress_reporter.write().await;
                 *download_progress_reporter = Some(DownloadProgressReporter::new(
                     pb,
-                    self.output_type,
-                    ProgressBarKind::Bytes,
+                    DownloadProgressReporterParams {
+                        label: "Snapshot".to_string(),
+                        output_type: self.output_type,
+                        progress_bar_kind: ProgressBarKind::Bytes,
+                        include_label_in_tty: false,
+                    },
                     self.logger.clone(),
                 ));
             }
