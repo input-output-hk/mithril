@@ -848,7 +848,7 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = TempDir::new(
                 "cardano_database_client",
-                "download_unpack_immutable_files_succeeds",
+                "download_unpack_immutable_files_fails_if_one_is_not_retrieved",
             )
             .build();
             let artifact_downloader = InternalArtifactDownloader::new(
@@ -915,7 +915,7 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = TempDir::new(
                 "cardano_database_client",
-                "download_unpack_immutable_files_succeeds",
+                "download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_same_location",
             )
             .build();
             let artifact_downloader = InternalArtifactDownloader::new(
@@ -955,7 +955,7 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = TempDir::new(
                 "cardano_database_client",
-                "download_unpack_immutable_files_succeeds",
+                "download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_different_locations",
             )
             .build();
             let artifact_downloader = InternalArtifactDownloader::new(
