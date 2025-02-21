@@ -17,7 +17,7 @@ use mockall::automock;
 pub trait Beacon: Send + Sync {}
 
 /// Artifact is a trait for types that represent signed artifacts
-#[typetag::serde(tag = "type")]
+#[cfg_attr(not(target_family = "wasm"), typetag::serde(tag = "type"))]
 pub trait Artifact: Debug + Send + Sync {
     /// Get artifact identifier
     fn get_id(&self) -> String;
@@ -54,35 +54,35 @@ impl Beacon for CardanoDbBeacon {}
 
 impl Beacon for Epoch {}
 
-#[typetag::serde]
+#[cfg_attr(not(target_family = "wasm"), typetag::serde)]
 impl Artifact for CardanoDatabaseSnapshot {
     fn get_id(&self) -> String {
         self.hash.clone()
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(not(target_family = "wasm"), typetag::serde)]
 impl Artifact for CardanoStakeDistribution {
     fn get_id(&self) -> String {
         self.hash.clone()
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(not(target_family = "wasm"), typetag::serde)]
 impl Artifact for CardanoTransactionsSnapshot {
     fn get_id(&self) -> String {
         self.hash.clone()
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(not(target_family = "wasm"), typetag::serde)]
 impl Artifact for MithrilStakeDistribution {
     fn get_id(&self) -> String {
         self.hash.clone()
     }
 }
 
-#[typetag::serde]
+#[cfg_attr(not(target_family = "wasm"), typetag::serde)]
 impl Artifact for Snapshot {
     fn get_id(&self) -> String {
         self.digest.clone()
