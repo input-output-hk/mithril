@@ -71,23 +71,34 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
         let ancillary_locations = self.ancillary_builder.upload(&beacon).await?;
+        let ancillary_size = self
+            .ancillary_builder
+            .compute_uncompressed_size(&self.db_directory, &beacon)?;
+
         let immutables_locations = self
             .immutable_builder
             .upload(beacon.immutable_file_number)
             .await?;
-        let digest_locations = self.digest_builder.upload(&beacon).await?;
+        let immutable_average_size = self
+            .immutable_builder
+            .compute_average_uncompressed_size(&self.db_directory, beacon.immutable_file_number)?;
+
+        let digest_upload = self.digest_builder.upload(&beacon).await?;
 
         let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
             beacon,
             total_db_size_uncompressed,
             DigestsLocations {
-                locations: digest_locations,
+                size_uncompressed: digest_upload.size,
+                locations: digest_upload.locations,
             },
             ImmutablesLocations {
+                average_size_uncompressed: immutable_average_size,
                 locations: immutables_locations,
             },
             AncillaryLocations {
+                size_uncompressed: ancillary_size,
                 locations: ancillary_locations,
             },
             self.compression_algorithm,
@@ -96,6 +107,16 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
         Ok(cardano_database)
     }
+}
+
+// TODO Need to test and fix when there is files or directories include in another one (do not count twice)
+// TODO should we externalize this tool ?
+pub(crate) fn compute_size(paths: Vec<PathBuf>) -> StdResult<u64> {
+    let mut total = 0;
+    for path_to_include in paths {
+        total += compute_uncompressed_database_size(&path_to_include)?;
+    }
+    Ok(total)
 }
 
 fn compute_uncompressed_database_size(path: &Path) -> StdResult<u64> {
@@ -192,8 +213,11 @@ mod tests {
             .with_volatile_files(&["437"])
             .set_volatile_file_size(volatile_file_size)
             .build();
+        let expected_average_immutable_size = immutable_trio_file_size;
+        let expected_ancillary_size =
+            immutable_trio_file_size + ledger_file_size + volatile_file_size;
         let expected_total_size =
-            (4 * immutable_trio_file_size) + ledger_file_size + volatile_file_size;
+            4 * immutable_trio_file_size + ledger_file_size + volatile_file_size;
 
         let snapshotter = Arc::new(FakeSnapshotter::new(test_dir.join("fake_snapshots")));
 
@@ -300,18 +324,22 @@ mod tests {
             beacon,
             expected_total_size,
             DigestsLocations {
+                size_uncompressed: artifact.digests.size_uncompressed,
                 locations: expected_digest_locations,
             },
             ImmutablesLocations {
+                average_size_uncompressed: expected_average_immutable_size,
                 locations: expected_immutables_locations,
             },
             AncillaryLocations {
+                size_uncompressed: expected_ancillary_size,
                 locations: expected_ancillary_locations,
             },
             CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),
         );
 
+        assert!(artifact.digests.size_uncompressed > 0);
         assert_eq!(artifact_expected, artifact);
     }
 }

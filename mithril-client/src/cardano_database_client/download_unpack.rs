@@ -477,7 +477,7 @@ mod tests {
             let cardano_db_snapshot = CardanoDatabaseSnapshot {
                 hash: "hash-123".to_string(),
                 immutables: ImmutablesMessagePart {
-                    average_size_uncompressed: Some(512),
+                    average_size_uncompressed: 512,
                     locations: vec![ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
@@ -555,7 +555,7 @@ mod tests {
                     epoch: Epoch(123),
                 },
                 immutables: ImmutablesMessagePart {
-                    average_size_uncompressed: Some(512),
+                    average_size_uncompressed: 512,
                     locations: vec![ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
@@ -563,13 +563,13 @@ mod tests {
                     }],
                 },
                 ancillary: AncillaryMessagePart {
-                    size_uncompressed: Some(2048),
+                    size_uncompressed: 2048,
                     locations: vec![AncillaryLocation::CloudStorage {
                         uri: "http://whatever/ancillary.tar.gz".to_string(),
                     }],
                 },
                 digests: DigestsMessagePart {
-                    size_uncompressed: None,
+                    size_uncompressed: 1024,
                     locations: vec![],
                 },
                 ..CardanoDatabaseSnapshot::dummy()

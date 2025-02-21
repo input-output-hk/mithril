@@ -10,7 +10,7 @@ use crate::entities::{
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DigestsMessagePart {
     /// Size of the uncompressed digests file.
-    pub size_uncompressed: Option<u64>,
+    pub size_uncompressed: u64,
 
     /// Locations of the digests.
     pub locations: Vec<DigestLocation>,
@@ -19,7 +19,7 @@ pub struct DigestsMessagePart {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImmutablesMessagePart {
     /// Average size for one immutable file.
-    pub average_size_uncompressed: Option<u64>,
+    pub average_size_uncompressed: u64,
 
     /// Locations of the immutable files.
     pub locations: Vec<ImmutablesLocation>,
@@ -28,7 +28,7 @@ pub struct ImmutablesMessagePart {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AncillaryMessagePart {
     /// Size of the uncompressed ancillary file.
-    pub size_uncompressed: Option<u64>,
+    pub size_uncompressed: u64,
 
     /// Locations of the ancillary files.
     pub locations: Vec<AncillaryLocation>,
@@ -37,7 +37,7 @@ pub struct AncillaryMessagePart {
 impl From<DigestsLocations> for DigestsMessagePart {
     fn from(part: DigestsLocations) -> Self {
         Self {
-            size_uncompressed: None, // TODO part.size_uncompressed,
+            size_uncompressed: part.size_uncompressed,
             locations: part.locations,
         }
     }
@@ -46,7 +46,7 @@ impl From<DigestsLocations> for DigestsMessagePart {
 impl From<ImmutablesLocations> for ImmutablesMessagePart {
     fn from(part: ImmutablesLocations) -> Self {
         Self {
-            average_size_uncompressed: None, // TODO part.average_size_uncompressed,
+            average_size_uncompressed: part.average_size_uncompressed,
             locations: part.locations,
         }
     }
@@ -55,7 +55,7 @@ impl From<ImmutablesLocations> for ImmutablesMessagePart {
 impl From<AncillaryLocations> for AncillaryMessagePart {
     fn from(part: AncillaryLocations) -> Self {
         Self {
-            size_uncompressed: None, // TODO part.size_uncompressed,
+            size_uncompressed: part.size_uncompressed,
             locations: part.locations,
         }
     }
@@ -116,13 +116,13 @@ impl CardanoDatabaseSnapshotMessage {
                 .unwrap()
                 .with_timezone(&Utc),
             digests: DigestsMessagePart {
-                size_uncompressed: Some(1024),
+                size_uncompressed: 1024,
                 locations: vec![DigestLocation::Aggregator {
                     uri: "https://host-1/digest-1".to_string(),
                 }],
             },
             immutables: ImmutablesMessagePart {
-                average_size_uncompressed: Some(512),
+                average_size_uncompressed: 512,
                 locations: vec![
                     ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
@@ -137,7 +137,7 @@ impl CardanoDatabaseSnapshotMessage {
                 ],
             },
             ancillary: AncillaryMessagePart {
-                size_uncompressed: Some(2048),
+                size_uncompressed: 2048,
                 locations: vec![AncillaryLocation::CloudStorage {
                     uri: "https://host-1/ancillary-3".to_string(),
                 }],
@@ -218,13 +218,13 @@ mod tests {
                 .unwrap()
                 .with_timezone(&Utc),
             digests: DigestsMessagePart {
-                size_uncompressed: Some(1024),
+                size_uncompressed: 1024,
                 locations: vec![DigestLocation::Aggregator {
                     uri: "https://host-1/digest-1".to_string(),
                 }],
             },
             immutables: ImmutablesMessagePart {
-                average_size_uncompressed: Some(2048),
+                average_size_uncompressed: 2048,
                 locations: vec![
                     ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
@@ -239,7 +239,7 @@ mod tests {
                 ],
             },
             ancillary: AncillaryMessagePart {
-                size_uncompressed: Some(4096),
+                size_uncompressed: 4096,
                 locations: vec![AncillaryLocation::CloudStorage {
                     uri: "https://host-1/ancillary-3".to_string(),
                 }],
@@ -272,6 +272,7 @@ mod tests {
             "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
             "total_db_size_uncompressed": 800796318,
             "digests": {
+                "size_uncompressed": 1024,
                 "locations": [
                     {
                         "type": "whatever",
@@ -279,7 +280,8 @@ mod tests {
                     }
                 ]
             },
-            "immutables": { 
+            "immutables": {
+                "average_size_uncompressed": 512,
                 "locations": [
                     {
                         "type": "whatever",
@@ -288,6 +290,7 @@ mod tests {
                 ]
             },
             "ancillary": {
+                "size_uncompressed": 4096,
                 "locations": [
                     {
                         "type": "whatever",
@@ -311,72 +314,5 @@ mod tests {
 
         assert_eq!(message.ancillary.locations.len(), 1);
         assert_eq!(AncillaryLocation::Unknown, message.ancillary.locations[0]);
-    }
-
-    #[test]
-    fn test_digests_size_uncompressed_is_optional() {
-        let json = r#"{
-            "locations": [
-                {
-                    "type": "aggregator",
-                    "uri": "https://host-1/digest-1"
-                }
-            ]
-        }"#;
-        let message: DigestsMessagePart = serde_json::from_str(json).unwrap();
-        let expected = DigestsMessagePart {
-            size_uncompressed: None,
-            locations: vec![DigestLocation::Aggregator {
-                uri: "https://host-1/digest-1".to_string(),
-            }],
-        };
-
-        assert_eq!(expected, message);
-    }
-
-    #[test]
-    fn test_immutable_size_uncompressed_is_optional() {
-        let json = r#"{
-            "locations": [
-                {
-                    "type": "cloud_storage",
-                    "uri": {
-                        "Template": "https://host-1/immutables-{immutable_file_number}"
-                    }
-                }
-            ]
-        }"#;
-        let message: ImmutablesMessagePart = serde_json::from_str(json).unwrap();
-        let expected = ImmutablesMessagePart {
-            average_size_uncompressed: None,
-            locations: vec![ImmutablesLocation::CloudStorage {
-                uri: MultiFilesUri::Template(TemplateUri(
-                    "https://host-1/immutables-{immutable_file_number}".to_string(),
-                )),
-            }],
-        };
-
-        assert_eq!(expected, message);
-    }
-
-    #[test]
-    fn test_size_uncompressed_is_optional() {
-        let json = r#"{
-            "locations": [
-                {
-                    "type": "cloud_storage",
-                    "uri": "https://host-1/ancillary-3"
-                }
-            ]
-        }"#;
-        let message: AncillaryMessagePart = serde_json::from_str(json).unwrap();
-        let expected = AncillaryMessagePart {
-            size_uncompressed: None,
-            locations: vec![AncillaryLocation::CloudStorage {
-                uri: "https://host-1/ancillary-3".to_string(),
-            }],
-        };
-
-        assert_eq!(expected, message);
     }
 }

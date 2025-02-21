@@ -55,6 +55,11 @@ impl DigestFileUploader for GcpUploader {
     }
 }
 
+pub struct DigestUpload {
+    pub locations: Vec<DigestLocation>,
+    pub size: u64,
+}
+
 pub struct DigestArtifactBuilder {
     /// Aggregator URL prefix
     aggregator_url_prefix: SanitizedUrlWithTrailingSlash,
@@ -91,15 +96,30 @@ impl DigestArtifactBuilder {
         })
     }
 
-    pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<DigestLocation>> {
+    pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<DigestUpload> {
         let digest_path = self.create_digest_file(beacon).await?;
 
         let locations = self.upload_digest_file(&digest_path).await;
+
+        let file_metadata = std::fs::metadata(&digest_path);
+
         fs::remove_file(&digest_path).with_context(|| {
             format!("Could not remove digest file: '{}'", digest_path.display())
         })?;
 
-        locations
+        let size = file_metadata
+            .with_context(|| {
+                format!(
+                    "Could not get size of digest file: '{}'",
+                    digest_path.display()
+                )
+            })?
+            .len();
+
+        Ok(DigestUpload {
+            locations: locations?,
+            size,
+        })
     }
 
     async fn create_digest_file(&self, beacon: &CardanoDbBeacon) -> StdResult<PathBuf> {
@@ -189,6 +209,7 @@ mod tests {
     };
     use anyhow::anyhow;
     use mithril_common::{
+        current_function,
         entities::CardanoDbBeacon,
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
         test_utils::{assert_equivalent, TempDir},
@@ -218,10 +239,8 @@ mod tests {
 
     #[tokio::test]
     async fn digest_artifact_builder_return_digests_route_on_aggregator() {
-        let temp_dir = TempDir::create(
-            "digest",
-            "digest_artifact_builder_return_digests_route_on_aggregator",
-        );
+        let temp_dir = TempDir::create("digest", current_function!());
+
         let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
         immutable_file_digest_mapper
             .expect_get_immutable_file_digest_map()
@@ -237,19 +256,47 @@ mod tests {
         )
         .unwrap();
 
-        let locations = builder.upload(&CardanoDbBeacon::new(4, 123)).await.unwrap();
+        let upload_info = builder.upload(&CardanoDbBeacon::new(4, 123)).await.unwrap();
         assert_eq!(
             vec!(DigestLocation::Aggregator {
                 uri: "https://aggregator/artifact/cardano-database/digests".to_string()
             }),
-            locations
+            upload_info.locations
         );
     }
 
     #[tokio::test]
+    async fn digest_artifact_builder_return_size_of_digest_file() {
+        let temp_dir = TempDir::create("digest", current_function!());
+
+        let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
+        immutable_file_digest_mapper
+            .expect_get_immutable_file_digest_map()
+            .returning(|| Ok(BTreeMap::new()));
+
+        let builder = DigestArtifactBuilder::new(
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
+            vec![],
+            CardanoNetwork::DevNet(123),
+            temp_dir,
+            Arc::new(immutable_file_digest_mapper),
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let beacon = CardanoDbBeacon::new(4, 123);
+        let upload_info = builder.upload(&beacon).await.unwrap();
+
+        let digest_path = builder.create_digest_file(&beacon).await.unwrap();
+
+        let expected_size = std::fs::metadata(digest_path).unwrap().len();
+        assert!(expected_size > 0);
+        assert_eq!(expected_size, upload_info.size);
+    }
+
+    #[tokio::test]
     async fn upload_digest_file_should_log_upload_errors() {
-        let log_path = TempDir::create("digest", "upload_digest_file_should_log_upload_errors")
-            .join("test.log");
+        let log_path = TempDir::create("digest", current_function!()).join("test.log");
 
         let mut uploader = MockDigestFileUploader::new();
         uploader
@@ -377,10 +424,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_digest_file_should_create_json_file_with_all_digests() {
-        let temp_dir = TempDir::create(
-            "digest",
-            "create_digest_file_should_create_json_file_with_all_digests",
-        );
+        let temp_dir = TempDir::create("digest", current_function!());
         let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
         immutable_file_digest_mapper
             .expect_get_immutable_file_digest_map()
@@ -422,10 +466,7 @@ mod tests {
 
     #[tokio::test]
     async fn upload_should_call_upload_with_created_digest_file_and_delete_the_file() {
-        let digests_dir = TempDir::create(
-            "digests",
-            "upload_should_call_upload_with_created_digest_file_and_delete_the_file",
-        );
+        let digests_dir = TempDir::create("digest", current_function!());
         let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
         immutable_file_digest_mapper
             .expect_get_immutable_file_digest_map()
@@ -466,8 +507,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_digest_file_path_include_beacon_information() {
-        let digests_dir =
-            TempDir::create("digests", "get_digest_file_path_include_beacon_information");
+        let digests_dir = TempDir::create("digest", current_function!());
 
         let beacon = CardanoDbBeacon::new(5, 456);
         let network = CardanoNetwork::MainNet;

@@ -1812,6 +1812,7 @@ components:
       description: CardanoDatabaseDigestsLocationsMessagePart represents the locations of the Cardano database digests
       type: object
       required:
+        - size_uncompressed
         - locations
       properties:
         size_uncompressed:
@@ -1838,6 +1839,7 @@ components:
       description: CardanoDatabaseImmutablesLocationsMessagePart represents the locations of the Cardano database immutables
       type: object
       required:
+        - average_size_uncompressed
         - locations
       properties:
         average_size_uncompressed:
@@ -1874,6 +1876,7 @@ components:
       description: CardanoDatabaseAncillaryLocationsMessagePart represents the locations of the Cardano database ancillary
       type: object
       required:
+        - size_uncompressed
         - locations
       properties:
         size_uncompressed:

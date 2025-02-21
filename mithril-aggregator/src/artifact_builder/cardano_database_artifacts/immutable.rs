@@ -17,6 +17,7 @@ use mithril_common::{
 };
 
 use crate::{
+    artifact_builder::compute_size,
     file_uploaders::{GcpUploader, LocalUploader},
     services::Snapshotter,
     DumbUploader, FileUploader,
@@ -160,19 +161,11 @@ impl ImmutableArtifactBuilder {
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Vec<PathBuf>> {
-        fn immutable_trio_names(immutable_file_number: ImmutableFileNumber) -> Vec<String> {
-            vec![
-                format!("{:05}.chunk", immutable_file_number),
-                format!("{:05}.primary", immutable_file_number),
-                format!("{:05}.secondary", immutable_file_number),
-            ]
-        }
-
         let immutable_archive_dir_path = Path::new("cardano-database").join("immutable");
 
         let mut archive_paths = vec![];
         for immutable_file_number in 1..=up_to_immutable_file_number {
-            let files_to_archive = immutable_trio_names(immutable_file_number)
+            let files_to_archive = Self::immutable_trio_names(immutable_file_number)
                 .iter()
                 .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
                 .collect();
@@ -242,6 +235,29 @@ impl ImmutableArtifactBuilder {
         expected_archive_path
             .exists()
             .then_some(expected_archive_path)
+    }
+
+    pub fn compute_average_uncompressed_size(
+        &self,
+        db_path: &Path,
+        up_to_immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<u64> {
+        let immutable_paths = (1..=up_to_immutable_file_number)
+            .flat_map(Self::immutable_trio_names)
+            .map(|filename| db_path.join(IMMUTABLE_DIR).join(filename))
+            .collect();
+
+        let total_size = compute_size(immutable_paths)?;
+
+        Ok(total_size / up_to_immutable_file_number)
+    }
+
+    fn immutable_trio_names(immutable_file_number: ImmutableFileNumber) -> Vec<String> {
+        vec![
+            format!("{:05}.chunk", immutable_file_number),
+            format!("{:05}.primary", immutable_file_number),
+            format!("{:05}.secondary", immutable_file_number),
+        ]
     }
 }
 
@@ -945,5 +961,43 @@ mod tests {
                 Some("http://whatever/1234{immutable_file_number}.tar.gz".to_string())
             );
         }
+    }
+
+    #[test]
+    fn should_compute_the_average_size_of_the_immutables() {
+        let work_dir = get_builder_work_dir("should_compute_the_average_size_of_the_immutables");
+        let test_dir = "should_compute_the_average_size_of_the_immutables/cardano_database";
+
+        let immutable_trio_file_size = 777;
+        let ledger_file_size = 6666;
+        let volatile_file_size = 99;
+
+        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
+            .with_immutables(&[1, 2, 3])
+            .set_immutable_trio_file_size(immutable_trio_file_size)
+            .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+            .set_ledger_file_size(ledger_file_size)
+            .with_volatile_files(&["437", "537", "637", "737"])
+            .set_volatile_file_size(volatile_file_size)
+            .build();
+
+        let db_directory = cardano_db.get_dir().to_path_buf();
+
+        let builder = ImmutableArtifactBuilder::new(
+            work_dir,
+            vec![Arc::new(MockImmutableFilesUploader::new())],
+            Arc::new(DumbSnapshotter::new()),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let expected_total_size = immutable_trio_file_size;
+
+        let total_size = builder
+            .compute_average_uncompressed_size(&db_directory, 2)
+            .unwrap();
+
+        assert_eq!(expected_total_size, total_size);
     }
 }

@@ -126,6 +126,9 @@ pub enum AncillaryLocation {
 /// Digests locations of the Cardano database related files.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DigestsLocations {
+    /// Size of the uncompressed digests file.
+    pub size_uncompressed: u64,
+
     /// Locations of the immutable files digests.
     pub locations: Vec<DigestLocation>,
 }
@@ -133,6 +136,9 @@ pub struct DigestsLocations {
 /// Immutables locations of the Cardano database related files.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ImmutablesLocations {
+    /// Average size for one immutable file.
+    pub average_size_uncompressed: u64,
+
     /// Locations of the immutable files.
     pub locations: Vec<ImmutablesLocation>,
 }
@@ -140,6 +146,9 @@ pub struct ImmutablesLocations {
 /// Ancillary locations of the Cardano database related files.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AncillaryLocations {
+    /// Size of the uncompressed ancillary file.
+    pub size_uncompressed: u64,
+
     /// Locations of the ancillary files.
     pub locations: Vec<AncillaryLocation>,
 }
@@ -153,9 +162,18 @@ mod tests {
             "mk-root-1111111111".to_string(),
             CardanoDbBeacon::new(2222, 55555),
             0,
-            DigestsLocations { locations: vec![] },
-            ImmutablesLocations { locations: vec![] },
-            AncillaryLocations { locations: vec![] },
+            DigestsLocations {
+                size_uncompressed: 0,
+                locations: vec![],
+            },
+            ImmutablesLocations {
+                average_size_uncompressed: 0,
+                locations: vec![],
+            },
+            AncillaryLocations {
+                size_uncompressed: 0,
+                locations: vec![],
+            },
             CompressionAlgorithm::Gzip,
             &Version::new(1, 0, 0),
         )
