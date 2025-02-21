@@ -37,7 +37,7 @@ pub struct AncillaryMessagePart {
 impl From<DigestsLocations> for DigestsMessagePart {
     fn from(part: DigestsLocations) -> Self {
         Self {
-            size_uncompressed: None, // TODO part.size_uncompressed,
+            size_uncompressed: part.size_uncompressed,
             locations: part.locations,
         }
     }
@@ -46,7 +46,7 @@ impl From<DigestsLocations> for DigestsMessagePart {
 impl From<ImmutablesLocations> for ImmutablesMessagePart {
     fn from(part: ImmutablesLocations) -> Self {
         Self {
-            average_size_uncompressed: None, // TODO part.average_size_uncompressed,
+            average_size_uncompressed: part.average_size_uncompressed,
             locations: part.locations,
         }
     }
@@ -55,7 +55,7 @@ impl From<ImmutablesLocations> for ImmutablesMessagePart {
 impl From<AncillaryLocations> for AncillaryMessagePart {
     fn from(part: AncillaryLocations) -> Self {
         Self {
-            size_uncompressed: None, // TODO part.size_uncompressed,
+            size_uncompressed: part.size_uncompressed,
             locations: part.locations,
         }
     }

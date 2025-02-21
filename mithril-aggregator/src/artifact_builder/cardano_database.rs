@@ -82,12 +82,15 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
             beacon,
             total_db_size_uncompressed,
             DigestsLocations {
+                size_uncompressed: None, // TODO compute it ?
                 locations: digest_locations,
             },
             ImmutablesLocations {
+                average_size_uncompressed: None, // TODO compute it ?
                 locations: immutables_locations,
             },
             AncillaryLocations {
+                size_uncompressed: None, // TODO compute it ?
                 locations: ancillary_locations,
             },
             self.compression_algorithm,
@@ -300,12 +303,15 @@ mod tests {
             beacon,
             expected_total_size,
             DigestsLocations {
+                size_uncompressed: None, // TODO how to check that ?
                 locations: expected_digest_locations,
             },
             ImmutablesLocations {
+                average_size_uncompressed: None, // TODO how to check that ?
                 locations: expected_immutables_locations,
             },
             AncillaryLocations {
+                size_uncompressed: None, // TODO how to check that ?
                 locations: expected_ancillary_locations,
             },
             CompressionAlgorithm::Zstandard,
