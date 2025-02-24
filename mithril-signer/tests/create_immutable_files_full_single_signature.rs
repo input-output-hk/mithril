@@ -71,7 +71,7 @@ async fn test_create_immutable_files_full_single_signature() {
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(3)).await.unwrap()
 
-        .comment("creating a new certificate pending with new signers and new beacon → RegisteredNotAbleToSign")
+        .comment("registration made at the previous epoch will only be available next epoch → RegisteredNotAbleToSign")
         .cycle_registered_not_able_to_sign().await.unwrap()
         .check_protocol_initializer(Epoch(4)).await.unwrap()
         .check_stake_store(Epoch(4)).await.unwrap()
