@@ -266,6 +266,7 @@ mod tests {
 
     #[cfg(target_family = "windows")]
     fn local_file_uri(path: &Path) -> FileDownloaderUri {
+        // We need to transform `\\?\C:\data\Temp\mithril_test\snapshot.txt` to `file://C:/data/Temp/mithril_test/snapshot.txt`
         FileDownloaderUri::FileUri(FileUri(format!(
             "file:/{}",
             path.canonicalize()

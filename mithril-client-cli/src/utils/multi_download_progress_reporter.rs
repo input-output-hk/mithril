@@ -137,7 +137,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn main_progress_bar_is_of_kind() {
+    fn main_progress_bar_is_of_file_kind() {
         let multi_dl_reporter = MultiDownloadProgressReporter::new(
             1,
             ProgressOutputType::Hidden,
