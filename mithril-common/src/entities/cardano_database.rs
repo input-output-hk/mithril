@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 
 use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
-use super::MultiFilesUri;
+use super::{CardanoNetwork, MultiFilesUri};
 
 /// Cardano database snapshot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,6 +14,9 @@ pub struct CardanoDatabaseSnapshot {
 
     /// Merkle root of the Cardano database snapshot.
     pub merkle_root: String,
+
+    /// Cardano network.
+    pub network: CardanoNetwork,
 
     /// Mithril beacon on the Cardano chain.
     pub beacon: CardanoDbBeacon,
@@ -41,6 +44,7 @@ impl CardanoDatabaseSnapshot {
     /// [CardanoDatabaseSnapshot] factory
     pub fn new(
         merkle_root: String,
+        network: CardanoNetwork,
         beacon: CardanoDbBeacon,
         total_db_size_uncompressed: u64,
         digests: DigestsLocations,
@@ -53,6 +57,7 @@ impl CardanoDatabaseSnapshot {
         let mut cardano_database_snapshot = Self {
             hash: "".to_string(),
             merkle_root,
+            network,
             beacon,
             digests,
             immutables,
@@ -160,6 +165,7 @@ mod tests {
     fn dummy() -> CardanoDatabaseSnapshot {
         CardanoDatabaseSnapshot::new(
             "mk-root-1111111111".to_string(),
+            CardanoNetwork::DevNet(87),
             CardanoDbBeacon::new(2222, 55555),
             0,
             DigestsLocations {

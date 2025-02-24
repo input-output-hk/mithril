@@ -2037,6 +2037,7 @@ components:
       required:
         - hash
         - merkle_root
+        - network
         - beacon
         - certificate_hash
         - total_db_size_uncompressed
@@ -2051,6 +2052,10 @@ components:
           format: bytes
         merkle_root:
           description: Merkle root of the Cardano database snapshot
+          type: string
+          format: bytes
+        network:
+          description: Cardano network
           type: string
           format: bytes
         beacon:
@@ -2083,6 +2088,7 @@ components:
         - {
             "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
             "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+            "network": "preview",
             "beacon": { "epoch": 123, "immutable_file_number": 2345 },
             "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
             "total_db_size_uncompressed": 800796318,

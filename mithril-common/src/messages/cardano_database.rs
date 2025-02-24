@@ -70,6 +70,9 @@ pub struct CardanoDatabaseSnapshotMessage {
     /// Merkle root of the Cardano database snapshot.
     pub merkle_root: String,
 
+    /// Cardano network
+    pub network: String,
+
     /// Mithril beacon on the Cardano chain.
     pub beacon: CardanoDbBeacon,
 
@@ -105,6 +108,7 @@ impl CardanoDatabaseSnapshotMessage {
             hash: "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb".to_string(),
             merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
                 .to_string(),
+            network: "preview".to_string(),
             beacon: CardanoDbBeacon {
                 epoch: Epoch(123),
                 immutable_file_number: 2345,
@@ -156,6 +160,7 @@ mod tests {
     {
         "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
         "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+        "network": "preview",
         "beacon": {
             "epoch": 123,
             "immutable_file_number": 2345
@@ -207,6 +212,7 @@ mod tests {
             hash: "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb".to_string(),
             merkle_root: "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6"
                 .to_string(),
+            network: "preview".to_string(),
             beacon: CardanoDbBeacon {
                 epoch: Epoch(123),
                 immutable_file_number: 2345,
@@ -265,6 +271,7 @@ mod tests {
         {
             "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
             "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+            "network": "preview",
             "beacon": {
                 "epoch": 123,
                 "immutable_file_number": 2345

@@ -11,6 +11,7 @@ use crate::entities::{
     StakeDistribution, StakeDistributionParty,
 };
 use crate::test_utils::MithrilFixtureBuilder;
+use crate::CardanoNetwork;
 
 use super::fake_keys;
 
@@ -262,6 +263,7 @@ pub fn cardano_database_snapshots(total: u64) -> Vec<entities::CardanoDatabaseSn
 
             entities::CardanoDatabaseSnapshot::new(
                 merkle_root,
+                CardanoNetwork::DevNet(63),
                 beacon,
                 total_db_size_uncompressed,
                 DigestsLocations::default(),

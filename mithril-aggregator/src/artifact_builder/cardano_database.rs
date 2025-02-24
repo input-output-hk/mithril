@@ -13,7 +13,7 @@ use mithril_common::{
         CompressionAlgorithm, DigestsLocations, ImmutablesLocations, ProtocolMessagePartKey,
         SignedEntityType,
     },
-    StdResult,
+    CardanoNetwork, StdResult,
 };
 
 use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
@@ -21,6 +21,7 @@ use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
 use super::{DigestArtifactBuilder, ImmutableArtifactBuilder};
 
 pub struct CardanoDatabaseArtifactBuilder {
+    network: CardanoNetwork,
     db_directory: PathBuf,
     cardano_node_version: Version,
     compression_algorithm: CompressionAlgorithm,
@@ -31,6 +32,7 @@ pub struct CardanoDatabaseArtifactBuilder {
 
 impl CardanoDatabaseArtifactBuilder {
     pub fn new(
+        network: CardanoNetwork,
         db_directory: PathBuf,
         cardano_node_version: &Version,
         compression_algorithm: CompressionAlgorithm,
@@ -39,6 +41,7 @@ impl CardanoDatabaseArtifactBuilder {
         digest_builder: Arc<DigestArtifactBuilder>,
     ) -> Self {
         Self {
+            network,
             db_directory,
             cardano_node_version: cardano_node_version.clone(),
             compression_algorithm,
@@ -87,6 +90,7 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
         let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
+            self.network,
             beacon,
             total_db_size_uncompressed,
             DigestsLocations {
@@ -282,6 +286,7 @@ mod tests {
         };
 
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
+            network,
             cardano_db.get_dir().to_owned(),
             &Version::parse("1.0.0").unwrap(),
             CompressionAlgorithm::Zstandard,
@@ -321,6 +326,7 @@ mod tests {
 
         let artifact_expected = CardanoDatabaseSnapshot::new(
             "merkleroot".to_string(),
+            network,
             beacon,
             expected_total_size,
             DigestsLocations {
