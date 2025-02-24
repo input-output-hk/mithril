@@ -18,6 +18,7 @@ As a minor extension, we have adopted a slightly different versioning convention
 - **UNSTABLE** Cardano database incremental certification:
 
   - Implement the client library for the the signed entity type `CardanoDatabase` (download and prove snapshot).
+  - Implement the client CLI commands for the signed entity type `CardanoDatabase` (snapshot list, snapshot show and download commands).
 
 - Crates versions:
 
