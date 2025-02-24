@@ -52,12 +52,7 @@ pub async fn bootstrap_aggregator(
     without being bothered by the state machine cycles"
     );
     aggregator.serve().unwrap();
-    wait::for_http_response(
-        &format!("{}/epoch-settings", aggregator.endpoint()),
-        Duration::from_secs(10),
-        "Waiting for the aggregator to start",
-    )
-    .await?;
+    wait::for_aggregator_http_server_to_start(&aggregator, Duration::from_secs(10)).await?;
 
     restart_aggregator_and_move_one_epoch_forward(&mut aggregator, current_epoch, args).await?;
 
@@ -111,12 +106,7 @@ pub async fn bootstrap_aggregator(
     aggregator.change_run_interval(Duration::from_secs(3));
     aggregator.serve().unwrap();
 
-    wait::for_http_response(
-        &format!("{}/epoch-settings", aggregator.endpoint()),
-        Duration::from_secs(10),
-        "Waiting for the aggregator to restart",
-    )
-    .await?;
+    wait::for_aggregator_http_server_to_start(&aggregator, Duration::from_secs(10)).await?;
 
     info!(">> Aggregator bootrapped");
 
@@ -136,12 +126,8 @@ async fn restart_aggregator_and_move_one_epoch_forward(
 
     info!(">> Restarting the aggregator with a large run interval");
     aggregator.serve().unwrap();
-    wait::for_http_response(
-        &format!("{}/epoch-settings", aggregator.endpoint()),
-        Duration::from_secs(10),
-        "Waiting for the aggregator to start",
-    )
-    .await?;
+    wait::for_aggregator_http_server_to_start(aggregator, Duration::from_secs(10)).await?;
+    wait::for_epoch_settings_at_epoch(aggregator, Duration::from_secs(10), *current_epoch).await?;
 
     Ok(())
 }

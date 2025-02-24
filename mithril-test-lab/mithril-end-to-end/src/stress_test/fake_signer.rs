@@ -7,7 +7,8 @@ use thiserror::Error;
 use tokio::task::JoinSet;
 
 use mithril_common::{
-    entities::{Epoch, PartyId, SignedEntityType, Signer, SingleSignatures},
+    entities::{Epoch, PartyId, Signer},
+    messages::RegisterSignatureMessage,
     StdResult,
 };
 
@@ -141,12 +142,8 @@ pub async fn register_signers_to_aggregator(
 
 pub async fn register_signatures_to_aggregator(
     aggregator: &Aggregator,
-    signatures: &[SingleSignatures],
-    signed_entity_type: SignedEntityType,
+    register_messages: Vec<RegisterSignatureMessage>,
 ) -> StdResult<usize> {
-    let register_messages =
-        payload_builder::generate_register_signature_message(signatures, signed_entity_type);
-
     let mut join_set: JoinSet<StdResult<()>> = JoinSet::new();
     let progress_bar = ProgressBar::with_draw_target(
         Some(register_messages.len() as u64),
@@ -166,6 +163,8 @@ pub async fn register_signatures_to_aggregator(
 
             match response.status() {
                 StatusCode::CREATED => Ok(()),
+                // Signature buffered
+                StatusCode::ACCEPTED => Ok(()),
                 // Certificate already certified
                 StatusCode::GONE => Ok(()),
                 status => Err(LoadError::SignaturesRegistrationError {
