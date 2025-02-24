@@ -20,7 +20,7 @@ use crate::{
     commands::{client_builder, SharedArgs},
     configuration::{ConfigError, ConfigSource},
     utils::{
-        CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
+        self, CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
     },
     CommandContext,
@@ -460,17 +460,11 @@ impl ConfigSource for CardanoDbV2DownloadCommand {
         let mut map = HashMap::new();
 
         if let Some(download_dir) = self.download_dir.clone() {
+            let param = "download_dir".to_string();
             map.insert(
-                "download_dir".to_string(),
-                download_dir
-                    .to_str()
-                    .ok_or_else(|| {
-                        ConfigError::Conversion(format!(
-                            "Could not read download directory: '{}'.",
-                            download_dir.display()
-                        ))
-                    })?
-                    .to_string(),
+                param.clone(),
+                utils::path_to_string(&download_dir)
+                    .map_err(|e| ConfigError::Conversion(param, e))?,
             );
         }
 

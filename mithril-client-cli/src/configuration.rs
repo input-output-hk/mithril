@@ -2,6 +2,8 @@ use serde::Deserialize;
 use std::collections::HashMap;
 use thiserror::Error;
 
+use mithril_client::MithrilError;
+
 /// Configuration error
 #[derive(Debug, Error)]
 pub enum ConfigError {
@@ -10,8 +12,8 @@ pub enum ConfigError {
     Required(String),
 
     /// Error raised when a parameter cannot be converted to string.
-    #[error("Parameter '{0}' cannot be converted to string.")]
-    Conversion(String),
+    #[error("Parameter '{0}' cannot be converted to string")]
+    Conversion(String, #[source] MithrilError),
 }
 
 /// Configuration parameters holder
