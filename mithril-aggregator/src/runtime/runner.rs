@@ -1,12 +1,10 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use async_trait::async_trait;
 use slog::{debug, warn, Logger};
 use std::sync::Arc;
 use std::time::Duration;
 
-use mithril_common::entities::{
-    Certificate, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, Signer, TimePoint,
-};
+use mithril_common::entities::{Certificate, Epoch, ProtocolMessage, SignedEntityType, TimePoint};
 use mithril_common::logging::LoggerExtensions;
 use mithril_common::StdResult;
 use mithril_persistence::store::StakeStorer;
@@ -73,22 +71,6 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>>;
-
-    /// Create a new pending certificate.
-    async fn create_new_pending_certificate(
-        &self,
-        time_point: TimePoint,
-        signed_entity_type: &SignedEntityType,
-    ) -> StdResult<CertificatePending>;
-
-    /// Store the given pending certificate.
-    async fn save_pending_certificate(
-        &self,
-        pending_certificate: CertificatePending,
-    ) -> StdResult<()>;
-
-    /// Drop the actual pending certificate in the store.
-    async fn drop_pending_certificate(&self) -> StdResult<Option<CertificatePending>>;
 
     /// Tell the certifier to try to create a new certificate.
     async fn create_certificate(
@@ -327,62 +309,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(expired_open_message)
     }
 
-    async fn create_new_pending_certificate(
-        &self,
-        time_point: TimePoint,
-        signed_entity_type: &SignedEntityType,
-    ) -> StdResult<CertificatePending> {
-        debug!(self.logger, ">> create_new_pending_certificate"; "signed_entity_type" => ?signed_entity_type);
-        let epoch_service = self.dependencies.epoch_service.read().await;
-
-        let signers = epoch_service.current_signers_with_stake()?;
-        let next_signers = epoch_service.next_signers_with_stake()?;
-
-        let protocol_parameters = epoch_service.next_protocol_parameters().with_context(|| {
-            format!("no current protocol parameters found for time point {time_point:?}")
-        })?;
-        let signer_registration_protocol_parameters = epoch_service
-            .signer_registration_protocol_parameters()
-            .with_context(|| {
-                format!("no signer registration protocol parameters found for time point {time_point:?}")
-            })?;
-
-        let pending_certificate = CertificatePending::new(
-            time_point.epoch,
-            signed_entity_type.to_owned(),
-            protocol_parameters.clone(),
-            signer_registration_protocol_parameters.clone(),
-            Signer::vec_from(signers.clone()),
-            Signer::vec_from(next_signers.clone()),
-        );
-
-        Ok(pending_certificate)
-    }
-
-    async fn save_pending_certificate(
-        &self,
-        pending_certificate: CertificatePending,
-    ) -> StdResult<()> {
-        debug!(self.logger, ">> save_pending_certificate");
-        let signed_entity_type = pending_certificate.signed_entity_type.clone();
-        self.dependencies
-            .certificate_pending_store
-            .save(pending_certificate)
-            .await
-            .map_err(|e| anyhow!(e))
-            .with_context(|| format!("CertificatePendingStore can not save pending certificate with signed_entity_type: '{signed_entity_type}'"))
-    }
-
-    async fn drop_pending_certificate(&self) -> StdResult<Option<CertificatePending>> {
-        debug!(self.logger, ">> drop_pending_certificate");
-        let certificate_pending = self.dependencies.certificate_pending_store.remove().await?;
-        if certificate_pending.is_none() {
-            warn!(self.logger," > drop_pending_certificate::no certificate pending in store, did the previous loop crashed ?");
-        }
-
-        Ok(certificate_pending)
-    }
-
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -574,16 +500,12 @@ pub mod tests {
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
     use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, ChainPoint, Epoch, SignedEntityConfig,
-        SignedEntityTypeDiscriminants,
+        ChainPoint, Epoch, SignedEntityConfig, SignedEntityTypeDiscriminants,
     };
     use mithril_common::{
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
-        entities::{
-            CertificatePending, ProtocolMessage, SignedEntityType, Signer, StakeDistribution,
-            TimePoint,
-        },
+        entities::{ProtocolMessage, SignedEntityType, StakeDistribution, TimePoint},
         signable_builder::SignableBuilderService,
         test_utils::{fake_data, MithrilFixtureBuilder},
         MithrilTickerService, StdResult,
@@ -825,10 +747,8 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_expire_open_message() {
-        let pending_certificate = fake_data::certificate_pending();
-
         let open_message_expected = OpenMessage {
-            signed_entity_type: pending_certificate.signed_entity_type.clone(),
+            signed_entity_type: SignedEntityType::dummy(),
             is_certified: false,
             is_expired: false,
             expires_at: Some(
@@ -855,92 +775,6 @@ pub mod tests {
             .expect("mark_open_message_if_expired should not fail");
 
         assert_eq!(Some(open_message_expected), open_message_expired);
-    }
-
-    #[tokio::test]
-    async fn test_create_new_pending_certificate() {
-        let deps = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let time_point = runner.get_time_point_from_chain().await.unwrap();
-        let signed_entity_type = SignedEntityType::dummy();
-
-        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
-        let current_signers = fixture.signers_with_stake()[1..3].to_vec();
-        let next_signers = fixture.signers_with_stake()[2..5].to_vec();
-        let protocol_parameters = fake_data::protocol_parameters();
-        deps.prepare_for_genesis(
-            current_signers.clone(),
-            next_signers.clone(),
-            &protocol_parameters.clone(),
-            &CardanoTransactionsSigningConfig::dummy(),
-        )
-        .await;
-        runner.inform_new_epoch(time_point.epoch).await.unwrap();
-
-        let mut certificate = runner
-            .create_new_pending_certificate(time_point.clone(), &signed_entity_type)
-            .await
-            .unwrap();
-        certificate.signers.sort_by_key(|s| s.party_id.clone());
-        certificate.next_signers.sort_by_key(|s| s.party_id.clone());
-        let mut expected = CertificatePending::new(
-            time_point.epoch,
-            signed_entity_type,
-            protocol_parameters.clone(),
-            protocol_parameters,
-            Signer::vec_from(current_signers),
-            Signer::vec_from(next_signers),
-        );
-        expected.signers.sort_by_key(|s| s.party_id.clone());
-        expected.next_signers.sort_by_key(|s| s.party_id.clone());
-
-        assert_eq!(expected, certificate);
-    }
-
-    #[tokio::test]
-    async fn test_save_pending_certificate() {
-        let deps = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let pending_certificate = fake_data::certificate_pending();
-
-        runner
-            .save_pending_certificate(pending_certificate.clone())
-            .await
-            .expect("save_pending_certificate should not fail");
-
-        let saved_cert = deps.certificate_pending_store.get().await.unwrap().unwrap();
-        assert_eq!(pending_certificate, saved_cert);
-    }
-
-    #[tokio::test]
-    async fn test_drop_pending_certificate() {
-        let deps = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-        let pending_certificate = fake_data::certificate_pending();
-        deps.certificate_pending_store
-            .save(pending_certificate.clone())
-            .await
-            .unwrap();
-
-        let cert = runner.drop_pending_certificate().await.unwrap();
-        assert_eq!(Some(pending_certificate), cert);
-        let maybe_saved_cert = deps.certificate_pending_store.get().await.unwrap();
-        assert_eq!(None, maybe_saved_cert);
-    }
-
-    #[tokio::test]
-    async fn test_drop_pending_no_certificate() {
-        let deps = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(deps.clone());
-
-        let cert = runner.drop_pending_certificate().await.unwrap();
-        assert_eq!(None, cert);
-        let maybe_saved_cert = deps.certificate_pending_store.get().await.unwrap();
-        assert_eq!(None, maybe_saved_cert);
     }
 
     #[tokio::test]

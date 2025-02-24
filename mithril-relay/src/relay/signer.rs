@@ -100,14 +100,7 @@ impl SignerRelay {
                     .and(middlewares::with_aggregator_endpoint(
                         aggregator_endpoint.to_string(),
                     ))
-                    .and_then(handlers::epoch_settings_handler))
-                .or(warp::path("certificate-pending")
-                    .and(warp::get())
-                    .and(middlewares::with_logger(&server_logger))
-                    .and(middlewares::with_aggregator_endpoint(
-                        aggregator_endpoint.to_string(),
-                    ))
-                    .and_then(handlers::certificate_pending_handler)),
+                    .and_then(handlers::epoch_settings_handler)),
             ([0, 0, 0, 0], *server_port).into(),
         )
     }
@@ -274,18 +267,6 @@ mod handlers {
         debug!(logger, "Serve HTTP route /epoch-settings");
         let response = reqwest::Client::new()
             .get(format!("{aggregator_endpoint}/epoch-settings"))
-            .send()
-            .await;
-        reply_response(logger, response).await
-    }
-
-    pub async fn certificate_pending_handler(
-        logger: Logger,
-        aggregator_endpoint: String,
-    ) -> Result<impl warp::Reply, Infallible> {
-        debug!(logger, "Serve HTTP route /certificate-pending");
-        let response = reqwest::Client::new()
-            .get(format!("{aggregator_endpoint}/certificate-pending"))
             .send()
             .await;
         reply_response(logger, response).await

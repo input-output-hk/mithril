@@ -7,14 +7,14 @@ use mithril_common::digesters::cache::ImmutableFileDigestCacheProvider;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
 use crate::database::repository::{
-    CertificatePendingRepository, CertificateRepository, EpochSettingsStore,
-    ImmutableFileDigestRepository, OpenMessageRepository, SignedEntityStore, SignedEntityStorer,
-    SignerRegistrationStore, SignerStore, StakePoolStore,
+    CertificateRepository, EpochSettingsStore, ImmutableFileDigestRepository,
+    OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
+    SignerStore, StakePoolStore,
 };
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::{
-    CExplorerSignerRetriever, CertificatePendingStorer, EpochSettingsStorer,
-    ImmutableFileDigestMapper, SignersImporter, VerificationKeyStorer,
+    CExplorerSignerRetriever, EpochSettingsStorer, ImmutableFileDigestMapper, SignersImporter,
+    VerificationKeyStorer,
 };
 
 impl DependenciesBuilder {
@@ -34,25 +34,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.stake_store.as_ref().cloned().unwrap())
-    }
-
-    async fn build_certificate_pending_storer(
-        &mut self,
-    ) -> Result<Arc<dyn CertificatePendingStorer>> {
-        Ok(Arc::new(CertificatePendingRepository::new(
-            self.get_sqlite_connection().await?,
-        )))
-    }
-
-    /// Get a configured [CertificatePendingStorer].
-    pub async fn get_certificate_pending_storer(
-        &mut self,
-    ) -> Result<Arc<dyn CertificatePendingStorer>> {
-        if self.certificate_pending_store.is_none() {
-            self.certificate_pending_store = Some(self.build_certificate_pending_storer().await?);
-        }
-
-        Ok(self.certificate_pending_store.as_ref().cloned().unwrap())
     }
 
     async fn build_certificate_repository(&mut self) -> Result<Arc<CertificateRepository>> {

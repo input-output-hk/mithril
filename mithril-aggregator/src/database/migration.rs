@@ -892,5 +892,13 @@ create table immutable_file_digest (
 );
         "#,
         ),
+        // Migration 35
+        // Remove `pending_certificate` table.
+        SqlMigration::new(
+            35,
+            r#"
+drop table pending_certificate;
+        "#,
+        ),
     ]
 }

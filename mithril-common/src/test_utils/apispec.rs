@@ -462,7 +462,7 @@ components:
             get:
                 responses:
                     "204":
-                        description: no pending certificate available
+                        description: not available
         "#;
         write_minimal_open_api_file("1.0.0", &file, paths, "");
 

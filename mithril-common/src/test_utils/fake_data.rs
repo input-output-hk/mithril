@@ -67,34 +67,6 @@ pub fn protocol_initializer<S: Into<String>>(
     .unwrap()
 }
 
-/// Fake CertificatePending
-pub fn certificate_pending() -> entities::CertificatePending {
-    // Epoch
-    let epoch = beacon().epoch;
-
-    // Signed entity type
-    let signed_entity_type = SignedEntityType::dummy();
-
-    // Protocol parameters
-    let next_protocol_parameters = protocol_parameters();
-    let protocol_parameters = protocol_parameters();
-
-    // Signers
-    let signers = signers(5);
-    let current_signers = signers[1..3].to_vec();
-    let next_signers = signers[2..5].to_vec();
-
-    // Certificate pending
-    entities::CertificatePending::new(
-        epoch,
-        signed_entity_type,
-        protocol_parameters,
-        next_protocol_parameters,
-        current_signers,
-        next_signers,
-    )
-}
-
 /// Fake Genesis Certificate
 pub fn genesis_certificate<T: Into<String>>(certificate_hash: T) -> entities::Certificate {
     let multi_signature = fake_keys::genesis_signature()[1].to_string();

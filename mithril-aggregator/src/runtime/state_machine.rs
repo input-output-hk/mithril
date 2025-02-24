@@ -294,14 +294,6 @@ impl AggregatorRuntime {
                 nested_error: None,
             })?;
         self.runner
-            .drop_pending_certificate()
-            .await
-            .map_err(|e| RuntimeError::ReInit {
-                message: "transiting SIGNING → READY: failed to drop pending certificate"
-                    .to_string(),
-                nested_error: Some(e),
-            })?;
-        self.runner
             .create_artifact(&state.open_message.signed_entity_type, &certificate)
             .await
             .map_err(|e| RuntimeError::ReInit {
@@ -325,7 +317,6 @@ impl AggregatorRuntime {
             self.logger,
             "Launching transition from SIGNING to IDLE state"
         );
-        self.runner.drop_pending_certificate().await?;
 
         Ok(IdleState {
             current_time_point: Some(state.current_time_point),
@@ -342,7 +333,6 @@ impl AggregatorRuntime {
             self.logger,
             "Launching transition from SIGNING to READY state"
         );
-        self.runner.drop_pending_certificate().await?;
 
         Ok(ReadyState {
             current_time_point: state.current_time_point,
@@ -361,16 +351,6 @@ impl AggregatorRuntime {
             "Launching transition from READY to SIGNING state"
         );
 
-        let certificate_pending = self
-            .runner
-            .create_new_pending_certificate(
-                new_time_point.clone(),
-                &open_message.signed_entity_type,
-            )
-            .await?;
-        self.runner
-            .save_pending_certificate(certificate_pending.clone())
-            .await?;
         let state = SigningState {
             current_time_point: new_time_point,
             open_message,
@@ -637,14 +617,6 @@ mod tests {
                 Ok(Some(open_message))
             });
         runner
-            .expect_create_new_pending_certificate()
-            .once()
-            .returning(|_, _| Ok(fake_data::certificate_pending()));
-        runner
-            .expect_save_pending_certificate()
-            .once()
-            .returning(|_| Ok(()));
-        runner
             .expect_increment_runtime_cycle_total_since_startup_counter()
             .once()
             .returning(|| ());
@@ -676,10 +648,6 @@ mod tests {
             .expect_is_open_message_outdated()
             .once()
             .returning(|_, _| Ok(true));
-        runner
-            .expect_drop_pending_certificate()
-            .once()
-            .returning(|| Ok(Some(fake_data::certificate_pending())));
         runner
             .expect_increment_runtime_cycle_total_since_startup_counter()
             .once()
@@ -755,10 +723,6 @@ mod tests {
             .expect_create_certificate()
             .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
         runner
-            .expect_drop_pending_certificate()
-            .once()
-            .returning(|| Ok(Some(fake_data::certificate_pending())));
-        runner
             .expect_create_artifact()
             .once()
             .returning(|_, _| Err(anyhow!("whatever")));
@@ -801,10 +765,6 @@ mod tests {
         runner
             .expect_create_certificate()
             .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
-        runner
-            .expect_drop_pending_certificate()
-            .once()
-            .returning(|| Ok(Some(fake_data::certificate_pending())));
         runner
             .expect_create_artifact()
             .once()

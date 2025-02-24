@@ -39,7 +39,7 @@ pub use crate::multi_signer::{MultiSigner, MultiSignerImpl};
 pub use commands::{CommandType, MainOpts};
 pub use dependency_injection::DependencyContainer;
 pub use file_uploaders::{DumbUploader, FileUploader, LocalSnapshotUploader};
-pub use message_adapters::{FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter};
+pub use message_adapters::FromRegisterSignerAdapter;
 pub use metrics::*;
 pub use runtime::{
     AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
@@ -48,7 +48,7 @@ pub use signer_registerer::{
     MithrilSignerRegisterer, SignerRecorder, SignerRegisterer, SignerRegistrationError,
     SignerRegistrationRound, SignerRegistrationRoundOpener,
 };
-pub use store::{CertificatePendingStorer, EpochSettingsStorer, VerificationKeyStorer};
+pub use store::{EpochSettingsStorer, VerificationKeyStorer};
 pub use tools::{
     CExplorerSignerRetriever, SignersImporter, SignersImporterPersister, SignersImporterRetriever,
     SingleSignatureAuthenticator,

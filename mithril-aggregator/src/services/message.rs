@@ -3,7 +3,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use thiserror::Error;
 
 use mithril_common::{
     entities::{Epoch, SignedEntityTypeDiscriminants},
@@ -23,13 +22,6 @@ use crate::{
     ImmutableFileDigestMapper,
 };
 
-/// Error related to the [MessageService]
-#[derive(Debug, Error)]
-pub enum MessageServiceError {
-    /// There is no current PendingCertificate
-    #[error("There is no current pending certificate.")]
-    PendingCertificateDoesNotExist,
-}
 /// HTTP Message service trait.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]

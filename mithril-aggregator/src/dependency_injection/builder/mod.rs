@@ -47,7 +47,6 @@ use crate::{
         CertifierService, MessageService, ProverService, SignedEntityService, Snapshotter,
         StakeDistributionService, UpkeepService,
     },
-    store::CertificatePendingStorer,
     tools::GenesisToolsDependency,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegisterer, MultiSigner,
@@ -96,9 +95,6 @@ pub struct DependenciesBuilder {
 
     /// Multisigner service.
     pub multi_signer: Option<Arc<dyn MultiSigner>>,
-
-    /// Certificate pending store.
-    pub certificate_pending_store: Option<Arc<dyn CertificatePendingStorer>>,
 
     /// Certificate repository.
     pub certificate_repository: Option<Arc<CertificateRepository>>,
@@ -236,7 +232,6 @@ impl DependenciesBuilder {
             stake_store: None,
             snapshot_uploader: None,
             multi_signer: None,
-            certificate_pending_store: None,
             certificate_repository: None,
             open_message_repository: None,
             verification_key_store: None,
@@ -311,7 +306,6 @@ impl DependenciesBuilder {
             stake_store: self.get_stake_store().await?,
             snapshot_uploader: self.get_snapshot_uploader().await?,
             multi_signer: self.get_multi_signer().await?,
-            certificate_pending_store: self.get_certificate_pending_storer().await?,
             certificate_repository: self.get_certificate_repository().await?,
             open_message_repository: self.get_open_message_repository().await?,
             verification_key_store: self.get_verification_key_store().await?,

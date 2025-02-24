@@ -6,23 +6,7 @@ use crate::http_server::routes::router::RouterState;
 pub fn routes(
     router_state: &RouterState,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    certificate_pending(router_state)
-        .or(certificate_certificates(router_state))
-        .or(certificate_certificate_hash(router_state))
-}
-
-/// GET /certificate-pending
-fn certificate_pending(
-    router_state: &RouterState,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("certificate-pending")
-        .and(warp::get())
-        .and(middlewares::with_logger(router_state))
-        .and(middlewares::extract_config(router_state, |config| {
-            config.network
-        }))
-        .and(middlewares::with_certificate_pending_store(router_state))
-        .and_then(handlers::certificate_pending)
+    certificate_certificates(router_state).or(certificate_certificate_hash(router_state))
 }
 
 /// GET /certificates
@@ -49,38 +33,15 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
-    use crate::store::CertificatePendingStorer;
     use crate::MetricsService;
-    use crate::{
-        http_server::routes::reply, services::MessageService, ToCertificatePendingMessageAdapter,
-    };
+    use crate::{http_server::routes::reply, services::MessageService};
 
-    use mithril_common::CardanoNetwork;
     use slog::{warn, Logger};
     use std::convert::Infallible;
     use std::sync::Arc;
     use warp::http::StatusCode;
 
     pub const LIST_MAX_ITEMS: usize = 20;
-
-    /// Certificate Pending
-    pub async fn certificate_pending(
-        logger: Logger,
-        network: CardanoNetwork,
-        certificate_pending_store: Arc<dyn CertificatePendingStorer>,
-    ) -> Result<impl warp::Reply, Infallible> {
-        match certificate_pending_store.get().await {
-            Ok(Some(certificate_pending)) => Ok(reply::json(
-                &ToCertificatePendingMessageAdapter::adapt(network, certificate_pending),
-                StatusCode::OK,
-            )),
-            Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
-            Err(err) => {
-                warn!(logger,"certificate_pending::error"; "error" => ?err);
-                Ok(reply::server_error(err))
-            }
-        }
-    }
 
     /// List all Certificates
     pub async fn certificate_certificates(
@@ -126,20 +87,18 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::store::MockCertificatePendingStorer;
-    use crate::{initialize_dependencies, services::MockMessageService};
     use anyhow::anyhow;
-    use mithril_common::{
-        entities::CertificatePending,
-        test_utils::{apispec::APISpec, fake_data},
-    };
+    use mithril_common::test_utils::{apispec::APISpec, fake_data};
     use serde_json::Value::Null;
     use std::sync::Arc;
     use warp::{
         http::{Method, StatusCode},
         test::request,
     };
+
+    use crate::{initialize_dependencies, services::MockMessageService};
+
+    use super::*;
 
     fn setup_router(
         state: RouterState,
@@ -150,104 +109,6 @@ mod tests {
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
         warp::any().and(routes(&state).with(cors))
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_with_content_get_ok_200() {
-        let method = Method::GET.as_str();
-        let path = "/certificate-pending";
-        let dependency_manager = initialize_dependencies().await;
-        let certificate_pending = {
-            let mut signers = fake_data::signers(3);
-            signers[0].party_id = "1".to_string();
-            CertificatePending {
-                signers,
-                ..fake_data::certificate_pending()
-            }
-        };
-        dependency_manager
-            .certificate_pending_store
-            .save(certificate_pending)
-            .await
-            .unwrap();
-
-        let response = request()
-            .method(method)
-            .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
-                dependency_manager,
-            ))))
-            .await;
-
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/json",
-            &Null,
-            &response,
-            &StatusCode::OK,
-        )
-        .unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_without_content_get_ok_204() {
-        let method = Method::GET.as_str();
-        let path = "/certificate-pending";
-        let dependency_manager = initialize_dependencies().await;
-
-        let response = request()
-            .method(method)
-            .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
-                dependency_manager,
-            ))))
-            .await;
-
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/json",
-            &Null,
-            &response,
-            &StatusCode::NO_CONTENT,
-        )
-        .unwrap();
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_get_ko_500() {
-        let method = Method::GET.as_str();
-        let path = "/certificate-pending";
-        let mut dependency_manager = initialize_dependencies().await;
-
-        let mut certificate_pending_store_store = MockCertificatePendingStorer::new();
-        certificate_pending_store_store
-            .expect_get()
-            .returning(|| Err(anyhow!("error")));
-
-        dependency_manager.certificate_pending_store = Arc::new(certificate_pending_store_store);
-
-        let response = request()
-            .method(method)
-            .path(path)
-            .reply(&setup_router(RouterState::new_with_dummy_config(Arc::new(
-                dependency_manager,
-            ))))
-            .await;
-
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/json",
-            &Null,
-            &response,
-            &StatusCode::INTERNAL_SERVER_ERROR,
-        )
-        .unwrap();
     }
 
     #[tokio::test]

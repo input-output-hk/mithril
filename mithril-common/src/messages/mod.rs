@@ -13,7 +13,6 @@ mod cardano_transaction_snapshot_list;
 mod cardano_transactions_proof;
 mod certificate;
 mod certificate_list;
-mod certificate_pending;
 mod epoch_settings;
 mod interface;
 mod message_parts;
@@ -53,8 +52,6 @@ pub use certificate::CertificateMessage;
 pub use certificate_list::{
     CertificateListItemMessage, CertificateListItemMessageMetadata, CertificateListMessage,
 };
-#[allow(deprecated)]
-pub use certificate_pending::CertificatePendingMessage;
 pub use epoch_settings::EpochSettingsMessage;
 pub use interface::*;
 pub use message_parts::*;
