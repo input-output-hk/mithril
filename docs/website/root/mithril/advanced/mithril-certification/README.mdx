@@ -1,0 +1,32 @@
+---
+title: Mithril certification
+---
+
+import DocCardList from "@theme/DocCardList";
+
+This section explains how Mithril certification works for different types of supported data, from computing the message signed by Mithril signers to authenticity verification by Mithril clients.
+
+Under the hood, a certification framework leverages the Mithril protocol to provide a robust foundation for 'pluggable' custom modules that support the certification of specific data types:
+
+- **Signers** compute messages using a specific module and broadcast them
+- **Aggregators** receive signatures from signers and attempt to aggregate them into a **Mithril multi-signature** ultimately sealed in a **Mithril certificate**
+- **Clients** download 'artifacts' and certificates in a **trustless way** and use them to verify authenticity.
+
+[![Mithril certification design](./images/certification-framework.jpg)](./images/certification-framework.jpg)
+
+<small>
+  <center>Certification process implemented in specific modules</center>
+</small>
+
+<p />
+
+:::info
+
+Implementing specific modules:
+
+- Requires significant development effort
+- Must be fully deployed on the signers (the majority of SPOs registered in the protocol), aggregators, and clients before end-to-end certification can occur.
+
+:::
+
+<DocCardList />
