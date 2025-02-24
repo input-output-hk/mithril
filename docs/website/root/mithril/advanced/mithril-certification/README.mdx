@@ -4,15 +4,15 @@ title: Mithril certification
 
 import DocCardList from "@theme/DocCardList";
 
-This section explores the way Mithril certification works for the different types of data currently supported, from the computation of the message that is signed by the Mithril signers, to the authenticity verification done by the Mithril clients.
+This section explains how Mithril certification works for different types of supported data, from computing the message signed by Mithril signers to authenticity verification by Mithril clients.
 
-Under the hood, we have implemented a certification framework which leverages the Mithril protocol to provide a robust foundation for "pluggable" custom modules which support the certification of specific type of data:
+Under the hood, a certification framework leverages the Mithril protocol to provide a robust foundation for 'pluggable' custom modules that support the certification of specific data types:
 
-- the **signers** compute the message with a specific module, and broadcast them
-- the **aggregators** receive the signatures from the signers and attempt to aggregate them into a **Mithril multi-signature** ultimately sealed in a **Mithril certificate**
-- the **clients** download "artifacts" and certificates in a **trustless way**, and use them to verify their authenticity.
+- **Signers** compute messages using a specific module and broadcast them
+- **Aggregators** receive signatures from signers and attempt to aggregate them into a **Mithril multi-signature** ultimately sealed in a **Mithril certificate**
+- **Clients** download 'artifacts' and certificates in a **trustless way** and use them to verify authenticity.
 
-[![Design of the Mithril certification](./images/certification-framework.jpg)](./images/certification-framework.jpg)
+[![Mithril certification design](./images/certification-framework.jpg)](./images/certification-framework.jpg)
 
 <small>
   <center>Certification process implemented in specific modules</center>
@@ -22,10 +22,10 @@ Under the hood, we have implemented a certification framework which leverages th
 
 :::info
 
-It is worth mentioning that the implementation of the specific modules:
+Implementing specific modules:
 
-- incur significant development efforts
-- must be fully deployed on the signers (high majority of the SPOs registered in the protocol), on the aggregators and on the client before an end to end certification takes place.
+- Requires significant development effort
+- Must be fully deployed on the signers (the majority of SPOs registered in the protocol), aggregators, and clients before end-to-end certification can occur.
 
 :::
 

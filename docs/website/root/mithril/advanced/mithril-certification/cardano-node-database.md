@@ -7,31 +7,30 @@ sidebar_label: Cardano node database
 
 ## Introduction
 
-The Mithril protocol supports the certification of the **Cardano node internal database**. This allows users to fast bootstrap a Cardano node.
-This is particularly useful for full-node wallets, SPOs and layer-2 protocols that need to operate full Cardano nodes.
+The Mithril protocol supports the certification of the **Cardano node internal database**, enabling fast bootstrapping of a Cardano node. This is particularly useful for full-node wallets, SPOs, and layer 2 protocols that need to operate full Cardano nodes.
 
-To do so, the Mithril signers and aggregators independently compute a message which represents the imutable files of the **Cardano node internal database** and apply the Mithril protocol to jointly sign it.
+To achieve this, Mithril signers and aggregators independently compute a message representing the immutable files of the Cardano node internal database and apply the Mithril protocol to jointly sign it.
 
 :::info
 
-It is worth mentioning that the Cardano node internal database:
+The Cardano node internal database:
 
-- weighs more than `150 GB` on the Cardano mainnet
-- is fast bootstrapped in `~20 min` with Mithril
-- is bootstrapped in `>24 h` without Mithril.
+- Exceeds `150 GB` on the Cardano mainnet
+- Can be bootstrapped in `~20 minutes` with Mithril
+- Takes over `24 hours` without Mithril.
 
 :::
 
 ## Mithril certification
 
-The Mithril certification is generally done with the following steps:
-
-- the **signers** compute the message which represents the type of information to sign, and then broadcast it to the aggregators
-- the **aggregators** compute the same message which represents the type of information to sign, collect the signatures from the signers and attempt to aggregate them into a multi-signature
-- the **clients** download "artifacts" from an untrusted source (e.g. an aggregator, a cloud service, or a peer-to-peer network), re-compute the same message which represents the type of information to verify, and verify that the message is signed by a valid Mithril multi-signature.
-
 [![Design of the certification of the Cardano node internal database](./images/cardano-node-database/end-to-end-process.jpg)](./images/cardano-node-database/end-to-end-process.jpg)
-<small><center>End to end certification for Cardano transactions</center></small>
+<small><center>End-to-end certification for Cardano transactions</center></small>
+
+:::info
+
+Learn about the Mithril certification steps [here](./README.mdx).
+
+:::
 
 ### Message computation
 
