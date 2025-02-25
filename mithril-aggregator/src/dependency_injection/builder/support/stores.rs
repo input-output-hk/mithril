@@ -108,18 +108,6 @@ impl DependenciesBuilder {
                 error: Some(e.into()),
             })?;
 
-        {
-            // Temporary fix, should be removed
-            // Replace empty JSON values '{}' injected with Migration #28
-            let cardano_signing_config = self
-                .configuration
-                .cardano_transactions_signing_config
-                .clone();
-            #[allow(deprecated)]
-            epoch_settings_store
-                .replace_cardano_signing_config_empty_values(cardano_signing_config)?;
-        }
-
         let epoch_settings_configuration = self.configuration.get_epoch_settings_configuration();
         debug!(
             logger,
