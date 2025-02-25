@@ -1,0 +1,19 @@
+[package]
+name = "client-cardano-database"
+description = "Mithril client Cardano database example"
+version = "0.0.1"
+authors = ["dev@iohk.io", "mithril-dev@iohk.io"]
+documentation = "https://mithril.network/doc"
+edition = "2021"
+homepage = "https://mithril.network"
+license = "Apache-2.0"
+repository = "https://github.com/input-output-hk/mithril/"
+
+[dependencies]
+anyhow = "1.0.95"
+async-trait = "0.1.86"
+clap = { version = "4.5.28", features = ["derive", "env"] }
+futures = "0.3.31"
+indicatif = "0.17.11"
+mithril-client = { path = "../../mithril-client", features = ["fs", "unstable"] }
+tokio = { version = "1.43.0", features = ["full"] }

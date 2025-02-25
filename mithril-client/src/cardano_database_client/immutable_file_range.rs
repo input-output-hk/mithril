@@ -50,6 +50,16 @@ impl ImmutableFileRange {
             _ => Err(anyhow!("Invalid immutable file range: {self:?}")),
         }
     }
+
+    /// Returns the length of the immutable file range
+    pub fn length(&self, last_immutable_file_number: ImmutableFileNumber) -> u64 {
+        match self {
+            ImmutableFileRange::Full => last_immutable_file_number,
+            ImmutableFileRange::From(from) => last_immutable_file_number - from + 1,
+            ImmutableFileRange::Range(from, to) => to - from + 1,
+            ImmutableFileRange::UpTo(to) => *to,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -122,5 +132,25 @@ mod tests {
             .expect_err(
                 "should fail: given last immutable should be greater or equal range max bound",
             );
+    }
+
+    #[test]
+    fn length() {
+        let last_immutable_file_number = 10;
+
+        let immutable_file_range = ImmutableFileRange::Full;
+        assert_eq!(
+            last_immutable_file_number,
+            immutable_file_range.length(last_immutable_file_number)
+        );
+
+        let immutable_file_range = ImmutableFileRange::From(5);
+        assert_eq!(6, immutable_file_range.length(last_immutable_file_number));
+
+        let immutable_file_range = ImmutableFileRange::Range(5, 8);
+        assert_eq!(4, immutable_file_range.length(last_immutable_file_number));
+
+        let immutable_file_range = ImmutableFileRange::UpTo(8);
+        assert_eq!(8, immutable_file_range.length(last_immutable_file_number));
     }
 }
