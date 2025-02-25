@@ -95,13 +95,6 @@ impl CardanoDbV2DownloadCommand {
         }
     }
 
-    fn number_of_immutable_files_restored(
-        cardano_database_snapshot: &CardanoDatabaseSnapshot,
-        immutable_file_range: &ImmutableFileRange,
-    ) -> u64 {
-        immutable_file_range.length(cardano_database_snapshot.beacon.immutable_file_number)
-    }
-
     /// Command execution
     pub async fn execute(&self, context: CommandContext) -> MithrilResult<()> {
         let params = context.config_parameters()?.add_source(self)?;
@@ -298,10 +291,9 @@ impl CardanoDbV2DownloadCommand {
         let include_ancillary = restoration_options
             .download_unpack_options
             .include_ancillary;
-        let number_of_immutable_files_restored = Self::number_of_immutable_files_restored(
-            cardano_database_snapshot,
-            &restoration_options.immutable_file_range,
-        );
+        let number_of_immutable_files_restored = restoration_options
+            .immutable_file_range
+            .length(cardano_database_snapshot.beacon.immutable_file_number);
         if let Err(e) = client
             .cardano_database()
             .add_statistics(
@@ -579,81 +571,5 @@ mod tests {
         let range = CardanoDbV2DownloadCommand::immutable_file_range(None, end);
 
         assert_eq!(range, ImmutableFileRange::UpTo(345));
-    }
-
-    #[test]
-    fn number_of_immutable_files_restored_with_full_restoration() {
-        let cardano_database_snapshot = CardanoDatabaseSnapshot {
-            beacon: CardanoDbBeacon::new(999, 20),
-            ..CardanoDatabaseSnapshot::dummy()
-        };
-        let immutable_file_range = ImmutableFileRange::Full;
-
-        let number_of_immutable_files_restored =
-            CardanoDbV2DownloadCommand::number_of_immutable_files_restored(
-                &cardano_database_snapshot,
-                &immutable_file_range,
-            );
-
-        assert_eq!(number_of_immutable_files_restored, 20);
-    }
-
-    #[test]
-    fn number_of_immutable_files_restored_with_from() {
-        let cardano_database_snapshot = CardanoDatabaseSnapshot {
-            beacon: CardanoDbBeacon::new(999, 20),
-            ..CardanoDatabaseSnapshot::dummy()
-        };
-        let immutable_file_range = ImmutableFileRange::From(12);
-
-        let number_of_immutable_files_restored =
-            CardanoDbV2DownloadCommand::number_of_immutable_files_restored(
-                &cardano_database_snapshot,
-                &immutable_file_range,
-            );
-
-        let expected_number_of_immutable_files_restored = 20 - 12 + 1;
-        assert_eq!(
-            number_of_immutable_files_restored,
-            expected_number_of_immutable_files_restored
-        );
-    }
-
-    #[test]
-    fn number_of_immutable_files_restored_with_up_to() {
-        let cardano_database_snapshot = CardanoDatabaseSnapshot {
-            beacon: CardanoDbBeacon::new(999, 20),
-            ..CardanoDatabaseSnapshot::dummy()
-        };
-        let immutable_file_range = ImmutableFileRange::UpTo(14);
-
-        let number_of_immutable_files_restored =
-            CardanoDbV2DownloadCommand::number_of_immutable_files_restored(
-                &cardano_database_snapshot,
-                &immutable_file_range,
-            );
-
-        assert_eq!(number_of_immutable_files_restored, 14);
-    }
-
-    #[test]
-    fn number_of_immutable_files_restored_with_range() {
-        let cardano_database_snapshot = CardanoDatabaseSnapshot {
-            beacon: CardanoDbBeacon::new(999, 20),
-            ..CardanoDatabaseSnapshot::dummy()
-        };
-        let immutable_file_range = ImmutableFileRange::Range(12, 14);
-
-        let number_of_immutable_files_restored =
-            CardanoDbV2DownloadCommand::number_of_immutable_files_restored(
-                &cardano_database_snapshot,
-                &immutable_file_range,
-            );
-
-        let expected_number_of_immutable_files_restored = 14 - 12 + 1;
-        assert_eq!(
-            number_of_immutable_files_restored,
-            expected_number_of_immutable_files_restored
-        );
     }
 }
