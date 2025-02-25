@@ -68,21 +68,19 @@ mod handlers {
             }
         };
 
-        if let Some(signed_message) = signed_message {
-            unwrap_to_internal_server_error!(
-                single_signer_authenticator
-                    .authenticate(&mut signatures, &signed_message)
-                    .await,
-                logger => "single_signer_authenticator::error"
-            );
+        unwrap_to_internal_server_error!(
+            single_signer_authenticator
+                .authenticate(&mut signatures, &signed_message)
+                .await,
+            logger => "single_signer_authenticator::error"
+        );
 
-            if !signatures.is_authenticated() {
-                debug!(logger, "register_signatures::unauthenticated_signature");
-                return Ok(reply::bad_request(
-                    "Could not authenticate signature".to_string(),
-                    "Signature could not be authenticated".to_string(),
-                ));
-            }
+        if !signatures.is_authenticated() {
+            debug!(logger, "register_signatures::unauthenticated_signature");
+            return Ok(reply::bad_request(
+                "Could not authenticate signature".to_string(),
+                "Signature could not be authenticated".to_string(),
+            ));
         }
 
         match certifier_service
@@ -191,7 +189,7 @@ mod tests {
             Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
         let message = RegisterSignatureMessage {
-            signed_message: Some("message".to_string()),
+            signed_message: "message".to_string(),
             ..RegisterSignatureMessage::dummy()
         };
 
@@ -220,7 +218,7 @@ mod tests {
             Arc::new(SingleSignatureAuthenticator::new_that_reject_everything());
 
         let message = RegisterSignatureMessage {
-            signed_message: Some("message".to_string()),
+            signed_message: "message".to_string(),
             ..RegisterSignatureMessage::dummy()
         };
 
@@ -256,6 +254,8 @@ mod tests {
             .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
         let message = RegisterSignatureMessage::dummy();
 
@@ -291,6 +291,8 @@ mod tests {
             .return_once(move |_, _| Ok(SignatureRegistrationStatus::Buffered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
         let message = RegisterSignatureMessage::dummy();
 
@@ -326,6 +328,8 @@ mod tests {
             .return_once(move |_, _| Ok(SignatureRegistrationStatus::Registered));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
         let mut message = RegisterSignatureMessage::dummy();
         message.signature = "invalid-signature".to_string();
@@ -366,6 +370,8 @@ mod tests {
             });
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -403,6 +409,8 @@ mod tests {
             });
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -448,6 +456,8 @@ mod tests {
             });
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -490,6 +500,8 @@ mod tests {
             .return_once(move |_, _| Err(anyhow!("an error occurred")));
         let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+        dependency_manager.single_signer_authenticator =
+            Arc::new(SingleSignatureAuthenticator::new_that_authenticate_everything());
 
         let message = RegisterSignatureMessage::dummy();
 

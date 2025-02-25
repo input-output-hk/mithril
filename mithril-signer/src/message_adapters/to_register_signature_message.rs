@@ -33,7 +33,7 @@ impl
                 "'ToRegisterSignatureMessageAdapter' can not convert the single signature"
             })?,
             won_indexes: single_signature.won_indexes,
-            signed_message: Some(protocol_message.to_message()),
+            signed_message: protocol_message.to_message(),
         };
 
         Ok(message)
@@ -60,7 +60,7 @@ mod tests {
 
         assert_eq!("party_id".to_string(), message.party_id);
         assert_eq!(
-            Some(ProtocolMessage::default().to_message()),
+            ProtocolMessage::default().to_message(),
             message.signed_message
         );
         assert_eq!(

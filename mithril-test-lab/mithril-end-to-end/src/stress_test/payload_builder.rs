@@ -86,7 +86,7 @@ pub async fn compute_mithril_stake_distribution_signatures(
                         party_id: s.party_id.clone(),
                         signature: s.signature.clone().to_json_hex().unwrap(),
                         won_indexes: s.won_indexes.clone(),
-                        signed_message: Some(signed_message.clone()),
+                        signed_message: signed_message.clone(),
                     })
                     .collect()
             })
@@ -154,7 +154,7 @@ pub async fn compute_immutable_files_signatures(
                         party_id: s.party_id.clone(),
                         signature: s.signature.clone().to_json_hex().unwrap(),
                         won_indexes: s.won_indexes.clone(),
-                        signed_message: Some(signed_message.clone()),
+                        signed_message: signed_message.clone(),
                     })
                     .collect()
             })

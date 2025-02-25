@@ -1303,6 +1303,7 @@ components:
         - party_id
         - signature
         - indexes
+        - signed_message
       properties:
         entity_type:
           $ref: "#/components/schemas/SignedEntityType"
