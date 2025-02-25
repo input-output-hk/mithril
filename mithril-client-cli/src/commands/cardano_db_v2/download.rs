@@ -148,7 +148,7 @@ impl CardanoDbV2DownloadCommand {
         Self::check_local_disk_info(
             1,
             &progress_printer,
-            &restoration_options.db_dir,
+            &restoration_options,
             &cardano_db_message,
             self.allow_override,
         )?;
@@ -216,19 +216,30 @@ impl CardanoDbV2DownloadCommand {
         Ok(())
     }
 
+    fn compute_required_disk_space_for_snapshot(
+        cardano_db: &CardanoDatabaseSnapshot,
+        restoration_options: &RestorationOptions,
+    ) -> u64 {
+        if restoration_options.immutable_file_range == ImmutableFileRange::Full {
+            cardano_db.total_db_size_uncompressed
+        } else {
+            todo!()
+        }
+    }
+
     fn check_local_disk_info(
         step_number: u16,
         progress_printer: &ProgressPrinter,
-        db_dir: &Path,
+        restoration_options: &RestorationOptions,
         cardano_db: &CardanoDatabaseSnapshot,
         allow_override: bool,
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
 
-        CardanoDbDownloadChecker::ensure_dir_exist(db_dir)?;
+        CardanoDbDownloadChecker::ensure_dir_exist(&restoration_options.db_dir)?;
         if let Err(e) = CardanoDbDownloadChecker::check_prerequisites_for_uncompressed_data(
-            db_dir,
-            cardano_db.total_db_size_uncompressed,
+            &restoration_options.db_dir,
+            Self::compute_required_disk_space_for_snapshot(cardano_db, restoration_options),
             allow_override,
         ) {
             progress_printer
@@ -566,5 +577,25 @@ mod tests {
         let range = CardanoDbV2DownloadCommand::immutable_file_range(None, end);
 
         assert_eq!(range, ImmutableFileRange::UpTo(345));
+    }
+
+    #[test]
+    fn compute_required_disk_space_for_snapshot_when_full_restoration() {
+        let cardano_db_snapshot = CardanoDatabaseSnapshot {
+            total_db_size_uncompressed: 123,
+            ..CardanoDatabaseSnapshot::dummy()
+        };
+        let restoration_options = RestorationOptions {
+            immutable_file_range: ImmutableFileRange::Full,
+            db_dir: PathBuf::from("db_dir"),
+            download_unpack_options: DownloadUnpackOptions::default(),
+        };
+
+        let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
+            &cardano_db_snapshot,
+            &restoration_options,
+        );
+
+        assert_eq!(required_size, 123);
     }
 }
