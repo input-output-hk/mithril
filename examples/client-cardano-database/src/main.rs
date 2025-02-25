@@ -17,7 +17,7 @@ use std::time::Duration;
 use tokio::sync::RwLock;
 
 use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
-use mithril_client::{CardanoDatabaseSnapshot, ClientBuilder, MessageBuilder, MithrilResult};
+use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
 
 #[derive(Parser, Debug)]
 #[command(version)]
@@ -111,7 +111,7 @@ async fn main() -> MithrilResult<()> {
     let full_restoration = immutable_file_range == ImmutableFileRange::Full;
     let include_ancillary = download_unpack_options.include_ancillary;
     let number_of_immutable_files_restored =
-        number_of_immutable_files_restored(&cardano_database_snapshot, &immutable_file_range);
+        immutable_file_range.length(cardano_database_snapshot.beacon.immutable_file_number);
     if let Err(e) = client
         .cardano_database()
         .add_statistics(
@@ -147,20 +147,6 @@ async fn main() -> MithrilResult<()> {
             certificate.signed_message,
             message.compute_hash()
         ))
-    }
-}
-
-fn number_of_immutable_files_restored(
-    cardano_database_snapshot: &CardanoDatabaseSnapshot,
-    immutable_file_range: &ImmutableFileRange,
-) -> u64 {
-    match immutable_file_range {
-        ImmutableFileRange::Full => cardano_database_snapshot.beacon.immutable_file_number,
-        ImmutableFileRange::From(from) => {
-            cardano_database_snapshot.beacon.immutable_file_number - from + 1
-        }
-        ImmutableFileRange::Range(from, to) => to - from + 1,
-        ImmutableFileRange::UpTo(to) => *to,
     }
 }
 
@@ -211,9 +197,8 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     }
                     *cardano_database_pb = None;
                 }
-                MithrilEventCardanoDatabase::ImmutableDownloadCompleted { .. } | 
-                    MithrilEventCardanoDatabase::AncillaryDownloadCompleted { .. }
-                 => {
+                MithrilEventCardanoDatabase::ImmutableDownloadCompleted { .. }
+                | MithrilEventCardanoDatabase::AncillaryDownloadCompleted { .. } => {
                     let cardano_database_pb = self.cardano_database_pb.read().await;
                     if let Some(progress_bar) = cardano_database_pb.as_ref() {
                         progress_bar.inc(1);
@@ -222,7 +207,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 _ => {
                     // Ignore other events
                 }
-            }
+            },
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id: _,
             } => {

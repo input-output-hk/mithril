@@ -99,14 +99,7 @@ impl CardanoDbV2DownloadCommand {
         cardano_database_snapshot: &CardanoDatabaseSnapshot,
         immutable_file_range: &ImmutableFileRange,
     ) -> u64 {
-        match immutable_file_range {
-            ImmutableFileRange::Full => cardano_database_snapshot.beacon.immutable_file_number,
-            ImmutableFileRange::From(from) => {
-                cardano_database_snapshot.beacon.immutable_file_number - from + 1
-            }
-            ImmutableFileRange::Range(from, to) => to - from + 1,
-            ImmutableFileRange::UpTo(to) => *to,
-        }
+        immutable_file_range.length(cardano_database_snapshot.beacon.immutable_file_number)
     }
 
     /// Command execution
