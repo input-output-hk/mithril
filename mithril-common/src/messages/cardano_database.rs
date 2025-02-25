@@ -132,11 +132,13 @@ impl CardanoDatabaseSnapshotMessage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "https://host-1/immutables-2".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
                     },
                     ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "https://host-2/immutables-2".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
                     },
                 ],
             },
@@ -144,6 +146,7 @@ impl CardanoDatabaseSnapshotMessage {
                 size_uncompressed: 2048,
                 locations: vec![AncillaryLocation::CloudStorage {
                     uri: "https://host-1/ancillary-3".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 }],
             },
             compression_algorithm: CompressionAlgorithm::Gzip,
@@ -183,7 +186,8 @@ mod tests {
                     "type": "cloud_storage",
                     "uri": {
                         "Template": "https://host-1/immutables-{immutable_file_number}"
-                    }
+                    },
+                    "compression_algorithm": "gzip"
                 },
                 {
                     "type": "cloud_storage",
@@ -198,7 +202,8 @@ mod tests {
             "locations": [
                 {
                     "type": "cloud_storage",
-                    "uri": "https://host-1/ancillary-3"
+                    "uri": "https://host-1/ancillary-3",
+                    "compression_algorithm": "gzip"
                 }
             ]
         },
@@ -236,11 +241,13 @@ mod tests {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "https://host-1/immutables-{immutable_file_number}".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
                     },
                     ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "https://host-2/immutables-{immutable_file_number}".to_string(),
                         )),
+                        compression_algorithm: None,
                     },
                 ],
             },
@@ -248,6 +255,7 @@ mod tests {
                 size_uncompressed: 4096,
                 locations: vec![AncillaryLocation::CloudStorage {
                     uri: "https://host-1/ancillary-3".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 }],
             },
             compression_algorithm: CompressionAlgorithm::Gzip,

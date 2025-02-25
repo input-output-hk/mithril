@@ -1860,14 +1860,16 @@ components:
                   "uri":
                     {
                       "Template": "https://mithril-cdn-us.iohk.io/snapshot/{immutable-file_number}.tar.zst"
-                    }
+                    },
+                  "compression_algorithm": "zstandard"
                 },
                 {
                   "type": "cloud_storage",
                   "uri":
                     {
                       "Template": "https://mithril-cdn-eu.iohk.io/snapshot/{immutable-file_number}.tar.zst"
-                    }
+                    },
+                  "compression_algorithm": "zstandard"
                 }
               ]
           }
@@ -1894,7 +1896,8 @@ components:
               [
                 {
                   "type": "cloud_storage",
-                  "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                  "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst",
+                  "compression_algorithm": "zstandard"
                 }
               ]
           }
@@ -1911,6 +1914,9 @@ components:
           type: string
         uri:
           description: URI of the artifact location
+          type: string
+        compression_algorithm:
+          description: Compression algorithm for the Cardano database artifact archive
           type: string
       examples:
         - {
@@ -1930,13 +1936,17 @@ components:
           type: string
         uri:
           $ref: "#/components/schemas/MultiFilesUri"
+        compression_algorithm:
+          description: Compression algorithm for the Cardano database immutable archive
+          type: string
       examples:
         - {
             "type": "cloud_storage",
             "uri":
               {
                 "Template": "https://aggregator/{immutable_file_number}.tar.gz"
-              }
+              },
+            "compression_algorithm": "gzip"
           }
 
     MultiFilesUri:
@@ -2131,7 +2141,8 @@ components:
                   [
                     {
                       "type": "cloud_storage",
-                      "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                      "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst",
+                      "compression_algorithm": "zstandard"
                     }
                   ]
               },

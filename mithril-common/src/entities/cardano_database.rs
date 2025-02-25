@@ -89,6 +89,10 @@ pub enum DigestLocation {
     CloudStorage {
         /// URI of the cloud storage location.
         uri: String,
+
+        /// Compression algorithm of the Cardano database artifacts.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        compression_algorithm: Option<CompressionAlgorithm>,
     },
     /// Aggregator digest route location.
     Aggregator {
@@ -108,6 +112,10 @@ pub enum ImmutablesLocation {
     CloudStorage {
         /// URI of the cloud storage location.
         uri: MultiFilesUri,
+
+        /// Compression algorithm of the Cardano database artifacts.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        compression_algorithm: Option<CompressionAlgorithm>,
     },
     /// Catchall for unknown location variants.
     #[serde(other)]
@@ -122,6 +130,10 @@ pub enum AncillaryLocation {
     CloudStorage {
         /// URI of the cloud storage location.
         uri: String,
+
+        /// Compression algorithm of the Cardano database artifacts.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        compression_algorithm: Option<CompressionAlgorithm>,
     },
     /// Catchall for unknown location variants.
     #[serde(other)]
@@ -160,6 +172,8 @@ pub struct AncillaryLocations {
 
 #[cfg(test)]
 mod tests {
+    use crate::entities::TemplateUri;
+
     use super::*;
 
     fn dummy() -> CardanoDatabaseSnapshot {
@@ -273,5 +287,41 @@ mod tests {
                 .compute_hash()
             );
         }
+    }
+
+    #[test]
+    fn should_not_display_compression_algorithm_in_json_ancillary_location_when_none() {
+        let json = serde_json::json!(AncillaryLocation::CloudStorage {
+            uri: "https://example.com".to_string(),
+            compression_algorithm: None,
+        });
+        assert_eq!(
+            json.to_string(),
+            r#"{"type":"cloud_storage","uri":"https://example.com"}"#
+        );
+    }
+
+    #[test]
+    fn should_not_display_compression_algorithm_in_json_digests_location_when_none() {
+        let json = serde_json::json!(DigestLocation::CloudStorage {
+            uri: "https://example.com".to_string(),
+            compression_algorithm: None,
+        });
+        assert_eq!(
+            json.to_string(),
+            r#"{"type":"cloud_storage","uri":"https://example.com"}"#
+        );
+    }
+
+    #[test]
+    fn should_not_display_compression_algorithm_in_json_immutable_location_when_none() {
+        let json = serde_json::json!(ImmutablesLocation::CloudStorage {
+            uri: MultiFilesUri::Template(TemplateUri("https://example.com".to_string())),
+            compression_algorithm: None,
+        });
+        assert_eq!(
+            json.to_string(),
+            r#"{"type":"cloud_storage","uri":{"Template":"https://example.com"}}"#
+        );
     }
 }

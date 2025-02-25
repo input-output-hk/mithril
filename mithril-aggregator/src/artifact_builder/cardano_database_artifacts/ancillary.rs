@@ -26,33 +26,58 @@ use crate::{
 #[async_trait]
 pub trait AncillaryFileUploader: Send + Sync {
     /// Uploads the archive at the given filepath and returns the location of the uploaded file.
-    async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation>;
+    async fn upload(
+        &self,
+        filepath: &Path,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<AncillaryLocation>;
 }
 
 #[async_trait]
 impl AncillaryFileUploader for DumbUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
+    async fn upload(
+        &self,
+        filepath: &Path,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<AncillaryLocation> {
         let uri = FileUploader::upload(self, filepath).await?.into();
 
-        Ok(AncillaryLocation::CloudStorage { uri })
+        Ok(AncillaryLocation::CloudStorage {
+            uri,
+            compression_algorithm,
+        })
     }
 }
 
 #[async_trait]
 impl AncillaryFileUploader for LocalUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
+    async fn upload(
+        &self,
+        filepath: &Path,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<AncillaryLocation> {
         let uri = FileUploader::upload(self, filepath).await?.into();
 
-        Ok(AncillaryLocation::CloudStorage { uri })
+        Ok(AncillaryLocation::CloudStorage {
+            uri,
+            compression_algorithm,
+        })
     }
 }
 
 #[async_trait]
 impl AncillaryFileUploader for GcpUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<AncillaryLocation> {
+    async fn upload(
+        &self,
+        filepath: &Path,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<AncillaryLocation> {
         let uri = FileUploader::upload(self, filepath).await?.into();
 
-        Ok(AncillaryLocation::CloudStorage { uri })
+        Ok(AncillaryLocation::CloudStorage {
+            uri,
+            compression_algorithm,
+        })
     }
 }
 
@@ -167,7 +192,9 @@ impl AncillaryArtifactBuilder {
     ) -> StdResult<Vec<AncillaryLocation>> {
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
-            let result = uploader.upload(archive_filepath).await;
+            let result = uploader
+                .upload(archive_filepath, Some(self.compression_algorithm))
+                .await;
             match result {
                 Ok(location) => {
                     locations.push(location);
@@ -240,20 +267,31 @@ mod tests {
         let mut uploader = MockAncillaryFileUploader::new();
         uploader
             .expect_upload()
-            .return_once(|_| Err(anyhow!("Failure while uploading...")));
+            .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
         uploader
     }
 
-    fn fake_uploader(archive_path: &str, location_uri: &str) -> MockAncillaryFileUploader {
+    fn fake_uploader(
+        archive_path: &str,
+        location_uri: &str,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> MockAncillaryFileUploader {
         let uri = location_uri.to_string();
         let filepath = archive_path.to_string();
         let mut uploader = MockAncillaryFileUploader::new();
         uploader
             .expect_upload()
-            .withf(move |p| p == Path::new(&filepath))
+            .withf(move |path, algorithm| {
+                path == Path::new(&filepath) && algorithm == &compression_algorithm
+            })
             .times(1)
-            .return_once(|_| Ok(AncillaryLocation::CloudStorage { uri }));
+            .return_once(move |_, _| {
+                Ok(AncillaryLocation::CloudStorage {
+                    uri,
+                    compression_algorithm,
+                })
+            });
 
         uploader
     }
@@ -297,7 +335,7 @@ mod tests {
         let mut uploader = MockAncillaryFileUploader::new();
         uploader
             .expect_upload()
-            .return_once(|_| Err(anyhow!("Failure while uploading...")));
+            .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
         {
             let builder = AncillaryArtifactBuilder::new(
@@ -344,7 +382,8 @@ mod tests {
     #[tokio::test]
     async fn upload_ancillary_archive_should_return_location_even_with_uploaders_errors() {
         let first_uploader = fake_uploader_returning_error();
-        let second_uploader = fake_uploader("archive_path", "an_uri");
+        let second_uploader =
+            fake_uploader("archive_path", "an_uri", Some(CompressionAlgorithm::Gzip));
         let third_uploader = fake_uploader_returning_error();
 
         let uploaders: Vec<Arc<dyn AncillaryFileUploader>> = vec![
@@ -371,14 +410,20 @@ mod tests {
             locations,
             vec![AncillaryLocation::CloudStorage {
                 uri: "an_uri".to_string(),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
             }],
         );
     }
 
     #[tokio::test]
     async fn upload_ancillary_archive_should_return_all_uploaders_returned_locations() {
-        let first_uploader = fake_uploader("archive_path", "an_uri");
-        let second_uploader = fake_uploader("archive_path", "another_uri");
+        let first_uploader =
+            fake_uploader("archive_path", "an_uri", Some(CompressionAlgorithm::Gzip));
+        let second_uploader = fake_uploader(
+            "archive_path",
+            "another_uri",
+            Some(CompressionAlgorithm::Gzip),
+        );
 
         let uploaders: Vec<Arc<dyn AncillaryFileUploader>> =
             vec![Arc::new(first_uploader), Arc::new(second_uploader)];
@@ -402,9 +447,11 @@ mod tests {
             vec![
                 AncillaryLocation::CloudStorage {
                     uri: "an_uri".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 },
                 AncillaryLocation::CloudStorage {
                     uri: "another_uri".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 },
             ],
         );
@@ -417,7 +464,11 @@ mod tests {
             "upload_ancillary_archive_should_remove_archive_after_upload",
         );
         let archive = create_fake_archive(&source_dir, "ancillary.tar.gz");
-        let uploader = fake_uploader(archive.as_os_str().to_str().unwrap(), "an_uri");
+        let uploader = fake_uploader(
+            archive.as_os_str().to_str().unwrap(),
+            "an_uri",
+            Some(CompressionAlgorithm::Gzip),
+        );
 
         let builder = AncillaryArtifactBuilder::new(
             vec![Arc::new(uploader)],

@@ -227,9 +227,10 @@ mod tests {
 
         let ancillary_artifact_builder = {
             let mut ancillary_uploader = MockAncillaryFileUploader::new();
-            ancillary_uploader.expect_upload().return_once(|_| {
+            ancillary_uploader.expect_upload().return_once(|_, _| {
                 Ok(AncillaryLocation::CloudStorage {
                     uri: "ancillary_uri".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 })
             });
 
@@ -248,12 +249,16 @@ mod tests {
             let mut immutable_uploader = MockImmutableFilesUploader::new();
             immutable_uploader
                 .expect_batch_upload()
-                .withf(move |paths| paths.len() == number_of_immutable_file_loaded as usize)
-                .return_once(|_| {
+                .withf(move |paths, algorithm| {
+                    paths.len() == number_of_immutable_file_loaded as usize
+                        && algorithm == &Some(CompressionAlgorithm::Gzip)
+                })
+                .return_once(|_, _| {
                     Ok(ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "immutable_template_uri".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::Zstandard),
                     })
                 });
 
@@ -314,10 +319,12 @@ mod tests {
 
         let expected_ancillary_locations = vec![AncillaryLocation::CloudStorage {
             uri: "ancillary_uri".to_string(),
+            compression_algorithm: Some(CompressionAlgorithm::Gzip),
         }];
 
         let expected_immutables_locations = vec![ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(TemplateUri("immutable_template_uri".to_string())),
+            compression_algorithm: Some(CompressionAlgorithm::Zstandard),
         }];
 
         let expected_digest_locations = vec![DigestLocation::Aggregator {

@@ -2,7 +2,20 @@ use serde::{Deserialize, Serialize};
 use strum::{Display, EnumIter, IntoEnumIterator};
 
 /// Compression algorithm for the snapshot archive artifacts.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default, EnumIter, Display)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Default,
+    EnumIter,
+    Display,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum CompressionAlgorithm {
     /// Gzip compression format
