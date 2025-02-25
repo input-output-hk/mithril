@@ -60,7 +60,11 @@ The process is almost the same on the signer, except that the transactions of th
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/message-signer.jpg)](./images/cardano-transactions/message-signer.jpg)
 <small><center>Message creation when signing on the aggregator</center></small>
 
-The Merkle tree inner nodes are computed with the `BLAKE2s-256` hash function. This involves concatenating the byte representations of the child nodes and then hashing them to compute the parent node.
+:::info
+
+The Merkle tree inner nodes are computed with the `BLAKE2s-256` hash function: the child bytes are concatenated and hashed to compute the parent node.
+
+:::
 
 ### Authenticity verification
 

@@ -5,8 +5,6 @@ sidebar_label: Cardano transactions
 
 # Cardano transactions
 
-## Introduction
-
 The Mithril protocol supports the certification of the **full Cardano transactions set (since genesis)**. This allows users to verify a transaction's authenticity without downloading the entire Cardano blockchain.
 This is particularly useful for lightweight clients, such as mobile wallets, which may lack the resources to store the entire blockchain.
 
@@ -52,7 +50,7 @@ This structure is nearly append-only for transactions, allowing for some stored 
 
 The blocks are divided into **block ranges** of `15` blocks. The leaves of the Merkle trees are the hashes of the transactions in the blocks within each range (`~150-1.5k` transactions per block range on the Cardano mainnet).
 This reduces the number of leaves in the Merkle forest to approximately `1 million` on the Cardano mainnet – about `100` times fewer than the number of transactions in the blockchain.
-This allows to create a Merkle forest of on an average `100` times less leaves than the number of transactions in the Cardano blockchain (`~1M` leaves instead on the Cardano mainnet).
+This allows the creation of a Merkle forest with, on average, `100` times fewer leaves than the number of transactions in the Cardano blockchain (`~1` million leaves on the Cardano mainnet).
 
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/message-aggregator.jpg)](./images/cardano-transactions/message-aggregator.jpg)
 <small><center>Message creation when aggregating on the aggregator</center></small>
@@ -62,7 +60,9 @@ The process is almost the same on the signer, except that the transactions of th
 [![Design of the certification of the Cardano transactions](./images/cardano-transactions/message-signer.jpg)](./images/cardano-transactions/message-signer.jpg)
 <small><center>Message creation when signing on the aggregator</center></small>
 
-The Merkle tree inner nodes are computed with the `BLAKE2s-256` hash function. This involves concatenating the byte representations of the child nodes and then hashing them to compute the parent node.
+:::info
+
+The Merkle tree inner nodes are computed with the `BLAKE2s-256` hash function: the child bytes are concatenated and hashed to compute the parent node.
 
 :::
 
