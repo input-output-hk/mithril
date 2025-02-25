@@ -1,6 +1,7 @@
 use super::routes;
 use crate::extensions::mock;
 use mithril_client::certificate_client::CertificateVerifier;
+use mithril_client::common::SignedEntityType;
 use mithril_client::{
     MessageBuilder, MithrilCertificate, MithrilCertificateListItem, MithrilStakeDistribution,
     MithrilStakeDistributionListItem,
@@ -194,10 +195,9 @@ mod proof {
 #[cfg(feature = "fs")]
 mod file {
     use super::*;
+    use mithril_client::common::{CardanoDbBeacon, CompressionAlgorithm};
     use mithril_client::{MessageBuilder, Snapshot, SnapshotListItem};
     use mithril_common::digesters::DummyCardanoDb;
-    use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm};
-    use mithril_common::messages::{CardanoDbBeaconMessagePart, SignedEntityTypeMessagePart};
     use mithril_common::test_utils::fake_data;
     use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
     use std::path::{Path, PathBuf};
@@ -217,8 +217,6 @@ mod file {
                 immutable_file_number: cardano_db.last_immutable_number().unwrap(),
                 ..fake_data::beacon()
             };
-            // Note: network doesn't matter here and will be removed in the future
-            let beacon_message = CardanoDbBeaconMessagePart::from((beacon.clone(), "whatever"));
 
             // Ugly horror needed to update the snapshot location after the server is started, server
             // which need said snapshot to start and run in another thread.
@@ -227,7 +225,7 @@ mod file {
             let snapshot = Arc::new(RwLock::new(Snapshot {
                 digest: snapshot_digest.to_string(),
                 certificate_hash: certificate_hash.to_string(),
-                beacon: beacon_message.clone(),
+                beacon: beacon.clone(),
                 compression_algorithm: CompressionAlgorithm::Zstandard,
                 ..Snapshot::dummy()
             }));
@@ -237,7 +235,7 @@ mod file {
                 SnapshotListItem {
                     digest: snapshot_digest.to_string(),
                     certificate_hash: certificate_hash.to_string(),
-                    beacon: beacon_message.clone(),
+                    beacon: beacon.clone(),
                     compression_algorithm: CompressionAlgorithm::Zstandard,
                     ..SnapshotListItem::dummy()
                 },
@@ -248,9 +246,7 @@ mod file {
             let mut certificate = MithrilCertificate {
                 hash: certificate_hash.to_string(),
                 epoch: beacon.epoch,
-                signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                    beacon_message.clone(),
-                ),
+                signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
                 ..MithrilCertificate::dummy()
             };
             certificate.signed_message = MessageBuilder::new()

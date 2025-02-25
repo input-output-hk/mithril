@@ -4,12 +4,10 @@ use anyhow::Context;
 use mithril_common::{
     digesters::{CardanoImmutableDigester, DummyCardanoDb, ImmutableDigester},
     entities::{
-        CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, Signer,
+        CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
+        SignedEntityType, Signer,
     },
-    messages::{
-        CardanoDbBeaconMessagePart, RegisterSignatureMessage, RegisterSignerMessage,
-        SignedEntityTypeMessagePart,
-    },
+    messages::{RegisterSignatureMessage, RegisterSignerMessage},
     protocol::ToMessage,
     test_utils::{MithrilFixture, MithrilFixtureBuilder},
     StdResult,
@@ -80,9 +78,7 @@ pub async fn compute_mithril_stake_distribution_signatures(
                     .sign_all(&mithril_stake_distribution_message)
                     .into_iter()
                     .map(|s| RegisterSignatureMessage {
-                        signed_entity_type: SignedEntityTypeMessagePart::MithrilStakeDistribution(
-                            epoch,
-                        ),
+                        signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
                         party_id: s.party_id.clone(),
                         signature: s.signature.clone().to_json_hex().unwrap(),
                         won_indexes: s.won_indexes.clone(),
@@ -148,8 +144,8 @@ pub async fn compute_immutable_files_signatures(
                     .sign_all(&cardano_immutable_files_full_message)
                     .into_iter()
                     .map(|s| RegisterSignatureMessage {
-                        signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                            CardanoDbBeaconMessagePart::new("devnet", epoch, immutable_file_number),
+                        signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                            CardanoDbBeacon::new(*epoch, immutable_file_number),
                         ),
                         party_id: s.party_id.clone(),
                         signature: s.signature.clone().to_json_hex().unwrap(),
