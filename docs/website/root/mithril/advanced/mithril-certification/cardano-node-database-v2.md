@@ -1,0 +1,80 @@
+---
+sidebar_position: 4
+sidebar_label: Cardano node database v2
+---
+
+# Cardano node database v2
+
+:::danger
+
+- This feature is **experimental** and not yet available on the mainnet
+- It will supersede the current certification process for the Cardano node internal database.
+
+:::
+
+The Mithril protocol supports the incremental certification of the **Cardano node internal database**, enabling fast bootstrapping of a Cardano node on a **specific range of immutable files**. This is particularly useful for full-node wallets, SPOs, and layer 2 protocols that need to operate full Cardano nodes, and want to synchonize them quickly after an offline period.
+
+To achieve this, Mithril signers and aggregators independently compute a message representing the immutable files of the Cardano node internal database and apply the Mithril protocol to jointly sign it.
+
+A natural structure for the message is a **Merkle tree**, which:
+
+- Can be succinctly represented by its **Merkle root** (the signed message)
+- Allows for membership proof of an immutable file in the set by providing the **Merkle path** from the transaction to the root.
+
+:::info
+
+The Cardano node internal database:
+
+- Exceeds `150 GB` on the Cardano mainnet
+- Holds less than `20,000` immutable files on the Cardano mainnet
+- Can be fully bootstrapped in `~20 minutes` with Mithril
+- Takes over `24 hours` without Mithril.
+
+:::
+
+## Mithril certification
+
+[![Design of the certification of the Cardano node internal database v2](./images/cardano-node-database-v2/end-to-end-process.jpg)](./images/cardano-node-database-v2/end-to-end-process.jpg)
+<small><center>End-to-end certification for Cardano transactions</center></small>
+
+:::info
+
+Learn about the Mithril certification steps [here](./README.mdx).
+
+:::
+
+### Message computation
+
+The message is the root of the Merkle tree composed of the hash of the immutable files in the Cardano node internal database:
+
+- The hash of the immutable files is computed with `SHA256` of their binary content
+- The last immutable file, the ledger state and the volatile can not be signed as they are not deterministically computed by the Cardano node.
+
+The message computation is the same on the signers and the aggregators.
+
+[![Design of the certification of the Cardano node internal database v2](./images/cardano-node-database-v2/message.jpg)](./images/cardano-node-database-v2/message.jpg)
+<small><center>Message creation on the signers and aggregators</center></small>
+
+:::info
+
+The Merkle tree inner nodes are computed with the `BLAKE2s-256` hash function: the child bytes are concatenated and hashed to compute the parent node.
+
+:::
+
+### Authenticity verification
+
+As the number of immutable files in the Cardano node internal database is small, the computation of the Merkle tree is quick and can be performed on the client side.
+
+The verification process for a subset of immutable files of the Cardano internal database operates as follows:
+
+- The client downloads from one or multiple untrusted source (e.g. an aggregator or a cloud service):
+  - A compressed artifact of the partial range of immutables to restore
+  - A map of the digest of the immutable files in the Cardano node internal database
+- The client computes the same Merkle tree as the one used by the signers and aggregators with the fetched digests
+- The client computes a Merkle proof of membership for the downloaded immutable files:
+  - On the computed Merkle tree at the previous step
+  - Which must be a valid Merkle proof
+  - With a root which is signed by a valid Mithril certificate.
+
+[![Design of the certification of the Cardano node internal database v2](./images/cardano-node-database-v2/proof-client.jpg)](./images/cardano-node-database-v2/proof-client.jpg)
+<small><center>Proof creation on the clients</center></small>
