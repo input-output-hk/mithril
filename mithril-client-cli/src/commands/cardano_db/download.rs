@@ -13,7 +13,7 @@ use crate::{
     commands::{client_builder, SharedArgs},
     configuration::{ConfigError, ConfigSource},
     utils::{
-        CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
+        self, CardanoDbDownloadChecker, CardanoDbUtils, ExpanderUtils, IndicatifFeedbackReceiver,
         ProgressOutputType, ProgressPrinter,
     },
     CommandContext,
@@ -149,7 +149,7 @@ impl CardanoDbDownloadCommand {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
 
         CardanoDbDownloadChecker::ensure_dir_exist(db_dir)?;
-        if let Err(e) = CardanoDbDownloadChecker::check_prerequisites(
+        if let Err(e) = CardanoDbDownloadChecker::check_prerequisites_for_archive(
             db_dir,
             cardano_db.size,
             cardano_db.compression_algorithm,
@@ -319,17 +319,11 @@ impl ConfigSource for CardanoDbDownloadCommand {
         let mut map = HashMap::new();
 
         if let Some(download_dir) = self.download_dir.clone() {
+            let param = "download_dir".to_string();
             map.insert(
-                "download_dir".to_string(),
-                download_dir
-                    .to_str()
-                    .ok_or_else(|| {
-                        ConfigError::Conversion(format!(
-                            "Could not read download directory: '{}'.",
-                            download_dir.display()
-                        ))
-                    })?
-                    .to_string(),
+                param.clone(),
+                utils::path_to_string(&download_dir)
+                    .map_err(|e| ConfigError::Conversion(param, e))?,
             );
         }
 

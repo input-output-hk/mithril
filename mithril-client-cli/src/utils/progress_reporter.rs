@@ -1,10 +1,11 @@
 use chrono::Utc;
-use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget};
+use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressStyle};
 use mithril_client::MithrilResult;
 use slog::{warn, Logger};
 use std::{
+    fmt::Write,
     ops::Deref,
-    sync::RwLock,
+    sync::{Arc, RwLock},
     time::{Duration, Instant},
 };
 
@@ -27,6 +28,13 @@ impl From<ProgressOutputType> for ProgressDrawTarget {
             ProgressOutputType::Hidden => ProgressDrawTarget::hidden(),
         }
     }
+}
+
+/// Kind of progress bar
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProgressBarKind {
+    Bytes,
+    Files,
 }
 
 /// Wrapper of a indicatif [MultiProgress] to allow reporting to json.
@@ -73,12 +81,26 @@ impl Deref for ProgressPrinter {
 }
 
 /// Utility to format a [ProgressBar] status as json
-pub struct ProgressBarJsonFormatter;
+#[derive(Clone)]
+pub struct ProgressBarJsonFormatter {
+    label: String,
+    kind: ProgressBarKind,
+}
 
 impl ProgressBarJsonFormatter {
+    /// Instantiate a `ProgressBarJsonFormatter`
+    pub fn new<T: Into<String>>(label: T, kind: ProgressBarKind) -> Self {
+        Self {
+            label: label.into(),
+            kind,
+        }
+    }
+
     /// Get a json formatted string given the progress bar status
-    pub fn format(progress_bar: &ProgressBar) -> String {
+    pub fn format(&self, progress_bar: &ProgressBar) -> String {
         ProgressBarJsonFormatter::format_values(
+            &self.label,
+            self.kind,
             Utc::now().to_rfc3339(),
             progress_bar.position(),
             progress_bar.length().unwrap_or(0),
@@ -88,17 +110,27 @@ impl ProgressBarJsonFormatter {
     }
 
     fn format_values(
+        label: &str,
+        kind: ProgressBarKind,
         timestamp: String,
-        bytes_downloaded: u64,
-        bytes_total: u64,
+        amount_downloaded: u64,
+        amount_total: u64,
         duration_left: Duration,
         duration_elapsed: Duration,
     ) -> String {
+        let amount_prefix = match kind {
+            ProgressBarKind::Bytes => "bytes",
+            ProgressBarKind::Files => "files",
+        };
+
         format!(
-            r#"{{"timestamp": "{}", "bytes_downloaded": {}, "bytes_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
+            r#"{{"label": "{}", "timestamp": "{}", "{}_downloaded": {}, "{}_total": {}, "seconds_left": {}.{:0>3}, "seconds_elapsed": {}.{:0>3}}}"#,
+            label,
             timestamp,
-            bytes_downloaded,
-            bytes_total,
+            amount_prefix,
+            amount_downloaded,
+            amount_prefix,
+            amount_total,
             duration_left.as_secs(),
             duration_left.subsec_millis(),
             duration_elapsed.as_secs(),
@@ -108,28 +140,108 @@ impl ProgressBarJsonFormatter {
 }
 
 /// Wrapper of a indicatif [ProgressBar] to allow reporting to json.
+#[derive(Clone)]
 pub struct DownloadProgressReporter {
     progress_bar: ProgressBar,
     output_type: ProgressOutputType,
-    last_json_report_instant: RwLock<Option<Instant>>,
+    json_reporter: ProgressBarJsonFormatter,
+    last_json_report_instant: Arc<RwLock<Option<Instant>>>,
     logger: Logger,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DownloadProgressReporterParams {
+    pub label: String,
+    pub output_type: ProgressOutputType,
+    pub progress_bar_kind: ProgressBarKind,
+    pub include_label_in_tty: bool,
+}
+
+impl DownloadProgressReporterParams {
+    pub fn style(&self) -> ProgressStyle {
+        ProgressStyle::with_template(&self.style_template())
+            .unwrap()
+            .with_key(
+                "eta",
+                |state: &indicatif::ProgressState, w: &mut dyn Write| {
+                    write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap()
+                },
+            )
+            .progress_chars("#>-")
+    }
+
+    fn style_template(&self) -> String {
+        let label = if self.include_label_in_tty {
+            &self.label
+        } else {
+            ""
+        };
+
+        match self.progress_bar_kind {
+            ProgressBarKind::Bytes => {
+                format!("{{spinner:.green}} {label} [{{elapsed_precise}}] [{{wide_bar:.cyan/blue}}] {{bytes}}/{{total_bytes}} ({{eta}})")
+            }
+            ProgressBarKind::Files => {
+                format!("{{spinner:.green}} {label} [{{elapsed_precise}}] [{{wide_bar:.cyan/blue}}] Files: {{human_pos}}/{{human_len}} ({{eta}})")
+            }
+        }
+    }
 }
 
 impl DownloadProgressReporter {
     /// Instantiate a new progress reporter
-    pub fn new(progress_bar: ProgressBar, output_type: ProgressOutputType, logger: Logger) -> Self {
+    pub fn new(
+        progress_bar: ProgressBar,
+        params: DownloadProgressReporterParams,
+        logger: Logger,
+    ) -> Self {
+        progress_bar.set_style(params.style());
+
         Self {
             progress_bar,
-            output_type,
-            last_json_report_instant: RwLock::new(None),
+            output_type: params.output_type,
+            json_reporter: ProgressBarJsonFormatter::new(&params.label, params.progress_bar_kind),
+            last_json_report_instant: Arc::new(RwLock::new(None)),
             logger,
         }
     }
 
-    /// Report the current progress
+    #[cfg(test)]
+    /// Get the kind of the download progress bar
+    pub fn kind(&self) -> ProgressBarKind {
+        self.json_reporter.kind
+    }
+
+    /// Report the current progress, setting the actual position to the given value
     pub fn report(&self, actual_position: u64) {
         self.progress_bar.set_position(actual_position);
+        self.report_json_progress();
+    }
 
+    /// Report the current progress, incrementing the actual position by the given delta
+    pub fn inc(&self, delta: u64) {
+        self.progress_bar.inc(delta);
+        self.report_json_progress();
+    }
+
+    /// Report that the current download is finished and print the given message.
+    pub fn finish(&self, message: &str) {
+        self.progress_bar.finish_with_message(message.to_string());
+    }
+
+    /// Finish the progress bar and clear the line
+    pub fn finish_and_clear(&self) {
+        self.progress_bar.finish_and_clear();
+    }
+
+    fn get_remaining_time_since_last_json_report(&self) -> Option<Duration> {
+        match self.last_json_report_instant.read() {
+            Ok(instant) => (*instant).map(|instant| instant.elapsed()),
+            Err(_) => None,
+        }
+    }
+
+    fn report_json_progress(&self) {
         if let ProgressOutputType::JsonReporter = self.output_type {
             let should_report = match self.get_remaining_time_since_last_json_report() {
                 Some(remaining_time) => remaining_time > Duration::from_millis(333),
@@ -137,7 +249,7 @@ impl DownloadProgressReporter {
             };
 
             if should_report {
-                eprintln!("{}", ProgressBarJsonFormatter::format(&self.progress_bar));
+                eprintln!("{}", self.json_reporter.format(&self.progress_bar));
 
                 match self.last_json_report_instant.write() {
                     Ok(mut instant) => *instant = Some(Instant::now()),
@@ -149,16 +261,8 @@ impl DownloadProgressReporter {
         };
     }
 
-    /// Report that the current download is finished and print the given message.
-    pub fn finish(&self, message: &str) {
-        self.progress_bar.finish_with_message(message.to_string());
-    }
-
-    fn get_remaining_time_since_last_json_report(&self) -> Option<Duration> {
-        match self.last_json_report_instant.read() {
-            Ok(instant) => (*instant).map(|instant| instant.elapsed()),
-            Err(_) => None,
-        }
+    pub(crate) fn inner_progress_bar(&self) -> &ProgressBar {
+        &self.progress_bar
     }
 }
 
@@ -171,9 +275,56 @@ mod tests {
     use serde_json::Value;
 
     #[test]
+    fn json_reporter_change_downloaded_and_total_key_prefix_based_on_progress_bar_kind() {
+        fn run(kind: ProgressBarKind, expected_prefix: &str) {
+            let json_string = ProgressBarJsonFormatter::format_values(
+                "label",
+                kind,
+                "timestamp".to_string(),
+                0,
+                0,
+                Duration::from_millis(1000),
+                Duration::from_millis(2500),
+            );
+
+            assert!(
+                json_string.contains(&format!(r#""{expected_prefix}_downloaded":"#)),
+                "'{expected_prefix}_downloaded' key not found in json output: {json_string}",
+            );
+            assert!(
+                json_string.contains(&format!(r#""{expected_prefix}_total":"#)),
+                "'{expected_prefix}_total' key not found in json output: {json_string}",
+            );
+        }
+
+        run(ProgressBarKind::Bytes, "bytes");
+        run(ProgressBarKind::Files, "files");
+    }
+
+    #[test]
+    fn json_report_include_label() {
+        let json_string = ProgressBarJsonFormatter::format_values(
+            "unique_label",
+            ProgressBarKind::Bytes,
+            "timestamp".to_string(),
+            0,
+            0,
+            Duration::from_millis(7569),
+            Duration::from_millis(5124),
+        );
+
+        assert!(
+            json_string.contains(r#""label": "unique_label""#),
+            "Label key and/or value not found in json output: {json_string}",
+        );
+    }
+
+    #[test]
     fn check_seconds_formatting_in_json_report_with_more_than_100_milliseconds() {
         let json_string = ProgressBarJsonFormatter::format_values(
-            "".to_string(),
+            "label",
+            ProgressBarKind::Bytes,
+            "timestamp".to_string(),
             0,
             0,
             Duration::from_millis(7569),
@@ -182,20 +333,20 @@ mod tests {
 
         assert!(
             json_string.contains(r#""seconds_left": 7.569"#),
-            "Not expected value in json output: {}",
-            json_string
+            "Not expected value in json output: {json_string}",
         );
         assert!(
             json_string.contains(r#""seconds_elapsed": 5.124"#),
-            "Not expected value in json output: {}",
-            json_string
+            "Not expected value in json output: {json_string}",
         );
     }
 
     #[test]
     fn check_seconds_formatting_in_json_report_with_less_than_100_milliseconds() {
         let json_string = ProgressBarJsonFormatter::format_values(
-            "".to_string(),
+            "label",
+            ProgressBarKind::Bytes,
+            "timestamp".to_string(),
             0,
             0,
             Duration::from_millis(7006),
@@ -217,7 +368,9 @@ mod tests {
     #[test]
     fn check_seconds_formatting_in_json_report_with_milliseconds_ending_by_zeros() {
         let json_string = ProgressBarJsonFormatter::format_values(
-            "".to_string(),
+            "label",
+            ProgressBarKind::Bytes,
+            "timestamp".to_string(),
             0,
             0,
             Duration::from_millis(7200),
@@ -254,7 +407,8 @@ mod tests {
         let duration_left_before = round_at_ms(progress_bar.eta());
         let duration_elapsed_before = round_at_ms(progress_bar.elapsed());
 
-        let json_string = ProgressBarJsonFormatter::format(&progress_bar);
+        let json_string =
+            ProgressBarJsonFormatter::new("label", ProgressBarKind::Bytes).format(&progress_bar);
 
         let duration_left_after = round_at_ms(progress_bar.eta());
         let duration_elapsed_after = round_at_ms(progress_bar.elapsed());
@@ -292,6 +446,38 @@ mod tests {
             format_duration(&duration_elapsed),
             format_duration(&duration_elapsed_before),
             format_duration(&duration_elapsed_after),
+        );
+    }
+
+    #[test]
+    fn style_of_download_progress_reporter_when_include_label_in_tty_is_false() {
+        let params = DownloadProgressReporterParams {
+            label: "label".to_string(),
+            output_type: ProgressOutputType::Tty,
+            progress_bar_kind: ProgressBarKind::Bytes,
+            include_label_in_tty: false,
+        };
+
+        let style_template = params.style_template();
+        assert!(
+            !style_template.contains("label"),
+            "Label should not be included in the style template, got: '{style_template}'"
+        );
+    }
+
+    #[test]
+    fn style_of_download_progress_reporter_when_include_label_in_tty_is_true() {
+        let params = DownloadProgressReporterParams {
+            label: "label".to_string(),
+            output_type: ProgressOutputType::Tty,
+            progress_bar_kind: ProgressBarKind::Bytes,
+            include_label_in_tty: true,
+        };
+
+        let style_template = params.style_template();
+        assert!(
+            style_template.contains("label"),
+            "Label should be included in the style template, got: '{style_template}'"
         );
     }
 }

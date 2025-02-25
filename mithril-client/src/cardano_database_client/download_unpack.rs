@@ -35,7 +35,7 @@ struct DownloadImmutableFutureBuilderArgs {
 }
 
 /// Options for downloading and unpacking a Cardano database
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct DownloadUnpackOptions {
     /// Allow overriding the destination directory
     pub allow_override: bool,
@@ -288,7 +288,6 @@ impl InternalArtifactDownloader {
         &self,
         args: DownloadImmutableFutureBuilderArgs,
     ) -> MithrilResult<Pin<Box<DownloadImmutableFuture>>> {
-        let feedback_receiver_clone = self.feedback_sender.clone();
         let logger_clone = self.logger.clone();
         let download_id_clone = args.download_id.to_string();
         let file_downloader = args.file_downloader;
@@ -296,17 +295,10 @@ impl InternalArtifactDownloader {
         let compression_algorithm = args.compression_algorithm;
         let immutable_files_target_dir = args.immutable_files_target_dir;
         let immutable_file_number = args.immutable_file_number;
-        let file_size = args.file_size;
+        // The size will be completed with the uncompressed file size when available in the location
+        // (see https://github.com/input-output-hk/mithril/issues/2291)
+        let _file_size = args.file_size;
         let download_future = async move {
-            feedback_receiver_clone
-                .send_event(MithrilEvent::CardanoDatabase(
-                    MithrilEventCardanoDatabase::ImmutableDownloadStarted {
-                        immutable_file_number,
-                        download_id: download_id_clone.clone(),
-                        size: file_size,
-                    },
-                ))
-                .await;
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
@@ -319,18 +311,7 @@ impl InternalArtifactDownloader {
                 )
                 .await;
             match downloaded {
-                Ok(_) => {
-                    feedback_receiver_clone
-                        .send_event(MithrilEvent::CardanoDatabase(
-                            MithrilEventCardanoDatabase::ImmutableDownloadCompleted {
-                                immutable_file_number,
-                                download_id: download_id_clone,
-                            },
-                        ))
-                        .await;
-
-                    Ok(immutable_file_number)
-                }
+                Ok(_) => Ok(immutable_file_number),
                 Err(e) => {
                     slog::error!(
                         logger_clone,
@@ -404,17 +385,6 @@ impl InternalArtifactDownloader {
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
         for location in locations_sorted {
-            // The size will be completed with the uncompressed file size when available in the location
-            // (see https://github.com/input-output-hk/mithril/issues/2291)
-            let file_size = 0;
-            self.feedback_sender
-                .send_event(MithrilEvent::CardanoDatabase(
-                    MithrilEventCardanoDatabase::AncillaryDownloadStarted {
-                        download_id: download_id.to_string(),
-                        size: file_size,
-                    },
-                ))
-                .await;
             let file_downloader = match &location {
                 AncillaryLocation::CloudStorage { .. } => self.http_file_downloader.clone(),
                 AncillaryLocation::Unknown => {
@@ -434,13 +404,6 @@ impl InternalArtifactDownloader {
                 .await;
             match downloaded {
                 Ok(_) => {
-                    self.feedback_sender
-                        .send_event(MithrilEvent::CardanoDatabase(
-                            MithrilEventCardanoDatabase::AncillaryDownloadCompleted {
-                                download_id: download_id.to_string(),
-                            },
-                        ))
-                        .await;
                     return Ok(());
                 }
                 Err(e) => {
@@ -473,7 +436,6 @@ mod tests {
     };
 
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
-    use crate::feedback::StackFeedbackReceiver;
     use crate::file_downloader::{MockFileDownloader, MockFileDownloaderBuilder};
     use crate::test_utils;
 
@@ -848,7 +810,7 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = TempDir::new(
                 "cardano_database_client",
-                "download_unpack_immutable_files_succeeds",
+                "download_unpack_immutable_files_fails_if_one_is_not_retrieved",
             )
             .build();
             let artifact_downloader = InternalArtifactDownloader::new(
@@ -915,7 +877,7 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = TempDir::new(
                 "cardano_database_client",
-                "download_unpack_immutable_files_succeeds",
+                "download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_same_location",
             )
             .build();
             let artifact_downloader = InternalArtifactDownloader::new(
@@ -955,7 +917,7 @@ mod tests {
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = TempDir::new(
                 "cardano_database_client",
-                "download_unpack_immutable_files_succeeds",
+                "download_unpack_immutable_files_succeeds_if_all_are_retrieved_with_different_locations",
             )
             .build();
             let artifact_downloader = InternalArtifactDownloader::new(
@@ -1002,98 +964,6 @@ mod tests {
                 )
                 .await
                 .unwrap();
-        }
-
-        #[tokio::test]
-        async fn download_unpack_immutable_files_sends_feedbacks_when_succeeds() {
-            let total_immutable_files = 1;
-            let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
-            let target_dir = Path::new(".");
-            let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
-            let artifact_downloader = InternalArtifactDownloader::new(
-                Arc::new(MockFileDownloaderBuilder::default().with_success().build()),
-                FeedbackSender::new(&[feedback_receiver.clone()]),
-                test_utils::test_logger(),
-            );
-
-            artifact_downloader
-                .download_unpack_immutable_files(
-                    &[ImmutablesLocation::CloudStorage {
-                        uri: MultiFilesUri::Template(TemplateUri(
-                            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-                        )),
-                    }],
-                    immutable_file_range
-                        .to_range_inclusive(total_immutable_files)
-                        .unwrap(),
-                    &CompressionAlgorithm::default(),
-                    target_dir,
-                    1,
-                    "download_id",
-                )
-                .await
-                .unwrap();
-
-            let sent_events = feedback_receiver.stacked_events();
-            let id = sent_events[0].event_id();
-            let expected_events = vec![
-                MithrilEvent::CardanoDatabase(
-                    MithrilEventCardanoDatabase::ImmutableDownloadStarted {
-                        immutable_file_number: 1,
-                        download_id: id.to_string(),
-                        size: 0,
-                    },
-                ),
-                MithrilEvent::CardanoDatabase(
-                    MithrilEventCardanoDatabase::ImmutableDownloadCompleted {
-                        immutable_file_number: 1,
-                        download_id: id.to_string(),
-                    },
-                ),
-            ];
-            assert_eq!(expected_events, sent_events);
-        }
-
-        #[tokio::test]
-        async fn download_unpack_immutable_files_sends_feedbacks_when_fails() {
-            let total_immutable_files = 1;
-            let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
-            let target_dir = Path::new(".");
-            let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
-            let artifact_downloader = InternalArtifactDownloader::new(
-                Arc::new(MockFileDownloaderBuilder::default().with_failure().build()),
-                FeedbackSender::new(&[feedback_receiver.clone()]),
-                test_utils::test_logger(),
-            );
-
-            artifact_downloader
-                .download_unpack_immutable_files(
-                    &[ImmutablesLocation::CloudStorage {
-                        uri: MultiFilesUri::Template(TemplateUri(
-                            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-                        )),
-                    }],
-                    immutable_file_range
-                        .to_range_inclusive(total_immutable_files)
-                        .unwrap(),
-                    &CompressionAlgorithm::default(),
-                    target_dir,
-                    1,
-                    "download_id",
-                )
-                .await
-                .expect_err("download_unpack_immutable_files should fail");
-
-            let sent_events = feedback_receiver.stacked_events();
-            let id = sent_events[0].event_id();
-            let expected_events = vec![MithrilEvent::CardanoDatabase(
-                MithrilEventCardanoDatabase::ImmutableDownloadStarted {
-                    immutable_file_number: 1,
-                    download_id: id.to_string(),
-                    size: 0,
-                },
-            )];
-            assert_eq!(expected_events, sent_events);
         }
     }
 
@@ -1211,46 +1081,6 @@ mod tests {
                 )
                 .await
                 .unwrap();
-        }
-
-        #[tokio::test]
-        async fn download_unpack_ancillary_files_sends_feedbacks() {
-            let target_dir = Path::new(".");
-            let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
-            let artifact_downloader = InternalArtifactDownloader::new(
-                Arc::new(MockFileDownloaderBuilder::default().with_success().build()),
-                FeedbackSender::new(&[feedback_receiver.clone()]),
-                test_utils::test_logger(),
-            );
-
-            artifact_downloader
-                .download_unpack_ancillary_file(
-                    &[AncillaryLocation::CloudStorage {
-                        uri: "http://whatever-1/ancillary.tar.gz".to_string(),
-                    }],
-                    &CompressionAlgorithm::default(),
-                    target_dir,
-                    "download_id",
-                )
-                .await
-                .unwrap();
-
-            let sent_events = feedback_receiver.stacked_events();
-            let id = sent_events[0].event_id();
-            let expected_events = vec![
-                MithrilEvent::CardanoDatabase(
-                    MithrilEventCardanoDatabase::AncillaryDownloadStarted {
-                        download_id: id.to_string(),
-                        size: 0,
-                    },
-                ),
-                MithrilEvent::CardanoDatabase(
-                    MithrilEventCardanoDatabase::AncillaryDownloadCompleted {
-                        download_id: id.to_string(),
-                    },
-                ),
-            ];
-            assert_eq!(expected_events, sent_events);
         }
     }
 }

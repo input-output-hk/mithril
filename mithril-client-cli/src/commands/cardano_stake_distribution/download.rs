@@ -6,7 +6,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use crate::utils::{ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter};
+use crate::utils::{
+    self, ExpanderUtils, IndicatifFeedbackReceiver, ProgressOutputType, ProgressPrinter,
+};
 use crate::{
     commands::{client_builder, SharedArgs},
     configuration::{ConfigError, ConfigSource},
@@ -228,17 +230,11 @@ impl ConfigSource for CardanoStakeDistributionDownloadCommand {
         let mut map = HashMap::new();
 
         if let Some(download_dir) = self.download_dir.clone() {
+            let param = "download_dir".to_string();
             map.insert(
-                "download_dir".to_string(),
-                download_dir
-                    .to_str()
-                    .ok_or_else(|| {
-                        ConfigError::Conversion(format!(
-                            "Could not read download directory: '{}'.",
-                            download_dir.display()
-                        ))
-                    })?
-                    .to_string(),
+                param.clone(),
+                utils::path_to_string(&download_dir)
+                    .map_err(|e| ConfigError::Conversion(param, e))?,
             );
         }
 

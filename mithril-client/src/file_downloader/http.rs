@@ -75,6 +75,14 @@ impl HttpFileDownloader {
     ) -> StdResult<()> {
         let mut downloaded_bytes: u64 = 0;
         let mut file = File::open(local_path).await?;
+        let size = match file.metadata().await {
+            Ok(metadata) => metadata.len(),
+            Err(_) => file_size,
+        };
+
+        self.feedback_sender
+            .send_event(download_event_type.build_download_started_event(size))
+            .await;
 
         loop {
             // We can either allocate here each time, or clone a shared buffer into sender.
@@ -92,10 +100,13 @@ impl HttpFileDownloader {
                 )
             })?;
             downloaded_bytes += bytes_read as u64;
-            let event =
-                download_event_type.build_download_progress_event(downloaded_bytes, file_size);
+            let event = download_event_type.build_download_progress_event(downloaded_bytes, size);
             self.feedback_sender.send_event(event).await;
         }
+
+        self.feedback_sender
+            .send_event(download_event_type.build_download_completed_event())
+            .await;
 
         Ok(())
     }
@@ -109,7 +120,13 @@ impl HttpFileDownloader {
         file_size: u64,
     ) -> StdResult<()> {
         let mut downloaded_bytes: u64 = 0;
-        let mut remote_stream = self.get(location).await?.bytes_stream();
+        let response = self.get(location).await?;
+        let size = response.content_length().unwrap_or(file_size);
+        let mut remote_stream = response.bytes_stream();
+
+        self.feedback_sender
+            .send_event(download_event_type.build_download_started_event(size))
+            .await;
 
         while let Some(item) = remote_stream.next().await {
             let chunk = item.with_context(|| "Download: Could not read from byte stream")?;
@@ -117,10 +134,13 @@ impl HttpFileDownloader {
                 format!("Download: could not write {} bytes to stream.", chunk.len())
             })?;
             downloaded_bytes += chunk.len() as u64;
-            let event =
-                download_event_type.build_download_progress_event(downloaded_bytes, file_size);
+            let event = download_event_type.build_download_progress_event(downloaded_bytes, size);
             self.feedback_sender.send_event(event).await;
         }
+
+        self.feedback_sender
+            .send_event(download_event_type.build_download_completed_event())
+            .await;
 
         Ok(())
     }
@@ -218,5 +238,144 @@ impl FileDownloader for HttpFileDownloader {
             })?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use httpmock::MockServer;
+
+    use mithril_common::{entities::FileUri, test_utils::TempDir};
+
+    use crate::{
+        feedback::{MithrilEvent, MithrilEventCardanoDatabase, StackFeedbackReceiver},
+        test_utils,
+    };
+
+    use super::*;
+
+    #[cfg(not(target_family = "windows"))]
+    fn local_file_uri(path: &Path) -> FileDownloaderUri {
+        FileDownloaderUri::FileUri(FileUri(format!(
+            "file://{}",
+            path.canonicalize().unwrap().to_string_lossy()
+        )))
+    }
+
+    #[cfg(target_family = "windows")]
+    fn local_file_uri(path: &Path) -> FileDownloaderUri {
+        // We need to transform `\\?\C:\data\Temp\mithril_test\snapshot.txt` to `file://C:/data/Temp/mithril_test/snapshot.txt`
+        FileDownloaderUri::FileUri(FileUri(format!(
+            "file:/{}",
+            path.canonicalize()
+                .unwrap()
+                .to_string_lossy()
+                .replace("\\", "/")
+                .replace("?/", ""),
+        )))
+    }
+
+    #[tokio::test]
+    async fn test_download_http_file_send_feedback() {
+        let target_dir = TempDir::create(
+            "client-http-downloader",
+            "test_download_http_file_send_feedback",
+        );
+        let content = "Hello, world!";
+        let size = content.len() as u64;
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(httpmock::Method::GET).path("/snapshot.tar");
+            then.status(200)
+                .body(content)
+                .header(reqwest::header::CONTENT_LENGTH.as_str(), size.to_string());
+        });
+        let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+        let http_file_downloader = HttpFileDownloader::new(
+            FeedbackSender::new(&[feedback_receiver.clone()]),
+            test_utils::test_logger(),
+        )
+        .unwrap();
+        let download_id = "id".to_string();
+
+        http_file_downloader
+            .download_unpack(
+                &FileDownloaderUri::FileUri(FileUri(server.url("/snapshot.tar"))),
+                &target_dir,
+                None,
+                DownloadEvent::Digest {
+                    download_id: download_id.clone(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let expected_events = vec![
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadStarted {
+                download_id: download_id.clone(),
+                size,
+            }),
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadProgress {
+                download_id: download_id.clone(),
+                downloaded_bytes: size,
+                size,
+            }),
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadCompleted {
+                download_id: download_id.clone(),
+            }),
+        ];
+        assert_eq!(expected_events, feedback_receiver.stacked_events());
+    }
+
+    #[tokio::test]
+    async fn test_download_local_file_send_feedback() {
+        let target_dir = TempDir::create(
+            "client-http-downloader",
+            "test_download_local_file_send_feedback",
+        );
+        let content = "Hello, world!";
+        let size = content.len() as u64;
+
+        let source_file_path = target_dir.join("snapshot.txt");
+        let mut file = std::fs::File::create(&source_file_path).unwrap();
+        file.write_all(content.as_bytes()).unwrap();
+
+        let feedback_receiver = Arc::new(StackFeedbackReceiver::new());
+        let http_file_downloader = HttpFileDownloader::new(
+            FeedbackSender::new(&[feedback_receiver.clone()]),
+            test_utils::test_logger(),
+        )
+        .unwrap();
+        let download_id = "id".to_string();
+
+        http_file_downloader
+            .download_unpack(
+                &local_file_uri(&source_file_path),
+                &target_dir,
+                None,
+                DownloadEvent::Digest {
+                    download_id: download_id.clone(),
+                },
+            )
+            .await
+            .unwrap();
+
+        let expected_events = vec![
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadStarted {
+                download_id: download_id.clone(),
+                size,
+            }),
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadProgress {
+                download_id: download_id.clone(),
+                downloaded_bytes: size,
+                size,
+            }),
+            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::DigestDownloadCompleted {
+                download_id: download_id.clone(),
+            }),
+        ];
+        assert_eq!(expected_events, feedback_receiver.stacked_events());
     }
 }
