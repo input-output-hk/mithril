@@ -184,41 +184,43 @@ impl IndicatifFeedbackReceiver {
 impl FeedbackReceiver for IndicatifFeedbackReceiver {
     async fn handle_event(&self, event: MithrilEvent) {
         match event {
-            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::Started {
-                download_id: _,
-                total_immutable_files,
-                include_ancillary,
-            }) => {
-                println!("Starting download of artifact files...");
-                let size = match include_ancillary {
-                    true => 1 + total_immutable_files,
-                    false => total_immutable_files,
-                };
-                let pb = ProgressBar::new(size);
-                pb.set_style(ProgressStyle::with_template("{spinner:.green} {elapsed_precise}] [{wide_bar:.cyan/blue}] Files: {human_pos}/{human_len} ({eta})")
-                    .unwrap()
-                    .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-                    .progress_chars("#>-"));
-                self.progress_bar.add(pb.clone());
-                let mut cardano_database_pb = self.cardano_database_pb.write().await;
-                *cardano_database_pb = Some(pb);
-            }
-            MithrilEvent::CardanoDatabase(MithrilEventCardanoDatabase::Completed { .. }) => {
-                let mut cardano_database_pb = self.cardano_database_pb.write().await;
-                if let Some(progress_bar) = cardano_database_pb.as_ref() {
-                    progress_bar.finish_with_message("Artifact files download completed");
+            MithrilEvent::CardanoDatabase(cardano_database_event) => match cardano_database_event {
+                MithrilEventCardanoDatabase::Started {
+                    download_id: _,
+                    total_immutable_files,
+                    include_ancillary,
+                } => {
+                    println!("Starting download of artifact files...");
+                    let size = match include_ancillary {
+                        true => 1 + total_immutable_files,
+                        false => total_immutable_files,
+                    };
+                    let pb = ProgressBar::new(size);
+                    pb.set_style(ProgressStyle::with_template("{spinner:.green} {elapsed_precise}] [{wide_bar:.cyan/blue}] Files: {human_pos}/{human_len} ({eta})")
+                        .unwrap()
+                        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+                        .progress_chars("#>-"));
+                    self.progress_bar.add(pb.clone());
+                    let mut cardano_database_pb = self.cardano_database_pb.write().await;
+                    *cardano_database_pb = Some(pb);
                 }
-                *cardano_database_pb = None;
-            }
-            MithrilEvent::CardanoDatabase(
-                MithrilEventCardanoDatabase::ImmutableDownloadCompleted { .. },
-            )
-            | MithrilEvent::CardanoDatabase(
-                MithrilEventCardanoDatabase::AncillaryDownloadCompleted { .. },
-            ) => {
-                let cardano_database_pb = self.cardano_database_pb.read().await;
-                if let Some(progress_bar) = cardano_database_pb.as_ref() {
-                    progress_bar.inc(1);
+                MithrilEventCardanoDatabase::Completed { .. } => {
+                    let mut cardano_database_pb = self.cardano_database_pb.write().await;
+                    if let Some(progress_bar) = cardano_database_pb.as_ref() {
+                        progress_bar.finish_with_message("Artifact files download completed");
+                    }
+                    *cardano_database_pb = None;
+                }
+                MithrilEventCardanoDatabase::ImmutableDownloadCompleted { .. } | 
+                    MithrilEventCardanoDatabase::AncillaryDownloadCompleted { .. }
+                 => {
+                    let cardano_database_pb = self.cardano_database_pb.read().await;
+                    if let Some(progress_bar) = cardano_database_pb.as_ref() {
+                        progress_bar.inc(1);
+                    }
+                }
+                _ => {
+                    // Ignore other events
                 }
             }
             MithrilEvent::CertificateChainValidationStarted {
