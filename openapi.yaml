@@ -968,14 +968,6 @@ components:
       properties:
         epoch:
           $ref: "#/components/schemas/Epoch"
-        protocol:
-          deprecated: true
-          allOf:
-            - $ref: "#/components/schemas/ProtocolParameters"
-        next_protocol:
-          deprecated: true
-          allOf:
-            - $ref: "#/components/schemas/ProtocolParameters"
         signer_registration_protocol:
           $ref: "#/components/schemas/ProtocolParameters"
         current_signers:
@@ -993,8 +985,6 @@ components:
       examples:
         - {
             "epoch": 329,
-            "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
-            "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 },
             "signer_registration_protocol": { "k": 9, "m": 77, "phi_f": 0.5 },
             "current_signers":
               [

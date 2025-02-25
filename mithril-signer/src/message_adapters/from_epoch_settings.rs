@@ -12,7 +12,6 @@ pub struct FromEpochSettingsAdapter;
 impl TryFromMessageAdapter<EpochSettingsMessage, SignerEpochSettings> for FromEpochSettingsAdapter {
     /// Method to convert.
     fn try_adapt(message: EpochSettingsMessage) -> StdResult<SignerEpochSettings> {
-        #[allow(deprecated)]
         let epoch_settings = SignerEpochSettings {
             epoch: message.epoch,
             registration_protocol_parameters: message.signer_registration_protocol_parameters,
