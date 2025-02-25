@@ -5,8 +5,6 @@ sidebar_label: Cardano stake distribution
 
 # Cardano stake distribution
 
-## Introduction
-
 The Mithril protocol supports the certification of the **Cardano stake distribution**, allowing users to verify the actual stake held by one or more SPOs at a given Cardano epoch. This is particularly useful for bridges, sidechains, or other types of layer 2 protocols that need to rely on limited committees for their operations.
 
 To achieve this, Mithril signers and aggregators independently compute a message representing the Cardano stake distribution and apply the Mithril protocol to jointly sign it.
