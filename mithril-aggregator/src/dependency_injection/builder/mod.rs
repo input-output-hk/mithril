@@ -381,10 +381,6 @@ impl DependenciesBuilder {
                 cardano_transactions_prover_max_hashes_allowed_by_request: self
                     .configuration
                     .cardano_transactions_prover_max_hashes_allowed_by_request,
-                cardano_transactions_signing_config: self
-                    .configuration
-                    .cardano_transactions_signing_config
-                    .clone(),
                 cardano_db_artifacts_directory: self.get_cardano_db_artifacts_dir()?,
                 snapshot_directory: snapshot_dir.join(SNAPSHOT_ARTIFACTS_DIR),
                 cardano_node_version: self.configuration.cardano_node_version.clone(),

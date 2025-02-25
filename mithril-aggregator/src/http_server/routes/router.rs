@@ -7,7 +7,7 @@ use crate::tools::url_sanitizer::SanitizedUrlWithTrailingSlash;
 use crate::DependencyContainer;
 
 use mithril_common::api_version::APIVersionProvider;
-use mithril_common::entities::{CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants};
+use mithril_common::entities::SignedEntityTypeDiscriminants;
 use mithril_common::{CardanoNetwork, MITHRIL_API_VERSION_HEADER};
 
 use slog::{warn, Logger};
@@ -37,7 +37,6 @@ pub struct RouterConfig {
     pub server_url: SanitizedUrlWithTrailingSlash,
     pub allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
     pub cardano_transactions_prover_max_hashes_allowed_by_request: usize,
-    pub cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     pub cardano_db_artifacts_directory: PathBuf,
     pub snapshot_directory: PathBuf,
     pub cardano_node_version: String,
@@ -55,7 +54,6 @@ impl RouterConfig {
                 SignedEntityTypeDiscriminants::CardanoStakeDistribution,
             ]),
             cardano_transactions_prover_max_hashes_allowed_by_request: 1_000,
-            cardano_transactions_signing_config: CardanoTransactionsSigningConfig::dummy(),
             cardano_db_artifacts_directory: PathBuf::from("/dummy/cardano-db/directory"),
             snapshot_directory: PathBuf::from("/dummy/snapshot/directory"),
             cardano_node_version: "1.2.3".to_string(),

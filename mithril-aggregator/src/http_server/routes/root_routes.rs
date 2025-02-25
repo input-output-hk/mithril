@@ -21,9 +21,6 @@ fn root(
         .and(middlewares::extract_config(router_state, |config| {
             config.cardano_transactions_prover_max_hashes_allowed_by_request
         }))
-        .and(middlewares::extract_config(router_state, |config| {
-            config.cardano_transactions_signing_config.clone()
-        }))
         .and_then(handlers::root)
 }
 
@@ -35,9 +32,7 @@ mod handlers {
     use warp::http::StatusCode;
 
     use mithril_common::api_version::APIVersionProvider;
-    use mithril_common::entities::{
-        CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
-    };
+    use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
@@ -51,7 +46,6 @@ mod handlers {
         api_version_provider: Arc<APIVersionProvider>,
         allowed_signed_entity_type_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
         max_hashes_allowed_by_request: usize,
-        cardano_transactions_signing_config: CardanoTransactionsSigningConfig,
     ) -> Result<impl warp::Reply, Infallible> {
         let open_api_version = unwrap_to_internal_server_error!(
             api_version_provider.compute_current_version(),
@@ -61,7 +55,6 @@ mod handlers {
         let mut capabilities = AggregatorCapabilities {
             signed_entity_types: allowed_signed_entity_type_discriminants,
             cardano_transactions_prover: None,
-            cardano_transactions_signing_config: None,
         };
 
         if capabilities
@@ -72,9 +65,6 @@ mod handlers {
                 Some(CardanoTransactionsProverCapabilities {
                     max_hashes_allowed_by_request,
                 });
-
-            capabilities.cardano_transactions_signing_config =
-                Some(cardano_transactions_signing_config);
         }
 
         Ok(json(
@@ -92,9 +82,7 @@ mod handlers {
 mod tests {
     use crate::http_server::routes::router::RouterConfig;
     use crate::initialize_dependencies;
-    use mithril_common::entities::{
-        BlockNumber, CardanoTransactionsSigningConfig, SignedEntityTypeDiscriminants,
-    };
+    use mithril_common::entities::SignedEntityTypeDiscriminants;
     use mithril_common::messages::{
         AggregatorCapabilities, AggregatorFeaturesMessage, CardanoTransactionsProverCapabilities,
     };
@@ -167,7 +155,6 @@ mod tests {
                         SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                     ]),
                     cardano_transactions_prover: None,
-                    cardano_transactions_signing_config: None,
                 },
             }
         );
@@ -188,16 +175,11 @@ mod tests {
     async fn test_root_route_ok_with_cardano_transactions_enabled() {
         let method = Method::GET.as_str();
         let path = "/";
-        let signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(70),
-            step: BlockNumber(15),
-        };
         let config = RouterConfig {
             allowed_discriminants: BTreeSet::from([
                 SignedEntityTypeDiscriminants::CardanoTransactions,
             ]),
             cardano_transactions_prover_max_hashes_allowed_by_request: 99,
-            cardano_transactions_signing_config: signing_config.clone(),
             ..RouterConfig::dummy()
         };
         let dependency_manager = initialize_dependencies().await;
@@ -221,12 +203,6 @@ mod tests {
             Some(CardanoTransactionsProverCapabilities {
                 max_hashes_allowed_by_request: 99
             })
-        );
-        assert_eq!(
-            response_body
-                .capabilities
-                .cardano_transactions_signing_config,
-            Some(signing_config)
         );
 
         APISpec::verify_conformity(

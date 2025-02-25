@@ -161,11 +161,6 @@ impl AggregatorClient for FakeAggregator {
         let mut message = AggregatorFeaturesMessage::dummy();
         message.capabilities.signed_entity_types =
             signed_entity_config.allowed_discriminants.clone();
-        message.capabilities.cardano_transactions_signing_config = Some(
-            signed_entity_config
-                .cardano_transactions_signing_config
-                .clone(),
-        );
 
         Ok(message)
     }
@@ -283,6 +278,24 @@ mod tests {
 
         assert_eq!(2, epoch_settings.current_signers.len());
         assert_eq!(1, epoch_settings.next_signers.len());
+
+        let new_transaction_signing_config = CardanoTransactionsSigningConfig {
+            security_parameter: BlockNumber(70),
+            step: BlockNumber(20),
+        };
+        fake_aggregator
+            .change_transaction_signing_config(&new_transaction_signing_config)
+            .await;
+
+        let epoch_settings = fake_aggregator
+            .retrieve_epoch_settings()
+            .await
+            .expect("we should have a result, None found!")
+            .expect("we should have an EpochSettings, None found!");
+        assert_eq!(
+            &Some(new_transaction_signing_config),
+            &epoch_settings.cardano_transactions_signing_config,
+        );
     }
 
     #[tokio::test]
@@ -309,16 +322,9 @@ mod tests {
             SignedEntityTypeDiscriminants::CardanoTransactions,
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
         ]);
-        let new_transaction_signing_config = CardanoTransactionsSigningConfig {
-            security_parameter: BlockNumber(70),
-            step: BlockNumber(20),
-        };
 
         fake_aggregator
             .change_allowed_discriminants(&new_discriminants)
-            .await;
-        fake_aggregator
-            .change_transaction_signing_config(&new_transaction_signing_config)
             .await;
 
         let updated_features = fake_aggregator
@@ -328,12 +334,6 @@ mod tests {
         assert_eq!(
             &new_discriminants,
             &updated_features.capabilities.signed_entity_types,
-        );
-        assert_eq!(
-            &Some(new_transaction_signing_config),
-            &updated_features
-                .capabilities
-                .cardano_transactions_signing_config,
         );
     }
 }
