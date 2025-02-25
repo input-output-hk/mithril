@@ -137,6 +137,33 @@ rotation:
 # settings. This provides fairly coarse grained control, but it is relatively
 # efficient at filtering out unwanted trace output.
 
+TraceOptions:
+  "": # Options for all tracers, if not overwritten:
+    severity: Notice
+    detail: DNormal
+    backends:
+      - Stdout MachineFormat
+      - EKGBackend
+      - Forwarder
+
+  ChainDB: # Show as well messages with severity Info for all ChainDB traces.
+    severity: Info
+    detail: DDetailed
+
+  ChainDB.AddBlockEvent.AddedBlockToQueue: # Limit the AddedBlockToQueue events to a maximum of two per second.
+    maxFrequency: 2.0
+
+TraceOptionForwarder: # Configure the forwarder
+  address:
+    filePath: /tmp/forwarder.sock
+  mode: Initiator
+
+# Frequency of Peer messages set to two seconds
+TraceOptionPeerFrequency: 2000
+
+# Any metrics emittted will get this prefix
+TraceOptionMetricsPrefix: "cardano.node"
+
 # Trace BlockFetch client.
 TraceBlockFetchClient: False
 
