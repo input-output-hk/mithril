@@ -14,7 +14,7 @@ pub struct ImmutableFileDigestRecord {
 }
 
 impl ImmutableFileDigestRecord {
-    /// Construct a [Projection] that will allow to hydrate this `CertificatePendingRecord` and expend table alias.
+    /// Construct a [Projection] that will allow to hydrate this `ImmutableFileDigestRecord` and expend table alias.
     pub fn expand_projection(table: &str) -> String {
         let aliases = SourceAlias::new(&[("{:immutable_file_digest:}", table)]);
         Self::get_projection().expand(aliases)

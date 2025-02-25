@@ -196,7 +196,7 @@ sqlite3 data/$NETWORK/mithril-signer-1/mithril/stores/signer.sqlite3 "DELETE FRO
 sqlite3 data/$NETWORK/mithril-signer-2/mithril/stores/signer.sqlite3 "DELETE FROM protocol_initializer; DELETE FROM stake;"
 
 ## Clean aggregator db
-sqlite3 data/$NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3 "DELETE FROM certificate; DELETE FROM single_signature; DELETE FROM verification_key; DELETE FROM pending_certificate; DELETE FROM snapshot; DELETE FROM stake;"
+sqlite3 data/$NETWORK/mithril-aggregator/mithril/stores/aggregator.sqlite3 "DELETE FROM certificate; DELETE FROM single_signature; DELETE FROM verification_key; DELETE FROM snapshot; DELETE FROM stake;"
 
 ## Restart nodes
 docker restart mithril-aggregator

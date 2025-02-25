@@ -3,10 +3,6 @@ cat >> query-mithril.sh <<EOF
 
 AGGREGATOR_API_ENDPOINT="http://0.0.0.0:8080/aggregator"
 
-echo ">> Query pending certificate"
-curl -sL \${AGGREGATOR_API_ENDPOINT}/certificate-pending | jq .
-echo
-
 echo ">> Query latest certificates"
 curl -sL \${AGGREGATOR_API_ENDPOINT}/certificates | jq '.[:2]'
 echo
