@@ -13,6 +13,7 @@ use mithril_client::MithrilResult;
 
 /// Cardano db v2 management (alias: cdbv2)
 #[derive(Subcommand, Debug, Clone)]
+#[command(about = "[unstable] Cardano db v2 management (alias: cdbv2)")]
 pub enum CardanoDbV2Commands {
     /// Cardano db snapshot v2 commands
     #[clap(subcommand)]
