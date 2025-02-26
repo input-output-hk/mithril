@@ -305,6 +305,37 @@ mod tests {
     }
 
     #[test]
+    fn test_upgrade_with_migration_with_a_version_gap() {
+        let (_filepath, connection) =
+            create_sqlite_file("test_upgrade_with_migration_with_a_version_gap.sqlite3").unwrap();
+        let mut db_checker = DatabaseVersionChecker::new(
+            discard_logger(),
+            ApplicationNodeType::Aggregator,
+            &connection,
+        );
+
+        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
+        let migration = SqlMigration {
+            version: 3,
+            alterations: alterations.to_string(),
+        };
+        db_checker.add_migration(migration);
+        db_checker.apply().unwrap();
+        assert_eq!(1, get_table_whatever_column_count(&connection));
+        check_database_version(&connection, 3);
+
+        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
+        let migration_with_version_gap = SqlMigration {
+            version: 10,
+            alterations: alterations.to_string(),
+        };
+        db_checker.add_migration(migration_with_version_gap);
+        db_checker.apply().unwrap();
+        assert_eq!(2, get_table_whatever_column_count(&connection));
+        check_database_version(&connection, 10);
+    }
+
+    #[test]
     fn starting_with_migration() {
         let (_filepath, connection) = create_sqlite_file("starting_with_migration").unwrap();
         let mut db_checker = DatabaseVersionChecker::new(
