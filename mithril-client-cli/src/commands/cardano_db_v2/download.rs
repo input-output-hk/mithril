@@ -467,10 +467,9 @@ impl ConfigSource for CardanoDbV2DownloadCommand {
 #[cfg(test)]
 mod tests {
     use mithril_client::{
-        common::{CardanoDbBeacon, ProtocolMessagePartKey},
+        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
         MithrilCertificateMetadata,
     };
-    use mithril_common::messages::SignedEntityTypeMessagePart;
     use mithril_common::test_utils::TempDir;
 
     use super::*;
@@ -491,7 +490,7 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch: beacon.epoch,
-            signed_entity_type: SignedEntityTypeMessagePart::CardanoDatabase(beacon),
+            signed_entity_type: SignedEntityType::CardanoDatabase(beacon),
             metadata: MithrilCertificateMetadata::dummy(),
             protocol_message: protocol_message.clone(),
             signed_message: "signed_message".to_string(),

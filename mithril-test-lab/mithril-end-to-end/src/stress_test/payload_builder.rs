@@ -5,9 +5,10 @@ use mithril_common::{
     digesters::{CardanoImmutableDigester, DummyCardanoDb, ImmutableDigester},
     entities::{
         CardanoDbBeacon, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
-        SignedEntityType, Signer, SingleSignatures,
+        SignedEntityType, Signer,
     },
     messages::{RegisterSignatureMessage, RegisterSignerMessage},
+    protocol::ToMessage,
     test_utils::{MithrilFixture, MithrilFixtureBuilder},
     StdResult,
 };
@@ -46,52 +47,44 @@ pub fn generate_register_signer_message(
         .collect::<Vec<_>>()
 }
 
-/// Generate register signature message
-pub fn generate_register_signature_message(
-    signatures: &[SingleSignatures],
-    signed_entity_type: SignedEntityType,
-) -> Vec<RegisterSignatureMessage> {
-    signatures
-        .iter()
-        .map(|s| RegisterSignatureMessage {
-            signed_entity_type: (signed_entity_type.clone(), "devnet").into(),
-            party_id: s.party_id.clone(),
-            signature: s.signature.clone().to_json_hex().unwrap(),
-            won_indexes: s.won_indexes.clone(),
-            signed_message: None,
-        })
-        .collect::<Vec<_>>()
-}
-
 /// Compute all signers single signatures for mithril stake distribution for the given fixture
 pub async fn compute_mithril_stake_distribution_signatures(
     epoch: Epoch,
     signers_fixture: &MithrilFixture,
     timeout: Duration,
-) -> StdResult<Vec<SingleSignatures>> {
+) -> StdResult<Vec<RegisterSignatureMessage>> {
     spin_while_waiting!(
         {
             let signers_fixture = signers_fixture.clone();
-            let signatures = tokio::task::spawn_blocking(move || -> Vec<SingleSignatures> {
+            let signatures = tokio::task::spawn_blocking(move || -> Vec<_> {
                 let mithril_stake_distribution_message = {
                     let mut message = ProtocolMessage::new();
                     message.set_message_part(
-                        mithril_common::entities::ProtocolMessagePartKey::NextAggregateVerificationKey,
+                        ProtocolMessagePartKey::NextAggregateVerificationKey,
                         signers_fixture.compute_and_encode_avk(),
                     );
                     message.set_message_part(
-                        mithril_common::entities::ProtocolMessagePartKey::NextProtocolParameters,
+                        ProtocolMessagePartKey::NextProtocolParameters,
                         signers_fixture.protocol_parameters().compute_hash(),
                     );
-                    message.set_message_part(
-                        mithril_common::entities::ProtocolMessagePartKey::CurrentEpoch,
-                        epoch.to_string(),
-                    );
+                    message
+                        .set_message_part(ProtocolMessagePartKey::CurrentEpoch, epoch.to_string());
 
                     message
                 };
 
-                signers_fixture.sign_all(&mithril_stake_distribution_message)
+                let signed_message = mithril_stake_distribution_message.to_message();
+                signers_fixture
+                    .sign_all(&mithril_stake_distribution_message)
+                    .into_iter()
+                    .map(|s| RegisterSignatureMessage {
+                        signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
+                        party_id: s.party_id.clone(),
+                        signature: s.signature.clone().to_json_hex().unwrap(),
+                        won_indexes: s.won_indexes.clone(),
+                        signed_message: signed_message.clone(),
+                    })
+                    .collect()
             })
             .await?;
 
@@ -109,14 +102,12 @@ pub async fn compute_immutable_files_signatures(
     epoch: Epoch,
     signers_fixture: &MithrilFixture,
     timeout: Duration,
-) -> StdResult<(CardanoDbBeacon, Vec<SingleSignatures>)> {
+) -> StdResult<(CardanoDbBeacon, Vec<RegisterSignatureMessage>)> {
     spin_while_waiting!(
         {
-            let beacon = CardanoDbBeacon::new(
-                *epoch,
-                // Minus one because the last immutable isn't "finished"
-                cardano_db.last_immutable_number().unwrap() - 1,
-            );
+            // Minus one because the last immutable isn't "finished"
+            let immutable_file_number = cardano_db.last_immutable_number().unwrap() - 1;
+            let beacon = CardanoDbBeacon::new(*epoch, immutable_file_number);
             let digester =
                 CardanoImmutableDigester::new("devnet".to_string(), None, slog_scope::logger());
             let digest = digester
@@ -130,7 +121,7 @@ pub async fn compute_immutable_files_signatures(
                 })?;
             let signers_fixture = signers_fixture.clone();
 
-            let signatures = tokio::task::spawn_blocking(move || -> Vec<SingleSignatures> {
+            let signatures = tokio::task::spawn_blocking(move || -> Vec<_> {
                 let cardano_immutable_files_full_message = {
                     let mut message = ProtocolMessage::new();
                     message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
@@ -139,18 +130,29 @@ pub async fn compute_immutable_files_signatures(
                         signers_fixture.compute_and_encode_avk(),
                     );
                     message.set_message_part(
-                        mithril_common::entities::ProtocolMessagePartKey::NextProtocolParameters,
+                        ProtocolMessagePartKey::NextProtocolParameters,
                         signers_fixture.protocol_parameters().compute_hash(),
                     );
-                    message.set_message_part(
-                        mithril_common::entities::ProtocolMessagePartKey::CurrentEpoch,
-                        epoch.to_string(),
-                    );
+                    message
+                        .set_message_part(ProtocolMessagePartKey::CurrentEpoch, epoch.to_string());
 
                     message
                 };
 
-                signers_fixture.sign_all(&cardano_immutable_files_full_message)
+                let signed_message = cardano_immutable_files_full_message.to_message();
+                signers_fixture
+                    .sign_all(&cardano_immutable_files_full_message)
+                    .into_iter()
+                    .map(|s| RegisterSignatureMessage {
+                        signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                            CardanoDbBeacon::new(*epoch, immutable_file_number),
+                        ),
+                        party_id: s.party_id.clone(),
+                        signature: s.signature.clone().to_json_hex().unwrap(),
+                        won_indexes: s.won_indexes.clone(),
+                        signed_message: signed_message.clone(),
+                    })
+                    .collect()
             })
             .await?;
 

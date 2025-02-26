@@ -12,7 +12,7 @@ use mithril_common::signable_builder::CardanoStakeDistributionSignableBuilder;
 use mithril_common::{
     crypto_helper::MKProof,
     digesters::{CardanoImmutableDigester, ImmutableDigester},
-    messages::SignedEntityTypeMessagePart,
+    entities::SignedEntityType,
 };
 
 use crate::{
@@ -75,7 +75,7 @@ impl MessageBuilder {
             let digester = self.get_immutable_digester(&snapshot_certificate.metadata.network);
             let beacon =
                 match &snapshot_certificate.signed_entity_type {
-                SignedEntityTypeMessagePart::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
+                SignedEntityType::CardanoImmutableFilesFull(beacon) => {Ok(beacon)},
                 other => {
                     Err(anyhow::anyhow!(
                             "Can't compute message: Given certificate `{}` does not certify a snapshot, certificate signed entity: {:?}",
@@ -88,7 +88,7 @@ impl MessageBuilder {
             let mut message = snapshot_certificate.protocol_message.clone();
 
             let digest = digester
-                .compute_digest(unpacked_snapshot_directory, &beacon.clone().into())
+                .compute_digest(unpacked_snapshot_directory, &beacon.clone())
                 .await
                 .with_context(|| {
                     format!(

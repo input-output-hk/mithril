@@ -4,8 +4,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::entities::{
     Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters, ProtocolVersion,
+    SignedEntityType,
 };
-use crate::messages::SignedEntityTypeMessagePart;
 
 /// Message structure of a certificate list
 pub type CertificateListMessage = Vec<CertificateListItemMessage>;
@@ -62,7 +62,7 @@ pub struct CertificateListItemMessage {
 
     /// The signed entity type of the message.
     /// aka BEACON(p,n)
-    pub signed_entity_type: SignedEntityTypeMessagePart,
+    pub signed_entity_type: SignedEntityType,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
@@ -100,7 +100,7 @@ impl CertificateListItemMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
-            signed_entity_type: SignedEntityTypeMessagePart::MithrilStakeDistribution(epoch),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(epoch),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),
@@ -154,7 +154,6 @@ impl Debug for CertificateListItemMessage {
 #[cfg(test)]
 mod tests {
     use crate::entities::CardanoDbBeacon;
-    use crate::messages::CardanoDbBeaconMessagePart;
 
     use super::*;
 
@@ -164,7 +163,6 @@ mod tests {
             "epoch": 10,
             "signed_entity_type": {
                 "CardanoImmutableFilesFull": {
-                    "network": "testnet",
                     "epoch": 10,
                     "immutable_file_number": 1728
                 }
@@ -191,60 +189,6 @@ mod tests {
             "aggregate_verification_key": "aggregate_verification_key"
         }]"#;
 
-    type CertificateListMessageUntilV0_1_32 = Vec<CertificateListItemMessageUntilV0_1_32>;
-
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct CertificateListItemMessageUntilV0_1_32 {
-        pub hash: String,
-        pub previous_hash: String,
-        pub epoch: Epoch,
-        pub signed_entity_type: SignedEntityTypeMessagePart,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub beacon: Option<CardanoDbBeacon>,
-        pub metadata: CertificateListItemMessageMetadata,
-        pub protocol_message: ProtocolMessage,
-        pub signed_message: String,
-        pub aggregate_verification_key: String,
-    }
-
-    fn golden_message_until_open_api_0_1_32() -> CertificateListItemMessageUntilV0_1_32 {
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "snapshot-digest-123".to_string(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "next-avk-123".to_string(),
-        );
-        let epoch = Epoch(10);
-
-        CertificateListItemMessageUntilV0_1_32 {
-            hash: "hash".to_string(),
-            previous_hash: "previous_hash".to_string(),
-            epoch,
-            signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new("testnet", epoch, 1728),
-            ),
-            beacon: None,
-            metadata: CertificateListItemMessageMetadata {
-                network: "testnet".to_string(),
-                protocol_version: "0.1.0".to_string(),
-                protocol_parameters: ProtocolParameters::new(1000, 100, 0.123),
-                initiated_at: DateTime::parse_from_rfc3339("2024-02-12T13:11:47Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                sealed_at: DateTime::parse_from_rfc3339("2024-02-12T13:12:57Z")
-                    .unwrap()
-                    .with_timezone(&Utc),
-                total_signers: 2,
-            },
-            protocol_message: protocol_message.clone(),
-            signed_message: "signed_message".to_string(),
-            aggregate_verification_key: "aggregate_verification_key".to_string(),
-        }
-    }
-
     fn golden_current_message() -> CertificateListItemMessage {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
@@ -261,9 +205,9 @@ mod tests {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
             epoch,
-            signed_entity_type: SignedEntityTypeMessagePart::CardanoImmutableFilesFull(
-                CardanoDbBeaconMessagePart::new("testnet", epoch, 1728),
-            ),
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
+                *epoch, 1728,
+            )),
             metadata: CertificateListItemMessageMetadata {
                 network: "testnet".to_string(),
                 protocol_version: "0.1.0".to_string(),
@@ -280,14 +224,6 @@ mod tests {
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
         }
-    }
-
-    #[test]
-    fn test_current_json_deserialized_into_message_supported_until_open_api_0_1_32() {
-        let json = CURRENT_JSON;
-        let message: CertificateListMessageUntilV0_1_32 = serde_json::from_str(json).unwrap();
-
-        assert_eq!(vec![golden_message_until_open_api_0_1_32()], message);
     }
 
     #[test]

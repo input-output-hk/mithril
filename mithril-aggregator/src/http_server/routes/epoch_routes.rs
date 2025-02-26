@@ -38,11 +38,9 @@ async fn get_epoch_settings_message(
     let epoch_service = epoch_service.read().await;
 
     let epoch = epoch_service.epoch_of_current_data()?;
-    let protocol_parameters = Some(epoch_service.next_protocol_parameters()?.clone());
     let signer_registration_protocol_parameters = epoch_service
         .signer_registration_protocol_parameters()?
         .clone();
-    let next_protocol_parameters = Some(signer_registration_protocol_parameters.clone());
     let current_signers = epoch_service.current_signers()?;
     let next_signers = epoch_service.next_signers()?;
 
@@ -58,11 +56,8 @@ async fn get_epoch_settings_message(
         .transpose()?
         .cloned();
 
-    #[allow(deprecated)]
     let epoch_settings_message = EpochSettingsMessage {
         epoch,
-        protocol_parameters,
-        next_protocol_parameters,
         signer_registration_protocol_parameters,
         current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
         next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
@@ -202,20 +197,6 @@ mod tests {
         )
         .await
         .unwrap();
-
-        #[allow(deprecated)]
-        let message_protocol_parameters = message.protocol_parameters.unwrap();
-        assert_eq!(
-            message_protocol_parameters,
-            next_epoch_settings.protocol_parameters
-        );
-
-        #[allow(deprecated)]
-        let message_next_protocol_parameters = message.next_protocol_parameters.unwrap();
-        assert_eq!(
-            message_next_protocol_parameters,
-            signer_registration_epoch_settings.protocol_parameters
-        );
 
         assert_eq!(
             message.signer_registration_protocol_parameters,

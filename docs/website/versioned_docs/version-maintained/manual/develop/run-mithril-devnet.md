@@ -231,8 +231,6 @@ The networks will be queried every second and will display:
 === Mithril Network
 =====================================================================
 
->> Query pending certificate
-
 >> Query latest certificates
 [
   {

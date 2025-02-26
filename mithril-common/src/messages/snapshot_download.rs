@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{CompressionAlgorithm, Epoch};
-use crate::messages::CardanoDbBeaconMessagePart;
+use crate::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
 
 /// Message structure of a snapshot
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -13,7 +12,7 @@ pub struct SnapshotDownloadMessage {
     pub network: String,
 
     /// Mithril beacon on the Cardano chain
-    pub beacon: CardanoDbBeaconMessagePart,
+    pub beacon: CardanoDbBeacon,
 
     /// Size of the snapshot file in Bytes
     pub size: u64,
@@ -34,8 +33,7 @@ impl SnapshotDownloadMessage {
         Self {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             network: "preview".to_string(),
-            beacon: CardanoDbBeaconMessagePart {
-                network: Some("preview".to_string()),
+            beacon: CardanoDbBeacon {
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
             },
@@ -50,13 +48,11 @@ impl SnapshotDownloadMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::messages::CardanoDbBeaconMessagePart;
 
     const CURRENT_JSON: &str = r#"{
         "digest": "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6",
         "network": "preview",
         "beacon": {
-            "network": "preview",
             "epoch": 86,
             "immutable_file_number": 1728
         },
@@ -72,8 +68,7 @@ mod tests {
         SnapshotDownloadMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             network: "preview".to_string(),
-            beacon: CardanoDbBeaconMessagePart {
-                network: Some("preview".to_string()),
+            beacon: CardanoDbBeacon {
                 epoch: Epoch(86),
                 immutable_file_number: 1728,
             },

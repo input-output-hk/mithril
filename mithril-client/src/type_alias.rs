@@ -70,7 +70,7 @@ pub mod common {
     pub use mithril_common::entities::{
         BlockHash, BlockNumber, CardanoDbBeacon, ChainPoint, CompressionAlgorithm, Epoch,
         ImmutableFileNumber, ProtocolMessage, ProtocolMessagePartKey, ProtocolParameters,
-        SlotNumber, StakeDistribution, TransactionHash,
+        SignedEntityType, SlotNumber, StakeDistribution, TransactionHash,
     };
     cfg_unstable! {
         pub use mithril_common::entities::{

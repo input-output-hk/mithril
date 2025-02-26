@@ -35,12 +35,13 @@ mod tests {
 
     #[test]
     fn test_simple_message() {
-        let signatures = FromRegisterSingleSignatureAdapter::try_adapt(RegisterSignatureMessage {
-            signed_message: Some("signed_message".to_string()),
-            ..RegisterSignatureMessage::dummy()
-        })
-        .unwrap();
+        let message = RegisterSignatureMessage::dummy();
+        let signatures = FromRegisterSingleSignatureAdapter::try_adapt(message.clone()).unwrap();
 
-        assert_eq!("party_id".to_string(), signatures.party_id);
+        assert_eq!(message.party_id, signatures.party_id);
+        assert_eq!(
+            SingleSignatureAuthenticationStatus::Unauthenticated,
+            signatures.authentication_status
+        );
     }
 }

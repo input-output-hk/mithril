@@ -7,14 +7,14 @@ use mithril_common::digesters::cache::ImmutableFileDigestCacheProvider;
 use mithril_persistence::database::repository::CardanoTransactionRepository;
 
 use crate::database::repository::{
-    CertificatePendingRepository, CertificateRepository, EpochSettingsStore,
-    ImmutableFileDigestRepository, OpenMessageRepository, SignedEntityStore, SignedEntityStorer,
-    SignerRegistrationStore, SignerStore, StakePoolStore,
+    CertificateRepository, EpochSettingsStore, ImmutableFileDigestRepository,
+    OpenMessageRepository, SignedEntityStore, SignedEntityStorer, SignerRegistrationStore,
+    SignerStore, StakePoolStore,
 };
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::{
-    CExplorerSignerRetriever, CertificatePendingStorer, EpochSettingsStorer,
-    ImmutableFileDigestMapper, SignersImporter, VerificationKeyStorer,
+    CExplorerSignerRetriever, EpochSettingsStorer, ImmutableFileDigestMapper, SignersImporter,
+    VerificationKeyStorer,
 };
 
 impl DependenciesBuilder {
@@ -34,25 +34,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.stake_store.as_ref().cloned().unwrap())
-    }
-
-    async fn build_certificate_pending_storer(
-        &mut self,
-    ) -> Result<Arc<dyn CertificatePendingStorer>> {
-        Ok(Arc::new(CertificatePendingRepository::new(
-            self.get_sqlite_connection().await?,
-        )))
-    }
-
-    /// Get a configured [CertificatePendingStorer].
-    pub async fn get_certificate_pending_storer(
-        &mut self,
-    ) -> Result<Arc<dyn CertificatePendingStorer>> {
-        if self.certificate_pending_store.is_none() {
-            self.certificate_pending_store = Some(self.build_certificate_pending_storer().await?);
-        }
-
-        Ok(self.certificate_pending_store.as_ref().cloned().unwrap())
     }
 
     async fn build_certificate_repository(&mut self) -> Result<Arc<CertificateRepository>> {
@@ -126,18 +107,6 @@ impl DependenciesBuilder {
                 message: format!("cannot create aggregator runner: failed to offset current epoch '{current_epoch}' to signer retrieval epoch."),
                 error: Some(e.into()),
             })?;
-
-        {
-            // Temporary fix, should be removed
-            // Replace empty JSON values '{}' injected with Migration #28
-            let cardano_signing_config = self
-                .configuration
-                .cardano_transactions_signing_config
-                .clone();
-            #[allow(deprecated)]
-            epoch_settings_store
-                .replace_cardano_signing_config_empty_values(cardano_signing_config)?;
-        }
 
         let epoch_settings_configuration = self.configuration.get_epoch_settings_configuration();
         debug!(

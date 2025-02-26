@@ -2,7 +2,6 @@
 
 mod buffered_single_signature_record;
 mod certificate;
-mod certificate_pending;
 mod epoch_settings;
 mod immutable_file_digest;
 mod open_message;
@@ -15,7 +14,6 @@ mod stake_pool;
 
 pub use buffered_single_signature_record::*;
 pub use certificate::*;
-pub use certificate_pending::*;
 pub use epoch_settings::*;
 pub use immutable_file_digest::*;
 pub use open_message::*;

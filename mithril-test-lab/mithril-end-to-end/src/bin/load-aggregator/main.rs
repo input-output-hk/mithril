@@ -1,11 +1,11 @@
 use clap::Parser;
 use slog_scope::info;
-use std::{ops::Deref, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tokio::sync::oneshot;
 
 use mithril_common::{
     digesters::{DummyCardanoDb, DummyCardanoDbBuilder},
-    entities::{CardanoDbBeacon, Epoch, ProtocolParameters, SignedEntityType},
+    entities::{Epoch, ProtocolParameters},
     test_utils::MithrilFixture,
     StdResult,
 };
@@ -172,14 +172,6 @@ async fn main_scenario(
     parameters.reporter.stop();
     assert_eq!(0, errors);
 
-    info!(">> Wait for pending certificate to be available");
-    wait::for_pending_certificate(
-        &parameters.aggregator,
-        Duration::from_secs(60),
-        &SignedEntityType::MithrilStakeDistribution(current_epoch),
-    )
-    .await?;
-
     info!(">> Compute the mithril stake distribution signature");
     let mithril_stake_distribution_signatures =
         payload_builder::compute_mithril_stake_distribution_signatures(
@@ -197,8 +189,7 @@ async fn main_scenario(
     parameters.reporter.start("signatures registration");
     let errors = fake_signer::register_signatures_to_aggregator(
         &parameters.aggregator,
-        &mithril_stake_distribution_signatures,
-        SignedEntityType::MithrilStakeDistribution(current_epoch),
+        mithril_stake_distribution_signatures,
     )
     .await?;
     parameters.reporter.stop();
@@ -222,17 +213,6 @@ async fn main_scenario(
     )
     .await?;
 
-    info!(">> Wait for pending certificate to be available");
-    wait::for_pending_certificate(
-        &parameters.aggregator,
-        Duration::from_secs(60),
-        &SignedEntityType::CardanoImmutableFilesFull(CardanoDbBeacon::new(
-            *current_epoch.deref(),
-            parameters.cardano_db.last_immutable_number().unwrap() - 1,
-        )),
-    )
-    .await?;
-
     info!(">> Compute the immutable files signature");
     let (current_beacon, immutable_files_signatures) =
         payload_builder::compute_immutable_files_signatures(
@@ -251,8 +231,7 @@ async fn main_scenario(
     parameters.reporter.start("signatures registration");
     let errors = fake_signer::register_signatures_to_aggregator(
         &parameters.aggregator,
-        &immutable_files_signatures,
-        SignedEntityType::CardanoImmutableFilesFull(current_beacon),
+        immutable_files_signatures,
     )
     .await?;
     parameters.reporter.stop();

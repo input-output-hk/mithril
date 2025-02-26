@@ -7,6 +7,7 @@ use slog_scope::debug;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt::Debug,
+    ops::RangeInclusive,
     path::Path,
     sync::Arc,
     time::Duration,
@@ -142,7 +143,7 @@ impl StateMachineTester {
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
 
-        let chain_observer = Arc::new(FakeObserver::new(Some(initial_time_point)));
+        let chain_observer = Arc::new(FakeObserver::new(Some(initial_time_point.clone())));
         let ticker_service = Arc::new(MithrilTickerService::new(
             chain_observer.clone(),
             immutable_observer.clone(),
@@ -197,6 +198,12 @@ impl StateMachineTester {
         let transaction_store = Arc::new(CardanoTransactionRepository::new(
             sqlite_connection_cardano_transaction_pool.clone(),
         ));
+        // Add some blocks to the scanner, else first signing of CardanoTransactions will fail because
+        // the signed merkle tree will be empty
+        block_scanner.add_forwards(vec![Self::build_blocks_to_scan(
+            1..=*initial_time_point.chain_point.block_number,
+        )]);
+
         let transactions_importer = Arc::new(CardanoTransactionsImporter::new(
             block_scanner.clone(),
             transaction_store.clone(),
@@ -541,22 +548,26 @@ impl StateMachineTester {
         )?;
 
         // Make the block scanner return new blocks
-        let blocks_to_scan: Vec<ScannedBlock> = (1..=increment)
-            .map(|index_number| {
-                let block_number = expected_block_number - increment + index_number;
-                let slot_number = expected_slot_number - increment + index_number;
-                let block_hash = format!("block_hash-{block_number}");
-                ScannedBlock::new(
-                    block_hash,
-                    block_number,
-                    slot_number,
-                    vec![format!("tx_hash-{block_number}-1")],
-                )
-            })
-            .collect();
-        self.block_scanner.add_forwards(vec![blocks_to_scan]);
+        self.block_scanner
+            .add_forwards(vec![Self::build_blocks_to_scan(
+                (*expected_block_number - increment + 1)..=*expected_block_number,
+            )]);
 
         Ok(self)
+    }
+
+    fn build_blocks_to_scan(block_number_interval: RangeInclusive<u64>) -> Vec<ScannedBlock> {
+        block_number_interval
+            .map(|index_number| {
+                let block_hash = format!("block_hash-{index_number}");
+                ScannedBlock::new(
+                    block_hash,
+                    BlockNumber(index_number),
+                    SlotNumber(index_number),
+                    vec![format!("tx_hash-{index_number}-1")],
+                )
+            })
+            .collect()
     }
 
     pub async fn cardano_chain_send_rollback(

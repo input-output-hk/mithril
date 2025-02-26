@@ -7,7 +7,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use mithril_common::{
-    entities::{Epoch, SignedEntityType},
+    entities::Epoch,
     messages::{
         CertificateListItemMessage, EpochSettingsMessage, MithrilStakeDistributionListItemMessage,
         SnapshotListItemMessage,
@@ -67,6 +67,19 @@ pub async fn for_http_response(url: &str, timeout: Duration, message: &str) -> S
     )
 }
 
+/// Wait for the aggregator http server to start
+pub async fn for_aggregator_http_server_to_start(
+    aggregator: &Aggregator,
+    timeout: Duration,
+) -> StdResult<()> {
+    for_http_response(
+        &aggregator.endpoint(),
+        timeout,
+        "Waiting for the aggregator to start",
+    )
+    .await
+}
+
 /// Wait for a given epoch in the epoch settings until timeout
 pub async fn for_epoch_settings_at_epoch(
     aggregator: &Aggregator,
@@ -100,47 +113,6 @@ pub async fn for_epoch_settings_at_epoch(
         },
         timeout,
         format!("Waiting for epoch {epoch}"),
-        format!("Aggregator did not get a response after {timeout:?} from '{url}'")
-    )
-}
-
-/// Wait for pending certificate
-#[allow(deprecated)]
-pub async fn for_pending_certificate(
-    aggregator: &Aggregator,
-    timeout: Duration,
-    signed_entity_type: &SignedEntityType,
-) -> StdResult<()> {
-    use mithril_common::messages::CertificatePendingMessage;
-
-    let url = &format!("{}/certificate-pending", aggregator.endpoint());
-    spin_while_waiting!(
-        {
-            while let Ok(response) = reqwest::get(url).await {
-                match response.status() {
-                    StatusCode::OK => {
-                        let pending_certificate =
-                            response.json::<CertificatePendingMessage>().await.unwrap();
-
-                        if &pending_certificate.signed_entity_type == signed_entity_type {
-                            break;
-                        }
-                        sleep(Duration::from_millis(300)).await
-                    }
-                    s if s.is_server_error() => {
-                        warn!(
-                            "Server error while waiting for the Aggregator, http code: {}",
-                            s
-                        );
-                        break;
-                    }
-                    _ => sleep(Duration::from_millis(300)).await,
-                }
-            }
-            Ok(())
-        },
-        timeout,
-        format!("Waiting for pending certificate"),
         format!("Aggregator did not get a response after {timeout:?} from '{url}'")
     )
 }
