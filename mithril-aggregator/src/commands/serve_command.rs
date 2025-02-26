@@ -53,6 +53,14 @@ pub struct ServeCommand {
     /// Metrics HTTP server listening port.
     #[clap(long)]
     metrics_server_port: Option<u16>,
+
+    /// Master aggregator endpoint
+    ///
+    /// This is the endpoint of the aggregator that will be used to fetch the latest epoch settings
+    /// and store the signer registrations when the aggregator is running in a slave mode.
+    /// If this is not set, the aggregator will run in a master mode.
+    #[clap(long)]
+    pub master_aggregator_endpoint: Option<String>,
 }
 
 impl Source for ServeCommand {
@@ -119,6 +127,15 @@ impl Source for ServeCommand {
             result.insert(
                 "metrics_server_port".to_string(),
                 Value::new(Some(&namespace), ValueKind::from(metrics_server_port)),
+            );
+        }
+        if let Some(master_aggregator_endpoint) = self.master_aggregator_endpoint.clone() {
+            result.insert(
+                "master_aggregator_endpoint".to_string(),
+                Value::new(
+                    Some(&namespace),
+                    ValueKind::from(Some(master_aggregator_endpoint)),
+                ),
             );
         }
 
