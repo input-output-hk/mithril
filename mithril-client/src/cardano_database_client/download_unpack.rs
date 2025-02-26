@@ -599,6 +599,95 @@ mod tests {
                 .await
                 .unwrap();
         }
+
+        #[tokio::test]
+        async fn download_unpack_immutable_and_ancillary_files_falls_back_to_next_location_on_failure(
+        ) {
+            let target_dir = TempDir::new(
+                "cardano_database_client",
+                "download_unpack_immutable_and_ancillary_files_falls_back_to_next_location_on_failure",
+            )
+            .build();
+            let immutable_file_range = ImmutableFileRange::Range(1, 2);
+            let download_unpack_options = DownloadUnpackOptions {
+                include_ancillary: true,
+                ..DownloadUnpackOptions::default()
+            };
+
+            let client = CardanoDatabaseClientDependencyInjector::new()
+                .with_http_file_downloader(Arc::new({
+                    MockFileDownloaderBuilder::default()
+                        // First immutable location: file 1 fails.
+                        .with_file_uri("http://first-location/00001.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_failure()
+                        .next_call()
+                        // First immutable location: file 2 succeeds.
+                        .with_file_uri("http://first-location/00002.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_success()
+                        .next_call()
+                        // Second immutable location: for the remaining file (file 1) succeeds.
+                        .with_file_uri("http://second-location/00001.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_success()
+                        .next_call()
+                        // First ancillary location: fails.
+                        .with_file_uri("http://first-location/ancillary.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_failure()
+                        .next_call()
+                        // Second ancillary location: succeeds.
+                        .with_file_uri("http://second-location/ancillary.tar.gz")
+                        .with_target_dir(target_dir.clone())
+                        .with_success()
+                        .build()
+                }))
+                .build_cardano_database_client();
+
+            let cardano_db_snapshot = CardanoDatabaseSnapshot {
+                hash: "hash-123".to_string(),
+                beacon: CardanoDbBeacon {
+                    immutable_file_number: 2,
+                    epoch: Epoch(123),
+                },
+                locations: ArtifactsLocationsMessagePart {
+                    // Define two locations with distinct URIs.
+                    immutables: vec![
+                        ImmutablesLocation::CloudStorage {
+                            uri: MultiFilesUri::Template(TemplateUri(
+                                "http://first-location/{immutable_file_number}.tar.gz".to_string(),
+                            )),
+                        },
+                        ImmutablesLocation::CloudStorage {
+                            uri: MultiFilesUri::Template(TemplateUri(
+                                "http://second-location/{immutable_file_number}.tar.gz".to_string(),
+                            )),
+                        },
+                    ],
+                    ancillary: vec![
+                        AncillaryLocation::CloudStorage {
+                            uri: "http://first-location/ancillary.tar.gz".to_string(),
+                        },
+                        AncillaryLocation::CloudStorage {
+                            uri: "http://second-location/ancillary.tar.gz".to_string(),
+                        },
+                    ],
+                    digests: vec![],
+                },
+                ..CardanoDatabaseSnapshot::dummy()
+            };
+
+            client
+                .download_unpack(
+                    &cardano_db_snapshot,
+                    &immutable_file_range,
+                    &target_dir,
+                    download_unpack_options,
+                )
+                .await
+                .unwrap();
+        }
     }
 
     mod verify_download_options_compatibility {
