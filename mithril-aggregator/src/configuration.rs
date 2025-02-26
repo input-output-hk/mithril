@@ -193,6 +193,13 @@ pub struct Configuration {
 
     /// Time interval at which usage metrics are persisted in event database (in seconds).
     pub persist_usage_report_interval_in_seconds: u64,
+
+    // Master aggregator endpoint
+    ///
+    /// This is the endpoint of the aggregator that will be used to fetch the latest epoch settings
+    /// and store the signer registrations when the aggregator is running in a slave mode.
+    /// If this is not set, the aggregator will run in a master mode.
+    pub master_aggregator_endpoint: Option<String>,
 }
 
 /// Uploader needed to copy the snapshot once computed.
@@ -283,6 +290,7 @@ impl Configuration {
             metrics_server_ip: "0.0.0.0".to_string(),
             metrics_server_port: 9090,
             persist_usage_report_interval_in_seconds: 10,
+            master_aggregator_endpoint: None,
         }
     }
 
@@ -374,6 +382,11 @@ impl Configuration {
             protocol_parameters: self.protocol_parameters.clone(),
             cardano_transactions_signing_config: self.cardano_transactions_signing_config.clone(),
         }
+    }
+
+    /// Check if the aggregator is running in slave mode.
+    pub fn is_slave_aggregator(&self) -> bool {
+        self.master_aggregator_endpoint.is_some()
     }
 }
 
@@ -725,5 +738,25 @@ mod test {
             joined_url.as_str().contains(subpath_without_trailing_slash),
             "Joined URL `{joined_url}`, does not contain subpath `{subpath_without_trailing_slash}`"
         );
+    }
+
+    #[test]
+    fn is_slave_aggregator_returns_true_when_in_slave_mode() {
+        let config = Configuration {
+            master_aggregator_endpoint: Some("some_endpoint".to_string()),
+            ..Configuration::new_sample()
+        };
+
+        assert!(config.is_slave_aggregator());
+    }
+
+    #[test]
+    fn is_slave_aggregator_returns_false_when_in_master_mode() {
+        let config = Configuration {
+            master_aggregator_endpoint: None,
+            ..Configuration::new_sample()
+        };
+
+        assert!(!config.is_slave_aggregator());
     }
 }
