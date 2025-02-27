@@ -10,8 +10,8 @@ use crate::database::repository::{BufferedSingleSignatureRepository, SingleSigna
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
 use crate::services::{BufferedCertifierService, CertifierService, MithrilCertifierService};
 use crate::{
-    ExecutionEnvironment, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
-    SingleSignatureAuthenticator,
+    ExecutionEnvironment, MithrilSignerRegisterer, MithrilSignerRegistrationVerifier, MultiSigner,
+    MultiSignerImpl, SignerRegistrationVerifier, SingleSignatureAuthenticator,
 };
 
 impl DependenciesBuilder {
@@ -125,9 +125,9 @@ impl DependenciesBuilder {
 
     async fn build_mithril_registerer(&mut self) -> Result<Arc<MithrilSignerRegisterer>> {
         let registerer = MithrilSignerRegisterer::new(
-            self.get_chain_observer().await?,
             self.get_verification_key_store().await?,
             self.get_signer_store().await?,
+            self.get_signer_registration_verifier().await?,
             self.configuration.safe_epoch_retention_limit(),
         );
 
@@ -141,6 +141,26 @@ impl DependenciesBuilder {
         }
 
         Ok(self.mithril_registerer.as_ref().cloned().unwrap())
+    }
+
+    async fn build_signer_registration_verifier(
+        &mut self,
+    ) -> Result<Arc<dyn SignerRegistrationVerifier>> {
+        let registerer = MithrilSignerRegistrationVerifier::new(self.get_chain_observer().await?);
+
+        Ok(Arc::new(registerer))
+    }
+
+    /// Return a [SignerRegistrationVerifier]
+    pub async fn get_signer_registration_verifier(
+        &mut self,
+    ) -> Result<Arc<dyn SignerRegistrationVerifier>> {
+        if self.signer_registration_verifier.is_none() {
+            self.signer_registration_verifier =
+                Some(self.build_signer_registration_verifier().await?);
+        }
+
+        Ok(self.signer_registration_verifier.as_ref().cloned().unwrap())
     }
 
     async fn build_single_signature_authenticator(

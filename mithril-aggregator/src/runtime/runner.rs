@@ -681,9 +681,9 @@ pub mod tests {
     async fn test_open_signer_registration_round() {
         let mut deps = initialize_dependencies().await;
         let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
-            deps.chain_observer.clone(),
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
+            deps.signer_registration_verifier.clone(),
             None,
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
@@ -721,9 +721,9 @@ pub mod tests {
     async fn test_close_signer_registration_round() {
         let mut deps = initialize_dependencies().await;
         let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
-            deps.chain_observer.clone(),
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
+            deps.signer_registration_verifier.clone(),
             None,
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
