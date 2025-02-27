@@ -317,4 +317,52 @@ mod file {
             ..snapshot_to_update.clone()
         };
     }
+
+    #[cfg(feature = "unstable")]
+    mod unstable {
+        use mithril_client::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem};
+
+        use super::*;
+
+        impl FakeAggregator {
+            pub async fn spawn_with_cardano_db_snapshot(
+                &self,
+                cardano_db_snapshot_hash: &str,
+                certificate_hash: &str,
+                cardano_db: &DummyCardanoDb,
+                _work_dir: &Path,
+            ) -> TestHttpServer {
+                let beacon = CardanoDbBeacon {
+                    immutable_file_number: cardano_db.last_immutable_number().unwrap(),
+                    ..fake_data::beacon()
+                };
+
+                let cardano_db_snapshot = Arc::new(RwLock::new(CardanoDatabaseSnapshot {
+                    hash: cardano_db_snapshot_hash.to_string(),
+                    certificate_hash: certificate_hash.to_string(),
+                    beacon: beacon.clone(),
+                    ..CardanoDatabaseSnapshot::dummy()
+                }));
+
+                let cardano_db_snapshot_list_json = serde_json::to_string(&vec![
+                    CardanoDatabaseSnapshotListItem {
+                        hash: cardano_db_snapshot_hash.to_string(),
+                        certificate_hash: certificate_hash.to_string(),
+                        beacon: beacon.clone(),
+                        ..CardanoDatabaseSnapshotListItem::dummy()
+                    },
+                    CardanoDatabaseSnapshotListItem::dummy(),
+                ])
+                .unwrap();
+
+                let routes = routes::cardano_db_snapshot::routes(
+                    self.calls.clone(),
+                    cardano_db_snapshot_list_json,
+                    cardano_db_snapshot,
+                );
+
+                test_http_server(routes)
+            }
+        }
+    }
 }
