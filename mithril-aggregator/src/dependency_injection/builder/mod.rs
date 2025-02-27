@@ -50,7 +50,8 @@ use crate::{
     tools::GenesisToolsDependency,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegisterer, MultiSigner,
-    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
+    SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
+    SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -147,11 +148,17 @@ pub struct DependenciesBuilder {
     /// Genesis signature verifier service.
     pub genesis_verifier: Option<Arc<ProtocolGenesisVerifier>>,
 
+    /// Mithril signer registerer service
+    pub mithril_signer_registerer: Option<Arc<MithrilSignerRegisterer>>,
+
     /// Signer registerer service
-    pub mithril_registerer: Option<Arc<MithrilSignerRegisterer>>,
+    pub signer_registerer: Option<Arc<dyn SignerRegisterer>>,
 
     /// Signer registration verifier
     pub signer_registration_verifier: Option<Arc<dyn SignerRegistrationVerifier>>,
+
+    /// Signer registration round opener service
+    pub signer_registration_round_opener: Option<Arc<dyn SignerRegistrationRoundOpener>>,
 
     /// Era checker service
     pub era_checker: Option<Arc<EraChecker>>,
@@ -252,8 +259,10 @@ impl DependenciesBuilder {
             snapshotter: None,
             certificate_verifier: None,
             genesis_verifier: None,
-            mithril_registerer: None,
+            mithril_signer_registerer: None,
+            signer_registerer: None,
             signer_registration_verifier: None,
+            signer_registration_round_opener: None,
             era_reader_adapter: None,
             era_checker: None,
             era_reader: None,
@@ -320,9 +329,9 @@ impl DependenciesBuilder {
             snapshotter: self.get_snapshotter().await?,
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
-            signer_registerer: self.get_mithril_registerer().await?,
+            signer_registerer: self.get_signer_registerer().await?,
             signer_registration_verifier: self.get_signer_registration_verifier().await?,
-            signer_registration_round_opener: self.get_mithril_registerer().await?,
+            signer_registration_round_opener: self.get_signer_registration_round_opener().await?,
             era_checker: self.get_era_checker().await?,
             era_reader: self.get_era_reader().await?,
             event_transmitter: self.get_event_transmitter().await?,
