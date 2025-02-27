@@ -50,7 +50,7 @@ use crate::{
     tools::GenesisToolsDependency,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegisterer, MultiSigner,
-    SingleSignatureAuthenticator, VerificationKeyStorer,
+    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
@@ -149,6 +149,9 @@ pub struct DependenciesBuilder {
 
     /// Signer registerer service
     pub mithril_registerer: Option<Arc<MithrilSignerRegisterer>>,
+
+    /// Signer registration verifier
+    pub signer_registration_verifier: Option<Arc<dyn SignerRegistrationVerifier>>,
 
     /// Era checker service
     pub era_checker: Option<Arc<EraChecker>>,
@@ -250,6 +253,7 @@ impl DependenciesBuilder {
             certificate_verifier: None,
             genesis_verifier: None,
             mithril_registerer: None,
+            signer_registration_verifier: None,
             era_reader_adapter: None,
             era_checker: None,
             era_reader: None,
@@ -317,6 +321,7 @@ impl DependenciesBuilder {
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
             signer_registerer: self.get_mithril_registerer().await?,
+            signer_registration_verifier: self.get_signer_registration_verifier().await?,
             signer_registration_round_opener: self.get_mithril_registerer().await?,
             era_checker: self.get_era_checker().await?,
             era_reader: self.get_era_reader().await?,
