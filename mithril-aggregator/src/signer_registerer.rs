@@ -5,13 +5,11 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use mithril_common::{
-    chain_observer::ChainObserver,
-    crypto_helper::{KESPeriod, ProtocolKeyRegistration},
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     StdError, StdResult,
 };
 
-use crate::{services::EpochPruningTask, VerificationKeyStorer};
+use crate::{services::EpochPruningTask, SignerRegistrationVerifier, VerificationKeyStorer};
 
 use mithril_common::chain_observer::ChainObserverError;
 
@@ -114,14 +112,14 @@ pub struct MithrilSignerRegisterer {
     /// Current signer registration round
     current_round: RwLock<Option<SignerRegistrationRound>>,
 
-    /// Chain observer service.
-    chain_observer: Arc<dyn ChainObserver>,
-
     /// Verification key store
     verification_key_store: Arc<dyn VerificationKeyStorer>,
 
     /// Signer recorder
     signer_recorder: Arc<dyn SignerRecorder>,
+
+    /// Signer registration verifier
+    signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
 
     /// Number of epochs before previous records will be deleted at the next registration round
     /// opening
@@ -131,16 +129,16 @@ pub struct MithrilSignerRegisterer {
 impl MithrilSignerRegisterer {
     /// MithrilSignerRegisterer factory
     pub fn new(
-        chain_observer: Arc<dyn ChainObserver>,
         verification_key_store: Arc<dyn VerificationKeyStorer>,
         signer_recorder: Arc<dyn SignerRecorder>,
+        signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
         verification_key_epoch_retention_limit: Option<u64>,
     ) -> Self {
         Self {
             current_round: RwLock::new(None),
-            chain_observer,
             verification_key_store,
             signer_recorder,
+            signer_registration_verifier,
             verification_key_epoch_retention_limit,
         }
     }
@@ -218,53 +216,14 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             });
         }
 
-        let mut key_registration = ProtocolKeyRegistration::init(
-            &registration_round
-                .stake_distribution
-                .iter()
-                .map(|(k, v)| (k.to_owned(), *v))
-                .collect::<Vec<_>>(),
-        );
-        let party_id_register = match signer.party_id.as_str() {
-            "" => None,
-            party_id => Some(party_id.to_string()),
-        };
-        let kes_period = match &signer.operational_certificate {
-            Some(operational_certificate) => Some(
-                self.chain_observer
-                    .get_current_kes_period(operational_certificate)
-                    .await?
-                    .unwrap_or_default()
-                    - operational_certificate.start_kes_period as KESPeriod,
-            ),
-            None => None,
-        };
-        let party_id_save = key_registration
-            .register(
-                party_id_register.clone(),
-                signer.operational_certificate.clone(),
-                signer.verification_key_signature,
-                kes_period,
-                signer.verification_key,
-            )
-            .with_context(|| {
-                format!(
-                    "KeyRegwrapper can not register signer with party_id: '{:?}'",
-                    party_id_register
-                )
-            })
+        let signer_save = self
+            .signer_registration_verifier
+            .verify(signer, &registration_round.stake_distribution)
+            .await
             .map_err(|e| SignerRegistrationError::FailedSignerRegistration(anyhow!(e)))?;
-        let mut signer_save = SignerWithStake::from_signer(
-            signer.to_owned(),
-            *registration_round
-                .stake_distribution
-                .get(&party_id_save)
-                .unwrap(),
-        );
-        signer_save.party_id.clone_from(&party_id_save);
 
         self.signer_recorder
-            .record_signer_registration(party_id_save)
+            .record_signer_registration(signer_save.party_id.clone())
             .await
             .map_err(|e| SignerRegistrationError::FailedSignerRecorder(e.to_string()))?;
 
@@ -298,14 +257,14 @@ mod tests {
     use std::{collections::HashMap, sync::Arc};
 
     use mithril_common::{
-        chain_observer::FakeObserver,
-        entities::{Epoch, Signer},
+        entities::{Epoch, Signer, SignerWithStake},
         test_utils::MithrilFixtureBuilder,
     };
     use mockall::predicate::eq;
 
     use crate::{
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
+        signer_registration_verifier::MockSignerRegistrationVerifier,
         MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationRoundOpener,
         VerificationKeyStorer,
     };
@@ -324,10 +283,15 @@ mod tests {
             .expect_record_signer_registration()
             .returning(|_| Ok(()))
             .once();
+        let mut signer_registration_verifier = MockSignerRegistrationVerifier::new();
+        signer_registration_verifier
+            .expect_verify()
+            .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
+            .once();
         let signer_registerer = MithrilSignerRegisterer::new(
-            Arc::new(FakeObserver::default()),
             verification_key_store.clone(),
             Arc::new(signer_recorder),
+            Arc::new(signer_registration_verifier),
             None,
         );
         let registration_epoch = Epoch(1);
@@ -370,10 +334,15 @@ mod tests {
             .expect_record_signer_registration()
             .returning(|_| Ok(()))
             .once();
+        let mut signer_registration_verifier = MockSignerRegistrationVerifier::new();
+        signer_registration_verifier
+            .expect_verify()
+            .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
+            .once();
         let signer_registerer = MithrilSignerRegisterer::new(
-            Arc::new(FakeObserver::default()),
             verification_key_store.clone(),
             Arc::new(signer_recorder),
+            Arc::new(signer_registration_verifier),
             None,
         );
         let registration_epoch = Epoch(1);
@@ -415,10 +384,11 @@ mod tests {
         )));
 
         let signer_recorder = MockSignerRecorder::new();
+        let signer_registration_verifier = MockSignerRegistrationVerifier::new();
         let signer_registerer = MithrilSignerRegisterer::new(
-            Arc::new(FakeObserver::default()),
             verification_key_store.clone(),
             Arc::new(signer_recorder),
+            Arc::new(signer_registration_verifier),
             None,
         );
         let registration_epoch = Epoch(1);
@@ -442,11 +412,12 @@ mod tests {
             .with(eq(Epoch(4).offset_to_recording_epoch()))
             .times(1)
             .returning(|_| Ok(()));
+        let signer_registration_verifier = MockSignerRegistrationVerifier::new();
 
         let signer_registerer = MithrilSignerRegisterer::new(
-            Arc::new(FakeObserver::default()),
             Arc::new(verification_key_store),
             Arc::new(MockSignerRecorder::new()),
+            Arc::new(signer_registration_verifier),
             retention_limit,
         );
 
@@ -462,11 +433,12 @@ mod tests {
         verification_key_store
             .expect_prune_verification_keys()
             .never();
+        let signer_registration_verifier = MockSignerRegistrationVerifier::new();
 
         let signer_registerer = MithrilSignerRegisterer::new(
-            Arc::new(FakeObserver::default()),
             Arc::new(verification_key_store),
             Arc::new(MockSignerRecorder::new()),
+            Arc::new(signer_registration_verifier),
             retention_limit,
         );
 

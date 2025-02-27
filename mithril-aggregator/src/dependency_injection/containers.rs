@@ -41,7 +41,7 @@ use crate::{
     },
     signer_registerer::SignerRecorder,
     EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
-    SingleSignatureAuthenticator, VerificationKeyStorer,
+    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps a [EpochService]
@@ -114,6 +114,9 @@ pub struct DependencyContainer {
 
     /// Signer registerer service
     pub signer_registerer: Arc<dyn SignerRegisterer>,
+
+    /// Signer registration verifier
+    pub signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
 
     /// Signer registration round opener service
     pub signer_registration_round_opener: Arc<dyn SignerRegistrationRoundOpener>,

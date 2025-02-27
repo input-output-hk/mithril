@@ -13,7 +13,7 @@ use mithril_common::{
 /// A trait for verifying a [Signer] registration.
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
-pub trait SignerRegistrationVerifier {
+pub trait SignerRegistrationVerifier: Send + Sync {
     /// Verifies a [Signer] registration.
     async fn verify(
         &self,
