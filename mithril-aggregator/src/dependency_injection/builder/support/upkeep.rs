@@ -7,7 +7,7 @@ impl DependenciesBuilder {
     async fn build_upkeep_service(&mut self) -> Result<Arc<dyn UpkeepService>> {
         let stake_pool_pruning_task = self.get_stake_store().await?;
         let epoch_settings_pruning_task = self.get_epoch_settings_store().await?;
-        let mithril_registerer_pruning_task = self.get_mithril_registerer().await?;
+        let mithril_registerer_pruning_task = self.get_mithril_signer_registerer().await?;
 
         let upkeep_service = Arc::new(AggregatorUpkeepService::new(
             self.get_sqlite_connection().await?,
