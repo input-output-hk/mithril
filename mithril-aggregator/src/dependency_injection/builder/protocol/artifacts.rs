@@ -363,7 +363,6 @@ impl DependenciesBuilder {
             self.configuration.get_network()?,
             self.configuration.db_directory.clone(),
             &cardano_node_version,
-            self.configuration.snapshot_compression_algorithm,
             ancillary_builder,
             immutable_builder,
             digest_builder,

@@ -101,10 +101,6 @@ impl CardanoDbShowCommand {
                 "Created".cell(),
                 cardano_db_message.created_at.to_string().cell(),
             ]);
-            cardano_db_table.push(vec![
-                "Compression Algorithm".cell(),
-                format!("{}", &cardano_db_message.compression_algorithm).cell(),
-            ]);
 
             print_stdout(cardano_db_table.table())?;
         }
@@ -116,7 +112,10 @@ impl CardanoDbShowCommand {
 fn digest_location_iter(locations: &[DigestLocation]) -> impl Iterator<Item = String> + use<'_> {
     locations.iter().filter_map(|location| match location {
         DigestLocation::Aggregator { uri } => Some(format!("Aggregator, uri: \"{}\"", uri)),
-        DigestLocation::CloudStorage { uri } => Some(format!("CloudStorage, uri: \"{}\"", uri)),
+        DigestLocation::CloudStorage {
+            uri,
+            compression_algorithm: _,
+        } => Some(format!("CloudStorage, uri: \"{}\"", uri)),
         DigestLocation::Unknown => None,
     })
 }
@@ -129,7 +128,10 @@ fn immutables_location_iter(
     locations: &[ImmutablesLocation],
 ) -> impl Iterator<Item = String> + use<'_> {
     locations.iter().filter_map(|location| match location {
-        ImmutablesLocation::CloudStorage { uri } => match uri {
+        ImmutablesLocation::CloudStorage {
+            uri,
+            compression_algorithm: _,
+        } => match uri {
             MultiFilesUri::Template(template_uri) => Some(format!(
                 "CloudStorage, template_uri: \"{}\"",
                 template_uri.0
@@ -147,7 +149,10 @@ fn ancillary_location_iter(
     locations: &[AncillaryLocation],
 ) -> impl Iterator<Item = String> + use<'_> {
     locations.iter().filter_map(|location| match location {
-        AncillaryLocation::CloudStorage { uri } => Some(format!("CloudStorage, uri: \"{uri}\"")),
+        AncillaryLocation::CloudStorage {
+            uri,
+            compression_algorithm: _,
+        } => Some(format!("CloudStorage, uri: \"{uri}\"")),
         AncillaryLocation::Unknown => None,
     })
 }
@@ -173,7 +178,7 @@ fn format_location_rows(
 
 #[cfg(test)]
 mod tests {
-    use mithril_client::common::TemplateUri;
+    use mithril_client::common::{CompressionAlgorithm, TemplateUri};
 
     use super::*;
 
@@ -192,6 +197,7 @@ mod tests {
             },
             DigestLocation::CloudStorage {
                 uri: "http://cloudstorage.com/".to_string(),
+                compression_algorithm: None,
             },
         ];
 
@@ -213,6 +219,7 @@ mod tests {
             DigestLocation::Unknown,
             DigestLocation::CloudStorage {
                 uri: "http://cloudstorage.com/".to_string(),
+                compression_algorithm: None,
             },
         ];
 
@@ -235,9 +242,11 @@ mod tests {
         let locations = vec![
             ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri("http://cloudstorage1.com/".to_string())),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
             },
             ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri("http://cloudstorage2.com/".to_string())),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
             },
         ];
 
@@ -260,6 +269,7 @@ mod tests {
             ImmutablesLocation::Unknown {},
             ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri("http://cloudstorage2.com/".to_string())),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
             },
         ];
 
@@ -282,9 +292,11 @@ mod tests {
         let locations = vec![
             AncillaryLocation::CloudStorage {
                 uri: "http://cloudstorage1.com/".to_string(),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
             },
             AncillaryLocation::CloudStorage {
                 uri: "http://cloudstorage2.com/".to_string(),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
             },
         ];
 
@@ -307,6 +319,7 @@ mod tests {
             AncillaryLocation::Unknown {},
             AncillaryLocation::CloudStorage {
                 uri: "http://cloudstorage2.com/".to_string(),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
             },
         ];
 

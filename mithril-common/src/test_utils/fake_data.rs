@@ -269,7 +269,6 @@ pub fn cardano_database_snapshots(total: u64) -> Vec<entities::CardanoDatabaseSn
                 DigestsLocations::default(),
                 ImmutablesLocations::default(),
                 AncillaryLocations::default(),
-                CompressionAlgorithm::Gzip,
                 &cardano_node_version,
             )
         })

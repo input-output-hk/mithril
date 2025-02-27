@@ -28,7 +28,7 @@ struct DownloadImmutableFutureBuilderArgs {
     file_downloader: Arc<dyn FileDownloader>,
     immutable_file_number: ImmutableFileNumber,
     file_downloader_uri: FileDownloaderUri,
-    compression_algorithm: CompressionAlgorithm,
+    compression_algorithm: Option<CompressionAlgorithm>,
     immutable_files_target_dir: PathBuf,
     download_id: String,
     file_size: u64,
@@ -86,7 +86,6 @@ impl InternalArtifactDownloader {
         download_unpack_options: DownloadUnpackOptions,
     ) -> MithrilResult<()> {
         let download_id = MithrilEvent::new_snapshot_download_id();
-        let compression_algorithm = cardano_database_snapshot.compression_algorithm;
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
             immutable_file_range.to_range_inclusive(last_immutable_file_number)?;
@@ -111,7 +110,6 @@ impl InternalArtifactDownloader {
         self.download_unpack_immutable_files(
             immutable_locations,
             immutable_file_number_range,
-            &compression_algorithm,
             target_dir,
             download_unpack_options.max_parallel_downloads,
             &download_id,
@@ -119,13 +117,8 @@ impl InternalArtifactDownloader {
         .await?;
         if download_unpack_options.include_ancillary {
             let ancillary_locations = &cardano_database_snapshot.ancillary.locations;
-            self.download_unpack_ancillary_file(
-                ancillary_locations,
-                &compression_algorithm,
-                target_dir,
-                &download_id,
-            )
-            .await?;
+            self.download_unpack_ancillary_file(ancillary_locations, target_dir, &download_id)
+                .await?;
         }
         self.feedback_sender
             .send_event(MithrilEvent::CardanoDatabase(
@@ -206,7 +199,6 @@ impl InternalArtifactDownloader {
         &self,
         locations: &[ImmutablesLocation],
         range: RangeInclusive<ImmutableFileNumber>,
-        compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
         max_parallel_downloads: usize,
         download_id: &str,
@@ -220,7 +212,6 @@ impl InternalArtifactDownloader {
                 .download_unpack_immutable_files_for_location(
                     &location,
                     &immutable_file_numbers_to_download,
-                    compression_algorithm,
                     immutable_files_target_dir,
                     max_parallel_downloads,
                     download_id,
@@ -247,7 +238,7 @@ impl InternalArtifactDownloader {
         &self,
         file_downloader: Arc<dyn FileDownloader>,
         file_downloader_uris_chunk: Vec<(ImmutableFileNumber, FileDownloaderUri)>,
-        compression_algorithm: &CompressionAlgorithm,
+        compression_algorithm: &Option<CompressionAlgorithm>,
         immutable_files_target_dir: &Path,
         download_id: &str,
         file_size: u64,
@@ -303,7 +294,7 @@ impl InternalArtifactDownloader {
                 .download_unpack(
                     &file_downloader_uri,
                     &immutable_files_target_dir,
-                    Some(compression_algorithm),
+                    compression_algorithm,
                     DownloadEvent::Immutable {
                         immutable_file_number,
                         download_id: download_id_clone.clone(),
@@ -329,7 +320,6 @@ impl InternalArtifactDownloader {
         &self,
         location: &ImmutablesLocation,
         immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>,
-        compression_algorithm: &CompressionAlgorithm,
         immutable_files_target_dir: &Path,
         max_parallel_downloads: usize,
         download_id: &str,
@@ -338,8 +328,11 @@ impl InternalArtifactDownloader {
         // The size will be completed with the uncompressed file size when available in the location
         // (see https://github.com/input-output-hk/mithril/issues/2291)
         let file_size = 0;
-        let file_downloader = match &location {
-            ImmutablesLocation::CloudStorage { .. } => self.http_file_downloader.clone(),
+        let (file_downloader, compression_algorithm) = match &location {
+            ImmutablesLocation::CloudStorage {
+                uri: _,
+                compression_algorithm,
+            } => (self.http_file_downloader.clone(), compression_algorithm),
             ImmutablesLocation::Unknown => {
                 return Err(anyhow!("Unknown location type to download immutable"));
             }
@@ -378,15 +371,20 @@ impl InternalArtifactDownloader {
     pub(crate) async fn download_unpack_ancillary_file(
         &self,
         locations: &[AncillaryLocation],
-        compression_algorithm: &CompressionAlgorithm,
         ancillary_file_target_dir: &Path,
         download_id: &str,
     ) -> MithrilResult<()> {
         let mut locations_sorted = locations.to_owned();
         locations_sorted.sort();
         for location in locations_sorted {
-            let file_downloader = match &location {
-                AncillaryLocation::CloudStorage { .. } => self.http_file_downloader.clone(),
+            let (file_downloader, compression_algorithm) = match &location {
+                AncillaryLocation::CloudStorage {
+                    uri: _,
+                    compression_algorithm,
+                } => (
+                    self.http_file_downloader.clone(),
+                    compression_algorithm.clone(),
+                ),
                 AncillaryLocation::Unknown => {
                     continue;
                 }
@@ -396,7 +394,7 @@ impl InternalArtifactDownloader {
                 .download_unpack(
                     &file_downloader_uri,
                     ancillary_file_target_dir,
-                    Some(compression_algorithm.to_owned()),
+                    compression_algorithm,
                     DownloadEvent::Ancillary {
                         download_id: download_id.to_string(),
                     },
@@ -482,6 +480,7 @@ mod tests {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
                     }],
                 },
 
@@ -560,12 +559,14 @@ mod tests {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
                     }],
                 },
                 ancillary: AncillaryMessagePart {
                     size_uncompressed: 2048,
                     locations: vec![AncillaryLocation::CloudStorage {
                         uri: "http://whatever/ancillary.tar.gz".to_string(),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
                     }],
                 },
                 digests: DigestsMessagePart {
@@ -592,7 +593,7 @@ mod tests {
                         .next_call()
                         .with_file_uri("http://whatever/ancillary.tar.gz")
                         .with_target_dir(target_dir.clone())
-                        .with_compression(Some(CompressionAlgorithm::default()))
+                        .with_compression(Some(CompressionAlgorithm::Gzip))
                         .with_success()
                         .build()
                 }))
@@ -840,11 +841,11 @@ mod tests {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
-                    &CompressionAlgorithm::default(),
                     &target_dir,
                     1,
                     "download_id",
@@ -870,7 +871,6 @@ mod tests {
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
-                    &CompressionAlgorithm::default(),
                     &target_dir,
                     1,
                     "download_id",
@@ -906,11 +906,11 @@ mod tests {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
-                    &CompressionAlgorithm::default(),
                     &target_dir,
                     1,
                     "download_id",
@@ -956,17 +956,18 @@ mod tests {
                             uri: MultiFilesUri::Template(TemplateUri(
                                 "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
                             )),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                         ImmutablesLocation::CloudStorage {
                             uri: MultiFilesUri::Template(TemplateUri(
                                 "http://whatever-2/{immutable_file_number}.tar.gz".to_string(),
                             )),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
-                    &CompressionAlgorithm::default(),
                     &target_dir,
                     1,
                     "download_id",
@@ -993,8 +994,8 @@ mod tests {
                 .download_unpack_ancillary_file(
                     &[AncillaryLocation::CloudStorage {
                         uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                        compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
-                    &CompressionAlgorithm::default(),
                     target_dir,
                     "download_id",
                 )
@@ -1014,7 +1015,6 @@ mod tests {
             artifact_downloader
                 .download_unpack_ancillary_file(
                     &[AncillaryLocation::Unknown {}],
-                    &CompressionAlgorithm::default(),
                     target_dir,
                     "download_id",
                 )
@@ -1046,12 +1046,13 @@ mod tests {
                     &[
                         AncillaryLocation::CloudStorage {
                             uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                         AncillaryLocation::CloudStorage {
                             uri: "http://whatever-2/ancillary.tar.gz".to_string(),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
-                    &CompressionAlgorithm::default(),
                     target_dir,
                     "download_id",
                 )
@@ -1079,12 +1080,13 @@ mod tests {
                     &[
                         AncillaryLocation::CloudStorage {
                             uri: "http://whatever-1/ancillary.tar.gz".to_string(),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                         AncillaryLocation::CloudStorage {
                             uri: "http://whatever-2/ancillary.tar.gz".to_string(),
+                            compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
-                    &CompressionAlgorithm::default(),
                     target_dir,
                     "download_id",
                 )

@@ -43,7 +43,6 @@ impl CardanoDbListCommand {
                         item.merkle_root.cell(),
                         CardanoDbUtils::format_bytes_to_gigabytes(item.total_db_size_uncompressed)
                             .cell(),
-                        format!("{}", item.compression_algorithm).cell(),
                         item.cardano_node_version.cell(),
                         item.created_at.to_string().cell(),
                     ]
@@ -56,7 +55,6 @@ impl CardanoDbListCommand {
                     "Hash".cell(),
                     "Merkle root".cell(),
                     "Database size".cell().justify(Justify::Right),
-                    "Compression".cell(),
                     "Cardano node".cell(),
                     "Created".cell().justify(Justify::Right),
                 ]);

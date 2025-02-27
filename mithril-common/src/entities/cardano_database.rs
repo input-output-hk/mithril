@@ -33,9 +33,6 @@ pub struct CardanoDatabaseSnapshot {
     /// Locations of the Cardano database ancillary.
     pub ancillary: AncillaryLocations,
 
-    /// Compression algorithm of the Cardano database artifacts.
-    pub compression_algorithm: CompressionAlgorithm,
-
     /// Version of the Cardano node used to create the snapshot.
     pub cardano_node_version: String,
 }
@@ -50,7 +47,6 @@ impl CardanoDatabaseSnapshot {
         digests: DigestsLocations,
         immutables: ImmutablesLocations,
         ancillary: AncillaryLocations,
-        compression_algorithm: CompressionAlgorithm,
         cardano_node_version: &Version,
     ) -> Self {
         let cardano_node_version = format!("{cardano_node_version}");
@@ -63,7 +59,6 @@ impl CardanoDatabaseSnapshot {
             immutables,
             ancillary,
             total_db_size_uncompressed,
-            compression_algorithm,
             cardano_node_version,
         };
         cardano_database_snapshot.hash = cardano_database_snapshot.compute_hash();
@@ -194,7 +189,6 @@ mod tests {
                 size_uncompressed: 0,
                 locations: vec![],
             },
-            CompressionAlgorithm::Gzip,
             &Version::new(1, 0, 0),
         )
     }

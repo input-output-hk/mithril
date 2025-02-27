@@ -91,9 +91,6 @@ pub struct CardanoDatabaseSnapshotMessage {
     /// Locations of the ancillary files.
     pub ancillary: AncillaryMessagePart,
 
-    /// Compression algorithm of the Cardano database artifacts.
-    pub compression_algorithm: CompressionAlgorithm,
-
     /// Version of the Cardano node used to create the snapshot.
     pub cardano_node_version: String,
 
@@ -149,7 +146,6 @@ impl CardanoDatabaseSnapshotMessage {
                     compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 }],
             },
-            compression_algorithm: CompressionAlgorithm::Gzip,
             cardano_node_version: "0.0.1".to_string(),
         }
     }
@@ -207,7 +203,6 @@ mod tests {
                 }
             ]
         },
-        "compression_algorithm": "gzip",
         "cardano_node_version": "0.0.1",
         "created_at": "2023-01-19T13:43:05.618857482Z"
     }"#;
@@ -258,7 +253,6 @@ mod tests {
                     compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 }],
             },
-            compression_algorithm: CompressionAlgorithm::Gzip,
             cardano_node_version: "0.0.1".to_string(),
         }
     }

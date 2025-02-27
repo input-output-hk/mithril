@@ -24,7 +24,6 @@ pub struct CardanoDatabaseArtifactBuilder {
     network: CardanoNetwork,
     db_directory: PathBuf,
     cardano_node_version: Version,
-    compression_algorithm: CompressionAlgorithm,
     ancillary_builder: Arc<AncillaryArtifactBuilder>,
     immutable_builder: Arc<ImmutableArtifactBuilder>,
     digest_builder: Arc<DigestArtifactBuilder>,
@@ -35,7 +34,6 @@ impl CardanoDatabaseArtifactBuilder {
         network: CardanoNetwork,
         db_directory: PathBuf,
         cardano_node_version: &Version,
-        compression_algorithm: CompressionAlgorithm,
         ancillary_builder: Arc<AncillaryArtifactBuilder>,
         immutable_builder: Arc<ImmutableArtifactBuilder>,
         digest_builder: Arc<DigestArtifactBuilder>,
@@ -44,7 +42,6 @@ impl CardanoDatabaseArtifactBuilder {
             network,
             db_directory,
             cardano_node_version: cardano_node_version.clone(),
-            compression_algorithm,
             ancillary_builder,
             immutable_builder,
             digest_builder,
@@ -105,7 +102,6 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
                 size_uncompressed: ancillary_size,
                 locations: ancillary_locations,
             },
-            self.compression_algorithm,
             &self.cardano_node_version,
         );
 
@@ -294,7 +290,6 @@ mod tests {
             network,
             cardano_db.get_dir().to_owned(),
             &Version::parse("1.0.0").unwrap(),
-            CompressionAlgorithm::Zstandard,
             Arc::new(ancillary_artifact_builder),
             Arc::new(immutable_artifact_builder),
             Arc::new(digest_artifact_builder),
@@ -348,7 +343,6 @@ mod tests {
                 size_uncompressed: expected_ancillary_size,
                 locations: expected_ancillary_locations,
             },
-            CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),
         );
 

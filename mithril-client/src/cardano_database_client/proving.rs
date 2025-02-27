@@ -209,6 +209,7 @@ mod tests {
                     size_uncompressed: 1024,
                     locations: vec![DigestLocation::CloudStorage {
                         uri: "http://whatever/digests.json".to_string(),
+                        compression_algorithm: None,
                     }],
                 },
                 ..CardanoDatabaseSnapshotMessage::dummy()
@@ -358,6 +359,7 @@ mod tests {
                     &[
                         DigestLocation::CloudStorage {
                             uri: "http://whatever-1/digests.json".to_string(),
+                            compression_algorithm: None,
                         },
                         DigestLocation::Aggregator {
                             uri: "http://whatever-2/digest".to_string(),
@@ -404,6 +406,7 @@ mod tests {
                     &[
                         DigestLocation::CloudStorage {
                             uri: "http://whatever-1/digests.json".to_string(),
+                            compression_algorithm: None,
                         },
                         DigestLocation::Aggregator {
                             uri: "http://whatever-2/digest".to_string(),
@@ -434,6 +437,7 @@ mod tests {
                     &[
                         DigestLocation::CloudStorage {
                             uri: "http://whatever-1/digests.json".to_string(),
+                            compression_algorithm: None,
                         },
                         DigestLocation::Aggregator {
                             uri: "http://whatever-2/digest".to_string(),
