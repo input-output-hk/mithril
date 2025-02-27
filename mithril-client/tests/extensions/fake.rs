@@ -320,7 +320,15 @@ mod file {
 
     #[cfg(feature = "unstable")]
     mod unstable {
-        use mithril_client::{CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem};
+        use std::{fs::File, io::Write};
+
+        use mithril_client::{
+            common::{
+                AncillaryLocation, AncillaryMessagePart, DigestLocation, DigestsMessagePart,
+                ImmutablesLocation, ImmutablesMessagePart, MultiFilesUri, TemplateUri,
+            },
+            CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem,
+        };
 
         use super::*;
 
@@ -330,7 +338,7 @@ mod file {
                 cardano_db_snapshot_hash: &str,
                 certificate_hash: &str,
                 cardano_db: &DummyCardanoDb,
-                _work_dir: &Path,
+                work_dir: &Path,
             ) -> TestHttpServer {
                 let beacon = CardanoDbBeacon {
                     immutable_file_number: cardano_db.last_immutable_number().unwrap(),
@@ -343,6 +351,7 @@ mod file {
                     beacon: beacon.clone(),
                     ..CardanoDatabaseSnapshot::dummy()
                 }));
+                let cardano_db_snapshot_clone = cardano_db_snapshot.clone();
 
                 let cardano_db_snapshot_list_json = serde_json::to_string(&vec![
                     CardanoDatabaseSnapshotListItem {
@@ -355,13 +364,154 @@ mod file {
                 ])
                 .unwrap();
 
+                let certificate = MithrilCertificate {
+                    hash: certificate_hash.to_string(),
+                    epoch: beacon.epoch,
+                    signed_entity_type: SignedEntityType::CardanoDatabase(beacon.clone()),
+                    ..MithrilCertificate::dummy()
+                };
+                let certificate_json = serde_json::to_string(&certificate).unwrap();
+
                 let routes = routes::cardano_db_snapshot::routes(
                     self.calls.clone(),
                     cardano_db_snapshot_list_json,
-                    cardano_db_snapshot,
-                );
+                    cardano_db_snapshot_clone,
+                )
+                .or(routes::certificate::routes(
+                    self.calls.clone(),
+                    None,
+                    certificate_json,
+                ));
 
-                test_http_server(routes)
+                let cardano_db_snapshot_archives_path =
+                    Self::build_cardano_db_snapshot_archives(cardano_db, work_dir);
+
+                let routes = routes.or(routes::cardano_db_snapshot::download_immutables_archive(
+                    self.calls.clone(),
+                    cardano_db_snapshot_archives_path,
+                ));
+                let server = test_http_server(routes);
+
+                Self::update_cardano_db_snapshot_locations(&server.url(), cardano_db_snapshot);
+
+                server
+            }
+
+            fn build_cardano_db_snapshot_archives(
+                cardano_db: &DummyCardanoDb,
+                target_dir: &Path,
+            ) -> PathBuf {
+                let target_dir = target_dir.join("archives");
+                std::fs::create_dir_all(&target_dir).unwrap();
+
+                Self::build_immutable_files_archives(cardano_db, &target_dir);
+                Self::build_ancillary_files_archive(cardano_db, &target_dir);
+                Self::build_digests_json_file(&target_dir);
+                target_dir
+            }
+
+            fn build_immutable_files_archives(cardano_db: &DummyCardanoDb, target_dir: &Path) {
+                let last_immutable_number = cardano_db.last_immutable_number().unwrap();
+
+                let immutable_dir = cardano_db.get_immutable_dir();
+                for immutable_number in 1..=last_immutable_number {
+                    let immutable_archive_name = format!(
+                        "{:05}.{}",
+                        immutable_number,
+                        CompressionAlgorithm::Zstandard.tar_file_extension()
+                    );
+                    let target_file = target_dir.join(immutable_archive_name);
+                    let tar_file = File::create(&target_file).unwrap();
+                    let enc = zstd::Encoder::new(tar_file, 3).unwrap();
+                    let mut tar = tar::Builder::new(enc);
+
+                    for extension in &[".chunk", ".primary", ".secondary"] {
+                        let file_name = format!("{:05}{}", immutable_number, extension);
+                        let file_path = immutable_dir.join(&file_name);
+
+                        let archive_path = format!("immutable/{file_name}");
+                        tar.append_path_with_name(&file_path, &archive_path)
+                            .unwrap();
+                    }
+
+                    let zstd = tar.into_inner().unwrap();
+                    zstd.finish().unwrap();
+                }
+            }
+
+            fn build_ancillary_files_archive(cardano_db: &DummyCardanoDb, target_dir: &Path) {
+                let ancillary_immutable_number = cardano_db.last_immutable_number().unwrap() + 1;
+                let immutable_dir = cardano_db.get_immutable_dir();
+                let volatile_dir = cardano_db.get_volatile_dir();
+                let ledger_dir = cardano_db.get_ledger_dir();
+                let archive_name = format!(
+                    "ancillary.{}",
+                    CompressionAlgorithm::Zstandard.tar_file_extension()
+                );
+                let target_file = target_dir.join(archive_name);
+                let tar_file = File::create(&target_file).unwrap();
+                let enc = zstd::Encoder::new(tar_file, 3).unwrap();
+                let mut tar = tar::Builder::new(enc);
+
+                tar.append_path_with_name(&volatile_dir, "volatile")
+                    .unwrap();
+
+                tar.append_path_with_name(&ledger_dir, "ledger").unwrap();
+
+                for extension in &[".chunk", ".primary", ".secondary"] {
+                    let file_name = format!("{:05}{}", ancillary_immutable_number, extension);
+                    let file_path = immutable_dir.join(&file_name);
+
+                    let archive_path = format!("immutable/{file_name}");
+                    tar.append_path_with_name(&file_path, &archive_path)
+                        .unwrap();
+                }
+
+                let zstd = tar.into_inner().unwrap();
+                zstd.finish().unwrap();
+            }
+
+            fn build_digests_json_file(target_dir: &Path) {
+                let target_file = target_dir.join("digests.json");
+                let mut file = File::create(&target_file).unwrap();
+                file.write_all(b"[]").unwrap();
+            }
+
+            fn update_cardano_db_snapshot_locations(
+                aggregator_url: &str,
+                cardano_db_snapshot: Arc<RwLock<CardanoDatabaseSnapshot>>,
+            ) {
+                let immutables_locations = vec![ImmutablesLocation::CloudStorage {
+                    uri: MultiFilesUri::Template(TemplateUri(format!(
+                        "{aggregator_url}/cardano-database-download/{{immutable_file_number}}.tar.zst"
+                    ))),
+                    compression_algorithm: Some(CompressionAlgorithm::Zstandard),
+                }];
+                let ancillary_locations = vec![AncillaryLocation::CloudStorage {
+                    uri: format!("{aggregator_url}/cardano-database-download/ancillary.tar.zst"),
+                    compression_algorithm: Some(CompressionAlgorithm::Zstandard),
+                }];
+                let digest_locations = vec![DigestLocation::CloudStorage {
+                    uri: format!("{aggregator_url}/cardano-database-download/digests.json"),
+                    compression_algorithm: None,
+                }];
+
+                let mut cardano_db_snapshot_to_update = cardano_db_snapshot.write().unwrap();
+                *cardano_db_snapshot_to_update = CardanoDatabaseSnapshot {
+                    immutables: ImmutablesMessagePart {
+                        locations: immutables_locations,
+                        ..cardano_db_snapshot_to_update.immutables.clone()
+                    },
+                    ancillary: AncillaryMessagePart {
+                        locations: ancillary_locations,
+                        ..cardano_db_snapshot_to_update.ancillary.clone()
+                    },
+                    digests: DigestsMessagePart {
+                        locations: digest_locations,
+                        ..cardano_db_snapshot_to_update.digests.clone()
+                    },
+                    ..cardano_db_snapshot_to_update.clone()
+                };
             }
         }
     }

@@ -1,6 +1,10 @@
-use std::sync::{Arc, RwLock};
+use std::{
+    convert::Infallible,
+    path::PathBuf,
+    sync::{Arc, RwLock},
+};
 
-use warp::Filter;
+use warp::{filters::path::FullPath, Filter};
 
 use mithril_client::CardanoDatabaseSnapshot;
 
@@ -47,4 +51,35 @@ fn cardano_db_snapshot_by_id(
                 serde_json::to_string(&data.clone()).unwrap(),
             )
         })
+}
+
+/// Route: /cardano-database-download
+pub fn download_immutables_archive(
+    calls: FakeAggregatorCalls,
+    immutable_archives_path: PathBuf,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path("cardano-database-download")
+        .and(warp::fs::dir(immutable_archives_path))
+        .and(warp::path::full().map(move |p| p))
+        .and(with_calls_middleware(calls.clone()))
+        .and_then(store_call_and_download_return)
+}
+
+async fn store_call_and_download_return(
+    reply: warp::fs::File,
+    full_path: FullPath,
+    calls: FakeAggregatorCalls,
+) -> Result<impl warp::Reply, Infallible> {
+    let mut call_list = calls.lock().await;
+    call_list.push(full_path.as_str().to_string());
+
+    let filepath = reply.path().to_path_buf();
+    Ok(Box::new(warp::reply::with_header(
+        reply,
+        "Content-Disposition",
+        format!(
+            "attachment; filename=\"{}\"",
+            filepath.file_name().unwrap().to_str().unwrap()
+        ),
+    )) as Box<dyn warp::Reply>)
 }
