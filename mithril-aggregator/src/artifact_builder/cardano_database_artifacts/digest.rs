@@ -516,7 +516,7 @@ mod tests {
         digest_file_uploader
             .expect_upload()
             .withf(move |path, algorithm| {
-                path == digest_file_clone && path.exists() && algorithm == &None
+                path == digest_file_clone && path.exists() && algorithm.is_none()
             })
             .times(1)
             .return_once(|_, _| {

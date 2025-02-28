@@ -236,7 +236,7 @@ impl AncillaryArtifactBuilder {
         compute_size(
             paths_to_include
                 .iter()
-                .map(|path| db_path.join(&path))
+                .map(|path| db_path.join(path))
                 .collect(),
         )
     }
@@ -635,7 +635,7 @@ mod tests {
         .unwrap();
 
         let expected_total_size =
-            (1 * immutable_trio_file_size) + (3 * ledger_file_size) + (4 * volatile_file_size);
+            immutable_trio_file_size + (3 * ledger_file_size) + (4 * volatile_file_size);
 
         let total_size = builder
             .compute_uncompressed_size(&db_directory, &CardanoDbBeacon::new(99, 1))

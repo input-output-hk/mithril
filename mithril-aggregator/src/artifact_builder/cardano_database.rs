@@ -7,8 +7,7 @@ use semver::Version;
 use mithril_common::{
     entities::{
         AncillaryLocations, CardanoDatabaseSnapshot, CardanoDbBeacon, Certificate,
-        CompressionAlgorithm, DigestsLocations, ImmutablesLocations, ProtocolMessagePartKey,
-        SignedEntityType,
+        DigestsLocations, ImmutablesLocations, ProtocolMessagePartKey, SignedEntityType,
     },
     CardanoNetwork, StdResult,
 };
@@ -115,8 +114,8 @@ mod tests {
     use mithril_common::{
         digesters::DummyCardanoDbBuilder,
         entities::{
-            AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
-            ProtocolMessagePartKey, TemplateUri,
+            AncillaryLocation, CompressionAlgorithm, DigestLocation, ImmutablesLocation,
+            MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey, TemplateUri,
         },
         test_utils::{fake_data, TempDir},
         CardanoNetwork,

@@ -381,10 +381,7 @@ impl InternalArtifactDownloader {
                 AncillaryLocation::CloudStorage {
                     uri: _,
                     compression_algorithm,
-                } => (
-                    self.http_file_downloader.clone(),
-                    compression_algorithm.clone(),
-                ),
+                } => (self.http_file_downloader.clone(), *compression_algorithm),
                 AncillaryLocation::Unknown => {
                     continue;
                 }
