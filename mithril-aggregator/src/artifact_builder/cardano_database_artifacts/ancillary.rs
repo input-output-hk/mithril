@@ -15,7 +15,7 @@ use mithril_common::{
 };
 
 use crate::{
-    artifact_builder::cardano_database::compute_size,
+    artifact_builder::utils::compute_size,
     file_uploaders::{GcpUploader, LocalUploader},
     services::{OngoingSnapshot, Snapshotter},
     DumbUploader, FileUploader,

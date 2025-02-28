@@ -17,7 +17,7 @@ use mithril_common::{
 };
 
 use crate::{
-    artifact_builder::compute_size,
+    artifact_builder::utils::compute_size,
     file_uploaders::{GcpUploader, LocalUploader},
     services::Snapshotter,
     DumbUploader, FileUploader,

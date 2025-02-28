@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
@@ -16,7 +13,9 @@ use mithril_common::{
     CardanoNetwork, StdResult,
 };
 
-use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
+use crate::artifact_builder::{
+    utils::compute_uncompressed_database_size, AncillaryArtifactBuilder, ArtifactBuilder,
+};
 
 use super::{DigestArtifactBuilder, ImmutableArtifactBuilder};
 
@@ -107,41 +106,6 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
         Ok(cardano_database)
     }
-}
-
-// TODO Need to test and fix when there is files or directories include in another one (do not count twice)
-// TODO should we externalize this tool ?
-pub(crate) fn compute_size(paths: Vec<PathBuf>) -> StdResult<u64> {
-    let mut total = 0;
-    for path_to_include in paths {
-        total += compute_uncompressed_database_size(&path_to_include)?;
-    }
-    Ok(total)
-}
-
-fn compute_uncompressed_database_size(path: &Path) -> StdResult<u64> {
-    if path.is_file() {
-        let metadata = std::fs::metadata(path)
-            .with_context(|| format!("Failed to read metadata for file: {:?}", path))?;
-
-        return Ok(metadata.len());
-    }
-
-    if path.is_dir() {
-        let entries = std::fs::read_dir(path)
-            .with_context(|| format!("Failed to read directory: {:?}", path))?;
-        let mut directory_size = 0;
-        for entry in entries {
-            let path = entry
-                .with_context(|| format!("Failed to read directory entry in {:?}", path))?
-                .path();
-            directory_size += compute_uncompressed_database_size(&path)?;
-        }
-
-        return Ok(directory_size);
-    }
-
-    Ok(0)
 }
 
 #[cfg(test)]
