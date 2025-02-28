@@ -8,7 +8,9 @@ use mithril_client::{
     feedback::SlogFeedbackReceiver,
     ClientBuilder,
 };
-use mithril_common::digesters::DummyCardanoDbBuilder;
+use mithril_common::digesters::{
+    CardanoImmutableDigester, DummyCardanoDbBuilder, ImmutableDigester,
+};
 
 use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
 
@@ -25,6 +27,16 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .with_ledger_files(&["blocks-0.dat", "blocks-1.dat"])
         .with_volatile_files(&["437", "537", "637"])
         .build();
+    let computed_immutables_digests = {
+        let digester =
+            CardanoImmutableDigester::new("whatever".to_string(), None, extensions::test_logger());
+        let range = 1..=4;
+
+        digester
+            .compute_digests_for_range(cardano_db.get_immutable_dir(), &range)
+            .await
+            .unwrap()
+    };
     let fake_aggregator = FakeAggregator::new();
     let test_http_server = fake_aggregator
         .spawn_with_cardano_db_snapshot(
@@ -32,6 +44,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
             certificate_hash,
             &cardano_db,
             &work_dir,
+            computed_immutables_digests,
         )
         .await;
     let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)

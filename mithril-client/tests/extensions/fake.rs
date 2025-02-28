@@ -320,7 +320,7 @@ mod file {
 
     #[cfg(feature = "unstable")]
     mod unstable {
-        use std::{fs::File, io::Write};
+        use std::fs::File;
 
         use mithril_client::{
             common::{
@@ -328,6 +328,9 @@ mod file {
                 ImmutablesLocation, ImmutablesMessagePart, MultiFilesUri, TemplateUri,
             },
             CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem,
+        };
+        use mithril_common::{
+            digesters::ComputedImmutablesDigests, messages::CardanoDatabaseDigestListItemMessage,
         };
 
         use super::*;
@@ -339,6 +342,7 @@ mod file {
                 certificate_hash: &str,
                 cardano_db: &DummyCardanoDb,
                 work_dir: &Path,
+                computed_immutables_digests: ComputedImmutablesDigests,
             ) -> TestHttpServer {
                 let beacon = CardanoDbBeacon {
                     immutable_file_number: cardano_db.last_immutable_number().unwrap(),
@@ -383,8 +387,11 @@ mod file {
                     certificate_json,
                 ));
 
-                let cardano_db_snapshot_archives_path =
-                    Self::build_cardano_db_snapshot_archives(cardano_db, work_dir);
+                let cardano_db_snapshot_archives_path = Self::build_cardano_db_snapshot_archives(
+                    cardano_db,
+                    work_dir,
+                    computed_immutables_digests,
+                );
 
                 let routes = routes.or(routes::cardano_db_snapshot::download_immutables_archive(
                     self.calls.clone(),
@@ -400,13 +407,14 @@ mod file {
             fn build_cardano_db_snapshot_archives(
                 cardano_db: &DummyCardanoDb,
                 target_dir: &Path,
+                computed_immutables_digests: ComputedImmutablesDigests,
             ) -> PathBuf {
                 let target_dir = target_dir.join("archives");
                 std::fs::create_dir_all(&target_dir).unwrap();
 
                 Self::build_immutable_files_archives(cardano_db, &target_dir);
                 Self::build_ancillary_files_archive(cardano_db, &target_dir);
-                Self::build_digests_json_file(&target_dir);
+                Self::build_digests_json_file(&target_dir, computed_immutables_digests);
                 target_dir
             }
 
@@ -471,10 +479,28 @@ mod file {
                 zstd.finish().unwrap();
             }
 
-            fn build_digests_json_file(target_dir: &Path) {
+            fn build_digests_json_file(
+                target_dir: &Path,
+                computed_immutables_digests: ComputedImmutablesDigests,
+            ) {
                 let target_file = target_dir.join("digests.json");
-                let mut file = File::create(&target_file).unwrap();
-                file.write_all(b"[]").unwrap();
+
+                let immutable_digest_messages = computed_immutables_digests
+                    .entries
+                    .iter()
+                    .map(
+                        |(immutable_file, digest)| CardanoDatabaseDigestListItemMessage {
+                            immutable_file_name: immutable_file.filename.clone(),
+                            digest: digest.to_string(),
+                        },
+                    )
+                    .collect::<Vec<_>>();
+
+                serde_json::to_writer(
+                    File::create(target_file).unwrap(),
+                    &immutable_digest_messages,
+                )
+                .unwrap();
             }
 
             fn update_cardano_db_snapshot_locations(
