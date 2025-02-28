@@ -320,17 +320,19 @@ mod file {
 
     #[cfg(feature = "unstable")]
     mod unstable {
-        use std::fs::File;
+        use std::{fs::File, ops::RangeInclusive};
 
         use mithril_client::{
             common::{
                 AncillaryLocation, AncillaryMessagePart, DigestLocation, DigestsMessagePart,
-                ImmutablesLocation, ImmutablesMessagePart, MultiFilesUri, TemplateUri,
+                ImmutableFileNumber, ImmutablesLocation, ImmutablesMessagePart, MultiFilesUri,
+                ProtocolMessagePartKey, TemplateUri,
             },
             CardanoDatabaseSnapshot, CardanoDatabaseSnapshotListItem,
         };
         use mithril_common::{
-            digesters::ComputedImmutablesDigests, messages::CardanoDatabaseDigestListItemMessage,
+            digesters::{CardanoImmutableDigester, ComputedImmutablesDigests, ImmutableDigester},
+            messages::CardanoDatabaseDigestListItemMessage,
         };
 
         use super::*;
@@ -342,7 +344,8 @@ mod file {
                 certificate_hash: &str,
                 cardano_db: &DummyCardanoDb,
                 work_dir: &Path,
-                computed_immutables_digests: ComputedImmutablesDigests,
+                digester: CardanoImmutableDigester,
+                range: RangeInclusive<ImmutableFileNumber>,
             ) -> TestHttpServer {
                 let beacon = CardanoDbBeacon {
                     immutable_file_number: cardano_db.last_immutable_number().unwrap(),
@@ -368,11 +371,21 @@ mod file {
                 ])
                 .unwrap();
 
-                let certificate = MithrilCertificate {
-                    hash: certificate_hash.to_string(),
-                    epoch: beacon.epoch,
-                    signed_entity_type: SignedEntityType::CardanoDatabase(beacon.clone()),
-                    ..MithrilCertificate::dummy()
+                let certificate = {
+                    let mut cert = MithrilCertificate::dummy();
+                    let merkle_tree = digester
+                        .compute_merkle_tree(cardano_db.get_immutable_dir(), &beacon)
+                        .await
+                        .unwrap();
+                    let merkle_root = merkle_tree.compute_root().unwrap().to_hex();
+
+                    cert.protocol_message.set_message_part(
+                        ProtocolMessagePartKey::CardanoDatabaseMerkleRoot,
+                        merkle_root,
+                    );
+                    cert.signed_message = cert.protocol_message.compute_hash();
+
+                    cert
                 };
                 let certificate_json = serde_json::to_string(&certificate).unwrap();
 
@@ -387,6 +400,10 @@ mod file {
                     certificate_json,
                 ));
 
+                let computed_immutables_digests = digester
+                    .compute_digests_for_range(cardano_db.get_immutable_dir(), &range)
+                    .await
+                    .unwrap();
                 let cardano_db_snapshot_archives_path = Self::build_cardano_db_snapshot_archives(
                     cardano_db,
                     work_dir,

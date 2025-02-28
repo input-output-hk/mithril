@@ -6,11 +6,9 @@ use mithril_client::{
     aggregator_client::AggregatorRequest,
     cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange},
     feedback::SlogFeedbackReceiver,
-    ClientBuilder,
+    ClientBuilder, MessageBuilder,
 };
-use mithril_common::digesters::{
-    CardanoImmutableDigester, DummyCardanoDbBuilder, ImmutableDigester,
-};
+use mithril_common::digesters::{CardanoImmutableDigester, DummyCardanoDbBuilder};
 
 use crate::extensions::fake::{FakeAggregator, FakeCertificateVerifier};
 
@@ -27,16 +25,9 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .with_ledger_files(&["blocks-0.dat", "blocks-1.dat"])
         .with_volatile_files(&["437", "537", "637"])
         .build();
-    let computed_immutables_digests = {
-        let digester =
-            CardanoImmutableDigester::new("whatever".to_string(), None, extensions::test_logger());
-        let range = 1..=4;
-
-        digester
-            .compute_digests_for_range(cardano_db.get_immutable_dir(), &range)
-            .await
-            .unwrap()
-    };
+    let digester =
+        CardanoImmutableDigester::new("whatever".to_string(), None, extensions::test_logger());
+    let range = 1..=4;
     let fake_aggregator = FakeAggregator::new();
     let test_http_server = fake_aggregator
         .spawn_with_cardano_db_snapshot(
@@ -44,7 +35,8 @@ async fn cardano_db_snapshot_list_get_download_verify() {
             certificate_hash,
             &cardano_db,
             &work_dir,
-            computed_immutables_digests,
+            digester,
+            range,
         )
         .await;
     let client = ClientBuilder::aggregator(&test_http_server.url(), genesis_verification_key)
@@ -134,8 +126,15 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .expect("Computing merkle proof should not fail");
     merkle_proof.verify().expect("Merkle proof should be valid");
 
-    // let _message = MessageBuilder::new()
-    //     .compute_cardano_database_message(&certificate, &merkle_proof)
-    //     .await
-    //     .expect("Computing snapshot message should not fail");
+    let message = MessageBuilder::new()
+        .compute_cardano_database_message(&certificate, &merkle_proof)
+        .await
+        .expect("Computing cardano database snapshot message should not fail");
+
+    assert!(
+            certificate.match_message(&message),
+            "Certificate and message did not match:\ncertificate_message: '{}'\n computed_message: '{}'",
+            certificate.signed_message,
+            message.compute_hash()
+    );
 }
