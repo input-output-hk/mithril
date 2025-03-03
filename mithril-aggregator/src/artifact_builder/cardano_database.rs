@@ -6,8 +6,9 @@ use semver::Version;
 
 use mithril_common::{
     entities::{
-        AncillaryLocations, CardanoDatabaseSnapshot, CardanoDbBeacon, Certificate,
-        DigestsLocations, ImmutablesLocations, ProtocolMessagePartKey, SignedEntityType,
+        AncillaryLocations, CardanoDatabaseSnapshot, CardanoDatabaseSnapshotArtifactData,
+        CardanoDbBeacon, Certificate, DigestsLocations, ImmutablesLocations,
+        ProtocolMessagePartKey, SignedEntityType,
     },
     CardanoNetwork, StdResult,
 };
@@ -83,23 +84,27 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
 
         let digest_upload = self.digest_builder.upload(&beacon).await?;
 
+        let content = CardanoDatabaseSnapshotArtifactData {
+            total_db_size_uncompressed,
+            digests: DigestsLocations {
+                size_uncompressed: digest_upload.size,
+                locations: digest_upload.locations,
+            },
+            immutables: ImmutablesLocations {
+                average_size_uncompressed: immutable_average_size,
+                locations: immutables_locations,
+            },
+            ancillary: AncillaryLocations {
+                size_uncompressed: ancillary_size,
+                locations: ancillary_locations,
+            },
+        };
+
         let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
             self.network,
             beacon,
-            total_db_size_uncompressed,
-            DigestsLocations {
-                size_uncompressed: digest_upload.size,
-                locations: digest_upload.locations,
-            },
-            ImmutablesLocations {
-                average_size_uncompressed: immutable_average_size,
-                locations: immutables_locations,
-            },
-            AncillaryLocations {
-                size_uncompressed: ancillary_size,
-                locations: ancillary_locations,
-            },
+            content,
             &self.cardano_node_version,
         );
 
@@ -293,18 +298,20 @@ mod tests {
             "merkleroot".to_string(),
             network,
             beacon,
-            expected_total_size,
-            DigestsLocations {
-                size_uncompressed: artifact.digests.size_uncompressed,
-                locations: expected_digest_locations,
-            },
-            ImmutablesLocations {
-                average_size_uncompressed: expected_average_immutable_size,
-                locations: expected_immutables_locations,
-            },
-            AncillaryLocations {
-                size_uncompressed: expected_ancillary_size,
-                locations: expected_ancillary_locations,
+            CardanoDatabaseSnapshotArtifactData {
+                total_db_size_uncompressed: expected_total_size,
+                digests: DigestsLocations {
+                    size_uncompressed: artifact.digests.size_uncompressed,
+                    locations: expected_digest_locations,
+                },
+                immutables: ImmutablesLocations {
+                    average_size_uncompressed: expected_average_immutable_size,
+                    locations: expected_immutables_locations,
+                },
+                ancillary: AncillaryLocations {
+                    size_uncompressed: expected_ancillary_size,
+                    locations: expected_ancillary_locations,
+                },
             },
             &Version::parse("1.0.0").unwrap(),
         );

@@ -5,10 +5,10 @@ use semver::Version;
 
 use crate::crypto_helper::{self, ProtocolMultiSignature};
 use crate::entities::{
-    self, AncillaryLocations, BlockNumber, CertificateMetadata, CertificateSignature,
-    CompressionAlgorithm, DigestsLocations, Epoch, ImmutablesLocations, LotteryIndex,
-    ProtocolMessage, ProtocolMessagePartKey, SignedEntityType, SingleSignatures, SlotNumber,
-    StakeDistribution, StakeDistributionParty,
+    self, AncillaryLocations, BlockNumber, CardanoDatabaseSnapshotArtifactData,
+    CertificateMetadata, CertificateSignature, CompressionAlgorithm, DigestsLocations, Epoch,
+    ImmutablesLocations, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
+    SingleSignatures, SlotNumber, StakeDistribution, StakeDistributionParty,
 };
 use crate::test_utils::MithrilFixtureBuilder;
 use crate::CardanoNetwork;
@@ -265,10 +265,12 @@ pub fn cardano_database_snapshots(total: u64) -> Vec<entities::CardanoDatabaseSn
                 merkle_root,
                 CardanoNetwork::DevNet(63),
                 beacon,
-                total_db_size_uncompressed,
-                DigestsLocations::default(),
-                ImmutablesLocations::default(),
-                AncillaryLocations::default(),
+                CardanoDatabaseSnapshotArtifactData {
+                    total_db_size_uncompressed,
+                    digests: DigestsLocations::default(),
+                    immutables: ImmutablesLocations::default(),
+                    ancillary: AncillaryLocations::default(),
+                },
                 &cardano_node_version,
             )
         })

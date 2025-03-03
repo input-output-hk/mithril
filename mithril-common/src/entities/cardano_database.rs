@@ -6,6 +6,21 @@ use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
 use super::{CardanoNetwork, MultiFilesUri};
 
+/// Structure holding artifacts data needed to create a Cardano database snapshot.
+pub struct CardanoDatabaseSnapshotArtifactData {
+    /// Size of the uncompressed Cardano database files.
+    pub total_db_size_uncompressed: u64,
+
+    /// Locations of the Cardano database digests.
+    pub digests: DigestsLocations,
+
+    /// Locations of the Cardano database immutables.
+    pub immutables: ImmutablesLocations,
+
+    /// Locations of the Cardano database ancillary.
+    pub ancillary: AncillaryLocations,
+}
+
 /// Cardano database snapshot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CardanoDatabaseSnapshot {
@@ -43,10 +58,7 @@ impl CardanoDatabaseSnapshot {
         merkle_root: String,
         network: CardanoNetwork,
         beacon: CardanoDbBeacon,
-        total_db_size_uncompressed: u64,
-        digests: DigestsLocations,
-        immutables: ImmutablesLocations,
-        ancillary: AncillaryLocations,
+        content: CardanoDatabaseSnapshotArtifactData,
         cardano_node_version: &Version,
     ) -> Self {
         let cardano_node_version = format!("{cardano_node_version}");
@@ -55,10 +67,10 @@ impl CardanoDatabaseSnapshot {
             merkle_root,
             network,
             beacon,
-            digests,
-            immutables,
-            ancillary,
-            total_db_size_uncompressed,
+            digests: content.digests,
+            immutables: content.immutables,
+            ancillary: content.ancillary,
+            total_db_size_uncompressed: content.total_db_size_uncompressed,
             cardano_node_version,
         };
         cardano_database_snapshot.hash = cardano_database_snapshot.compute_hash();
@@ -176,18 +188,20 @@ mod tests {
             "mk-root-1111111111".to_string(),
             CardanoNetwork::DevNet(87),
             CardanoDbBeacon::new(2222, 55555),
-            0,
-            DigestsLocations {
-                size_uncompressed: 0,
-                locations: vec![],
-            },
-            ImmutablesLocations {
-                average_size_uncompressed: 0,
-                locations: vec![],
-            },
-            AncillaryLocations {
-                size_uncompressed: 0,
-                locations: vec![],
+            CardanoDatabaseSnapshotArtifactData {
+                total_db_size_uncompressed: 0,
+                digests: DigestsLocations {
+                    size_uncompressed: 0,
+                    locations: vec![],
+                },
+                immutables: ImmutablesLocations {
+                    average_size_uncompressed: 0,
+                    locations: vec![],
+                },
+                ancillary: AncillaryLocations {
+                    size_uncompressed: 0,
+                    locations: vec![],
+                },
             },
             &Version::new(1, 0, 0),
         )
