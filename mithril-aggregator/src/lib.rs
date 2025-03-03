@@ -46,8 +46,9 @@ pub use runtime::{
     AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
 };
 pub use signer_registerer::{
-    MithrilSignerRegisterer, SignerRecorder, SignerRegisterer, SignerRegistrationError,
-    SignerRegistrationRound, SignerRegistrationRoundOpener,
+    MithrilSignerRegistererMaster, MithrilSignerRegistererSlave, SignerRecorder, SignerRegisterer,
+    SignerRegistrationError, SignerRegistrationRound, SignerRegistrationRoundOpener,
+    SignerSynchronizer,
 };
 pub use store::{EpochSettingsStorer, VerificationKeyStorer};
 pub use tools::{
