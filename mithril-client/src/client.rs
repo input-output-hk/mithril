@@ -115,7 +115,7 @@ impl Client {
 
     /// Get the client that fetches and downloads Cardano database snapshots.
     #[cfg(feature = "unstable")]
-    pub fn cardano_database(&self) -> Arc<CardanoDatabaseClient> {
+    pub fn cardano_database_v2(&self) -> Arc<CardanoDatabaseClient> {
         self.cardano_database_client.clone()
     }
 
