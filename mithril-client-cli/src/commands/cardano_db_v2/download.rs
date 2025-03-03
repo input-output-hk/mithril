@@ -130,7 +130,7 @@ impl CardanoDbV2DownloadCommand {
 
         let get_list_of_artifact_ids = || async {
             let cardano_db_snapshots =
-                client.cardano_database().list().await.with_context(|| {
+                client.cardano_database_v2().list().await.with_context(|| {
                     "Can not get the list of artifacts while retrieving the latest cardano db hash"
                 })?;
 
@@ -141,7 +141,7 @@ impl CardanoDbV2DownloadCommand {
         };
 
         let cardano_db_message = client
-            .cardano_database()
+            .cardano_database_v2()
             .get(
                 &ExpanderUtils::expand_eventual_id_alias(&self.hash, get_list_of_artifact_ids())
                     .await?,
@@ -320,7 +320,7 @@ impl CardanoDbV2DownloadCommand {
             "Downloading and unpacking the cardano db snapshot",
         )?;
         client
-            .cardano_database()
+            .cardano_database_v2()
             .download_unpack(
                 cardano_database_snapshot,
                 &restoration_options.immutable_file_range,
@@ -339,7 +339,7 @@ impl CardanoDbV2DownloadCommand {
             .immutable_file_range
             .length(cardano_database_snapshot.beacon.immutable_file_number);
         if let Err(e) = client
-            .cardano_database()
+            .cardano_database_v2()
             .add_statistics(
                 full_restoration,
                 include_ancillary,
@@ -375,7 +375,7 @@ impl CardanoDbV2DownloadCommand {
     ) -> MithrilResult<MKProof> {
         progress_printer.report_step(step_number, "Computing and verifying the Merkle proof…")?;
         let merkle_proof = client
-            .cardano_database()
+            .cardano_database_v2()
             .compute_merkle_proof(
                 certificate,
                 cardano_database_snapshot,

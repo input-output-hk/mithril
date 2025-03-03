@@ -28,7 +28,7 @@ impl CardanoDbListCommand {
         let client = client_builder_with_fallback_genesis_key(&params)?
             .with_logger(context.logger().clone())
             .build()?;
-        let items = client.cardano_database().list().await?;
+        let items = client.cardano_database_v2().list().await?;
 
         if self.is_json_output_enabled() {
             println!("{}", serde_json::to_string(&items)?);

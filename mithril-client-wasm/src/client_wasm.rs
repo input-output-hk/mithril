@@ -440,7 +440,7 @@ impl MithrilClient {
 
         let result = self
             .client
-            .cardano_database()
+            .cardano_database_v2()
             .get(hash)
             .await
             .map_err(|err| format!("{err:?}"))?
@@ -460,7 +460,7 @@ impl MithrilClient {
 
         let result = self
             .client
-            .cardano_database()
+            .cardano_database_v2()
             .list()
             .await
             .map_err(|err| format!("{err:?}"))?;
