@@ -148,7 +148,7 @@ impl MithrilClient {
     pub async fn get_cardano_database(&self, digest: &str) -> WasmResult {
         let result = self
             .client
-            .snapshot()
+            .cardano_database()
             .get(digest)
             .await
             .map_err(|err| format!("{err:?}"))?
@@ -171,7 +171,7 @@ impl MithrilClient {
     pub async fn list_cardano_database(&self) -> WasmResult {
         let result = self
             .client
-            .snapshot()
+            .cardano_database()
             .list()
             .await
             .map_err(|err| format!("{err:?}"))?;

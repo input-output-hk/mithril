@@ -31,7 +31,7 @@ async fn snapshot_list_get_show_download_verify() {
         .expect("Should be able to create a Client");
 
     let snapshots = client
-        .snapshot()
+        .cardano_database()
         .list()
         .await
         .expect("List MithrilStakeDistribution should not fail");
@@ -43,7 +43,7 @@ async fn snapshot_list_get_show_download_verify() {
     let last_digest = snapshots.first().unwrap().digest.as_ref();
 
     let snapshot = client
-        .snapshot()
+        .cardano_database()
         .get(last_digest)
         .await
         .expect("Get Snapshot should not fail ")
@@ -79,7 +79,7 @@ async fn snapshot_list_get_show_download_verify() {
     );
 
     client
-        .snapshot()
+        .cardano_database()
         .download_unpack(&snapshot, &unpacked_dir)
         .await
         .expect("download/unpack snapshot should not fail");
@@ -95,7 +95,7 @@ async fn snapshot_list_get_show_download_verify() {
     );
 
     client
-        .snapshot()
+        .cardano_database()
         .add_statistics(&snapshot)
         .await
         .expect("add_statistics should not fail");
