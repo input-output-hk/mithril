@@ -17,12 +17,15 @@ use crate::DependencyContainer;
 pub struct AggregatorConfig {
     /// Interval between each snapshot, in ms
     pub interval: Duration,
+
+    /// Whether the aggregator is a slave
+    pub is_slave: bool,
 }
 
 impl AggregatorConfig {
     /// Create a new instance of AggregatorConfig.
-    pub fn new(interval: Duration) -> Self {
-        Self { interval }
+    pub fn new(interval: Duration, is_slave: bool) -> Self {
+        Self { interval, is_slave }
     }
 }
 
@@ -56,6 +59,15 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 
     /// Close the signer registration round of an epoch.
     async fn close_signer_registration_round(&self) -> StdResult<()>;
+
+    /// Check if the slave aggregator is running the same epoch as the master.
+    async fn is_slave_aggregator_at_same_epoch_as_master(
+        &self,
+        time_point: &TimePoint,
+    ) -> StdResult<bool>;
+
+    /// Synchronize the slave aggregator signer registration.
+    async fn synchronize_slave_aggregator_signer_registration(&self) -> StdResult<()>;
 
     /// Ask the EpochService to update the epoch settings.
     async fn update_epoch_settings(&self) -> StdResult<()>;
@@ -262,6 +274,54 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .signer_registration_round_opener
             .close_registration_round()
             .await
+    }
+
+    async fn is_slave_aggregator_at_same_epoch_as_master(
+        &self,
+        time_point: &TimePoint,
+    ) -> StdResult<bool> {
+        let is_slave_aggregator_at_same_epoch_as_master = if let Some(master_epoch_settings) = self
+            .dependencies
+            .master_aggregator_client
+            .retrieve_epoch_settings()
+            .await?
+        {
+            time_point.epoch == master_epoch_settings.epoch
+        } else {
+            false
+        };
+
+        Ok(is_slave_aggregator_at_same_epoch_as_master)
+    }
+
+    async fn synchronize_slave_aggregator_signer_registration(&self) -> StdResult<()> {
+        let master_epoch_settings = self
+            .dependencies
+            .master_aggregator_client
+            .retrieve_epoch_settings()
+            .await?
+            .ok_or(anyhow::anyhow!(
+                "Master aggregator did not return any epoch settings"
+            ))?;
+
+        let registration_epoch = master_epoch_settings
+            .epoch
+            .offset_to_master_synchronization_epoch();
+        let next_signers = master_epoch_settings.next_signers;
+        let stake_distribution = self
+            .dependencies
+            .stake_store
+            .get_stakes(registration_epoch)
+            .await?
+            .ok_or(anyhow::anyhow!(
+                "Slave aggregator did not return any stake distribution"
+            ))?;
+        self.dependencies
+            .signer_synchronizer
+            .synchronize_signers(registration_epoch, &next_signers, &stake_distribution)
+            .await?;
+
+        Ok(())
     }
 
     async fn update_epoch_settings(&self) -> StdResult<()> {
@@ -495,7 +555,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        Configuration, DependencyContainer, MithrilSignerRegisterer, SignerRegistrationRound,
+        Configuration, DependencyContainer, MithrilSignerRegistererMaster, SignerRegistrationRound,
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
@@ -680,7 +740,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_open_signer_registration_round() {
         let mut deps = initialize_dependencies().await;
-        let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
+        let signer_registration_round_opener = Arc::new(MithrilSignerRegistererMaster::new(
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
@@ -720,7 +780,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_close_signer_registration_round() {
         let mut deps = initialize_dependencies().await;
-        let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
+        let signer_registration_round_opener = Arc::new(MithrilSignerRegistererMaster::new(
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
