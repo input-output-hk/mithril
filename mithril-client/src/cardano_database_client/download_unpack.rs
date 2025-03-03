@@ -107,8 +107,12 @@ impl InternalArtifactDownloader {
         )?;
         Self::verify_can_write_to_target_directory(target_dir, &download_unpack_options)?;
         let immutable_locations = &cardano_database_snapshot.immutables.locations;
+        let average_size_uncompressed = cardano_database_snapshot
+            .immutables
+            .average_size_uncompressed;
         self.download_unpack_immutable_files(
             immutable_locations,
+            average_size_uncompressed,
             immutable_file_number_range,
             target_dir,
             download_unpack_options.max_parallel_downloads,
@@ -116,9 +120,14 @@ impl InternalArtifactDownloader {
         )
         .await?;
         if download_unpack_options.include_ancillary {
-            let ancillary_locations = &cardano_database_snapshot.ancillary.locations;
-            self.download_unpack_ancillary_file(ancillary_locations, target_dir, &download_id)
-                .await?;
+            let ancillary = &cardano_database_snapshot.ancillary;
+            self.download_unpack_ancillary_file(
+                &ancillary.locations,
+                ancillary.size_uncompressed,
+                target_dir,
+                &download_id,
+            )
+            .await?;
         }
         self.feedback_sender
             .send_event(MithrilEvent::CardanoDatabase(
@@ -198,6 +207,7 @@ impl InternalArtifactDownloader {
     async fn download_unpack_immutable_files(
         &self,
         locations: &[ImmutablesLocation],
+        average_size_uncompressed: u64,
         range: RangeInclusive<ImmutableFileNumber>,
         immutable_files_target_dir: &Path,
         max_parallel_downloads: usize,
@@ -211,6 +221,7 @@ impl InternalArtifactDownloader {
             let immutable_files_numbers_downloaded = self
                 .download_unpack_immutable_files_for_location(
                     &location,
+                    average_size_uncompressed,
                     &immutable_file_numbers_to_download,
                     immutable_files_target_dir,
                     max_parallel_downloads,
@@ -286,13 +297,12 @@ impl InternalArtifactDownloader {
         let compression_algorithm = args.compression_algorithm;
         let immutable_files_target_dir = args.immutable_files_target_dir;
         let immutable_file_number = args.immutable_file_number;
-        // The size will be completed with the uncompressed file size when available in the location
-        // (see https://github.com/input-output-hk/mithril/issues/2291)
-        let _file_size = args.file_size;
+        let file_size = args.file_size;
         let download_future = async move {
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
+                    file_size,
                     &immutable_files_target_dir,
                     compression_algorithm,
                     DownloadEvent::Immutable {
@@ -319,15 +329,13 @@ impl InternalArtifactDownloader {
     async fn download_unpack_immutable_files_for_location(
         &self,
         location: &ImmutablesLocation,
+        file_size: u64,
         immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>,
         immutable_files_target_dir: &Path,
         max_parallel_downloads: usize,
         download_id: &str,
     ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
         let mut immutable_file_numbers_downloaded = BTreeSet::new();
-        // The size will be completed with the uncompressed file size when available in the location
-        // (see https://github.com/input-output-hk/mithril/issues/2291)
-        let file_size = 0;
         let (file_downloader, compression_algorithm) = match &location {
             ImmutablesLocation::CloudStorage {
                 uri: _,
@@ -371,6 +379,7 @@ impl InternalArtifactDownloader {
     pub(crate) async fn download_unpack_ancillary_file(
         &self,
         locations: &[AncillaryLocation],
+        file_size: u64,
         ancillary_file_target_dir: &Path,
         download_id: &str,
     ) -> MithrilResult<()> {
@@ -390,6 +399,7 @@ impl InternalArtifactDownloader {
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
+                    file_size,
                     ancillary_file_target_dir,
                     compression_algorithm,
                     DownloadEvent::Ancillary {
@@ -840,6 +850,7 @@ mod tests {
                         )),
                         compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
+                    0,
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
@@ -865,6 +876,7 @@ mod tests {
             artifact_downloader
                 .download_unpack_immutable_files(
                     &[ImmutablesLocation::Unknown {}],
+                    0,
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
@@ -905,6 +917,7 @@ mod tests {
                         )),
                         compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
+                    0,
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
@@ -962,6 +975,7 @@ mod tests {
                             compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
+                    0,
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
@@ -993,6 +1007,7 @@ mod tests {
                         uri: "http://whatever-1/ancillary.tar.gz".to_string(),
                         compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
+                    0,
                     target_dir,
                     "download_id",
                 )
@@ -1012,6 +1027,7 @@ mod tests {
             artifact_downloader
                 .download_unpack_ancillary_file(
                     &[AncillaryLocation::Unknown {}],
+                    0,
                     target_dir,
                     "download_id",
                 )
@@ -1050,6 +1066,7 @@ mod tests {
                             compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
+                    0,
                     target_dir,
                     "download_id",
                 )
@@ -1084,6 +1101,7 @@ mod tests {
                             compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
+                    0,
                     target_dir,
                     "download_id",
                 )

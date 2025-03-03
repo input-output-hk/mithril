@@ -47,9 +47,13 @@ impl InternalArtifactProver {
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
-        let digest_locations = &cardano_database_snapshot.digests.locations;
-        self.download_unpack_digest_file(digest_locations, &Self::digest_target_dir(database_dir))
-            .await?;
+        let digests = &cardano_database_snapshot.digests;
+        self.download_unpack_digest_file(
+            &digests.locations,
+            digests.size_uncompressed,
+            &Self::digest_target_dir(database_dir),
+        )
+        .await?;
         let network = certificate.metadata.network.clone();
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
@@ -82,6 +86,7 @@ impl InternalArtifactProver {
     async fn download_unpack_digest_file(
         &self,
         locations: &[DigestLocation],
+        file_size: u64,
         digest_file_target_dir: &Path,
     ) -> MithrilResult<()> {
         create_directory_if_not_exists(digest_file_target_dir)?;
@@ -101,6 +106,7 @@ impl InternalArtifactProver {
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
+                    file_size,
                     digest_file_target_dir,
                     None,
                     DownloadEvent::Digest {
@@ -365,6 +371,7 @@ mod tests {
                             uri: "http://whatever-2/digest".to_string(),
                         },
                     ],
+                    0,
                     target_dir,
                 )
                 .await
@@ -380,7 +387,7 @@ mod tests {
             );
 
             artifact_prover
-                .download_unpack_digest_file(&[DigestLocation::Unknown], target_dir)
+                .download_unpack_digest_file(&[DigestLocation::Unknown], 0, target_dir)
                 .await
                 .expect_err("download_unpack_digest_file should fail");
         }
@@ -412,6 +419,7 @@ mod tests {
                             uri: "http://whatever-2/digest".to_string(),
                         },
                     ],
+                    0,
                     target_dir,
                 )
                 .await
@@ -443,6 +451,7 @@ mod tests {
                             uri: "http://whatever-2/digest".to_string(),
                         },
                     ],
+                    0,
                     target_dir,
                 )
                 .await

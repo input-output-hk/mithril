@@ -262,6 +262,7 @@ pub trait FileDownloader: Sync + Send {
     async fn download_unpack(
         &self,
         location: &FileDownloaderUri,
+        file_size: u64,
         target_dir: &Path,
         compression_algorithm: Option<CompressionAlgorithm>,
         download_event_type: DownloadEvent,
