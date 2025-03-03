@@ -114,6 +114,36 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .await
         .expect("download/unpack cardano db snapshot should not fail");
 
+    let full_restoration = immutable_file_range == ImmutableFileRange::Full;
+    let include_ancillary = download_unpack_options.include_ancillary;
+    let number_of_immutable_files_restored =
+        immutable_file_range.length(cardano_db_snapshot.beacon.immutable_file_number);
+    client
+        .cardano_database()
+        .add_statistics(
+            full_restoration,
+            include_ancillary,
+            number_of_immutable_files_restored,
+        )
+        .await
+        .expect("add_statistics should not fail");
+    let last_api_calls = fake_aggregator.get_latest_calls(3).await;
+    assert!(last_api_calls.contains(&format!(
+        "/{}",
+        AggregatorRequest::IncrementCardanoDatabaseAncillaryStatistic.route()
+    )));
+    assert!(last_api_calls.contains(&format!(
+        "/{}",
+        AggregatorRequest::IncrementCardanoDatabasePartialRestorationStatistic.route()
+    )));
+    assert!(last_api_calls.contains(&format!(
+        "/{}",
+        AggregatorRequest::IncrementCardanoDatabaseImmutablesRestoredStatistic {
+            number_of_immutables: number_of_immutable_files_restored.to_string()
+        }
+        .route()
+    )));
+
     let merkle_proof = client
         .cardano_database()
         .compute_merkle_proof(

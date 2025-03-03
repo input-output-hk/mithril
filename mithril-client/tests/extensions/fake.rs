@@ -47,6 +47,15 @@ impl FakeAggregator {
         self.get_calls().await.last().cloned()
     }
 
+    pub async fn get_latest_calls(&self, count: usize) -> Vec<String> {
+        self.get_calls()
+            .await
+            .into_iter()
+            .rev()
+            .take(count)
+            .collect()
+    }
+
     pub async fn store_call_and_return_value(
         full_path: FullPath,
         calls: FakeAggregatorCalls,
@@ -398,7 +407,8 @@ mod file {
                     self.calls.clone(),
                     None,
                     certificate_json,
-                ));
+                ))
+                .or(routes::statistics::routes(self.calls.clone()));
 
                 let computed_immutables_digests = digester
                     .compute_digests_for_range(cardano_db.get_immutable_dir(), &range)
