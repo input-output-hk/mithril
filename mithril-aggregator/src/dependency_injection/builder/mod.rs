@@ -44,12 +44,13 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        CertifierService, MessageService, ProverService, SignedEntityService, Snapshotter,
-        StakeDistributionService, UpkeepService,
+        AggregatorClient, CertifierService, EpochPruningTask, MessageService, ProverService,
+        SignedEntityService, Snapshotter, StakeDistributionService, UpkeepService,
     },
+    signer_registerer::{MithrilSignerRegistererSlave, SignerSynchronizer},
     tools::GenesisToolsDependency,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
-    ImmutableFileDigestMapper, MetricsService, MithrilSignerRegisterer, MultiSigner,
+    ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistererMaster, MultiSigner,
     SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
     SingleSignatureAuthenticator, VerificationKeyStorer,
 };
@@ -148,17 +149,26 @@ pub struct DependenciesBuilder {
     /// Genesis signature verifier service.
     pub genesis_verifier: Option<Arc<ProtocolGenesisVerifier>>,
 
-    /// Mithril signer registerer service
-    pub mithril_signer_registerer: Option<Arc<MithrilSignerRegisterer>>,
+    /// Mithril signer registerer master service
+    pub mithril_signer_registerer_master: Option<Arc<MithrilSignerRegistererMaster>>,
+
+    /// Mithril signer registerer slave service
+    pub mithril_signer_registerer_slave: Option<Arc<MithrilSignerRegistererSlave>>,
 
     /// Signer registerer service
     pub signer_registerer: Option<Arc<dyn SignerRegisterer>>,
+
+    /// Signer synchronizer service
+    pub signer_synchronizer: Option<Arc<dyn SignerSynchronizer>>,
 
     /// Signer registration verifier
     pub signer_registration_verifier: Option<Arc<dyn SignerRegistrationVerifier>>,
 
     /// Signer registration round opener service
     pub signer_registration_round_opener: Option<Arc<dyn SignerRegistrationRoundOpener>>,
+
+    /// Signer registration pruning task
+    pub signer_registration_pruning_task: Option<Arc<dyn EpochPruningTask>>,
 
     /// Era checker service
     pub era_checker: Option<Arc<EraChecker>>,
@@ -228,6 +238,9 @@ pub struct DependenciesBuilder {
 
     /// Metrics service
     pub metrics_service: Option<Arc<MetricsService>>,
+
+    /// Master aggregator client
+    pub master_aggregator_client: Option<Arc<dyn AggregatorClient>>,
 }
 
 impl DependenciesBuilder {
@@ -259,10 +272,13 @@ impl DependenciesBuilder {
             snapshotter: None,
             certificate_verifier: None,
             genesis_verifier: None,
-            mithril_signer_registerer: None,
+            mithril_signer_registerer_master: None,
+            mithril_signer_registerer_slave: None,
             signer_registerer: None,
+            signer_synchronizer: None,
             signer_registration_verifier: None,
             signer_registration_round_opener: None,
+            signer_registration_pruning_task: None,
             era_reader_adapter: None,
             era_checker: None,
             era_reader: None,
@@ -285,6 +301,7 @@ impl DependenciesBuilder {
             upkeep_service: None,
             single_signer_authenticator: None,
             metrics_service: None,
+            master_aggregator_client: None,
         }
     }
 
@@ -330,6 +347,7 @@ impl DependenciesBuilder {
             certificate_verifier: self.get_certificate_verifier().await?,
             genesis_verifier: self.get_genesis_verifier().await?,
             signer_registerer: self.get_signer_registerer().await?,
+            signer_synchronizer: self.get_signer_synchronizer().await?,
             signer_registration_verifier: self.get_signer_registration_verifier().await?,
             signer_registration_round_opener: self.get_signer_registration_round_opener().await?,
             era_checker: self.get_era_checker().await?,
@@ -353,6 +371,7 @@ impl DependenciesBuilder {
             upkeep_service: self.get_upkeep_service().await?,
             single_signer_authenticator: self.get_single_signature_authenticator().await?,
             metrics_service: self.get_metrics_service().await?,
+            master_aggregator_client: self.get_master_aggregator_client().await?,
         };
 
         Ok(dependency_manager)
@@ -362,7 +381,10 @@ impl DependenciesBuilder {
     pub async fn create_aggregator_runner(&mut self) -> Result<AggregatorRuntime> {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
-        let config = AggregatorConfig::new(Duration::from_millis(self.configuration.run_interval));
+        let config = AggregatorConfig::new(
+            Duration::from_millis(self.configuration.run_interval),
+            self.configuration.is_slave_aggregator(),
+        );
         let runtime = AggregatorRuntime::new(
             config,
             None,
