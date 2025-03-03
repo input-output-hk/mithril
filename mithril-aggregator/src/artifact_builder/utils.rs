@@ -169,4 +169,47 @@ mod tests {
         let size = compute_size(vec![file_path_1, test_dir]).unwrap();
         assert_eq!(size, 4);
     }
+
+    #[test]
+    fn test_compute_file_with_file_name_starting_with_a_folder_name() {
+        let test_dir = TempDir::create("utils", current_function!());
+
+        let sub_dir_1 = test_dir.join("sub_dir_1");
+        std::fs::create_dir(&sub_dir_1).unwrap();
+        write_dummy_file(Some(3), &sub_dir_1, "file_1");
+
+        let file_path_2 = write_dummy_file(Some(4), &test_dir, "sub_dir_1_file_2");
+        assert!(file_path_2
+            .to_str()
+            .unwrap()
+            .starts_with(sub_dir_1.to_str().unwrap()));
+
+        let size = compute_size(vec![sub_dir_1.clone(), file_path_2.clone()]).unwrap();
+        assert_eq!(size, 7);
+
+        let size = compute_size(vec![file_path_2, sub_dir_1]).unwrap();
+        assert_eq!(size, 7);
+    }
+
+    #[test]
+    fn test_compute_file_with_folder_name_starting_with_a_file_name() {
+        let test_dir = TempDir::create("utils", current_function!());
+
+        let file_path_2 = write_dummy_file(Some(4), &test_dir, "file_2");
+
+        let sub_dir_1 = test_dir.join("file_2_sub_dir_1");
+        std::fs::create_dir(&sub_dir_1).unwrap();
+        write_dummy_file(Some(3), &sub_dir_1, "file_1");
+
+        assert!(sub_dir_1
+            .to_str()
+            .unwrap()
+            .starts_with(file_path_2.to_str().unwrap()));
+
+        let size = compute_size(vec![sub_dir_1.clone(), file_path_2.clone()]).unwrap();
+        assert_eq!(size, 7);
+
+        let size = compute_size(vec![file_path_2, sub_dir_1]).unwrap();
+        assert_eq!(size, 7);
+    }
 }
