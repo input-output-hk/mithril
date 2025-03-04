@@ -37,10 +37,12 @@ impl DependenciesBuilder {
         ));
         let signed_entity_storer = self.get_signed_entity_storer().await?;
         let immutable_file_digest_mapper = self.get_immutable_file_digest_mapper().await?;
+        let epoch_service = self.get_epoch_service().await?;
         let service = MithrilMessageService::new(
             certificate_repository,
             signed_entity_storer,
             immutable_file_digest_mapper,
+            epoch_service,
         );
 
         Ok(Arc::new(service))
