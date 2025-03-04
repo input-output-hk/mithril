@@ -42,6 +42,7 @@ impl StakeStorer for StakePoolStore {
         epoch: Epoch,
         stakes: StakeDistribution,
     ) -> StdResult<Option<StakeDistribution>> {
+        println!("save_stakes: {:#?}", stakes);
         let pools: Vec<StakePool> = self
             .connection
             .fetch_collect(InsertOrReplaceStakePoolQuery::many(

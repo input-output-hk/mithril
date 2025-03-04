@@ -2,6 +2,7 @@ use crate::test_extensions::utilities::tx_hash;
 use crate::test_extensions::{AggregatorObserver, ExpectedCertificate, MetricsVerifier};
 use anyhow::{anyhow, Context};
 use chrono::Utc;
+use mithril_aggregator::services::MessageService;
 use mithril_aggregator::MetricsService;
 use mithril_aggregator::{
     database::{record::SignedEntityRecord, repository::OpenMessageRepository},
@@ -10,6 +11,7 @@ use mithril_aggregator::{
     services::FakeSnapshotter,
     AggregatorRuntime, Configuration, DependencyContainer, DumbUploader, SignerRegistrationError,
 };
+use mithril_common::test_utils::test_http_server::{test_http_server, TestHttpServer};
 use mithril_common::{
     cardano_block_scanner::{DumbBlockScanner, ScannedBlock},
     chain_observer::{ChainObserver, FakeObserver},
@@ -28,9 +30,13 @@ use mithril_common::{
 };
 use slog::Drain;
 use slog_scope::debug;
+use std::convert::Infallible;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
+use warp::http::StatusCode;
+use warp::reply::Reply;
+use warp::Filter;
 
 #[macro_export]
 macro_rules! cycle {
@@ -260,15 +266,32 @@ impl RuntimeTester {
         Ok(())
     }
 
-    pub async fn expose_epoch_settings(&mut self) -> StdResult<()> {
-        let allowed_discriminants = SignedEntityTypeDiscriminants::all();
-        let epoch_settings = self
-            .observer
-            .get_epoch_settings(allowed_discriminants)
-            .await?;
-        println!("epoch_settings: {:?}", epoch_settings);
+    pub async fn expose_epoch_settings(&mut self) -> StdResult<TestHttpServer> {
+        use mithril_aggregator::reply;
+        async fn epoch_settings_handler(
+            observer: Arc<AggregatorObserver>,
+        ) -> Result<impl warp::Reply, Infallible> {
+            let allowed_discriminants = SignedEntityTypeDiscriminants::all();
+            let epoch_settings_message = observer.get_epoch_settings(allowed_discriminants).await;
+            match epoch_settings_message {
+                Ok(message) => Ok(reply::json(&message, StatusCode::OK)),
+                Err(err) => Ok(reply::server_error(err)),
+            }
+        }
+        fn with_observer(
+            runtime_tester: &RuntimeTester,
+        ) -> impl Filter<Extract = (Arc<AggregatorObserver>,), Error = Infallible> + Clone {
+            let observer = runtime_tester.observer.clone();
+            warp::any().map(move || observer.clone())
+        }
+        let routes = warp::path("epoch-settings")
+            .and(with_observer(self))
+            .and_then(epoch_settings_handler);
+        pub fn reply_error() -> impl Reply {
+            StatusCode::INTERNAL_SERVER_ERROR
+        }
 
-        Ok(())
+        Ok(test_http_server(routes))
     }
 
     /// Increase the immutable file number of the simulated db, returns the new number.

@@ -3,7 +3,7 @@ mod certificate_routes;
 mod epoch_routes;
 mod middlewares;
 mod proof_routes;
-pub(crate) mod reply;
+pub mod reply;
 mod root_routes;
 pub mod router;
 mod signatures_routes;

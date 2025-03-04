@@ -55,6 +55,7 @@ pub use tools::{
     SingleSignatureAuthenticator,
 };
 
+pub use http_server::routes::reply;
 pub use immutable_file_digest_mapper::ImmutableFileDigestMapper;
 pub use signer_registration_verifier::{
     MithrilSignerRegistrationVerifier, SignerRegistrationVerifier,

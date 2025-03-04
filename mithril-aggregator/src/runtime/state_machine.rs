@@ -150,6 +150,7 @@ impl AggregatorRuntime {
                 } else {
                     true
                 };
+                let can_try_transition_from_idle_to_ready = true;
                 if can_try_transition_from_idle_to_ready {
                     self.try_transition_from_idle_to_ready(
                         state.current_time_point,
@@ -258,11 +259,6 @@ impl AggregatorRuntime {
             || maybe_current_time_point.as_ref().unwrap().epoch < new_time_point.epoch
         {
             self.runner.close_signer_registration_round().await?;
-            if self.config.is_slave {
-                self.runner
-                    .synchronize_slave_aggregator_signer_registration()
-                    .await?;
-            }
             self.runner
                 .update_era_checker(new_time_point.epoch)
                 .await
@@ -276,6 +272,11 @@ impl AggregatorRuntime {
                 .open_signer_registration_round(&new_time_point)
                 .await?;
             self.runner.update_epoch_settings().await?;
+            if self.config.is_slave {
+                self.runner
+                    .synchronize_slave_aggregator_signer_registration()
+                    .await?;
+            }
             self.runner.precompute_epoch_data().await?;
         }
 
