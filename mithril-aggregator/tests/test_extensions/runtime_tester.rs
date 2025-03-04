@@ -260,6 +260,17 @@ impl RuntimeTester {
         Ok(())
     }
 
+    pub async fn expose_epoch_settings(&mut self) -> StdResult<()> {
+        let allowed_discriminants = SignedEntityTypeDiscriminants::all();
+        let epoch_settings = self
+            .observer
+            .get_epoch_settings(allowed_discriminants)
+            .await?;
+        println!("epoch_settings: {:?}", epoch_settings);
+
+        Ok(())
+    }
+
     /// Increase the immutable file number of the simulated db, returns the new number.
     pub async fn increase_immutable_number(&mut self) -> StdResult<ImmutableFileNumber> {
         let new_immutable_number = self.immutable_file_observer.increase().await.unwrap();
