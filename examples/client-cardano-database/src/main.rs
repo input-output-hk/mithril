@@ -49,7 +49,7 @@ async fn main() -> MithrilResult<()> {
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
             .build()?;
 
-    let cardano_database_snapshots = client.cardano_database().list().await?;
+    let cardano_database_snapshots = client.cardano_database_v2().list().await?;
 
     let latest_hash = cardano_database_snapshots
         .first()
@@ -62,7 +62,7 @@ async fn main() -> MithrilResult<()> {
 
     let cardano_database_snapshot =
         client
-            .cardano_database()
+            .cardano_database_v2()
             .get(latest_hash)
             .await?
             .ok_or(anyhow!(
@@ -84,7 +84,7 @@ async fn main() -> MithrilResult<()> {
         ..DownloadUnpackOptions::default()
     };
     client
-        .cardano_database()
+        .cardano_database_v2()
         .download_unpack(
             &cardano_database_snapshot,
             &immutable_file_range,
@@ -95,7 +95,7 @@ async fn main() -> MithrilResult<()> {
 
     println!("Computing Cardano database Merkle proof...",);
     let merkle_proof = client
-        .cardano_database()
+        .cardano_database_v2()
         .compute_merkle_proof(
             &certificate,
             &cardano_database_snapshot,
@@ -113,7 +113,7 @@ async fn main() -> MithrilResult<()> {
     let number_of_immutable_files_restored =
         immutable_file_range.length(cardano_database_snapshot.beacon.immutable_file_number);
     if let Err(e) = client
-        .cardano_database()
+        .cardano_database_v2()
         .add_statistics(
             full_restoration,
             include_ancillary,

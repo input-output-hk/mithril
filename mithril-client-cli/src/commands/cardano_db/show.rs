@@ -35,7 +35,7 @@ impl CardanoDbShowCommand {
             .build()?;
 
         let get_list_of_artifact_ids = || async {
-            let cardano_dbs = client.snapshot().list().await.with_context(|| {
+            let cardano_dbs = client.cardano_database().list().await.with_context(|| {
                 "Can not get the list of artifacts while retrieving the latest cardano db digest"
             })?;
 
@@ -46,7 +46,7 @@ impl CardanoDbShowCommand {
         };
 
         let cardano_db_message = client
-            .snapshot()
+            .cardano_database()
             .get(
                 &ExpanderUtils::expand_eventual_id_alias(&self.digest, get_list_of_artifact_ids())
                     .await?,

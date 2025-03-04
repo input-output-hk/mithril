@@ -72,7 +72,7 @@ impl CardanoDbDownloadCommand {
             .build()?;
 
         let get_list_of_artifact_ids = || async {
-            let cardano_dbs = client.snapshot().list().await.with_context(|| {
+            let cardano_dbs = client.cardano_database().list().await.with_context(|| {
                 "Can not get the list of artifacts while retrieving the latest cardano db digest"
             })?;
 
@@ -83,7 +83,7 @@ impl CardanoDbDownloadCommand {
         };
 
         let cardano_db_message = client
-            .snapshot()
+            .cardano_database()
             .get(
                 &ExpanderUtils::expand_eventual_id_alias(&self.digest, get_list_of_artifact_ids())
                     .await?,
@@ -195,13 +195,13 @@ impl CardanoDbDownloadCommand {
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Downloading and unpacking the cardano db")?;
         client
-            .snapshot()
+            .cardano_database()
             .download_unpack(cardano_db, db_dir)
             .await?;
 
         // The cardano db download does not fail if the statistic call fails.
         // It would be nice to implement tests to verify the behavior of `add_statistics`
-        if let Err(e) = client.snapshot().add_statistics(cardano_db).await {
+        if let Err(e) = client.cardano_database().add_statistics(cardano_db).await {
             warn!(
                 logger, "Could not increment cardano db download statistics";
                 "error" => ?e
