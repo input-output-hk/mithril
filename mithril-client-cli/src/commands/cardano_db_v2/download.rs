@@ -231,6 +231,10 @@ impl CardanoDbV2DownloadCommand {
         total_immutables_restored * cardano_db.immutables.average_size_uncompressed
     }
 
+    fn add_safety_margin(size: u64, margin_ratio: f64) -> u64 {
+        (size as f64 * (1.0 + margin_ratio)) as u64
+    }
+
     fn compute_required_disk_space_for_snapshot(
         cardano_db: &CardanoDatabaseSnapshot,
         restoration_options: &RestorationOptions,
@@ -250,7 +254,10 @@ impl CardanoDbV2DownloadCommand {
                 total_size += cardano_db.ancillary.size_uncompressed;
             }
 
-            (total_size as f64 * (1.0 + restoration_options.disk_space_safety_margin_ratio)) as u64
+            Self::add_safety_margin(
+                total_size,
+                restoration_options.disk_space_safety_margin_ratio,
+            )
         }
     }
 
@@ -654,7 +661,7 @@ mod tests {
                 include_ancillary: false,
                 ..DownloadUnpackOptions::default()
             },
-            disk_space_safety_margin_ratio: 0.1,
+            disk_space_safety_margin_ratio: 0.0,
         };
 
         let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
@@ -667,8 +674,7 @@ mod tests {
             cardano_db_snapshot.immutables.average_size_uncompressed;
 
         let expected_size = digest_size + 10 * average_size_uncompressed_immutable;
-        let expected_size_with_margin = (expected_size as f64 * 1.10) as u64; // 10% safety margin
-        assert!((required_size as f64 - expected_size_with_margin as f64).abs() < 1.0);
+        assert_eq!(required_size, expected_size);
     }
 
     #[test]
@@ -695,7 +701,7 @@ mod tests {
                 include_ancillary: true,
                 ..DownloadUnpackOptions::default()
             },
-            disk_space_safety_margin_ratio: 0.1,
+            disk_space_safety_margin_ratio: 0.0,
         };
 
         let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
@@ -709,7 +715,17 @@ mod tests {
         let ancillary_size = cardano_db_snapshot.ancillary.size_uncompressed;
 
         let expected_size = digest_size + 10 * average_size_uncompressed_immutable + ancillary_size;
-        let expected_size_with_margin = (expected_size as f64 * 1.10) as u64; // 10% safety margin
-        assert!((required_size as f64 - expected_size_with_margin as f64).abs() < 1.0);
+        assert_eq!(required_size, expected_size);
+    }
+
+    #[test]
+    fn add_safety_margin_apply_margin_with_ratio() {
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.1), 110);
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.5), 150);
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 1.5), 250);
+
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(0, 0.1), 0);
+
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.0), 100);
     }
 }
