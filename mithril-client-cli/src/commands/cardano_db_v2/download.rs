@@ -26,10 +26,13 @@ use crate::{
     CommandContext,
 };
 
+const DISK_SPACE_SAFETY_MARGIN_RATIO: f64 = 0.1;
+
 struct RestorationOptions {
     db_dir: PathBuf,
     immutable_file_range: ImmutableFileRange,
     download_unpack_options: DownloadUnpackOptions,
+    disk_space_safety_margin_ratio: f64,
 }
 
 /// Clap command to download a Cardano db and verify its associated certificate.
@@ -107,6 +110,7 @@ impl CardanoDbV2DownloadCommand {
                 include_ancillary: self.include_ancillary,
                 ..DownloadUnpackOptions::default()
             },
+            disk_space_safety_margin_ratio: DISK_SPACE_SAFETY_MARGIN_RATIO,
         };
         let logger = context.logger();
 
@@ -148,7 +152,7 @@ impl CardanoDbV2DownloadCommand {
         Self::check_local_disk_info(
             1,
             &progress_printer,
-            &restoration_options.db_dir,
+            &restoration_options,
             &cardano_db_message,
             self.allow_override,
         )?;
@@ -216,19 +220,60 @@ impl CardanoDbV2DownloadCommand {
         Ok(())
     }
 
+    fn compute_total_immutables_restored_size(
+        cardano_db: &CardanoDatabaseSnapshot,
+        restoration_options: &RestorationOptions,
+    ) -> u64 {
+        let total_immutables_restored = restoration_options
+            .immutable_file_range
+            .length(cardano_db.beacon.immutable_file_number);
+
+        total_immutables_restored * cardano_db.immutables.average_size_uncompressed
+    }
+
+    fn add_safety_margin(size: u64, margin_ratio: f64) -> u64 {
+        (size as f64 * (1.0 + margin_ratio)) as u64
+    }
+
+    fn compute_required_disk_space_for_snapshot(
+        cardano_db: &CardanoDatabaseSnapshot,
+        restoration_options: &RestorationOptions,
+    ) -> u64 {
+        if restoration_options.immutable_file_range == ImmutableFileRange::Full {
+            cardano_db.total_db_size_uncompressed
+        } else {
+            let total_immutables_restored_size =
+                Self::compute_total_immutables_restored_size(cardano_db, restoration_options);
+
+            let mut total_size =
+                total_immutables_restored_size + cardano_db.digests.size_uncompressed;
+            if restoration_options
+                .download_unpack_options
+                .include_ancillary
+            {
+                total_size += cardano_db.ancillary.size_uncompressed;
+            }
+
+            Self::add_safety_margin(
+                total_size,
+                restoration_options.disk_space_safety_margin_ratio,
+            )
+        }
+    }
+
     fn check_local_disk_info(
         step_number: u16,
         progress_printer: &ProgressPrinter,
-        db_dir: &Path,
+        restoration_options: &RestorationOptions,
         cardano_db: &CardanoDatabaseSnapshot,
         allow_override: bool,
     ) -> MithrilResult<()> {
         progress_printer.report_step(step_number, "Checking local disk info…")?;
 
-        CardanoDbDownloadChecker::ensure_dir_exist(db_dir)?;
+        CardanoDbDownloadChecker::ensure_dir_exist(&restoration_options.db_dir)?;
         if let Err(e) = CardanoDbDownloadChecker::check_prerequisites_for_uncompressed_data(
-            db_dir,
-            cardano_db.total_db_size_uncompressed,
+            &restoration_options.db_dir,
+            Self::compute_required_disk_space_for_snapshot(cardano_db, restoration_options),
             allow_override,
         ) {
             progress_printer
@@ -463,7 +508,10 @@ impl ConfigSource for CardanoDbV2DownloadCommand {
 #[cfg(test)]
 mod tests {
     use mithril_client::{
-        common::{CardanoDbBeacon, ProtocolMessagePartKey, SignedEntityType},
+        common::{
+            AncillaryMessagePart, CardanoDbBeacon, DigestsMessagePart, ImmutablesMessagePart,
+            ProtocolMessagePartKey, SignedEntityType,
+        },
         MithrilCertificateMetadata,
     };
     use mithril_common::test_utils::TempDir;
@@ -566,5 +614,118 @@ mod tests {
         let range = CardanoDbV2DownloadCommand::immutable_file_range(None, end);
 
         assert_eq!(range, ImmutableFileRange::UpTo(345));
+    }
+
+    #[test]
+    fn compute_required_disk_space_for_snapshot_when_full_restoration() {
+        let cardano_db_snapshot = CardanoDatabaseSnapshot {
+            total_db_size_uncompressed: 123,
+            ..CardanoDatabaseSnapshot::dummy()
+        };
+        let restoration_options = RestorationOptions {
+            immutable_file_range: ImmutableFileRange::Full,
+            db_dir: PathBuf::from("db_dir"),
+            download_unpack_options: DownloadUnpackOptions::default(),
+            disk_space_safety_margin_ratio: 0.0,
+        };
+
+        let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
+            &cardano_db_snapshot,
+            &restoration_options,
+        );
+
+        assert_eq!(required_size, 123);
+    }
+
+    #[test]
+    fn compute_required_disk_space_for_snapshot_when_partial_restoration_and_no_ancillary_files() {
+        let cardano_db_snapshot = CardanoDatabaseSnapshot {
+            digests: DigestsMessagePart {
+                size_uncompressed: 50,
+                locations: vec![],
+            },
+            immutables: ImmutablesMessagePart {
+                average_size_uncompressed: 100,
+                locations: vec![],
+            },
+            ancillary: AncillaryMessagePart {
+                size_uncompressed: 300,
+                locations: vec![],
+            },
+            ..CardanoDatabaseSnapshot::dummy()
+        };
+        let restoration_options = RestorationOptions {
+            immutable_file_range: ImmutableFileRange::Range(10, 19),
+            db_dir: PathBuf::from("db_dir"),
+            download_unpack_options: DownloadUnpackOptions {
+                include_ancillary: false,
+                ..DownloadUnpackOptions::default()
+            },
+            disk_space_safety_margin_ratio: 0.0,
+        };
+
+        let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
+            &cardano_db_snapshot,
+            &restoration_options,
+        );
+
+        let digest_size = cardano_db_snapshot.digests.size_uncompressed;
+        let average_size_uncompressed_immutable =
+            cardano_db_snapshot.immutables.average_size_uncompressed;
+
+        let expected_size = digest_size + 10 * average_size_uncompressed_immutable;
+        assert_eq!(required_size, expected_size);
+    }
+
+    #[test]
+    fn compute_required_disk_space_for_snapshot_when_partial_restoration_and_ancillary_files() {
+        let cardano_db_snapshot = CardanoDatabaseSnapshot {
+            digests: DigestsMessagePart {
+                size_uncompressed: 50,
+                locations: vec![],
+            },
+            immutables: ImmutablesMessagePart {
+                average_size_uncompressed: 100,
+                locations: vec![],
+            },
+            ancillary: AncillaryMessagePart {
+                size_uncompressed: 300,
+                locations: vec![],
+            },
+            ..CardanoDatabaseSnapshot::dummy()
+        };
+        let restoration_options = RestorationOptions {
+            immutable_file_range: ImmutableFileRange::Range(10, 19),
+            db_dir: PathBuf::from("db_dir"),
+            download_unpack_options: DownloadUnpackOptions {
+                include_ancillary: true,
+                ..DownloadUnpackOptions::default()
+            },
+            disk_space_safety_margin_ratio: 0.0,
+        };
+
+        let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
+            &cardano_db_snapshot,
+            &restoration_options,
+        );
+
+        let digest_size = cardano_db_snapshot.digests.size_uncompressed;
+        let average_size_uncompressed_immutable =
+            cardano_db_snapshot.immutables.average_size_uncompressed;
+        let ancillary_size = cardano_db_snapshot.ancillary.size_uncompressed;
+
+        let expected_size = digest_size + 10 * average_size_uncompressed_immutable + ancillary_size;
+        assert_eq!(required_size, expected_size);
+    }
+
+    #[test]
+    fn add_safety_margin_apply_margin_with_ratio() {
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.1), 110);
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.5), 150);
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 1.5), 250);
+
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(0, 0.1), 0);
+
+        assert_eq!(CardanoDbV2DownloadCommand::add_safety_margin(100, 0.0), 100);
     }
 }
