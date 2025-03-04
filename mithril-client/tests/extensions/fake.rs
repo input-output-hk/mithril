@@ -1,7 +1,6 @@
 use super::routes;
 use crate::extensions::mock;
 use mithril_client::certificate_client::CertificateVerifier;
-use mithril_client::common::SignedEntityType;
 use mithril_client::{
     MessageBuilder, MithrilCertificate, MithrilCertificateListItem, MithrilStakeDistribution,
     MithrilStakeDistributionListItem,
@@ -204,7 +203,7 @@ mod proof {
 #[cfg(feature = "fs")]
 mod file {
     use super::*;
-    use mithril_client::common::{CardanoDbBeacon, CompressionAlgorithm};
+    use mithril_client::common::{CardanoDbBeacon, CompressionAlgorithm, SignedEntityType};
     use mithril_client::{MessageBuilder, Snapshot, SnapshotListItem};
     use mithril_common::digesters::DummyCardanoDb;
     use mithril_common::test_utils::fake_data;
