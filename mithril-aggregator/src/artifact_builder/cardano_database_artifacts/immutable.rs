@@ -263,6 +263,12 @@ impl ImmutableArtifactBuilder {
         db_path: &Path,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<u64> {
+        if up_to_immutable_file_number == 0 {
+            return Err(anyhow!(
+                "Could not compute the average size without immutable files"
+            ));
+        }
+
         let immutable_paths = (1..=up_to_immutable_file_number)
             .flat_map(Self::immutable_trio_names)
             .map(|filename| db_path.join(IMMUTABLE_DIR).join(filename))
@@ -285,6 +291,7 @@ impl ImmutableArtifactBuilder {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
+        current_function,
         digesters::DummyCardanoDbBuilder,
         entities::TemplateUri,
         test_utils::{assert_equivalent, equivalent_to, TempDir},
@@ -1035,5 +1042,28 @@ mod tests {
             .unwrap();
 
         assert_eq!(expected_total_size, total_size);
+    }
+
+    #[test]
+    fn should_return_an_error_when_compute_the_average_size_of_the_immutables_with_zero() {
+        let work_dir = get_builder_work_dir("should_compute_the_average_size_of_the_immutables");
+        let test_dir = &format!("{}/cardano_database", current_function!());
+
+        let cardano_db = DummyCardanoDbBuilder::new(test_dir).build();
+
+        let db_directory = cardano_db.get_dir().to_path_buf();
+
+        let builder = ImmutableArtifactBuilder::new(
+            work_dir,
+            vec![Arc::new(MockImmutableFilesUploader::new())],
+            Arc::new(DumbSnapshotter::new()),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        builder
+            .compute_average_uncompressed_size(&db_directory, 0)
+            .expect_err("Should return an error when no immutable file number");
     }
 }
