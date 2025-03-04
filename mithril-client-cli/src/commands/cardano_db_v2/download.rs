@@ -220,6 +220,17 @@ impl CardanoDbV2DownloadCommand {
         Ok(())
     }
 
+    fn compute_total_immutables_restored_size(
+        cardano_db: &CardanoDatabaseSnapshot,
+        restoration_options: &RestorationOptions,
+    ) -> u64 {
+        let total_immutables_restored = restoration_options
+            .immutable_file_range
+            .length(cardano_db.beacon.immutable_file_number);
+
+        total_immutables_restored * cardano_db.immutables.average_size_uncompressed
+    }
+
     fn compute_required_disk_space_for_snapshot(
         cardano_db: &CardanoDatabaseSnapshot,
         restoration_options: &RestorationOptions,
@@ -227,21 +238,17 @@ impl CardanoDbV2DownloadCommand {
         if restoration_options.immutable_file_range == ImmutableFileRange::Full {
             cardano_db.total_db_size_uncompressed
         } else {
-            let total_immutables_restored = restoration_options
-                .immutable_file_range
-                .length(cardano_db.beacon.immutable_file_number);
             let total_immutables_restored_size =
-                total_immutables_restored * cardano_db.immutables.average_size_uncompressed;
-            let total_size = if restoration_options
+                Self::compute_total_immutables_restored_size(cardano_db, restoration_options);
+
+            let mut total_size =
+                total_immutables_restored_size + cardano_db.digests.size_uncompressed;
+            if restoration_options
                 .download_unpack_options
                 .include_ancillary
             {
-                total_immutables_restored_size
-                    + cardano_db.digests.size_uncompressed
-                    + cardano_db.ancillary.size_uncompressed
-            } else {
-                total_immutables_restored_size + cardano_db.digests.size_uncompressed
-            };
+                total_size += cardano_db.ancillary.size_uncompressed;
+            }
 
             (total_size as f64 * (1.0 + restoration_options.disk_space_safety_margin_ratio)) as u64
         }
