@@ -3992,6 +3992,7 @@ dependencies = [
  "mithril-signed-entity-lock",
  "mithril-signed-entity-preloader",
  "mockall",
+ "openssl-probe",
  "prometheus-parse",
  "rand_core 0.6.4",
  "reqwest 0.12.12",
