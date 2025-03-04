@@ -1,26 +1,33 @@
 use anyhow::Context;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 use mithril_common::StdResult;
 
 /// Compute the size of the given paths that could be files or folders.
-/// This function is not suitable for large numbers of inputs (more than 100).
-/// This would require the algorithm to be optimized to reduce the quadratic complexity,
-/// which is not obvious given that the paths contain both files and folders.
 pub(crate) fn compute_size(paths: Vec<PathBuf>) -> StdResult<u64> {
-    fn is_in_paths(paths: &[PathBuf], path_to_check: &Path) -> bool {
-        paths.iter().any(|path| path_to_check.starts_with(path))
-    }
-
     fn remove_duplicated_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
-        let mut result_paths = vec![];
+        let mut result_folders = vec![];
+        let mut result_files = HashSet::new();
+        let mut paths = paths;
+        paths.sort();
         for path in paths {
-            if !is_in_paths(&result_paths, &path) {
-                result_paths.retain(|p| !p.starts_with(&path));
-                result_paths.push(path);
+            if result_folders
+                .last()
+                .is_none_or(|last_folder| !path.starts_with(last_folder))
+            {
+                if path.is_file() {
+                    result_files.insert(path);
+                } else {
+                    result_folders.push(path);
+                }
             }
         }
-        result_paths
+
+        result_folders.extend(result_files);
+        result_folders
     }
 
     let paths = remove_duplicated_paths(paths);
