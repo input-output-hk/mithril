@@ -1,12 +1,13 @@
-use crate::test_utils::TempDir;
-use crate::{
-    digesters::{ImmutableFile, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
-    entities::ImmutableFileNumber,
-};
 use std::{
     fs::File,
     io::prelude::Write,
     path::{Path, PathBuf},
+};
+
+use crate::{
+    digesters::{ImmutableFile, IMMUTABLE_DIR, LEDGER_DIR, VOLATILE_DIR},
+    entities::{CompressionAlgorithm, ImmutableFileNumber},
+    test_utils::TempDir,
 };
 
 /// A dummy cardano immutable db.
@@ -57,12 +58,12 @@ impl DummyCardanoDb {
     }
 
     /// Return the ledger directory path.
-    pub fn get_ledger_dir(&self) -> PathBuf {
+    fn get_ledger_dir(&self) -> PathBuf {
         self.dir.join(LEDGER_DIR)
     }
 
     /// Return the volatile directory path.
-    pub fn get_volatile_dir(&self) -> PathBuf {
+    fn get_volatile_dir(&self) -> PathBuf {
         self.dir.join(VOLATILE_DIR)
     }
 
@@ -84,6 +85,70 @@ impl DummyCardanoDb {
     /// Return the non immutables files in the immutables directory
     pub fn get_non_immutables_files(&self) -> &Vec<PathBuf> {
         &self.immutable_db.non_immutables_files
+    }
+
+    /// Build a compressed immutable files archives containing all the immutable files
+    pub fn build_compressed_immutable_files_archives(&self, target_dir: &Path) {
+        let last_immutable_number = self.last_immutable_number().unwrap();
+
+        let immutable_dir = self.get_immutable_dir();
+        for immutable_number in 1..=last_immutable_number {
+            let immutable_archive_name = format!(
+                "{:05}.{}",
+                immutable_number,
+                CompressionAlgorithm::Zstandard.tar_file_extension()
+            );
+            let target_file = target_dir.join(immutable_archive_name);
+            let tar_file = File::create(&target_file).unwrap();
+            let enc = zstd::Encoder::new(tar_file, 3).unwrap();
+            let mut tar = tar::Builder::new(enc);
+
+            for extension in &[".chunk", ".primary", ".secondary"] {
+                let file_name = format!("{:05}{}", immutable_number, extension);
+                let file_path = immutable_dir.join(&file_name);
+
+                let archive_path = format!("immutable/{file_name}");
+                tar.append_path_with_name(&file_path, &archive_path)
+                    .unwrap();
+            }
+
+            let zstd = tar.into_inner().unwrap();
+            zstd.finish().unwrap();
+        }
+    }
+
+    /// Build a compressed ancillary files archive containing the volatile,
+    /// ledger and the last 3 'uncompleted / wip' immutables files
+    pub fn build_compressed_ancillary_files_archive(&self, target_dir: &Path) {
+        let ancillary_immutable_number = self.last_immutable_number().unwrap() + 1;
+        let immutable_dir = self.get_immutable_dir();
+        let volatile_dir = self.get_volatile_dir();
+        let ledger_dir = self.get_ledger_dir();
+        let archive_name = format!(
+            "ancillary.{}",
+            CompressionAlgorithm::Zstandard.tar_file_extension()
+        );
+        let target_file = target_dir.join(archive_name);
+        let tar_file = File::create(&target_file).unwrap();
+        let enc = zstd::Encoder::new(tar_file, 3).unwrap();
+        let mut tar = tar::Builder::new(enc);
+
+        tar.append_path_with_name(&volatile_dir, "volatile")
+            .unwrap();
+
+        tar.append_path_with_name(&ledger_dir, "ledger").unwrap();
+
+        for extension in &[".chunk", ".primary", ".secondary"] {
+            let file_name = format!("{:05}{}", ancillary_immutable_number, extension);
+            let file_path = immutable_dir.join(&file_name);
+
+            let archive_path = format!("immutable/{file_name}");
+            tar.append_path_with_name(&file_path, &archive_path)
+                .unwrap();
+        }
+
+        let zstd = tar.into_inner().unwrap();
+        zstd.finish().unwrap();
     }
 }
 
