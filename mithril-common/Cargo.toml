@@ -67,11 +67,13 @@ serde_yaml = "0.9.34"
 sha2 = "0.10.8"
 slog = "2.7.0"
 strum = { version = "0.26.3", features = ["derive"] }
+tar = { version = "0.4.43", optional = true }
 thiserror = "2.0.11"
 tokio = { version = "1.43.0", features = ["io-util", "rt", "sync"] }
 typetag = "0.2.19"
 walkdir = "2.5.0"
 warp = { version = "0.3.7", optional = true }
+zstd = { version = "0.13.2", optional = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 wasm-bindgen = "0.2.100"
@@ -112,7 +114,7 @@ num-integer-backend = ["mithril-stm/num-integer-backend"]
 # Disable signer certification, to be used only for tests
 allow_skip_signer_certification = []
 # Enable all tests tools
-test_tools = ["apispec", "test_http_server"]
+test_tools = ["apispec", "tar", "test_http_server", "zstd"]
 # Enable tools to helps validate conformity to an OpenAPI specification
 apispec = ["dep:glob", "dep:jsonschema", "dep:warp", "dep:reqwest"]
 test_http_server = ["dep:warp"]
