@@ -32,6 +32,7 @@ struct RestorationOptions {
     db_dir: PathBuf,
     immutable_file_range: ImmutableFileRange,
     download_unpack_options: DownloadUnpackOptions,
+    disk_space_safety_margin_ratio: f64,
 }
 
 /// Clap command to download a Cardano db and verify its associated certificate.
@@ -109,6 +110,7 @@ impl CardanoDbV2DownloadCommand {
                 include_ancillary: self.include_ancillary,
                 ..DownloadUnpackOptions::default()
             },
+            disk_space_safety_margin_ratio: DISK_SPACE_SAFETY_MARGIN_RATIO,
         };
         let logger = context.logger();
 
@@ -241,7 +243,7 @@ impl CardanoDbV2DownloadCommand {
                 total_immutables_restored_size + cardano_db.digests.size_uncompressed
             };
 
-            (total_size as f64 * (1.0 + DISK_SPACE_SAFETY_MARGIN_RATIO)) as u64
+            (total_size as f64 * (1.0 + restoration_options.disk_space_safety_margin_ratio)) as u64
         }
     }
 
@@ -610,6 +612,7 @@ mod tests {
             immutable_file_range: ImmutableFileRange::Full,
             db_dir: PathBuf::from("db_dir"),
             download_unpack_options: DownloadUnpackOptions::default(),
+            disk_space_safety_margin_ratio: 0.0,
         };
 
         let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
@@ -644,6 +647,7 @@ mod tests {
                 include_ancillary: false,
                 ..DownloadUnpackOptions::default()
             },
+            disk_space_safety_margin_ratio: 0.1,
         };
 
         let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
@@ -684,6 +688,7 @@ mod tests {
                 include_ancillary: true,
                 ..DownloadUnpackOptions::default()
             },
+            disk_space_safety_margin_ratio: 0.1,
         };
 
         let required_size = CardanoDbV2DownloadCommand::compute_required_disk_space_for_snapshot(
