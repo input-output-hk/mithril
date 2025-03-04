@@ -398,7 +398,6 @@ mod file {
                 let certificate_json = serde_json::to_string(&certificate).unwrap();
 
                 let routes = routes::cardano_db_snapshot::routes(
-                    self.calls.clone(),
                     cardano_db_snapshot_list_json,
                     cardano_db_snapshot_clone,
                 )

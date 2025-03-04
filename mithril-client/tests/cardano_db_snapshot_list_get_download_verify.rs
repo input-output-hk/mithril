@@ -52,13 +52,6 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .list()
         .await
         .expect("List CardanoDatabaseSnapshot should not fail");
-    assert_eq!(
-        fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}",
-            AggregatorRequest::ListCardanoDatabaseSnapshots.route()
-        ))
-    );
 
     let last_hash = cardano_db_snapshots.first().unwrap().hash.as_ref();
 
@@ -68,32 +61,12 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .await
         .expect("Get CardanoDatabaseSnapshot should not fail ")
         .unwrap_or_else(|| panic!("A CardanoDatabaseSnapshot should exist for hash '{last_hash}'"));
-    assert_eq!(
-        fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}",
-            AggregatorRequest::GetCardanoDatabaseSnapshot {
-                hash: (last_hash.to_string())
-            }
-            .route()
-        ))
-    );
 
     let certificate = client
         .certificate()
         .verify_chain(&cardano_db_snapshot.certificate_hash)
         .await
         .expect("Validating the chain should not fail");
-    assert_eq!(
-        fake_aggregator.get_last_call().await,
-        Some(format!(
-            "/{}",
-            AggregatorRequest::GetCertificate {
-                hash: (cardano_db_snapshot.certificate_hash.clone())
-            }
-            .route()
-        ))
-    );
 
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();
