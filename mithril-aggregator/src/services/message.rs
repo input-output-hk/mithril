@@ -1,5 +1,6 @@
 //! This service is responsible for providing HTTP server with messages as fast as possible.
 
+use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -11,14 +12,16 @@ use mithril_common::{
         CardanoDatabaseSnapshotListMessage, CardanoDatabaseSnapshotMessage,
         CardanoStakeDistributionListMessage, CardanoStakeDistributionMessage,
         CardanoTransactionSnapshotListMessage, CardanoTransactionSnapshotMessage,
-        CertificateListMessage, CertificateMessage, MithrilStakeDistributionListMessage,
-        MithrilStakeDistributionMessage, SnapshotListMessage, SnapshotMessage,
+        CertificateListMessage, CertificateMessage, EpochSettingsMessage,
+        MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage, SignerMessagePart,
+        SnapshotListMessage, SnapshotMessage,
     },
     StdResult,
 };
 
 use crate::{
     database::repository::{CertificateRepository, SignedEntityStorer},
+    dependency_injection::EpochServiceWrapper,
     ImmutableFileDigestMapper,
 };
 
@@ -26,6 +29,12 @@ use crate::{
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait MessageService: Sync + Send {
+    /// Return the epoch settings message if it exists.
+    async fn get_epoch_settings_message(
+        &self,
+        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> StdResult<EpochSettingsMessage>;
+
     /// Return the message representation of a certificate if it exists.
     async fn get_certificate_message(
         &self,
@@ -111,6 +120,7 @@ pub struct MithrilMessageService {
     certificate_repository: Arc<CertificateRepository>,
     signed_entity_storer: Arc<dyn SignedEntityStorer>,
     immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
+    epoch_service: EpochServiceWrapper,
 }
 
 impl MithrilMessageService {
@@ -119,17 +129,56 @@ impl MithrilMessageService {
         certificate_repository: Arc<CertificateRepository>,
         signed_entity_storer: Arc<dyn SignedEntityStorer>,
         immutable_file_digest_mapper: Arc<dyn ImmutableFileDigestMapper>,
+        epoch_service: EpochServiceWrapper,
     ) -> Self {
         Self {
             certificate_repository,
             signed_entity_storer,
             immutable_file_digest_mapper,
+            epoch_service,
         }
     }
 }
 
 #[async_trait]
 impl MessageService for MithrilMessageService {
+    async fn get_epoch_settings_message(
+        &self,
+        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> StdResult<EpochSettingsMessage> {
+        let epoch_service = self.epoch_service.read().await;
+
+        let epoch = epoch_service.epoch_of_current_data()?;
+        let signer_registration_protocol_parameters = epoch_service
+            .signer_registration_protocol_parameters()?
+            .clone();
+        let current_signers = epoch_service.current_signers()?;
+        let next_signers = epoch_service.next_signers()?;
+
+        let cardano_transactions_discriminant =
+            allowed_discriminants.get(&SignedEntityTypeDiscriminants::CardanoTransactions);
+
+        let cardano_transactions_signing_config = cardano_transactions_discriminant
+            .map(|_| epoch_service.current_cardano_transactions_signing_config())
+            .transpose()?
+            .cloned();
+        let next_cardano_transactions_signing_config = cardano_transactions_discriminant
+            .map(|_| epoch_service.next_cardano_transactions_signing_config())
+            .transpose()?
+            .cloned();
+
+        let epoch_settings_message = EpochSettingsMessage {
+            epoch,
+            signer_registration_protocol_parameters,
+            current_signers: SignerMessagePart::from_signers(current_signers.to_vec()),
+            next_signers: SignerMessagePart::from_signers(next_signers.to_vec()),
+            cardano_transactions_signing_config,
+            next_cardano_transactions_signing_config,
+        };
+
+        Ok(epoch_settings_message)
+    }
+
     async fn get_certificate_message(
         &self,
         certificate_hash: &str,
@@ -304,10 +353,12 @@ impl MessageService for MithrilMessageService {
 mod tests {
     use mithril_common::entities::{BlockNumber, Certificate, SignedEntityType};
     use mithril_common::test_utils::fake_data;
+    use tokio::sync::RwLock;
 
     use crate::database::record::SignedEntityRecord;
     use crate::database::repository::{ImmutableFileDigestRepository, SignedEntityStore};
     use crate::database::test_helper::main_db_connection;
+    use crate::services::FakeEpochService;
 
     use super::*;
 
@@ -315,6 +366,7 @@ mod tests {
         certificates: Vec<Certificate>,
         signed_entity_records: Vec<SignedEntityRecord>,
         immutable_file_digest_messages: Vec<CardanoDatabaseDigestListItemMessage>,
+        epoch_service: Option<FakeEpochService>,
     }
 
     impl MessageServiceBuilder {
@@ -323,11 +375,13 @@ mod tests {
                 certificates: Vec::new(),
                 signed_entity_records: Vec::new(),
                 immutable_file_digest_messages: Vec::new(),
+                epoch_service: None,
             }
         }
 
         fn with_certificates(mut self, certificates: &[Certificate]) -> Self {
             self.certificates.extend_from_slice(certificates);
+
             self
         }
 
@@ -337,6 +391,7 @@ mod tests {
         ) -> Self {
             self.signed_entity_records
                 .extend_from_slice(signed_entity_record);
+
             self
         }
 
@@ -346,6 +401,13 @@ mod tests {
         ) -> Self {
             self.immutable_file_digest_messages
                 .extend_from_slice(digests);
+
+            self
+        }
+
+        fn with_epoch_service(mut self, epoch_service: FakeEpochService) -> Self {
+            self.epoch_service = Some(epoch_service);
+
             self
         }
 
@@ -355,6 +417,9 @@ mod tests {
             let signed_entity_store = SignedEntityStore::new(connection.clone());
             let immutable_file_digest_mapper =
                 ImmutableFileDigestRepository::new(connection.clone());
+            let epoch_service = self
+                .epoch_service
+                .unwrap_or(FakeEpochService::without_data());
 
             certificate_repository
                 .create_many_certificates(self.certificates)
@@ -381,7 +446,178 @@ mod tests {
                 Arc::new(certificate_repository),
                 Arc::new(signed_entity_store),
                 Arc::new(immutable_file_digest_mapper),
+                Arc::new(RwLock::new(epoch_service)),
             )
+        }
+    }
+
+    mod epoch_settings {
+        use mithril_common::{
+            entities::{CardanoTransactionsSigningConfig, ProtocolParameters},
+            test_utils::MithrilFixtureBuilder,
+        };
+
+        use crate::{entities::AggregatorEpochSettings, services::FakeEpochServiceBuilder};
+
+        use super::*;
+
+        #[tokio::test]
+        async fn get_epoch_settings_message() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+            let epoch_service = FakeEpochService::from_fixture(Epoch(4), &fixture);
+            let message_service = MessageServiceBuilder::new()
+                .with_epoch_service(epoch_service)
+                .build()
+                .await;
+
+            let message = message_service
+                .get_epoch_settings_message(SignedEntityTypeDiscriminants::all())
+                .await
+                .unwrap();
+
+            assert_eq!(message.epoch, Epoch(4));
+            assert_eq!(
+                message.signer_registration_protocol_parameters,
+                ProtocolParameters::new(5, 100, 0.65)
+            );
+            assert_eq!(message.current_signers.len(), 3);
+            assert_eq!(message.next_signers.len(), 3);
+            assert_eq!(
+                message.cardano_transactions_signing_config,
+                Some(CardanoTransactionsSigningConfig::new(
+                    BlockNumber(0),
+                    BlockNumber(15)
+                ))
+            );
+            assert_eq!(
+                message.next_cardano_transactions_signing_config,
+                Some(CardanoTransactionsSigningConfig::new(
+                    BlockNumber(0),
+                    BlockNumber(15)
+                ))
+            );
+        }
+
+        #[tokio::test]
+        async fn get_epoch_settings_message_with_cardano_transactions_enabled() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+            let epoch_service = FakeEpochService::from_fixture(Epoch(4), &fixture);
+            let message_service = MessageServiceBuilder::new()
+                .with_epoch_service(epoch_service)
+                .build()
+                .await;
+
+            let message = message_service
+                .get_epoch_settings_message(BTreeSet::from([
+                    SignedEntityTypeDiscriminants::CardanoTransactions,
+                ]))
+                .await
+                .unwrap();
+
+            assert!(message.cardano_transactions_signing_config.is_some());
+            assert!(message.next_cardano_transactions_signing_config.is_some(),);
+        }
+
+        #[tokio::test]
+        async fn get_epoch_settings_message_with_cardano_transactions_not_enabled() {
+            let fixture = MithrilFixtureBuilder::default().with_signers(3).build();
+            let epoch_service = FakeEpochService::from_fixture(Epoch(4), &fixture);
+            let message_service = MessageServiceBuilder::new()
+                .with_epoch_service(epoch_service)
+                .build()
+                .await;
+
+            let message = message_service
+                .get_epoch_settings_message(BTreeSet::new())
+                .await
+                .unwrap();
+
+            assert_eq!(message.cardano_transactions_signing_config, None);
+            assert_eq!(message.next_cardano_transactions_signing_config, None);
+        }
+
+        #[tokio::test]
+        async fn get_epoch_settings_message_retrieves_protocol_parameters_from_epoch_service() {
+            let current_epoch_settings = AggregatorEpochSettings {
+                protocol_parameters: ProtocolParameters::new(101, 10, 0.5),
+                ..AggregatorEpochSettings::dummy()
+            };
+            let next_epoch_settings = AggregatorEpochSettings {
+                protocol_parameters: ProtocolParameters::new(102, 20, 0.5),
+                ..AggregatorEpochSettings::dummy()
+            };
+            let signer_registration_epoch_settings = AggregatorEpochSettings {
+                protocol_parameters: ProtocolParameters::new(103, 30, 0.5),
+                ..AggregatorEpochSettings::dummy()
+            };
+            let epoch_service = FakeEpochServiceBuilder {
+                current_epoch_settings,
+                next_epoch_settings: next_epoch_settings.clone(),
+                signer_registration_epoch_settings: signer_registration_epoch_settings.clone(),
+                current_signers_with_stake: fake_data::signers_with_stakes(5),
+                next_signers_with_stake: fake_data::signers_with_stakes(3),
+                ..FakeEpochServiceBuilder::dummy(Epoch(1))
+            }
+            .build();
+            let message_service = MessageServiceBuilder::new()
+                .with_epoch_service(epoch_service)
+                .build()
+                .await;
+
+            let message = message_service
+                .get_epoch_settings_message(SignedEntityTypeDiscriminants::all())
+                .await
+                .unwrap();
+
+            assert_eq!(
+                message.signer_registration_protocol_parameters,
+                signer_registration_epoch_settings.protocol_parameters
+            );
+        }
+
+        #[tokio::test]
+        async fn get_epoch_settings_message_retrieves_signing_configuration_from_epoch_service() {
+            let current_epoch_settings = AggregatorEpochSettings {
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
+                    BlockNumber(100),
+                    BlockNumber(15),
+                ),
+                ..AggregatorEpochSettings::dummy()
+            };
+            let next_epoch_settings = AggregatorEpochSettings {
+                cardano_transactions_signing_config: CardanoTransactionsSigningConfig::new(
+                    BlockNumber(200),
+                    BlockNumber(15),
+                ),
+                ..AggregatorEpochSettings::dummy()
+            };
+            let epoch_service = FakeEpochServiceBuilder {
+                current_epoch_settings: current_epoch_settings.clone(),
+                next_epoch_settings: next_epoch_settings.clone(),
+                signer_registration_epoch_settings: AggregatorEpochSettings::dummy(),
+                current_signers_with_stake: fake_data::signers_with_stakes(5),
+                next_signers_with_stake: fake_data::signers_with_stakes(3),
+                ..FakeEpochServiceBuilder::dummy(Epoch(1))
+            }
+            .build();
+            let message_service = MessageServiceBuilder::new()
+                .with_epoch_service(epoch_service)
+                .build()
+                .await;
+
+            let message = message_service
+                .get_epoch_settings_message(SignedEntityTypeDiscriminants::all())
+                .await
+                .unwrap();
+
+            assert_eq!(
+                message.cardano_transactions_signing_config,
+                Some(current_epoch_settings.cardano_transactions_signing_config),
+            );
+            assert_eq!(
+                message.next_cardano_transactions_signing_config,
+                Some(next_epoch_settings.cardano_transactions_signing_config),
+            );
         }
     }
 
