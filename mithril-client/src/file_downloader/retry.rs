@@ -60,6 +60,7 @@ impl FileDownloader for RetryDownloader {
     async fn download_unpack(
         &self,
         location: &FileDownloaderUri,
+        file_size: u64,
         target_dir: &Path,
         compression_algorithm: Option<CompressionAlgorithm>,
         download_event_type: DownloadEvent,
@@ -72,6 +73,7 @@ impl FileDownloader for RetryDownloader {
                 .file_downloader
                 .download_unpack(
                     location,
+                    file_size,
                     target_dir,
                     compression_algorithm,
                     download_event_type.clone(),
@@ -118,6 +120,7 @@ mod tests {
         retry_downloader
             .download_unpack(
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
+                0,
                 Path::new("."),
                 None,
                 DownloadEvent::Immutable {
@@ -144,6 +147,7 @@ mod tests {
         retry_downloader
             .download_unpack(
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
+                0,
                 Path::new("."),
                 None,
                 DownloadEvent::Immutable {
@@ -179,6 +183,7 @@ mod tests {
         retry_downloader
             .download_unpack(
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
+                0,
                 Path::new("."),
                 None,
                 DownloadEvent::Ancillary {
@@ -208,6 +213,7 @@ mod tests {
         retry_downloader
             .download_unpack(
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
+                0,
                 Path::new("."),
                 None,
                 DownloadEvent::Immutable {
@@ -240,6 +246,7 @@ mod tests {
         retry_downloader
             .download_unpack(
                 &FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string())),
+                0,
                 Path::new("."),
                 None,
                 DownloadEvent::Immutable {

@@ -197,6 +197,7 @@ impl FileDownloader for HttpFileDownloader {
     async fn download_unpack(
         &self,
         location: &FileDownloaderUri,
+        file_size: u64,
         target_dir: &Path,
         compression_algorithm: Option<CompressionAlgorithm>,
         download_event_type: DownloadEvent,
@@ -214,9 +215,6 @@ impl FileDownloader for HttpFileDownloader {
         let unpack_thread = tokio::task::spawn_blocking(move || -> StdResult<()> {
             Self::unpack_file(receiver, compression_algorithm, &dest_dir, download_id)
         });
-        // The size will be completed with the uncompressed file size when available in the location
-        // (see https://github.com/input-output-hk/mithril/issues/2291)
-        let file_size = 0;
         if let Some(local_path) = Self::file_scheme_to_local_path(location.as_str()) {
             self.download_local_file(&local_path, &sender, download_event_type, file_size)
                 .await?;
@@ -303,6 +301,7 @@ mod tests {
         http_file_downloader
             .download_unpack(
                 &FileDownloaderUri::FileUri(FileUri(server.url("/snapshot.tar"))),
+                0,
                 &target_dir,
                 None,
                 DownloadEvent::Digest {
@@ -353,6 +352,7 @@ mod tests {
         http_file_downloader
             .download_unpack(
                 &local_file_uri(&source_file_path),
+                0,
                 &target_dir,
                 None,
                 DownloadEvent::Digest {

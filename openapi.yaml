@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.46
+  version: 0.1.47
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -1808,53 +1808,96 @@ components:
       examples:
         - { "nb_immutable_files": 15 }
 
-    CardanoDatabaseArtifactsLocationsMessagePart:
-      description: CardanoDatabaseArtifactsLocationsMessagePart represents the locations of the Cardano database artifacts
+    CardanoDatabaseDigestsLocationsMessagePart:
+      description: CardanoDatabaseDigestsLocationsMessagePart represents the locations of the map of file digests from the Cardano database
       type: object
+      required:
+        - size_uncompressed
+        - locations
       properties:
-        digests:
-          type: array
-          items:
-            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
-        immutables:
-          type: array
-          items:
-            $ref: "#/components/schemas/CardanoDatabaseImmutableLocationMessagePart"
-        ancillary:
+        size_uncompressed:
+          description: Size of the uncompressed digests file in Bytes
+          type: integer
+          format: int64
+        locations:
           type: array
           items:
             $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
       examples:
         - {
-            "digests":
+            "size_uncompressed": 1024,
+            "locations":
               [
                 {
                   "type": "cloud_storage",
                   "uri": "https://aggregator-endpoint/artifact/cardano-database/digests"
                 }
-              ],
-            "immutables":
+              ]
+          }
+
+    CardanoDatabaseImmutablesLocationsMessagePart:
+      description: CardanoDatabaseImmutablesLocationsMessagePart represents the locations of the Cardano database immutable files
+      type: object
+      required:
+        - average_size_uncompressed
+        - locations
+      properties:
+        average_size_uncompressed:
+          description: Average size of the uncompressed immutable file in Bytes
+          type: integer
+          format: int64
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardanoDatabaseImmutableLocationMessagePart"
+      examples:
+        - {
+            "average_size_uncompressed": 1024,
+            "locations":
               [
                 {
                   "type": "cloud_storage",
                   "uri":
                     {
                       "Template": "https://mithril-cdn-us.iohk.io/snapshot/{immutable-file_number}.tar.zst"
-                    }
+                    },
+                  "compression_algorithm": "zstandard"
                 },
                 {
                   "type": "cloud_storage",
                   "uri":
                     {
                       "Template": "https://mithril-cdn-eu.iohk.io/snapshot/{immutable-file_number}.tar.zst"
-                    }
+                    },
+                  "compression_algorithm": "zstandard"
                 }
-              ],
-            "ancillary":
+              ]
+          }
+
+    CardanoDatabaseAncillaryLocationsMessagePart:
+      description: CardanoDatabaseAncillaryLocationsMessagePart represents the locations of the Cardano database ancillary files
+      type: object
+      required:
+        - size_uncompressed
+        - locations
+      properties:
+        size_uncompressed:
+          description: Size of the uncompressed ancillary file in Bytes
+          type: integer
+          format: int64
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CardanoDatabaseArtifactLocationMessagePart"
+      examples:
+        - {
+            "size_uncompressed": 1024,
+            "locations":
               [
                 {
                   "type": "cloud_storage",
-                  "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                  "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst",
+                  "compression_algorithm": "zstandard"
                 }
               ]
           }
@@ -1872,10 +1915,14 @@ components:
         uri:
           description: URI of the artifact location
           type: string
+        compression_algorithm:
+          description: Compression algorithm for the Cardano database artifact archive
+          type: string
       examples:
         - {
             "type": "cloud_storage",
-            "uri": "https://mithril-cdn-us.iohk.io/snapshot/digests-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.txt"
+            "uri": "https://mithril-cdn-us.iohk.io/snapshot/digests-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.txt",
+            "compression_algorithm": "gzip"
           }
 
     CardanoDatabaseImmutableLocationMessagePart:
@@ -1890,13 +1937,17 @@ components:
           type: string
         uri:
           $ref: "#/components/schemas/MultiFilesUri"
+        compression_algorithm:
+          description: Compression algorithm for the Cardano database immutable archive
+          type: string
       examples:
         - {
             "type": "cloud_storage",
             "uri":
               {
                 "Template": "https://aggregator/{immutable_file_number}.tar.gz"
-              }
+              },
+            "compression_algorithm": "gzip"
           }
 
     MultiFilesUri:
@@ -1932,7 +1983,6 @@ components:
               "beacon": { "epoch": 123, "immutable_file_number": 2345 },
               "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
               "total_db_size_uncompressed": 800796318,
-              "compression_algorithm": "gzip",
               "cardano_node_version": "0.0.1",
               "created_at": "2023-01-19T13:43:05.618857482Z"
             }
@@ -1972,9 +2022,6 @@ components:
           description: Date and time at which the snapshot was created
           type: string
           format: date-time
-        compression_algorithm:
-          description: Compression algorithm of the Cardano database artifacts
-          type: string
         cardano_node_version:
           description: Version of the Cardano node which is used to create snapshot archives.
           type: string
@@ -1985,7 +2032,6 @@ components:
             "beacon": { "epoch": 123, "immutable_file_number": 2345 },
             "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
             "total_db_size_uncompressed": 800796318,
-            "compression_algorithm": "zstandard",
             "cardano_node_version": "0.0.1",
             "created_at": "2023-01-19T13:43:05.618857482Z"
           }
@@ -1997,11 +2043,14 @@ components:
       required:
         - hash
         - merkle_root
+        - network
         - beacon
         - certificate_hash
         - total_db_size_uncompressed
         - created_at
-        - locations
+        - digests
+        - immutables
+        - ancillary
       properties:
         hash:
           description: Hash of the Cardano database snapshot
@@ -2009,6 +2058,10 @@ components:
           format: bytes
         merkle_root:
           description: Merkle root of the Cardano database snapshot
+          type: string
+          format: bytes
+        network:
+          description: Cardano network
           type: string
           format: bytes
         beacon:
@@ -2025,8 +2078,12 @@ components:
           description: Date and time at which the snapshot was created
           type: string
           format: date-time
-        locations:
-          $ref: "#/components/schemas/CardanoDatabaseArtifactsLocationsMessagePart"
+        digests:
+          $ref: "#/components/schemas/CardanoDatabaseDigestsLocationsMessagePart"
+        immutables:
+          $ref: "#/components/schemas/CardanoDatabaseImmutablesLocationsMessagePart"
+        ancillary:
+          $ref: "#/components/schemas/CardanoDatabaseAncillaryLocationsMessagePart"
         compression_algorithm:
           description: Compression algorithm of the Cardano database artifacts
           type: string
@@ -2037,44 +2094,56 @@ components:
         - {
             "hash": "d4071d518a3ace0f6c04a9c0745b9e9560e3e2af1b373bafc4e0398423e9abfb",
             "merkle_root": "c8224920b9f5ad7377594eb8a15f34f08eb3103cc5241d57cafc5638403ec7c6",
+            "network": "preview",
             "beacon": { "epoch": 123, "immutable_file_number": 2345 },
             "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
             "total_db_size_uncompressed": 800796318,
-            "locations":
+            "digests":
               {
-                "digests":
+                "size_uncompressed": 1024,
+                "locations":
                   [
                     {
                       "type": "cloud_storage",
                       "uri": "https://aggregator-endpoint/artifact/cardano-database/digests"
                     }
-                  ],
-                "immutables":
+                  ]
+              },
+            "immutables":
+              {
+                "average_size_uncompressed": 1024,
+                "locations":
                   [
                     {
                       "type": "cloud_storage",
                       "uri":
                         {
                           "Template": "https://mithril-cdn-us.iohk.io/snapshot/{immutable-file_number}.tar.zst"
-                        }
+                        },
+                      "compression_algorithm": "zstandard"
                     },
                     {
                       "type": "cloud_storage",
                       "uri":
                         {
                           "Template": "https://mithril-cdn-eu.iohk.io/snapshot/{immutable-file_number}.tar.zst"
-                        }
-                    }
-                  ],
-                "ancillary":
-                  [
-                    {
-                      "type": "cloud_storage",
-                      "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst"
+                        },
+                      "compression_algorithm": "zstandard"
                     }
                   ]
               },
-            "compression_algorithm": "zstandard",
+            "ancillary":
+              {
+                "size_uncompressed": 1024,
+                "locations":
+                  [
+                    {
+                      "type": "cloud_storage",
+                      "uri": "https://mithril-cdn-us.iohk.io/snapshot/ancillary-6367ee65d0d1272e6e70736a1ea2cae34015874517f6328364f6b73930966732.tar.zst",
+                      "compression_algorithm": "zstandard"
+                    }
+                  ]
+              },
             "cardano_node_version": "0.0.1",
             "created_at": "2023-01-19T13:43:05.618857482Z"
           }

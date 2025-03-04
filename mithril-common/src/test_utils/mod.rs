@@ -75,6 +75,23 @@ fn as_sorted_vec<T: Ord, I: IntoIterator<Item = T> + Clone>(iter: I) -> Vec<T> {
     list
 }
 
+/// Returns the name of the function that called this macro.
+#[macro_export]
+macro_rules! current_function {
+    () => {{
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+
+        let name = type_name_of(f);
+        let name = name.strip_suffix("::f").unwrap_or(name);
+        let name = name.strip_suffix("::{{closure}}").unwrap_or(name);
+        let function_name_index = name.rfind("::").map(|index| index + 2).unwrap_or(0);
+        &name[function_name_index..]
+    }};
+}
+
 pub use assert_same_json;
 
 #[cfg(test)]
@@ -131,5 +148,19 @@ mod utils {
         assert_equivalent([1, 2, 3], HashSet::from([3, 2, 1]));
         assert_equivalent(vec![1, 2, 3], HashSet::from([3, 2, 1]));
         assert_equivalent(&vec![1, 2, 3], &HashSet::from([3, 2, 1]));
+    }
+
+    #[test]
+    fn test_current_function_extract_function_name() {
+        let name = current_function!();
+
+        assert_eq!("test_current_function_extract_function_name", name);
+    }
+
+    #[tokio::test]
+    async fn test_current_function_extract_async_function_name() {
+        let name = current_function!();
+
+        assert_eq!("test_current_function_extract_async_function_name", name);
     }
 }

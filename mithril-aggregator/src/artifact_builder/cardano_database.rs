@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{anyhow, Context};
 use async_trait::async_trait;
@@ -9,20 +6,23 @@ use semver::Version;
 
 use mithril_common::{
     entities::{
-        ArtifactsLocations, CardanoDatabaseSnapshot, CardanoDbBeacon, Certificate,
-        CompressionAlgorithm, ProtocolMessagePartKey, SignedEntityType,
+        AncillaryLocations, CardanoDatabaseSnapshot, CardanoDatabaseSnapshotArtifactData,
+        CardanoDbBeacon, Certificate, DigestsLocations, ImmutablesLocations,
+        ProtocolMessagePartKey, SignedEntityType,
     },
-    StdResult,
+    CardanoNetwork, StdResult,
 };
 
-use crate::artifact_builder::{AncillaryArtifactBuilder, ArtifactBuilder};
+use crate::artifact_builder::{
+    utils::compute_uncompressed_database_size, AncillaryArtifactBuilder, ArtifactBuilder,
+};
 
 use super::{DigestArtifactBuilder, ImmutableArtifactBuilder};
 
 pub struct CardanoDatabaseArtifactBuilder {
+    network: CardanoNetwork,
     db_directory: PathBuf,
     cardano_node_version: Version,
-    compression_algorithm: CompressionAlgorithm,
     ancillary_builder: Arc<AncillaryArtifactBuilder>,
     immutable_builder: Arc<ImmutableArtifactBuilder>,
     digest_builder: Arc<DigestArtifactBuilder>,
@@ -30,17 +30,17 @@ pub struct CardanoDatabaseArtifactBuilder {
 
 impl CardanoDatabaseArtifactBuilder {
     pub fn new(
+        network: CardanoNetwork,
         db_directory: PathBuf,
         cardano_node_version: &Version,
-        compression_algorithm: CompressionAlgorithm,
         ancillary_builder: Arc<AncillaryArtifactBuilder>,
         immutable_builder: Arc<ImmutableArtifactBuilder>,
         digest_builder: Arc<DigestArtifactBuilder>,
     ) -> Self {
         Self {
+            network,
             db_directory,
             cardano_node_version: cardano_node_version.clone(),
-            compression_algorithm,
             ancillary_builder,
             immutable_builder,
             digest_builder,
@@ -70,54 +70,46 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
         let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
 
         let ancillary_locations = self.ancillary_builder.upload(&beacon).await?;
+        let ancillary_size = self
+            .ancillary_builder
+            .compute_uncompressed_size(&self.db_directory, &beacon)?;
+
         let immutables_locations = self
             .immutable_builder
             .upload(beacon.immutable_file_number)
             .await?;
-        let digest_locations = self.digest_builder.upload(&beacon).await?;
+        let immutable_average_size = self
+            .immutable_builder
+            .compute_average_uncompressed_size(&self.db_directory, beacon.immutable_file_number)?;
 
-        let locations = ArtifactsLocations {
-            ancillary: ancillary_locations,
-            digests: digest_locations,
-            immutables: immutables_locations,
+        let digest_upload = self.digest_builder.upload(&beacon).await?;
+
+        let content = CardanoDatabaseSnapshotArtifactData {
+            total_db_size_uncompressed,
+            digests: DigestsLocations {
+                size_uncompressed: digest_upload.size,
+                locations: digest_upload.locations,
+            },
+            immutables: ImmutablesLocations {
+                average_size_uncompressed: immutable_average_size,
+                locations: immutables_locations,
+            },
+            ancillary: AncillaryLocations {
+                size_uncompressed: ancillary_size,
+                locations: ancillary_locations,
+            },
         };
 
         let cardano_database = CardanoDatabaseSnapshot::new(
             merkle_root.to_string(),
+            self.network,
             beacon,
-            total_db_size_uncompressed,
-            locations,
-            self.compression_algorithm,
+            content,
             &self.cardano_node_version,
         );
 
         Ok(cardano_database)
     }
-}
-
-fn compute_uncompressed_database_size(path: &Path) -> StdResult<u64> {
-    if path.is_file() {
-        let metadata = std::fs::metadata(path)
-            .with_context(|| format!("Failed to read metadata for file: {:?}", path))?;
-
-        return Ok(metadata.len());
-    }
-
-    if path.is_dir() {
-        let entries = std::fs::read_dir(path)
-            .with_context(|| format!("Failed to read directory: {:?}", path))?;
-        let mut directory_size = 0;
-        for entry in entries {
-            let path = entry
-                .with_context(|| format!("Failed to read directory entry in {:?}", path))?
-                .path();
-            directory_size += compute_uncompressed_database_size(&path)?;
-        }
-
-        return Ok(directory_size);
-    }
-
-    Ok(0)
 }
 
 #[cfg(test)]
@@ -127,12 +119,13 @@ mod tests {
     use mithril_common::{
         digesters::DummyCardanoDbBuilder,
         entities::{
-            AncillaryLocation, DigestLocation, ImmutablesLocation, MultiFilesUri, ProtocolMessage,
-            ProtocolMessagePartKey, TemplateUri,
+            AncillaryLocation, CompressionAlgorithm, DigestLocation, ImmutablesLocation,
+            MultiFilesUri, ProtocolMessage, ProtocolMessagePartKey, TemplateUri,
         },
         test_utils::{fake_data, TempDir},
         CardanoNetwork,
     };
+    use mockall::{predicate, Predicate};
 
     use crate::{
         artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
@@ -189,16 +182,20 @@ mod tests {
             .with_volatile_files(&["437"])
             .set_volatile_file_size(volatile_file_size)
             .build();
+        let expected_average_immutable_size = immutable_trio_file_size;
+        let expected_ancillary_size =
+            immutable_trio_file_size + ledger_file_size + volatile_file_size;
         let expected_total_size =
-            (4 * immutable_trio_file_size) + ledger_file_size + volatile_file_size;
+            4 * immutable_trio_file_size + ledger_file_size + volatile_file_size;
 
         let snapshotter = Arc::new(FakeSnapshotter::new(test_dir.join("fake_snapshots")));
 
         let ancillary_artifact_builder = {
             let mut ancillary_uploader = MockAncillaryFileUploader::new();
-            ancillary_uploader.expect_upload().return_once(|_| {
+            ancillary_uploader.expect_upload().return_once(|_, _| {
                 Ok(AncillaryLocation::CloudStorage {
                     uri: "ancillary_uri".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 })
             });
 
@@ -212,17 +209,25 @@ mod tests {
             .unwrap()
         };
 
+        fn predicate_length(length: u64) -> impl Predicate<[PathBuf]> {
+            predicate::function(move |p: &[_]| p.len() == length as usize)
+        }
+
         let immutable_artifact_builder = {
             let number_of_immutable_file_loaded = beacon.immutable_file_number;
             let mut immutable_uploader = MockImmutableFilesUploader::new();
             immutable_uploader
                 .expect_batch_upload()
-                .withf(move |paths| paths.len() == number_of_immutable_file_loaded as usize)
-                .return_once(|_| {
+                .with(
+                    predicate_length(number_of_immutable_file_loaded),
+                    predicate::eq(Some(CompressionAlgorithm::Gzip)),
+                )
+                .return_once(|_, _| {
                     Ok(ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "immutable_template_uri".to_string(),
                         )),
+                        compression_algorithm: Some(CompressionAlgorithm::Zstandard),
                     })
                 });
 
@@ -255,9 +260,9 @@ mod tests {
         };
 
         let cardano_database_artifact_builder = CardanoDatabaseArtifactBuilder::new(
+            network,
             cardano_db.get_dir().to_owned(),
             &Version::parse("1.0.0").unwrap(),
-            CompressionAlgorithm::Zstandard,
             Arc::new(ancillary_artifact_builder),
             Arc::new(immutable_artifact_builder),
             Arc::new(digest_artifact_builder),
@@ -282,10 +287,12 @@ mod tests {
 
         let expected_ancillary_locations = vec![AncillaryLocation::CloudStorage {
             uri: "ancillary_uri".to_string(),
+            compression_algorithm: Some(CompressionAlgorithm::Gzip),
         }];
 
         let expected_immutables_locations = vec![ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(TemplateUri("immutable_template_uri".to_string())),
+            compression_algorithm: Some(CompressionAlgorithm::Zstandard),
         }];
 
         let expected_digest_locations = vec![DigestLocation::Aggregator {
@@ -294,17 +301,27 @@ mod tests {
 
         let artifact_expected = CardanoDatabaseSnapshot::new(
             "merkleroot".to_string(),
+            network,
             beacon,
-            expected_total_size,
-            ArtifactsLocations {
-                ancillary: expected_ancillary_locations,
-                digests: expected_digest_locations,
-                immutables: expected_immutables_locations,
+            CardanoDatabaseSnapshotArtifactData {
+                total_db_size_uncompressed: expected_total_size,
+                digests: DigestsLocations {
+                    size_uncompressed: artifact.digests.size_uncompressed,
+                    locations: expected_digest_locations,
+                },
+                immutables: ImmutablesLocations {
+                    average_size_uncompressed: expected_average_immutable_size,
+                    locations: expected_immutables_locations,
+                },
+                ancillary: AncillaryLocations {
+                    size_uncompressed: expected_ancillary_size,
+                    locations: expected_ancillary_locations,
+                },
             },
-            CompressionAlgorithm::Zstandard,
             &Version::parse("1.0.0").unwrap(),
         );
 
+        assert!(artifact.digests.size_uncompressed > 0);
         assert_eq!(artifact_expected, artifact);
     }
 }

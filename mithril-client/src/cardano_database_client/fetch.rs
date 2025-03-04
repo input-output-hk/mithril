@@ -65,7 +65,7 @@ mod tests {
     use chrono::{DateTime, Utc};
     use mockall::predicate::eq;
 
-    use mithril_common::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
+    use mithril_common::entities::{CardanoDbBeacon, Epoch};
 
     use crate::cardano_database_client::CardanoDatabaseClientDependencyInjector;
 
@@ -85,7 +85,6 @@ mod tests {
                 created_at: DateTime::parse_from_rfc3339("2025-01-19T13:43:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),
-                compression_algorithm: CompressionAlgorithm::default(),
                 cardano_node_version: "0.0.1".to_string(),
             },
             CardanoDatabaseSnapshotListItem {
@@ -100,7 +99,6 @@ mod tests {
                 created_at: DateTime::parse_from_rfc3339("2025-01-27T15:22:05.618857482Z")
                     .unwrap()
                     .with_timezone(&Utc),
-                compression_algorithm: CompressionAlgorithm::default(),
                 cardano_node_version: "0.0.1".to_string(),
             },
         ]

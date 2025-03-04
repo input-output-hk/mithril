@@ -212,6 +212,7 @@ impl SnapshotClient {
                     .http_file_downloader
                     .download_unpack(
                         &file_downloader_uri,
+                        snapshot.size,
                         target_dir,
                         Some(snapshot.compression_algorithm),
                         DownloadEvent::Full {

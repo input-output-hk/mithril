@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{CardanoDbBeacon, CompressionAlgorithm, Epoch};
+use crate::entities::{CardanoDbBeacon, Epoch};
 
 /// Message structure of a Cardano database snapshot list
 pub type CardanoDatabaseSnapshotListMessage = Vec<CardanoDatabaseSnapshotListItemMessage>;
@@ -23,9 +23,6 @@ pub struct CardanoDatabaseSnapshotListItemMessage {
 
     /// Size of the uncompressed Cardano database files.
     pub total_db_size_uncompressed: u64,
-
-    /// Compression algorithm of the Cardano database artifacts.
-    pub compression_algorithm: CompressionAlgorithm,
 
     /// Version of the Cardano node used to create the snapshot.
     pub cardano_node_version: String,
@@ -51,7 +48,6 @@ impl CardanoDatabaseSnapshotListItemMessage {
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                 .unwrap()
                 .with_timezone(&Utc),
-            compression_algorithm: CompressionAlgorithm::default(),
             cardano_node_version: "0.0.1".to_string(),
         }
     }
@@ -72,7 +68,6 @@ mod tests {
             },
             "certificate_hash": "f6c01b373bafc4e039844071d5da3ace4a9c0745b9e9560e3e2af01823e9abfb",
             "total_db_size_uncompressed": 800796318,
-            "compression_algorithm": "gzip",
             "cardano_node_version": "0.0.1",
             "created_at": "2023-01-19T13:43:05.618857482Z"
         }
@@ -93,7 +88,6 @@ mod tests {
             created_at: DateTime::parse_from_rfc3339("2023-01-19T13:43:05.618857482Z")
                 .unwrap()
                 .with_timezone(&Utc),
-            compression_algorithm: CompressionAlgorithm::default(),
             cardano_node_version: "0.0.1".to_string(),
         }]
     }

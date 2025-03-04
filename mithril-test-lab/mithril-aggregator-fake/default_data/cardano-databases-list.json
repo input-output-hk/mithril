@@ -1,145 +1,170 @@
 [
   {
-    "hash": "b56cecb5e158197e63fd41f3f419e4d28b9f3a862ca2e39067fc261696967b64",
-    "merkle_root": "274d68c21af063e3df77137d6cacb14627314fb2cbc4ec45eb5432506cd71478",
+    "hash": "3c7d2e0a3f2438f32e512fc8fbf04eb5ae0e5a8330fcc15525b84bf32174db4b",
+    "merkle_root": "b3ae2051879bee2db2bcd30ee6d2acb2dc2377db8241afc810eca19d23c09ce6",
+    "beacon": {
+      "epoch": 23,
+      "immutable_file_number": 6
+    },
+    "certificate_hash": "98fdd355aed1d5902fd46de6bb8a79c33df76073d2393be9ec3c721fd2e21c75",
+    "total_db_size_uncompressed": 1913029,
+    "cardano_node_version": "10.1.4",
+    "created_at": "2025-03-03T08:14:19.497623361Z"
+  },
+  {
+    "hash": "bb3e87fce6782edeeb5e0f0e8f173d4d917dc69ac51239ba005522fd0f7e7fa9",
+    "merkle_root": "c13e4f1f6b3c5c96af24b1402c03ba6a216c52ec533c84418380587d123b1ce4",
+    "beacon": {
+      "epoch": 23,
+      "immutable_file_number": 5
+    },
+    "certificate_hash": "3926cfccee18243e11fbeef030e00029e73ae8368990a36777aeaf68d75fc7e1",
+    "total_db_size_uncompressed": 1891090,
+    "cardano_node_version": "10.1.4",
+    "created_at": "2025-03-03T08:14:18.677601463Z"
+  },
+  {
+    "hash": "a75c1064a2740dde8462ee24e6ff972a5dfe1ad2905b4bbfbdc00dc131973d64",
+    "merkle_root": "c13e4f1f6b3c5c96af24b1402c03ba6a216c52ec533c84418380587d123b1ce4",
+    "beacon": {
+      "epoch": 22,
+      "immutable_file_number": 5
+    },
+    "certificate_hash": "1f7e13bb784c117892f1873cc8a145d608b57a17de71d9c972bcc698b4451fec",
+    "total_db_size_uncompressed": 1821748,
+    "cardano_node_version": "10.1.4",
+    "created_at": "2025-03-03T08:14:16.055825742Z"
+  },
+  {
+    "hash": "0e97e50564bcf51b2f19414391d5f30da870dd3752ee9bacc5efb9b4834e7cf7",
+    "merkle_root": "c13e4f1f6b3c5c96af24b1402c03ba6a216c52ec533c84418380587d123b1ce4",
     "beacon": {
       "epoch": 21,
       "immutable_file_number": 5
     },
-    "certificate_hash": "23d31ba29dbe521a8a6ea97d565649ae40320f996ecbbb76ffc872881a73cc9d",
-    "total_db_size_uncompressed": 1730848,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "2be299976cf80de93a82c25cc594f5a24fc3f1129245c1270ae10defc6744a66",
+    "total_db_size_uncompressed": 1737460,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:32.626504076Z"
+    "created_at": "2025-03-03T08:14:12.893124788Z"
   },
   {
-    "hash": "e68111c32fc734dd715ef746bddeb88846351e1dda614bc1d7199ac1a234cc73",
-    "merkle_root": "274d68c21af063e3df77137d6cacb14627314fb2cbc4ec45eb5432506cd71478",
+    "hash": "85e365ebf8081b00a57a6cf5c1f096733b20bee15fbda1f70618fc8b4933369e",
+    "merkle_root": "c13e4f1f6b3c5c96af24b1402c03ba6a216c52ec533c84418380587d123b1ce4",
     "beacon": {
       "epoch": 20,
       "immutable_file_number": 5
     },
-    "certificate_hash": "722d5ff37ae6725245979d4dcc0bfdf1945846a5b32f4596de88584c0a97ee09",
-    "total_db_size_uncompressed": 1645202,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "fc6e8717e8f290b7cf08e3c430790f7f33e9ad40608811a2fec5744b5b90afbd",
+    "total_db_size_uncompressed": 1650878,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:29.444584150Z"
+    "created_at": "2025-03-03T08:14:09.760688185Z"
   },
   {
-    "hash": "01f6f9318c2dbd6865c578d2b6945812a9fe292ee46dd6d8b2e57cf237836be8",
-    "merkle_root": "1c42ad7292c2663b6a9a71a649847c05c9a671ae5b5608e3ae00775477ed241a",
+    "hash": "ccf845e5d5ef389a91bb77ab60f66289e2452e6c57b8b6b3a1487871c0e60a33",
+    "merkle_root": "2b81ea12ae42521dd272977f7498817d5a5083aaf5f2d83a720d02a7318a4818",
     "beacon": {
       "epoch": 19,
       "immutable_file_number": 4
     },
-    "certificate_hash": "43bf8d02a294b686760a7aa48e4bc2834d6db366d3d6fd9747d3634b455b6f08",
-    "total_db_size_uncompressed": 1566971,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "922b2d739e71813e8e9d96332249a6cad31f3fb577552f28e1090d37c9d1b6a5",
+    "total_db_size_uncompressed": 1576259,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:26.391019071Z"
+    "created_at": "2025-03-03T08:14:06.994384184Z"
   },
   {
-    "hash": "514896b9484b36b146a107e776fd2877574c15ed94a51ea0f596dab8b01190a7",
-    "merkle_root": "1c42ad7292c2663b6a9a71a649847c05c9a671ae5b5608e3ae00775477ed241a",
+    "hash": "73755d760af1b27d726d5710a19a01319f913601b5d992fa8e06670eb4ffc796",
+    "merkle_root": "2b81ea12ae42521dd272977f7498817d5a5083aaf5f2d83a720d02a7318a4818",
     "beacon": {
       "epoch": 18,
       "immutable_file_number": 4
     },
-    "certificate_hash": "42647fc5944abd4470c896a19a38b80de1061879cd241150677534ecf45b5f12",
-    "total_db_size_uncompressed": 1488011,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "64b02fe464cf7652b1322d9489f0e7e7a728ed7f346a7cbff52ea8ad52cad884",
+    "total_db_size_uncompressed": 1494605,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:23.474096497Z"
+    "created_at": "2025-03-03T08:14:03.899861796Z"
   },
   {
-    "hash": "d5d4249ca28ac2b2bfe4f4e8459b9c74256a5f6eef580b57edd63ed76b84c153",
-    "merkle_root": "1c42ad7292c2663b6a9a71a649847c05c9a671ae5b5608e3ae00775477ed241a",
+    "hash": "de3206d356a9663895487c1134d6ae00fd0ea84e65a2fc056137c2a0f4afa300",
+    "merkle_root": "2b81ea12ae42521dd272977f7498817d5a5083aaf5f2d83a720d02a7318a4818",
     "beacon": {
       "epoch": 17,
       "immutable_file_number": 4
     },
-    "certificate_hash": "49aa42c70fbb9a4f628dd686be5459f27716e4062ccdb2909242b61c391f0548",
-    "total_db_size_uncompressed": 1411565,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "31d163683880953b0d5b57b2425cb1d6b7734bf8142d44ddf442da1d956c5e83",
+    "total_db_size_uncompressed": 1408601,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:20.430439671Z"
+    "created_at": "2025-03-03T08:14:00.636785709Z"
   },
   {
-    "hash": "a838fc5d367436c2a144d80544831fb9a58e0fd6b7200628fc1377d32ef81d4a",
-    "merkle_root": "fd416afe915600c3a9e72fb6e68afb4e1fd9030d86cf44861e5d9bc9ced3267f",
+    "hash": "258d1ecfe3e0531e0a7a0678218fd433c60711df7efdbdfa9254a8745730c730",
+    "merkle_root": "d5c7285170783a0586c299134117941e3201fb2c667e65259463918d58842c04",
     "beacon": {
       "epoch": 16,
       "immutable_file_number": 3
     },
-    "certificate_hash": "2c18063e049fc935b4a54094d58d3518ea3da2ce6650c3a3967c27e12af67994",
-    "total_db_size_uncompressed": 1328186,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "9250bf505d0f035a46e71ab502bf9701c78465f1b6353418c175e97a0362899d",
+    "total_db_size_uncompressed": 1331408,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:17.380824379Z"
+    "created_at": "2025-03-03T08:13:57.821384343Z"
   },
   {
-    "hash": "af77ae9cd3f345c75986f48dc185838d848f8572841bfe1fd9b0e4d329e488e4",
-    "merkle_root": "fd416afe915600c3a9e72fb6e68afb4e1fd9030d86cf44861e5d9bc9ced3267f",
+    "hash": "a160cb9b50835bc80e86d07981b8094af9501acfdca13f934d8e69fcf4551e34",
+    "merkle_root": "d5c7285170783a0586c299134117941e3201fb2c667e65259463918d58842c04",
     "beacon": {
       "epoch": 15,
       "immutable_file_number": 3
     },
-    "certificate_hash": "80c1349c9a0f244fff9f5b4dee24355533da32e73b14994c93d310aecde036b5",
-    "total_db_size_uncompressed": 1246592,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "8a715366a290e809edfcfaf14941a2381a8b0681b904959867a544b630dff2af",
+    "total_db_size_uncompressed": 1252026,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:14.325683857Z"
+    "created_at": "2025-03-03T08:13:54.688401245Z"
   },
   {
-    "hash": "dec1ff6cf9e08781a310a1e51964eb1d0e79bc6f03267698c4525f65d9ddd2cd",
-    "merkle_root": "fd416afe915600c3a9e72fb6e68afb4e1fd9030d86cf44861e5d9bc9ced3267f",
+    "hash": "09700b5d0956d95f6de2a606c501fc495365c4b546e7f2e5803525f575ca8469",
+    "merkle_root": "d5c7285170783a0586c299134117941e3201fb2c667e65259463918d58842c04",
     "beacon": {
       "epoch": 14,
       "immutable_file_number": 3
     },
-    "certificate_hash": "3c44692dcd2b41e4cb67b3c51dc65099d51a5ad15737690d0acafa5f054c3b31",
-    "total_db_size_uncompressed": 1167946,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "814a8ee78c423ac965f6829ac0155a924b2ce61369cf7f6272e9c23c4791af92",
+    "total_db_size_uncompressed": 1167132,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:11.388578993Z"
+    "created_at": "2025-03-03T08:13:51.695792117Z"
   },
   {
-    "hash": "7825eb8cfdc5acc0c62815becdfb7025c2095c88e8d4298d78d35fca7c60c98c",
-    "merkle_root": "fd416afe915600c3a9e72fb6e68afb4e1fd9030d86cf44861e5d9bc9ced3267f",
+    "hash": "96f2e91c2126519c38000090ec4ae4c5c111714444087a37d11209bc9e6542d2",
+    "merkle_root": "d5c7285170783a0586c299134117941e3201fb2c667e65259463918d58842c04",
     "beacon": {
       "epoch": 13,
       "immutable_file_number": 3
     },
-    "certificate_hash": "c17313cc9fa3ff453ce975540fb13e1f531615474a2ff7cfdaff5844900b56b6",
-    "total_db_size_uncompressed": 1117294,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "ad7e298885544c46449bfb2eb72984965c93216f4eb37b712fd0a5dfd53761bd",
+    "total_db_size_uncompressed": 1107816,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:09.514424677Z"
+    "created_at": "2025-03-03T08:13:49.546799081Z"
   },
   {
-    "hash": "9698b62980a658ecfc9ede994f4e4a19e2c120008ed3a4f7d1cfb369d3a07cb7",
-    "merkle_root": "318fac86471a0063b18e70234c1037870f6bc7eacbf78909d30a64d65d1019a8",
+    "hash": "856cbb2d05daf4278174916f6682957003001b8323610ead475d4b1d25359890",
+    "merkle_root": "2f4098958fc7b91ea6aea5782f4da16f204a4405024d3319beb53a78d906bea0",
     "beacon": {
       "epoch": 13,
       "immutable_file_number": 2
     },
-    "certificate_hash": "580f2871b0d6526fb296799b0e952d53e946590829def5e089e57ba45b74ec00",
-    "total_db_size_uncompressed": 1083961,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "a6a5c32f7f8a043821d643f91f94a89e6c7a99dcef80a1d39ca03d218c28890f",
+    "total_db_size_uncompressed": 1076017,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:08.322704492Z"
+    "created_at": "2025-03-03T08:13:48.436281699Z"
   },
   {
-    "hash": "5b91863abdcbd7044ef64728d3d56293cf77cdfe6e203b40faf3c768b8b68d6c",
-    "merkle_root": "318fac86471a0063b18e70234c1037870f6bc7eacbf78909d30a64d65d1019a8",
+    "hash": "03f3eddfeb7e6605f445be6d0fcfa7841a8059f8f7a1a802b74d97b4a0ab72a3",
+    "merkle_root": "2f4098958fc7b91ea6aea5782f4da16f204a4405024d3319beb53a78d906bea0",
     "beacon": {
       "epoch": 12,
       "immutable_file_number": 2
     },
-    "certificate_hash": "8c069f1401760c3ba1308db3277a3ae624237c4d00fb00ba8481bbd43fbb783d",
-    "total_db_size_uncompressed": 1006849,
-    "compression_algorithm": "zstandard",
+    "certificate_hash": "85381ef5bce7208febf089c2ddad53f9777a572b911ca472d5f294d5e7c0060a",
+    "total_db_size_uncompressed": 1004971,
     "cardano_node_version": "10.1.4",
-    "created_at": "2025-02-25T16:20:05.491341859Z"
+    "created_at": "2025-03-03T08:13:45.691824886Z"
   }
 ]

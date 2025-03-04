@@ -17,6 +17,7 @@ use mithril_common::{
 };
 
 use crate::{
+    artifact_builder::utils::compute_size,
     file_uploaders::{GcpUploader, LocalUploader},
     services::Snapshotter,
     DumbUploader, FileUploader,
@@ -41,12 +42,20 @@ fn immmutable_file_number_extractor(file_uri: &str) -> StdResult<Option<String>>
 #[async_trait]
 pub trait ImmutableFilesUploader: Send + Sync {
     /// Uploads the archives at the given filepaths and returns the location of the uploaded file.
-    async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation>;
+    async fn batch_upload(
+        &self,
+        filepaths: &[PathBuf],
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<ImmutablesLocation>;
 }
 
 #[async_trait]
 impl ImmutableFilesUploader for DumbUploader {
-    async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation> {
+    async fn batch_upload(
+        &self,
+        filepaths: &[PathBuf],
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<ImmutablesLocation> {
         let last_file_path = filepaths.last().ok_or_else(|| {
             anyhow!("No file to upload with 'DumbUploader' as the filepaths list is empty")
         })?;
@@ -61,13 +70,18 @@ impl ImmutableFilesUploader for DumbUploader {
 
         Ok(ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(template_uri),
+            compression_algorithm,
         })
     }
 }
 
 #[async_trait]
 impl ImmutableFilesUploader for LocalUploader {
-    async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation> {
+    async fn batch_upload(
+        &self,
+        filepaths: &[PathBuf],
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<ImmutablesLocation> {
         let mut file_uris = Vec::new();
         for filepath in filepaths {
             file_uris.push(self.upload(filepath).await?.into());
@@ -81,13 +95,18 @@ impl ImmutableFilesUploader for LocalUploader {
 
         Ok(ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(template_uri),
+            compression_algorithm,
         })
     }
 }
 
 #[async_trait]
 impl ImmutableFilesUploader for GcpUploader {
-    async fn batch_upload(&self, filepaths: &[PathBuf]) -> StdResult<ImmutablesLocation> {
+    async fn batch_upload(
+        &self,
+        filepaths: &[PathBuf],
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<ImmutablesLocation> {
         let mut file_uris = Vec::new();
         for filepath in filepaths {
             file_uris.push(self.upload(filepath).await?.into());
@@ -101,6 +120,7 @@ impl ImmutableFilesUploader for GcpUploader {
 
         Ok(ImmutablesLocation::CloudStorage {
             uri: MultiFilesUri::Template(template_uri),
+            compression_algorithm,
         })
     }
 }
@@ -160,19 +180,11 @@ impl ImmutableArtifactBuilder {
         &self,
         up_to_immutable_file_number: ImmutableFileNumber,
     ) -> StdResult<Vec<PathBuf>> {
-        fn immutable_trio_names(immutable_file_number: ImmutableFileNumber) -> Vec<String> {
-            vec![
-                format!("{:05}.chunk", immutable_file_number),
-                format!("{:05}.primary", immutable_file_number),
-                format!("{:05}.secondary", immutable_file_number),
-            ]
-        }
-
         let immutable_archive_dir_path = Path::new("cardano-database").join("immutable");
 
         let mut archive_paths = vec![];
         for immutable_file_number in 1..=up_to_immutable_file_number {
-            let files_to_archive = immutable_trio_names(immutable_file_number)
+            let files_to_archive = Self::immutable_trio_names(immutable_file_number)
                 .iter()
                 .map(|filename| PathBuf::from(IMMUTABLE_DIR).join(filename))
                 .collect();
@@ -213,7 +225,9 @@ impl ImmutableArtifactBuilder {
     ) -> StdResult<Vec<ImmutablesLocation>> {
         let mut locations = Vec::new();
         for uploader in &self.uploaders {
-            let result = uploader.batch_upload(archive_paths).await;
+            let result = uploader
+                .batch_upload(archive_paths, Some(self.compression_algorithm))
+                .await;
             match result {
                 Ok(location) => {
                     locations.push(location);
@@ -243,11 +257,41 @@ impl ImmutableArtifactBuilder {
             .exists()
             .then_some(expected_archive_path)
     }
+
+    pub fn compute_average_uncompressed_size(
+        &self,
+        db_path: &Path,
+        up_to_immutable_file_number: ImmutableFileNumber,
+    ) -> StdResult<u64> {
+        if up_to_immutable_file_number == 0 {
+            return Err(anyhow!(
+                "Could not compute the average size without immutable files"
+            ));
+        }
+
+        let immutable_paths = (1..=up_to_immutable_file_number)
+            .flat_map(Self::immutable_trio_names)
+            .map(|filename| db_path.join(IMMUTABLE_DIR).join(filename))
+            .collect();
+
+        let total_size = compute_size(immutable_paths)?;
+
+        Ok(total_size / up_to_immutable_file_number)
+    }
+
+    fn immutable_trio_names(immutable_file_number: ImmutableFileNumber) -> Vec<String> {
+        vec![
+            format!("{:05}.chunk", immutable_file_number),
+            format!("{:05}.primary", immutable_file_number),
+            format!("{:05}.secondary", immutable_file_number),
+        ]
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use mithril_common::{
+        current_function,
         digesters::DummyCardanoDbBuilder,
         entities::TemplateUri,
         test_utils::{assert_equivalent, equivalent_to, TempDir},
@@ -264,22 +308,27 @@ mod tests {
 
     use super::*;
 
-    fn fake_uploader(archive_paths: Vec<&str>, location_uri: &str) -> MockImmutableFilesUploader {
+    fn fake_uploader(
+        archive_paths: Vec<&str>,
+        location_uri: &str,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> MockImmutableFilesUploader {
         let uri = location_uri.to_string();
         let archive_paths: Vec<_> = archive_paths.into_iter().map(String::from).collect();
 
         let mut uploader = MockImmutableFilesUploader::new();
         uploader
             .expect_batch_upload()
-            .withf(move |p| {
+            .withf(move |p, algorithm| {
                 let paths: Vec<_> = p.iter().map(|s| s.to_string_lossy().into_owned()).collect();
 
-                equivalent_to(paths, archive_paths.clone())
+                equivalent_to(paths, archive_paths.clone()) && algorithm == &compression_algorithm
             })
             .times(1)
-            .return_once(|_| {
+            .return_once(move |_, _| {
                 Ok(ImmutablesLocation::CloudStorage {
                     uri: MultiFilesUri::Template(TemplateUri(uri)),
+                    compression_algorithm,
                 })
             });
 
@@ -290,7 +339,7 @@ mod tests {
         let mut uploader = MockImmutableFilesUploader::new();
         uploader
             .expect_batch_upload()
-            .return_once(|_| Err(anyhow!("Failure while uploading...")));
+            .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
         uploader
     }
@@ -336,6 +385,7 @@ mod tests {
                 work_dir.join("00002.tar.gz").to_str().unwrap(),
             ],
             "archive.tar.gz",
+            Some(CompressionAlgorithm::Gzip),
         );
 
         let builder = ImmutableArtifactBuilder::new(
@@ -353,6 +403,7 @@ mod tests {
             archive_paths,
             vec![ImmutablesLocation::CloudStorage {
                 uri: MultiFilesUri::Template(TemplateUri("archive.tar.gz".to_string())),
+                compression_algorithm: Some(CompressionAlgorithm::Gzip),
             }],
         )
     }
@@ -684,7 +735,7 @@ mod tests {
             let mut uploader = MockImmutableFilesUploader::new();
             uploader
                 .expect_batch_upload()
-                .return_once(|_| Err(anyhow!("Failure while uploading...")));
+                .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
             {
                 let builder = ImmutableArtifactBuilder::new(
@@ -742,6 +793,7 @@ mod tests {
                 Arc::new(fake_uploader(
                     vec!["01.tar.gz", "02.tar.gz"],
                     "archive_2.tar.gz",
+                    Some(CompressionAlgorithm::Gzip),
                 )),
                 Arc::new(fake_uploader_returning_error()),
             ];
@@ -769,6 +821,7 @@ mod tests {
                 archive_paths,
                 vec![ImmutablesLocation::CloudStorage {
                     uri: MultiFilesUri::Template(TemplateUri("archive_2.tar.gz".to_string())),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 }],
             )
         }
@@ -779,10 +832,12 @@ mod tests {
                 Arc::new(fake_uploader(
                     vec!["01.tar.gz", "02.tar.gz"],
                     "archive_1.tar.gz",
+                    Some(CompressionAlgorithm::Gzip),
                 )),
                 Arc::new(fake_uploader(
                     vec!["01.tar.gz", "02.tar.gz"],
                     "archive_2.tar.gz",
+                    Some(CompressionAlgorithm::Gzip),
                 )),
             ];
 
@@ -810,9 +865,11 @@ mod tests {
                 vec![
                     ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri("archive_1.tar.gz".to_string())),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
                     },
                     ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri("archive_2.tar.gz".to_string())),
+                        compression_algorithm: Some(CompressionAlgorithm::Gzip),
                     },
                 ],
             )
@@ -860,6 +917,7 @@ mod tests {
             let location = ImmutableFilesUploader::batch_upload(
                 &uploader,
                 &[archive_1.clone(), archive_2.clone()],
+                None,
             )
             .await
             .expect("local upload should not fail");
@@ -871,6 +929,7 @@ mod tests {
                 uri: MultiFilesUri::Template(TemplateUri(
                     "http://test.com:8080/base-root/{immutable_file_number}.tar.gz".to_string(),
                 )),
+                compression_algorithm: None,
             };
             assert_eq!(expected_location, location);
         }
@@ -897,7 +956,7 @@ mod tests {
                 TestLogger::stdout(),
             );
 
-            ImmutableFilesUploader::batch_upload(&uploader, &[archive])
+            ImmutableFilesUploader::batch_upload(&uploader, &[archive], None)
                 .await
                 .expect_err("Should return an error when not template found");
         }
@@ -945,5 +1004,66 @@ mod tests {
                 Some("http://whatever/1234{immutable_file_number}.tar.gz".to_string())
             );
         }
+    }
+
+    #[test]
+    fn should_compute_the_average_size_of_the_immutables() {
+        let work_dir = get_builder_work_dir("should_compute_the_average_size_of_the_immutables");
+        let test_dir = "should_compute_the_average_size_of_the_immutables/cardano_database";
+
+        let immutable_trio_file_size = 777;
+        let ledger_file_size = 6666;
+        let volatile_file_size = 99;
+
+        let cardano_db = DummyCardanoDbBuilder::new(test_dir)
+            .with_immutables(&[1, 2, 3])
+            .set_immutable_trio_file_size(immutable_trio_file_size)
+            .with_ledger_files(&["blocks-0.dat", "blocks-1.dat", "blocks-2.dat"])
+            .set_ledger_file_size(ledger_file_size)
+            .with_volatile_files(&["437", "537", "637", "737"])
+            .set_volatile_file_size(volatile_file_size)
+            .build();
+
+        let db_directory = cardano_db.get_dir().to_path_buf();
+
+        let builder = ImmutableArtifactBuilder::new(
+            work_dir,
+            vec![Arc::new(MockImmutableFilesUploader::new())],
+            Arc::new(DumbSnapshotter::new()),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let expected_total_size = immutable_trio_file_size;
+
+        let total_size = builder
+            .compute_average_uncompressed_size(&db_directory, 2)
+            .unwrap();
+
+        assert_eq!(expected_total_size, total_size);
+    }
+
+    #[test]
+    fn should_return_an_error_when_compute_the_average_size_of_the_immutables_with_zero() {
+        let work_dir = get_builder_work_dir("should_compute_the_average_size_of_the_immutables");
+        let test_dir = &format!("{}/cardano_database", current_function!());
+
+        let cardano_db = DummyCardanoDbBuilder::new(test_dir).build();
+
+        let db_directory = cardano_db.get_dir().to_path_buf();
+
+        let builder = ImmutableArtifactBuilder::new(
+            work_dir,
+            vec![Arc::new(MockImmutableFilesUploader::new())],
+            Arc::new(DumbSnapshotter::new()),
+            CompressionAlgorithm::Gzip,
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        builder
+            .compute_average_uncompressed_size(&db_directory, 0)
+            .expect_err("Should return an error when no immutable file number");
     }
 }

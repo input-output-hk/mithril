@@ -210,7 +210,6 @@ impl CardanoDbV2DownloadCommand {
         Self::log_download_information(
             &restoration_options.db_dir,
             &cardano_db_message,
-            certificate,
             self.is_json_output_enabled(),
         )?;
 
@@ -399,7 +398,6 @@ impl CardanoDbV2DownloadCommand {
     fn log_download_information(
         db_dir: &Path,
         cardano_db_snapshot: &CardanoDatabaseSnapshot,
-        certificate: MithrilCertificate,
         json_output: bool,
     ) -> MithrilResult<()> {
         let canonicalized_filepath = &db_dir.canonicalize().with_context(|| {
@@ -430,9 +428,7 @@ impl CardanoDbV2DownloadCommand {
                 cardano_db_snapshot.hash,
                 db_dir.display(),
                 canonicalized_filepath.display(),
-                // The network will be retrieved from the snapshot when available
-                // (see https://github.com/input-output-hk/mithril/issues/2291)
-                certificate.metadata.network,
+                cardano_db_snapshot.network,
             );
         }
 

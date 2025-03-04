@@ -27,7 +27,10 @@ impl FileDownloaderUri {
         immutable_files_range: &[ImmutableFileNumber],
     ) -> StdResult<Vec<(ImmutableFileNumber, FileDownloaderUri)>> {
         match immutable_files_location {
-            ImmutablesLocation::CloudStorage { uri } => {
+            ImmutablesLocation::CloudStorage {
+                uri,
+                compression_algorithm: _,
+            } => {
                 let expand_variables = immutable_files_range
                     .iter()
                     .map(|immutable_file_number| {
@@ -76,7 +79,10 @@ impl TryFrom<AncillaryLocation> for FileDownloaderUri {
 
     fn try_from(location: AncillaryLocation) -> Result<Self, Self::Error> {
         match location {
-            AncillaryLocation::CloudStorage { uri } => Ok(Self::FileUri(FileUri(uri))),
+            AncillaryLocation::CloudStorage {
+                uri,
+                compression_algorithm: _,
+            } => Ok(Self::FileUri(FileUri(uri))),
             AncillaryLocation::Unknown => {
                 Err(anyhow!("Unknown location type to download ancillary"))
             }
@@ -89,9 +95,11 @@ impl TryFrom<DigestLocation> for FileDownloaderUri {
 
     fn try_from(location: DigestLocation) -> Result<Self, Self::Error> {
         match location {
-            DigestLocation::CloudStorage { uri } | DigestLocation::Aggregator { uri } => {
-                Ok(Self::FileUri(FileUri(uri)))
+            DigestLocation::CloudStorage {
+                uri,
+                compression_algorithm: _,
             }
+            | DigestLocation::Aggregator { uri } => Ok(Self::FileUri(FileUri(uri))),
             DigestLocation::Unknown => Err(anyhow!("Unknown location type to download digest")),
         }
     }
@@ -254,6 +262,7 @@ pub trait FileDownloader: Sync + Send {
     async fn download_unpack(
         &self,
         location: &FileDownloaderUri,
+        file_size: u64,
         target_dir: &Path,
         compression_algorithm: Option<CompressionAlgorithm>,
         download_event_type: DownloadEvent,
@@ -272,6 +281,7 @@ mod tests {
             uri: MultiFilesUri::Template(TemplateUri(
                 "http://whatever/{immutable_file_number}.tar.gz".to_string(),
             )),
+            compression_algorithm: Some(CompressionAlgorithm::Gzip),
         };
         let immutable_files_range: Vec<ImmutableFileNumber> = (1..=3).collect();
 
@@ -430,6 +440,7 @@ mod tests {
     fn file_downloader_uri_from_ancillary_location() {
         let location = AncillaryLocation::CloudStorage {
             uri: "http://whatever/ancillary-1".to_string(),
+            compression_algorithm: Some(CompressionAlgorithm::Gzip),
         };
         let file_downloader_uri: FileDownloaderUri = location.try_into().unwrap();
 
@@ -450,6 +461,7 @@ mod tests {
     fn file_downloader_uri_from_digest_location() {
         let location = DigestLocation::CloudStorage {
             uri: "http://whatever/digest-1".to_string(),
+            compression_algorithm: None,
         };
         let file_downloader_uri: FileDownloaderUri = location.try_into().unwrap();
 

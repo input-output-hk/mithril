@@ -4,7 +4,22 @@ use sha2::{Digest, Sha256};
 
 use crate::entities::{CardanoDbBeacon, CompressionAlgorithm};
 
-use super::MultiFilesUri;
+use super::{CardanoNetwork, MultiFilesUri};
+
+/// Structure holding artifacts data needed to create a Cardano database snapshot.
+pub struct CardanoDatabaseSnapshotArtifactData {
+    /// Size of the uncompressed Cardano database files.
+    pub total_db_size_uncompressed: u64,
+
+    /// Locations of the Cardano database digests.
+    pub digests: DigestsLocations,
+
+    /// Locations of the Cardano database immutables.
+    pub immutables: ImmutablesLocations,
+
+    /// Locations of the Cardano database ancillary.
+    pub ancillary: AncillaryLocations,
+}
 
 /// Cardano database snapshot.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -15,17 +30,23 @@ pub struct CardanoDatabaseSnapshot {
     /// Merkle root of the Cardano database snapshot.
     pub merkle_root: String,
 
+    /// Cardano network.
+    pub network: CardanoNetwork,
+
     /// Mithril beacon on the Cardano chain.
     pub beacon: CardanoDbBeacon,
 
     /// Size of the uncompressed Cardano database files.
     pub total_db_size_uncompressed: u64,
 
-    /// Locations of the Cardano database artifacts.
-    pub locations: ArtifactsLocations,
+    /// Locations of the Cardano database digests.
+    pub digests: DigestsLocations,
 
-    /// Compression algorithm of the Cardano database artifacts.
-    pub compression_algorithm: CompressionAlgorithm,
+    /// Locations of the Cardano database immutables.
+    pub immutables: ImmutablesLocations,
+
+    /// Locations of the Cardano database ancillary.
+    pub ancillary: AncillaryLocations,
 
     /// Version of the Cardano node used to create the snapshot.
     pub cardano_node_version: String,
@@ -35,20 +56,21 @@ impl CardanoDatabaseSnapshot {
     /// [CardanoDatabaseSnapshot] factory
     pub fn new(
         merkle_root: String,
+        network: CardanoNetwork,
         beacon: CardanoDbBeacon,
-        total_db_size_uncompressed: u64,
-        locations: ArtifactsLocations,
-        compression_algorithm: CompressionAlgorithm,
+        content: CardanoDatabaseSnapshotArtifactData,
         cardano_node_version: &Version,
     ) -> Self {
         let cardano_node_version = format!("{cardano_node_version}");
         let mut cardano_database_snapshot = Self {
             hash: "".to_string(),
             merkle_root,
+            network,
             beacon,
-            locations,
-            total_db_size_uncompressed,
-            compression_algorithm,
+            digests: content.digests,
+            immutables: content.immutables,
+            ancillary: content.ancillary,
+            total_db_size_uncompressed: content.total_db_size_uncompressed,
             cardano_node_version,
         };
         cardano_database_snapshot.hash = cardano_database_snapshot.compute_hash();
@@ -74,6 +96,10 @@ pub enum DigestLocation {
     CloudStorage {
         /// URI of the cloud storage location.
         uri: String,
+
+        /// Compression algorithm of the Cardano database artifacts.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        compression_algorithm: Option<CompressionAlgorithm>,
     },
     /// Aggregator digest route location.
     Aggregator {
@@ -93,6 +119,10 @@ pub enum ImmutablesLocation {
     CloudStorage {
         /// URI of the cloud storage location.
         uri: MultiFilesUri,
+
+        /// Compression algorithm of the Cardano database artifacts.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        compression_algorithm: Option<CompressionAlgorithm>,
     },
     /// Catchall for unknown location variants.
     #[serde(other)]
@@ -107,40 +137,72 @@ pub enum AncillaryLocation {
     CloudStorage {
         /// URI of the cloud storage location.
         uri: String,
+
+        /// Compression algorithm of the Cardano database artifacts.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        compression_algorithm: Option<CompressionAlgorithm>,
     },
     /// Catchall for unknown location variants.
     #[serde(other)]
     Unknown,
 }
 
-/// Locations of the Cardano database related files.
+/// Digests locations of the Cardano database related files.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ArtifactsLocations {
+pub struct DigestsLocations {
+    /// Size of the uncompressed digests file.
+    pub size_uncompressed: u64,
+
     /// Locations of the immutable files digests.
-    pub digests: Vec<DigestLocation>,
+    pub locations: Vec<DigestLocation>,
+}
+
+/// Immutables locations of the Cardano database related files.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImmutablesLocations {
+    /// Average size for one immutable file.
+    pub average_size_uncompressed: u64,
 
     /// Locations of the immutable files.
-    pub immutables: Vec<ImmutablesLocation>,
+    pub locations: Vec<ImmutablesLocation>,
+}
+
+/// Ancillary locations of the Cardano database related files.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AncillaryLocations {
+    /// Size of the uncompressed ancillary file.
+    pub size_uncompressed: u64,
 
     /// Locations of the ancillary files.
-    pub ancillary: Vec<AncillaryLocation>,
+    pub locations: Vec<AncillaryLocation>,
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::entities::TemplateUri;
+
     use super::*;
 
     fn dummy() -> CardanoDatabaseSnapshot {
         CardanoDatabaseSnapshot::new(
             "mk-root-1111111111".to_string(),
+            CardanoNetwork::DevNet(87),
             CardanoDbBeacon::new(2222, 55555),
-            0,
-            ArtifactsLocations {
-                digests: vec![],
-                immutables: vec![],
-                ancillary: vec![],
+            CardanoDatabaseSnapshotArtifactData {
+                total_db_size_uncompressed: 0,
+                digests: DigestsLocations {
+                    size_uncompressed: 0,
+                    locations: vec![],
+                },
+                immutables: ImmutablesLocations {
+                    average_size_uncompressed: 0,
+                    locations: vec![],
+                },
+                ancillary: AncillaryLocations {
+                    size_uncompressed: 0,
+                    locations: vec![],
+                },
             },
-            CompressionAlgorithm::Gzip,
             &Version::new(1, 0, 0),
         )
     }
@@ -233,5 +295,41 @@ mod tests {
                 .compute_hash()
             );
         }
+    }
+
+    #[test]
+    fn should_not_display_compression_algorithm_in_json_ancillary_location_when_none() {
+        let json = serde_json::json!(AncillaryLocation::CloudStorage {
+            uri: "https://example.com".to_string(),
+            compression_algorithm: None,
+        });
+        assert_eq!(
+            json.to_string(),
+            r#"{"type":"cloud_storage","uri":"https://example.com"}"#
+        );
+    }
+
+    #[test]
+    fn should_not_display_compression_algorithm_in_json_digests_location_when_none() {
+        let json = serde_json::json!(DigestLocation::CloudStorage {
+            uri: "https://example.com".to_string(),
+            compression_algorithm: None,
+        });
+        assert_eq!(
+            json.to_string(),
+            r#"{"type":"cloud_storage","uri":"https://example.com"}"#
+        );
+    }
+
+    #[test]
+    fn should_not_display_compression_algorithm_in_json_immutable_location_when_none() {
+        let json = serde_json::json!(ImmutablesLocation::CloudStorage {
+            uri: MultiFilesUri::Template(TemplateUri("https://example.com".to_string())),
+            compression_algorithm: None,
+        });
+        assert_eq!(
+            json.to_string(),
+            r#"{"type":"cloud_storage","uri":{"Template":"https://example.com"}}"#
+        );
     }
 }

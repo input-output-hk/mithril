@@ -7,7 +7,7 @@ use std::{
 use anyhow::Context;
 use async_trait::async_trait;
 use mithril_common::{
-    entities::{CardanoDbBeacon, DigestLocation},
+    entities::{CardanoDbBeacon, CompressionAlgorithm, DigestLocation},
     logging::LoggerExtensions,
     messages::CardanoDatabaseDigestListItemMessage,
     CardanoNetwork, StdResult,
@@ -25,34 +25,64 @@ use crate::{
 #[async_trait]
 pub trait DigestFileUploader: Send + Sync {
     /// Uploads the file at the given filepath and returns the location of the uploaded file.
-    async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation>;
+    async fn upload(
+        &self,
+        filepath: &Path,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<DigestLocation>;
 }
 
 #[async_trait]
 impl DigestFileUploader for DumbUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
+    async fn upload(
+        &self,
+        filepath: &Path,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<DigestLocation> {
         let uri = FileUploader::upload(self, filepath).await?.into();
 
-        Ok(DigestLocation::CloudStorage { uri })
+        Ok(DigestLocation::CloudStorage {
+            uri,
+            compression_algorithm,
+        })
     }
 }
 
 #[async_trait]
 impl DigestFileUploader for LocalUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
+    async fn upload(
+        &self,
+        filepath: &Path,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<DigestLocation> {
         let uri = FileUploader::upload(self, filepath).await?.into();
 
-        Ok(DigestLocation::CloudStorage { uri })
+        Ok(DigestLocation::CloudStorage {
+            uri,
+            compression_algorithm,
+        })
     }
 }
 
 #[async_trait]
 impl DigestFileUploader for GcpUploader {
-    async fn upload(&self, filepath: &Path) -> StdResult<DigestLocation> {
+    async fn upload(
+        &self,
+        filepath: &Path,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> StdResult<DigestLocation> {
         let uri = FileUploader::upload(self, filepath).await?.into();
 
-        Ok(DigestLocation::CloudStorage { uri })
+        Ok(DigestLocation::CloudStorage {
+            uri,
+            compression_algorithm,
+        })
     }
+}
+
+pub struct DigestUpload {
+    pub locations: Vec<DigestLocation>,
+    pub size: u64,
 }
 
 pub struct DigestArtifactBuilder {
@@ -91,15 +121,30 @@ impl DigestArtifactBuilder {
         })
     }
 
-    pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<Vec<DigestLocation>> {
+    pub async fn upload(&self, beacon: &CardanoDbBeacon) -> StdResult<DigestUpload> {
         let digest_path = self.create_digest_file(beacon).await?;
 
         let locations = self.upload_digest_file(&digest_path).await;
+
+        let file_metadata = std::fs::metadata(&digest_path);
+
         fs::remove_file(&digest_path).with_context(|| {
             format!("Could not remove digest file: '{}'", digest_path.display())
         })?;
 
-        locations
+        let size = file_metadata
+            .with_context(|| {
+                format!(
+                    "Could not get size of digest file: '{}'",
+                    digest_path.display()
+                )
+            })?
+            .len();
+
+        Ok(DigestUpload {
+            locations: locations?,
+            size,
+        })
     }
 
     async fn create_digest_file(&self, beacon: &CardanoDbBeacon) -> StdResult<PathBuf> {
@@ -138,7 +183,7 @@ impl DigestArtifactBuilder {
     async fn upload_digest_file(&self, digest_filepath: &Path) -> StdResult<Vec<DigestLocation>> {
         let mut locations = Vec::<DigestLocation>::new();
         for uploader in &self.uploaders {
-            let result = uploader.upload(digest_filepath).await;
+            let result = uploader.upload(digest_filepath, None).await;
             match result {
                 Ok(location) => {
                     locations.push(location);
@@ -189,7 +234,8 @@ mod tests {
     };
     use anyhow::anyhow;
     use mithril_common::{
-        entities::CardanoDbBeacon,
+        current_function,
+        entities::{CardanoDbBeacon, CompressionAlgorithm},
         messages::{CardanoDatabaseDigestListItemMessage, CardanoDatabaseDigestListMessage},
         test_utils::{assert_equivalent, TempDir},
     };
@@ -200,28 +246,31 @@ mod tests {
         let mut uploader = MockDigestFileUploader::new();
         uploader
             .expect_upload()
-            .return_once(|_| Err(anyhow!("Failure while uploading...")));
+            .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
         uploader
     }
 
-    fn fake_uploader(location_uri: &str) -> MockDigestFileUploader {
+    fn fake_uploader(
+        location_uri: &str,
+        compression_algorithm: Option<CompressionAlgorithm>,
+    ) -> MockDigestFileUploader {
         let uri = location_uri.to_string();
         let mut uploader = MockDigestFileUploader::new();
-        uploader
-            .expect_upload()
-            .times(1)
-            .return_once(|_| Ok(DigestLocation::CloudStorage { uri }));
+        uploader.expect_upload().times(1).return_once(move |_, _| {
+            Ok(DigestLocation::CloudStorage {
+                uri,
+                compression_algorithm,
+            })
+        });
 
         uploader
     }
 
     #[tokio::test]
     async fn digest_artifact_builder_return_digests_route_on_aggregator() {
-        let temp_dir = TempDir::create(
-            "digest",
-            "digest_artifact_builder_return_digests_route_on_aggregator",
-        );
+        let temp_dir = TempDir::create("digest", current_function!());
+
         let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
         immutable_file_digest_mapper
             .expect_get_immutable_file_digest_map()
@@ -237,24 +286,52 @@ mod tests {
         )
         .unwrap();
 
-        let locations = builder.upload(&CardanoDbBeacon::new(4, 123)).await.unwrap();
+        let upload_info = builder.upload(&CardanoDbBeacon::new(4, 123)).await.unwrap();
         assert_eq!(
             vec!(DigestLocation::Aggregator {
                 uri: "https://aggregator/artifact/cardano-database/digests".to_string()
             }),
-            locations
+            upload_info.locations
         );
     }
 
     #[tokio::test]
+    async fn digest_artifact_builder_return_size_of_digest_file() {
+        let temp_dir = TempDir::create("digest", current_function!());
+
+        let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
+        immutable_file_digest_mapper
+            .expect_get_immutable_file_digest_map()
+            .returning(|| Ok(BTreeMap::new()));
+
+        let builder = DigestArtifactBuilder::new(
+            SanitizedUrlWithTrailingSlash::parse("https://aggregator/").unwrap(),
+            vec![],
+            CardanoNetwork::DevNet(123),
+            temp_dir,
+            Arc::new(immutable_file_digest_mapper),
+            TestLogger::stdout(),
+        )
+        .unwrap();
+
+        let beacon = CardanoDbBeacon::new(4, 123);
+        let upload_info = builder.upload(&beacon).await.unwrap();
+
+        let digest_path = builder.create_digest_file(&beacon).await.unwrap();
+
+        let expected_size = std::fs::metadata(digest_path).unwrap().len();
+        assert!(expected_size > 0);
+        assert_eq!(expected_size, upload_info.size);
+    }
+
+    #[tokio::test]
     async fn upload_digest_file_should_log_upload_errors() {
-        let log_path = TempDir::create("digest", "upload_digest_file_should_log_upload_errors")
-            .join("test.log");
+        let log_path = TempDir::create("digest", current_function!()).join("test.log");
 
         let mut uploader = MockDigestFileUploader::new();
         uploader
             .expect_upload()
-            .return_once(|_| Err(anyhow!("Failure while uploading...")));
+            .return_once(|_, _| Err(anyhow!("Failure while uploading...")));
 
         {
             let builder = DigestArtifactBuilder::new(
@@ -299,7 +376,7 @@ mod tests {
     #[tokio::test]
     async fn upload_digest_file_should_return_location_even_with_uploaders_errors() {
         let first_uploader = fake_uploader_returning_error();
-        let second_uploader = fake_uploader("an_uri");
+        let second_uploader = fake_uploader("an_uri", Some(CompressionAlgorithm::Gzip));
         let third_uploader = fake_uploader_returning_error();
 
         let uploaders: Vec<Arc<dyn DigestFileUploader>> = vec![
@@ -328,6 +405,7 @@ mod tests {
             vec![
                 DigestLocation::CloudStorage {
                     uri: "an_uri".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 },
                 DigestLocation::Aggregator {
                     uri: "https://aggregator/artifact/cardano-database/digests".to_string(),
@@ -338,8 +416,8 @@ mod tests {
 
     #[tokio::test]
     async fn upload_digest_file_should_return_all_uploaders_returned_locations() {
-        let first_uploader = fake_uploader("an_uri");
-        let second_uploader = fake_uploader("another_uri");
+        let first_uploader = fake_uploader("an_uri", Some(CompressionAlgorithm::Gzip));
+        let second_uploader = fake_uploader("another_uri", Some(CompressionAlgorithm::Gzip));
 
         let uploaders: Vec<Arc<dyn DigestFileUploader>> =
             vec![Arc::new(first_uploader), Arc::new(second_uploader)];
@@ -364,9 +442,11 @@ mod tests {
             vec![
                 DigestLocation::CloudStorage {
                     uri: "an_uri".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 },
                 DigestLocation::CloudStorage {
                     uri: "another_uri".to_string(),
+                    compression_algorithm: Some(CompressionAlgorithm::Gzip),
                 },
                 DigestLocation::Aggregator {
                     uri: "https://aggregator/artifact/cardano-database/digests".to_string(),
@@ -377,10 +457,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_digest_file_should_create_json_file_with_all_digests() {
-        let temp_dir = TempDir::create(
-            "digest",
-            "create_digest_file_should_create_json_file_with_all_digests",
-        );
+        let temp_dir = TempDir::create("digest", current_function!());
         let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
         immutable_file_digest_mapper
             .expect_get_immutable_file_digest_map()
@@ -422,10 +499,7 @@ mod tests {
 
     #[tokio::test]
     async fn upload_should_call_upload_with_created_digest_file_and_delete_the_file() {
-        let digests_dir = TempDir::create(
-            "digests",
-            "upload_should_call_upload_with_created_digest_file_and_delete_the_file",
-        );
+        let digests_dir = TempDir::create("digest", current_function!());
         let mut immutable_file_digest_mapper = MockImmutableFileDigestMapper::new();
         immutable_file_digest_mapper
             .expect_get_immutable_file_digest_map()
@@ -441,11 +515,14 @@ mod tests {
         let digest_file_clone = digest_file.clone();
         digest_file_uploader
             .expect_upload()
-            .withf(move |path| path == digest_file_clone && path.exists())
+            .withf(move |path, algorithm| {
+                path == digest_file_clone && path.exists() && algorithm.is_none()
+            })
             .times(1)
-            .return_once(|_| {
+            .return_once(|_, _| {
                 Ok(DigestLocation::CloudStorage {
                     uri: "an_uri".to_string(),
+                    compression_algorithm: None,
                 })
             });
 
@@ -466,8 +543,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_digest_file_path_include_beacon_information() {
-        let digests_dir =
-            TempDir::create("digests", "get_digest_file_path_include_beacon_information");
+        let digests_dir = TempDir::create("digest", current_function!());
 
         let beacon = CardanoDbBeacon::new(5, 456);
         let network = CardanoNetwork::MainNet;

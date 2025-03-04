@@ -47,9 +47,13 @@ impl InternalArtifactProver {
         immutable_file_range: &ImmutableFileRange,
         database_dir: &Path,
     ) -> MithrilResult<MKProof> {
-        let digest_locations = &cardano_database_snapshot.locations.digests;
-        self.download_unpack_digest_file(digest_locations, &Self::digest_target_dir(database_dir))
-            .await?;
+        let digests = &cardano_database_snapshot.digests;
+        self.download_unpack_digest_file(
+            &digests.locations,
+            digests.size_uncompressed,
+            &Self::digest_target_dir(database_dir),
+        )
+        .await?;
         let network = certificate.metadata.network.clone();
         let last_immutable_file_number = cardano_database_snapshot.beacon.immutable_file_number;
         let immutable_file_number_range =
@@ -82,6 +86,7 @@ impl InternalArtifactProver {
     async fn download_unpack_digest_file(
         &self,
         locations: &[DigestLocation],
+        file_size: u64,
         digest_file_target_dir: &Path,
     ) -> MithrilResult<()> {
         create_directory_if_not_exists(digest_file_target_dir)?;
@@ -101,6 +106,7 @@ impl InternalArtifactProver {
             let downloaded = file_downloader
                 .download_unpack(
                     &file_downloader_uri,
+                    file_size,
                     digest_file_target_dir,
                     None,
                     DownloadEvent::Digest {
@@ -172,7 +178,7 @@ mod tests {
     use mithril_common::{
         digesters::{DummyCardanoDbBuilder, ImmutableDigester, ImmutableFile},
         entities::{CardanoDbBeacon, Epoch, HexEncodedDigest},
-        messages::{ArtifactsLocationsMessagePart, CardanoDatabaseDigestListItemMessage},
+        messages::CardanoDatabaseDigestListItemMessage,
         test_utils::TempDir,
     };
 
@@ -187,7 +193,7 @@ mod tests {
 
         use std::ops::RangeInclusive;
 
-        use mithril_common::entities::ImmutableFileNumber;
+        use mithril_common::{entities::ImmutableFileNumber, messages::DigestsMessagePart};
 
         use super::*;
 
@@ -205,11 +211,12 @@ mod tests {
             let cardano_database_snapshot = CardanoDatabaseSnapshotMessage {
                 hash: "hash-123".to_string(),
                 beacon: beacon.clone(),
-                locations: ArtifactsLocationsMessagePart {
-                    digests: vec![DigestLocation::CloudStorage {
+                digests: DigestsMessagePart {
+                    size_uncompressed: 1024,
+                    locations: vec![DigestLocation::CloudStorage {
                         uri: "http://whatever/digests.json".to_string(),
+                        compression_algorithm: None,
                     }],
-                    ..ArtifactsLocationsMessagePart::default()
                 },
                 ..CardanoDatabaseSnapshotMessage::dummy()
             };
@@ -358,11 +365,13 @@ mod tests {
                     &[
                         DigestLocation::CloudStorage {
                             uri: "http://whatever-1/digests.json".to_string(),
+                            compression_algorithm: None,
                         },
                         DigestLocation::Aggregator {
                             uri: "http://whatever-2/digest".to_string(),
                         },
                     ],
+                    0,
                     target_dir,
                 )
                 .await
@@ -378,7 +387,7 @@ mod tests {
             );
 
             artifact_prover
-                .download_unpack_digest_file(&[DigestLocation::Unknown], target_dir)
+                .download_unpack_digest_file(&[DigestLocation::Unknown], 0, target_dir)
                 .await
                 .expect_err("download_unpack_digest_file should fail");
         }
@@ -404,11 +413,13 @@ mod tests {
                     &[
                         DigestLocation::CloudStorage {
                             uri: "http://whatever-1/digests.json".to_string(),
+                            compression_algorithm: None,
                         },
                         DigestLocation::Aggregator {
                             uri: "http://whatever-2/digest".to_string(),
                         },
                     ],
+                    0,
                     target_dir,
                 )
                 .await
@@ -434,11 +445,13 @@ mod tests {
                     &[
                         DigestLocation::CloudStorage {
                             uri: "http://whatever-1/digests.json".to_string(),
+                            compression_algorithm: None,
                         },
                         DigestLocation::Aggregator {
                             uri: "http://whatever-2/digest".to_string(),
                         },
                     ],
+                    0,
                     target_dir,
                 )
                 .await

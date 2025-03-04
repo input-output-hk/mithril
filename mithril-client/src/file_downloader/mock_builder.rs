@@ -12,6 +12,7 @@ use super::{DownloadEvent, FileDownloaderUri, MockFileDownloader};
 type MockFileDownloaderBuilderReturningFunc = Box<
     dyn FnMut(
             &FileDownloaderUri,
+            u64,
             &Path,
             Option<CompressionAlgorithm>,
             DownloadEvent,
@@ -54,12 +55,12 @@ impl MockFileDownloaderBuilder {
 
     /// The MockFileDownloader will succeed
     pub fn with_success(self) -> Self {
-        self.with_returning(Box::new(|_, _, _, _| Ok(())))
+        self.with_returning(Box::new(|_, _, _, _, _| Ok(())))
     }
 
     /// The MockFileDownloader will fail
     pub fn with_failure(self) -> Self {
-        self.with_returning(Box::new(|_, _, _, _| {
+        self.with_returning(Box::new(|_, _, _, _, _| {
             Err(anyhow!("Download unpack failed"))
         }))
     }
@@ -133,6 +134,7 @@ impl MockFileDownloaderBuilder {
             .expect_download_unpack()
             .with(
                 predicate_file_downloader_uri,
+                predicate::always(),
                 predicate_target_dir,
                 predicate_compression_algorithm,
                 predicate_download_event_type,

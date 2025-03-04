@@ -178,12 +178,14 @@ impl TryFrom<SignedEntityRecord> for CardanoDatabaseSnapshotMessage {
         let cardano_database_snapshot_message = CardanoDatabaseSnapshotMessage {
             hash: artifact.hash,
             merkle_root: artifact.merkle_root,
+            network: artifact.network.to_string(),
             beacon: artifact.beacon,
             certificate_hash: value.certificate_id,
             total_db_size_uncompressed: artifact.total_db_size_uncompressed,
             created_at: value.created_at,
-            locations: artifact.locations.into(),
-            compression_algorithm: artifact.compression_algorithm,
+            digests: artifact.digests.into(),
+            immutables: artifact.immutables.into(),
+            ancillary: artifact.ancillary.into(),
             cardano_node_version: artifact.cardano_node_version,
         };
 
@@ -203,7 +205,6 @@ impl TryFrom<SignedEntityRecord> for CardanoDatabaseSnapshotListItemMessage {
             certificate_hash: value.certificate_id,
             total_db_size_uncompressed: artifact.total_db_size_uncompressed,
             created_at: value.created_at,
-            compression_algorithm: artifact.compression_algorithm,
             cardano_node_version: artifact.cardano_node_version,
         };
 
