@@ -125,6 +125,7 @@ mod tests {
         test_utils::{fake_data, TempDir},
         CardanoNetwork,
     };
+    use mockall::{predicate, Predicate};
 
     use crate::{
         artifact_builder::{MockAncillaryFileUploader, MockImmutableFilesUploader},
@@ -208,15 +209,19 @@ mod tests {
             .unwrap()
         };
 
+        fn predicate_length(length: u64) -> impl Predicate<[PathBuf]> {
+            predicate::function(move |p: &[_]| p.len() == length as usize)
+        }
+
         let immutable_artifact_builder = {
             let number_of_immutable_file_loaded = beacon.immutable_file_number;
             let mut immutable_uploader = MockImmutableFilesUploader::new();
             immutable_uploader
                 .expect_batch_upload()
-                .withf(move |paths, algorithm| {
-                    paths.len() == number_of_immutable_file_loaded as usize
-                        && algorithm == &Some(CompressionAlgorithm::Gzip)
-                })
+                .with(
+                    predicate_length(number_of_immutable_file_loaded),
+                    predicate::eq(Some(CompressionAlgorithm::Gzip)),
+                )
                 .return_once(|_, _| {
                     Ok(ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(

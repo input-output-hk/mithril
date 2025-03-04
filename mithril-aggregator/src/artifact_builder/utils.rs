@@ -4,9 +4,9 @@ use std::path::{Path, PathBuf};
 use mithril_common::StdResult;
 
 /// Compute the size of the given paths that could be files or folders.
-/// This function is not suitable for large numbers of inputs.
-/// This would require the algorithm to be optimized,
-/// which is not obvious given that the paths contain both files and paths.
+/// This function is not suitable for large numbers of inputs (more than 100).
+/// This would require the algorithm to be optimized to reduce the quadratic complexity,
+/// which is not obvious given that the paths contain both files and folders.
 pub(crate) fn compute_size(paths: Vec<PathBuf>) -> StdResult<u64> {
     fn is_in_paths(paths: &[PathBuf], path_to_check: &Path) -> bool {
         paths.iter().any(|path| path_to_check.starts_with(path))

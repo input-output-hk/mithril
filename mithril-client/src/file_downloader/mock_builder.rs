@@ -134,7 +134,7 @@ impl MockFileDownloaderBuilder {
             .expect_download_unpack()
             .with(
                 predicate_file_downloader_uri,
-                predicate::function(|_| true),
+                predicate::always(),
                 predicate_target_dir,
                 predicate_compression_algorithm,
                 predicate_download_event_type,
