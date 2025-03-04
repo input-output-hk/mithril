@@ -67,20 +67,39 @@ impl ArtifactBuilder<CardanoDbBeacon, CardanoDatabaseSnapshot> for CardanoDataba
                     SignedEntityType::CardanoDatabase(beacon.clone())
                 )
             })?;
-        let total_db_size_uncompressed = compute_uncompressed_database_size(&self.db_directory)?;
+        let total_db_size_uncompressed = {
+            let db_directory = self.db_directory.clone();
+            tokio::task::spawn_blocking(move || -> StdResult<u64> {
+                compute_uncompressed_database_size(&db_directory)
+            })
+            .await??
+        };
 
         let ancillary_locations = self.ancillary_builder.upload(&beacon).await?;
-        let ancillary_size = self
-            .ancillary_builder
-            .compute_uncompressed_size(&self.db_directory, &beacon)?;
+        let ancillary_builder = self.ancillary_builder.clone();
+        let ancillary_size = {
+            let db_directory = self.db_directory.clone();
+            let beacon = beacon.clone();
+            tokio::task::spawn_blocking(move || -> StdResult<u64> {
+                ancillary_builder.compute_uncompressed_size(&db_directory, &beacon)
+            })
+            .await??
+        };
 
         let immutables_locations = self
             .immutable_builder
             .upload(beacon.immutable_file_number)
             .await?;
-        let immutable_average_size = self
-            .immutable_builder
-            .compute_average_uncompressed_size(&self.db_directory, beacon.immutable_file_number)?;
+        let immutable_average_size = {
+            let db_directory = self.db_directory.clone();
+            let immutable_file_number = beacon.immutable_file_number;
+            let immutable_builder = self.immutable_builder.clone();
+            tokio::task::spawn_blocking(move || -> StdResult<u64> {
+                immutable_builder
+                    .compute_average_uncompressed_size(&db_directory, immutable_file_number)
+            })
+            .await??
+        };
 
         let digest_upload = self.digest_builder.upload(&beacon).await?;
 
