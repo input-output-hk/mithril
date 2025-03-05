@@ -140,12 +140,12 @@ impl MithrilClient {
     /// Call the client to get a snapshot from a digest
     #[wasm_bindgen]
     pub async fn get_snapshot(&self, digest: &str) -> WasmResult {
-        self.get_cardano_database(digest).await
+        self.get_cardano_database_snapshot(digest).await
     }
 
     /// Call the client to get a snapshot from a digest
     #[wasm_bindgen]
-    pub async fn get_cardano_database(&self, digest: &str) -> WasmResult {
+    pub async fn get_cardano_database_snapshot(&self, digest: &str) -> WasmResult {
         let result = self
             .client
             .cardano_database()
@@ -163,12 +163,12 @@ impl MithrilClient {
     /// Call the client to get the list of available snapshots
     #[wasm_bindgen]
     pub async fn list_snapshots(&self) -> WasmResult {
-        self.list_cardano_database().await
+        self.list_cardano_database_snapshots().await
     }
 
     /// Call the client to get the list of available snapshots
     #[wasm_bindgen]
-    pub async fn list_cardano_database(&self) -> WasmResult {
+    pub async fn list_cardano_database_snapshots(&self) -> WasmResult {
         let result = self
             .client
             .cardano_database()
