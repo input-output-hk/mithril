@@ -213,15 +213,16 @@ Display the help menu:
 You should see:
 
 ```bash
-This program shows, downloads, and verifies certified blockchain artifacts.
+This program shows, downloads and verifies certified blockchain artifacts.
 
 Usage: mithril-client [OPTIONS] <COMMAND>
 
 Commands:
   cardano-db                  Cardano db management (alias: cdb)
-  mithril-stake-distribution  Mithril stake distribution management (alias: msd)
+  mithril-stake-distribution  Mithril Stake Distribution management (alias: msd)
   cardano-transaction         Cardano transactions management (alias: ctx)
   cardano-stake-distribution  Cardano stake distribution management (alias: csd)
+  cardano-db-v2               [unstable] Cardano db v2 management (alias: cdbv2)
   help                        Print this message or the help of the given subcommand(s)
 
 Options:
@@ -439,6 +440,15 @@ mithril_client cardano-stake-distribution list
 
 # 11 - Download and verify the given Cardano stake distribution from its hash or epoch
 mithril_client cardano-stake-distribution download $UNIQUE_IDENTIFIER
+
+# 12 - List Cardano database v2 snapshots
+mithril_client --unstable cardano-db snapshot list $CARDANO_DB_V2_DIGEST
+
+# 13- Show detailed information about a Cardano db v2 snapshot
+mithril_client --unstable cardano-db-v2 snapshot show $CARDANO_DB_V2_DIGEST
+
+# 14- Download the given Cardano db v2 and verify the certificate
+mithril_client --unstable cardano-db-v2 download $CARDANO_DB_V2_DIGEST
 ```
 
 ### Local image
@@ -510,6 +520,15 @@ Here are the subcommands available:
 | **download** | Downloads and verifies Cardano stake distribution           |
 | **help**     | Prints this message or the help for the given subcommand(s) |
 | **list**     | Lists available Cardano stake distributions                 |
+
+### Cardano DB V2 (`unstable` will replace Cardano DB)
+
+| Subcommand        | Performed action                                            |
+| ----------------- | ----------------------------------------------------------- |
+| **download**      | Downloads and restores a cardano-db v2 snapshot             |
+| **help**          | Prints this message or the help for the given subcommand(s) |
+| **snapshot list** | Lists available cardano-db v2 snapshots                     |
+| **snapshot show** | Shows information about a cardano-db v2 snapshot            |
 
 ## Configuration parameters
 
@@ -598,3 +617,28 @@ Here is a list of the available parameters:
 | ------------------- | --------------------- | :------------------: | -------------------- | -------------------------------------------------------------------------------------------- | ------------- | ------- | :----------------: |
 | `unique_identifier` | `--unique-identifier` |          -           | -                    | Epoch or hash of the Cardano stake distribution artifact or `latest` for the latest artifact | -             | -       | :heavy_check_mark: |
 | `download_dir`      | `--download-dir`      |          -           | -                    | Directory where the Cardano stake distribution will be downloaded                            | .             | -       |         -          |
+
+`cardano-db-v2 snapshot show` command:
+
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                                              | Default value | Example |     Mandatory      |
+| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `hash`    | `--hash`            |          -           | -                    | Cardano DB snapshot hash or `latest` for the latest hash | -             | -       | :heavy_check_mark: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results                   | -             | -       |         -          |
+
+`cardano-db-v2 snapshot list` command:
+
+| Parameter | Command line (long) | Command line (short) | Environment variable | Description                            | Default value | Example | Mandatory |
+| --------- | ------------------- | :------------------: | -------------------- | -------------------------------------- | ------------- | ------- | :-------: |
+| `json`    | `--json`            |          -           | -                    | Enable JSON output for command results | -             | -       |     -     |
+
+`cardano-db-v2 download` command:
+
+| Parameter           | Command line (long)   | Command line (short) | Environment variable | Description                                                    | Default value | Example |     Mandatory      |
+| ------------------- | --------------------- | :------------------: | -------------------- | -------------------------------------------------------------- | ------------- | ------- | :----------------: |
+| `hash`              | `--hash`              |          -           | -                    | Cardano DB snapshot hash or `latest` for the latest hash       | -             | -       | :heavy_check_mark: |
+| `start`             | `--start`             |          -           | -                    | The first immutable file number to download                    | .             | -       |         -          |
+| `end`               | `--end`               |          -           | -                    | The last immutable file number to download                     | .             | -       |         -          |
+| `include_ancillary` | `--include-ancillary` |          -           | -                    | Include ancillary files in the download                        | .             | -       |         -          |
+| `allow_override`    | `--allow-override`    |          -           | -                    | Allow existing files in the download directory to be overridde | .             | -       |         -          |
+| `download_dir`      | `--download-dir`      |          -           | -                    | Directory where the Cardano DB will be downloaded              | .             | -       |         -          |
+| `json`              | `--json`              |          -           | -                    | Enable JSON output for progress logs                           | -             | -       |         -          |
