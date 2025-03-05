@@ -136,7 +136,7 @@ impl MithrilClient {
         )))
     }
 
-    #[deprecated]
+    #[deprecated(since = "0.8.4", note = "supersede by `get_cardano_database_snapshot`")]
     /// Call the client to get a snapshot from a digest
     #[wasm_bindgen]
     pub async fn get_snapshot(&self, digest: &str) -> WasmResult {
@@ -159,7 +159,10 @@ impl MithrilClient {
         Ok(serde_wasm_bindgen::to_value(&result)?)
     }
 
-    #[deprecated]
+    #[deprecated(
+        since = "0.8.4",
+        note = "supersede by `list_cardano_database_snapshots`"
+    )]
     /// Call the client to get the list of available snapshots
     #[wasm_bindgen]
     pub async fn list_snapshots(&self) -> WasmResult {
