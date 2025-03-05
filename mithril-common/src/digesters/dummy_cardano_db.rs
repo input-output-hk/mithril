@@ -56,6 +56,16 @@ impl DummyCardanoDb {
         &self.immutable_db.dir
     }
 
+    /// Return the ledger directory path.
+    pub fn get_ledger_dir(&self) -> PathBuf {
+        self.dir.join(LEDGER_DIR)
+    }
+
+    /// Return the volatile directory path.
+    pub fn get_volatile_dir(&self) -> PathBuf {
+        self.dir.join(VOLATILE_DIR)
+    }
+
     /// Return the file number of the last immutable
     pub fn get_immutable_files(&self) -> &Vec<ImmutableFile> {
         &self.immutable_db.immutables_files
