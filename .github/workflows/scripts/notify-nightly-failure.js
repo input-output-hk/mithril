@@ -32,4 +32,7 @@ sgMail
     console.log("Mail sent successfully");
     console.log("Message details:", msg);
   })
-  .catch((error) => console.error("Error sending email:", error));
+  .catch((error) => {
+    console.error("Error sending email:", error);
+    process.exit(1);
+  });
