@@ -3650,6 +3650,8 @@ dependencies = [
  "criterion",
  "flate2",
  "hex",
+ "http 1.2.0",
+ "httpmock",
  "mithril-common",
  "mithril-doc",
  "mithril-metric",

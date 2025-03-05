@@ -1,7 +1,9 @@
+mod from_epoch_settings;
 mod from_register_signature;
 mod from_register_signer;
 mod to_cardano_transactions_proof_message;
 
+pub use from_epoch_settings::FromEpochSettingsAdapter;
 pub use from_register_signature::FromRegisterSingleSignatureAdapter;
 pub use from_register_signer::FromRegisterSignerAdapter;
 pub use to_cardano_transactions_proof_message::ToCardanoTransactionsProofsMessageAdapter;
