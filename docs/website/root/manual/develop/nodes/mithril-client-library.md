@@ -74,10 +74,10 @@ use std::path::Path;
 async fn main() -> mithril_client::MithrilResult<()> {
     let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
 
-    let snapshots = client.snapshot().list().await?;
+    let snapshots = client.cardano_database().list().await?;
 
     let last_digest = snapshots.first().unwrap().digest.as_ref();
-    let snapshot = client.snapshot().get(last_digest).await?.unwrap();
+    let snapshot = client.cardano_database().get(last_digest).await?.unwrap();
 
     let certificate = client
         .certificate()
@@ -87,11 +87,11 @@ async fn main() -> mithril_client::MithrilResult<()> {
     // Note: the directory must already exist, and the user running this code must have read/write access to it.
     let target_directory = Path::new("YOUR_TARGET_DIRECTORY");
     client
-        .snapshot()
+        .cardano_database()
         .download_unpack(&snapshot, target_directory)
         .await?;
 
-    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+    if let Err(e) = client.cardano_database().add_statistics(&snapshot).await {
         println!("Could not increment snapshot download statistics: {:?}", e);
     }
 
@@ -132,10 +132,10 @@ use std::path::Path;
 async fn main() -> mithril_client::MithrilResult<()> {
     let client = ClientBuilder::aggregator("https://aggregator.release-preprod.api.mithril.network/aggregator", "5b3132372c37332c3132342c3136312c362c3133372c3133312c3231332c3230372c3131372c3139382c38352c3137362c3139392c3136322c3234312c36382c3132332c3131392c3134352c31332c3233322c3234332c34392c3232392c322c3234392c3230352c3230352c33392c3233352c34345d").build()?;
 
-    let snapshots = client.snapshot().list().await?;
+    let snapshots = client.cardano_database().list().await?;
 
     let last_digest = snapshots.first().unwrap().digest.as_ref();
-    let snapshot = client.snapshot().get(last_digest).await?.unwrap();
+    let snapshot = client.cardano_database().get(last_digest).await?.unwrap();
 
     let certificate = client
         .certificate()
@@ -145,11 +145,11 @@ async fn main() -> mithril_client::MithrilResult<()> {
     // Note: the directory must already exist, and the user running this code must have read/write access to it.
     let target_directory = Path::new(".");
     client
-        .snapshot()
+        .cardano_database()
         .download_unpack(&snapshot, target_directory)
         .await?;
 
-    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+    if let Err(e) = client.cardano_database().add_statistics(&snapshot).await {
         println!("Could not increment snapshot download statistics: {:?}", e);
     }
 
