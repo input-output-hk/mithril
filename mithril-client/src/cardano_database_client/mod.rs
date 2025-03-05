@@ -15,7 +15,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_database = client.cardano_database().get("CARDANO_DATABASE_HASH").await?.unwrap();
+//! let cardano_database = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //!
 //! println!(
 //!     "Cardano database hash={}, merkle_root={}, immutable_file_number={:?}",
@@ -36,7 +36,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_databases = client.cardano_database().list().await?;
+//! let cardano_databases = client.cardano_database_v2().list().await?;
 //!
 //! for cardano_database in cardano_databases {
 //!     println!("Cardano database hash={}, immutable_file_number={}", cardano_database.hash, cardano_database.beacon.immutable_file_number);
@@ -57,7 +57,7 @@
 //! use std::path::Path;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_database_snapshot = client.cardano_database().get("CARDANO_DATABASE_HASH").await?.unwrap();
+//! let cardano_database_snapshot = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //!
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
@@ -68,7 +68,7 @@
 //!     ..DownloadUnpackOptions::default()
 //! };
 //! client
-//!     .cardano_database()
+//!     .cardano_database_v2()
 //!     .download_unpack(
 //!         &cardano_database_snapshot,
 //!         &immutable_file_range,
@@ -92,7 +92,7 @@
 //! use std::path::Path;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let cardano_database_snapshot = client.cardano_database().get("CARDANO_DATABASE_HASH").await?.unwrap();
+//! let cardano_database_snapshot = client.cardano_database_v2().get("CARDANO_DATABASE_HASH").await?.unwrap();
 //! let certificate = client.certificate().verify_chain(&cardano_database_snapshot.certificate_hash).await?;
 //!
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
@@ -104,7 +104,7 @@
 //!     ..DownloadUnpackOptions::default()
 //! };
 //! client
-//!     .cardano_database()
+//!     .cardano_database_v2()
 //!     .download_unpack(
 //!         &cardano_database_snapshot,
 //!         &immutable_file_range,
@@ -114,7 +114,7 @@
 //!     .await?;
 //!
 //! let merkle_proof = client
-//!     .cardano_database()
+//!     .cardano_database_v2()
 //!     .compute_merkle_proof(&certificate, &cardano_database_snapshot, &immutable_file_range, &target_directory)
 //!     .await?;
 //! #

@@ -48,7 +48,7 @@ async fn main() -> MithrilResult<()> {
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
             .build()?;
 
-    let snapshots = client.snapshot().list().await?;
+    let snapshots = client.cardano_database().list().await?;
 
     let last_digest = snapshots
         .first()
@@ -60,7 +60,7 @@ async fn main() -> MithrilResult<()> {
         .as_ref();
 
     let snapshot = client
-        .snapshot()
+        .cardano_database()
         .get(last_digest)
         .await?
         .ok_or(anyhow!("A snapshot should exist for hash '{last_digest}'"))?;
@@ -74,11 +74,11 @@ async fn main() -> MithrilResult<()> {
         .await?;
 
     client
-        .snapshot()
+        .cardano_database()
         .download_unpack(&snapshot, &unpacked_dir)
         .await?;
 
-    if let Err(e) = client.snapshot().add_statistics(&snapshot).await {
+    if let Err(e) = client.cardano_database().add_statistics(&snapshot).await {
         println!("Could not increment snapshot download statistics: {:?}", e);
     }
 

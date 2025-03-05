@@ -48,7 +48,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
         .expect("Should be able to create a Client");
 
     let cardano_db_snapshots = client
-        .cardano_database()
+        .cardano_database_v2()
         .list()
         .await
         .expect("List CardanoDatabaseSnapshot should not fail");
@@ -56,7 +56,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     let last_hash = cardano_db_snapshots.first().unwrap().hash.as_ref();
 
     let cardano_db_snapshot = client
-        .cardano_database()
+        .cardano_database_v2()
         .get(last_hash)
         .await
         .expect("Get CardanoDatabaseSnapshot should not fail ")
@@ -77,7 +77,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     };
 
     client
-        .cardano_database()
+        .cardano_database_v2()
         .download_unpack(
             &cardano_db_snapshot,
             &immutable_file_range,
@@ -92,7 +92,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     let number_of_immutable_files_restored =
         immutable_file_range.length(cardano_db_snapshot.beacon.immutable_file_number);
     client
-        .cardano_database()
+        .cardano_database_v2()
         .add_statistics(
             full_restoration,
             include_ancillary,
@@ -118,7 +118,7 @@ async fn cardano_db_snapshot_list_get_download_verify() {
     )));
 
     let merkle_proof = client
-        .cardano_database()
+        .cardano_database_v2()
         .compute_merkle_proof(
             &certificate,
             &cardano_db_snapshot,

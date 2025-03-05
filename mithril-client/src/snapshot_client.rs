@@ -14,7 +14,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//! let snapshot = client.cardano_database().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
 //! println!("Snapshot digest={}, size={}", snapshot.digest, snapshot.size);
 //! #    Ok(())
@@ -30,7 +30,7 @@
 //! use mithril_client::ClientBuilder;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let snapshots = client.snapshot().list().await?;
+//! let snapshots = client.cardano_database().list().await?;
 //!
 //! for snapshot in snapshots {
 //!     println!("Snapshot digest={}, size={}", snapshot.digest, snapshot.size);
@@ -51,12 +51,12 @@
 //! use std::path::Path;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//! let snapshot = client.cardano_database().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
 //! client
-//!    .snapshot()
+//!    .cardano_database()
 //!    .download_unpack(&snapshot, target_directory)
 //!    .await?;
 //! #
@@ -76,16 +76,16 @@
 //! use std::path::Path;
 //!
 //! let client = ClientBuilder::aggregator("YOUR_AGGREGATOR_ENDPOINT", "YOUR_GENESIS_VERIFICATION_KEY").build()?;
-//! let snapshot = client.snapshot().get("SNAPSHOT_DIGEST").await?.unwrap();
+//! let snapshot = client.cardano_database().get("SNAPSHOT_DIGEST").await?.unwrap();
 //!
 //! // Note: the directory must already exist, and the user running the binary must have read/write access to it.
 //! let target_directory = Path::new("/home/user/download/");
 //! client
-//!    .snapshot()
+//!    .cardano_database()
 //!    .download_unpack(&snapshot, target_directory)
 //!    .await?;
 //!
-//! client.snapshot().add_statistics(&snapshot).await.unwrap();
+//! client.cardano_database().add_statistics(&snapshot).await.unwrap();
 //! #
 //! #    Ok(())
 //! # }
