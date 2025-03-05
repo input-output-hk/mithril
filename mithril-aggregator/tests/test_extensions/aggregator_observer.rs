@@ -2,17 +2,18 @@ use anyhow::{anyhow, Context};
 use mithril_aggregator::{
     dependency_injection::{DependenciesBuilder, EpochServiceWrapper},
     entities::OpenMessage,
-    services::{CertifierService, SignedEntityService},
+    services::{CertifierService, MessageService, SignedEntityService},
 };
 use mithril_common::{
     entities::{
         CardanoTransactionsSnapshot, Certificate, Epoch, SignedEntityType,
         SignedEntityTypeDiscriminants, TimePoint,
     },
+    messages::EpochSettingsMessage,
     signable_builder::SignedEntity,
     StdResult, TickerService,
 };
-use std::sync::Arc;
+use std::{collections::BTreeSet, sync::Arc};
 
 // An observer that allow to inspect currently available open messages.
 pub struct AggregatorObserver {
@@ -20,6 +21,7 @@ pub struct AggregatorObserver {
     signed_entity_service: Arc<dyn SignedEntityService>,
     ticker_service: Arc<dyn TickerService>,
     epoch_service: EpochServiceWrapper,
+    message_service: Arc<dyn MessageService>,
 }
 
 impl AggregatorObserver {
@@ -30,6 +32,7 @@ impl AggregatorObserver {
             signed_entity_service: deps_builder.get_signed_entity_service().await.unwrap(),
             ticker_service: deps_builder.get_ticker_service().await.unwrap(),
             epoch_service: deps_builder.get_epoch_service().await.unwrap(),
+            message_service: deps_builder.get_message_service().await.unwrap(),
         }
     }
 
@@ -77,6 +80,17 @@ impl AggregatorObserver {
             .await
             .signed_entity_config()?
             .time_point_to_signed_entity(discriminant, &time_point)
+    }
+
+    /// Get the current [EpochSettingsMessage] of the aggregator
+    pub async fn get_epoch_settings(
+        &self,
+        allowed_discriminants: BTreeSet<SignedEntityTypeDiscriminants>,
+    ) -> StdResult<EpochSettingsMessage> {
+        self.message_service
+            .get_epoch_settings_message(allowed_discriminants)
+            .await
+            .with_context(|| "Querying the current epoch settings should not fail")
     }
 
     /// Get the last certificate produced by the aggregator
