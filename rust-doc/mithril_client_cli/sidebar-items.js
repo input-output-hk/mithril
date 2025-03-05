@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["commands"],"struct":["CommandContext"],"type":["ClapError"]};
