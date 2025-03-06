@@ -39,6 +39,10 @@ readonly OPEN_API_FILE=openapi.yaml
 declare OPEN_API_UPDATE=""
 declare OPEN_API_UPDATE_MESSAGE=""
 
+readonly INFRA_VERSION_FILE=mithril-infra/assets/infra.version
+declare INFRA_UPDATE=""
+declare INFRA_UPDATE_MESSAGE=""
+
 update_crate_versions() {
     # NOTE
     # `cargo get workspace.members` display the list of path to crates in the workspace.
@@ -141,6 +145,24 @@ update_openapi_version() {
     OPEN_API_UPDATE_MESSAGE=" and \`$OPEN_API_FILE\` version"
 }
 
+update_infra_version() {
+    local -r dry_run=$1
+    local -r version_line=$(cat $INFRA_VERSION_FILE | head -n 1)
+    local -r patch_number=$(echo "$version_line" | cut -d . -f 3)
+    local -r next_patch_number=$((patch_number + 1))
+    local -r new_version=$(echo "$version_line" | cut -d . -f 1-2).$next_patch_number
+
+    echo -e "   ${GREEN}Upgrading${RESET} $INFRA_VERSION_FILE from ${version_line} to ${new_version}"
+    if [ true = "$dry_run" ]
+    then
+        echo -e "${ORANGE}warning${RESET}: aborting $INFRA_VERSION_FILE update due to dry run"
+    else
+        echo -e "$new_version\n" > $INFRA_VERSION_FILE
+    fi
+    INFRA_UPDATE="\n* $INFRA_VERSION_FILE from \`${version_line}\` to \`${new_version}\`"
+    INFRA_UPDATE_MESSAGE=" and \`$INFRA_VERSION_FILE\` version"
+}
+
 ################
 check_requirements
 
@@ -167,6 +189,11 @@ update_package_json_versions $DRY_RUN FILES_MODIFY PACKAGE_JSON_FILES
 if [ "$(echo "${FILES_MODIFY[@]}" | grep -xc "$OPEN_API_FILE")" -gt 0 ]
 then
     update_openapi_version $DRY_RUN
+fi
+
+if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-infra/.*\.tf$")" -gt 0 ]
+then
+    update_infra_version $DRY_RUN
 fi
 
 if [ true = $DRY_RUN ]
@@ -204,7 +231,7 @@ else
     UPDATED_PACKAGE_JSONS="\n${UPDATED_PACKAGE_JSONS}"
   fi
 
-  COMMIT_MESSAGE=$(echo -e "chore: upgrade crate versions${OPEN_API_UPDATE_MESSAGE}\n${UPDATED_CRATES}${UPDATED_PACKAGE_JSONS}${OPEN_API_UPDATE}")
+  COMMIT_MESSAGE=$(echo -e "chore: upgrade crate versions${OPEN_API_UPDATE_MESSAGE}${INFRA_UPDATE_MESSAGE}\n${UPDATED_CRATES}${UPDATED_PACKAGE_JSONS}${OPEN_API_UPDATE}${INFRA_UPDATE}")
 
   echo -e "$COMMIT_MESSAGE"
 
@@ -212,6 +239,7 @@ else
   then
     git add --update $OPEN_API_FILE Cargo.lock ./*/Cargo.toml ./internal/*/Cargo.toml ./mithril-test-lab/*/Cargo.toml examples/*/Cargo.toml
     git add --update ./*/package.json ./*/package-lock.json mithril-client-wasm/ci-test/package-lock.json examples/*/package.json examples/*/package-lock.json
+    git add --update $INFRA_VERSION_FILE
     git commit -m "$COMMIT_MESSAGE"
   fi
 fi
