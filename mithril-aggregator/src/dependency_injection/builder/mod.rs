@@ -47,7 +47,7 @@ use crate::{
         AggregatorClient, CertifierService, EpochPruningTask, MessageService, ProverService,
         SignedEntityService, Snapshotter, StakeDistributionService, UpkeepService,
     },
-    signer_registerer::{MithrilSignerRegistererSlave, SignerSynchronizer},
+    signer_registration::{MithrilSignerRegistererSlave, SignerSynchronizer},
     tools::GenesisToolsDependency,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistererMaster, MultiSigner,

@@ -1,0 +1,53 @@
+use thiserror::Error;
+
+use mithril_common::{
+    entities::{Epoch, SignerWithStake},
+    StdError,
+};
+
+use mithril_common::chain_observer::ChainObserverError;
+
+/// Error type for signer registerer service.
+#[derive(Error, Debug)]
+pub enum SignerRegistrationError {
+    /// No signer registration round opened yet
+    #[error("a signer registration round is not opened yet, please try again later")]
+    RegistrationRoundNotYetOpened,
+
+    /// Registration round for unexpected epoch
+    #[error("unexpected signer registration round epoch: current_round_epoch: {current_round_epoch}, received_epoch: {received_epoch}")]
+    RegistrationRoundUnexpectedEpoch {
+        /// Epoch of the current round
+        current_round_epoch: Epoch,
+        /// Epoch of the received signer registration
+        received_epoch: Epoch,
+    },
+
+    /// Chain observer error.
+    #[error("chain observer error")]
+    ChainObserver(#[from] ChainObserverError),
+
+    /// Signer is already registered.
+    #[error("signer already registered")]
+    ExistingSigner(Box<SignerWithStake>),
+
+    /// Store error.
+    #[error("store error")]
+    StoreError(#[source] StdError),
+
+    /// Signer registration failed.
+    #[error("signer registration failed")]
+    FailedSignerRegistration(#[source] StdError),
+
+    /// Signer recorder failed.
+    #[error("signer recorder failed: '{0}'")]
+    FailedSignerRecorder(String),
+
+    /// Signer registration is always closed on a slave aggregator.
+    #[error("signer registration is always closed on a slave aggregator")]
+    RegistrationRoundAlwaysClosedOnSlaveAggregator,
+
+    /// Signer synchronization is not available on a master aggregator.
+    #[error("signer synchronization is not available on a master aggregator")]
+    SignerSynchronizationUnavailableOnMasterAggregator,
+}

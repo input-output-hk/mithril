@@ -26,8 +26,7 @@ pub mod metrics;
 mod multi_signer;
 mod runtime;
 pub mod services;
-mod signer_registerer;
-mod signer_registration_verifier;
+mod signer_registration;
 mod store;
 mod tools;
 
@@ -45,10 +44,10 @@ pub use metrics::*;
 pub use runtime::{
     AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
 };
-pub use signer_registerer::{
-    MithrilSignerRegistererMaster, MithrilSignerRegistererSlave, SignerRecorder, SignerRegisterer,
-    SignerRegistrationError, SignerRegistrationRound, SignerRegistrationRoundOpener,
-    SignerSynchronizer,
+pub use signer_registration::{
+    MithrilSignerRegistererMaster, MithrilSignerRegistererSlave, MithrilSignerRegistrationVerifier,
+    SignerRecorder, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,
+    SignerRegistrationRoundOpener, SignerRegistrationVerifier, SignerSynchronizer,
 };
 pub use store::{EpochSettingsStorer, VerificationKeyStorer};
 pub use tools::{
@@ -57,9 +56,6 @@ pub use tools::{
 };
 
 pub use immutable_file_digest_mapper::ImmutableFileDigestMapper;
-pub use signer_registration_verifier::{
-    MithrilSignerRegistrationVerifier, SignerRegistrationVerifier,
-};
 
 #[cfg(test)]
 pub(crate) use dependency_injection::tests::initialize_dependencies;

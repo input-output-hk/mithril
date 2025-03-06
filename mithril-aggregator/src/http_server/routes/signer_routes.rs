@@ -277,7 +277,7 @@ mod tests {
         database::{record::SignerRecord, repository::MockSignerGetter},
         initialize_dependencies,
         services::FakeEpochService,
-        signer_registerer::MockSignerRegisterer,
+        signer_registration::MockSignerRegisterer,
         store::MockVerificationKeyStorer,
         test_tools::TestLogger,
         SignerRegistrationError,

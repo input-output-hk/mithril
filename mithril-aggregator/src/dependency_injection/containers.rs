@@ -40,7 +40,7 @@ use crate::{
         SignedEntityService, Snapshotter, StakeDistributionService, TransactionStore,
         UpkeepService,
     },
-    signer_registerer::{SignerRecorder, SignerSynchronizer},
+    signer_registration::{SignerRecorder, SignerSynchronizer},
     EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
     SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };

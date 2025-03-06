@@ -10,17 +10,7 @@ use mithril_common::{
     StdResult,
 };
 
-/// A trait for verifying a [Signer] registration.
-#[cfg_attr(test, mockall::automock)]
-#[async_trait]
-pub trait SignerRegistrationVerifier: Send + Sync {
-    /// Verifies a [Signer] registration.
-    async fn verify(
-        &self,
-        signer: &Signer,
-        stake_distribution: &StakeDistribution,
-    ) -> StdResult<SignerWithStake>;
-}
+use super::SignerRegistrationVerifier;
 
 /// Implementation of a [SignerRegistrationVerifier]
 pub struct MithrilSignerRegistrationVerifier {
