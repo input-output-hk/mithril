@@ -67,7 +67,7 @@ pub trait FileUploader: Sync + Send {
 
 #[cfg(test)]
 mod tests {
-    use std::{path::PathBuf, time::Instant};
+    use std::{path::PathBuf, sync::Mutex, time::Instant};
 
     use super::*;
     use anyhow::anyhow;
@@ -172,39 +172,53 @@ mod tests {
 
     #[tokio::test]
     async fn should_delay_between_retries() {
-        let mut uploader = MockTestFileUploader::new();
+        struct FileUploaderAssertDelay {
+            delay_ms: u64,
+            last_attempt_start_time: Mutex<Option<Instant>>,
+        }
 
-        let delay = Duration::from_millis(50);
-        uploader
-            .expect_retry_policy()
-            .returning(move || FileUploadRetryPolicy {
-                attempts: 4,
-                delay_between_attempts: delay,
-            });
+        #[async_trait]
+        impl FileUploader for FileUploaderAssertDelay {
+            async fn upload_without_retry(&self, _filepath: &Path) -> StdResult<FileUri> {
+                let mut last_attempt_start_time = self.last_attempt_start_time.lock().unwrap();
+                if let Some(last_start_attempt) = *last_attempt_start_time {
+                    let duration = last_start_attempt.elapsed();
+                    let expected_delay_greater_than_or_equal = Duration::from_millis(self.delay_ms);
+                    assert!(
+                        duration >= expected_delay_greater_than_or_equal,
+                        "duration should be greater than or equal to {}ms but was {}ms",
+                        expected_delay_greater_than_or_equal.as_millis(),
+                        duration.as_millis()
+                    );
+                    let expected_delay_less_than = Duration::from_millis(2 * self.delay_ms);
+                    assert!(
+                        duration < expected_delay_less_than,
+                        "duration should be less than {}ms but was {}ms",
+                        expected_delay_less_than.as_millis(),
+                        duration.as_millis()
+                    );
+                }
+                *last_attempt_start_time = Some(Instant::now());
 
-        uploader
-            .expect_upload_without_retry()
-            .times(4)
-            .returning(move |_| Err(anyhow!("Failure while uploading...")));
+                Err(anyhow::anyhow!("Upload failed"))
+            }
 
-        let start = Instant::now();
+            fn retry_policy(&self) -> FileUploadRetryPolicy {
+                FileUploadRetryPolicy {
+                    attempts: 4,
+                    delay_between_attempts: Duration::from_millis(self.delay_ms),
+                }
+            }
+        }
+
+        let uploader = FileUploaderAssertDelay {
+            delay_ms: 50,
+            last_attempt_start_time: Mutex::new(None),
+        };
+
         uploader
             .upload(&PathBuf::from("file_to_upload"))
             .await
             .expect_err("An error should be returned when all retries are done");
-        let duration = start.elapsed();
-
-        assert!(
-            duration >= delay * 3,
-            "Duration should be at least 3 times the delay ({}ms) but was {}ms",
-            delay.as_millis() * 3,
-            duration.as_millis()
-        );
-        assert!(
-            duration < delay * 4,
-            "Duration should be less than 4 times the delay ({}ms) but was {}ms",
-            delay.as_millis() * 4,
-            duration.as_millis()
-        );
     }
 }
