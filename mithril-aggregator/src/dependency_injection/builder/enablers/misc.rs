@@ -59,13 +59,13 @@ impl DependenciesBuilder {
 
     /// build an [AggregatorClient]
     pub async fn build_master_aggregator_client(&mut self) -> Result<Arc<dyn AggregatorClient>> {
-        let master_aggregator_endpoint = &self
+        let master_aggregator_endpoint = self
             .configuration
             .master_aggregator_endpoint
-            .clone()
+            .to_owned()
             .unwrap_or_default();
         let aggregator_client = AggregatorHTTPClient::new(
-            master_aggregator_endpoint.to_owned(),
+            master_aggregator_endpoint,
             None,
             self.get_api_version_provider().await?,
             Some(Duration::from_secs(30)),

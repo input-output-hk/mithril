@@ -15,16 +15,16 @@ use crate::{dependency_injection::DependenciesBuilder, Configuration};
 pub struct ServeCommand {
     /// Server listening IP
     #[clap(long)]
-    pub server_ip: Option<String>,
+    server_ip: Option<String>,
 
     /// Server TCP port
     #[clap(long)]
-    pub server_port: Option<u16>,
+    server_port: Option<u16>,
 
     /// Directory to store snapshot
     /// Defaults to work folder
     #[clap(long)]
-    pub snapshot_directory: Option<PathBuf>,
+    snapshot_directory: Option<PathBuf>,
 
     /// Disable immutables digests cache.
     #[clap(long)]
@@ -60,7 +60,7 @@ pub struct ServeCommand {
     /// and store the signer registrations when the aggregator is running in a slave mode.
     /// If this is not set, the aggregator will run in a master mode.
     #[clap(long)]
-    pub master_aggregator_endpoint: Option<String>,
+    master_aggregator_endpoint: Option<String>,
 }
 
 impl Source for ServeCommand {

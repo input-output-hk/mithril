@@ -44,8 +44,8 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        AggregatorClient, CertifierService, EpochPruningTask, MessageService, ProverService,
-        SignedEntityService, Snapshotter, StakeDistributionService, UpkeepService,
+        AggregatorClient, CertifierService, MessageService, ProverService, SignedEntityService,
+        Snapshotter, StakeDistributionService, UpkeepService,
     },
     signer_registration::{MithrilSignerRegistrationSlave, SignerSynchronizer},
     tools::GenesisToolsDependency,
@@ -167,9 +167,6 @@ pub struct DependenciesBuilder {
     /// Signer registration round opener service
     pub signer_registration_round_opener: Option<Arc<dyn SignerRegistrationRoundOpener>>,
 
-    /// Signer registration pruning task
-    pub signer_registration_pruning_task: Option<Arc<dyn EpochPruningTask>>,
-
     /// Era checker service
     pub era_checker: Option<Arc<EraChecker>>,
 
@@ -278,7 +275,6 @@ impl DependenciesBuilder {
             signer_synchronizer: None,
             signer_registration_verifier: None,
             signer_registration_round_opener: None,
-            signer_registration_pruning_task: None,
             era_reader_adapter: None,
             era_checker: None,
             era_reader: None,

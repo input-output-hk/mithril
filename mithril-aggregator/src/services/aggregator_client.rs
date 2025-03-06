@@ -12,7 +12,7 @@ use mithril_common::{
     entities::{ClientError, ServerError},
     logging::LoggerExtensions,
     messages::EpochSettingsMessage,
-    StdError, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
+    StdError, MITHRIL_AGGREGATOR_VERSION_HEADER, MITHRIL_API_VERSION_HEADER,
 };
 
 use crate::entities::MasterAggregatorEpochSettings;
@@ -192,7 +192,7 @@ impl AggregatorHTTPClient {
                     .unwrap()
                     .to_string(),
             )
-            .header(MITHRIL_SIGNER_VERSION_HEADER, env!("CARGO_PKG_VERSION"));
+            .header(MITHRIL_AGGREGATOR_VERSION_HEADER, env!("CARGO_PKG_VERSION"));
 
         if let Some(duration) = self.timeout_duration {
             request_builder.timeout(duration)

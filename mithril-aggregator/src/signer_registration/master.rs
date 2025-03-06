@@ -353,7 +353,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mock_prune_epoch_older_than_threshold() {
+    async fn prune_epoch_older_than_threshold() {
         const PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD: u64 = 10;
         let retention_limit = Some(PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD);
 
@@ -377,7 +377,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn mock_without_threshold_nothing_is_pruned() {
+    async fn without_threshold_nothing_is_pruned() {
         let retention_limit = None;
 
         let mut verification_key_store = MockVerificationKeyStorer::new();
