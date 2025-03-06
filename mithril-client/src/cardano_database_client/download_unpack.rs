@@ -16,22 +16,37 @@ use mithril_common::{
 
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
+use crate::utils::VecExtensions;
 use crate::MithrilResult;
 
 use super::immutable_file_range::ImmutableFileRange;
 
-/// The future type for downloading an immutable file
-type DownloadImmutableFuture = dyn Future<Output = MithrilResult<ImmutableFileNumber>> + Send;
+/// The future type for downloading a file
+type DownloadFuture = dyn Future<Output = MithrilResult<()>> + Send;
 
-/// Arguments for the immutable file download future builder
-struct DownloadImmutableFutureBuilderArgs {
+/// A task to download and unpack a file
+struct DownloadTask {
+    name: String,
+    locations_to_try: Vec<LocationToDownload>,
+    size_uncompressed: u64,
+    target_dir: PathBuf,
+    download_event: DownloadEvent,
+}
+
+impl DownloadTask {
+    fn tried_locations(&self) -> String {
+        self.locations_to_try
+            .iter()
+            .map(|l| l.file_downloader_uri.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+}
+
+struct LocationToDownload {
     file_downloader: Arc<dyn FileDownloader>,
-    immutable_file_number: ImmutableFileNumber,
     file_downloader_uri: FileDownloaderUri,
     compression_algorithm: Option<CompressionAlgorithm>,
-    immutable_files_target_dir: PathBuf,
-    download_id: String,
-    file_size: u64,
 }
 
 /// Options for downloading and unpacking a Cardano database
@@ -110,15 +125,14 @@ impl InternalArtifactDownloader {
         let average_size_uncompressed = cardano_database_snapshot
             .immutables
             .average_size_uncompressed;
-        self.download_unpack_immutable_files(
+
+        let tasks = self.build_download_tasks_for_immutables(
             immutable_locations,
-            average_size_uncompressed,
             immutable_file_number_range,
             target_dir,
-            download_unpack_options.max_parallel_downloads,
+            average_size_uncompressed,
             &download_id,
-        )
-        .await?;
+        )?;
         if download_unpack_options.include_ancillary {
             let ancillary = &cardano_database_snapshot.ancillary;
             self.download_unpack_ancillary_file(
@@ -129,6 +143,9 @@ impl InternalArtifactDownloader {
             )
             .await?;
         }
+        self.batch_download_unpack(tasks, download_unpack_options.max_parallel_downloads)
+            .await?;
+
         self.feedback_sender
             .send_event(MithrilEvent::CardanoDatabase(
                 MithrilEventCardanoDatabase::Completed {
@@ -200,179 +217,143 @@ impl InternalArtifactDownloader {
         Ok(())
     }
 
-    /// Download and unpack the immutable files of the given range.
-    ///
-    /// The download is attempted for each location until the full range is downloaded.
-    /// An error is returned if not all the files are downloaded.
-    async fn download_unpack_immutable_files(
+    fn build_download_tasks_for_immutables(
         &self,
-        locations: &[ImmutablesLocation],
+        immutable_locations: &[ImmutablesLocation],
+        immutable_file_number_range: RangeInclusive<ImmutableFileNumber>,
+        target_dir: &Path,
         average_size_uncompressed: u64,
-        range: RangeInclusive<ImmutableFileNumber>,
-        immutable_files_target_dir: &Path,
-        max_parallel_downloads: usize,
         download_id: &str,
-    ) -> MithrilResult<()> {
-        let mut locations_sorted = locations.to_owned();
-        locations_sorted.sort();
-        let mut immutable_file_numbers_to_download =
-            range.map(|n| n.to_owned()).collect::<BTreeSet<_>>();
-        for location in locations_sorted {
-            let immutable_files_numbers_downloaded = self
-                .download_unpack_immutable_files_for_location(
-                    &location,
-                    average_size_uncompressed,
-                    &immutable_file_numbers_to_download,
-                    immutable_files_target_dir,
-                    max_parallel_downloads,
-                    download_id,
-                )
-                .await?;
-            for immutable_file_number in immutable_files_numbers_downloaded {
-                immutable_file_numbers_to_download.remove(&immutable_file_number);
-            }
-            if immutable_file_numbers_to_download.is_empty() {
-                return Ok(());
-            }
-        }
+    ) -> MithrilResult<Vec<DownloadTask>> {
+        let immutable_file_numbers_to_download = immutable_file_number_range
+            .map(|n| n.to_owned())
+            .collect::<BTreeSet<_>>();
 
-        Err(anyhow!(
-                "Failed downloading and unpacking immutable files for immutable_file_numbers: {immutable_file_numbers_to_download:?}"
-            ))
-    }
-
-    /// Download and unpack the immutable files of the given range.
-    ///
-    /// The download is attempted for each location until the full range is downloaded.
-    /// An error is returned if not all the files are downloaded.
-    async fn batch_download_unpack_immutable_files(
-        &self,
-        file_downloader: Arc<dyn FileDownloader>,
-        file_downloader_uris_chunk: Vec<(ImmutableFileNumber, FileDownloaderUri)>,
-        compression_algorithm: &Option<CompressionAlgorithm>,
-        immutable_files_target_dir: &Path,
-        download_id: &str,
-        file_size: u64,
-    ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
-        let mut immutable_file_numbers_downloaded = BTreeSet::new();
-        let mut join_set: JoinSet<MithrilResult<ImmutableFileNumber>> = JoinSet::new();
-        for (immutable_file_number, file_downloader_uri) in file_downloader_uris_chunk.into_iter() {
-            join_set.spawn(self.spawn_immutable_download_future(
-                DownloadImmutableFutureBuilderArgs {
-                    file_downloader: file_downloader.clone(),
-                    immutable_file_number,
-                    file_downloader_uri,
-                    compression_algorithm: compression_algorithm.to_owned(),
-                    immutable_files_target_dir: immutable_files_target_dir.to_path_buf(),
-                    download_id: download_id.to_string(),
-                    file_size,
-                },
+        let mut immutable_tasks = vec![];
+        for immutable_file_number in immutable_file_numbers_to_download {
+            immutable_tasks.push(self.new_immutable_download_task(
+                immutable_locations,
+                immutable_file_number,
+                target_dir,
+                average_size_uncompressed,
+                download_id,
             )?);
         }
-        while let Some(result) = join_set.join_next().await {
-            match result? {
-                Ok(immutable_file_number) => {
-                    immutable_file_numbers_downloaded.insert(immutable_file_number);
-                }
-                Err(e) => {
-                    slog::error!(
-                        self.logger,
-                        "Failed downloading and unpacking immutable files"; "error" => ?e, "target_dir" => immutable_files_target_dir.display()
+        Ok(immutable_tasks)
+    }
+
+    fn new_immutable_download_task(
+        &self,
+        locations: &[ImmutablesLocation],
+        immutable_file_number: ImmutableFileNumber,
+        immutable_files_target_dir: &Path,
+        average_size_uncompressed: u64,
+        download_id: &str,
+    ) -> MithrilResult<DownloadTask> {
+        let mut locations_to_try = vec![];
+        let mut locations_sorted = locations.to_owned();
+        locations_sorted.sort();
+        for location in locations_sorted {
+            let location_to_try = match location {
+                ImmutablesLocation::CloudStorage {
+                    uri,
+                    compression_algorithm,
+                } => {
+                    let file_downloader = self.http_file_downloader.clone();
+                    let file_downloader_uri = FileDownloaderUri::from(
+                        uri.expand_for_immutable_file_number(immutable_file_number),
                     );
+
+                    LocationToDownload {
+                        file_downloader,
+                        file_downloader_uri,
+                        compression_algorithm: compression_algorithm.to_owned(),
+                    }
+                }
+                ImmutablesLocation::Unknown => {
+                    return Err(anyhow!("Unknown location type to download immutable"));
+                }
+            };
+
+            locations_to_try.push(location_to_try);
+        }
+
+        Ok(DownloadTask {
+            name: format!("immutable_file_{:05}", immutable_file_number),
+            locations_to_try,
+            target_dir: immutable_files_target_dir.to_path_buf(),
+            size_uncompressed: average_size_uncompressed,
+            download_event: DownloadEvent::Immutable {
+                download_id: download_id.to_string(),
+                immutable_file_number,
+            },
+        })
+    }
+
+    /// Download and unpack the files in parallel.
+    async fn batch_download_unpack(
+        &self,
+        mut tasks: Vec<DownloadTask>,
+        max_parallel_downloads: usize,
+    ) -> MithrilResult<()> {
+        let mut join_set: JoinSet<MithrilResult<()>> = JoinSet::new();
+
+        while !tasks.is_empty() {
+            let tasks_chunk = tasks.pop_up_to_n(max_parallel_downloads);
+
+            for task in tasks_chunk {
+                join_set.spawn(self.spawn_download_future(task));
+            }
+            while let Some(result) = join_set.join_next().await {
+                if let Err(error) = result? {
+                    join_set.abort_all();
+                    anyhow::bail!(error);
                 }
             }
         }
 
-        Ok(immutable_file_numbers_downloaded)
+        Ok(())
     }
 
-    fn spawn_immutable_download_future(
-        &self,
-        args: DownloadImmutableFutureBuilderArgs,
-    ) -> MithrilResult<Pin<Box<DownloadImmutableFuture>>> {
+    /// Spawn a download future that can be added to a join set.
+    ///
+    /// The download is attempted for each location until the file is downloaded.
+    /// If all locations fail, an error is returned.
+    fn spawn_download_future(&self, task: DownloadTask) -> Pin<Box<DownloadFuture>> {
         let logger_clone = self.logger.clone();
-        let download_id_clone = args.download_id.to_string();
-        let file_downloader = args.file_downloader;
-        let file_downloader_uri = args.file_downloader_uri;
-        let compression_algorithm = args.compression_algorithm;
-        let immutable_files_target_dir = args.immutable_files_target_dir;
-        let immutable_file_number = args.immutable_file_number;
-        let file_size = args.file_size;
         let download_future = async move {
-            let downloaded = file_downloader
-                .download_unpack(
-                    &file_downloader_uri,
-                    file_size,
-                    &immutable_files_target_dir,
-                    compression_algorithm,
-                    DownloadEvent::Immutable {
-                        immutable_file_number,
-                        download_id: download_id_clone.clone(),
-                    },
-                )
-                .await;
-            match downloaded {
-                Ok(_) => Ok(immutable_file_number),
-                Err(e) => {
+            let tried_locations = task.tried_locations();
+            for location_to_try in task.locations_to_try {
+                let downloaded = location_to_try
+                    .file_downloader
+                    .download_unpack(
+                        &location_to_try.file_downloader_uri,
+                        task.size_uncompressed,
+                        &task.target_dir,
+                        location_to_try.compression_algorithm,
+                        task.download_event.clone(),
+                    )
+                    .await;
+
+                if let Err(e) = downloaded {
                     slog::error!(
                         logger_clone,
-                        "Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}"; "error" => ?e
+                        "Failed downloading and unpacking {} for location {:?}",
+                        task.name, location_to_try.file_downloader_uri;
+                        "error" => ?e
                     );
-                    Err(e.context(format!("Failed downloading and unpacking immutable file {immutable_file_number} for location {file_downloader_uri:?}")))
+                } else {
+                    return Ok(());
                 }
             }
+
+            Err(anyhow!(
+                "All locations failed for {}, tried locations: {tried_locations}",
+                task.name,
+            ))
         };
 
-        Ok(Box::pin(download_future))
-    }
-
-    async fn download_unpack_immutable_files_for_location(
-        &self,
-        location: &ImmutablesLocation,
-        file_size: u64,
-        immutable_file_numbers_to_download: &BTreeSet<ImmutableFileNumber>,
-        immutable_files_target_dir: &Path,
-        max_parallel_downloads: usize,
-        download_id: &str,
-    ) -> MithrilResult<BTreeSet<ImmutableFileNumber>> {
-        let mut immutable_file_numbers_downloaded = BTreeSet::new();
-        let (file_downloader, compression_algorithm) = match &location {
-            ImmutablesLocation::CloudStorage {
-                uri: _,
-                compression_algorithm,
-            } => (self.http_file_downloader.clone(), compression_algorithm),
-            ImmutablesLocation::Unknown => {
-                return Err(anyhow!("Unknown location type to download immutable"));
-            }
-        };
-        let file_downloader_uris =
-            FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
-                location,
-                immutable_file_numbers_to_download
-                    .clone()
-                    .into_iter()
-                    .collect::<Vec<_>>()
-                    .as_slice(),
-            )?;
-        let file_downloader_uri_chunks = file_downloader_uris
-            .chunks(max_parallel_downloads)
-            .map(|x| x.to_vec())
-            .collect::<Vec<_>>();
-        for file_downloader_uris_chunk in file_downloader_uri_chunks {
-            let immutable_file_numbers_downloaded_chunk = self
-                .batch_download_unpack_immutable_files(
-                    file_downloader.clone(),
-                    file_downloader_uris_chunk,
-                    compression_algorithm,
-                    immutable_files_target_dir,
-                    download_id,
-                    file_size,
-                )
-                .await?;
-            immutable_file_numbers_downloaded.extend(immutable_file_numbers_downloaded_chunk);
-        }
-
-        Ok(immutable_file_numbers_downloaded)
+        Box::pin(download_future)
     }
 
     /// Download and unpack the ancillary files.
@@ -833,37 +814,40 @@ mod tests {
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(
                     MockFileDownloaderBuilder::default()
-                        .with_failure()
-                        .next_call()
                         .with_success()
+                        .next_call()
+                        .with_failure()
                         .build(),
                 ),
                 FeedbackSender::new(&[]),
                 test_utils::test_logger(),
             );
 
-            artifact_downloader
-                .download_unpack_immutable_files(
+            let tasks = artifact_downloader
+                .build_download_tasks_for_immutables(
                     &[ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever/{immutable_file_number}.tar.gz".to_string(),
                         )),
                         compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
-                    0,
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
                     &target_dir,
-                    1,
+                    0,
                     "download_id",
                 )
+                .unwrap();
+
+            artifact_downloader
+                .batch_download_unpack(tasks, 1)
                 .await
-                .expect_err("download_unpack_immutable_files should fail");
+                .expect_err("batch_download_unpack of the immutable files should fail");
         }
 
         #[tokio::test]
-        async fn download_unpack_immutable_files_fails_if_location_is_unknown() {
+        async fn building_immutables_download_tasks_fails_if_location_is_unknown() {
             let total_immutable_files = 2;
             let immutable_file_range = ImmutableFileRange::Range(1, total_immutable_files);
             let target_dir = TempDir::new("cardano_database_client", "download_unpack").build();
@@ -873,19 +857,20 @@ mod tests {
                 test_utils::test_logger(),
             );
 
-            artifact_downloader
-                .download_unpack_immutable_files(
-                    &[ImmutablesLocation::Unknown {}],
-                    0,
-                    immutable_file_range
-                        .to_range_inclusive(total_immutable_files)
-                        .unwrap(),
-                    &target_dir,
-                    1,
-                    "download_id",
-                )
-                .await
-                .expect_err("download_unpack_immutable_files should fail");
+            let build_tasks_result = artifact_downloader.build_download_tasks_for_immutables(
+                &[ImmutablesLocation::Unknown {}],
+                immutable_file_range
+                    .to_range_inclusive(total_immutable_files)
+                    .unwrap(),
+                &target_dir,
+                0,
+                "download_id",
+            );
+
+            assert!(
+                build_tasks_result.is_err(),
+                "building tasks should fail if a location is unknown"
+            );
         }
 
         #[tokio::test]
@@ -909,22 +894,25 @@ mod tests {
                 test_utils::test_logger(),
             );
 
-            artifact_downloader
-                .download_unpack_immutable_files(
+            let tasks = artifact_downloader
+                .build_download_tasks_for_immutables(
                     &[ImmutablesLocation::CloudStorage {
                         uri: MultiFilesUri::Template(TemplateUri(
                             "http://whatever-1/{immutable_file_number}.tar.gz".to_string(),
                         )),
                         compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
-                    0,
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
                     &target_dir,
-                    1,
+                    0,
                     "download_id",
                 )
+                .unwrap();
+
+            artifact_downloader
+                .batch_download_unpack(tasks, 1)
                 .await
                 .unwrap();
         }
@@ -959,8 +947,8 @@ mod tests {
                 test_utils::test_logger(),
             );
 
-            artifact_downloader
-                .download_unpack_immutable_files(
+            let tasks = artifact_downloader
+                .build_download_tasks_for_immutables(
                     &[
                         ImmutablesLocation::CloudStorage {
                             uri: MultiFilesUri::Template(TemplateUri(
@@ -975,14 +963,17 @@ mod tests {
                             compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
-                    0,
                     immutable_file_range
                         .to_range_inclusive(total_immutable_files)
                         .unwrap(),
                     &target_dir,
-                    1,
+                    0,
                     "download_id",
                 )
+                .unwrap();
+
+            artifact_downloader
+                .batch_download_unpack(tasks, 1)
                 .await
                 .unwrap();
         }
