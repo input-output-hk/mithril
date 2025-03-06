@@ -993,7 +993,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "client-cardano-database"
+name = "client-cardano-database-v2"
 version = "0.0.1"
 dependencies = [
  "anyhow",

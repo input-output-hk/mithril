@@ -1,5 +1,5 @@
 [package]
-name = "client-cardano-database"
+name = "client-cardano-database-v2"
 description = "Mithril client Cardano database example"
 version = "0.0.1"
 authors = ["dev@iohk.io", "mithril-dev@iohk.io"]

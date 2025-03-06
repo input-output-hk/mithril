@@ -4,7 +4,7 @@ resolver = "2"
 
 members = [
   "demo/protocol-demo",
-  "examples/client-cardano-database",
+  "examples/client-cardano-database-v2",
   "examples/client-cardano-stake-distribution",
   "examples/client-cardano-transaction",
   "examples/client-mithril-stake-distribution",
