@@ -114,7 +114,11 @@ use crate::error::{
 };
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
-use blake2::digest::{Digest, FixedOutput};
+use alba::centralized_telescope::proof::Proof;
+use alba::centralized_telescope::*;
+use alba::utils::types::{Element, ElementData};
+use blake2::digest::{Digest, FixedOutput, Update, VariableOutput};
+use blake2::Blake2bVar;
 use rand_core::{CryptoRng, RngCore};
 use serde::ser::SerializeTuple;
 use serde::{Deserialize, Serialize, Serializer};
@@ -152,6 +156,9 @@ pub struct StmParameters {
     /// `f` in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant..
     pub phi_f: f64,
 }
+
+/// Mapping signer index to StmSigRegParty
+pub type IndexStmSigRegMap = BTreeMap<Index, StmSigRegParty>;
 
 impl StmParameters {
     /// Convert to bytes
@@ -632,6 +639,21 @@ impl Serialize for StmSigRegParty {
     }
 }
 
+/// STM-Telescope proof.
+pub struct TelescopeProof<D: Clone + Digest + FixedOutput> {
+    /// StmSignatures of alba proof
+    pub signer_index_sigreg_map: IndexStmSigRegMap,
+    /// The list of unique merkle tree nodes that covers path for all signatures.
+    pub batch_proof: BatchPath<D>,
+    /// Numbers of retries done to find the proof
+    pub retry_counter: u64,
+    /// Index of the searched subtree to find the proof
+    pub search_counter: u64,
+    /// Sequence of elements from prover's set
+    pub index_sequence: Vec<(Index, Index)>,
+}
+
+
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
 /// Clerks can only be generated with the registration closed.
 /// This avoids that a Merkle Tree is computed before all parties have registered.
@@ -704,6 +726,85 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
             signatures: unique_sigs,
             batch_proof,
         })
+    }
+
+    /// Aggregate a set of signatures and create a Telescope proof
+    pub fn telescope_aggregate(
+        &self,
+        sigs: &[StmSig],
+        telescope: &Telescope,
+        msg: &[u8],
+    ) -> TelescopeProof<D> {
+        // Collect signatures and their reg party
+        let sig_reg_list = sigs
+            .iter()
+            .map(|sig| StmSigRegParty {
+                sig: sig.clone(),
+                reg_party: self.closed_reg.reg_parties[sig.signer_index as usize],
+            })
+            .collect::<Vec<StmSigRegParty>>();
+
+        let avk = StmAggrVerificationKey::from(&self.closed_reg);
+        let msgp = avk.mt_commitment.concat_with_msg(msg);
+
+        // Get unique signatures
+        let unique_sigs = CoreVerifier::dedup_sigs_for_indices(
+            &self.closed_reg.total_stake,
+            &self.params,
+            &msgp,
+            &sig_reg_list,
+        )
+        .unwrap();
+
+        let mut signer_index_sigreg_map: IndexStmSigRegMap = IndexStmSigRegMap::new();
+        let mut hash_lottery_index_map: BTreeMap<ElementData, Index> = BTreeMap::new();
+        let mut prover_set = Vec::with_capacity(self.params.k as usize);
+
+        for sr in &unique_sigs {
+            let signer_index = sr.sig.signer_index;
+            signer_index_sigreg_map.insert(signer_index, sr.clone());
+
+            for i in &sr.sig.indexes {
+                let element_data = generate_element_data(i);
+
+                hash_lottery_index_map.insert(element_data, *i);
+                prover_set.push(Element {
+                    data: element_data,
+                    index: Some(signer_index),
+                });
+            }
+        }
+
+        let proof = telescope.prove(&prover_set).unwrap();
+
+        let mut proof_index_sequence: Vec<(Index, Index)> = Vec::new();
+        let mut valid_signer_indexes = HashSet::new();
+
+        for e in &proof.element_sequence {
+            if let Some(unique_index) = hash_lottery_index_map.get(&e.data) {
+                if let Some(signer_index) = e.index {
+                    proof_index_sequence.push((*unique_index, signer_index));
+                    valid_signer_indexes.insert(signer_index);
+                }
+            }
+        }
+
+        signer_index_sigreg_map.retain(|index, _| valid_signer_indexes.contains(index));
+
+        let mt_index_list: Vec<usize> = signer_index_sigreg_map
+            .keys()
+            .map(|&key| key as usize)
+            .collect();
+
+        let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
+
+        TelescopeProof {
+            signer_index_sigreg_map,
+            batch_proof,
+            retry_counter: proof.retry_counter,
+            search_counter: proof.search_counter,
+            index_sequence: proof_index_sequence,
+        }
     }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration.
@@ -1087,6 +1188,112 @@ impl CoreVerifier {
     }
 }
 
+impl<D: Clone + Digest + FixedOutput + Send + Sync> TelescopeProof<D> {
+    /// Verify telescope-stm
+    pub fn verify(
+        &self,
+        telescope: Telescope,
+        msg: &[u8],
+        avk: &StmAggrVerificationKey<D>,
+        parameters: &StmParameters,
+    ) {
+        let msgp = avk.mt_commitment.concat_with_msg(msg);
+        let mut unique_indices: HashSet<Index> = HashSet::new();
+        let mut nr_indices = 0;
+
+        // Check winning lotteries, collect unique indices and map signer index with its lottery index list.
+        let signer_indices_map: BTreeMap<&Index, &Vec<Index>> = self
+            .signer_index_sigreg_map
+            .iter()
+            .filter_map(|(signer_index, sig_reg)| {
+                if sig_reg
+                    .sig
+                    .check_indices(parameters, &sig_reg.reg_party.1, &msgp, &avk.total_stake)
+                    .is_ok()
+                {
+                    unique_indices.extend(&sig_reg.sig.indexes);
+                    nr_indices += sig_reg.sig.indexes.len();
+                    Some((signer_index, &sig_reg.sig.indexes))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        // Check uniqueness
+        if nr_indices != unique_indices.len() {
+            println!("Not unique");
+            return;
+        }
+        // Verify proof index sequence against signer index lists
+        if self
+            .index_sequence
+            .iter()
+            .any(|(proof_element_as_index, signer_index)| {
+                signer_indices_map
+                    .get(signer_index)
+                    .is_none_or(|index_list| !index_list.contains(proof_element_as_index))
+            })
+        {
+            println!("Index list does not contain proof element");
+            return;
+        }
+
+        // Extract sig_reg_list from signer_index_sigreg_map
+        let sig_reg_list: Vec<StmSigRegParty> =
+            self.signer_index_sigreg_map.values().cloned().collect();
+
+        // Collect leaves for Merkle proof verification
+        let leaves: Vec<RegParty> = sig_reg_list.iter().map(|r| r.reg_party).collect();
+
+        // Verify batch proof
+        if avk.mt_commitment.check(&leaves, &self.batch_proof).is_err() {
+            println!("Batch proof failed");
+            return;
+        }
+
+        // Verify aggregated signatures
+        let (sigs, vks) = CoreVerifier::collect_sigs_vks(&sig_reg_list);
+        if Signature::verify_aggregate(msgp.as_slice(), &vks, &sigs).is_err() {
+            println!("Aggregate verification failed");
+            return;
+        }
+
+        // Construct telescope proof element sequence
+        let element_sequence: Vec<Element> = self
+            .index_sequence
+            .iter()
+            .map(|(proof_element, element_index)| {
+                let element_data = generate_element_data(proof_element);
+                Element {
+                    data: element_data,
+                    index: Some(*element_index),
+                }
+            })
+            .collect();
+
+        let proof = Proof {
+            retry_counter: self.retry_counter,
+            search_counter: self.search_counter,
+            element_sequence,
+        };
+
+        println!("{}", telescope.verify(&proof));
+    }
+}
+
+/// create element data by hashing the index
+pub fn generate_element_data(input: &Index) -> ElementData {
+    let mut digest_buf = [0u8; 48];
+    let data_buf = input.to_be_bytes();
+    let mut hasher = Blake2bVar::new(48).expect("Failed to construct hasher");
+    hasher.update(&data_buf);
+    hasher
+        .finalize_variable(&mut digest_buf)
+        .expect("Hashing failed");
+    ElementData::from_bytes(digest_buf.as_slice()).unwrap()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1103,6 +1310,72 @@ mod tests {
 
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
+
+    #[test]
+    fn test_stm_telescope() {
+        let mut rng = ChaCha20Rng::from_seed(Default::default());
+        let sentence = "ALBA Rocks!";
+        let msg = sentence.as_bytes();
+
+        let nb_elements: u64 = 1_000;
+        let soundness_param = 10.0;
+        let completeness_param = 10.0;
+        let np_percentage: u64 = 95;
+        let nf_percentage: u64 = 60;
+        let set_size = nb_elements.saturating_mul(np_percentage).div_ceil(100);
+        let lower_bound = nb_elements.saturating_mul(nf_percentage).div_ceil(100);
+        let alba = Telescope::create(soundness_param, completeness_param, set_size, lower_bound);
+
+        let params = StmParameters {
+            k: 1000,
+            m: 1200,
+            phi_f: 0.9,
+        };
+
+        let stakes: Vec<u64> = (0..nb_elements).map(|_| rng.gen_range(1..=9999)).collect();
+
+        let mut key_reg = KeyReg::init();
+
+        let mut ps: Vec<StmInitializer> = Vec::with_capacity(nb_elements as usize);
+        for stake in stakes {
+            let p = StmInitializer::setup(params, stake, &mut rng);
+            key_reg.register(p.stake, p.verification_key()).unwrap();
+            ps.push(p);
+        }
+
+        let closed_reg = key_reg.close();
+
+        let ps = ps
+            .into_iter()
+            .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+            .collect::<Vec<StmSigner<D>>>();
+
+        let sigs = ps
+            .iter()
+            .filter_map(|p| p.sign(msg))
+            .collect::<Vec<StmSig>>();
+
+        let clerk = StmClerk::from_registration(&params, &closed_reg);
+        let msig = clerk.telescope_aggregate(&sigs, &alba, msg);
+
+        msig.verify(alba, msg, &clerk.compute_avk(), &params);
+
+        // println!("Batch proof: {:?}", msig.batch_proof.indices);
+        // println!(
+        //     "Retry counter: {}, Search counter: {}",
+        //     msig.retry_counter, msig.search_counter
+        // );
+        //
+        // println!("-------\n");
+        // for i in msig.index_sequence {
+        //     println!("Proof index: {}, signer index: {}", i.0, i.1);
+        // }
+        //
+        // println!("-------\n");
+        // for i in msig.signatures {
+        //     println!("Signer index: {}", i.sig.signer_index);
+        // }
+    }
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
         let stake = vec![1; nparties];
