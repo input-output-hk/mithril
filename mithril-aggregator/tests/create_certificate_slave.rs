@@ -18,10 +18,11 @@ async fn create_certificate_slave() {
         m: 150,
         phi_f: 0.95,
     };
-    let fixture = MithrilFixtureBuilder::default()
+    let current_fixture = MithrilFixtureBuilder::default()
         .with_signers(2)
         .with_protocol_parameters(protocol_parameters.clone())
         .build();
+    let current_avk = current_fixture.compute_and_encode_avk();
     let start_time_point = TimePoint {
         epoch: Epoch(1),
         immutable_file_number: 1,
@@ -60,29 +61,34 @@ async fn create_certificate_slave() {
     };
     let mut slave_tester = RuntimeTester::build(start_time_point, slave_configuration).await;
 
-    comment!("Epoch: 1");
+    comment!(
+        "Epoch 1:
+    - the master aggregator bootstraps its genesis certificate
+    - the slave aggregator synchronizes signers from the master aggregator
+    - the slave aggregator stays in Idle state with an error as it doesn't have a genesis certificate yet
+    ");
 
     comment!("Master: create signers & declare stake distribution");
     master_tester
-        .init_state_from_fixture(&fixture)
+        .init_state_from_fixture(&current_fixture)
         .await
         .unwrap();
 
     comment!("Slave: create signers & declare stake distribution");
     slave_tester
         .chain_observer
-        .set_signers(fixture.signers_with_stake())
+        .set_signers(current_fixture.signers_with_stake())
         .await;
 
     comment!("Master: bootstrap the genesis certificate");
     master_tester
-        .register_genesis_certificate(&fixture)
+        .register_genesis_certificate(&current_fixture)
         .await
         .unwrap();
 
     assert_last_certificate_eq!(
         master_tester,
-        ExpectedCertificate::new_genesis(Epoch(1), fixture.compute_and_encode_avk())
+        ExpectedCertificate::new_genesis(Epoch(1), current_fixture.compute_and_encode_avk())
     );
 
     comment!("Master: start the runtime state machine");
@@ -95,34 +101,17 @@ async fn create_certificate_slave() {
 
     comment!("Master: register signers");
     master_tester
-        .register_signers(&fixture.signers_fixture())
+        .register_signers(&current_fixture.signers_fixture())
         .await
         .unwrap();
     cycle_err!(master_tester, "signing");
 
-    comment!("Master: signers send their single signature");
-    master_tester
-        .send_single_signatures(
-            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &fixture.signers_fixture(),
-        )
-        .await
-        .unwrap();
-
-    comment!("Master: state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(master_tester, "ready");
-    assert_last_certificate_eq!(
-        master_tester,
-        ExpectedCertificate::new(
-            Epoch(1),
-            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
-            ExpectedCertificate::genesis_identifier(Epoch(1)),
-        )
+    comment!(
+        "Epoch 2:
+    - the master aggregator produces a new certificate
+    - the slave aggregator synchronizes signers from the master aggregator
+    - the slave aggregator bootstraps its genesis certificate"
     );
-
-    comment!("Epoch: 2");
 
     comment!("Master: change the epoch");
     master_tester.increase_epoch().await.unwrap();
@@ -136,13 +125,13 @@ async fn create_certificate_slave() {
 
     comment!("Slave: bootstrap the genesis certificate");
     slave_tester
-        .register_genesis_certificate(&fixture)
+        .register_genesis_certificate(&current_fixture)
         .await
         .unwrap();
 
     comment!("Master: register signers");
     master_tester
-        .register_signers(&fixture.signers_fixture())
+        .register_signers(&current_fixture.signers_fixture())
         .await
         .unwrap();
     cycle!(master_tester, "signing");
@@ -151,7 +140,7 @@ async fn create_certificate_slave() {
     master_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &fixture.signers_fixture(),
+            &current_fixture.signers_fixture(),
         )
         .await
         .unwrap();
@@ -162,18 +151,29 @@ async fn create_certificate_slave() {
         master_tester,
         ExpectedCertificate::new(
             Epoch(2),
-            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
+            StakeDistributionParty::from_signers(current_fixture.signers_with_stake()).as_slice(),
+            current_fixture.compute_and_encode_avk(),
             SignedEntityType::MithrilStakeDistribution(Epoch(2)),
             ExpectedCertificate::genesis_identifier(Epoch(1)),
         )
     );
     cycle!(master_tester, "signing");
 
+    comment!(
+        "Epoch 3:
+    - the master aggregator produces a new certificate
+    - the master aggregator stake distribution is updated
+    - the slave aggregator can't transition from 'Idle' to 'Ready' when the master aggregator has not transitioned to a new epoch
+    - the slave aggregator can transition from 'Idle' to 'Ready' when the master aggregator has transitioned to a new epoch
+    - the slave aggregator produces a new certificate
+    - the slave aggregator new certificate uses the same avk as the master aggregator's new certificate
+    - the slave aggregator stake distribution is updated
+    ");
+
     comment!("Master: update stake distribution");
     let following_fixture = {
         let updated_stake_distribution = StakeDistribution::from_iter(
-            fixture
+            current_fixture
                 .signers_with_stake()
                 .into_iter()
                 .map(|s| (s.party_id, s.stake + 1000)),
@@ -184,6 +184,7 @@ async fn create_certificate_slave() {
             .await
             .unwrap()
     };
+    let following_avk = following_fixture.compute_and_encode_avk();
 
     comment!("Slave: update stake distribution");
     slave_tester
@@ -191,8 +192,6 @@ async fn create_certificate_slave() {
         .await
         .unwrap();
 
-    comment!("Epoch: 3");
-
     comment!("Slave: change the epoch before master");
     slave_tester.increase_epoch().await.unwrap();
     cycle!(slave_tester, "idle");
@@ -208,7 +207,7 @@ async fn create_certificate_slave() {
 
     comment!("Master: register signers");
     master_tester
-        .register_signers(&fixture.signers_fixture())
+        .register_signers(&current_fixture.signers_fixture())
         .await
         .unwrap();
     cycle!(master_tester, "signing");
@@ -217,7 +216,7 @@ async fn create_certificate_slave() {
     master_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &fixture.signers_fixture(),
+            &current_fixture.signers_fixture(),
         )
         .await
         .unwrap();
@@ -227,43 +226,42 @@ async fn create_certificate_slave() {
     slave_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &fixture.signers_fixture(),
+            &current_fixture.signers_fixture(),
         )
         .await
         .unwrap();
 
     comment!("Master: state machine should issue a certificate for the MithrilStakeDistribution");
     cycle!(master_tester, "ready");
-    assert_last_certificate_eq!(
-        master_tester,
-        ExpectedCertificate::new(
-            Epoch(3),
-            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(3)),
-            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
-        )
+    let master_expected_certificate = ExpectedCertificate::new(
+        Epoch(3),
+        StakeDistributionParty::from_signers(current_fixture.signers_with_stake()).as_slice(),
+        current_fixture.compute_and_encode_avk(),
+        SignedEntityType::MithrilStakeDistribution(Epoch(3)),
+        ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(2))),
     );
+    assert_last_certificate_eq!(master_tester, master_expected_certificate);
 
     comment!("Slave: state machine should issue a certificate for the MithrilStakeDistribution");
     cycle!(slave_tester, "ready");
-    assert_last_certificate_eq!(
-        slave_tester,
-        ExpectedCertificate::new(
-            Epoch(3),
-            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(3)),
-            ExpectedCertificate::genesis_identifier(Epoch(2)),
-        )
+    let slave_expected_certificate = ExpectedCertificate::new(
+        Epoch(3),
+        StakeDistributionParty::from_signers(current_fixture.signers_with_stake()).as_slice(),
+        current_fixture.compute_and_encode_avk(),
+        SignedEntityType::MithrilStakeDistribution(Epoch(3)),
+        ExpectedCertificate::genesis_identifier(Epoch(2)),
     );
+    assert_last_certificate_eq!(slave_tester, slave_expected_certificate);
+    let expected_avk = current_avk.clone();
+    assert_eq!(expected_avk, master_expected_certificate.avk());
+    assert_eq!(expected_avk, slave_expected_certificate.avk());
 
-    comment!("Epoch: 4");
-
-    comment!("Slave: change the epoch before master");
-    slave_tester.increase_epoch().await.unwrap();
-    cycle!(slave_tester, "idle");
-    cycle!(slave_tester, "idle");
+    comment!(
+        "Epoch 4:
+    - the master aggregator produces a new certificate
+    - the slave aggregator produces a new certificate
+    - the slave aggregator new certificate uses the same avk as the master aggregator's new certificate
+    ");
 
     comment!("Master: change the epoch");
     master_tester.increase_epoch().await.unwrap();
@@ -271,11 +269,13 @@ async fn create_certificate_slave() {
     cycle!(master_tester, "ready");
 
     comment!("Slave: change the epoch after master");
+    slave_tester.increase_epoch().await.unwrap();
+    cycle!(slave_tester, "idle");
     cycle!(slave_tester, "ready");
 
     comment!("Master: register signers");
     master_tester
-        .register_signers(&fixture.signers_fixture())
+        .register_signers(&current_fixture.signers_fixture())
         .await
         .unwrap();
     cycle!(master_tester, "signing");
@@ -284,7 +284,7 @@ async fn create_certificate_slave() {
     master_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &fixture.signers_fixture(),
+            &current_fixture.signers_fixture(),
         )
         .await
         .unwrap();
@@ -294,51 +294,52 @@ async fn create_certificate_slave() {
     slave_tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &fixture.signers_fixture(),
+            &current_fixture.signers_fixture(),
         )
         .await
         .unwrap();
 
     comment!("Master: state machine should issue a certificate for the MithrilStakeDistribution");
     cycle!(master_tester, "ready");
-    assert_last_certificate_eq!(
-        master_tester,
-        ExpectedCertificate::new(
-            Epoch(4),
-            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
-            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
-        )
+    let master_expected_certificate = ExpectedCertificate::new(
+        Epoch(4),
+        StakeDistributionParty::from_signers(current_fixture.signers_with_stake()).as_slice(),
+        current_fixture.compute_and_encode_avk(),
+        SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+        ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
     );
+    assert_last_certificate_eq!(master_tester, master_expected_certificate);
 
     comment!("Slave: state machine should issue a certificate for the MithrilStakeDistribution");
     cycle!(slave_tester, "ready");
-    assert_last_certificate_eq!(
-        slave_tester,
-        ExpectedCertificate::new(
-            Epoch(4),
-            StakeDistributionParty::from_signers(fixture.signers_with_stake()).as_slice(),
-            fixture.compute_and_encode_avk(),
-            SignedEntityType::MithrilStakeDistribution(Epoch(4)),
-            ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
-        )
+    let slave_expected_certificate = ExpectedCertificate::new(
+        Epoch(4),
+        StakeDistributionParty::from_signers(current_fixture.signers_with_stake()).as_slice(),
+        current_fixture.compute_and_encode_avk(),
+        SignedEntityType::MithrilStakeDistribution(Epoch(4)),
+        ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(3))),
     );
+    assert_last_certificate_eq!(slave_tester, slave_expected_certificate);
+    let expected_avk = current_avk;
+    assert_eq!(expected_avk, master_expected_certificate.avk());
+    assert_eq!(expected_avk, slave_expected_certificate.avk());
 
-    comment!("Epoch: 5");
+    comment!(
+        "Epoch 5:
+    - the master aggregator produces a new certificate with the new stake distribution from epoch 3
+    - the slave aggregator produces a new certificate with the new stake distribution from epoch 3
+    - the slave aggregator new certificate uses the same avk as the master aggregator's new certificate
+    ");
     let fixture = following_fixture;
 
-    comment!("Slave: change the epoch before master");
-    slave_tester.increase_epoch().await.unwrap();
-    cycle!(slave_tester, "idle");
-    cycle!(slave_tester, "idle");
-
     comment!("Master: change the epoch");
     master_tester.increase_epoch().await.unwrap();
     cycle!(master_tester, "idle");
     cycle!(master_tester, "ready");
 
     comment!("Slave: change the epoch after master");
+    slave_tester.increase_epoch().await.unwrap();
+    cycle!(slave_tester, "idle");
     cycle!(slave_tester, "ready");
 
     comment!("Master: register signers");
@@ -388,8 +389,7 @@ async fn create_certificate_slave() {
         ExpectedCertificate::identifier(&SignedEntityType::MithrilStakeDistribution(Epoch(4))),
     );
     assert_last_certificate_eq!(slave_tester, slave_expected_certificate);
-    assert_eq!(
-        master_expected_certificate.avk(),
-        slave_expected_certificate.avk()
-    );
+    let expected_avk = following_avk;
+    assert_eq!(expected_avk, master_expected_certificate.avk());
+    assert_eq!(expected_avk, slave_expected_certificate.avk());
 }
