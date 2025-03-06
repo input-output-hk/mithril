@@ -10,6 +10,10 @@ Below is a comprehensive list of definitions for some common terms used in the M
 
 A beacon represents a point of the blockchain for which a [Mithril certificate](#certificate) is created. It embeds the [epoch](#epoch) of the [Cardano network](#cardano-network) that is targeted, and either the block number or the [immutable file number](#immutable-file-number).
 
+## Cardano database
+
+A Cardano database snapshot is a signed archive of the blockchain state that can be used by [Mithril clients](#mithril-client) to restore a [Cardano full node](#cardano-node). It is uniquely identified by its fingerprint or digest which is part of the message signed by the [Mithril network](#mithril-network).
+
 ## Cardano network
 
 The Cardano network is a proof-of-stake blockchain platform that supports the ada cryptocurrency.
@@ -87,10 +91,6 @@ The Mithril signer is a node of the [Mithril network](#mithril-network) that wor
 The Mithril multi-signature is an aggregate of [individual signatures](#individual-signature), which guarantees that a minimum share of the total stake has participated in its creation.
 
 > More information is available on the [protocol page](./mithril/advanced/mithril-protocol/protocol.md).
-
-## Snapshot
-
-A Mithril snapshot is a signed archive of the blockchain state that can be used by [Mithril clients](#mithril-client) to restore a [Cardano full node](#cardano-node). It is uniquely identified by its fingerprint or digest which is part of the message signed by the [Mithril network](#mithril-network).
 
 ## Stake distribution
 
