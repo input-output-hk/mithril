@@ -14,6 +14,7 @@ include = ["**/*.rs", "Cargo.toml", "README.md", ".gitignore"]
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
+alba = { git = "https://github.com/cardano-scaling/alba.git", branch = "curiecrypt/element-with-index" }
 blake2 = "0.10.6"
 # Enforce blst portable feature for runtime detection of Intel ADX instruction set.
 blst = { version = "0.3.14", features = ["portable"] }
