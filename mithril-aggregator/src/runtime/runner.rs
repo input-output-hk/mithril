@@ -555,7 +555,8 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         services::{MithrilStakeDistributionService, MockCertifierService},
-        Configuration, DependencyContainer, MithrilSignerRegistererMaster, SignerRegistrationRound,
+        Configuration, DependencyContainer, MithrilSignerRegistrationMaster,
+        SignerRegistrationRound,
     };
     use async_trait::async_trait;
     use chrono::{DateTime, Utc};
@@ -740,7 +741,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_open_signer_registration_round() {
         let mut deps = initialize_dependencies().await;
-        let signer_registration_round_opener = Arc::new(MithrilSignerRegistererMaster::new(
+        let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationMaster::new(
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),
@@ -780,7 +781,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_close_signer_registration_round() {
         let mut deps = initialize_dependencies().await;
-        let signer_registration_round_opener = Arc::new(MithrilSignerRegistererMaster::new(
+        let signer_registration_round_opener = Arc::new(MithrilSignerRegistrationMaster::new(
             deps.verification_key_store.clone(),
             deps.signer_recorder.clone(),
             deps.signer_registration_verifier.clone(),

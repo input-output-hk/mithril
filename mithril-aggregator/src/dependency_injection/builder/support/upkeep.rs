@@ -11,9 +11,9 @@ impl DependenciesBuilder {
         if self.signer_registration_pruning_task.is_none() {
             self.signer_registration_pruning_task =
                 Some(if self.configuration.is_slave_aggregator() {
-                    self.get_mithril_signer_registerer_slave().await?
+                    self.get_mithril_signer_registration_slave().await?
                 } else {
-                    self.get_mithril_signer_registerer_master().await?
+                    self.get_mithril_signer_registration_master().await?
                 });
         }
 

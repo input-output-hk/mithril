@@ -15,8 +15,8 @@ use super::{
     SignerRegistrationRoundOpener, SignerSynchronizer,
 };
 
-/// Implementation of a slave [SignerRegisterer]
-pub struct MithrilSignerRegistererSlave {
+/// A [MithrilSignerRegistrationSlave] supports signer registrations in a slave aggregator
+pub struct MithrilSignerRegistrationSlave {
     /// Verification key store
     verification_key_store: Arc<dyn VerificationKeyStorer>,
 
@@ -31,7 +31,7 @@ pub struct MithrilSignerRegistererSlave {
     verification_key_epoch_retention_limit: Option<u64>,
 }
 
-impl MithrilSignerRegistererSlave {
+impl MithrilSignerRegistrationSlave {
     /// MithrilSignerRegistererSlave factory
     pub fn new(
         verification_key_store: Arc<dyn VerificationKeyStorer>,
@@ -49,7 +49,7 @@ impl MithrilSignerRegistererSlave {
 }
 
 #[async_trait]
-impl SignerSynchronizer for MithrilSignerRegistererSlave {
+impl SignerSynchronizer for MithrilSignerRegistrationSlave {
     async fn synchronize_signers(
         &self,
         epoch: Epoch,
@@ -87,7 +87,7 @@ impl SignerSynchronizer for MithrilSignerRegistererSlave {
 }
 
 #[async_trait]
-impl SignerRegisterer for MithrilSignerRegistererSlave {
+impl SignerRegisterer for MithrilSignerRegistrationSlave {
     async fn register_signer(
         &self,
         _epoch: Epoch,
@@ -102,7 +102,7 @@ impl SignerRegisterer for MithrilSignerRegistererSlave {
 }
 
 #[async_trait]
-impl SignerRegistrationRoundOpener for MithrilSignerRegistererSlave {
+impl SignerRegistrationRoundOpener for MithrilSignerRegistrationSlave {
     async fn open_registration_round(
         &self,
         _registration_epoch: Epoch,
@@ -117,7 +117,7 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegistererSlave {
 }
 
 #[async_trait]
-impl EpochPruningTask for MithrilSignerRegistererSlave {
+impl EpochPruningTask for MithrilSignerRegistrationSlave {
     fn pruned_data(&self) -> &'static str {
         "Signer registration"
     }
@@ -160,7 +160,7 @@ mod tests {
             MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer,
         },
         store::MockVerificationKeyStorer,
-        MithrilSignerRegistererSlave, SignerRegisterer, SignerRegistrationRoundOpener,
+        MithrilSignerRegistrationSlave, SignerRegisterer, SignerRegistrationRoundOpener,
     };
 
     #[tokio::test]
@@ -168,7 +168,7 @@ mod tests {
         let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
             main_db_connection().unwrap(),
         )));
-        let signer_registerer = MithrilSignerRegistererSlave::new(
+        let signer_registerer = MithrilSignerRegistrationSlave::new(
             verification_key_store.clone(),
             Arc::new(MockSignerRecorder::new()),
             Arc::new(MockSignerRegistrationVerifier::new()),
@@ -189,7 +189,7 @@ mod tests {
         let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
             main_db_connection().unwrap(),
         )));
-        let signer_registerer = MithrilSignerRegistererSlave::new(
+        let signer_registerer = MithrilSignerRegistrationSlave::new(
             verification_key_store.clone(),
             Arc::new(MockSignerRecorder::new()),
             Arc::new(MockSignerRegistrationVerifier::new()),
@@ -207,7 +207,7 @@ mod tests {
         let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
             main_db_connection().unwrap(),
         )));
-        let signer_registerer = MithrilSignerRegistererSlave::new(
+        let signer_registerer = MithrilSignerRegistrationSlave::new(
             verification_key_store.clone(),
             Arc::new(MockSignerRecorder::new()),
             Arc::new(MockSignerRegistrationVerifier::new()),
@@ -239,7 +239,7 @@ mod tests {
             .expect_verify()
             .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
             .times(5);
-        let signer_registerer = MithrilSignerRegistererSlave::new(
+        let signer_registerer = MithrilSignerRegistrationSlave::new(
             verification_key_store.clone(),
             Arc::new(signer_recorder),
             Arc::new(signer_registration_verifier),
@@ -279,7 +279,7 @@ mod tests {
             .expect_verify()
             .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
             .times(5);
-        let signer_registerer = MithrilSignerRegistererSlave::new(
+        let signer_registerer = MithrilSignerRegistrationSlave::new(
             verification_key_store.clone(),
             Arc::new(signer_recorder),
             Arc::new(signer_registration_verifier),
@@ -312,7 +312,7 @@ mod tests {
             .returning(|_| Ok(()));
         let signer_registration_verifier = MockSignerRegistrationVerifier::new();
 
-        let signer_registerer = MithrilSignerRegistererSlave::new(
+        let signer_registerer = MithrilSignerRegistrationSlave::new(
             Arc::new(verification_key_store),
             Arc::new(MockSignerRecorder::new()),
             Arc::new(signer_registration_verifier),
@@ -333,7 +333,7 @@ mod tests {
             .never();
         let signer_registration_verifier = MockSignerRegistrationVerifier::new();
 
-        let signer_registerer = MithrilSignerRegistererSlave::new(
+        let signer_registerer = MithrilSignerRegistrationSlave::new(
             Arc::new(verification_key_store),
             Arc::new(MockSignerRecorder::new()),
             Arc::new(signer_registration_verifier),

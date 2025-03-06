@@ -47,10 +47,10 @@ use crate::{
         AggregatorClient, CertifierService, EpochPruningTask, MessageService, ProverService,
         SignedEntityService, Snapshotter, StakeDistributionService, UpkeepService,
     },
-    signer_registration::{MithrilSignerRegistererSlave, SignerSynchronizer},
+    signer_registration::{MithrilSignerRegistrationSlave, SignerSynchronizer},
     tools::GenesisToolsDependency,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
-    ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistererMaster, MultiSigner,
+    ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationMaster, MultiSigner,
     SignerRegisterer, SignerRegistrationRoundOpener, SignerRegistrationVerifier,
     SingleSignatureAuthenticator, VerificationKeyStorer,
 };
@@ -149,11 +149,11 @@ pub struct DependenciesBuilder {
     /// Genesis signature verifier service.
     pub genesis_verifier: Option<Arc<ProtocolGenesisVerifier>>,
 
-    /// Mithril signer registerer master service
-    pub mithril_signer_registerer_master: Option<Arc<MithrilSignerRegistererMaster>>,
+    /// Mithril signer registration master service
+    pub mithril_signer_registration_master: Option<Arc<MithrilSignerRegistrationMaster>>,
 
-    /// Mithril signer registerer slave service
-    pub mithril_signer_registerer_slave: Option<Arc<MithrilSignerRegistererSlave>>,
+    /// Mithril signer registration slave service
+    pub mithril_signer_registration_slave: Option<Arc<MithrilSignerRegistrationSlave>>,
 
     /// Signer registerer service
     pub signer_registerer: Option<Arc<dyn SignerRegisterer>>,
@@ -272,8 +272,8 @@ impl DependenciesBuilder {
             snapshotter: None,
             certificate_verifier: None,
             genesis_verifier: None,
-            mithril_signer_registerer_master: None,
-            mithril_signer_registerer_slave: None,
+            mithril_signer_registration_master: None,
+            mithril_signer_registration_slave: None,
             signer_registerer: None,
             signer_synchronizer: None,
             signer_registration_verifier: None,
