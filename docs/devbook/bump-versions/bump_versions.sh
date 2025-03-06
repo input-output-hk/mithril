@@ -153,58 +153,26 @@ update_openapi_version() {
     OPEN_API_UPDATE_MESSAGE=" and \`$OPEN_API_FILE\` version"
 }
 
-update_infra_version() {
+update_plain_version_file() {
     local -r dry_run=$1
-    local -r version_line=$(cat $INFRA_VERSION_FILE | head -n 1)
+    local -r version_file=$2
+    local -r var_name_prefix=$3
+
+    local -r version_line=$(head -n 1 "$version_file")
     local -r patch_number=$(echo "$version_line" | cut -d . -f 3)
     local -r next_patch_number=$((patch_number + 1))
     local -r new_version=$(echo "$version_line" | cut -d . -f 1-2).$next_patch_number
 
-    echo -e "   ${GREEN}Upgrading${RESET} $INFRA_VERSION_FILE from ${version_line} to ${new_version}"
+    echo -e "   ${GREEN}Upgrading${RESET} $version_file from ${version_line} to ${new_version}"
     if [ true = "$dry_run" ]
     then
-        echo -e "${ORANGE}warning${RESET}: aborting $INFRA_VERSION_FILE update due to dry run"
+        echo -e "${ORANGE}warning${RESET}: aborting $version_file update due to dry run"
     else
-        echo -e "$new_version\n" > $INFRA_VERSION_FILE
+        echo -e "$new_version\n" > "$version_file"
     fi
-    INFRA_UPDATE="\n* $INFRA_VERSION_FILE from \`${version_line}\` to \`${new_version}\`"
-    INFRA_UPDATE_MESSAGE=" and \`$INFRA_VERSION_FILE\` version"
-}
-
-update_devnet_version() {
-    local -r dry_run=$1
-    local -r version_line=$(cat $DEVNET_VERSION_FILE | head -n 1)
-    local -r patch_number=$(echo "$version_line" | cut -d . -f 3)
-    local -r next_patch_number=$((patch_number + 1))
-    local -r new_version=$(echo "$version_line" | cut -d . -f 1-2).$next_patch_number
-
-    echo -e "   ${GREEN}Upgrading${RESET} $DEVNET_VERSION_FILE from ${version_line} to ${new_version}"
-    if [ true = "$dry_run" ]
-    then
-        echo -e "${ORANGE}warning${RESET}: aborting $DEVNET_VERSION_FILE update due to dry run"
-    else
-        echo -e "$new_version\n" > $DEVNET_VERSION_FILE
-    fi
-    DEVNET_UPDATE="\n* $DEVNET_VERSION_FILE from \`${version_line}\` to \`${new_version}\`"
-    DEVNET_UPDATE_MESSAGE=" and \`$DEVNET_VERSION_FILE\` version"
-}
-
-update_benchmark_version() {
-    local -r dry_run=$1
-    local -r version_line=$(cat $BENCHMARK_VERSION_FILE | head -n 1)
-    local -r patch_number=$(echo "$version_line" | cut -d . -f 3)
-    local -r next_patch_number=$((patch_number + 1))
-    local -r new_version=$(echo "$version_line" | cut -d . -f 1-2).$next_patch_number
-
-    echo -e "   ${GREEN}Upgrading${RESET} $BENCHMARK_VERSION_FILE from ${version_line} to ${new_version}"
-    if [ true = "$dry_run" ]
-    then
-        echo -e "${ORANGE}warning${RESET}: aborting $BENCHMARK_VERSION_FILE update due to dry run"
-    else
-        echo -e "$new_version\n" > $BENCHMARK_VERSION_FILE
-    fi
-    BENCHMARK_UPDATE="\n* $BENCHMARK_VERSION_FILE from \`${version_line}\` to \`${new_version}\`"
-    BENCHMARK_UPDATE_MESSAGE=" and \`$BENCHMARK_VERSION_FILE\` version"
+    
+    eval "${var_name_prefix}_UPDATE=\"\n* $version_file from \\\`${version_line}\\\` to \\\`${new_version}\\\`\""
+    eval "${var_name_prefix}_UPDATE_MESSAGE=\" and \\\`$version_file\\\` version\""
 }
 
 ################
@@ -237,18 +205,19 @@ fi
 
 if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-infra/.*\.tf$")" -gt 0 ]
 then
-    update_infra_version $DRY_RUN
+    update_plain_version_file $DRY_RUN "$INFRA_VERSION_FILE" "INFRA"
 fi
 
 if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-test-lab/mithril-devnet/.*\.sh$")" -gt 0 ]
 then
-    update_devnet_version $DRY_RUN
+    update_plain_version_file $DRY_RUN "$DEVNET_VERSION_FILE" "DEVNET"
 fi
 
 if [ "$(echo "${FILES_MODIFY[@]}" | grep -c "^mithril-test-lab/benchmark/aggregator-prover/.*\.sh$")" -gt 0 ]
 then
-    update_benchmark_version $DRY_RUN
+    update_plain_version_file $DRY_RUN "$BENCHMARK_VERSION_FILE" "BENCHMARK"
 fi
+
 
 if [ true = $DRY_RUN ]
 then
