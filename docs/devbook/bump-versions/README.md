@@ -24,7 +24,7 @@ cargo install cargo-get
 Just run the script without argument, by default no changes are made to the project.
 
 ```shell
-. ./docs/devbook/bump-versions/bump_versions.sh
+./docs/devbook/bump-versions/bump_versions.sh
 ```
 
 ### Run
@@ -39,13 +39,13 @@ Run the script with the `--run` argument to bump the crates, js packages, and op
 The script will output a preformatted commit message that can be used to create a commit when it completes.
 
 ```shell
-. ./docs/devbook/bump-versions/bump_versions.sh --run
+./docs/devbook/bump-versions/bump_versions.sh --run
 ```
 
 If you want the script to do the commit for you, add the `--commit` argument.
 
 ```shell
-. ./docs/devbook/bump-versions/bump_versions.sh --run --commit
+./docs/devbook/bump-versions/bump_versions.sh --run --commit
 ```
 
 > [!NOTE]
