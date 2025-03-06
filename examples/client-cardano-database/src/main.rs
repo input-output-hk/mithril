@@ -1,6 +1,6 @@
 //! This example shows how to implement a Mithril client and use its features.
 //!
-//! In this example, the client interacts by default with a real aggregator (`testing-preview`) to get the data.
+//! In this example, the client interacts by default with a real aggregator (`release-preprod`) to get the data.
 //!
 //! A [FeedbackReceiver] using [indicatif] is used to nicely report the progress to the console.
 
@@ -9,14 +9,13 @@ use async_trait::async_trait;
 use clap::Parser;
 use futures::Future;
 use indicatif::{MultiProgress, ProgressBar, ProgressState, ProgressStyle};
-use mithril_client::cardano_database_client::{DownloadUnpackOptions, ImmutableFileRange};
 use std::fmt::Write;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
-use mithril_client::feedback::{FeedbackReceiver, MithrilEvent, MithrilEventCardanoDatabase};
+use mithril_client::feedback::{FeedbackReceiver, MithrilEvent};
 use mithril_client::{ClientBuilder, MessageBuilder, MithrilResult};
 
 #[derive(Parser, Debug)]
@@ -34,7 +33,7 @@ pub struct Args {
     #[clap(
         long,
         env = "AGGREGATOR_ENDPOINT",
-        default_value = "https://aggregator.testing-preview.api.mithril.network/aggregator"
+        default_value = "https://aggregator.release-preprod.api.mithril.network/aggregator"
     )]
     aggregator_endpoint: String,
 }
@@ -49,97 +48,48 @@ async fn main() -> MithrilResult<()> {
             .add_feedback_receiver(Arc::new(IndicatifFeedbackReceiver::new(&progress_bar)))
             .build()?;
 
-    let cardano_database_snapshots = client.cardano_database().list().await?;
+    let snapshots = client.cardano_database().list().await?;
 
-    let latest_hash = cardano_database_snapshots
+    let last_digest = snapshots
         .first()
         .ok_or(anyhow!(
-            "No Cardano database snapshot could be listed from aggregator: '{}'",
+            "No snapshots could be listed from aggregator: '{}'",
             args.aggregator_endpoint
         ))?
-        .hash
+        .digest
         .as_ref();
 
-    let cardano_database_snapshot =
-        client
-            .cardano_database()
-            .get(latest_hash)
-            .await?
-            .ok_or(anyhow!(
-                "A Cardano database should exist for hash '{latest_hash}'"
-            ))?;
+    let snapshot = client
+        .cardano_database()
+        .get(last_digest)
+        .await?
+        .ok_or(anyhow!("A snapshot should exist for hash '{last_digest}'"))?;
 
     let unpacked_dir = work_dir.join("unpack");
     std::fs::create_dir(&unpacked_dir).unwrap();
 
     let certificate = client
         .certificate()
-        .verify_chain(&cardano_database_snapshot.certificate_hash)
+        .verify_chain(&snapshot.certificate_hash)
         .await?;
 
-    let immutable_file_range = ImmutableFileRange::From(15000);
-    let download_unpack_options = DownloadUnpackOptions {
-        allow_override: true,
-        include_ancillary: false,
-        ..DownloadUnpackOptions::default()
-    };
     client
         .cardano_database()
-        .download_unpack(
-            &cardano_database_snapshot,
-            &immutable_file_range,
-            &unpacked_dir,
-            download_unpack_options,
-        )
+        .download_unpack(&snapshot, &unpacked_dir)
         .await?;
 
-    println!("Computing Cardano database Merkle proof...",);
-    let merkle_proof = client
-        .cardano_database()
-        .compute_merkle_proof(
-            &certificate,
-            &cardano_database_snapshot,
-            &immutable_file_range,
-            &unpacked_dir,
-        )
-        .await?;
-    merkle_proof
-        .verify()
-        .with_context(|| "Merkle proof verification failed")?;
-
-    println!("Sending usage statistics to the aggregator...");
-    let full_restoration = immutable_file_range == ImmutableFileRange::Full;
-    let include_ancillary = download_unpack_options.include_ancillary;
-    let number_of_immutable_files_restored =
-        immutable_file_range.length(cardano_database_snapshot.beacon.immutable_file_number);
-    if let Err(e) = client
-        .cardano_database()
-        .add_statistics(
-            full_restoration,
-            include_ancillary,
-            number_of_immutable_files_restored,
-        )
-        .await
-    {
-        println!("Could not send usage statistics to the aggregator: {:?}", e);
+    if let Err(e) = client.cardano_database().add_statistics(&snapshot).await {
+        println!("Could not increment snapshot download statistics: {:?}", e);
     }
 
-    println!(
-        "Computing Cardano database snapshot '{}' message...",
-        cardano_database_snapshot.hash
-    );
+    println!("Computing snapshot '{}' message ...", snapshot.digest);
     let message = wait_spinner(
         &progress_bar,
-        MessageBuilder::new().compute_cardano_database_message(&certificate, &merkle_proof),
+        MessageBuilder::new().compute_snapshot_message(&certificate, &unpacked_dir),
     )
     .await?;
 
     if certificate.match_message(&message) {
-        println!(
-            "Successfully downloaded and validated Cardano database snapshot '{}'",
-            cardano_database_snapshot.hash
-        );
-
         Ok(())
     } else {
         Err(anyhow::anyhow!(
@@ -152,7 +102,7 @@ async fn main() -> MithrilResult<()> {
 
 pub struct IndicatifFeedbackReceiver {
     progress_bar: MultiProgress,
-    cardano_database_pb: RwLock<Option<ProgressBar>>,
+    download_pb: RwLock<Option<ProgressBar>>,
     certificate_validation_pb: RwLock<Option<ProgressBar>>,
 }
 
@@ -160,7 +110,7 @@ impl IndicatifFeedbackReceiver {
     pub fn new(progress_bar: &MultiProgress) -> Self {
         Self {
             progress_bar: progress_bar.clone(),
-            cardano_database_pb: RwLock::new(None),
+            download_pb: RwLock::new(None),
             certificate_validation_pb: RwLock::new(None),
         }
     }
@@ -170,48 +120,42 @@ impl IndicatifFeedbackReceiver {
 impl FeedbackReceiver for IndicatifFeedbackReceiver {
     async fn handle_event(&self, event: MithrilEvent) {
         match event {
-            MithrilEvent::CardanoDatabase(cardano_database_event) => match cardano_database_event {
-                MithrilEventCardanoDatabase::Started {
-                    download_id: _,
-                    total_immutable_files,
-                    include_ancillary,
-                } => {
-                    println!("Starting download of artifact files...");
-                    let size = match include_ancillary {
-                        true => 1 + total_immutable_files,
-                        false => total_immutable_files,
-                    };
-                    let pb = ProgressBar::new(size);
-                    pb.set_style(ProgressStyle::with_template("{spinner:.green} {elapsed_precise}] [{wide_bar:.cyan/blue}] Files: {human_pos}/{human_len} ({eta})")
-                        .unwrap()
-                        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-                        .progress_chars("#>-"));
-                    self.progress_bar.add(pb.clone());
-                    let mut cardano_database_pb = self.cardano_database_pb.write().await;
-                    *cardano_database_pb = Some(pb);
+            MithrilEvent::SnapshotDownloadStarted {
+                digest,
+                download_id: _,
+                size,
+            } => {
+                println!("Starting download of snapshot '{digest}'");
+                let pb = ProgressBar::new(size);
+                pb.set_style(ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+                    .unwrap()
+                    .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+                    .progress_chars("#>-"));
+                self.progress_bar.add(pb.clone());
+                let mut download_pb = self.download_pb.write().await;
+                *download_pb = Some(pb);
+            }
+            MithrilEvent::SnapshotDownloadProgress {
+                download_id: _,
+                downloaded_bytes,
+                size: _,
+            } => {
+                let download_pb = self.download_pb.read().await;
+                if let Some(progress_bar) = download_pb.as_ref() {
+                    progress_bar.set_position(downloaded_bytes);
                 }
-                MithrilEventCardanoDatabase::Completed { .. } => {
-                    let mut cardano_database_pb = self.cardano_database_pb.write().await;
-                    if let Some(progress_bar) = cardano_database_pb.as_ref() {
-                        progress_bar.finish_with_message("Artifact files download completed");
-                    }
-                    *cardano_database_pb = None;
+            }
+            MithrilEvent::SnapshotDownloadCompleted { download_id: _ } => {
+                let mut download_pb = self.download_pb.write().await;
+                if let Some(progress_bar) = download_pb.as_ref() {
+                    progress_bar.finish_with_message("Snapshot download completed");
                 }
-                MithrilEventCardanoDatabase::ImmutableDownloadCompleted { .. }
-                | MithrilEventCardanoDatabase::AncillaryDownloadCompleted { .. } => {
-                    let cardano_database_pb = self.cardano_database_pb.read().await;
-                    if let Some(progress_bar) = cardano_database_pb.as_ref() {
-                        progress_bar.inc(1);
-                    }
-                }
-                _ => {
-                    // Ignore other events
-                }
-            },
+                *download_pb = None;
+            }
             MithrilEvent::CertificateChainValidationStarted {
                 certificate_chain_validation_id: _,
             } => {
-                println!("Validating certificate chain...");
+                println!("Validating certificate chain ...");
                 let pb = ProgressBar::new_spinner();
                 self.progress_bar.add(pb.clone());
                 let mut certificate_validation_pb = self.certificate_validation_pb.write().await;
@@ -227,6 +171,16 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                     progress_bar.inc(1);
                 }
             }
+            MithrilEvent::CertificateFetchedFromCache {
+                certificate_chain_validation_id: _,
+                certificate_hash,
+            } => {
+                let certificate_validation_pb = self.certificate_validation_pb.read().await;
+                if let Some(progress_bar) = certificate_validation_pb.as_ref() {
+                    progress_bar.set_message(format!("Cached '{certificate_hash}'"));
+                    progress_bar.inc(1);
+                }
+            }
             MithrilEvent::CertificateChainValidated {
                 certificate_chain_validation_id: _,
             } => {
@@ -236,9 +190,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
                 }
                 *certificate_validation_pb = None;
             }
-            _ => {
-                // Ignore other events
-            }
+            _ => panic!("Unexpected event: {:?}", event),
         }
     }
 }
@@ -246,7 +198,7 @@ impl FeedbackReceiver for IndicatifFeedbackReceiver {
 fn get_temp_dir() -> MithrilResult<PathBuf> {
     let dir = std::env::temp_dir()
         .join("mithril_examples")
-        .join("cardano_database_snapshot");
+        .join("client_snapshot");
 
     if dir.exists() {
         std::fs::remove_dir_all(&dir).with_context(|| format!("Could not remove dir {dir:?}"))?;
