@@ -242,10 +242,10 @@ async fn main() -> mithril_client::MithrilResult<()> {
 
 Snapshot download and certificate chain validation can take quite some time, even with a fast computer and network. We have implemented a feedback mechanism for them; more details are available in the [feedback sub-module](https://mithril.network/rust-doc/mithril_client/feedback/index.html).
 
-An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-snapshot/src/main.rs). To run it, execute the following command:
+An example of implementation with the crate [indicatif](https://crates.io/crates/indicatif) is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-cardano-database/src/main.rs). To run it, execute the following command:
 
 ```bash
-cargo run -p client-snapshot
+cargo run -p client-cardano-database
 ```
 
 or directly from the example crate directory:
@@ -358,10 +358,10 @@ async fn main() -> mithril_client::MithrilResult<()> {
 
 :::info
 
-An full example is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-cardano-database/src/main.rs). To run it, execute the following command:
+An full example is available in the [Mithril repository](https://github.com/input-output-hk/mithril/tree/main/examples/client-cardano-database-v2/src/main.rs). To run it, execute the following command:
 
 ```bash
-cargo run -p client-cardano-database
+cargo run -p client-cardano-database-v2
 ```
 
 or directly from the example crate directory:
