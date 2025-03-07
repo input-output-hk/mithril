@@ -157,6 +157,9 @@ pub struct StmParameters {
     pub phi_f: f64,
 }
 
+/// Mapping signer index to StmSigRegParty
+pub type IndexStmSigRegMap = BTreeMap<Index, StmSigRegParty>;
+
 impl StmParameters {
     /// Convert to bytes
     /// # Layout
@@ -639,7 +642,7 @@ impl Serialize for StmSigRegParty {
 /// STM-Telescope proof.
 pub struct TelescopeProof<D: Clone + Digest + FixedOutput> {
     /// StmSignatures of alba proof
-    pub signatures: Vec<StmSigRegParty>,
+    pub signer_index_sigreg_map: IndexStmSigRegMap,
     /// The list of unique merkle tree nodes that covers path for all signatures.
     pub batch_proof: BatchPath<D>,
     /// Numbers of retries done to find the proof
@@ -751,29 +754,22 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
             &msgp,
             &sig_reg_list,
         )
-            .unwrap();
-        //?;
+        .unwrap();
 
-        let mut index_sigreg_map: BTreeMap<Index, StmSigRegParty> = BTreeMap::new();
-        let mut hash_index_map: BTreeMap<[u8; 48], Index> = BTreeMap::new();
+        let mut signer_index_sigreg_map: IndexStmSigRegMap = IndexStmSigRegMap::new();
+        let mut hash_lottery_index_map: BTreeMap<ElementData, Index> = BTreeMap::new();
         let mut prover_set = Vec::with_capacity(self.params.k as usize);
-        let mut digest_buf = [0u8; 48];
 
         for sr in &unique_sigs {
             let signer_index = sr.sig.signer_index;
-            index_sigreg_map.insert(signer_index, sr.clone());
+            signer_index_sigreg_map.insert(signer_index, sr.clone());
 
             for i in &sr.sig.indexes {
-                let data_buf = i.to_be_bytes();
-                let mut hasher = Blake2bVar::new(48).expect("Failed to construct hasher");
-                hasher.update(&data_buf);
-                hasher
-                    .finalize_variable(&mut digest_buf)
-                    .expect("Hashing failed");
+                let element_data = generate_element_data(i);
 
-                hash_index_map.insert(digest_buf, *i);
+                hash_lottery_index_map.insert(element_data, *i);
                 prover_set.push(Element {
-                    data: ElementData::from_bytes(digest_buf.as_slice()).unwrap(),
+                    data: element_data,
                     index: Some(signer_index),
                 });
             }
@@ -781,28 +777,29 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
         let proof = telescope.prove(&prover_set).unwrap();
 
-        let mut unique_signatures = HashSet::new();
         let mut proof_index_sequence: Vec<(Index, Index)> = Vec::new();
+        let mut valid_signer_indexes = HashSet::new();
 
         for e in &proof.element_sequence {
-            let unique_index = hash_index_map.get(e.data.as_ref()).unwrap();
-            proof_index_sequence.push((*unique_index, e.index.unwrap()));
-            unique_signatures.insert(index_sigreg_map.get(&(e.index.unwrap())).unwrap());
+            if let Some(unique_index) = hash_lottery_index_map.get(&e.data) {
+                if let Some(signer_index) = e.index {
+                    proof_index_sequence.push((*unique_index, signer_index));
+                    valid_signer_indexes.insert(signer_index);
+                }
+            }
         }
 
-        let mut proof_signatures: Vec<StmSigRegParty> =
-            unique_signatures.into_iter().cloned().collect();
-        proof_signatures.sort_unstable();
+        signer_index_sigreg_map.retain(|index, _| valid_signer_indexes.contains(index));
 
-        let mt_index_list = proof_signatures
-            .iter()
-            .map(|sig_reg| sig_reg.sig.signer_index as usize)
-            .collect::<Vec<usize>>();
+        let mt_index_list: Vec<usize> = signer_index_sigreg_map
+            .keys()
+            .map(|&key| key as usize)
+            .collect();
 
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
         TelescopeProof {
-            signatures: proof_signatures,
+            signer_index_sigreg_map,
             batch_proof,
             retry_counter: proof.retry_counter,
             search_counter: proof.search_counter,
@@ -1204,75 +1201,72 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> TelescopeProof<D> {
         let mut unique_indices: HashSet<Index> = HashSet::new();
         let mut nr_indices = 0;
 
-        // Check signatures' indices and collect unique indices
-        for sig_reg in &self.signatures {
-            if sig_reg
-                .sig
-                .check_indices(parameters, &sig_reg.reg_party.1, &msgp, &avk.total_stake)
-                .is_ok()
-            {
-                unique_indices.extend(&sig_reg.sig.indexes);
-                nr_indices += sig_reg.sig.indexes.len();
-            }
-        }
+        // Check winning lotteries, collect unique indices and map signer index with its lottery index list.
+        let signer_indices_map: BTreeMap<&Index, &Vec<Index>> = self
+            .signer_index_sigreg_map
+            .iter()
+            .filter_map(|(signer_index, sig_reg)| {
+                if sig_reg
+                    .sig
+                    .check_indices(parameters, &sig_reg.reg_party.1, &msgp, &avk.total_stake)
+                    .is_ok()
+                {
+                    unique_indices.extend(&sig_reg.sig.indexes);
+                    nr_indices += sig_reg.sig.indexes.len();
+                    Some((signer_index, &sig_reg.sig.indexes))
+                } else {
+                    None
+                }
+            })
+            .collect();
 
+        // Check uniqueness
         if nr_indices != unique_indices.len() {
             println!("Not unique");
             return;
         }
-
-        // Map signer indices to their index lists
-        let signer_indices_map: BTreeMap<Index, &Vec<Index>> = self
-            .signatures
-            .iter()
-            .map(|sig_reg| (sig_reg.sig.signer_index, &sig_reg.sig.indexes))
-            .collect();
-
         // Verify proof index sequence against signer index lists
         if self
             .index_sequence
             .iter()
-            .any(|(proof_element, element_index)| {
+            .any(|(proof_element_as_index, signer_index)| {
                 signer_indices_map
-                    .get(element_index)
-                    .is_none_or(|index_list| !index_list.contains(proof_element))
+                    .get(signer_index)
+                    .is_none_or(|index_list| !index_list.contains(proof_element_as_index))
             })
         {
             println!("Index list does not contain proof element");
             return;
         }
 
-        // Collect leaves for Merkle proof verification
-        let leaves: Vec<RegParty> = self.signatures.iter().map(|r| r.reg_party).collect();
+        // Extract sig_reg_list from signer_index_sigreg_map
+        let sig_reg_list: Vec<StmSigRegParty> =
+            self.signer_index_sigreg_map.values().cloned().collect();
 
+        // Collect leaves for Merkle proof verification
+        let leaves: Vec<RegParty> = sig_reg_list.iter().map(|r| r.reg_party).collect();
+
+        // Verify batch proof
         if avk.mt_commitment.check(&leaves, &self.batch_proof).is_err() {
             println!("Batch proof failed");
             return;
         }
 
         // Verify aggregated signatures
-        let (sigs, vks) = CoreVerifier::collect_sigs_vks(&self.signatures);
+        let (sigs, vks) = CoreVerifier::collect_sigs_vks(&sig_reg_list);
         if Signature::verify_aggregate(msgp.as_slice(), &vks, &sigs).is_err() {
             println!("Aggregate verification failed");
             return;
         }
 
-        // Construct proof element sequence
+        // Construct telescope proof element sequence
         let element_sequence: Vec<Element> = self
             .index_sequence
             .iter()
             .map(|(proof_element, element_index)| {
-                let data_buf = proof_element.to_be_bytes();
-                let mut digest_buf = [0u8; 48];
-                let mut hasher = Blake2bVar::new(48).expect("Failed to construct hasher");
-                hasher.update(&data_buf);
-                hasher
-                    .finalize_variable(&mut digest_buf)
-                    .expect("Hashing failed");
-
+                let element_data = generate_element_data(proof_element);
                 Element {
-                    data: ElementData::from_bytes(digest_buf.as_slice())
-                        .expect("ElementData conversion failed"),
+                    data: element_data,
                     index: Some(*element_index),
                 }
             })
@@ -1286,6 +1280,18 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> TelescopeProof<D> {
 
         println!("{}", telescope.verify(&proof));
     }
+}
+
+/// create element data by hashing the index
+pub fn generate_element_data(input: &Index) -> ElementData {
+    let mut digest_buf = [0u8; 48];
+    let data_buf = input.to_be_bytes();
+    let mut hasher = Blake2bVar::new(48).expect("Failed to construct hasher");
+    hasher.update(&data_buf);
+    hasher
+        .finalize_variable(&mut digest_buf)
+        .expect("Hashing failed");
+    ElementData::from_bytes(digest_buf.as_slice()).unwrap()
 }
 
 #[cfg(test)]
