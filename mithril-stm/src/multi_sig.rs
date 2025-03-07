@@ -753,32 +753,14 @@ mod tests {
         fn serialize_deserialize_vk(seed in any::<u64>()) {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
             let sk = SigningKey::gen(&mut rng);
-
             let vk = VerificationKey::from(&sk);
             let vk_bytes = vk.to_bytes();
-            let result = VerificationKey::from_bytes(&vk_bytes);
-            match result {
-                Ok(vk_from_bytes) => {
-                    assert_eq!(vk, vk_from_bytes);
-                }
-                Err(MultiSignatureError::SerializationError) => {
-                    println!("Verification key cannot be recovered from bytes.");
-                }
-                _ => unreachable!(),
-            }
-
+            let vk2 = VerificationKey::from_bytes(&vk_bytes).unwrap();
+            assert_eq!(vk, vk2);
             let vkpop = VerificationKeyPoP::from(&sk);
             let vkpop_bytes = vkpop.to_bytes();
-            let result = VerificationKeyPoP::from_bytes(&vkpop_bytes);
-            match result {
-                Ok(vkpop_from_bytes) => {
-                    assert_eq!(vkpop, vkpop_from_bytes);
-                }
-                Err(MultiSignatureError::SerializationError) => {
-                    println!("VerificationKeyPoP cannot be recovered from bytes.");
-                }
-                _ => unreachable!(),
-            }
+            let vkpop2: VerificationKeyPoP = VerificationKeyPoP::from_bytes(&vkpop_bytes).unwrap();
+            assert_eq!(vkpop, vkpop2);
 
             // Now we test serde
             let encoded = bincode::serialize(&vk).unwrap();
@@ -795,16 +777,8 @@ mod tests {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
             let sk = SigningKey::gen(&mut rng);
             let sk_bytes: [u8; 32] = sk.to_bytes();
-            let result = SigningKey::from_bytes(&sk_bytes);
-            match result {
-                Ok(sk_from_bytes) => {
-                    assert_eq!(sk, sk_from_bytes);
-                }
-                Err(MultiSignatureError::SerializationError) => {
-                    println!("Signing key cannot be recovered from bytes.");
-                }
-                _ => unreachable!(),
-            }
+            let sk2 = SigningKey::from_bytes(&sk_bytes).unwrap();
+            assert_eq!(sk, sk2);
 
             // Now we test serde
             let encoded = bincode::serialize(&sk).unwrap();
