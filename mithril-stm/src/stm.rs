@@ -1326,10 +1326,7 @@ mod tests {
             phi_f: 0.9,
         };
 
-        let stakes = (0..nb_elements)
-            .into_iter()
-            .map(|_| 1 + (rng.next_u64() % 9999))
-            .collect::<Vec<_>>();
+        let stakes: Vec<u64> = (0..nb_elements).map(|_| rng.gen_range(1..=9999)).collect();
 
         let mut key_reg = KeyReg::init();
 
@@ -1349,9 +1346,7 @@ mod tests {
 
         let sigs = ps
             .iter()
-            .filter_map(|p| {
-                p.sign(msg)
-            })
+            .filter_map(|p| p.sign(msg))
             .collect::<Vec<StmSig>>();
 
         let clerk = StmClerk::from_registration(&params, &closed_reg);
