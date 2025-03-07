@@ -35,7 +35,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_simple_message() {
+    fn try_adapt_epoch_settings_message_to_entity() {
         let message = EpochSettingsMessage::dummy();
         let epoch = message.epoch;
         let epoch_settings = FromEpochSettingsAdapter::try_adapt(message).unwrap();

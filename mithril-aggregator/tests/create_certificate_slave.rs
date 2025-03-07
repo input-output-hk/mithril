@@ -34,13 +34,6 @@ async fn create_certificate_slave() {
     };
     let master_configuration = Configuration {
         protocol_parameters: protocol_parameters.clone(),
-        signed_entity_types: Some(
-            [
-                SignedEntityTypeDiscriminants::CardanoTransactions.to_string(),
-                SignedEntityTypeDiscriminants::CardanoDatabase.to_string(),
-            ]
-            .join(","),
-        ),
         data_stores_directory: get_test_dir("create_certificate_master"),
         snapshot_directory: TempDir::create("aggregator-integration", "create_certificate_master"),
         cardano_transactions_signing_config: CardanoTransactionsSigningConfig {

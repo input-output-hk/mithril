@@ -100,19 +100,13 @@ impl MithrilSignerRegistrationSlave {
 #[async_trait]
 impl SignerSynchronizer for MithrilSignerRegistrationSlave {
     async fn can_synchronize_signers(&self, epoch: Epoch) -> Result<bool, SignerRegistrationError> {
-        let is_slave_aggregator_at_same_epoch_as_master = if let Some(master_epoch_settings) = self
+        Ok(self
             .master_aggregator_client
             .retrieve_epoch_settings()
             .await
             .with_context(|| "can_synchronize_signers failed")
             .map_err(SignerRegistrationError::FailedFetchingMasterAggregatorEpochSettings)?
-        {
-            epoch == master_epoch_settings.epoch
-        } else {
-            false
-        };
-
-        Ok(is_slave_aggregator_at_same_epoch_as_master)
+            .is_some_and(|master_epoch_settings| epoch == master_epoch_settings.epoch))
     }
 
     async fn synchronize_all_signers(&self) -> Result<(), SignerRegistrationError> {
