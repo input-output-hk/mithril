@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, VecDeque};
 use std::future::Future;
 use std::ops::RangeInclusive;
 use std::path::{Path, PathBuf};
@@ -16,7 +16,7 @@ use mithril_common::{
 
 use crate::feedback::{FeedbackSender, MithrilEvent, MithrilEventCardanoDatabase};
 use crate::file_downloader::{DownloadEvent, FileDownloader, FileDownloaderUri};
-use crate::utils::VecExtensions;
+use crate::utils::VecDequeExtensions;
 use crate::MithrilResult;
 
 use super::immutable_file_range::ImmutableFileRange;
@@ -126,13 +126,13 @@ impl InternalArtifactDownloader {
             .immutables
             .average_size_uncompressed;
 
-        let tasks = self.build_download_tasks_for_immutables(
+        let tasks = VecDeque::from(self.build_download_tasks_for_immutables(
             immutable_locations,
             immutable_file_number_range,
             target_dir,
             average_size_uncompressed,
             &download_id,
-        )?;
+        )?);
         if download_unpack_options.include_ancillary {
             let ancillary = &cardano_database_snapshot.ancillary;
             self.download_unpack_ancillary_file(
@@ -293,7 +293,7 @@ impl InternalArtifactDownloader {
     /// Download and unpack the files in parallel.
     async fn batch_download_unpack(
         &self,
-        mut tasks: Vec<DownloadTask>,
+        mut tasks: VecDeque<DownloadTask>,
         max_parallel_downloads: usize,
     ) -> MithrilResult<()> {
         let mut join_set: JoinSet<MithrilResult<()>> = JoinSet::new();
@@ -841,7 +841,7 @@ mod tests {
                 .unwrap();
 
             artifact_downloader
-                .batch_download_unpack(tasks, 1)
+                .batch_download_unpack(tasks.into(), 1)
                 .await
                 .expect_err("batch_download_unpack of the immutable files should fail");
         }
@@ -912,7 +912,7 @@ mod tests {
                 .unwrap();
 
             artifact_downloader
-                .batch_download_unpack(tasks, 1)
+                .batch_download_unpack(tasks.into(), 1)
                 .await
                 .unwrap();
         }
@@ -973,7 +973,7 @@ mod tests {
                 .unwrap();
 
             artifact_downloader
-                .batch_download_unpack(tasks, 1)
+                .batch_download_unpack(tasks.into(), 1)
                 .await
                 .unwrap();
         }
