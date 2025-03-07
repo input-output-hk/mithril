@@ -341,17 +341,19 @@ impl InternalArtifactDownloader {
     ) -> MithrilResult<()> {
         let mut join_set: JoinSet<MithrilResult<()>> = JoinSet::new();
 
-        while !tasks.is_empty() {
-            let tasks_chunk = tasks.pop_up_to_n(max_parallel_downloads);
+        let initial_tasks_chunk = tasks.pop_up_to_n(max_parallel_downloads);
+        for task in initial_tasks_chunk {
+            join_set.spawn(self.spawn_download_future(task));
+        }
 
-            for task in tasks_chunk {
-                join_set.spawn(self.spawn_download_future(task));
+        while let Some(result) = join_set.join_next().await {
+            if let Err(error) = result? {
+                join_set.abort_all();
+                anyhow::bail!(error);
             }
-            while let Some(result) = join_set.join_next().await {
-                if let Err(error) = result? {
-                    join_set.abort_all();
-                    anyhow::bail!(error);
-                }
+
+            if let Some(task) = tasks.pop_front() {
+                join_set.spawn(self.spawn_download_future(task));
             }
         }
 
