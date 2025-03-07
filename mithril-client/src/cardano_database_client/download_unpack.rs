@@ -126,7 +126,7 @@ impl InternalArtifactDownloader {
             .immutables
             .average_size_uncompressed;
 
-        let tasks = VecDeque::from(self.build_download_tasks_for_immutables(
+        let mut tasks = VecDeque::from(self.build_download_tasks_for_immutables(
             immutable_locations,
             immutable_file_number_range,
             target_dir,
@@ -135,13 +135,12 @@ impl InternalArtifactDownloader {
         )?);
         if download_unpack_options.include_ancillary {
             let ancillary = &cardano_database_snapshot.ancillary;
-            self.download_unpack_ancillary_file(
+            tasks.push_back(self.new_ancillary_download_task(
                 &ancillary.locations,
-                ancillary.size_uncompressed,
                 target_dir,
+                ancillary.size_uncompressed,
                 &download_id,
-            )
-            .await?;
+            )?);
         }
         self.batch_download_unpack(tasks, download_unpack_options.max_parallel_downloads)
             .await?;
@@ -290,6 +289,50 @@ impl InternalArtifactDownloader {
         })
     }
 
+    fn new_ancillary_download_task(
+        &self,
+        locations: &[AncillaryLocation],
+        ancillary_file_target_dir: &Path,
+        size_uncompressed: u64,
+        download_id: &str,
+    ) -> MithrilResult<DownloadTask> {
+        let mut locations_to_try = vec![];
+        let mut locations_sorted = locations.to_owned();
+        locations_sorted.sort();
+        for location in locations_sorted {
+            let location_to_try = match location {
+                AncillaryLocation::CloudStorage {
+                    uri,
+                    compression_algorithm,
+                } => {
+                    let file_downloader = self.http_file_downloader.clone();
+                    let file_downloader_uri = FileDownloaderUri::from(uri);
+
+                    LocationToDownload {
+                        file_downloader,
+                        file_downloader_uri,
+                        compression_algorithm: compression_algorithm.to_owned(),
+                    }
+                }
+                AncillaryLocation::Unknown => {
+                    return Err(anyhow!("Unknown location type to download immutable"));
+                }
+            };
+
+            locations_to_try.push(location_to_try);
+        }
+
+        Ok(DownloadTask {
+            name: "ancillary".to_string(),
+            locations_to_try,
+            target_dir: ancillary_file_target_dir.to_path_buf(),
+            size_uncompressed,
+            download_event: DownloadEvent::Ancillary {
+                download_id: download_id.to_string(),
+            },
+        })
+    }
+
     /// Download and unpack the files in parallel.
     async fn batch_download_unpack(
         &self,
@@ -354,56 +397,6 @@ impl InternalArtifactDownloader {
         };
 
         Box::pin(download_future)
-    }
-
-    /// Download and unpack the ancillary files.
-    pub(crate) async fn download_unpack_ancillary_file(
-        &self,
-        locations: &[AncillaryLocation],
-        file_size: u64,
-        ancillary_file_target_dir: &Path,
-        download_id: &str,
-    ) -> MithrilResult<()> {
-        let mut locations_sorted = locations.to_owned();
-        locations_sorted.sort();
-        for location in locations_sorted {
-            let (file_downloader, compression_algorithm) = match &location {
-                AncillaryLocation::CloudStorage {
-                    uri: _,
-                    compression_algorithm,
-                } => (self.http_file_downloader.clone(), *compression_algorithm),
-                AncillaryLocation::Unknown => {
-                    continue;
-                }
-            };
-            let file_downloader_uri = location.try_into()?;
-            let downloaded = file_downloader
-                .download_unpack(
-                    &file_downloader_uri,
-                    file_size,
-                    ancillary_file_target_dir,
-                    compression_algorithm,
-                    DownloadEvent::Ancillary {
-                        download_id: download_id.to_string(),
-                    },
-                )
-                .await;
-            match downloaded {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(e) => {
-                    slog::error!(
-                        self.logger,
-                        "Failed downloading and unpacking ancillaries for location {file_downloader_uri:?}"; "error" => ?e
-                    );
-                }
-            }
-        }
-
-        Err(anyhow!(
-            "Failed downloading and unpacking ancillaries for all locations"
-        ))
     }
 }
 
@@ -992,22 +985,26 @@ mod tests {
                 test_utils::test_logger(),
             );
 
-            artifact_downloader
-                .download_unpack_ancillary_file(
+            let task = artifact_downloader
+                .new_ancillary_download_task(
                     &[AncillaryLocation::CloudStorage {
                         uri: "http://whatever-1/ancillary.tar.gz".to_string(),
                         compression_algorithm: Some(CompressionAlgorithm::default()),
                     }],
-                    0,
                     target_dir,
+                    0,
                     "download_id",
                 )
+                .unwrap();
+
+            artifact_downloader
+                .batch_download_unpack(vec![task].into(), 1)
                 .await
-                .expect_err("download_unpack_ancillary_file should fail");
+                .expect_err("batch_download_unpack of ancillary file should fail");
         }
 
         #[tokio::test]
-        async fn download_unpack_ancillary_files_fails_if_location_is_unknown() {
+        async fn building_ancillary_download_task_fails_if_location_is_unknown() {
             let target_dir = Path::new(".");
             let artifact_downloader = InternalArtifactDownloader::new(
                 Arc::new(MockFileDownloader::new()),
@@ -1015,15 +1012,17 @@ mod tests {
                 test_utils::test_logger(),
             );
 
-            artifact_downloader
-                .download_unpack_ancillary_file(
-                    &[AncillaryLocation::Unknown {}],
-                    0,
-                    target_dir,
-                    "download_id",
-                )
-                .await
-                .expect_err("download_unpack_ancillary_file should fail");
+            let build_tasks_result = artifact_downloader.new_ancillary_download_task(
+                &[AncillaryLocation::Unknown {}],
+                target_dir,
+                0,
+                "download_id",
+            );
+
+            assert!(
+                build_tasks_result.is_err(),
+                "building tasks should fail if a location is unknown"
+            );
         }
 
         #[tokio::test]
@@ -1045,8 +1044,8 @@ mod tests {
                 test_utils::test_logger(),
             );
 
-            artifact_downloader
-                .download_unpack_ancillary_file(
+            let task = artifact_downloader
+                .new_ancillary_download_task(
                     &[
                         AncillaryLocation::CloudStorage {
                             uri: "http://whatever-1/ancillary.tar.gz".to_string(),
@@ -1057,10 +1056,14 @@ mod tests {
                             compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
-                    0,
                     target_dir,
+                    0,
                     "download_id",
                 )
+                .unwrap();
+
+            artifact_downloader
+                .batch_download_unpack(vec![task].into(), 1)
                 .await
                 .unwrap();
         }
@@ -1080,8 +1083,8 @@ mod tests {
                 test_utils::test_logger(),
             );
 
-            artifact_downloader
-                .download_unpack_ancillary_file(
+            let task = artifact_downloader
+                .new_ancillary_download_task(
                     &[
                         AncillaryLocation::CloudStorage {
                             uri: "http://whatever-1/ancillary.tar.gz".to_string(),
@@ -1092,10 +1095,14 @@ mod tests {
                             compression_algorithm: Some(CompressionAlgorithm::default()),
                         },
                     ],
-                    0,
                     target_dir,
+                    0,
                     "download_id",
                 )
+                .unwrap();
+
+            artifact_downloader
+                .batch_download_unpack(vec![task].into(), 1)
                 .await
                 .unwrap();
         }
