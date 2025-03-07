@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
+use crate::entities::ImmutableFileNumber;
 use crate::StdResult;
 
 /// FileUri represents a file URI used to identify the file's location
@@ -56,19 +57,40 @@ impl MultiFilesUri {
         &self,
         variables: Vec<HashMap<TemplateVariable, TemplateValue>>,
     ) -> StdResult<Vec<FileUri>> {
-        match self {
-            MultiFilesUri::Template(template) => Ok(variables
-                .into_iter()
-                .map(|variable| {
-                    let mut file_uri = template.0.clone();
-                    for (key, value) in variable {
-                        file_uri = file_uri.replace(&format!("{{{}}}", key), &value);
-                    }
+        Ok(variables
+            .into_iter()
+            .map(|variable| self.expand_to_file_uri(variable))
+            .collect())
+    }
 
-                    FileUri(file_uri)
-                })
-                .collect()),
+    /// Expand the template to one file URI
+    pub fn expand_to_file_uri(
+        &self,
+        variable: HashMap<TemplateVariable, TemplateValue>,
+    ) -> FileUri {
+        match self {
+            MultiFilesUri::Template(template) => {
+                let mut file_uri = template.0.clone();
+                for (key, value) in variable {
+                    file_uri = file_uri.replace(&format!("{{{}}}", key), &value);
+                }
+
+                FileUri(file_uri)
+            }
         }
+    }
+
+    /// Expand the template to a file URI for a specific immutable file number
+    ///
+    /// Note: the template must contain the `{immutable_file_number}` variable
+    pub fn expand_for_immutable_file_number(
+        &self,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> FileUri {
+        self.expand_to_file_uri(HashMap::from([(
+            "immutable_file_number".to_string(),
+            format!("{:05}", immutable_file_number),
+        )]))
     }
 }
 
@@ -114,6 +136,59 @@ mod tests {
             .expect_err(
                 "Should return an error when multiple templates are found in the file URIs",
             );
+    }
+
+    #[test]
+    fn expand_multi_file_template_to_one_file_uri() {
+        let template = MultiFilesUri::Template(TemplateUri(
+            "http://whatever/{var1}-{var2}.tar.gz".to_string(),
+        ));
+
+        assert_eq!(
+            template.expand_to_file_uri(HashMap::from([
+                ("var1".to_string(), "00001".to_string()),
+                ("var2".to_string(), "abc".to_string()),
+            ]),),
+            FileUri("http://whatever/00001-abc.tar.gz".to_string()),
+        );
+
+        assert_eq!(
+            template.expand_to_file_uri(HashMap::from([
+                ("var1".to_string(), "00001".to_string()),
+                ("var2".to_string(), "def".to_string()),
+            ]),),
+            FileUri("http://whatever/00001-def.tar.gz".to_string()),
+        );
+
+        assert_eq!(
+            template.expand_to_file_uri(HashMap::from([
+                ("var1".to_string(), "00002".to_string()),
+                ("var2".to_string(), "def".to_string()),
+            ]),),
+            FileUri("http://whatever/00002-def.tar.gz".to_string()),
+        );
+    }
+
+    #[test]
+    fn expand_multi_file_template_to_immutable_file_number() {
+        let template = MultiFilesUri::Template(TemplateUri(
+            "http://whatever/{immutable_file_number}.tar.gz".to_string(),
+        ));
+
+        assert_eq!(
+            template.expand_for_immutable_file_number(6),
+            FileUri("http://whatever/00006.tar.gz".to_string()),
+        );
+
+        assert_eq!(
+            template.expand_for_immutable_file_number(15329),
+            FileUri("http://whatever/15329.tar.gz".to_string()),
+        );
+
+        assert_eq!(
+            template.expand_for_immutable_file_number(199999),
+            FileUri("http://whatever/199999.tar.gz".to_string()),
+        );
     }
 
     #[test]
