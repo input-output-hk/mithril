@@ -3,10 +3,14 @@
 
 cfg_fs! {
     mod stream_reader;
+
+    pub use stream_reader::*;
+}
+
+cfg_fs_unstable! {
     mod fs;
     mod vec_deque_extensions;
 
-    pub use stream_reader::*;
     pub use fs::*;
     pub use vec_deque_extensions::VecDequeExtensions;
 }
