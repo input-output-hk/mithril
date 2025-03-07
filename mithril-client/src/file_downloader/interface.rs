@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::Path};
+use std::path::Path;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -6,7 +6,6 @@ use async_trait::async_trait;
 use mithril_common::{
     entities::{
         AncillaryLocation, CompressionAlgorithm, DigestLocation, FileUri, ImmutableFileNumber,
-        ImmutablesLocation,
     },
     StdError, StdResult,
 };
@@ -21,39 +20,6 @@ pub enum FileDownloaderUri {
 }
 
 impl FileDownloaderUri {
-    /// Expand the immutable locations to a list of file URIs
-    pub fn expand_immutable_files_location_to_file_downloader_uris(
-        immutable_files_location: &ImmutablesLocation,
-        immutable_files_range: &[ImmutableFileNumber],
-    ) -> StdResult<Vec<(ImmutableFileNumber, FileDownloaderUri)>> {
-        match immutable_files_location {
-            ImmutablesLocation::CloudStorage {
-                uri,
-                compression_algorithm: _,
-            } => {
-                let expand_variables = immutable_files_range
-                    .iter()
-                    .map(|immutable_file_number| {
-                        HashMap::from([(
-                            "immutable_file_number".to_string(),
-                            format!("{:05}", immutable_file_number),
-                        )])
-                    })
-                    .collect();
-                let file_downloader_uris = uri
-                    .expand_to_file_uris(expand_variables)?
-                    .into_iter()
-                    .map(FileDownloaderUri::FileUri);
-                let immutable_files_range = immutable_files_range.iter().copied();
-
-                Ok(immutable_files_range.zip(file_downloader_uris).collect())
-            }
-            ImmutablesLocation::Unknown => {
-                Err(anyhow!("Unknown location type to download immutable"))
-            }
-        }
-    }
-
     /// Get the URI as a string
     pub fn as_str(&self) -> &str {
         match self {
@@ -271,57 +237,7 @@ pub trait FileDownloader: Sync + Send {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::entities::{MultiFilesUri, TemplateUri};
-
     use super::*;
-
-    #[test]
-    fn immutable_files_location_to_file_downloader_uris() {
-        let immutable_files_location = ImmutablesLocation::CloudStorage {
-            uri: MultiFilesUri::Template(TemplateUri(
-                "http://whatever/{immutable_file_number}.tar.gz".to_string(),
-            )),
-            compression_algorithm: Some(CompressionAlgorithm::Gzip),
-        };
-        let immutable_files_range: Vec<ImmutableFileNumber> = (1..=3).collect();
-
-        let file_downloader_uris =
-            FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
-                &immutable_files_location,
-                &immutable_files_range,
-            )
-            .unwrap();
-
-        assert_eq!(
-            file_downloader_uris,
-            vec![
-                (
-                    1,
-                    FileDownloaderUri::FileUri(FileUri("http://whatever/00001.tar.gz".to_string()))
-                ),
-                (
-                    2,
-                    FileDownloaderUri::FileUri(FileUri("http://whatever/00002.tar.gz".to_string()))
-                ),
-                (
-                    3,
-                    FileDownloaderUri::FileUri(FileUri("http://whatever/00003.tar.gz".to_string()))
-                ),
-            ]
-        );
-    }
-
-    #[test]
-    fn immutable_files_location_to_file_downloader_uris_return_error_when_location_is_unknown() {
-        let immutable_files_location = ImmutablesLocation::Unknown;
-        let immutable_files_range: Vec<ImmutableFileNumber> = (1..=1).collect();
-
-        FileDownloaderUri::expand_immutable_files_location_to_file_downloader_uris(
-            &immutable_files_location,
-            &immutable_files_range,
-        )
-        .expect_err("expand_immutable_files_location_to_file_downloader_uris should fail");
-    }
 
     #[test]
     fn download_event_type_builds_started_event() {
