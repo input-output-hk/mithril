@@ -45,7 +45,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_simple_message() {
+    fn try_adapt_signer_registration_message_to_entity() {
         let register_signer_message = RegisterSignerMessage {
             party_id: "one".to_string(),
             ..RegisterSignerMessage::dummy()

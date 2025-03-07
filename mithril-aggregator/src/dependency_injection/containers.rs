@@ -36,12 +36,12 @@ use crate::{
     file_uploaders::FileUploader,
     multi_signer::MultiSigner,
     services::{
-        CertifierService, EpochService, MessageService, ProverService, SignedEntityService,
-        Snapshotter, StakeDistributionService, TransactionStore, UpkeepService,
+        AggregatorClient, CertifierService, EpochService, MessageService, ProverService,
+        SignedEntityService, SignerRecorder, SignerSynchronizer, Snapshotter,
+        StakeDistributionService, TransactionStore, UpkeepService,
     },
-    signer_registerer::SignerRecorder,
     EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
-    SingleSignatureAuthenticator, VerificationKeyStorer,
+    SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
 
 /// EpochServiceWrapper wraps a [EpochService]
@@ -115,6 +115,12 @@ pub struct DependencyContainer {
     /// Signer registerer service
     pub signer_registerer: Arc<dyn SignerRegisterer>,
 
+    /// Signer synchronizer service
+    pub signer_synchronizer: Arc<dyn SignerSynchronizer>,
+
+    /// Signer registration verifier
+    pub signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
+
     /// Signer registration round opener service
     pub signer_registration_round_opener: Arc<dyn SignerRegistrationRoundOpener>,
 
@@ -174,6 +180,9 @@ pub struct DependencyContainer {
 
     /// Metrics service
     pub metrics_service: Arc<MetricsService>,
+
+    /// Master aggregator client
+    pub master_aggregator_client: Arc<dyn AggregatorClient>,
 }
 
 #[doc(hidden)]

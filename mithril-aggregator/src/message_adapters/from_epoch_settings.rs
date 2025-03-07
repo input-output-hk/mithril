@@ -4,15 +4,17 @@ use mithril_common::{
     StdResult,
 };
 
-use crate::entities::SignerEpochSettings;
+use crate::entities::MasterAggregatorEpochSettings;
 
-/// Adapter to convert [EpochSettingsMessage] to [SignerEpochSettings].
+/// Adapter to convert [EpochSettingsMessage] to [MasterAggregatorEpochSettings].
 pub struct FromEpochSettingsAdapter;
 
-impl TryFromMessageAdapter<EpochSettingsMessage, SignerEpochSettings> for FromEpochSettingsAdapter {
+impl TryFromMessageAdapter<EpochSettingsMessage, MasterAggregatorEpochSettings>
+    for FromEpochSettingsAdapter
+{
     /// Method to convert.
-    fn try_adapt(message: EpochSettingsMessage) -> StdResult<SignerEpochSettings> {
-        let epoch_settings = SignerEpochSettings {
+    fn try_adapt(message: EpochSettingsMessage) -> StdResult<MasterAggregatorEpochSettings> {
+        let epoch_settings = MasterAggregatorEpochSettings {
             epoch: message.epoch,
             registration_protocol_parameters: message.signer_registration_protocol_parameters,
             current_signers: SignerMessagePart::try_into_signers(message.current_signers)
@@ -23,6 +25,7 @@ impl TryFromMessageAdapter<EpochSettingsMessage, SignerEpochSettings> for FromEp
             next_cardano_transactions_signing_config: message
                 .next_cardano_transactions_signing_config,
         };
+
         Ok(epoch_settings)
     }
 }
