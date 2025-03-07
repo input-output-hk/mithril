@@ -8,8 +8,10 @@ use mithril_common::crypto_helper::{
 
 use crate::database::repository::{BufferedSingleSignatureRepository, SingleSignatureRepository};
 use crate::dependency_injection::{DependenciesBuilder, DependenciesBuilderError, Result};
-use crate::services::{BufferedCertifierService, CertifierService, MithrilCertifierService};
-use crate::signer_registration::{MithrilSignerRegistrationSlave, SignerSynchronizer};
+use crate::services::{
+    BufferedCertifierService, CertifierService, MithrilCertifierService,
+    MithrilSignerRegistrationSlave, SignerSynchronizer,
+};
 use crate::{
     ExecutionEnvironment, MithrilSignerRegistrationMaster, MithrilSignerRegistrationVerifier,
     MultiSigner, MultiSignerImpl, SignerRegisterer, SignerRegistrationRoundOpener,

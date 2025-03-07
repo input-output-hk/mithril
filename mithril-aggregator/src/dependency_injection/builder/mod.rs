@@ -44,10 +44,10 @@ use crate::{
     file_uploaders::FileUploader,
     http_server::routes::router::{self, RouterConfig, RouterState},
     services::{
-        AggregatorClient, CertifierService, MessageService, ProverService, SignedEntityService,
-        Snapshotter, StakeDistributionService, UpkeepService,
+        AggregatorClient, CertifierService, MessageService, MithrilSignerRegistrationSlave,
+        ProverService, SignedEntityService, SignerSynchronizer, Snapshotter,
+        StakeDistributionService, UpkeepService,
     },
-    signer_registration::{MithrilSignerRegistrationSlave, SignerSynchronizer},
     tools::GenesisToolsDependency,
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyContainer,
     ImmutableFileDigestMapper, MetricsService, MithrilSignerRegistrationMaster, MultiSigner,

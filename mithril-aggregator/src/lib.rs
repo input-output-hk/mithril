@@ -26,7 +26,6 @@ pub mod metrics;
 mod multi_signer;
 mod runtime;
 pub mod services;
-mod signer_registration;
 mod store;
 mod tools;
 
@@ -44,7 +43,7 @@ pub use metrics::*;
 pub use runtime::{
     AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
 };
-pub use signer_registration::{
+pub use services::{
     MithrilSignerRegistrationMaster, MithrilSignerRegistrationSlave,
     MithrilSignerRegistrationVerifier, SignerRecorder, SignerRegisterer, SignerRegistrationError,
     SignerRegistrationRound, SignerRegistrationRoundOpener, SignerRegistrationVerifier,

@@ -188,9 +188,9 @@ mod tests {
 
     use crate::{
         database::{repository::SignerRegistrationStore, test_helper::main_db_connection},
-        services::EpochPruningTask,
-        signer_registration::{
-            MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer,
+        services::{
+            EpochPruningTask, MockSignerRecorder, MockSignerRegistrationVerifier,
+            SignerSynchronizer,
         },
         store::MockVerificationKeyStorer,
         MithrilSignerRegistrationMaster, SignerRegisterer, SignerRegistrationRoundOpener,

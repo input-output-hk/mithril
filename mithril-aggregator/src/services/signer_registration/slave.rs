@@ -215,8 +215,6 @@ mod tests {
         message_adapters::FromEpochSettingsAdapter,
         services::{
             AggregatorClient, AggregatorClientError, EpochPruningTask, MockAggregatorClient,
-        },
-        signer_registration::{
             MockSignerRecorder, MockSignerRegistrationVerifier, SignerSynchronizer,
         },
         store::MockVerificationKeyStorer,

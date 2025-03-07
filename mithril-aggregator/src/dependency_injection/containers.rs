@@ -37,10 +37,9 @@ use crate::{
     multi_signer::MultiSigner,
     services::{
         AggregatorClient, CertifierService, EpochService, MessageService, ProverService,
-        SignedEntityService, Snapshotter, StakeDistributionService, TransactionStore,
-        UpkeepService,
+        SignedEntityService, SignerRecorder, SignerSynchronizer, Snapshotter,
+        StakeDistributionService, TransactionStore, UpkeepService,
     },
-    signer_registration::{SignerRecorder, SignerSynchronizer},
     EpochSettingsStorer, MetricsService, SignerRegisterer, SignerRegistrationRoundOpener,
     SignerRegistrationVerifier, SingleSignatureAuthenticator, VerificationKeyStorer,
 };
