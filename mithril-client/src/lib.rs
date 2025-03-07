@@ -62,6 +62,28 @@
 //! #    Ok(())
 //! # }
 //! ```
+//!
+//! ## Optional Features
+//!
+//! The following are a list of [Cargo features](https://doc.rust-lang.org/stable/cargo/reference/manifest.html#the-features-section) that can be
+//! enabled or disabled:
+//!
+//! - **fs**: Enables file system related functionalities.
+//! - **unstable**: Enables experimental or in-development `mithril-client` features that may change.
+//! - **native-tls** *(enabled by default)*: Enables TLS functionality provided by `native-tls`.
+//! - **native-tls-vendored**: Enables the `vendored` feature of `native-tls`.
+//! - **native-tls-alpn**: Enables the `alpn` feature of `native-tls`.
+//! - **rustls-tls**: Enables TLS functionality provided by `rustls`.
+//!   Equivalent to `rustls-tls-webpki-roots`.
+//! - **rustls-tls-manual-roots**: Enables TLS functionality provided by `rustls`,
+//!   without setting any root certificates. Roots have to be specified manually.
+//! - **rustls-tls-webpki-roots**: Enables TLS functionality provided by `rustls`,
+//!   while using root certificates from the `webpki-roots` crate.
+//! - **rustls-tls-native-roots**: Enables TLS functionality provided by `rustls`,
+//!   while using root certificates from the `rustls-native-certs` crate.
+//! - **enable-http-compression** *(enabled by default)*: Enables compressed traffic with `reqwest`.
+//! - **rug-backend** *(enabled by default)*: Enables `rug-backend` features for `mithril-common` dependency.
+//! - **num-integer-backend**: Enables `num-integer-backend` features for `mithril-common` dependency.
 
 macro_rules! cfg_fs {
     ($($item:item)*) => {
