@@ -163,12 +163,14 @@ impl SignerRegisterer for MithrilSignerRegistrationMaster {
 
 #[async_trait]
 impl SignerSynchronizer for MithrilSignerRegistrationMaster {
-    async fn synchronize_signers(
+    async fn can_synchronize_signers(
         &self,
         _epoch: Epoch,
-        _signers: &[Signer],
-        _stake_distribution: &StakeDistribution,
-    ) -> Result<(), SignerRegistrationError> {
+    ) -> Result<bool, SignerRegistrationError> {
+        Ok(false)
+    }
+
+    async fn synchronize_all_signers(&self) -> Result<(), SignerRegistrationError> {
         Err(SignerRegistrationError::SignerSynchronizationUnavailableOnMasterAggregator)
     }
 }
@@ -200,7 +202,6 @@ mod tests {
         let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
             main_db_connection().unwrap(),
         )));
-
         let mut signer_recorder = MockSignerRecorder::new();
         signer_recorder
             .expect_record_signer_registration()
@@ -251,7 +252,6 @@ mod tests {
         let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
             main_db_connection().unwrap(),
         )));
-
         let mut signer_recorder = MockSignerRecorder::new();
         signer_recorder
             .expect_record_signer_registration()
@@ -305,7 +305,6 @@ mod tests {
         let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
             main_db_connection().unwrap(),
         )));
-
         let signer_recorder = MockSignerRecorder::new();
         let signer_registration_verifier = MockSignerRegistrationVerifier::new();
         let signer_registerer = MithrilSignerRegistrationMaster::new(
@@ -325,11 +324,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn synchronize_signers_always_fails() {
+    async fn synchronize_all_signers_always_fails() {
         let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
             main_db_connection().unwrap(),
         )));
-
         let signer_recorder = MockSignerRecorder::new();
         let signer_registration_verifier = MockSignerRegistrationVerifier::new();
         let signer_registerer = MithrilSignerRegistrationMaster::new(
@@ -338,16 +336,9 @@ mod tests {
             Arc::new(signer_registration_verifier),
             None,
         );
-        let registration_epoch = Epoch(1);
-        let fixture = MithrilFixtureBuilder::default()
-            .with_signers(5)
-            .disable_signers_certification()
-            .build();
-        let signers = fixture.signers();
-        let stake_distribution = fixture.stake_distribution();
 
         signer_registerer
-            .synchronize_signers(registration_epoch, &signers, &stake_distribution)
+            .synchronize_all_signers()
             .await
             .expect_err("synchronize_signers");
     }

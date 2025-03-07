@@ -280,48 +280,19 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         time_point: &TimePoint,
     ) -> StdResult<bool> {
-        let is_slave_aggregator_at_same_epoch_as_master = if let Some(master_epoch_settings) = self
-            .dependencies
-            .master_aggregator_client
-            .retrieve_epoch_settings()
-            .await?
-        {
-            time_point.epoch == master_epoch_settings.epoch
-        } else {
-            false
-        };
-
-        Ok(is_slave_aggregator_at_same_epoch_as_master)
+        self.dependencies
+            .signer_synchronizer
+            .can_synchronize_signers(time_point.epoch)
+            .await
+            .map_err(|e| e.into())
     }
 
     async fn synchronize_slave_aggregator_signer_registration(&self) -> StdResult<()> {
-        let master_epoch_settings = self
-            .dependencies
-            .master_aggregator_client
-            .retrieve_epoch_settings()
-            .await?
-            .ok_or(anyhow::anyhow!(
-                "Master aggregator did not return any epoch settings"
-            ))?;
-
-        let registration_epoch = master_epoch_settings
-            .epoch
-            .offset_to_master_synchronization_epoch();
-        let next_signers = master_epoch_settings.next_signers;
-        let stake_distribution = self
-            .dependencies
-            .stake_store
-            .get_stakes(registration_epoch)
-            .await?
-            .ok_or(anyhow::anyhow!(
-                "Slave aggregator did not return any stake distribution"
-            ))?;
         self.dependencies
             .signer_synchronizer
-            .synchronize_signers(registration_epoch, &next_signers, &stake_distribution)
-            .await?;
-
-        Ok(())
+            .synchronize_all_signers()
+            .await
+            .map_err(|e| e.into())
     }
 
     async fn update_epoch_settings(&self) -> StdResult<()> {

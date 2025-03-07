@@ -46,13 +46,11 @@ pub trait SignerRegisterer: Sync + Send {
 #[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait SignerSynchronizer: Sync + Send {
-    /// Synchronize signers
-    async fn synchronize_signers(
-        &self,
-        epoch: Epoch,
-        signers: &[Signer],
-        stake_distribution: &StakeDistribution,
-    ) -> Result<(), SignerRegistrationError>;
+    /// Check if the signers can be synchronized
+    async fn can_synchronize_signers(&self, epoch: Epoch) -> Result<bool, SignerRegistrationError>;
+
+    /// Synchronize all signers
+    async fn synchronize_all_signers(&self) -> Result<(), SignerRegistrationError>;
 }
 
 /// Trait to open a signer registration round

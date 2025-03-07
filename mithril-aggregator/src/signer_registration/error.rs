@@ -50,4 +50,8 @@ pub enum SignerRegistrationError {
     /// Signer synchronization is not available on a master aggregator.
     #[error("signer synchronization is not available on a master aggregator")]
     SignerSynchronizationUnavailableOnMasterAggregator,
+
+    /// Failed fetching master aggregator epoch settings.
+    #[error("failed fetching master aggregator epoch settings: '{0}'")]
+    FailedFetchingMasterAggregatorEpochSettings(#[source] StdError),
 }
