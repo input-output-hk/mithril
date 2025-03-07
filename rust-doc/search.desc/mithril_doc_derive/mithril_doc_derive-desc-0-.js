@@ -1,0 +1,1 @@
+searchState.loadedDescShard("mithril_doc_derive", 0, "To extract doc from a struct.\nTo extract doc from a struct with Default trait.")

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["aggregate_verification_key","genesis_signature","genesis_verification_key","multi_signature","operational_certificate","signer_verification_key","signer_verification_key_signature","single_signature"]};
