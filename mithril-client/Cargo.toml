@@ -93,7 +93,7 @@ default = ["native-tls", "rug-backend", "enable-http-compression"]
 # Full feature set
 full = ["fs"]
 
-# Enable file system releated functionnality, right now that mean ony snapshot download
+# Enable file system related functionnality, right now that mean ony snapshot download
 fs = ["flate2", "flume", "tar", "tokio/rt", "zstd"]
 portable = []                                       # deprecated, will be removed soon
 unstable = []
@@ -109,7 +109,7 @@ rustls-tls-manual-roots = ["reqwest/rustls-tls-manual-roots"]
 rustls-tls-webpki-roots = ["reqwest/rustls-tls-webpki-roots"]
 rustls-tls-native-roots = ["reqwest/rustls-tls-native-roots"]
 
-# Support compressed traffic with `request`
+# Support compressed traffic with `reqwest`
 enable-http-compression = ["reqwest/gzip", "reqwest/zstd", "reqwest/deflate", "reqwest/brotli"]
 
 # Enables `rug-backend` features for `mithril-common` dependency
