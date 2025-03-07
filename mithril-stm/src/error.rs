@@ -29,6 +29,14 @@ pub enum MultiSignatureError {
     /// At least one signature in the batch is invalid
     #[error("One signature in the batch is invalid")]
     BatchInvalid,
+
+    /// Single signature is the infinity
+    #[error("Single signature is the infinity")]
+    SignatureInfinity(Signature),
+
+    /// Verification key is the infinity
+    #[error("Verification key is the infinity")]
+    VerificationKeyInfinity(Box<VerificationKey>),
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -138,6 +146,10 @@ pub enum RegisterError {
     #[error("This key has already been registered.")]
     KeyRegistered(Box<VerificationKey>),
 
+    /// Verification key is the infinity
+    #[error("Verification key is the infinity")]
+    VerificationKeyInfinity(Box<VerificationKey>),
+
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
     KeyInvalid(Box<VerificationKeyPoP>),
@@ -159,6 +171,8 @@ impl From<MultiSignatureError> for StmSignatureError {
             MultiSignatureError::BatchInvalid => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
+            MultiSignatureError::SignatureInfinity(_) => unreachable!(),
+            MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
         }
     }
 }
@@ -192,6 +206,12 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_) => {
+                Self::CoreVerificationError(CoreVerifierError::from(e))
+            }
+            MultiSignatureError::SignatureInfinity(_) => {
+                Self::CoreVerificationError(CoreVerifierError::from(e))
+            }
+            MultiSignatureError::VerificationKeyInfinity(_) => {
                 Self::CoreVerificationError(CoreVerifierError::from(e))
             }
         }
@@ -230,6 +250,8 @@ impl From<MultiSignatureError> for CoreVerifierError {
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
+            MultiSignatureError::SignatureInfinity(_) => unreachable!(),
+            MultiSignatureError::VerificationKeyInfinity(_) => unreachable!(),
         }
     }
 }
@@ -245,6 +267,7 @@ impl From<MultiSignatureError> for RegisterError {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
+            MultiSignatureError::VerificationKeyInfinity(e) => Self::VerificationKeyInfinity(e),
             _ => unreachable!(),
         }
     }
@@ -255,9 +278,19 @@ impl From<MultiSignatureError> for RegisterError {
 pub(crate) fn blst_err_to_mithril(
     e: BLST_ERROR,
     sig: Option<Signature>,
+    key: Option<VerificationKey>,
 ) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),
+        BLST_ERROR::BLST_PK_IS_INFINITY => {
+            if let Some(s) = sig {
+                return Err(MultiSignatureError::SignatureInfinity(s));
+            }
+            if let Some(vk) = key {
+                return Err(MultiSignatureError::VerificationKeyInfinity(Box::new(vk)));
+            }
+            Err(MultiSignatureError::SerializationError)
+        }
         BLST_ERROR::BLST_VERIFY_FAIL => {
             if let Some(s) = sig {
                 Err(MultiSignatureError::SignatureInvalid(s))
