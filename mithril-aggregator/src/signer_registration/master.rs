@@ -197,43 +197,124 @@ mod tests {
         VerificationKeyStorer,
     };
 
+    use test_utils::*;
+
+    use super::*;
+
+    mod test_utils {
+        use super::*;
+
+        /// MithrilSignerRegistrationMasterBuilder is a test builder for [MithrilSignerRegistrationSlave]
+        pub struct MithrilSignerRegistrationMasterBuilder {
+            signer_recorder: Arc<dyn SignerRecorder>,
+            signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
+            verification_key_store: Arc<dyn VerificationKeyStorer>,
+            verification_key_epoch_retention_limit: Option<u64>,
+        }
+
+        impl Default for MithrilSignerRegistrationMasterBuilder {
+            fn default() -> Self {
+                Self {
+                    signer_recorder: Arc::new(MockSignerRecorder::new()),
+                    signer_registration_verifier: Arc::new(MockSignerRegistrationVerifier::new()),
+                    verification_key_store: Arc::new(SignerRegistrationStore::new(Arc::new(
+                        main_db_connection().unwrap(),
+                    ))),
+                    verification_key_epoch_retention_limit: None,
+                }
+            }
+        }
+
+        impl MithrilSignerRegistrationMasterBuilder {
+            pub fn with_verification_key_store(
+                self,
+                verification_key_store: Arc<dyn VerificationKeyStorer>,
+            ) -> Self {
+                Self {
+                    verification_key_store,
+                    ..self
+                }
+            }
+
+            pub fn with_signer_recorder(self, signer_recorder: Arc<dyn SignerRecorder>) -> Self {
+                Self {
+                    signer_recorder,
+                    ..self
+                }
+            }
+
+            pub fn with_signer_registration_verifier(
+                self,
+                signer_registration_verifier: Arc<dyn SignerRegistrationVerifier>,
+            ) -> Self {
+                Self {
+                    signer_registration_verifier,
+                    ..self
+                }
+            }
+
+            pub fn with_verification_key_epoch_retention_limit(
+                self,
+                verification_key_epoch_retention_limit: Option<u64>,
+            ) -> Self {
+                Self {
+                    verification_key_epoch_retention_limit,
+                    ..self
+                }
+            }
+
+            pub fn build(self) -> MithrilSignerRegistrationMaster {
+                MithrilSignerRegistrationMaster {
+                    current_round: RwLock::new(None),
+                    verification_key_store: self.verification_key_store,
+                    signer_recorder: self.signer_recorder,
+                    signer_registration_verifier: self.signer_registration_verifier,
+                    verification_key_epoch_retention_limit: self
+                        .verification_key_epoch_retention_limit,
+                }
+            }
+        }
+    }
+
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_with_operational_certificate() {
-        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
-            main_db_connection().unwrap(),
-        )));
-        let mut signer_recorder = MockSignerRecorder::new();
-        signer_recorder
-            .expect_record_signer_registration()
-            .returning(|_| Ok(()))
-            .once();
-        let mut signer_registration_verifier = MockSignerRegistrationVerifier::new();
-        signer_registration_verifier
-            .expect_verify()
-            .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
-            .once();
-        let signer_registerer = MithrilSignerRegistrationMaster::new(
-            verification_key_store.clone(),
-            Arc::new(signer_recorder),
-            Arc::new(signer_registration_verifier),
-            None,
-        );
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_to_register: Signer = fixture.signers()[0].to_owned();
         let stake_distribution = fixture.stake_distribution();
+        let signer_registration_master = MithrilSignerRegistrationMasterBuilder::default()
+            .with_signer_recorder({
+                let mut signer_recorder = MockSignerRecorder::new();
+                signer_recorder
+                    .expect_record_signer_registration()
+                    .returning(|_| Ok(()))
+                    .once();
 
-        signer_registerer
+                Arc::new(signer_recorder)
+            })
+            .with_signer_registration_verifier({
+                let mut signer_registration_verifier = MockSignerRegistrationVerifier::new();
+                signer_registration_verifier
+                    .expect_verify()
+                    .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
+                    .once();
+
+                Arc::new(signer_registration_verifier)
+            })
+            .build();
+
+        signer_registration_master
             .open_registration_round(registration_epoch, stake_distribution)
             .await
             .expect("signer registration round opening should not fail");
 
-        signer_registerer
+        signer_registration_master
             .register_signer(registration_epoch, &signer_to_register)
             .await
             .expect("signer registration should not fail");
 
-        let registered_signers = &verification_key_store
+        let registered_signers = &signer_registration_master
+            .verification_key_store
             .get_verification_keys(registration_epoch)
             .await
             .expect("registered signers retrieval should not fail");
@@ -249,25 +330,6 @@ mod tests {
 
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_without_operational_certificate() {
-        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
-            main_db_connection().unwrap(),
-        )));
-        let mut signer_recorder = MockSignerRecorder::new();
-        signer_recorder
-            .expect_record_signer_registration()
-            .returning(|_| Ok(()))
-            .once();
-        let mut signer_registration_verifier = MockSignerRegistrationVerifier::new();
-        signer_registration_verifier
-            .expect_verify()
-            .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
-            .once();
-        let signer_registerer = MithrilSignerRegistrationMaster::new(
-            verification_key_store.clone(),
-            Arc::new(signer_recorder),
-            Arc::new(signer_registration_verifier),
-            None,
-        );
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default()
             .with_signers(5)
@@ -275,18 +337,39 @@ mod tests {
             .build();
         let signer_to_register: Signer = fixture.signers()[0].to_owned();
         let stake_distribution = fixture.stake_distribution();
+        let signer_registration_master = MithrilSignerRegistrationMasterBuilder::default()
+            .with_signer_recorder({
+                let mut signer_recorder = MockSignerRecorder::new();
+                signer_recorder
+                    .expect_record_signer_registration()
+                    .returning(|_| Ok(()))
+                    .once();
 
-        signer_registerer
+                Arc::new(signer_recorder)
+            })
+            .with_signer_registration_verifier({
+                let mut signer_registration_verifier = MockSignerRegistrationVerifier::new();
+                signer_registration_verifier
+                    .expect_verify()
+                    .returning(|signer, _| Ok(SignerWithStake::from_signer(signer.to_owned(), 123)))
+                    .once();
+
+                Arc::new(signer_registration_verifier)
+            })
+            .build();
+
+        signer_registration_master
             .open_registration_round(registration_epoch, stake_distribution)
             .await
             .expect("signer registration round opening should not fail");
 
-        signer_registerer
+        signer_registration_master
             .register_signer(registration_epoch, &signer_to_register)
             .await
             .expect("signer registration should not fail");
 
-        let registered_signers = &verification_key_store
+        let registered_signers = &signer_registration_master
+            .verification_key_store
             .get_verification_keys(registration_epoch)
             .await
             .expect("registered signers retrieval should not fail");
@@ -302,22 +385,12 @@ mod tests {
 
     #[tokio::test]
     async fn cant_register_signer_if_registration_round_is_not_opened() {
-        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
-            main_db_connection().unwrap(),
-        )));
-        let signer_recorder = MockSignerRecorder::new();
-        let signer_registration_verifier = MockSignerRegistrationVerifier::new();
-        let signer_registerer = MithrilSignerRegistrationMaster::new(
-            verification_key_store.clone(),
-            Arc::new(signer_recorder),
-            Arc::new(signer_registration_verifier),
-            None,
-        );
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_to_register: Signer = fixture.signers()[0].to_owned();
+        let signer_registration_master = MithrilSignerRegistrationMasterBuilder::default().build();
 
-        signer_registerer
+        signer_registration_master
             .register_signer(registration_epoch, &signer_to_register)
             .await
             .expect_err("signer registration should fail if no round opened");
@@ -325,19 +398,9 @@ mod tests {
 
     #[tokio::test]
     async fn synchronize_all_signers_always_fails() {
-        let verification_key_store = Arc::new(SignerRegistrationStore::new(Arc::new(
-            main_db_connection().unwrap(),
-        )));
-        let signer_recorder = MockSignerRecorder::new();
-        let signer_registration_verifier = MockSignerRegistrationVerifier::new();
-        let signer_registerer = MithrilSignerRegistrationMaster::new(
-            verification_key_store.clone(),
-            Arc::new(signer_recorder),
-            Arc::new(signer_registration_verifier),
-            None,
-        );
+        let signer_registration_master = MithrilSignerRegistrationMasterBuilder::default().build();
 
-        signer_registerer
+        signer_registration_master
             .synchronize_all_signers()
             .await
             .expect_err("synchronize_signers");
@@ -346,44 +409,43 @@ mod tests {
     #[tokio::test]
     async fn prune_epoch_older_than_threshold() {
         const PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD: u64 = 10;
-        let retention_limit = Some(PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD);
+        let signer_registration_master = MithrilSignerRegistrationMasterBuilder::default()
+            .with_verification_key_store({
+                let mut verification_key_store = MockVerificationKeyStorer::new();
+                verification_key_store
+                    .expect_prune_verification_keys()
+                    .with(eq(Epoch(4).offset_to_recording_epoch()))
+                    .times(1)
+                    .returning(|_| Ok(()));
 
-        let mut verification_key_store = MockVerificationKeyStorer::new();
-        verification_key_store
-            .expect_prune_verification_keys()
-            .with(eq(Epoch(4).offset_to_recording_epoch()))
-            .times(1)
-            .returning(|_| Ok(()));
-        let signer_registration_verifier = MockSignerRegistrationVerifier::new();
-
-        let signer_registerer = MithrilSignerRegistrationMaster::new(
-            Arc::new(verification_key_store),
-            Arc::new(MockSignerRecorder::new()),
-            Arc::new(signer_registration_verifier),
-            retention_limit,
-        );
+                Arc::new(verification_key_store)
+            })
+            .with_verification_key_epoch_retention_limit(Some(
+                PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD,
+            ))
+            .build();
 
         let current_epoch = Epoch(4) + PROTOCOL_INITIALIZER_PRUNE_EPOCH_THRESHOLD;
-        signer_registerer.prune(current_epoch).await.unwrap();
+        signer_registration_master
+            .prune(current_epoch)
+            .await
+            .unwrap();
     }
 
     #[tokio::test]
     async fn without_threshold_nothing_is_pruned() {
-        let retention_limit = None;
+        let signer_registration_master = MithrilSignerRegistrationMasterBuilder::default()
+            .with_verification_key_store({
+                let mut verification_key_store = MockVerificationKeyStorer::new();
+                verification_key_store
+                    .expect_prune_verification_keys()
+                    .never();
 
-        let mut verification_key_store = MockVerificationKeyStorer::new();
-        verification_key_store
-            .expect_prune_verification_keys()
-            .never();
-        let signer_registration_verifier = MockSignerRegistrationVerifier::new();
+                Arc::new(verification_key_store)
+            })
+            .with_verification_key_epoch_retention_limit(None)
+            .build();
 
-        let signer_registerer = MithrilSignerRegistrationMaster::new(
-            Arc::new(verification_key_store),
-            Arc::new(MockSignerRecorder::new()),
-            Arc::new(signer_registration_verifier),
-            retention_limit,
-        );
-
-        signer_registerer.prune(Epoch(100)).await.unwrap();
+        signer_registration_master.prune(Epoch(100)).await.unwrap();
     }
 }
