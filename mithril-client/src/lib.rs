@@ -82,8 +82,8 @@
 //! - **rustls-tls-native-roots**: Enables TLS functionality provided by `rustls`,
 //!   while using root certificates from the `rustls-native-certs` crate.
 //! - **enable-http-compression** *(enabled by default)*: Enables compressed traffic with `reqwest`.
-//! - **rug-backend** *(enabled by default)*: Enables `rug-backend` features for `mithril-common` dependency.
-//! - **num-integer-backend**: Enables `num-integer-backend` features for `mithril-common` dependency.
+//! - **rug-backend** *(enabled by default)*: Enables usage of `rug` numerical backend in `mithril-stm` (dependency of `mithril-common`).
+//! - **num-integer-backend**: Enables usage of `num-integer` numerical backend in `mithril-stm` (dependency of `mithril-common`).
 
 macro_rules! cfg_fs {
     ($($item:item)*) => {
