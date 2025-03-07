@@ -114,7 +114,9 @@ use crate::error::{
 use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+use alba::centralized_telescope::proof::Proof;
 use alba::centralized_telescope::*;
+use alba::utils::types::{Element, ElementData};
 use blake2::digest::{Digest, FixedOutput, Update, VariableOutput};
 use blake2::Blake2bVar;
 use rand_core::{CryptoRng, RngCore};
@@ -621,7 +623,10 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
                     .expect("Hashing failed");
 
                 hash_index_map.insert(digest_buf, *i);
-                prover_set.push((digest_buf, signer_index as usize));
+                prover_set.push(Element {
+                    data: ElementData::from_bytes(digest_buf.as_slice()).unwrap(),
+                    index: Some(signer_index),
+                });
             }
         }
 
@@ -631,9 +636,9 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         let mut proof_index_sequence: Vec<(Index, Index)> = Vec::new();
 
         for e in &proof.element_sequence {
-            let unique_index = hash_index_map.get(&e.0).unwrap();
-            proof_index_sequence.push((*unique_index, e.1 as u64));
-            unique_signatures.insert(index_sigreg_map.get(&(e.1 as u64)).unwrap());
+            let unique_index = hash_index_map.get(e.data.as_ref()).unwrap();
+            proof_index_sequence.push((*unique_index, e.index.unwrap()));
+            unique_signatures.insert(index_sigreg_map.get(&(e.index.unwrap())).unwrap());
         }
 
         let mut proof_signatures: Vec<StmSigRegParty> =
@@ -1185,6 +1190,103 @@ impl CoreVerifier {
     }
 }
 
+impl<D: Clone + Digest + FixedOutput + Send + Sync> TelescopeProof<D> {
+    /// Verify telescope-stm
+    pub fn verify(
+        &self,
+        telescope: Telescope,
+        msg: &[u8],
+        avk: &StmAggrVerificationKey<D>,
+        parameters: &StmParameters,
+    ) {
+        let msgp = avk.mt_commitment.concat_with_msg(msg);
+        let mut unique_indices: HashSet<Index> = HashSet::new();
+        let mut nr_indices = 0;
+
+        // Check signatures' indices and collect unique indices
+        for sig_reg in &self.signatures {
+            if sig_reg
+                .sig
+                .check_indices(parameters, &sig_reg.reg_party.1, &msgp, &avk.total_stake)
+                .is_ok()
+            {
+                unique_indices.extend(&sig_reg.sig.indexes);
+                nr_indices += sig_reg.sig.indexes.len();
+            }
+        }
+
+        if nr_indices != unique_indices.len() {
+            println!("Not unique");
+            return;
+        }
+
+        // Map signer indices to their index lists
+        let signer_indices_map: BTreeMap<Index, &Vec<Index>> = self
+            .signatures
+            .iter()
+            .map(|sig_reg| (sig_reg.sig.signer_index, &sig_reg.sig.indexes))
+            .collect();
+
+        // Verify proof index sequence against signer index lists
+        if self
+            .index_sequence
+            .iter()
+            .any(|(proof_element, element_index)| {
+                signer_indices_map
+                    .get(element_index)
+                    .is_none_or(|index_list| !index_list.contains(proof_element))
+            })
+        {
+            println!("Index list does not contain proof element");
+            return;
+        }
+
+        // Collect leaves for Merkle proof verification
+        let leaves: Vec<RegParty> = self.signatures.iter().map(|r| r.reg_party).collect();
+
+        if avk.mt_commitment.check(&leaves, &self.batch_proof).is_err() {
+            println!("Batch proof failed");
+            return;
+        }
+
+        // Verify aggregated signatures
+        let (sigs, vks) = CoreVerifier::collect_sigs_vks(&self.signatures);
+        if Signature::verify_aggregate(msgp.as_slice(), &vks, &sigs).is_err() {
+            println!("Aggregate verification failed");
+            return;
+        }
+
+        // Construct proof element sequence
+        let element_sequence: Vec<Element> = self
+            .index_sequence
+            .iter()
+            .map(|(proof_element, element_index)| {
+                let data_buf = proof_element.to_be_bytes();
+                let mut digest_buf = [0u8; 48];
+                let mut hasher = Blake2bVar::new(48).expect("Failed to construct hasher");
+                hasher.update(&data_buf);
+                hasher
+                    .finalize_variable(&mut digest_buf)
+                    .expect("Hashing failed");
+
+                Element {
+                    data: ElementData::from_bytes(digest_buf.as_slice())
+                        .expect("ElementData conversion failed"),
+                    index: Some(*element_index),
+                }
+            })
+            .collect();
+
+        let proof = Proof {
+            retry_counter: self.retry_counter,
+            search_counter: self.search_counter,
+            element_sequence,
+        };
+
+        println!("{}", telescope.verify(&proof));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1248,28 +1350,30 @@ mod tests {
         let sigs = ps
             .iter()
             .filter_map(|p| {
-                return p.sign(&msg);
+                p.sign(msg)
             })
             .collect::<Vec<StmSig>>();
 
         let clerk = StmClerk::from_registration(&params, &closed_reg);
         let msig = clerk.telescope_aggregate(&sigs, &alba, msg);
 
-        println!("Batch proof: {:?}", msig.batch_proof.indices);
-        println!(
-            "Retry counter: {}, Search counter: {}",
-            msig.retry_counter, msig.search_counter
-        );
+        msig.verify(alba, msg, &clerk.compute_avk(), &params);
 
-        println!("-------\n");
-        for i in msig.index_sequence {
-            println!("Proof index: {}, signer index: {}", i.0, i.1);
-        }
-
-        println!("-------\n");
-        for i in msig.signatures {
-            println!("Signer index: {}", i.sig.signer_index);
-        }
+        // println!("Batch proof: {:?}", msig.batch_proof.indices);
+        // println!(
+        //     "Retry counter: {}, Search counter: {}",
+        //     msig.retry_counter, msig.search_counter
+        // );
+        //
+        // println!("-------\n");
+        // for i in msig.index_sequence {
+        //     println!("Proof index: {}, signer index: {}", i.0, i.1);
+        // }
+        //
+        // println!("-------\n");
+        // for i in msig.signatures {
+        //     println!("Signer index: {}", i.sig.signer_index);
+        // }
     }
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
